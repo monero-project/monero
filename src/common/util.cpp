@@ -38,12 +38,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
-#include <ustat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
 #include <ctype.h>
 #include <string>
+#include <sstream>
 #endif
 
 #include "unbound.h"
@@ -73,6 +74,11 @@ using namespace epee;
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <openssl/sha.h>
+
+#ifdef WIN32
+#include <regex>
+#include <winioctl.h>
+#endif
 
 namespace tools
 {
@@ -733,63 +739,225 @@ std::string get_nix_version_display_string()
 #endif
   }
 
-  bool is_hdd(const char *path)
+#if defined(__GLIBC__)
+  bool is_hdd_sysfs(const char *file_path, bool &result)
   {
-#ifdef __GLIBC__
-    std::string device = "";
-    struct stat st, dst;
-    if (stat(path, &st) < 0)
-      return 0;
-
-    DIR *dir = opendir("/dev/block");
-    if (!dir)
-      return 0;
-    struct dirent *de;
-    while ((de = readdir(dir)))
+    struct stat st;
+    std::string prefix;
+    if(stat(file_path, &st) == 0)
     {
-      if (strcmp(de->d_name, ".") && strcmp(de->d_name, ".."))
+      std::ostringstream s;
+      s << "/sys/dev/block/" << major(st.st_dev) << ":" << minor(st.st_dev);
+      prefix = s.str();
+    }
+    else
+    {
+      return false;
+    }
+    std::string attr_path = prefix + "/queue/rotational";
+    FILE *f = fopen(attr_path.c_str(), "r");
+    if(f == nullptr)
+    {
+      attr_path = prefix + "/../queue/rotational";
+      f = fopen(attr_path.c_str(), "r");
+      if(f == nullptr)
       {
-        std::string dev_path = std::string("/dev/block/") + de->d_name;
-        char resolved[PATH_MAX];
-        if (realpath(dev_path.c_str(), resolved) && !strncmp(resolved, "/dev/", 5))
+        return false;
+      }
+    }
+    uint16_t val = 0xdead;
+    int r = fscanf(f, "%hu", &val);
+    fclose(f);
+    if(r == 1)
+    {
+      result = val == 1;
+      return true;
+    }
+    return false;
+  }
+#elif defined(_WIN32) and (_WIN32_WINNT >= 0x0601)
+  //file path to logical volume
+  bool fp2lv(const char *fp, std::string &result)
+  {
+    HANDLE h = INVALID_HANDLE_VALUE;
+    h = CreateFile(
+      fp,
+      0,
+      FILE_SHARE_READ | FILE_SHARE_WRITE,
+      nullptr,
+      OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
+      nullptr
+      );
+    if(h != INVALID_HANDLE_VALUE)
+    {
+      char p[MAX_PATH + 1];
+      DWORD r_size = GetFinalPathNameByHandleA(
+        h,
+        p,
+        MAX_PATH,
+        VOLUME_NAME_NT | FILE_NAME_NORMALIZED
+        );
+      CloseHandle(h);
+      if(r_size > 0 and r_size <= MAX_PATH)
+      {
+        std::regex r("^\\\\Device\\\\([^\\\\]+).*$");
+        std::smatch m;
+        std::string i = p;
+        if(std::regex_match(i, m, r))
         {
-          if (stat(resolved, &dst) == 0)
+          if(m.size() == 2)
           {
-            if (dst.st_rdev == st.st_dev)
-            {
-              // take out trailing digits (eg, sda1 -> sda)
-              char *ptr = resolved;
-              while (*ptr)
-                ++ptr;
-              while (ptr > resolved && isdigit(*--ptr))
-                *ptr = 0;
-              device = resolved + 5;
-              break;
-            }
+            result = m[1].str();
+            return true;
           }
         }
       }
     }
-    closedir(dir);
+    return false;
+  }
 
-    if (device.empty())
-      return 0;
+  //logical volume to physical volumes
+  bool lv2pv(const char *lv, std::vector<std::string> &pvs)
+  {
+    HANDLE h = INVALID_HANDLE_VALUE;
+    std::string lv_path = "\\\\?\\";
+    lv_path += lv;
+    h = CreateFile(
+      lv_path.c_str(),
+      0,
+      FILE_SHARE_READ | FILE_SHARE_WRITE,
+      nullptr,
+      OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL,
+      nullptr
+      );
+    if(h != INVALID_HANDLE_VALUE)
+    {
+      VOLUME_DISK_EXTENTS r;
+      DWORD r_size = 0;
+      BOOL success = DeviceIoControl(
+        h,
+        IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
+        nullptr,
+        0,
+        &r,
+        sizeof(r),
+        &r_size,
+        nullptr
+        );
+      CloseHandle(h);
+      if(success and r_size == sizeof(r))
+      {
+        for(uint32_t i = 0; i < r.NumberOfDiskExtents; ++i)
+        {
+          std::ostringstream ss;
+          ss << "PhysicalDrive" << r.Extents[i].DiskNumber;
+          pvs.push_back(ss.str());
+        }
+        return true;
+      }
+    }
+    return false;
+  }
 
-    std::string sys_path = "/sys/block/" + device + "/queue/rotational";
-    FILE *f = fopen(sys_path.c_str(), "r");
-    if (!f)
+  bool win_device_has_seek_penalny(const char *pv, bool &result)
+  {
+    HANDLE h = INVALID_HANDLE_VALUE;
+    std::string pv_path = "\\\\?\\";
+    pv_path += pv;
+    h = CreateFile(
+      pv_path.c_str(),
+      0,
+      FILE_SHARE_READ | FILE_SHARE_WRITE,
+      nullptr,
+      OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL,
+      nullptr
+      );
+    if(h != INVALID_HANDLE_VALUE)
+    {
+      STORAGE_PROPERTY_QUERY q = {
+        .PropertyId = StorageDeviceSeekPenaltyProperty,
+        .QueryType = PropertyStandardQuery
+      };
+      DEVICE_SEEK_PENALTY_DESCRIPTOR r;
+      DWORD r_size = 0;
+      BOOL success = DeviceIoControl(
+        h,
+        IOCTL_STORAGE_QUERY_PROPERTY,
+        &q,
+        sizeof(q),
+        &r,
+        sizeof(r),
+        &r_size,
+        nullptr
+        );
+      if(success and r_size == sizeof(r))
+      {
+        result = r.IncursSeekPenalty;
+        return true;
+      }
+      CloseHandle(h);
+    }
+    return false;
+  }
+
+  bool is_hdd_win_ioctl(const char *path, bool &result)
+  {
+    std::string lv;
+    bool lv_success = fp2lv(path, lv);
+    if(not lv_success)
+    {
       return false;
-    char s[8];
-    char *ptr = fgets(s, sizeof(s), f);
-    fclose(f);
-    if (!ptr)
-      return 0;
-    s[sizeof(s) - 1] = 0;
-    int n = atoi(s); // returns 0 on parse error
-    return n == 1;
-#else
-    return 0;
+    }
+    std::vector<std::string> pvs;
+    bool pv_success = lv2pv(lv.c_str(), pvs);
+    if(not pv_success)
+    {
+      return false;
+    }
+    bool a_result = 0;
+    bool a_success = 0;
+    for(auto &v: pvs)
+    {
+        bool q_result;
+        bool q_success = win_device_has_seek_penalny(v.c_str(), q_result);
+        a_success |= q_success;
+        if(q_success)
+        {
+            a_result |= q_result;
+        }
+    }
+    if(a_success)
+    {
+      result = a_result;
+    }
+    return a_success;
+  }
 #endif
+  bool is_hdd(const char *path, bool &result)
+  {
+    #if defined(_WIN32) and (_WIN32_WINNT >= 0x0601)
+    return is_hdd_win_ioctl(path, result);
+    #elif defined(__GLIBC__)
+    return is_hdd_sysfs(path, result);
+    #else
+    return 0;
+    #endif
+  }
+
+  bool is_hdd(const char *path)
+  {
+    bool result;
+    if(is_hdd(path, result))
+    {
+        return result;
+    }
+    else
+    {
+        return 0;
+    }
   }
 
   namespace

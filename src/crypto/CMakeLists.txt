@@ -79,6 +79,7 @@ target_link_libraries(cncrypto
     epee
     ${Boost_SYSTEM_LIBRARY}
   PRIVATE
+    sodium
     ${EXTRA_LIBRARIES})
 
 if (ARM)
