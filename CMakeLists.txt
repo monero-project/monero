@@ -568,11 +568,13 @@ else()
   add_c_flag_if_supported(-Wformat-security C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Wformat-security CXX_SECURITY_FLAGS)
 
+  if(0)
   # -fstack-protector
   add_c_flag_if_supported(-fstack-protector C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-fstack-protector CXX_SECURITY_FLAGS)
   add_c_flag_if_supported(-fstack-protector-strong C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-fstack-protector-strong CXX_SECURITY_FLAGS)
+  endif()
 
   # linker
   if (NOT WIN32)
