@@ -1,0 +1,15 @@
+#!/bin/bash
+
+case $1 in
+   config)
+        cat <<'EOM'
+graph_title grey_peerlist_size
+graph_vlabel grey_peerlist_size
+graph_category bytecoin
+grey_peerlist_size.label grey_peerlist_size
+EOM
+        exit 0;;
+esac
+
+printf "grey_peerlist_size.value "
+/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep grey_peerlist_size | cut -d ' ' -f2

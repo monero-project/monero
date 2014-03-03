@@ -1,0 +1,15 @@
+#!/bin/bash
+
+case $1 in
+   config)
+        cat <<'EOM'
+graph_title incoming_connections_count
+graph_vlabel incoming_connections_count
+graph_category bytecoin
+incoming_connections_count.label incoming_connections_count
+EOM
+        exit 0;;
+esac
+
+printf "incoming_connections_count.value "
+/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep incoming_connections_count | cut -d ' ' -f2

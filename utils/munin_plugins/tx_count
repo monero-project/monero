@@ -1,0 +1,16 @@
+#!/bin/bash
+
+case $1 in
+   config)
+        cat <<'EOM'
+graph_title tx_count
+graph_vlabel tx_count
+graph_category bytecoin
+tx_count.label tx_count
+tx_count.type COUNTER
+EOM
+        exit 0;;
+esac
+
+printf "tx_count.value "
+/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep tx_count| cut -d ' ' -f2

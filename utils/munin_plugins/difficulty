@@ -1,0 +1,15 @@
+#!/bin/bash
+
+case $1 in
+   config)
+        cat <<'EOM'
+graph_title difficulty
+graph_vlabel difficulty
+graph_category bytecoin
+difficulty.label difficulty
+EOM
+        exit 0;;
+esac
+
+printf "difficulty.value "
+/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep difficulty | cut -d ' ' -f2

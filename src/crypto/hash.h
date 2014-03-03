@@ -1,40 +1,50 @@
+// Copyright (c) 2012-2013 The Cryptonote developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #pragma once
 
-#include <assert.h>
-#include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
 
-#include "int-util.h"
+#include "common/pod-class.h"
+#include "generic-ops.h"
 
-static inline void *padd(void *p, size_t i) {
-  return (char *) p + i;
-}
+namespace crypto {
 
-static inline const void *cpadd(const void *p, size_t i) {
-  return (const char *) p + i;
-}
-
-static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "size_t must be 4 or 8 bytes long");
-static inline void place_length(uint8_t *buffer, size_t bufsize, size_t length) {
-  if (sizeof(size_t) == 4) {
-    *(uint32_t *) padd(buffer, bufsize - 4) = swap32be(length);
-  } else {
-    *(uint64_t *) padd(buffer, bufsize - 8) = swap64be(length);
+  extern "C" {
+#include "hash-ops.h"
   }
+
+#pragma pack(push, 1)
+  POD_CLASS hash {
+    char data[HASH_SIZE];
+  };
+#pragma pack(pop)
+
+  static_assert(sizeof(hash) == HASH_SIZE, "Invalid structure size");
+
+  /*
+    Cryptonight hash functions
+  */
+
+  inline void cn_fast_hash(const void *data, std::size_t length, hash &hash) {
+    cn_fast_hash(data, length, reinterpret_cast<char *>(&hash));
+  }
+
+  inline hash cn_fast_hash(const void *data, std::size_t length) {
+    hash h;
+    cn_fast_hash(data, length, reinterpret_cast<char *>(&h));
+    return h;
+  }
+
+  inline void cn_slow_hash(const void *data, std::size_t length, hash &hash) {
+    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash));
+  }
+
+  inline void tree_hash(const hash *hashes, std::size_t count, hash &root_hash) {
+    tree_hash(reinterpret_cast<const char (*)[HASH_SIZE]>(hashes), count, reinterpret_cast<char *>(&root_hash));
+  }
+
 }
 
-struct keccak_state {
-  union {
-    uint8_t b[200];
-    uint64_t w[25];
-  };
-};
-
-enum {
-  HASH_SIZE = 32,
-  HASH_DATA_AREA = 136
-};
-
-void keccak(const void *data, size_t length, char *hash);
-void keccak_permutation(struct keccak_state *state);
+CRYPTO_MAKE_HASHABLE(hash)

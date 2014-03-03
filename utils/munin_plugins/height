@@ -1,0 +1,16 @@
+#!/bin/bash
+
+case $1 in
+   config)
+        cat <<'EOM'
+graph_title Height
+graph_vlabel height
+graph_category bytecoin
+height.label height
+height.type COUNTER
+EOM
+        exit 0;;
+esac
+
+printf "height.value "
+/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep hight | cut -d ' ' -f2

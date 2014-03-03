@@ -1,0 +1,15 @@
+#!/bin/bash
+
+case $1 in
+   config)
+        cat <<'EOM'
+graph_title alt_blocks_count
+graph_vlabel alt_blocks_count
+graph_category bytecoin
+alt_blocks_count.label alt_blocks_count
+EOM
+        exit 0;;
+esac
+
+printf "alt_blocks_count.value "
+/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep alt_blocks_count | cut -d ' ' -f2

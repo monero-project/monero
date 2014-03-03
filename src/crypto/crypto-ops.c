@@ -1,7 +1,14 @@
+// Copyright (c) 2012-2013 The Cryptonote developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include <assert.h>
 #include <stdint.h>
 
+#include "warnings.h"
 #include "crypto-ops.h"
+
+DISABLE_VS_WARNINGS(4146 4244)
 
 /* Predeclarations */
 
@@ -232,28 +239,53 @@ static void fe_invert(fe out, const fe z) {
   fe t3;
   int i;
 
-  fe_sq(t0,z); for (i = 1;i < 1;++i) fe_sq(t0,t0);
-  fe_sq(t1,t0); for (i = 1;i < 2;++i) fe_sq(t1,t1);
-  fe_mul(t1,z,t1);
-  fe_mul(t0,t0,t1);
-  fe_sq(t2,t0); for (i = 1;i < 1;++i) fe_sq(t2,t2);
-  fe_mul(t1,t1,t2);
-  fe_sq(t2,t1); for (i = 1;i < 5;++i) fe_sq(t2,t2);
-  fe_mul(t1,t2,t1);
-  fe_sq(t2,t1); for (i = 1;i < 10;++i) fe_sq(t2,t2);
-  fe_mul(t2,t2,t1);
-  fe_sq(t3,t2); for (i = 1;i < 20;++i) fe_sq(t3,t3);
-  fe_mul(t2,t3,t2);
-  fe_sq(t2,t2); for (i = 1;i < 10;++i) fe_sq(t2,t2);
-  fe_mul(t1,t2,t1);
-  fe_sq(t2,t1); for (i = 1;i < 50;++i) fe_sq(t2,t2);
-  fe_mul(t2,t2,t1);
-  fe_sq(t3,t2); for (i = 1;i < 100;++i) fe_sq(t3,t3);
-  fe_mul(t2,t3,t2);
-  fe_sq(t2,t2); for (i = 1;i < 50;++i) fe_sq(t2,t2);
-  fe_mul(t1,t2,t1);
-  fe_sq(t1,t1); for (i = 1;i < 5;++i) fe_sq(t1,t1);
-  fe_mul(out,t1,t0);
+  fe_sq(t0, z);
+  fe_sq(t1, t0);
+  fe_sq(t1, t1);
+  fe_mul(t1, z, t1);
+  fe_mul(t0, t0, t1);
+  fe_sq(t2, t0);
+  fe_mul(t1, t1, t2);
+  fe_sq(t2, t1);
+  for (i = 0; i < 4; ++i) {
+    fe_sq(t2, t2);
+  }
+  fe_mul(t1, t2, t1);
+  fe_sq(t2, t1);
+  for (i = 0; i < 9; ++i) {
+    fe_sq(t2, t2);
+  }
+  fe_mul(t2, t2, t1);
+  fe_sq(t3, t2);
+  for (i = 0; i < 19; ++i) {
+    fe_sq(t3, t3);
+  }
+  fe_mul(t2, t3, t2);
+  fe_sq(t2, t2);
+  for (i = 0; i < 9; ++i) {
+    fe_sq(t2, t2);
+  }
+  fe_mul(t1, t2, t1);
+  fe_sq(t2, t1);
+  for (i = 0; i < 49; ++i) {
+    fe_sq(t2, t2);
+  }
+  fe_mul(t2, t2, t1);
+  fe_sq(t3, t2);
+  for (i = 0; i < 99; ++i) {
+    fe_sq(t3, t3);
+  }
+  fe_mul(t2, t3, t2);
+  fe_sq(t2, t2);
+  for (i = 0; i < 49; ++i) {
+    fe_sq(t2, t2);
+  }
+  fe_mul(t1, t2, t1);
+  fe_sq(t1, t1);
+  for (i = 0; i < 4; ++i) {
+    fe_sq(t1, t1);
+  }
+  fe_mul(out, t1, t0);
 
   return;
 }
@@ -1089,8 +1121,9 @@ static void slide(signed char *r, const unsigned char *a) {
   int b;
   int k;
 
-  for (i = 0; i < 256; ++i)
+  for (i = 0; i < 256; ++i) {
     r[i] = 1 & (a[i >> 3] >> (i & 7));
+  }
 
   for (i = 0; i < 256; ++i) {
     if (r[i]) {
@@ -1417,8 +1450,8 @@ void ge_p3_tobytes(unsigned char *s, const ge_p3 *h) {
   fe y;
 
   fe_invert(recip, h->Z);
-  fe_mul(x,h->X, recip);
-  fe_mul(y,h->Y, recip);
+  fe_mul(x, h->X, recip);
+  fe_mul(y, h->Y, recip);
   fe_tobytes(s, y);
   s[31] ^= fe_isnegative(x) << 7;
 }
@@ -1492,7 +1525,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
   ge_precomp t;
   int i;
 
-  for (i = 0;i < 32;++i) {
+  for (i = 0; i < 32; ++i) {
     e[2 * i + 0] = (a[i] >> 0) & 15;
     e[2 * i + 1] = (a[i] >> 4) & 15;
   }
@@ -1500,7 +1533,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
   /* e[63] is between 0 and 7 */
 
   carry = 0;
-  for (i = 0;i < 63;++i) {
+  for (i = 0; i < 63; ++i) {
     e[i] += carry;
     carry = e[i] + 8;
     carry >>= 4;
@@ -1510,7 +1543,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
   /* each e[i] is between -8 and 8 */
 
   ge_p3_0(h);
-  for (i = 1;i < 64;i += 2) {
+  for (i = 1; i < 64; i += 2) {
     select(&t, i / 2, e[i]);
     ge_madd(&r, h, &t); ge_p1p1_to_p3(h, &r);
   }
@@ -1520,7 +1553,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
   ge_p2_dbl(&r, &s); ge_p1p1_to_p2(&s, &r);
   ge_p2_dbl(&r, &s); ge_p1p1_to_p3(h, &r);
 
-  for (i = 0;i < 64;i += 2) {
+  for (i = 0; i < 64; i += 2) {
     select(&t, i / 2, e[i]);
     ge_madd(&r, h, &t); ge_p1p1_to_p3(h, &r);
   }
@@ -1622,7 +1655,6 @@ void sc_reduce(unsigned char *s) {
   s14 -= s23 * 997805;
   s15 += s23 * 136657;
   s16 -= s23 * 683901;
-  s23 = 0;
 
   s10 += s22 * 666643;
   s11 += s22 * 470296;
@@ -1630,7 +1662,6 @@ void sc_reduce(unsigned char *s) {
   s13 -= s22 * 997805;
   s14 += s22 * 136657;
   s15 -= s22 * 683901;
-  s22 = 0;
 
   s9 += s21 * 666643;
   s10 += s21 * 470296;
@@ -1638,7 +1669,6 @@ void sc_reduce(unsigned char *s) {
   s12 -= s21 * 997805;
   s13 += s21 * 136657;
   s14 -= s21 * 683901;
-  s21 = 0;
 
   s8 += s20 * 666643;
   s9 += s20 * 470296;
@@ -1646,7 +1676,6 @@ void sc_reduce(unsigned char *s) {
   s11 -= s20 * 997805;
   s12 += s20 * 136657;
   s13 -= s20 * 683901;
-  s20 = 0;
 
   s7 += s19 * 666643;
   s8 += s19 * 470296;
@@ -1654,7 +1683,6 @@ void sc_reduce(unsigned char *s) {
   s10 -= s19 * 997805;
   s11 += s19 * 136657;
   s12 -= s19 * 683901;
-  s19 = 0;
 
   s6 += s18 * 666643;
   s7 += s18 * 470296;
@@ -1662,7 +1690,6 @@ void sc_reduce(unsigned char *s) {
   s9 -= s18 * 997805;
   s10 += s18 * 136657;
   s11 -= s18 * 683901;
-  s18 = 0;
 
   carry6 = (s6 + (1<<20)) >> 21; s7 += carry6; s6 -= carry6 << 21;
   carry8 = (s8 + (1<<20)) >> 21; s9 += carry8; s8 -= carry8 << 21;
@@ -1683,7 +1710,6 @@ void sc_reduce(unsigned char *s) {
   s8 -= s17 * 997805;
   s9 += s17 * 136657;
   s10 -= s17 * 683901;
-  s17 = 0;
 
   s4 += s16 * 666643;
   s5 += s16 * 470296;
@@ -1691,7 +1717,6 @@ void sc_reduce(unsigned char *s) {
   s7 -= s16 * 997805;
   s8 += s16 * 136657;
   s9 -= s16 * 683901;
-  s16 = 0;
 
   s3 += s15 * 666643;
   s4 += s15 * 470296;
@@ -1699,7 +1724,6 @@ void sc_reduce(unsigned char *s) {
   s6 -= s15 * 997805;
   s7 += s15 * 136657;
   s8 -= s15 * 683901;
-  s15 = 0;
 
   s2 += s14 * 666643;
   s3 += s14 * 470296;
@@ -1707,7 +1731,6 @@ void sc_reduce(unsigned char *s) {
   s5 -= s14 * 997805;
   s6 += s14 * 136657;
   s7 -= s14 * 683901;
-  s14 = 0;
 
   s1 += s13 * 666643;
   s2 += s13 * 470296;
@@ -1715,7 +1738,6 @@ void sc_reduce(unsigned char *s) {
   s4 -= s13 * 997805;
   s5 += s13 * 136657;
   s6 -= s13 * 683901;
-  s13 = 0;
 
   s0 += s12 * 666643;
   s1 += s12 * 470296;
@@ -1766,7 +1788,6 @@ void sc_reduce(unsigned char *s) {
   s3 -= s12 * 997805;
   s4 += s12 * 136657;
   s5 -= s12 * 683901;
-  s12 = 0;
 
   carry0 = s0 >> 21; s1 += carry0; s0 -= carry0 << 21;
   carry1 = s1 >> 21; s2 += carry1; s1 -= carry1 << 21;
@@ -2196,7 +2217,6 @@ void sc_reduce32(unsigned char *s) {
   s3 -= s12 * 997805;
   s4 += s12 * 136657;
   s5 -= s12 * 683901;
-  s12 = 0;
 
   carry0 = s0 >> 21; s1 += carry0; s0 -= carry0 << 21;
   carry1 = s1 >> 21; s2 += carry1; s1 -= carry1 << 21;
@@ -2336,7 +2356,6 @@ void sc_add(unsigned char *s, const unsigned char *a, const unsigned char *b) {
   s3 -= s12 * 997805;
   s4 += s12 * 136657;
   s5 -= s12 * 683901;
-  s12 = 0;
 
   carry0 = s0 >> 21; s1 += carry0; s0 -= carry0 << 21;
   carry1 = s1 >> 21; s2 += carry1; s1 -= carry1 << 21;
@@ -2476,7 +2495,6 @@ void sc_sub(unsigned char *s, const unsigned char *a, const unsigned char *b) {
   s3 -= s12 * 997805;
   s4 += s12 * 136657;
   s5 -= s12 * 683901;
-  s12 = 0;
 
   carry0 = s0 >> 21; s1 += carry0; s0 -= carry0 << 21;
   carry1 = s1 >> 21; s2 += carry1; s1 -= carry1 << 21;
@@ -2676,7 +2694,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s14 -= s23 * 997805;
   s15 += s23 * 136657;
   s16 -= s23 * 683901;
-  s23 = 0;
 
   s10 += s22 * 666643;
   s11 += s22 * 470296;
@@ -2684,7 +2701,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s13 -= s22 * 997805;
   s14 += s22 * 136657;
   s15 -= s22 * 683901;
-  s22 = 0;
 
   s9 += s21 * 666643;
   s10 += s21 * 470296;
@@ -2692,7 +2708,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s12 -= s21 * 997805;
   s13 += s21 * 136657;
   s14 -= s21 * 683901;
-  s21 = 0;
 
   s8 += s20 * 666643;
   s9 += s20 * 470296;
@@ -2700,7 +2715,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s11 -= s20 * 997805;
   s12 += s20 * 136657;
   s13 -= s20 * 683901;
-  s20 = 0;
 
   s7 += s19 * 666643;
   s8 += s19 * 470296;
@@ -2708,7 +2722,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s10 -= s19 * 997805;
   s11 += s19 * 136657;
   s12 -= s19 * 683901;
-  s19 = 0;
 
   s6 += s18 * 666643;
   s7 += s18 * 470296;
@@ -2716,7 +2729,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s9 -= s18 * 997805;
   s10 += s18 * 136657;
   s11 -= s18 * 683901;
-  s18 = 0;
 
   carry6 = (s6 + (1<<20)) >> 21; s7 += carry6; s6 -= carry6 << 21;
   carry8 = (s8 + (1<<20)) >> 21; s9 += carry8; s8 -= carry8 << 21;
@@ -2737,7 +2749,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s8 -= s17 * 997805;
   s9 += s17 * 136657;
   s10 -= s17 * 683901;
-  s17 = 0;
 
   s4 += s16 * 666643;
   s5 += s16 * 470296;
@@ -2745,7 +2756,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s7 -= s16 * 997805;
   s8 += s16 * 136657;
   s9 -= s16 * 683901;
-  s16 = 0;
 
   s3 += s15 * 666643;
   s4 += s15 * 470296;
@@ -2753,7 +2763,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s6 -= s15 * 997805;
   s7 += s15 * 136657;
   s8 -= s15 * 683901;
-  s15 = 0;
 
   s2 += s14 * 666643;
   s3 += s14 * 470296;
@@ -2761,7 +2770,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s5 -= s14 * 997805;
   s6 += s14 * 136657;
   s7 -= s14 * 683901;
-  s14 = 0;
 
   s1 += s13 * 666643;
   s2 += s13 * 470296;
@@ -2769,7 +2777,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s4 -= s13 * 997805;
   s5 += s13 * 136657;
   s6 -= s13 * 683901;
-  s13 = 0;
 
   s0 += s12 * 666643;
   s1 += s12 * 470296;
@@ -2820,7 +2827,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s3 -= s12 * 997805;
   s4 += s12 * 136657;
   s5 -= s12 * 683901;
-  s12 = 0;
 
   carry0 = s0 >> 21; s1 += carry0; s0 -= carry0 << 21;
   carry1 = s1 >> 21; s2 += carry1; s1 -= carry1 << 21;

@@ -1,0 +1,52 @@
+#!/usr/bin/python3
+
+from random import randint
+
+DIFFICULTY_TARGET = 120
+DIFFICULTY_WINDOW = 720
+DIFFICULTY_LAG = 15
+DIFFICULTY_CUT = 60
+
+UINT_MAX = (1 << 64) - 1
+
+def difficulty():
+    times = []
+    diffs = []
+    while True:
+        if len(times) <= 1:
+            diff = 1
+        else:
+            begin = max(len(times) - DIFFICULTY_WINDOW - DIFFICULTY_LAG, 0)
+            end = min(begin + DIFFICULTY_WINDOW, len(times))
+            length = end - begin
+            assert length >= 2
+            if length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT:
+                cut_begin = 0
+                cut_end = length
+            else:
+                excess = length - (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT)
+                cut_begin = (excess + 1) // 2
+                cut_end = length - excess // 2
+            assert cut_begin + 2 <= cut_end
+            wnd = times[begin:end]
+            wnd.sort()
+            dtime = wnd[cut_end - 1] - wnd[cut_begin]
+            assert 0 <= dtime <= UINT_MAX
+            dtime = max(dtime, 1)
+            ddiff = sum(diffs[begin + cut_begin + 1:begin + cut_end])
+            assert 0 < ddiff <= UINT_MAX
+            assert dtime <= ddiff * DIFFICULTY_TARGET + dtime - 1 <= UINT_MAX
+            diff = (ddiff * DIFFICULTY_TARGET + dtime - 1) // dtime
+        assert 0 < diff <= UINT_MAX
+        times.append((yield diff))
+        diffs.append(diff)
+
+time = 1000
+gen = difficulty()
+diff = next(gen)
+for i in range(1000):
+    power = 10 if i < 100 else 10000 if i < 500 else 1000000
+    time += randint(-diff // power - 10, 3 * diff // power + 10)
+    assert 0 <= time <= UINT_MAX
+    print(time, diff)
+    diff = gen.send(time)
