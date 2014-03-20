@@ -51,12 +51,12 @@ namespace epee
 #define PROFILE_FUNC_THIRD(immortal_ptr_str)
 #endif
 
-#define START_WAY_POINTS() boost::uint64_t _____way_point_time = misc_utils::get_tick_count();
-#define WAY_POINT(name) {boost::uint64_t delta = misc_utils::get_tick_count()-_____way_point_time; LOG_PRINT("Way point " << name << ": " << delta, LOG_LEVEL_2);_____way_point_time = misc_utils::get_tick_count();}
-#define WAY_POINT2(name, avrg_obj) {boost::uint64_t delta = misc_utils::get_tick_count()-_____way_point_time; avrg_obj.push(delta); LOG_PRINT("Way point " << name << ": " << delta, LOG_LEVEL_2);_____way_point_time = misc_utils::get_tick_count();}
+#define START_WAY_POINTS() uint64_t _____way_point_time = misc_utils::get_tick_count();
+#define WAY_POINT(name) {uint64_t delta = misc_utils::get_tick_count()-_____way_point_time; LOG_PRINT("Way point " << name << ": " << delta, LOG_LEVEL_2);_____way_point_time = misc_utils::get_tick_count();}
+#define WAY_POINT2(name, avrg_obj) {uint64_t delta = misc_utils::get_tick_count()-_____way_point_time; avrg_obj.push(delta); LOG_PRINT("Way point " << name << ": " << delta, LOG_LEVEL_2);_____way_point_time = misc_utils::get_tick_count();}
 
 
-#define TIME_MEASURE_START(var_name)    boost::uint64_t var_name = misc_utils::get_tick_count();
+#define TIME_MEASURE_START(var_name)    uint64_t var_name = misc_utils::get_tick_count();
 #define TIME_MEASURE_FINISH(var_name)   var_name = misc_utils::get_tick_count() - var_name;
 
 namespace profile_tools
@@ -71,7 +71,7 @@ namespace profile_tools
 		}
 
 		size_t m_count_of_call;
-		boost::uint64_t m_summary_time_used;
+		uint64_t m_summary_time_used;
 		const char* m_pname;
 	};
 	
@@ -91,7 +91,7 @@ namespace profile_tools
 			
 			boost::posix_time::ptime now_t(boost::posix_time::microsec_clock::local_time());
 			boost::posix_time::time_duration delta_microsec = now_t - m_call_time;
-			boost::uint64_t miliseconds_used = delta_microsec.total_microseconds();
+			uint64_t miliseconds_used = delta_microsec.total_microseconds();
 
 			//::QueryPerformanceCounter((LARGE_INTEGER *)&ret_time);
 			//m_call_time = (ret_time-m_call_time)/1000;

@@ -154,7 +154,7 @@ namespace math_helper
 #endif
 
 //#ifdef WINDOWS_PLATFORM_EX
-	template<boost::uint64_t default_time_window>
+	template<uint64_t default_time_window>
 	class speed
 	{
 	public:
@@ -167,7 +167,7 @@ namespace math_helper
 		bool chick()
 		{
 #ifndef DEBUG_STUB
-			boost::uint64_t ticks = misc_utils::get_tick_count();
+			uint64_t ticks = misc_utils::get_tick_count();
 			CRITICAL_REGION_BEGIN(m_lock);
 			m_chicks.push_back(ticks);
 			CRITICAL_REGION_END();
@@ -192,10 +192,10 @@ namespace math_helper
 		}
 	private:
 
-		bool flush(boost::uint64_t ticks)
+		bool flush(uint64_t ticks)
 		{
 			CRITICAL_REGION_BEGIN(m_lock);
-			std::list<boost::uint64_t>::iterator it = m_chicks.begin();
+			std::list<uint64_t>::iterator it = m_chicks.begin();
 			while(it != m_chicks.end())
 			{
 				if(*it + m_time_window < ticks)
@@ -207,8 +207,8 @@ namespace math_helper
 			return true;
 		}
 
-		std::list<boost::uint64_t> m_chicks;
-		boost::uint64_t m_time_window;
+		std::list<uint64_t> m_chicks;
+		uint64_t m_time_window;
 		size_t m_last_speed_value;
 		critical_section m_lock;
 	};

@@ -32,14 +32,16 @@ bool wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::process_new_transaction(cryptonote::transaction& tx, uint64_t height)
+bool wallet2::process_new_transaction(cryptonote::transaction& tx, uint64_t height, fail_details& fd)
 {
   std::vector<size_t> outs;
   uint64_t tx_money_got_in_outs = 0;
   crypto::public_key tx_pub_key = null_pkey;
   bool r = parse_and_validate_tx_extra(tx, tx_pub_key);
+  fd.reason = fail_details::error_to_parse_tx_extra;
   CHECK_AND_ASSERT_MES(r && tx_pub_key != null_pkey, false, "process_new_transaction failed.");
   r = lookup_acc_outs(m_account.get_keys(), tx, tx_pub_key, outs, tx_money_got_in_outs);
+  fd.reason = fail_details::error_invalid_tx;
   CHECK_AND_ASSERT_MES(r, false, "call lookup_acc_outs failed");
   if(outs.size() && tx_money_got_in_outs)
   {
@@ -49,14 +51,24 @@ bool wallet2::process_new_transaction(cryptonote::transaction& tx, uint64_t heig
     cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
     req.txid = get_transaction_hash(tx);
     bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-    CHECK_AND_ASSERT_MES(r, false, "failed to get_o_indexes.bin");
-    if(res.status != CORE_RPC_STATUS_OK)
-      return false;// in case of split while lookup_acc_outs, transaction could be lost (especially if it is coinbase tx)
+    if (!r)                                      fd.reason = fail_details::error_not_connected;
+    else if (CORE_RPC_STATUS_BUSY == res.status) fd.reason = fail_details::error_daemon_is_busy;
+    else if (CORE_RPC_STATUS_OK != res.status)   fd.reason = fail_details::error_internal_error;
+    else                                         fd.reason = fail_details::error_ok;
+    if (fail_details::error_ok != fd.reason)
+    {
+      // in case of split while lookup_acc_outs, transaction could be lost (especially if it is coinbase tx)
+      LOG_PRINT_L0("failed to invoke get_o_indexes.bin: " << interpret_rpc_response(r, res.status));
+      return false;
+    }
+
+    fd.reason = fail_details::error_internal_error;
     CHECK_AND_ASSERT_MES(res.o_indexes.size() == tx.vout.size(), false, "internal error: transactions outputs size=" << tx.vout.size()
-                                                  << " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" << res.o_indexes.size());
+      << " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" << res.o_indexes.size());
 
     BOOST_FOREACH(size_t o, outs)
     {
+      fd.reason = fail_details::error_invalid_tx;
       CHECK_AND_ASSERT_MES(o < tx.vout.size(), false, "wrong out in transaction: internal index=" << o << ", total_outs" << tx.vout.size());
       m_transfers.push_back(boost::value_initialized<transfer_details>());
       transfer_details& td = m_transfers.back();
@@ -67,10 +79,12 @@ bool wallet2::process_new_transaction(cryptonote::transaction& tx, uint64_t heig
       td.m_spent = false;
       cryptonote::keypair in_ephemeral;
       cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, o, in_ephemeral, td.m_key_image);
+      fd.reason = fail_details::error_internal_error;
       CHECK_AND_ASSERT_MES(in_ephemeral.pub == boost::get<cryptonote::txout_to_key>(tx.vout[o].target).key,
-                                    false, "internal error: at key_image generating ephemeral public key not matched with output_key");
+        false, "internal error: at key_image generating ephemeral public key not matched with output_key");
       m_key_images[td.m_key_image] = m_transfers.size()-1;
-      LOG_PRINT_L1("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
+      LOG_PRINT_COLOR("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx),
+        LOG_LEVEL_0, epee::log_space::console_color_green);
     }
   }
   // check all outputs for spending (compare key images)
@@ -81,22 +95,24 @@ bool wallet2::process_new_transaction(cryptonote::transaction& tx, uint64_t heig
     auto it = m_key_images.find(boost::get<cryptonote::txin_to_key>(in).k_image);
     if(it != m_key_images.end())
     {
-      LOG_PRINT_L1("Spent money: " << print_money(boost::get<cryptonote::txin_to_key>(in).amount) << ", with tx: " << get_transaction_hash(tx));
+      LOG_PRINT_COLOR("Spent money: " << print_money(boost::get<cryptonote::txin_to_key>(in).amount) << ", with tx: " << get_transaction_hash(tx),
+        LOG_LEVEL_0, epee::log_space::console_color_magenta);
       m_transfers[it->second].m_spent = true;
     }
   }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::process_new_blockchain_entry(cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
+bool wallet2::process_new_blockchain_entry(cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height, fail_details& fd)
 {
   //handle transactions from new block
+  fd.reason = fail_details::error_internal_error;
   CHECK_AND_ASSERT_MES(height == m_blockchain.size(), false, "internal error: current_index=" << height << ", m_blockchain.size()=" << m_blockchain.size());
   //optimization: seeking only for blocks that are not older then the wallet creation time plus 1 day. 1 day is for possible user incorrect time setup
   if(b.timestamp + 60*60*24 > m_account.get_createtime())
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    bool r = process_new_transaction(b.miner_tx, height);
+    bool r = process_new_transaction(b.miner_tx, height, fd);
     TIME_MEASURE_FINISH(miner_tx_handle_time);
     CHECK_AND_NO_ASSERT_MES(r, false, "failed to process transaction");
 
@@ -105,8 +121,9 @@ bool wallet2::process_new_blockchain_entry(cryptonote::block& b, cryptonote::blo
     {
       cryptonote::transaction tx;
       r = parse_and_validate_tx_from_blob(txblob, tx);
+      fd.reason = fail_details::error_to_parse_tx;
       CHECK_AND_ASSERT_MES(r, false, "failed to parse and validate transaction from blob");
-      r = process_new_transaction(tx, height);
+      r = process_new_transaction(tx, height, fd);
       CHECK_AND_ASSERT_MES(r, false, "failed to process transaction");
     }
     TIME_MEASURE_FINISH(txs_handle_time);
@@ -149,18 +166,26 @@ bool wallet2::get_short_chain_history(std::list<crypto::hash>& ids)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::pull_blocks(size_t& blocks_added)
+bool wallet2::pull_blocks(size_t& blocks_added, fail_details& fd)
 {
   blocks_added = 0;
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   get_short_chain_history(req.block_ids);
   bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-  CHECK_AND_ASSERT_MES(r, false, "failed to get blocks");
-  CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, false, "failed to get blocks");
+  if (!r)                                      fd.reason = fail_details::error_not_connected;
+  else if (CORE_RPC_STATUS_BUSY == res.status) fd.reason = fail_details::error_daemon_is_busy;
+  else if (CORE_RPC_STATUS_OK != res.status)   fd.reason = fail_details::error_internal_error;
+  else                                         fd.reason = fail_details::error_ok;
+  if (fail_details::error_ok != fd.reason)
+  {
+    LOG_PRINT_L0("failed to get blocks: " << interpret_rpc_response(r, res.status));
+    return false;
+  }
 
   //find split position, if split happened
 
+  fd.reason = fail_details::error_internal_error;
   CHECK_AND_ASSERT_MES(res.start_height < m_blockchain.size(), false, "wrong daemon response: m_start_height="
     << res.start_height << " not less than local blockchain size=" << m_blockchain.size());
 
@@ -169,11 +194,12 @@ bool wallet2::pull_blocks(size_t& blocks_added)
   {
     cryptonote::block bl;
     r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
+    fd.reason = fail_details::error_to_parse_block;
     CHECK_AND_ASSERT_MES(r, false, "failed to parse/validate block");
     crypto::hash bl_id = get_block_hash(bl);
     if(current_index >= m_blockchain.size())
     {
-      r = process_new_blockchain_entry(bl, bl_entry, bl_id, current_index);
+      r = process_new_blockchain_entry(bl, bl_entry, bl_id, current_index, fd);
       if(!r) return false;
       ++blocks_added;
     }else
@@ -181,12 +207,12 @@ bool wallet2::pull_blocks(size_t& blocks_added)
       if(bl_id != m_blockchain[current_index])
       {
         //split detected here !!!
+        fd.reason = fail_details::error_internal_error;
         CHECK_AND_ASSERT_MES(current_index != res.start_height, false, "wrong daemon response: first block in response " << string_tools::pod_to_hex(bl_id)
           << "\nnot match with local block id " << string_tools::pod_to_hex(m_blockchain[current_index]));
         detach_blockchain(current_index);
-        r = process_new_blockchain_entry(bl, bl_entry, bl_id, current_index);
+        r = process_new_blockchain_entry(bl, bl_entry, bl_id, current_index, fd);
         if(!r) return false;
-
       }
     }
     ++current_index;
@@ -194,19 +220,19 @@ bool wallet2::pull_blocks(size_t& blocks_added)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::refresh()
+bool wallet2::refresh(fail_details& fd)
 {
   size_t blocks_fetched = 0;
-  return refresh(blocks_fetched);
+  return refresh(blocks_fetched, fd);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::refresh(size_t & blocks_fetched)
+bool wallet2::refresh(size_t & blocks_fetched, fail_details& fd)
 {
   bool received_money = false;
-  return refresh(blocks_fetched, received_money);
+  return refresh(blocks_fetched, received_money, fd);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::refresh(size_t & blocks_fetched, bool& received_money)
+bool wallet2::refresh(size_t & blocks_fetched, bool& received_money, fail_details& fd)
 {
   received_money = false;
   blocks_fetched = 0;
@@ -214,19 +240,19 @@ bool wallet2::refresh(size_t & blocks_fetched, bool& received_money)
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? get_transaction_hash(m_transfers.back().m_tx) : null_hash;
 
-  while(true)
+  while(m_run.load(std::memory_order_relaxed))
   {
-    bool res = pull_blocks(added_blocks);
+    bool res = pull_blocks(added_blocks, fd);
     if(!res)
     {
       if(try_count < 3)
       {
-        LOG_PRINT_L0("Another try pull_blocks(try_count=" << try_count << ")...");
+        LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
         ++try_count;
         continue;
       }else
       {
-        LOG_PRINT_L0("pull_blocks failed, try_count=" << try_count);
+        LOG_PRINT_L1("pull_blocks failed, try_count=" << try_count);
         return false;
       }
     }
@@ -238,7 +264,7 @@ bool wallet2::refresh(size_t & blocks_fetched, bool& received_money)
   if(last_tx_hash_id != (m_transfers.size() ? get_transaction_hash(m_transfers.back().m_tx) : null_hash))
     received_money = true;
 
-  LOG_PRINT_L2( "Refresh done, blocks received: " << blocks_fetched << ", balance: " << print_money(balance()) << ", unlocked: " << print_money(unlocked_balance()));
+  LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance: " << print_money(balance()) << ", unlocked: " << print_money(unlocked_balance()));
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -439,25 +465,6 @@ bool wallet2::store()
   return r;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::show_incoming_transfers()
-{
-  uint64_t amount = 0;
-  if(!m_transfers.size())
-  {
-    LOG_PRINT_L0("No incoming transfers");
-    return;
-  }
-  BOOST_FOREACH(transfer_details& td, m_transfers)
-  {
-    LOG_PRINT_L0("transfer: " << print_money(td.amount())
-                                    << ", spent: " << td.m_spent
-                                    << ", global_index: " << td.m_global_output_index
-                                    << ", tx_id: " << get_transaction_hash(td.m_tx));
-    if(!td.m_spent)
-      amount += td.amount();
-  }
-}
-//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::unlocked_balance()
 {
   uint64_t amount = 0;
@@ -535,7 +542,7 @@ namespace
   }
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::select_transfers(uint64_t needed_money, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers)
+uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -551,19 +558,19 @@ uint64_t wallet2::select_transfers(uint64_t needed_money, uint64_t dust, std::li
     }
   }
 
-  bool at_least_one_dust_selected = unused_dust_indices.empty();
+  bool select_one_dust = add_dust && !unused_dust_indices.empty();
   uint64_t found_money = 0;
   while (found_money < needed_money && (!unused_transfers_indices.empty() || !unused_dust_indices.empty()))
   {
     size_t idx;
-    if (at_least_one_dust_selected)
+    if (select_one_dust)
     {
-      idx = !unused_transfers_indices.empty() ? pop_random_value(unused_transfers_indices) : pop_random_value(unused_dust_indices);
+      idx = pop_random_value(unused_dust_indices);
+      select_one_dust = false;
     }
     else
     {
-      idx = pop_random_value(unused_dust_indices);
-      at_least_one_dust_selected = true;
+      idx = !unused_transfers_indices.empty() ? pop_random_value(unused_transfers_indices) : pop_random_value(unused_dust_indices);
     }
 
     transfer_container::iterator it = m_transfers.begin() + idx;
@@ -580,7 +587,7 @@ bool wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts
   return transfer(dsts, fake_outputs_count, unlock_time, fee, detail::digit_split_strategy, tx_dust_policy(fee), tx);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, cryptonote::transaction& tx, transafer_fail_details& tfd)
+bool wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, cryptonote::transaction& tx, fail_details& tfd)
 {
   return transfer(dsts, fake_outputs_count, unlock_time, fee, detail::digit_split_strategy, tx_dust_policy(fee), tx, tfd);
 }

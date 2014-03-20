@@ -11,6 +11,7 @@ namespace cryptonote
 {
   //-----------------------------------------------
 #define CORE_RPC_STATUS_OK   "OK"
+#define CORE_RPC_STATUS_BUSY   "BUSY"
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -23,33 +24,13 @@ namespace cryptonote
     struct response
     {
       uint64_t 	 height;
+      std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
+        KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
-  };
-
-  struct COMMAND_RPC_GET_KNOWN_BLOCK_IDS
-  {
-      struct request
-      {
-        BEGIN_KV_SERIALIZE_MAP()
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct response
-      {
-         std::list<std::string> main;
-         std::list<std::string> alt;
-         std::list<std::string> invalid;
-
-         BEGIN_KV_SERIALIZE_MAP()
-           KV_SERIALIZE(main)
-           KV_SERIALIZE(alt)
-           KV_SERIALIZE(invalid)
-         END_KV_SERIALIZE_MAP()
-      };
   };
 
   struct COMMAND_RPC_GET_BLOCKS_FAST
@@ -153,6 +134,7 @@ namespace cryptonote
     {
       uint64_t amount;
       std::list<out_entry> outs;
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outs)
@@ -283,7 +265,17 @@ namespace cryptonote
   {
     typedef std::list<std::string> request;
 
-    typedef uint64_t response;
+    struct response
+    {
+      uint64_t count;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(count)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+
   };
 
   struct COMMAND_RPC_GETBLOCKHASH
@@ -313,12 +305,14 @@ namespace cryptonote
       uint64_t height;
       uint64_t reserved_offset;
       blobdata blocktemplate_blob;
+      std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(height)
         KV_SERIALIZE(reserved_offset)
         KV_SERIALIZE(blocktemplate_blob)
+        KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
   };

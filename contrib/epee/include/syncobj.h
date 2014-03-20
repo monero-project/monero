@@ -41,27 +41,29 @@ namespace epee
 
   struct simple_event
   {
-    simple_event()
+    simple_event() : m_rised(false)
     {
-      rised = false;
     }
-    std::mutex m_mx;
-    std::condition_variable m_cond_var;
-    bool rised;
 
-    void rise()
+    void raise()
     {
       std::unique_lock<std::mutex> lock(m_mx);
-      rised = true;
+      m_rised = true;
       m_cond_var.notify_one();
     }
 
     void wait()
     {
       std::unique_lock<std::mutex> lock(m_mx);
-      while (!rised) 
+      while (!m_rised) 
         m_cond_var.wait(lock);
+      m_rised = false;
     }
+
+  private:
+    std::mutex m_mx;
+    std::condition_variable m_cond_var;
+    bool m_rised;
   };
 
   class critical_region;

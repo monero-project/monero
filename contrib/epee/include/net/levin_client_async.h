@@ -49,16 +49,16 @@ namespace levin
   class levin_client_async
 	{
     levin_commands_handler* m_pcommands_handler;
-		volatile boost::uint32_t m_is_stop;
-		volatile boost::uint32_t m_threads_count;
+		volatile uint32_t m_is_stop;
+		volatile uint32_t m_threads_count;
 		::critical_section m_send_lock;
 
     std::string m_local_invoke_buff;
 		::critical_section m_local_invoke_buff_lock;
 		volatile int m_invoke_res;
 
-		volatile boost::uint32_t m_invoke_data_ready;
-		volatile boost::uint32_t m_invoke_is_active;
+		volatile uint32_t m_invoke_data_ready;
+		volatile uint32_t m_invoke_is_active;
 
 		boost::mutex m_invoke_event;
 		boost::condition_variable m_invoke_cond;
@@ -69,14 +69,14 @@ namespace levin
 		{
 			bucket_head m_hd;
 			std::string m_body;
-			boost::uint32_t m_connection_index;
+			uint32_t m_connection_index;
 		};
 		std::list<packet_entry> m_recieved_packets;
     /*
        m_current_connection_index needed when some connection was broken and reconnected - in this 
                   case we could have some received packets in que, which shoud not be handled 
     */
-		volatile boost::uint32_t m_current_connection_index; 
+		volatile uint32_t m_current_connection_index; 
 		::critical_section m_invoke_lock;
 		::critical_section m_reciev_packet_lock;
     ::critical_section m_connection_lock;
@@ -101,7 +101,7 @@ namespace levin
 			m_pcommands_handler = phandler;
 		}
 
-		bool connect(boost::uint32_t ip, boost::uint32_t port, boost::uint32_t timeout)
+		bool connect(uint32_t ip, uint32_t port, uint32_t timeout)
 		{
 			loop_call_guard();
 			critical_region cr(m_connection_lock);
@@ -388,7 +388,7 @@ namespace levin
 		bool reciev_and_process_incoming_data()
 		{
 			bucket_head head = {0};
-			boost::uint32_t conn_index = 0;
+			uint32_t conn_index = 0;
 			bool is_request = false;
 			std::string local_buff;
 			CRITICAL_REGION_BEGIN(m_reciev_packet_lock);//to protect from socket reconnect between head and body
@@ -485,7 +485,7 @@ namespace levin
 			return true;
 		}
 
-		bool process_recieved_packet(bucket_head& head, const std::string& local_buff, boost::uint32_t conn_index)
+		bool process_recieved_packet(bucket_head& head, const std::string& local_buff, uint32_t conn_index)
 		{
 
 			net_utils::connection_context_base conn_context;
@@ -544,7 +544,7 @@ namespace levin
 				bool have_some_work = false;
 				std::string local_buff;
 				bucket_head bh = {0};
-				boost::uint32_t conn_index = 0;
+				uint32_t conn_index = 0;
 
 				CRITICAL_REGION_BEGIN(m_recieved_packets_lock);
 				if(m_recieved_packets.size())

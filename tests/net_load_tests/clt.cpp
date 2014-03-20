@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "include_base_utils.h"
+#include "misc_language.h"
 #include "misc_log_ex.h"
 #include "storages/levin_abstract_invoke2.h"
 
@@ -33,7 +34,8 @@ namespace
     {
       if (predicate())
         return true;
-      std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
+      //std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
+      epee::misc_utils::sleep_no_w(sleep_ms);
     }
     return false;
   }
@@ -292,7 +294,8 @@ namespace
           return true;
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        //std::this_thread::sleep_for(std::chrono::seconds(1));
+        epee::misc_utils::sleep_no_w(1000);
       }
 
       return false;

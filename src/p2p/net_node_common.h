@@ -6,7 +6,7 @@
 
 #include <boost/uuid/uuid.hpp>
 #include "net/net_utils_base.h"
-
+#include "p2p_protocol_defs.h"
 
 namespace nodetool
 {
@@ -23,7 +23,7 @@ namespace nodetool
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context)=0;
     virtual void request_callback(const epee::net_utils::connection_context_base& context)=0;
     virtual uint64_t get_connections_count()=0;
-    virtual void for_each_connection(std::function<bool(t_connection_context&)> f)=0;
+    virtual void for_each_connection(std::function<bool(t_connection_context&, peerid_type)> f)=0;
   };
 
   template<class t_connection_context>
@@ -49,7 +49,7 @@ namespace nodetool
     {
 
     }
-    virtual void for_each_connection(std::function<bool(t_connection_context&)> f)
+    virtual void for_each_connection(std::function<bool(t_connection_context&,peerid_type)> f)
     {
 
     }

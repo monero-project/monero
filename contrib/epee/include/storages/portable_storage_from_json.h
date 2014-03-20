@@ -281,7 +281,7 @@ namespace epee
                 bool insert_res = false;
                 if(!is_v_float)
                 {
-                  boost::int64_t nval = boost::lexical_cast<int64_t>(val);  //bool res = string_tools::string_to_num_fast(val, nval);
+                  int64_t nval = boost::lexical_cast<int64_t>(val);  //bool res = string_tools::string_to_num_fast(val, nval);
                   insert_res = stg.insert_next_value(h_array, nval);
                   
                 }else

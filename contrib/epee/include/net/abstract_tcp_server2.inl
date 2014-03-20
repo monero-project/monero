@@ -49,10 +49,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection(boost::asio::io_service& io_service,
-    typename t_protocol_handler::config_type& config, volatile boost::uint32_t& sock_count, i_connection_filter* &pfilter)
+    typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter* &pfilter)
                           : strand_(io_service),
                             socket_(io_service),
-                            //context(typename boost::value_initialized<t_connection_context>())
                             m_protocol_handler(this, config, context), 
                             m_want_close_connection(0), 
                             m_was_shutdown(0), 
@@ -217,6 +216,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if (!e)
     {
       LOG_PRINT("[sock " << socket_.native_handle() << "] RECV " << bytes_transferred, LOG_LEVEL_4);
+      context.m_last_recv = time(NULL);
+      context.m_recv_cnt += bytes_transferred;
       bool recv_res = m_protocol_handler.handle_recv(buffer_.data(), bytes_transferred);
       if(!recv_res)
       {  
@@ -294,6 +295,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       return false;
 
     LOG_PRINT("[sock " << socket_.native_handle() << "] SEND " << cb, LOG_LEVEL_4);
+    context.m_last_send = time(NULL);
+    context.m_send_cnt += cb;
     //some data should be wrote to stream
     //request complete
     
@@ -473,8 +476,8 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
     uint32_t p = 0;
 
     if (port.size() && !string_tools::get_xtype_from_string(p, port)) {
+      LOG_ERROR("Failed to convert port no = " << port);
       return false;
-      LOG_ERROR("Failed to convert port no = port");
     }
     return this->init_server(p, address);
   }
@@ -586,7 +589,7 @@ POP_WARNINGS
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::timed_wait_server_stop(boost::uint64_t wait_mseconds)
+  bool boosted_tcp_server<t_protocol_handler>::timed_wait_server_stop(uint64_t wait_mseconds)
   {
     TRY_ENTRY();
     boost::chrono::milliseconds ms(wait_mseconds);
@@ -641,7 +644,7 @@ POP_WARNINGS
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, boost::uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip)
+  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip)
   {
     TRY_ENTRY();
 
@@ -732,7 +735,7 @@ POP_WARNINGS
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler> template<class t_callback>
-  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, boost::uint32_t conn_timeout, t_callback cb, const std::string& bind_ip)
+  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_callback cb, const std::string& bind_ip)
   {
     TRY_ENTRY();    
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter) );

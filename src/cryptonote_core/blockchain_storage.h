@@ -110,6 +110,7 @@ namespace cryptonote
     bool check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height = NULL);
     bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id);
     uint64_t get_current_comulative_blocksize_limit();
+    bool is_storing_blockchain(){return m_is_blockchain_storing;}
 
     template<class t_ids_container, class t_blocks_container, class t_missed_container>
     bool get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs)
@@ -188,6 +189,7 @@ namespace cryptonote
     std::string m_config_folder;
     checkpoints m_checkpoints;
     std::atomic<bool> m_is_in_checkpoint_zone;
+    std::atomic<bool> m_is_blockchain_storing;
 
 
 

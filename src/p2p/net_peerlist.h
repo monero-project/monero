@@ -49,7 +49,7 @@ namespace nodetool
     bool get_gray_peer_by_index(peerlist_entry& p, size_t i);
     bool append_with_peer_white(const peerlist_entry& pr);
     bool append_with_peer_gray(const peerlist_entry& pr);
-    bool set_peer_just_seen(peerid_type peer, boost::uint32_t ip, boost::uint32_t port);
+    bool set_peer_just_seen(peerid_type peer, uint32_t ip, uint32_t port);
     bool set_peer_just_seen(peerid_type peer, const net_address& addr);
     bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_ip_allowed(uint32_t ip);
@@ -284,7 +284,7 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::set_peer_just_seen(peerid_type peer, boost::uint32_t ip, boost::uint32_t port)
+  bool peerlist_manager::set_peer_just_seen(peerid_type peer, uint32_t ip, uint32_t port)
   {
     net_address addr;
     addr.ip = ip;
@@ -342,10 +342,6 @@ namespace nodetool
     TRY_ENTRY();
     if(!is_ip_allowed(ple.adr.ip))
       return true;
-
-    if(ple.adr.port != 8080)
-      assert(false);
-
 
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     //find in white list

@@ -98,7 +98,7 @@ namespace levin
 			case conn_state_reading_head:
 				if(m_cach_in_buffer.size() < sizeof(bucket_head))
 				{
-					if(m_cach_in_buffer.size() >= sizeof(boost::uint64_t) && *((boost::uint64_t*)m_cach_in_buffer.data()) != LEVIN_SIGNATURE)
+					if(m_cach_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cach_in_buffer.data()) != LEVIN_SIGNATURE)
 					{
 						LOG_ERROR("Signature missmatch on accepted connection");
 						return false;

@@ -153,7 +153,7 @@ namespace net_utils
     }
     if(result[6].matched)
     {
-      content.port = boost::lexical_cast<boost::uint64_t>(result[6]);
+      content.port = boost::lexical_cast<uint64_t>(result[6]);
     }
     if(result[7].matched)
     {

@@ -22,7 +22,7 @@ namespace cryptonote
 
   template<class t_core>
   class t_cryptonote_protocol_handler:  public i_cryptonote_protocol
-  {
+  { 
   public:
     typedef cryptonote_connection_context connection_context;
     typedef core_stat_info stat_info;
@@ -51,8 +51,8 @@ namespace cryptonote
     bool get_stat_info(core_stat_info& stat_inf);
     bool on_callback(cryptonote_connection_context& context);
     t_core& get_core(){return m_core;}
-
-
+    bool is_synchronized(){return m_synchronized;}
+    void log_connections();
   private:
     //----------------- commands handlers ----------------------------------------------
     int handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context);
@@ -60,7 +60,6 @@ namespace cryptonote
     int handle_request_get_objects(int command, NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote_connection_context& context);
     int handle_response_get_objects(int command, NOTIFY_RESPONSE_GET_OBJECTS::request& arg, cryptonote_connection_context& context);
     int handle_request_chain(int command, NOTIFY_REQUEST_CHAIN::request& arg, cryptonote_connection_context& context);
-//    int handle_request_chain_entry(int command, NOTIFY_REQUEST_CHAIN_ENTRY::request& arg, cryptonote_connection_context& context);
     int handle_response_chain_entry(int command, NOTIFY_RESPONSE_CHAIN_ENTRY::request& arg, cryptonote_connection_context& context);
 
 
@@ -77,9 +76,7 @@ namespace cryptonote
     nodetool::p2p_endpoint_stub<connection_context> m_p2p_stub;
     nodetool::i_p2p_endpoint<connection_context>* m_p2p;
     std::atomic<uint32_t> m_syncronized_connections_count;
-    //std::atomic<uint32_t> m_syncronizing_connections_count;
-    std::atomic<bool> m_welcome_showed;
-
+    std::atomic<bool> m_synchronized;
 
     template<class t_parametr>
       bool post_notify(typename t_parametr::request& arg, cryptonote_connection_context& context)

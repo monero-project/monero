@@ -399,9 +399,12 @@ TEST_encode_decode_addr(PuT7GAdgbA83uoWF3eanGG1aRoG,     0x1122334455667788, "\x
 TEST_encode_decode_addr(PuT7GAdgbA83vT1umSHMYJ4oNVdu,    0x1122334455667788, "\x77\x77\x77\x77\x77\x77\x77");
 TEST_encode_decode_addr(PuT7GAdgbA83w6XaVDyvpoGQBEWbB,   0x1122334455667788, "\x88\x88\x88\x88\x88\x88\x88\x88");
 TEST_encode_decode_addr(PuT7GAdgbA83wk3FD1gW7J2KVGofA1r, 0x1122334455667788, "\x99\x99\x99\x99\x99\x99\x99\x99\x99");
+TEST_encode_decode_addr(15p2yAV,                         0, "");
+TEST_encode_decode_addr(FNQ3D6A,                         0x7F, "");
+TEST_encode_decode_addr(26k9QWweu,                       0x80, "");
+TEST_encode_decode_addr(3BzAD7n3y,                       0xFF, "");
 TEST_encode_decode_addr(11efCaY6UjG7JrxuB,               0, "\x11\x22\x33\x44\x55\x66\x77");
 TEST_encode_decode_addr(21rhHRT48LN4PriP9,               6, "\x11\x22\x33\x44\x55\x66\x77");
-TEST_encode_decode_addr(3BzAD7n3y,                       0xFF, "");
 
 
 #define TEST_decode_addr_neg(addr, test_name)                     \
@@ -421,6 +424,14 @@ TEST_decode_addr_neg("\0uT7GAdgbA819VwdWVDP", decode_fails_due_invalid_char_00);
 TEST_decode_addr_neg("PuT7GAdgbA819VwdWVD", decode_fails_due_invalid_lenght);
 TEST_decode_addr_neg("11efCaY6UjG7JrxuC", handles_invalid_checksum);
 TEST_decode_addr_neg("jerj2e4mESo", handles_non_correct_tag); // "jerj2e4mESo" == "\xFF\x00\xFF\xFF\x5A\xD9\xF1\x1C"
+TEST_decode_addr_neg("1", decode_fails_due_invalid_block_len_0);
+TEST_decode_addr_neg("1111", decode_fails_due_invalid_block_len_1);
+TEST_decode_addr_neg("11", decode_fails_due_address_too_short_0);
+TEST_decode_addr_neg("111", decode_fails_due_address_too_short_1);
+TEST_decode_addr_neg("11111", decode_fails_due_address_too_short_2);
+TEST_decode_addr_neg("111111", decode_fails_due_address_too_short_3);
+TEST_decode_addr_neg("999999", decode_fails_due_address_too_short_4);
+TEST_decode_addr_neg("ZZZZZZ", decode_fails_due_address_too_short_5);
 
 namespace
 {

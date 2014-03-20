@@ -47,23 +47,36 @@ namespace net_utils
 	struct connection_context_base
 	{
     const boost::uuids::uuid m_connection_id;
-		const boost::uint32_t m_remote_ip;
-		const boost::uint32_t m_remote_port;
-    const bool m_is_income;
+		const uint32_t m_remote_ip;
+		const uint32_t m_remote_port;
+    const bool     m_is_income;
+    const time_t   m_started;
+    time_t   m_last_recv;
+    time_t   m_last_send;
+    uint64_t m_recv_cnt;
+    uint64_t m_send_cnt;
 
-    connection_context_base(boost::uuids::uuid connection_id, long remote_ip, int remote_port, bool is_income):
+    connection_context_base(boost::uuids::uuid connection_id, long remote_ip, int remote_port, bool is_income, time_t last_recv = 0, time_t last_send = 0, uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
                                             m_connection_id(connection_id),
                                             m_remote_ip(remote_ip),
                                             m_remote_port(remote_port),
-                                            m_is_income(is_income)
-
-
+                                            m_is_income(is_income),
+                                            m_last_recv(last_recv),
+                                            m_last_send(last_send),
+                                            m_recv_cnt(recv_cnt),
+                                            m_send_cnt(send_cnt),
+                                            m_started(time(NULL))
     {}
 
     connection_context_base(): m_connection_id(),
                                m_remote_ip(0),
                                m_remote_port(0),
-                               m_is_income(false)
+                               m_is_income(false),
+                               m_last_recv(0),
+                               m_last_send(0),
+                               m_recv_cnt(0),
+                               m_send_cnt(0),
+                               m_started(time(NULL))
     {}
 
     connection_context_base& operator=(const connection_context_base& a)

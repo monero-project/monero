@@ -104,6 +104,9 @@ bool blockchain_storage::init(const std::string& config_folder)
 //------------------------------------------------------------------
 bool blockchain_storage::store_blockchain()
 {
+  m_is_blockchain_storing = true;
+  misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler([&](){m_is_blockchain_storing=false;});
+
   LOG_PRINT_L0("Storing blockchain...");
   if (!tools::create_directories_if_necessary(m_config_folder))
   {
@@ -1029,7 +1032,7 @@ void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_ind
 
   for(size_t i = start_index; i != m_blocks.size() && i != end_index; i++)
   {
-    ss << "height " << i << ", timastamp " << m_blocks[i].bl.timestamp << ", cumul_dif " << m_blocks[i].cumulative_difficulty << ", cumul_size " << m_blocks[i].block_cumulative_size
+    ss << "height " << i << ", timestamp " << m_blocks[i].bl.timestamp << ", cumul_dif " << m_blocks[i].cumulative_difficulty << ", cumul_size " << m_blocks[i].block_cumulative_size
       << "\nid\t\t" <<  get_block_hash(m_blocks[i].bl)
       << "\ndifficulty\t\t" << block_difficulty(i) << ", nonce " << m_blocks[i].bl.nonce << ", tx_count " << m_blocks[i].bl.tx_hashes.size() << ENDL;
   }

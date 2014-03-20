@@ -39,8 +39,8 @@
 namespace epee
 {
 
-  template<class t_child_class>
-  class http_server_impl_base: public net_utils::http::i_http_server_handler
+  template<class t_child_class, class t_connection_context = epee::net_utils::connection_context_base>
+  class http_server_impl_base: public net_utils::http::i_http_server_handler<t_connection_context>
   {
 
   public:
@@ -107,6 +107,6 @@ namespace epee
     }
 
   protected: 
-    net_utils::boosted_http_server_custum_handling m_net_server;
+    net_utils::boosted_tcp_server<net_utils::http::http_custom_handler<t_connection_context> > m_net_server;
   };
 }

@@ -29,6 +29,7 @@ namespace cryptonote
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();
     bool run();
+    void stop();
 
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
@@ -42,11 +43,11 @@ namespace cryptonote
     bool open_wallet(const std::string &wallet_file, const std::string& password);
     bool close_wallet();
 
-    bool help(const std::vector<std::string> &args);
+    bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
     bool refresh(const std::vector<std::string> &args);
-    bool show_balance(const std::vector<std::string> &args);
+    bool show_balance(const std::vector<std::string> &args = std::vector<std::string>());
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
@@ -54,8 +55,8 @@ namespace cryptonote
     bool save(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
 
-    uint64_t get_daemon_blockchain_height(bool& ok);
-    void try_connect_to_daemon();
+    uint64_t get_daemon_blockchain_height(std::string& err);
+    bool try_connect_to_daemon();
 
     std::string m_wallet_file;
     std::string m_generate_new;
@@ -64,11 +65,10 @@ namespace cryptonote
     std::string m_daemon_address;
     std::string m_daemon_host;
     int m_daemon_port;
-    bool m_tried_to_connect;
 
     epee::console_handlers_binder m_cmd_binder;
 
-    std::auto_ptr<tools::wallet2> m_wallet;
+    std::unique_ptr<tools::wallet2> m_wallet;
     net_utils::http::http_simple_client m_http_client;
   };
 }

@@ -29,6 +29,7 @@
 #define _MISC_LOG_EX_H_
 
 //#include <windows.h>
+#include <atomic>
 #include <string>
 #include <iostream>
 #include <sstream>
@@ -43,15 +44,18 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
+#if defined(WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #include "static_initializer.h"
 #include "string_tools.h"
 #include "time_helper.h"
 #include "misc_os_dependent.h"
 
-
 #include "syncobj.h"
-
-
 
 
 #define LOG_LEVEL_SILENT     -1
@@ -62,8 +66,6 @@
 #define LOG_LEVEL_4     4
 #define LOG_LEVEL_MIN   LOG_LEVEL_SILENT
 #define LOG_LEVEL_MAX   LOG_LEVEL_4
-
-
 
 
 #define   LOGGER_NULL       0
@@ -124,7 +126,7 @@ namespace log_space
     virtual bool out_buffer( const char* buffer, int buffer_len , int log_level, int color, const char* plog_name = NULL)=0;
     virtual int get_type(){return 0;}
 
-    virtual bool set_max_logfile_size(boost::uint64_t max_size){return true;};
+    virtual bool set_max_logfile_size(uint64_t max_size){return true;};
     virtual bool set_log_rotate_cmd(const std::string& cmd){return true;};
   };
 
@@ -198,8 +200,29 @@ namespace log_space
   };
 #endif
 
+  inline bool is_stdout_a_tty()
+  {
+    static std::atomic<bool> initialized(false);
+    static std::atomic<bool> is_a_tty(false);
+
+    if (!initialized.load(std::memory_order_acquire))
+    {
+#if defined(WIN32)
+      is_a_tty.store(0 != _isatty(_fileno(stdout)), std::memory_order_relaxed);
+#else
+      is_a_tty.store(0 != isatty(fileno(stdout)), std::memory_order_relaxed);
+#endif
+      initialized.store(true, std::memory_order_release);
+    }
+
+    return is_a_tty.load(std::memory_order_relaxed);
+  }
+
   inline void set_console_color(int color, bool bright)
   {
+    if (!is_stdout_a_tty())
+      return;
+
     switch(color)
     {
     case console_color_default:
@@ -315,11 +338,15 @@ namespace log_space
   }
 
   inline void reset_console_color() {
+    if (!is_stdout_a_tty())
+      return;
+
 #ifdef WIN32
     HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(h_stdout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #else
     std::cout << "\033[0m";
+    std::cout.flush();
 #endif
   }
 
@@ -384,7 +411,7 @@ namespace log_space
         }
       }
 
-      //boost::uint32_t b = 0;
+      //uint32_t b = 0;
       //::WriteConsoleA(::GetStdHandle(STD_OUTPUT_HANDLE), ptarget_buf, buffer_len, (DWORD*)&b, 0);
       std::cout << ptarget_buf;
       if(pallocated_buf) delete [] pallocated_buf;
@@ -459,7 +486,7 @@ namespace log_space
     std::ofstream*    m_pdefault_file_stream;
     std::string     m_log_rotate_cmd;
     std::string     m_default_log_filename;
-    boost::uint64_t   m_max_logfile_size;
+    uint64_t   m_max_logfile_size;
 
 
     std::ofstream*    add_new_stream_and_open(const char* pstream_name)
@@ -474,7 +501,7 @@ namespace log_space
       return pstream;
     }
 
-    bool set_max_logfile_size(boost::uint64_t max_size)
+    bool set_max_logfile_size(uint64_t max_size)
     {
       m_max_logfile_size = max_size;
       return true;
@@ -508,7 +535,7 @@ namespace log_space
       if(m_max_logfile_size)
       {
         std::ofstream::pos_type pt =  m_target_file_stream->tellp();
-        boost::uint64_t current_sz = pt;
+        uint64_t current_sz = pt;
         if(current_sz > m_max_logfile_size)
         {
           std::cout << "current_sz= " << current_sz << " m_max_logfile_size= " << m_max_logfile_size << std::endl;
@@ -579,7 +606,7 @@ namespace log_space
       std::for_each(m_log_streams.begin(), m_log_streams.end(), delete_ptr());
     }
 
-    bool set_max_logfile_size(boost::uint64_t max_size)
+    bool set_max_logfile_size(uint64_t max_size)
     {
       for(streams_container::iterator it = m_log_streams.begin(); it!=m_log_streams.end();it++)
         it->first->set_max_logfile_size(max_size);
@@ -725,7 +752,7 @@ namespace log_space
     {
     }
 
-    bool set_max_logfile_size(boost::uint64_t max_size)
+    bool set_max_logfile_size(uint64_t max_size)
     {
       CRITICAL_REGION_BEGIN(m_critical_sec);
       m_log_target.set_max_logfile_size(max_size);
@@ -895,7 +922,7 @@ namespace log_space
       return res;
     }
 
-    static bool set_max_logfile_size(boost::uint64_t file_size)
+    static bool set_max_logfile_size(uint64_t file_size)
     {
       logger* plogger = get_or_create_instance();
       if(!plogger) return false;
@@ -1004,9 +1031,9 @@ POP_WARNINGS
 
       return is_need;
     }
-    static boost::uint64_t get_set_err_count(bool is_need_set = false, boost::uint64_t err_val = false)
+    static uint64_t get_set_err_count(bool is_need_set = false, uint64_t err_val = false)
     {
-      static boost::uint64_t err_count = 0;
+      static uint64_t err_count = 0;
       if(is_need_set)
         err_count = err_val;
 

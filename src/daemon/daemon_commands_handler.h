@@ -38,8 +38,13 @@ public:
 
   bool start_handling()
   {
-    m_cmd_binder.start_handling(&m_srv, "");
+    m_cmd_binder.start_handling(&m_srv, "", "");
     return true;
+  }
+
+  void stop_handling()
+  {
+    m_cmd_binder.stop_handling();
   }
 
 private:
@@ -77,7 +82,13 @@ private:
   //--------------------------------------------------------------------------------
   bool show_hr(const std::vector<std::string>& args)
   {
-    m_srv.get_payload_object().get_core().get_miner().do_print_hashrate(true);
+	if(!m_srv.get_payload_object().get_core().get_miner().is_mining()) 
+	{
+	  std::cout << "Mining is not started. You need start mining before you can see hash rate." << ENDL;
+	} else 
+	{
+	  m_srv.get_payload_object().get_core().get_miner().do_print_hashrate(true);
+	}
     return true;
   }
   //--------------------------------------------------------------------------------
@@ -100,7 +111,7 @@ private:
   //--------------------------------------------------------------------------------
   bool print_cn(const std::vector<std::string>& args)
   {
-     m_srv.log_connections();
+     m_srv.get_payload_object().log_connections();
      return true;
   }
   //--------------------------------------------------------------------------------
@@ -263,7 +274,7 @@ private:
   {
     if(!args.size())
     {
-      std::cout << "target account address for mining is not set" << std::endl;
+      std::cout << "Please, specify wallet address to mine for: start_mining <addr> [threads=1]" << std::endl;
       return true;
     }
 
@@ -273,10 +284,11 @@ private:
       std::cout << "target account address has wrong format" << std::endl;
       return true;
     }
-    size_t threads_count  = 1;
+    size_t threads_count = 1;
     if(args.size() > 1)
     {
-      string_tools::get_xtype_from_string(threads_count, args[1]);
+      bool ok = string_tools::get_xtype_from_string(threads_count, args[1]);
+      threads_count = (ok && 0 < threads_count) ? threads_count : 1;
     }
 
     m_srv.get_payload_object().get_core().get_miner().start(adr, threads_count);

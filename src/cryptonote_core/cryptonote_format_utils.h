@@ -139,7 +139,6 @@ namespace cryptonote
   {
     if (0 == amount)
     {
-      chunk_handler(0);
       return;
     }
 

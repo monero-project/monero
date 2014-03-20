@@ -36,8 +36,8 @@ namespace epee
 {
 namespace net_utils
 {
-	typedef boosted_tcp_server<http::simple_http_connection_handler> boosted_http_server_file_system;
-	typedef boosted_tcp_server<http::http_custom_handler> boosted_http_server_custum_handling;
+	typedef boosted_tcp_server<http::simple_http_connection_handler<> > boosted_http_server_file_system;
+	typedef boosted_tcp_server<http::http_custom_handler<> > boosted_http_server_custum_handling;
 }
 }
 

@@ -230,9 +230,9 @@ namespace cryptonote
       return false;
     }
 
-    boost::uint64_t amount_in = 0;
+    uint64_t amount_in = 0;
     get_inputs_money_amount(tx, amount_in);
-    boost::uint64_t amount_out = get_outs_money_amount(tx);
+    uint64_t amount_out = get_outs_money_amount(tx);
 
     if(amount_in <= amount_out)
     {

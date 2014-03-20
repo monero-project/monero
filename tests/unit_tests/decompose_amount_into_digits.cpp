@@ -56,8 +56,7 @@ namespace
 
 TEST_F(decompose_amount_into_digits_test, is_correct_0)
 {
-  uint64_t expected_chunks_arr[] = {0};
-  VEC_FROM_ARR(expected_chunks);
+  std::vector<uint64_t> expected_chunks;
   cryptonote::decompose_amount_into_digits(0, 0, m_chunk_handler, m_dust_handler);
   ASSERT_EQ(m_chunk_handler.m_chunks, expected_chunks);
   ASSERT_EQ(m_dust_handler.m_has_dust, false);
@@ -65,8 +64,7 @@ TEST_F(decompose_amount_into_digits_test, is_correct_0)
 
 TEST_F(decompose_amount_into_digits_test, is_correct_1)
 {
-  uint64_t expected_chunks_arr[] = {0};
-  VEC_FROM_ARR(expected_chunks);
+  std::vector<uint64_t> expected_chunks;
   cryptonote::decompose_amount_into_digits(0, 10, m_chunk_handler, m_dust_handler);
   ASSERT_EQ(m_chunk_handler.m_chunks, expected_chunks);
   ASSERT_EQ(m_dust_handler.m_has_dust, false);

@@ -183,27 +183,35 @@ namespace string_tools
   //----------------------------------------------------------------------------
 PUSH_WARNINGS
 DISABLE_GCC_WARNING(maybe-uninitialized)
-	template<class XType>
-	inline bool get_xtype_from_string(OUT XType& val, const std::string& str_id)
-	{
-		try
-		{
-			val = boost::lexical_cast<XType>(str_id);
+  template<class XType>
+  inline bool get_xtype_from_string(OUT XType& val, const std::string& str_id)
+  {
+    if (std::is_integral<XType>::value && !std::numeric_limits<XType>::is_signed && !std::is_same<XType, bool>::value)
+    {
+      for (char c : str_id)
+      {
+        if (!std::isdigit(c))
+          return false;
+      }
+    }
+
+    try
+    {
+      val = boost::lexical_cast<XType>(str_id);
       return true;
-		}
-		catch(std::exception& /*e*/)
-		{
-			//const char* pmsg = e.what();
-			return false;
-		}
+    }
+    catch(std::exception& /*e*/)
+    {
+      //const char* pmsg = e.what();
+      return false;
+    }
+    catch(...)
+    {
+      return false;
+    }
 
-		catch(...)
-		{
-			return false;
-		}
-
-		return true;
-	}
+    return true;
+  }
 POP_WARNINGS
 	//---------------------------------------------------
 	template<typename int_t>
@@ -315,7 +323,7 @@ POP_WARNINGS
 
 	//----------------------------------------------------------------------------
 //#ifdef _WINSOCK2API_
-	inline std::string get_ip_string_from_int32(boost::uint32_t ip)
+	inline std::string get_ip_string_from_int32(uint32_t ip)
 	{
 		in_addr adr;
 		adr.s_addr = ip;
@@ -326,7 +334,7 @@ POP_WARNINGS
 			return "[failed]";
 	}
 	//----------------------------------------------------------------------------
-	inline bool get_ip_int32_from_string(boost::uint32_t& ip, const std::string& ip_str)
+	inline bool get_ip_int32_from_string(uint32_t& ip, const std::string& ip_str)
 	{
 		ip = inet_addr(ip_str.c_str());
 		if(INADDR_NONE == ip)
@@ -369,7 +377,7 @@ POP_WARNINGS
     return ss.str();
   }
 
-	inline std::string num_to_string_fast(boost::int64_t val)
+	inline std::string num_to_string_fast(int64_t val)
 	{
 		/*
 		char  buff[30] = {0};
@@ -378,7 +386,7 @@ POP_WARNINGS
 		return boost::lexical_cast<std::string>(val);
 	}
 	//----------------------------------------------------------------------------
-	inline bool string_to_num_fast(const std::string& buff, boost::int64_t& val)
+	inline bool string_to_num_fast(const std::string& buff, int64_t& val)
 	{
 		//return get_xtype_from_string(val, buff);
 #if (defined _MSC_VER)

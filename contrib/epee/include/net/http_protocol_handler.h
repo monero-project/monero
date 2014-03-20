@@ -55,10 +55,11 @@ namespace net_utils
 		/************************************************************************/
 		/*                                                                      */
 		/************************************************************************/
+    template<class t_connection_context  = net_utils::connection_context_base>
 		class simple_http_connection_handler
 		{
 		public:
-      typedef net_utils::connection_context_base connection_context;
+      typedef t_connection_context connection_context;//t_connection_context net_utils::connection_context_base connection_context;
 			typedef http_server_config config_type;
 
 			simple_http_connection_handler(i_service_endpoint* psnd_hndlr, config_type& config);
@@ -141,30 +142,32 @@ namespace net_utils
 			i_service_endpoint* m_psnd_hndlr; 
 		};
 
-
+    template<class t_connection_context>
 		struct i_http_server_handler
 		{
 			virtual ~i_http_server_handler(){}
-			virtual bool handle_http_request(const http_request_info& query_info, http_response_info& response, const net_utils::connection_context_base& m_conn_context)=0;
+			virtual bool handle_http_request(const http_request_info& query_info, http_response_info& response, t_connection_context& m_conn_context)=0;
       virtual bool init_server_thread(){return true;}
 			virtual bool deinit_server_thread(){return true;}
 		};
 
-
+    template<class t_connection_context>
 		struct custum_handler_config: public http_server_config
 		{
-			i_http_server_handler* m_phandler;
+			i_http_server_handler<t_connection_context>* m_phandler;
 		};
 
     /************************************************************************/
     /*                                                                      */
     /************************************************************************/
-		class http_custom_handler: public simple_http_connection_handler
+
+    template<class t_connection_context = net_utils::connection_context_base>
+		class http_custom_handler: public simple_http_connection_handler<t_connection_context>
 		{
 		public:
-			typedef custum_handler_config config_type;
+			typedef custum_handler_config<t_connection_context> config_type;
 			
-			http_custom_handler(i_service_endpoint* psnd_hndlr, config_type& config, const net_utils::connection_context_base& conn_context):simple_http_connection_handler(psnd_hndlr, config), 
+			http_custom_handler(i_service_endpoint* psnd_hndlr, config_type& config, t_connection_context& conn_context):simple_http_connection_handler<t_connection_context>(psnd_hndlr, config), 
 				m_config(config),
 				m_conn_context(conn_context)
 			{}
@@ -198,7 +201,7 @@ namespace net_utils
 		private:
 			//simple_http_connection_handler::config_type m_stub_config;
 			config_type& m_config;
-			const net_utils::connection_context_base& m_conn_context;
+			t_connection_context& m_conn_context;
 		};
 	}
 }

@@ -227,6 +227,7 @@ namespace tools
       std::string addr_data;
       bool r = decode(addr, addr_data);
       if (!r) return false;
+      if (addr_data.size() <= addr_checksum_size) return false;
 
       std::string checksum(addr_checksum_size, '\0');
       checksum = addr_data.substr(addr_data.size() - addr_checksum_size);

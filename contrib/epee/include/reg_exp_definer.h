@@ -45,8 +45,8 @@ namespace epee
   const static global_regexp_critical_section gregexplock;
 
 #define STATIC_REGEXP_EXPR_1(var_name, xpr_text, reg_exp_flags) \
-	static volatile boost::uint32_t regexp_initialized_1 = 0;\
-	volatile boost::uint32_t local_is_initialized_1 = regexp_initialized_1;\
+	static volatile uint32_t regexp_initialized_1 = 0;\
+	volatile uint32_t local_is_initialized_1 = regexp_initialized_1;\
 	if(!local_is_initialized_1)\
 	gregexplock.get_lock().lock();\
 	static const boost::regex	var_name(xpr_text , reg_exp_flags);\
@@ -57,8 +57,8 @@ namespace epee
 }
 
 #define STATIC_REGEXP_EXPR_2(var_name, xpr_text, reg_exp_flags) \
-	static volatile boost::uint32_t regexp_initialized_2 = 0;\
-	volatile boost::uint32_t local_is_initialized_2 = regexp_initialized_2;\
+	static volatile uint32_t regexp_initialized_2 = 0;\
+	volatile uint32_t local_is_initialized_2 = regexp_initialized_2;\
 	if(!local_is_initialized_2)\
 	gregexplock.get_lock().lock().lock();\
 	static const boost::regex	var_name(xpr_text , reg_exp_flags);\
@@ -69,8 +69,8 @@ namespace epee
 }
 
 #define STATIC_REGEXP_EXPR_3(var_name, xpr_text, reg_exp_flags) \
-	static volatile boost::uint32_t regexp_initialized_3 = 0;\
-	volatile boost::uint32_t local_is_initialized_3 = regexp_initialized_3;\
+	static volatile uint32_t regexp_initialized_3 = 0;\
+	volatile uint32_t local_is_initialized_3 = regexp_initialized_3;\
 	if(!local_is_initialized_3)\
 	gregexplock.get_lock().lock().lock();\
 	static const boost::regex	var_name(xpr_text , reg_exp_flags);\

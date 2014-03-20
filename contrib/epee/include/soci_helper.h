@@ -34,22 +34,22 @@ namespace soci
 {
 
 		template <>
-		struct type_conversion<boost::uint64_t>
+		struct type_conversion<uint64_t>
 		{
 			typedef long long base_type;
 
-			static void from_base(base_type a_, indicator ind, boost::uint64_t & mi)
+			static void from_base(base_type a_, indicator ind, uint64_t & mi)
 			{
 				if (ind == i_null)
 				{
 					mi = 0;
 					//throw soci_error("Null value not allowed for this type");
 				}
-				mi = (boost::uint64_t)a_;
+				mi = (uint64_t)a_;
 				//mi.set(i);
 			}
 
-			static void to_base(const boost::uint64_t & mi, base_type & i, indicator & ind)
+			static void to_base(const uint64_t & mi, base_type & i, indicator & ind)
 			{
 				i = (base_type)mi;
 				ind = i_ok;

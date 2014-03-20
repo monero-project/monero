@@ -76,10 +76,10 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  void node_server<t_payload_net_handler>::for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&)> f)
+  void node_server<t_payload_net_handler>::for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type)> f)
   {
     m_net_server.get_config_object().foreach_connection([&](p2p_connection_context& cntx){
-      return f(cntx);
+      return f(cntx, cntx.peer_id);
     });
   }
   //-----------------------------------------------------------------------------------
@@ -143,20 +143,59 @@ namespace nodetool
       m_hide_my_port = true;    return true;
   }
   //-----------------------------------------------------------------------------------
-#define ADD_HARDCODED_SEED_NODE(addr_str)    { nodetool::net_address na = AUTO_VAL_INIT(na);bool r = parse_peer_from_string(na, addr_str); \
-            CHECK_AND_ASSERT_MES(r, false, "Failed to parse seed address from string: " << addr_str); m_seed_nodes.push_back(na); }
+  namespace
+  {
+    template<typename T>
+    bool append_net_address(T& nodes, const std::string& addr)
+    {
+      using namespace boost::asio;
 
+      size_t pos = addr.find_last_of(':');
+      CHECK_AND_ASSERT_MES(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, false, "Failed to parse seed address from string: '" << addr << '\'');
+      std::string host = addr.substr(0, pos);
+      std::string port = addr.substr(pos + 1);
 
+      io_service io_srv;
+      ip::tcp::resolver resolver(io_srv);
+      ip::tcp::resolver::query query(host, port);
+      boost::system::error_code ec;
+      ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
+      CHECK_AND_NO_ASSERT_MES(!ec, false, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
+
+      ip::tcp::resolver::iterator iend;
+      for (; i != iend; ++i)
+      {
+        ip::tcp::endpoint endpoint = *i;
+        if (endpoint.address().is_v4())
+        {
+          nodetool::net_address na;
+          na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
+          na.port = endpoint.port();
+          nodes.push_back(na);
+          LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
+        }
+        else
+        {
+          LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
+        }
+      }
+
+      return true;
+    }
+  }
+
+  #define ADD_HARDCODED_SEED_NODE(addr) append_net_address(m_seed_nodes, addr);
+  //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
-
+    ADD_HARDCODED_SEED_NODE("seed.bytecoin.org:8080");
     ADD_HARDCODED_SEED_NODE("85.25.201.95:8080");
     ADD_HARDCODED_SEED_NODE("85.25.196.145:8080");
     ADD_HARDCODED_SEED_NODE("85.25.196.146:8080");
     ADD_HARDCODED_SEED_NODE("85.25.196.144:8080");
     ADD_HARDCODED_SEED_NODE("5.199.168.138:8080");
-    ADD_HARDCODED_SEED_NODE("62.75.236.152:8080");    
+    ADD_HARDCODED_SEED_NODE("62.75.236.152:8080");
     ADD_HARDCODED_SEED_NODE("85.25.194.245:8080");
     ADD_HARDCODED_SEED_NODE("95.211.224.160:8080");
     ADD_HARDCODED_SEED_NODE("144.76.200.44:8080");
@@ -290,7 +329,7 @@ namespace nodetool
     bool r = net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(), 
       [this, &pi, &ev, &hsh_result, &just_take_peerlist](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
     {
-      misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler([&](){ev.rise();});
+      misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler([&](){ev.raise();});
 
       if(code < 0)
       {
@@ -542,7 +581,7 @@ namespace nodetool
           LOG_PRINT_RED_L0("Failed to connect to any of seed peers, continuing without seeds");
           break;
         }
-        if(++current_index > m_seed_nodes.size())
+        if(++current_index >= m_seed_nodes.size())
           current_index = 0;
       }
     }
@@ -939,7 +978,7 @@ namespace nodetool
     if(arg.node_data.peer_id != m_config.m_peer_id && arg.node_data.my_port)
     {
       peerid_type peer_id_l = arg.node_data.peer_id;
-      boost::uint32_t port_l = arg.node_data.my_port;
+      uint32_t port_l = arg.node_data.my_port;
       //try ping to be sure that we can add this peer to peer_list
       try_ping(arg.node_data, context, [peer_id_l, port_l, context, this]()
       {

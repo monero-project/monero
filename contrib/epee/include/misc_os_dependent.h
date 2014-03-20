@@ -48,7 +48,7 @@ namespace epee
 namespace misc_utils
 {
 
-        inline boost::uint64_t get_tick_count()
+        inline uint64_t get_tick_count()
         {
 #if defined(_MSC_VER)
                 return ::GetTickCount64();

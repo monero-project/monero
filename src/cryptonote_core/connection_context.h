@@ -6,32 +6,10 @@
 #include <unordered_set>
 #include <atomic>
 #include "net/net_utils_base.h"
-
+#include "copyable_atomic.h"
 
 namespace cryptonote
 {
-  class my_atomic: public std::atomic<uint32_t>
-  {
-  public:
-    my_atomic()
-    {};
-    my_atomic(const my_atomic& a):std::atomic<uint32_t>(a.load())
-    {}
-    my_atomic& operator= (const my_atomic& a)
-    {
-      store(a.load());
-      return *this;
-    }
-    uint32_t operator++()
-    {
-     return std::atomic<uint32_t>::operator++();
-    }
-    uint32_t operator++(int fake)
-    {
-      return std::atomic<uint32_t>::operator++(fake);
-    }
-  };
-
 
   struct cryptonote_connection_context: public epee::net_utils::connection_context_base
   {
@@ -40,6 +18,7 @@ namespace cryptonote
     {
       state_befor_handshake = 0, //default state
       state_synchronizing,
+      state_idle,
       state_normal
     };
 
@@ -48,7 +27,25 @@ namespace cryptonote
     std::unordered_set<crypto::hash> m_requested_objects;
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;
-    my_atomic m_callback_request_count; //in debug purpose: problem with double callback rise
+    epee::copyable_atomic m_callback_request_count; //in debug purpose: problem with double callback rise
     //size_t m_score;  TODO: add score calculations
   };
+
+  inline std::string get_protocol_state_string(cryptonote_connection_context::state s)
+  {
+    switch (s)
+    {
+    case cryptonote_connection_context::state_befor_handshake:
+      return "state_befor_handshake";
+    case cryptonote_connection_context::state_synchronizing:
+      return "state_synchronizing";
+    case cryptonote_connection_context::state_idle:
+      return "state_idle";
+    case cryptonote_connection_context::state_normal:
+      return "state_normal";
+    default:
+      return "unknown";
+    }    
+  }
+
 }

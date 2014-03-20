@@ -41,13 +41,13 @@ namespace levin
 #pragma pack(1)
 	struct bucket_head
 	{
-		boost::uint64_t m_signature;
-		boost::uint64_t m_cb;
-		bool    m_have_to_return_data;
-		boost::uint32_t m_command;
-		boost::int32_t m_return_code;
-		boost::uint32_t m_reservedA; //probably some flags in future
-		boost::uint32_t m_reservedB; //probably some check sum in future
+		uint64_t m_signature;
+		uint64_t m_cb;
+		bool     m_have_to_return_data;
+		uint32_t m_command;
+		int32_t  m_return_code;
+		uint32_t m_reservedA; //probably some flags in future
+		uint32_t m_reservedB; //probably some check sum in future
 	};
 #pragma pack(pop)
 
@@ -56,13 +56,13 @@ namespace levin
 #pragma pack(1)
   struct bucket_head2
   {
-    boost::uint64_t m_signature;
-    boost::uint64_t m_cb;
-    bool    m_have_to_return_data;
-    boost::uint32_t m_command;
-    boost::int32_t m_return_code;
-    boost::uint32_t m_flags;
-    boost::uint32_t m_protocol_version;
+    uint64_t m_signature;
+    uint64_t m_cb;
+    bool     m_have_to_return_data;
+    uint32_t m_command;
+    int32_t  m_return_code;
+    uint32_t m_flags;
+    uint32_t m_protocol_version;
   };
 #pragma pack(pop)
 

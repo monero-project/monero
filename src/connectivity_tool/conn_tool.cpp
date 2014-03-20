@@ -27,12 +27,12 @@ using namespace nodetool;
 
 namespace
 {
-  const command_line::arg_descriptor<std::string, true> arg_ip                 = {"ip", "set ip"};
+  const command_line::arg_descriptor<std::string, true> arg_ip           = {"ip", "set ip"};
   const command_line::arg_descriptor<size_t>      arg_port               = {"port", "set port"};
   const command_line::arg_descriptor<size_t>      arg_rpc_port           = {"rpc_port", "set rpc port"};
-  const command_line::arg_descriptor<uint32_t, true>      arg_timeout            = {"timeout", "set timeout"};
+  const command_line::arg_descriptor<uint32_t, true> arg_timeout         = {"timeout", "set timeout"};
   const command_line::arg_descriptor<std::string> arg_priv_key           = {"private_key", "private key to subscribe debug command", "", true};
-  const command_line::arg_descriptor<boost::uint64_t>    arg_peer_id     = {"peer_id", "peer_id if known(if not - will be requested)", 0};
+  const command_line::arg_descriptor<uint64_t>    arg_peer_id            = {"peer_id", "peer_id if known(if not - will be requested)", 0};
   const command_line::arg_descriptor<bool>        arg_generate_keys      = {"generate_keys_pair", "generate private and public keys pair"};
   const command_line::arg_descriptor<bool>        arg_request_stat_info  = {"request_stat_info", "request statistics information"};
   const command_line::arg_descriptor<bool>        arg_request_net_state  = {"request_net_state", "request network state information (peer list, connections count)"};

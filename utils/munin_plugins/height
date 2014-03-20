@@ -13,4 +13,4 @@ EOM
 esac
 
 printf "height.value "
-/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep hight | cut -d ' ' -f2
+/home/user/bytecoin_bin/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep height | cut -d ' ' -f2

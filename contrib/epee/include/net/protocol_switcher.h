@@ -95,10 +95,10 @@ namespace net_utils
 		else
 		{
 			m_cached_buff.append((const char*)ptr, cb);
-			if(m_cached_buff.size() < sizeof(boost::uint64_t))
+			if(m_cached_buff.size() < sizeof(uint64_t))
 				return true;
 
-			if(*((boost::uint64_t*)&m_cached_buff[0]) == LEVIN_SIGNATURE)
+			if(*((uint64_t*)&m_cached_buff[0]) == LEVIN_SIGNATURE)
 			{
 				pcurrent_handler = &m_levin_handler;
 				return pcurrent_handler->handle_recv(m_cached_buff.data(), m_cached_buff.size());

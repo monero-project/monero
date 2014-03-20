@@ -13,7 +13,7 @@ namespace cryptonote
     t_cryptonote_protocol_handler<t_core>::t_cryptonote_protocol_handler(t_core& rcore, nodetool::i_p2p_endpoint<connection_context>* p_net_layout):m_core(rcore), 
                                                                                                               m_p2p(p_net_layout),
                                                                                                               m_syncronized_connections_count(0),
-                                                                                                              m_welcome_showed(false)
+                                                                                                              m_synchronized(false)
 
   {
     if(!m_p2p)
@@ -68,6 +68,30 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------   
   template<class t_core> 
+  void t_cryptonote_protocol_handler<t_core>::log_connections()
+  {
+    std::stringstream ss;
+
+    ss << std::setw(25) << std::left << "Remote Host" 
+      << std::setw(20) << "Peer id"
+      << std::setw(25) << "Recv/Sent (inactive,sec)"
+      << std::setw(25) << "State"
+      << std::setw(20) << "Livetime(seconds)" << ENDL;
+
+    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id)
+    {
+      ss << std::setw(25) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") + 
+        string_tools::get_ip_string_from_int32(cntxt.m_remote_ip) + ":" + std::to_string(cntxt.m_remote_port) 
+        << std::setw(20) << std::hex << peer_id
+        << std::setw(25) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
+        << std::setw(25) << get_protocol_state_string(cntxt.m_state)
+        << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started) << ENDL;
+      return true;
+    });
+    LOG_PRINT_L0("Connections: " << ENDL << ss.str());
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core> 
   bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital)
   {
     if(context.m_state == cryptonote_connection_context::state_befor_handshake && !is_inital)
@@ -84,7 +108,7 @@ namespace cryptonote
       return true;
     }
 
-    LOG_PRINT_CCONTEXT_BLUE("Sync data returned unknown top block " << "["<< m_core.get_current_blockchain_height() << "->" << hshd.current_height << "] " << hshd.top_id << ", set SYNCHRONIZATION mode", LOG_LEVEL_0);
+    LOG_PRINT_CCONTEXT_BLUE("Sync data returned unknown top block " << "["<< m_core.get_current_blockchain_height() << "->" << hshd.current_height << "] " << hshd.top_id << ", set SYNCHRONIZATION mode", (is_inital ? LOG_LEVEL_0:LOG_LEVEL_1));
     context.m_state = cryptonote_connection_context::state_synchronizing;
     context.m_remote_blockchain_height = hshd.current_height;
     //let the socket to send response to handshake, but request callback, to let send request data after response
@@ -93,14 +117,6 @@ namespace cryptonote
     m_p2p->request_callback(context);
     return true;
   }
-  //------------------------------------------------------------------------------------------------------------------------
-   /* template<class t_core> 
-    bool t_cryptonote_protocol_handler<t_core>::process_handshake_data(const blobdata& data, cryptonote_connection_context& context)
-  {
-    CORE_SYNC_DATA hsd = boost::value_initialized<CORE_SYNC_DATA>();
-    StorageNamed::load_struct_from_storage_buff(hsd, data);
-    return process_handshake_data(hsd, context);
-  }*/
   //------------------------------------------------------------------------------------------------------------------------  
   template<class t_core> 
   bool t_cryptonote_protocol_handler<t_core>::get_payload_sync_data(CORE_SYNC_DATA& hshd)
@@ -228,8 +244,10 @@ namespace cryptonote
 
     context.m_remote_blockchain_height = arg.current_blockchain_height;
 
+    size_t count = 0;
     BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
     {
+      ++count;
       block b;
       if(!parse_and_validate_block_from_blob(block_entry.block, b))
       {
@@ -237,6 +255,18 @@ namespace cryptonote
           << string_tools::buff_to_hex_nodelimer(block_entry.block) << "\r\n dropping connection");
         m_p2p->drop_connection(context);
         return 1;
+      }      
+      //to avoid concurrency in core between connections, suspend connections which delivered block later then first one
+      if(count == 2)
+      { 
+        if(m_core.have_block(get_block_hash(b)))
+        {
+          context.m_state = cryptonote_connection_context::state_idle;
+          context.m_needed_objects.clear();
+          context.m_requested_objects.clear();
+          LOG_PRINT_CCONTEXT_L1("Connection set to idle state.");
+          return 1;
+        }
       }
       
       auto req_it = context.m_requested_objects.find(get_block_hash(b));
@@ -380,10 +410,7 @@ namespace cryptonote
       
       context.m_state = cryptonote_connection_context::state_normal;
       LOG_PRINT_CCONTEXT_GREEN(" SYNCHRONIZED OK", LOG_LEVEL_0);
-      if( true/*get_synchronizing_connections_count() == 0 && !m_welcome_showed*/)
-      {
-        on_connection_synchronized();
-      }
+      on_connection_synchronized();
     }
     return true;
   }
@@ -392,7 +419,7 @@ namespace cryptonote
   bool t_cryptonote_protocol_handler<t_core>::on_connection_synchronized()
   {
     bool val_expected = false;
-    if(m_welcome_showed.compare_exchange_strong(val_expected, true))
+    if(m_synchronized.compare_exchange_strong(val_expected, true))
     {
       LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL 
         << "You are now synchronized with the network. You may now start simplewallet." << ENDL 
@@ -411,7 +438,7 @@ namespace cryptonote
   size_t t_cryptonote_protocol_handler<t_core>::get_synchronizing_connections_count()
   {
     size_t count = 0;
-    m_p2p->for_each_connection([&](cryptonote_connection_context& context)->bool{
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id)->bool{
       if(context.m_state == cryptonote_connection_context::state_synchronizing)
         ++count;
       return true;

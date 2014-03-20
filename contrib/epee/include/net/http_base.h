@@ -127,7 +127,7 @@ namespace net_utils
       std::string schema;
       std::string host;
       std::string uri;
-      boost::uint64_t port;
+      uint64_t port;
       uri_content m_uri_content;
     };
 

@@ -191,8 +191,8 @@ namespace net_utils
 
 
 		//--------------------------------------------------------------------------------------------
-		inline 
-		simple_http_connection_handler::simple_http_connection_handler(i_service_endpoint* psnd_hndlr, config_type& config):
+		template<class t_connection_context>
+		simple_http_connection_handler<t_connection_context>::simple_http_connection_handler(i_service_endpoint* psnd_hndlr, config_type& config):
 		m_state(http_state_retriving_comand_line),
 		m_body_transfer_type(http_body_transfer_undefined),
         m_is_stop_handling(false),
@@ -205,7 +205,8 @@ namespace net_utils
 
 	}
 	//--------------------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::set_ready_state()
+    template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::set_ready_state()
 	{
 		m_is_stop_handling = false;
 		m_state = http_state_retriving_comand_line;
@@ -215,7 +216,8 @@ namespace net_utils
 		return true;
 	}
 	//--------------------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::handle_recv(const void* ptr, size_t cb)
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::handle_recv(const void* ptr, size_t cb)
 	{
 		std::string buf((const char*)ptr, cb);
 		//LOG_PRINT_L0("HTTP_RECV: " << ptr << "\r\n" << buf);
@@ -227,7 +229,8 @@ namespace net_utils
 		return res;
 	}
 	//--------------------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::handle_buff_in(std::string& buf)
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::handle_buff_in(std::string& buf)
 	{
 
 		if(m_cache.size())
@@ -324,9 +327,10 @@ namespace net_utils
 	}
 
   //--------------------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::handle_invoke_query_line()
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::handle_invoke_query_line()
 	{ 
-		LOG_FRAME("simple_http_connection_handler::handle_recognize_protocol_out(*)", LOG_LEVEL_3);
+		LOG_FRAME("simple_http_connection_handler<t_connection_context>::handle_recognize_protocol_out(*)", LOG_LEVEL_3);
 
 		STATIC_REGEXP_EXPR_1(rexp_match_command_line, "^(((OPTIONS)|(GET)|(HEAD)|(POST)|(PUT)|(DELETE)|(TRACE)) (\\S+) HTTP/(\\d+).(\\d+))\r?\n", boost::regex::icase | boost::regex::normal);
 		//											    123         4     5      6      7     8        9        10          11     12    
@@ -348,14 +352,15 @@ namespace net_utils
 		}else
 		{
 			m_state = http_state_error;
-			LOG_ERROR("simple_http_connection_handler::handle_invoke_query_line(): Failed to match first line: " << m_cache);
+			LOG_ERROR("simple_http_connection_handler<t_connection_context>::handle_invoke_query_line(): Failed to match first line: " << m_cache);
 			return false;
 		}
 
 		return false;
 	}
 	//--------------------------------------------------------------------------------------------
-	inline std::string::size_type simple_http_connection_handler::match_end_of_header(const std::string& buf)
+  template<class t_connection_context>
+	std::string::size_type simple_http_connection_handler<t_connection_context>::match_end_of_header(const std::string& buf)
 	{
 
     //Here we returning head size, including terminating sequence (\r\n\r\n or \n\n)
@@ -368,18 +373,19 @@ namespace net_utils
 		return res;
 	}
 	//--------------------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::analize_cached_request_header_and_invoke_state(size_t pos)
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(size_t pos)
 	{ 
 		//LOG_PRINT_L4("HTTP HEAD:\r\n" << m_cache.substr(0, pos));
 
-		LOG_FRAME("simple_http_connection_handler::analize_cached_request_header_and_invoke_state(*)", LOG_LEVEL_3);
+		LOG_FRAME("simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(*)", LOG_LEVEL_3);
 
 		m_query_info.m_full_request_buf_size = pos;
     m_query_info.m_request_head.assign(m_cache.begin(), m_cache.begin()+pos); 
 
 		if(!parse_cached_header(m_query_info.m_header_info, m_cache, pos))
 		{
-			LOG_ERROR("simple_http_connection_handler::analize_cached_request_header_and_invoke_state(): failed to anilize request header: " << m_cache);
+			LOG_ERROR("simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): failed to anilize request header: " << m_cache);
 			m_state = http_state_error;
 		}
 
@@ -394,7 +400,7 @@ namespace net_utils
 			m_body_transfer_type = http_body_transfer_measure;
 			if(!get_len_from_content_lenght(m_query_info.m_header_info.m_content_length, m_len_summary))
 			{
-				LOG_ERROR("simple_http_connection_handler::analize_cached_request_header_and_invoke_state(): Failed to get_len_from_content_lenght();, m_query_info.m_content_length="<<m_query_info.m_header_info.m_content_length);
+				LOG_ERROR("simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): Failed to get_len_from_content_lenght();, m_query_info.m_content_length="<<m_query_info.m_header_info.m_content_length);
 				m_state = http_state_error;
 				return false;
 			}
@@ -415,7 +421,8 @@ namespace net_utils
 		return true;
 	}
 	//-----------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::handle_retriving_query_body()
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::handle_retriving_query_body()
 	{
 		switch(m_body_transfer_type)
 		{
@@ -426,7 +433,7 @@ namespace net_utils
 		case http_body_transfer_multipart:
 		case http_body_transfer_undefined:
 		default:
-			LOG_ERROR("simple_http_connection_handler::handle_retriving_query_body(): Unexpected m_body_query_type state:" << m_body_transfer_type);
+			LOG_ERROR("simple_http_connection_handler<t_connection_context>::handle_retriving_query_body(): Unexpected m_body_query_type state:" << m_body_transfer_type);
 			m_state = http_state_error;
 			return false;
 		}
@@ -434,7 +441,8 @@ namespace net_utils
 		return true;
 	}
 	//-----------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::handle_query_measure()
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::handle_query_measure()
 	{
 
 		if(m_len_remain >= m_cache.size())
@@ -459,7 +467,8 @@ namespace net_utils
 		return true;
 	}
 	//--------------------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::parse_cached_header(http_header_info& body_info, const std::string& m_cache_to_process, size_t pos)
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::parse_cached_header(http_header_info& body_info, const std::string& m_cache_to_process, size_t pos)
 	{ 
 		LOG_FRAME("http_stream_filter::parse_cached_header(*)", LOG_LEVEL_3);
 
@@ -503,7 +512,7 @@ namespace net_utils
 				body_info.m_etc_fields.push_back(std::pair<std::string, std::string>(result[field_etc_name], result[field_val]));
 			else
 			{
-				LOG_ERROR("simple_http_connection_handler::parse_cached_header() not matched last entry in:"<<m_cache_to_process);
+				LOG_ERROR("simple_http_connection_handler<t_connection_context>::parse_cached_header() not matched last entry in:"<<m_cache_to_process);
 			}
 
 			it_current_bound = result[(int)result.size()-1]. first;
@@ -511,7 +520,8 @@ namespace net_utils
 		return  true;
 	}
 	//-----------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::get_len_from_content_lenght(const std::string& str, size_t& OUT len)
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::get_len_from_content_lenght(const std::string& str, size_t& OUT len)
 	{
 		STATIC_REGEXP_EXPR_1(rexp_mach_field, "\\d+", boost::regex::normal);
 		std::string res;
@@ -523,7 +533,8 @@ namespace net_utils
 		return true;
 	}
 	//-----------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::handle_request_and_send_response(const http::http_request_info& query_info)
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::handle_request_and_send_response(const http::http_request_info& query_info)
 	{
 		http_response_info response;
 		bool res = handle_request(query_info, response);
@@ -540,7 +551,8 @@ namespace net_utils
 		return res;
 	}
 	//-----------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::handle_request(const http::http_request_info& query_info, http_response_info& response)
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::handle_request(const http::http_request_info& query_info, http_response_info& response)
 	{
 
 		std::string uri_to_path = query_info.m_uri_content.m_path;
@@ -570,7 +582,8 @@ namespace net_utils
 		return true;
 	}
 	//-----------------------------------------------------------------------------------
-	inline std::string simple_http_connection_handler::get_response_header(const http_response_info& response)
+  template<class t_connection_context>
+	std::string simple_http_connection_handler<t_connection_context>::get_response_header(const http_response_info& response)
 	{
 		std::string buf = "HTTP/1.1 ";
 		buf += boost::lexical_cast<std::string>(response.m_response_code) + " " + response.m_response_comment + "\r\n" +
@@ -607,7 +620,8 @@ namespace net_utils
 		return buf;
 	}
 	//-----------------------------------------------------------------------------------
-	inline std::string simple_http_connection_handler::get_file_mime_tipe(const std::string& path)
+	template<class t_connection_context>
+  std::string simple_http_connection_handler<t_connection_context>::get_file_mime_tipe(const std::string& path)
 	{
 		std::string result;
 		std::string ext = string_tools::get_extension(path);
@@ -632,7 +646,8 @@ namespace net_utils
 		return result;
 	}
 	//-----------------------------------------------------------------------------------
-	inline std::string simple_http_connection_handler::get_not_found_response_body(const std::string& URI)
+	template<class t_connection_context>
+  std::string simple_http_connection_handler<t_connection_context>::get_not_found_response_body(const std::string& URI)
 	{
 		std::string body = 
 			"<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\r\n"
@@ -648,7 +663,8 @@ namespace net_utils
 		return body;
 	}
 	//--------------------------------------------------------------------------------------------
-	inline bool simple_http_connection_handler::slash_to_back_slash(std::string& str)
+	template<class t_connection_context>
+  bool simple_http_connection_handler<t_connection_context>::slash_to_back_slash(std::string& str)
 	{
 		for(std::string::iterator it = str.begin(); it!=str.end(); it++)
 			if('/' == *it)

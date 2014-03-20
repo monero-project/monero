@@ -38,6 +38,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_os_version  = {"os-version", ""};
   const command_line::arg_descriptor<std::string> arg_log_file    = {"log-file", "", ""};
   const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", LOG_LEVEL_0};
+  const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm);
@@ -67,6 +68,8 @@ int main(int argc, char* argv[])
 
   command_line::add_arg(desc_cmd_sett, arg_log_file);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
+  command_line::add_arg(desc_cmd_sett, arg_console);
+  
 
   cryptonote::core::init_options(desc_cmd_sett);
   cryptonote::core_rpc_server::init_options(desc_cmd_sett);
@@ -118,6 +121,7 @@ int main(int argc, char* argv[])
   log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
 
   log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
+  LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
 
   if (command_line_preprocessor(vm))
   {
@@ -162,14 +166,22 @@ int main(int argc, char* argv[])
   res = ccore.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
   LOG_PRINT_L0("Core initialized OK");
-
+  
   // start components
-  dch.start_handling();
+  if(!command_line::has_arg(vm, arg_console))
+  {
+    dch.start_handling();
+  }
 
   LOG_PRINT_L0("Starting core rpc server...");
   res = rpc_server.run(2, false);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
   LOG_PRINT_L0("Core rpc server started ok");
+
+  tools::signal_handler::install([&dch, &p2psrv] {
+    dch.stop_handling();
+    p2psrv.send_stop_signal();
+  });
 
   LOG_PRINT_L0("Starting p2p net loop...");
   p2psrv.run();
@@ -205,7 +217,7 @@ bool command_line_preprocessor(const boost::program_options::variables_map& vm)
   bool exit = false;
   if (command_line::get_arg(vm, command_line::arg_version))
   {
-    std::cout << CRYPTONOTE_NAME << PROJECT_VERSION_LONG << ENDL;
+    std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
     exit = true;
   }
   if (command_line::get_arg(vm, arg_os_version))

@@ -429,7 +429,7 @@ namespace net_utils
 
 		}
 
-		inline bool recv_n(std::string& buff, boost::int64_t sz)
+		inline bool recv_n(std::string& buff, int64_t sz)
 		{
 
 			try
@@ -564,7 +564,7 @@ namespace net_utils
 		bool m_initialized;
 		bool m_connected;
 		boost::asio::deadline_timer m_deadline;
-		volatile boost::uint32_t m_shutdowned;
+		volatile uint32_t m_shutdowned;
 	};
 
 

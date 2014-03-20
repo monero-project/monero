@@ -64,8 +64,8 @@ class async_protocol_handler_config
 public:
   typedef t_connection_context connection_context;
   levin_commands_handler<t_connection_context>* m_pcommands_handler;
-  boost::uint64_t m_max_packet_size; 
-  boost::uint64_t m_invoke_timeout;
+  uint64_t m_max_packet_size; 
+  uint64_t m_invoke_timeout;
 
   int invoke(int command, const std::string& in_buff, std::string& buff_out, boost::uuids::uuid connection_id);
   template<class callback_t>
@@ -122,7 +122,7 @@ public:
   std::string m_cache_in_buffer;
   stream_state m_state;
 
-  boost::int32_t m_oponent_protocol_ver;
+  int32_t m_oponent_protocol_ver;
   bool m_connection_initialized;
 
   struct invoke_response_handler_base
@@ -424,7 +424,7 @@ public:
         {
           if(m_cache_in_buffer.size() < sizeof(bucket_head2))
           {
-            if(m_cache_in_buffer.size() >= sizeof(boost::uint64_t) && *((boost::uint64_t*)m_cache_in_buffer.data()) != LEVIN_SIGNATURE)
+            if(m_cache_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cache_in_buffer.data()) != LEVIN_SIGNATURE)
             {
               LOG_ERROR_CC(m_connection_context, "Signature mismatch, connection will be closed");
               return false;

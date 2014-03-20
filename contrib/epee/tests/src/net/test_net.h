@@ -44,7 +44,7 @@ namespace tests
   {		
 
     std::string str1;
-    std::list<boost::uint64_t> array_of_id;
+    std::list<uint64_t> array_of_id;
 
     BEGIN_NAMED_SERIALIZE_MAP()
       SERIALIZE_STL_ANSI_STRING(str1)
@@ -64,7 +64,7 @@ namespace tests
     {		
 
       std::string example_string_data;
-      boost::uint64_t example_id_data;
+      uint64_t example_id_data;
       some_subdata sub;
 
       BEGIN_NAMED_SERIALIZE_MAP()
@@ -78,7 +78,7 @@ namespace tests
     struct response
     {
       bool 	 m_success; 
-      boost::uint64_t example_id_data;
+      uint64_t example_id_data;
       std::list<some_subdata> subs;
 
       BEGIN_NAMED_SERIALIZE_MAP()
@@ -96,7 +96,7 @@ namespace tests
     struct request
     {		
       std::string example_string_data2;
-      boost::uint64_t example_id_data;
+      uint64_t example_id_data;
 
       BEGIN_NAMED_SERIALIZE_MAP()
         SERIALIZE_POD(example_id_data)
@@ -106,8 +106,8 @@ namespace tests
 
     struct response
     {
-      bool 	 m_success; 
-      boost::uint64_t example_id_data;
+      bool m_success; 
+      uint64_t example_id_data;
 
       BEGIN_NAMED_SERIALIZE_MAP()
         SERIALIZE_POD(example_id_data)
@@ -127,12 +127,12 @@ namespace tests
       m_net_server.set_threads_prefix(pref);
     }
     template<class calback_t>
-    bool connect_async(const std::string adr, const std::string& port, boost::uint32_t conn_timeot, calback_t cb, const std::string& bind_ip = "0.0.0.0")
+    bool connect_async(const std::string adr, const std::string& port, uint32_t conn_timeot, calback_t cb, const std::string& bind_ip = "0.0.0.0")
     {
       return m_net_server.connect_async(adr, port, conn_timeot, cb, bind_ip);
     }
 
-    bool connect(const std::string adr, const std::string& port, boost::uint32_t conn_timeot, net_utils::connection_context_base& cn, const std::string& bind_ip = "0.0.0.0")
+    bool connect(const std::string adr, const std::string& port, uint32_t conn_timeot, net_utils::connection_context_base& cn, const std::string& bind_ip = "0.0.0.0")
     {
       return m_net_server.connect(adr, port, conn_timeot, cn, bind_ip);
     }

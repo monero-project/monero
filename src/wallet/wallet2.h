@@ -25,11 +25,33 @@
 
 namespace tools
 {
+  inline std::string interpret_rpc_response(bool ok, const std::string& status)
+  {
+    std::string err;
+    if (ok)
+    {
+      if (status == CORE_RPC_STATUS_BUSY)
+      {
+        err = "daemon is busy. Please try later";
+      }
+      else if (status != CORE_RPC_STATUS_OK)
+      {
+        err = status;
+      }
+    }
+    else
+    {
+      err = "possible lost connection to daemon";
+    }
+    return err;
+  }
+
+
   class wallet2
   {
-    wallet2(const wallet2&){};
+    wallet2(const wallet2&) : m_run(true) {};
   public:
-    wallet2(){};
+    wallet2() : m_run(true) {};
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -68,20 +90,46 @@ namespace tools
       END_SERIALIZE()
     };
 
-    struct transafer_fail_details
+    struct fail_details
     {
       enum fail_reason
       {
         error_ok = 0,
         error_not_connected,
+        error_daemon_is_busy,
         error_rejected_by_daemon,
-        error_too_big_transaction, 
-        error_not_enough_money, 
+        error_too_big_transaction,
+        error_not_enough_money,
+        error_too_big_mixin,
+        error_to_parse_block,
+        error_to_parse_tx,
+        error_to_parse_tx_extra,
+        error_invalid_tx,
         error_internal_error
       };
       fail_reason reason;
       uint64_t tx_blob_size;
       uint64_t max_expected_tx_blob_size;
+
+      std::string what() const
+      {
+        switch (reason)
+        {
+        case error_ok:                  return "OK";
+        case error_not_connected:       return "not connected";
+        case error_daemon_is_busy:      return "daemon is busy. Please try later";
+        case error_rejected_by_daemon:  return "rejected by daemon";
+        case error_too_big_transaction: return "transaction size is too big";
+        case error_not_enough_money:    return "not enough money";
+        case error_too_big_mixin:       return "not enough outputs for specified mixin_count";
+        case error_to_parse_block:      return "failed to parse/validate block";
+        case error_to_parse_tx:         return "failed to parse/validate tx";
+        case error_to_parse_tx_extra:   return "failed to parse/validate tx extra";
+        case error_invalid_tx:          return "wrong tx";
+        case error_internal_error:      return "internal error";
+        default:                        return "unknown error";
+        }
+      }
     };
 
     bool generate(const std::string& wallet, const std::string& password);
@@ -91,23 +139,26 @@ namespace tools
 
     bool init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE*2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
 
-    bool refresh();
-    bool refresh(size_t & blocks_fetched);
-    bool refresh(size_t & blocks_fetched, bool& received_money);
+    bool refresh(fail_details& fd);
+    bool refresh(size_t & blocks_fetched, fail_details& fd);
+    bool refresh(size_t & blocks_fetched, bool& received_money, fail_details& fd);
     bool deinit();
+
+    void stop() { m_run.store(false, std::memory_order_relaxed); }
 
     uint64_t balance();
     uint64_t unlocked_balance();
-    void show_incoming_transfers();
+    template<typename T>
+    bool enum_incoming_transfers(const T& handler) const;
     template<typename T>
     bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, T destination_split_strategy, const tx_dust_policy& dust_policy);
     template<typename T>
-    bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx, transafer_fail_details& tfd);
+    bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx, fail_details& tfd);
     template<typename T>
     bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx);
     bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee);
     bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, cryptonote::transaction& tx);
-    bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, cryptonote::transaction& tx, transafer_fail_details& tfd);
+    bool transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, cryptonote::transaction& tx, fail_details& tfd);
     bool check_connection();
     bool get_transfers(wallet2::transfer_container& incoming_transfers);
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
@@ -125,15 +176,15 @@ namespace tools
   private:
     bool store_keys(const std::string& keys_file_name, const std::string& password);
     bool load_keys(const std::string& keys_file_name, const std::string& password);
-    bool process_new_transaction(cryptonote::transaction& tx, uint64_t height);
-    bool process_new_blockchain_entry(cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
+    bool process_new_transaction(cryptonote::transaction& tx, uint64_t height, fail_details& fd);
+    bool process_new_blockchain_entry(cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height, fail_details& fd);
     bool detach_blockchain(uint64_t height);
     bool get_short_chain_history(std::list<crypto::hash>& ids);
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
-    bool pull_blocks(size_t& blocks_added);
-    uint64_t select_transfers(uint64_t needed_money, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
+    bool pull_blocks(size_t& blocks_added, fail_details& fd);
+    uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
 
     cryptonote::account_base m_account;
@@ -148,6 +199,8 @@ namespace tools
     std::unordered_map<crypto::key_image, size_t> m_key_images;
     cryptonote::account_public_address m_account_public_address;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
+
+    std::atomic<bool> m_run;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 5)
@@ -229,9 +282,26 @@ namespace tools
     {
       std::string indexes;
       std::for_each(src.outputs.begin(), src.outputs.end(), [&](const cryptonote::tx_source_entry::output_entry& s_e) { indexes += boost::to_string(s_e.first) + " "; });
-      std::cout << "amount=" << cryptonote::print_money(src.amount) << ", real_output=" <<src.real_output << ", real_output_in_tx_index=" << src.real_output_in_tx_index << ", indexes: " << indexes << ENDL;
+      LOG_PRINT_L0("amount=" << cryptonote::print_money(src.amount) << ", real_output=" <<src.real_output << ", real_output_in_tx_index=" << src.real_output_in_tx_index << ", indexes: " << indexes);
     }
     //----------------------------------------------------------------------------------------------------
+  }
+  //----------------------------------------------------------------------------------------------------
+  template<typename T>
+  bool wallet2::enum_incoming_transfers(const T& handler) const
+  {
+    if(!m_transfers.empty())
+    {
+      BOOST_FOREACH(const transfer_details& td, m_transfers)
+      {
+        handler(td.m_tx, td.m_global_output_index, td.amount(), td.m_spent);
+      }
+      return true;
+    }
+    else
+    {
+      return false;
+    }
   }
   //----------------------------------------------------------------------------------------------------
   template<typename T>
@@ -246,13 +316,13 @@ namespace tools
   bool wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
     uint64_t unlock_time, uint64_t fee, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx)
   {
-    transafer_fail_details stub = AUTO_VAL_INIT(stub);
+    fail_details stub = AUTO_VAL_INIT(stub);
     return transfer(dsts, fake_outputs_count, unlock_time, fee, destination_split_strategy, dust_policy, tx, stub);
   }
 
   template<typename T>
   bool wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-    uint64_t unlock_time, uint64_t fee, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx, transafer_fail_details& tfd)
+    uint64_t unlock_time, uint64_t fee, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx, fail_details& tfd)
   {
     using namespace cryptonote;
 
@@ -264,12 +334,13 @@ namespace tools
     }
 
     std::list<transfer_container::iterator> selected_transfers;
-    uint64_t found_money = select_transfers(needed_money, dust_policy.dust_threshold, selected_transfers);
+    uint64_t found_money = select_transfers(needed_money, 0 == fake_outputs_count, dust_policy.dust_threshold, selected_transfers);
 
     if(found_money < needed_money)
     {
-      LOG_ERROR("not enough money, available only " << print_money(found_money) << ", expected " << print_money(needed_money) );
-      tfd.reason = transafer_fail_details::error_not_enough_money;
+      LOG_ERROR("not enough money, available only " << print_money(found_money) << ", transaction amount " <<
+        print_money(needed_money) << " = " << print_money(needed_money - fee) << " + " << print_money(fee) << " (fee)");
+      tfd.reason = fail_details::error_not_enough_money;
       return false;
     }
     //typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount outs_for_amount;
@@ -279,7 +350,6 @@ namespace tools
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
     if(fake_outputs_count)
     {
-
       COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
       req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
       BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
@@ -288,15 +358,37 @@ namespace tools
           << it->m_internal_output_index << " more than " << it->m_tx.vout.size());
         req.amounts.push_back(it->amount());
       }
+
       bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
-      tfd.reason = transafer_fail_details::error_not_connected;
-      CHECK_AND_ASSERT_MES(r, false, "failed to get getrandom_outs");
-      tfd.reason = transafer_fail_details::error_internal_error;
-      CHECK_AND_ASSERT_MES(daemon_resp.status == CORE_RPC_STATUS_OK, false, "failed to getrandom_outs.bin");
-      CHECK_AND_ASSERT_MES(daemon_resp.outs.size() == selected_transfers.size(), false, "internal error: daemon returned wrong response for getrandom_outs, wrong amounts count = "
+      if (!r)                                              tfd.reason = fail_details::error_not_connected;
+      else if (CORE_RPC_STATUS_BUSY == daemon_resp.status) tfd.reason = fail_details::error_daemon_is_busy;
+      else if (CORE_RPC_STATUS_OK != daemon_resp.status)   tfd.reason = fail_details::error_internal_error;
+      else                                                 tfd.reason = fail_details::error_ok;
+      if (fail_details::error_ok != tfd.reason)
+      {
+        LOG_PRINT_L0("failed to invoke getrandom_outs.bin: " << interpret_rpc_response(r, daemon_resp.status));
+        return false;
+      }
+
+      tfd.reason = fail_details::error_internal_error;
+      CHECK_AND_ASSERT_MES(daemon_resp.outs.size() == selected_transfers.size(), false,
+        "internal error: daemon returned wrong response for getrandom_outs.bin, wrong amounts count = "
         << daemon_resp.outs.size() << ", expected " << selected_transfers.size());
+
+      tfd.reason = fail_details::error_ok;
+      BOOST_FOREACH(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs, daemon_resp.outs)
+      {
+        if (amount_outs.outs.size() != fake_outputs_count)
+        {
+          tfd.reason = fail_details::error_too_big_mixin;
+          LOG_PRINT_L0("not enough outputs to mix output " << print_money(amount_outs.amount) << ", requested " <<
+            fake_outputs_count << ", found " << amount_outs.outs.size());
+        }
+      }
+      if (fail_details::error_ok != tfd.reason)
+        return false;
     }
-    tfd.reason = transafer_fail_details::error_ok;
+    tfd.reason = fail_details::error_ok;
  
     //prepare inputs
     size_t i = 0;
@@ -356,34 +448,48 @@ namespace tools
     {
       splitted_dsts.push_back(cryptonote::tx_destination_entry(dust, dust_policy.addr_for_dust));
     }
-    
-    tfd.reason = transafer_fail_details::error_internal_error;
+
+    tfd.reason = fail_details::error_internal_error;
     bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, tx, unlock_time);
     CHECK_AND_ASSERT_MES(r, false, "Transaction construction failed");
 
     //check transaction size
     if(get_object_blobsize(tx) >= m_upper_transaction_size_limit)
     {
-      LOG_PRINT_RED("Transaction size is too big: " << get_object_blobsize(tx)  << ", expected size < " << m_upper_transaction_size_limit, LOG_LEVEL_2);
-      tfd.reason = transafer_fail_details::error_too_big_transaction;
+      LOG_PRINT_L0("Transaction size is too big: " << get_object_blobsize(tx)  << ", expected size < " << m_upper_transaction_size_limit);
+      tfd.reason = fail_details::error_too_big_transaction;
       tfd.tx_blob_size = get_object_blobsize(tx);
       tfd.max_expected_tx_blob_size = m_upper_transaction_size_limit;
       return false;
     }
 
-
     COMMAND_RPC_SEND_RAW_TX::request req;
     req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(tx));
     COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
-    tfd.reason = transafer_fail_details::error_not_connected;
     r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
-    CHECK_AND_ASSERT_MES(r, false, "failed to send transaction");
-    if(daemon_send_resp.status != CORE_RPC_STATUS_OK)
+    if (!r)
     {
-      tfd.reason = transafer_fail_details::error_rejected_by_daemon;
-      LOG_ERROR("daemon failed to accept generated transaction, id: " << get_transaction_hash(tx) );
+      tfd.reason = fail_details::error_not_connected;
+      LOG_PRINT_L0("failed to send transaction: " << interpret_rpc_response(r, daemon_send_resp.status));
       return false;
     }
+    else if (CORE_RPC_STATUS_BUSY == daemon_send_resp.status)
+    {
+      tfd.reason = fail_details::error_daemon_is_busy;
+      LOG_PRINT_L0("failed to send transaction: " << interpret_rpc_response(r, daemon_send_resp.status));
+      return false;
+    }
+    else if (CORE_RPC_STATUS_OK != daemon_send_resp.status)
+    {
+      tfd.reason = fail_details::error_rejected_by_daemon;
+      LOG_ERROR("daemon failed to accept generated transaction, id: " << get_transaction_hash(tx));
+      return false;
+    }
+    else
+    {
+      tfd.reason = fail_details::error_ok;
+    }
+
     std::string key_images;
     std::for_each(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool
     {
@@ -397,12 +503,12 @@ namespace tools
       it->m_spent = true;
 
     LOG_PRINT_L0("Transaction successfully sent. <" << get_transaction_hash(tx) << ">" << ENDL 
-                  << "Commission: " << print_money(fee+dust) << "(dust: " << print_money(dust) << ")" << ENDL
+                  << "Commission: " << print_money(fee+dust) << " (dust: " << print_money(dust) << ")" << ENDL
                   << "Balance: " << print_money(balance()) << ENDL
                   << "Unlocked: " << print_money(unlocked_balance()) << ENDL
                   << "Please, wait for confirmation for your balance to be unlocked.");
 
-    tfd.reason = transafer_fail_details::error_ok;
+    tfd.reason = fail_details::error_ok;
     return true;
   }
 }
