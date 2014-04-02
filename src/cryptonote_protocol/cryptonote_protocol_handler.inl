@@ -108,7 +108,9 @@ namespace cryptonote
       return true;
     }
 
-    LOG_PRINT_CCONTEXT_BLUE("Sync data returned unknown top block " << "["<< m_core.get_current_blockchain_height() << "->" << hshd.current_height << "] " << hshd.top_id << ", set SYNCHRONIZATION mode", (is_inital ? LOG_LEVEL_0:LOG_LEVEL_1));
+    LOG_PRINT_CCONTEXT_YELLOW("Sync data returned unknown top block: " << m_core.get_current_blockchain_height() << "->" << hshd.current_height 
+      << "[" << static_cast<int64_t>(hshd.current_height - m_core.get_current_blockchain_height()) << " blocks(" << (hshd.current_height - m_core.get_current_blockchain_height()) /720 << " days) behind] " << ENDL 
+      << "remote top: "  << hshd.top_id << "[" << hshd.current_height << "]" << ", set SYNCHRONIZATION mode", (is_inital ? LOG_LEVEL_0:LOG_LEVEL_1));
     context.m_state = cryptonote_connection_context::state_synchronizing;
     context.m_remote_blockchain_height = hshd.current_height;
     //let the socket to send response to handshake, but request callback, to let send request data after response

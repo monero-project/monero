@@ -44,6 +44,7 @@ bool blockchain_storage::have_tx_keyimg_as_spent(const crypto::key_image &key_im
 //------------------------------------------------------------------
 transaction *blockchain_storage::get_tx(const crypto::hash &id)
 {
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
   auto it = m_transactions.find(id);
   if (it == m_transactions.end())
     return NULL;
@@ -65,26 +66,12 @@ bool blockchain_storage::init(const std::string& config_folder)
   const std::string filename = m_config_folder + "/" CRYPTONOTE_BLOCKCHAINDATA_FILENAME;
   if(!tools::unserialize_obj_from_file(*this, filename))
   {
-    const std::string temp_filename = m_config_folder + "/" CRYPTONOTE_BLOCKCHAINDATA_TEMP_FILENAME;
-    if(tools::unserialize_obj_from_file(*this, temp_filename))
-    {
-      LOG_PRINT_L0("Blockchain storage loaded from temporary file");
-      std::error_code ec = tools::replace_file(temp_filename, filename);
-      if (ec)
-      {
-        LOG_ERROR("Failed to rename blockchain data file " << temp_filename << " to " << filename << ": " << ec.message() << ':' << ec.value());
-        return false;
-      }
-    }
-    else
-    {
-      LOG_PRINT_L0("Blockchain storage file not found, generating genesis block.");
+      LOG_PRINT_L0("Can't load blockchain storage from file, generating genesis block.");
       block bl = boost::value_initialized<block>();
       block_verification_context bvc = boost::value_initialized<block_verification_context>();
       generate_genesis_block(bl);
       add_new_block(bl, bvc);
       CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed && bvc.m_added_to_main_chain, false, "Failed to add genesis block to blockchain");
-    }
   }
   if(!m_blocks.size())
   {
@@ -177,6 +164,7 @@ bool blockchain_storage::reset_and_set_genesis_block(const block& b)
 //------------------------------------------------------------------
 bool blockchain_storage::purge_transaction_keyimages_from_blockchain(const transaction& tx, bool strict_check)
 {
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
     struct purge_transaction_visitor: public boost::static_visitor<bool>
   {
     key_images_container& m_spent_keys;
@@ -221,6 +209,7 @@ bool blockchain_storage::purge_transaction_keyimages_from_blockchain(const trans
 //------------------------------------------------------------------
 bool blockchain_storage::purge_transaction_from_blockchain(const crypto::hash& tx_id)
 {
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
   auto tx_index_it = m_transactions.find(tx_id);
   CHECK_AND_ASSERT_MES(tx_index_it != m_transactions.end(), false, "purge_block_data_from_blockchain: transaction not found in blockchain index!!");
   transaction& tx = tx_index_it->second.tx;
@@ -525,9 +514,7 @@ bool blockchain_storage::validate_miner_transaction(const block& b, size_t cumul
 
   std::vector<size_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-  bool block_too_big = false;
-  base_reward = get_block_reward(last_blocks_sizes, cumulative_block_size, block_too_big, already_generated_coins);
-  if(block_too_big)
+  if(!get_block_reward(misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward))
   {
     LOG_PRINT_L0("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
@@ -568,18 +555,15 @@ bool blockchain_storage::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t
 //------------------------------------------------------------------
 uint64_t blockchain_storage::get_current_comulative_blocksize_limit()
 {
-  return m_current_block_comul_sz_limit;
+  return m_current_block_cumul_sz_limit;
 }
 //------------------------------------------------------------------
 bool blockchain_storage::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, const blobdata& ex_nonce)
 {
-  size_t txs_cumulative_size = 0;
-  uint64_t fee = 0;
-  size_t comul_sz_limit = 0;
-  std::vector<size_t> sz;
+  size_t median_size;
+  uint64_t already_generated_coins;
 
   CRITICAL_REGION_BEGIN(m_blockchain_lock);
-  get_last_n_blocks_sizes(sz, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
   b.major_version = CURRENT_BLOCK_MAJOR_VERSION;
   b.minor_version = CURRENT_BLOCK_MINOR_VERSION;
   b.prev_id = get_tail_id();
@@ -588,72 +572,73 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
   diffic = get_difficulty_for_next_block();
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
 
-  comul_sz_limit = m_current_block_comul_sz_limit - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+  median_size = m_current_block_cumul_sz_limit;
+  already_generated_coins = m_blocks.back().already_generated_coins;
 
   CRITICAL_REGION_END();
 
-  m_tx_pool.fill_block_template(b, txs_cumulative_size, comul_sz_limit, fee);
+  size_t txs_size;
+  uint64_t fee;
+  if (!m_tx_pool.fill_block_template(b, median_size, already_generated_coins, txs_size, fee)) {
+    return false;
+  }
 
   /*
      two-phase miner transaction generation: we don't know exact block size until we prepare block, but we don't know reward until we know
      block size, so first miner transaction generated with fake amount of money, and with phase we know think we know expected block size
   */
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob size
-  bool r = construct_miner_tx(height, m_blocks.back().already_generated_coins, miner_address, b.miner_tx, fee, sz, txs_cumulative_size, ex_nonce, 11);
+  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, 11);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, first chance");
 #ifdef _DEBUG
   std::list<size_t> try_val;
   try_val.push_back(get_object_blobsize(b.miner_tx));
 #endif
 
-  size_t cumulative_size = txs_cumulative_size + get_object_blobsize(b.miner_tx);
-  size_t try_count = 0;
-  for(; try_count != 10; ++try_count)
-  {
-    r = construct_miner_tx(height, m_blocks.back().already_generated_coins, miner_address, b.miner_tx, fee, sz, cumulative_size, ex_nonce, 11);
+  size_t cumulative_size = txs_size + get_object_blobsize(b.miner_tx);
+  for (size_t try_count = 0; try_count != 10; ++try_count) {
+    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, 11);
 #ifdef _DEBUG
     try_val.push_back(get_object_blobsize(b.miner_tx));
 #endif
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, second chance");
     size_t coinbase_blob_size = get_object_blobsize(b.miner_tx);
-    if(coinbase_blob_size > cumulative_size - txs_cumulative_size )
-    {
-      cumulative_size = txs_cumulative_size + coinbase_blob_size;
+    if (coinbase_blob_size > cumulative_size - txs_size) {
+      cumulative_size = txs_size + coinbase_blob_size;
       continue;
-    }else
-    {
-      if(coinbase_blob_size < cumulative_size - txs_cumulative_size )
-      {
-        size_t delta = cumulative_size - txs_cumulative_size - coinbase_blob_size;
-        b.miner_tx.extra.insert(b.miner_tx.extra.end(), delta, 0);
-        //here  could be 1 byte difference, because of extra field counter is varint, and it can become from 1-byte len to 2-bytes len.
-        if(cumulative_size != txs_cumulative_size + get_object_blobsize(b.miner_tx))
-        {
-          CHECK_AND_ASSERT_MES(cumulative_size + 1== txs_cumulative_size + get_object_blobsize(b.miner_tx), false, "unexpected case: cumulative_size=" << cumulative_size << " + 1 is not equal txs_cumulative_size=" << txs_cumulative_size << " + get_object_blobsize(b.miner_tx)=" << get_object_blobsize(b.miner_tx) );
-          b.miner_tx.extra.resize(b.miner_tx.extra.size() - 1 );
-          if(cumulative_size != txs_cumulative_size + get_object_blobsize(b.miner_tx))
-          {//fuck, not lucky, -1 makes varint-counter size smaller, in that case we continue to grow with cumulative_size
-            LOG_PRINT_RED("Miner tx creation have no luck with delta_extra size = " << delta << " and " << delta - 1 , LOG_LEVEL_2);
-            cumulative_size += delta + 1;
-            continue;
-          }
-          LOG_PRINT_GREEN("Setting extra for block: " << b.miner_tx.extra.size() << ", try_count=" << try_count, LOG_LEVEL_1);
-        }
-      }
-      CHECK_AND_ASSERT_MES(cumulative_size == txs_cumulative_size + get_object_blobsize(b.miner_tx), false, "unexpected case: cumulative_size=" << cumulative_size << " is not equal txs_cumulative_size=" << txs_cumulative_size << " + get_object_blobsize(b.miner_tx)=" << get_object_blobsize(b.miner_tx) );
-      return true;
     }
+
+    if (coinbase_blob_size < cumulative_size - txs_size) {
+      size_t delta = cumulative_size - txs_size - coinbase_blob_size;
+      b.miner_tx.extra.insert(b.miner_tx.extra.end(), delta, 0);
+      //here  could be 1 byte difference, because of extra field counter is varint, and it can become from 1-byte len to 2-bytes len.
+      if (cumulative_size != txs_size + get_object_blobsize(b.miner_tx)) {
+        CHECK_AND_ASSERT_MES(cumulative_size + 1 == txs_size + get_object_blobsize(b.miner_tx), false, "unexpected case: cumulative_size=" << cumulative_size << " + 1 is not equal txs_cumulative_size=" << txs_size << " + get_object_blobsize(b.miner_tx)=" << get_object_blobsize(b.miner_tx));
+        b.miner_tx.extra.resize(b.miner_tx.extra.size() - 1);
+        if (cumulative_size != txs_size + get_object_blobsize(b.miner_tx)) {
+          //fuck, not lucky, -1 makes varint-counter size smaller, in that case we continue to grow with cumulative_size
+          LOG_PRINT_RED("Miner tx creation have no luck with delta_extra size = " << delta << " and " << delta - 1 , LOG_LEVEL_2);
+          cumulative_size += delta - 1;
+          continue;
+        }
+        LOG_PRINT_GREEN("Setting extra for block: " << b.miner_tx.extra.size() << ", try_count=" << try_count, LOG_LEVEL_1);
+      }
+    }
+    CHECK_AND_ASSERT_MES(cumulative_size == txs_size + get_object_blobsize(b.miner_tx), false, "unexpected case: cumulative_size=" << cumulative_size << " is not equal txs_cumulative_size=" << txs_size << " + get_object_blobsize(b.miner_tx)=" << get_object_blobsize(b.miner_tx));
+    return true;
   }
-  LOG_ERROR("Failed to create_block_template with " << try_count << " tries");
+  LOG_ERROR("Failed to create_block_template with " << 10 << " tries");
   return false;
 }
 //------------------------------------------------------------------
 bool blockchain_storage::complete_timestamps_vector(uint64_t start_top_height, std::vector<uint64_t>& timestamps)
 {
+
   if(timestamps.size() >= BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)
     return true;
 
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
   size_t need_elements = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - timestamps.size();
   CHECK_AND_ASSERT_MES(start_top_height < m_blocks.size(), false, "internal error: passed start_height = " << start_top_height << " not less then m_blocks.size()=" << m_blocks.size());
   size_t stop_offset = start_top_height > need_elements ? start_top_height - need_elements:0;
@@ -947,22 +932,6 @@ bool blockchain_storage::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDO
   return true;
 }
 //------------------------------------------------------------------
-//bool blockchain_storage::get_outs_for_amounts(uint64_t amount, std::vector<std::pair<crypto::hash, size_t> >& keys, std::map<crypto::hash, transaction>& txs)
-//{
-//  auto it = m_outputs.find(amount);
-//  if(it == m_outputs.end())
-//    return false;
-//  keys = it->second;
-//  typedef std::pair<crypto::hash, size_t> pair;
-//  BOOST_FOREACH(pair& pr, keys)
-//  {
-//    auto it = m_transactions.find(pr.first);
-//    CHECK_AND_ASSERT_MES(it != m_transactions.end(), false, "internal error: transaction with id " << pr.first << " not found in internal index, but have refference for amount " << amount);
-//    txs[pr.first] = it->second.tx;
-//  }
-//  return true;
-//}
-//------------------------------------------------------------------
 bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, uint64_t& starter_offset)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1036,7 +1005,8 @@ void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_ind
       << "\nid\t\t" <<  get_block_hash(m_blocks[i].bl)
       << "\ndifficulty\t\t" << block_difficulty(i) << ", nonce " << m_blocks[i].bl.nonce << ", tx_count " << m_blocks[i].bl.tx_hashes.size() << ENDL;
   }
-  LOG_PRINT_L0("Current blockchain:" << ENDL << ss.str());
+  LOG_PRINT_L1("Current blockchain:" << ENDL << ss.str());
+  LOG_PRINT_L0("Blockchain printed with log level 1");
 }
 //------------------------------------------------------------------
 void blockchain_storage::print_blockchain_index()
@@ -1605,7 +1575,7 @@ bool blockchain_storage::update_next_comulative_size_limit()
   if(median <= CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE)
     median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE;
 
-  m_current_block_comul_sz_limit = median*2;
+  m_current_block_cumul_sz_limit = median*2;
   return true;
 }
 //------------------------------------------------------------------

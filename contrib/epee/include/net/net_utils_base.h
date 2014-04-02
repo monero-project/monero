@@ -137,6 +137,9 @@ namespace net_utils
 #define LOG_PRINT_CC_GREEN(ct, message, log_level) LOG_PRINT_GREEN("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
 #define LOG_PRINT_CC_RED(ct, message, log_level) LOG_PRINT_RED("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
 #define LOG_PRINT_CC_BLUE(ct, message, log_level) LOG_PRINT_BLUE("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
+#define LOG_PRINT_CC_YELLOW(ct, message, log_level) LOG_PRINT_YELLOW("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
+#define LOG_PRINT_CC_CYAN(ct, message, log_level) LOG_PRINT_CYAN("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
+#define LOG_PRINT_CC_MAGENTA(ct, message, log_level) LOG_PRINT_MAGENTA("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
 #define LOG_ERROR_CC(ct, message) LOG_ERROR("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
 
 #define LOG_PRINT_CC_L0(ct, message) LOG_PRINT_L0("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
@@ -154,6 +157,9 @@ namespace net_utils
 #define LOG_PRINT_CCONTEXT_GREEN(message, log_level) LOG_PRINT_CC_GREEN(context, message, log_level)
 #define LOG_PRINT_CCONTEXT_RED(message, log_level) LOG_PRINT_CC_RED(context, message, log_level)
 #define LOG_PRINT_CCONTEXT_BLUE(message, log_level) LOG_PRINT_CC_BLUE(context, message, log_level) 
+#define LOG_PRINT_CCONTEXT_YELLOW(message, log_level) LOG_PRINT_CC_YELLOW(context, message, log_level) 
+#define LOG_PRINT_CCONTEXT_CYAN(message, log_level) LOG_PRINT_CC_CYAN(context, message, log_level) 
+#define LOG_PRINT_CCONTEXT_MAGENTA(message, log_level) LOG_PRINT_CC_MAGENTA(context, message, log_level) 
 
 #define CHECK_AND_ASSERT_MES_CC(condition, return_val, err_message) CHECK_AND_ASSERT_MES(condition, return_val, "[" << epee::net_utils::print_connection_context_short(context) << "]" << err_message)
 

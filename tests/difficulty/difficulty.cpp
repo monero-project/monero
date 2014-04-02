@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 #include "cryptonote_config.h"
 #include "cryptonote_core/difficulty.h"

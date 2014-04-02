@@ -35,7 +35,7 @@ namespace
       if (predicate())
         return true;
       //std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
-      epee::misc_utils::sleep_no_w(sleep_ms);
+      epee::misc_utils::sleep_no_w(static_cast<long>(sleep_ms));
     }
     return false;
   }

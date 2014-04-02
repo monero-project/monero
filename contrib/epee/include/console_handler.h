@@ -261,6 +261,7 @@ namespace epee
           continue_handle = false;
           break;
         }
+        string_tools::trim(command);
 
         LOG_PRINT_L2("Read command: " << command);
         if(0 == command.compare("exit") || 0 == command.compare("q"))
@@ -281,7 +282,8 @@ namespace epee
             continue;
           }
           log_space::get_set_log_detalisation_level(true, n);
-          LOG_PRINT_L0("New log level set " << n);
+          std::cout << "New log level set " << n;
+          LOG_PRINT_L2("New log level set " << n);
         }else if (command.empty())
         {
           continue;

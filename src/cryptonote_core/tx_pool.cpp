@@ -2,8 +2,10 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <unordered_set>
+#include <vector>
 
 #include "tx_pool.h"
 #include "cryptonote_format_utils.h"
@@ -11,6 +13,7 @@
 #include "cryptonote_config.h"
 #include "blockchain_storage.h"
 #include "common/boost_serialization_helper.h"
+#include "common/int-util.h"
 #include "misc_language.h"
 #include "warnings.h"
 #include "crypto/hash.h"
@@ -345,31 +348,60 @@ namespace cryptonote
     return ss.str();
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::fill_block_template(block& bl, size_t& cumulative_sizes, size_t max_comulative_sz, uint64_t& fee)
-  {
+  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee) {
+    typedef transactions_container::value_type txv;
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
+    std::vector<txv *> txs(m_transactions.size());
+    std::transform(m_transactions.begin(), m_transactions.end(), txs.begin(), [](txv &a) -> txv * { return &a; });
+    std::sort(txs.begin(), txs.end(), [](txv *a, txv *b) -> bool {
+      uint64_t a_hi, a_lo = mul128(a->second.fee, b->second.blob_size, &a_hi);
+      uint64_t b_hi, b_lo = mul128(b->second.fee, a->second.blob_size, &b_hi);
+      return a_hi > b_hi || (a_hi == b_hi && a_lo > b_lo);
+    });
+
+    size_t current_size = 0;
+    uint64_t current_fee = 0;
+    uint64_t best_money;
+    if (!get_block_reward(median_size, CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE, already_generated_coins, best_money)) {
+      LOG_ERROR("Block with just a miner transaction is already too large!");
+      return false;
+    }
+    size_t best_position = 0;
+    total_size = 0;
     fee = 0;
+
     std::unordered_set<crypto::key_image> k_images;
 
-    BOOST_FOREACH(transactions_container::value_type& tx,  m_transactions)
-    {
-      if(cumulative_sizes + tx.second.blob_size > max_comulative_sz)
-        continue;
+    for (size_t i = 0; i < txs.size(); i++) {
+      txv &tx(*txs[i]);
 
-      if(!is_transaction_ready_to_go(tx.second))
+      if(!is_transaction_ready_to_go(tx.second) || have_key_images(k_images, tx.second.tx)) {
+        txs[i] = NULL;
         continue;
-
-      if(have_key_images(k_images, tx.second.tx))
-        continue;
-
-      bl.tx_hashes.push_back(tx.first);
-      cumulative_sizes += tx.second.blob_size;
-      fee += tx.second.fee;
+      }
       append_key_images(k_images, tx.second.tx);
 
-      if(cumulative_sizes >= max_comulative_sz)
+      current_size += tx.second.blob_size;
+      current_fee += tx.second.fee;
+
+      uint64_t current_reward;
+      if (!get_block_reward(median_size, current_size + CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE, already_generated_coins, current_reward)) {
         break;
+      }
+
+      if (best_money < current_reward + current_fee) {
+        best_money = current_reward + current_fee;
+        best_position = i + 1;
+        total_size = current_size;
+        fee = current_fee;
+      }
+    }
+
+    for (size_t i = 0; i < best_position; i++) {
+      if (txs[i]) {
+        bl.tx_hashes.push_back(txs[i]->first);
+      }
     }
 
     return true;

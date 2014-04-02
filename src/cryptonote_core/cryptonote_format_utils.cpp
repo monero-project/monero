@@ -54,13 +54,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_miner_tx(uint64_t height, uint64_t already_generated_coins, const account_public_address& miner_address, transaction& tx, uint64_t fee, std::vector<size_t>& blocks_sizes, size_t current_block_size, size_t max_outs)
-  {
-    return construct_miner_tx(height, already_generated_coins, miner_address, tx, fee, blocks_sizes, current_block_size, blobdata(), max_outs);
-  }
-  //---------------------------------------------------------------
-  bool construct_miner_tx(uint64_t height, uint64_t already_generated_coins, const account_public_address& miner_address, transaction& tx, uint64_t fee, std::vector<size_t>& blocks_sizes, size_t current_block_size, const blobdata& extra_nonce, size_t max_outs)
-  {
+  bool construct_miner_tx(size_t height, size_t median_size, uint64_t already_generated_coins, size_t current_block_size, uint64_t fee, const account_public_address &miner_address, transaction& tx, const blobdata& extra_nonce, size_t max_outs) {
     tx.vin.clear();
     tx.vout.clear();
     tx.extra.clear();
@@ -74,13 +68,13 @@ namespace cryptonote
     txin_gen in;
     in.height = height;
 
-    bool block_too_big = false;
-    uint64_t block_reward = get_block_reward(blocks_sizes, current_block_size, block_too_big, already_generated_coins) + fee;
-    if(block_too_big)
+    uint64_t block_reward;
+    if(!get_block_reward(median_size, current_block_size, already_generated_coins, block_reward))
     {
       LOG_PRINT_L0("Block is too big");
       return false;
     }
+    block_reward += fee;
 
     std::vector<size_t> out_amounts;
     decompose_amount_into_digits(block_reward, DEFAULT_FEE,
@@ -120,7 +114,7 @@ namespace cryptonote
     //lock
     tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
     tx.vin.push_back(in);
-    //LOG_PRINT("MINER_TX generated ok, block_reward=" << print_money(block_reward) << "("  << print_money(block_reward - fee) << "+" << print_money(fee) 
+    //LOG_PRINT("MINER_TX generated ok, block_reward=" << print_money(block_reward) << "("  << print_money(block_reward - fee) << "+" << print_money(fee)
     //  << "), current_block_size=" << current_block_size << ", already_generated_coins=" << already_generated_coins << ", tx_id=" << get_transaction_hash(tx), LOG_LEVEL_2);
     return true;
   }
@@ -152,33 +146,37 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool parse_amount(uint64_t& amount, const std::string& str_amount_)
   {
-    std::vector<std::string> pars;
     std::string str_amount = str_amount_;
     boost::algorithm::trim(str_amount);
-    if(!str_amount.size())
-      return false;
-    if(str_amount[0] == '-')
+
+    size_t point_index = str_amount.find_first_of('.');
+    size_t fraction_size;
+    if (std::string::npos != point_index)
+    {
+      fraction_size = str_amount.size() - point_index - 1;
+      while (CRYPTONOTE_DISPLAY_DECIMAL_POINT < fraction_size && '0' == str_amount.back())
+      {
+        str_amount.erase(str_amount.size() - 1, 1);
+        --fraction_size;
+      }
+      if (CRYPTONOTE_DISPLAY_DECIMAL_POINT < fraction_size)
+        return false;
+      str_amount.erase(point_index, 1);
+    }
+    else
+    {
+      fraction_size = 0;
+    }
+
+    if (str_amount.empty())
       return false;
 
-    boost::split(pars, str_amount, boost::is_any_of("."), boost::token_compress_on );
-    if(pars.size() > 2 || pars.size() < 1)
-      return false;
-    uint64_t left = 0;
-    if(!string_tools::get_xtype_from_string(left, pars[0]))
-      return false;
-    amount = left * power_integral(10, CRYPTONOTE_DISPLAY_DECIMAL_POINT);
-    if(pars.size() == 2)
+    if (fraction_size < CRYPTONOTE_DISPLAY_DECIMAL_POINT)
     {
-      uint64_t right = 0;
-      if(pars[1].size() > 8 )
-        return false;
-      if(pars[1].size() < 8 )
-        pars[1].append(8 - pars[1].size(), '0');
-      if(!string_tools::get_xtype_from_string(right, pars[1]))
-        return false;   
-      amount += right;
+      str_amount.append(CRYPTONOTE_DISPLAY_DECIMAL_POINT - fraction_size, '0');
     }
-    return true;
+
+    return string_tools::get_xtype_from_string(amount, str_amount);
   }
   //---------------------------------------------------------------
   bool get_tx_fee(const transaction& tx, uint64_t & fee)
@@ -218,7 +216,7 @@ namespace cryptonote
     tx_pub_key = null_pkey;
     bool padding_started = false; //let the padding goes only at the end
     bool tx_extra_tag_pubkey_found = false;
-    bool tx_extra_extra_nonce_found = false;    
+    bool tx_extra_extra_nonce_found = false;
     for(size_t i = 0; i != tx.extra.size();)
     {
       if(padding_started)
@@ -573,7 +571,7 @@ namespace cryptonote
   blobdata get_block_hashing_blob(const block& b)
   {
     blobdata blob = t_serializable_object_to_blob(static_cast<block_header>(b));
-    crypto::hash tree_root_hash = get_tx_tree_hash(b);     
+    crypto::hash tree_root_hash = get_tx_tree_hash(b);
     blob.append((const char*)&tree_root_hash, sizeof(tree_root_hash ));
     blob.append(tools::get_varint_data(b.tx_hashes.size()+1));
     return blob;
@@ -599,7 +597,7 @@ namespace cryptonote
 
     account_public_address ac = boost::value_initialized<account_public_address>();
     std::vector<size_t> sz;
-    construct_miner_tx(0, 0, ac, bl.miner_tx, 0, sz, 0, 1); // zero fee in genesis
+    construct_miner_tx(0, 0, 0, 0, 0, ac, bl.miner_tx); // zero fee in genesis
     blobdata txb = tx_to_blob(bl.miner_tx);
     std::string hex_tx_represent = string_tools::buff_to_hex_nodelimer(txb);
 

@@ -16,7 +16,7 @@ namespace
     const account_public_address& miner_address, std::vector<size_t>& block_sizes, size_t target_tx_size,
     size_t target_block_size, uint64_t fee = 0)
   {
-    if (!construct_miner_tx(height, already_generated_coins, miner_address, miner_tx, fee, block_sizes, target_block_size))
+    if (!construct_miner_tx(height, misc_utils::median(block_sizes), already_generated_coins, target_block_size, fee, miner_address, miner_tx))
       return false;
 
     size_t current_size = get_object_blobsize(miner_tx);

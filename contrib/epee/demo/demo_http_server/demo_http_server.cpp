@@ -42,10 +42,10 @@ bool communicate(const std::string url, t_request& req, t_response& rsp, const s
     if(use_jrpc)
     {
       epee::json_rpc::request<t_request> req_t = AUTO_VAL_INIT(req_t);
-      req_t.params = req;
+      req_t.jsonrpc = "2.0";
       req_t.id = "10";
       req_t.method = "command_example_1";
-      req_t.version = "1.1";
+      req_t.params = req;
       epee::json_rpc::response<t_response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
       if(!epee::net_utils::invoke_http_json_remote_command2("/request_json_rpc", req_t, resp_t, http_client))
       {

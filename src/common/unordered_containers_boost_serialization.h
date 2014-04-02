@@ -27,6 +27,7 @@ namespace boost
     template <class Archive, class h_key, class hval>
     inline void load(Archive &a, std::unordered_map<h_key, hval> &x, const boost::serialization::version_type ver)
     {
+      x.clear();
       size_t s = 0;
       a >> s;
       for(size_t i = 0; i != s; i++)
@@ -54,6 +55,7 @@ namespace boost
     template <class Archive, class hval>
     inline void load(Archive &a, std::unordered_set<hval> &x, const boost::serialization::version_type ver)
     {
+      x.clear();
       size_t s = 0;
       a >> s;
       for(size_t i = 0; i != s; i++)

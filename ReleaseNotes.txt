@@ -1,0 +1,17 @@
+Release notes 0.8.3
+
+- JSON RPC for wallet
+- fixed bug with blockchain storing
+- fixed bug with correct display of transfer's change 
+- bug fix in simple wallet
+
+Release notes 0.8.2
+
+- now wallet is still working when daemon stores blockchain and can't serve clients; 
+- no-console option for a daemon; 
+- fixed problem with network synchronization; 
+- major bug fix in simple wallet. 
+
+Release notes 0.8.1
+
+Bytecoin project is moved to GitHub

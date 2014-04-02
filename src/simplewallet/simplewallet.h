@@ -20,7 +20,7 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
-  class simple_wallet
+  class simple_wallet : public tools::i_wallet2_callback
   {
   public:
     typedef std::vector<std::string> command_type;
@@ -35,7 +35,7 @@ namespace cryptonote
     bool process_command(const std::vector<std::string> &args);
     std::string get_commands_str();
   private:
-    bool handle_command_line(const boost::program_options::variables_map& vm);
+    void handle_command_line(const boost::program_options::variables_map& vm);
 
     bool run_console_handler();
 
@@ -51,13 +51,72 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
-    bool print_address(const std::vector<std::string> &args);
+    bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
 
+    //----------------- i_wallet2_callback ---------------------
+    virtual void on_new_block(uint64_t height, const cryptonote::block& block);
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index);
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx);
+    //----------------------------------------------------------
+
+    friend class refresh_progress_reporter_t;
+
+    class refresh_progress_reporter_t
+    {
+    public:
+      refresh_progress_reporter_t(cryptonote::simple_wallet& simple_wallet)
+        : m_simple_wallet(simple_wallet)
+        , m_blockchain_height(0)
+        , m_blockchain_height_update_time()
+        , m_print_time()
+      {
+      }
+
+      void update(uint64_t height, bool force = false)
+      {
+        auto current_time = std::chrono::system_clock::now();
+        if (std::chrono::seconds(DIFFICULTY_TARGET / 2) < current_time - m_blockchain_height_update_time || m_blockchain_height <= height)
+        {
+          update_blockchain_height();
+          m_blockchain_height = (std::max)(m_blockchain_height, height);
+        }
+
+        if (std::chrono::milliseconds(1) < current_time - m_print_time || force)
+        {
+          std::cout << "Height " << height << " of " << m_blockchain_height << '\r';
+          m_print_time = current_time;
+        }
+      }
+
+    private:
+      void update_blockchain_height()
+      {
+        std::string err;
+        uint64_t blockchain_height = m_simple_wallet.get_daemon_blockchain_height(err);
+        if (err.empty())
+        {
+          m_blockchain_height = blockchain_height;
+          m_blockchain_height_update_time = std::chrono::system_clock::now();
+        }
+        else
+        {
+          LOG_ERROR("Failed to get current blockchain height: " << err);
+        }
+      }
+
+    private:
+      cryptonote::simple_wallet& m_simple_wallet;
+      uint64_t m_blockchain_height;
+      std::chrono::system_clock::time_point m_blockchain_height_update_time;
+      std::chrono::system_clock::time_point m_print_time;
+    };
+
+  private:
     std::string m_wallet_file;
     std::string m_generate_new;
     std::string m_import_path;
@@ -70,5 +129,6 @@ namespace cryptonote
 
     std::unique_ptr<tools::wallet2> m_wallet;
     net_utils::http::http_simple_client m_http_client;
+    refresh_progress_reporter_t m_refresh_progress_reporter;
   };
 }

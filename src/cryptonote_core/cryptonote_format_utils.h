@@ -17,9 +17,8 @@ namespace cryptonote
   void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h);
   crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx);
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash);
-  bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx);  
-  bool construct_miner_tx(uint64_t height, uint64_t already_generated_coins, const account_public_address& miner_address, transaction& tx, uint64_t fee, std::vector<size_t>& blocks_sizes, size_t current_block_size, const blobdata& extra_nonce, size_t max_outs = 1);
-  bool construct_miner_tx(uint64_t height, uint64_t already_generated_coins, const account_public_address& miner_address, transaction& tx, uint64_t fee, std::vector<size_t>& blocks_sizes, size_t current_block_size, size_t max_outs = 1);
+  bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx);
+  bool construct_miner_tx(size_t height, size_t median_size, uint64_t already_generated_coins, size_t current_block_size, uint64_t fee, const account_public_address &miner_address, transaction& tx, const blobdata& extra_nonce = blobdata(), size_t max_outs = 1);
 
   struct tx_source_entry
   {

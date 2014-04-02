@@ -38,7 +38,7 @@ namespace cryptonote {
   /************************************************************************/
   size_t get_max_block_size();
   size_t get_max_tx_size();
-  uint64_t get_block_reward(std::vector<size_t>& last_blocks_sizes, size_t current_block_size, bool& block_too_big, uint64_t already_generated_coins);
+  bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t &reward);
   uint8_t get_account_address_checksum(const public_address_outer_blob& bl);
   std::string get_account_address_as_str(const account_public_address& adr);
   bool get_account_address_from_str(account_public_address& adr, const std::string& str);

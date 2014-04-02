@@ -17,8 +17,7 @@ public:
 
     m_bob.generate();
 
-    std::vector<size_t> block_sizes;
-    if (!construct_miner_tx(0, 0, m_bob.get_keys().m_account_address, m_tx, 0, block_sizes, 2))
+    if (!construct_miner_tx(0, 0, 0, 2, 0, m_bob.get_keys().m_account_address, m_tx))
       return false;
 
     m_tx_pub_key = get_tx_pub_key_from_extra(m_tx);

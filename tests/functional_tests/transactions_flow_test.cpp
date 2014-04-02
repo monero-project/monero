@@ -50,7 +50,15 @@ bool do_send_money(tools::wallet2& w1, tools::wallet2& w2, size_t mix_in_factor,
     dsts.push_back(de);
   }
 
-  return w1.transfer(dsts, mix_in_factor, 0, DEFAULT_FEE, tools::detail::null_split_strategy, tools::wallet2::tx_dust_policy(DEFAULT_FEE), tx);
+  try
+  {
+    w1.transfer(dsts, mix_in_factor, 0, DEFAULT_FEE, tools::detail::null_split_strategy, tools::tx_dust_policy(DEFAULT_FEE), tx);
+    return true;
+  }
+  catch (const std::exception&)
+  {
+    return false;
+  }
 }
 
 uint64_t get_money_in_first_transfers(const tools::wallet2::transfer_container& incoming_transfers, size_t n_transfers)
@@ -84,36 +92,30 @@ bool transactions_flow_test(std::string& working_folder,
     path_terget_wallet = generate_random_wallet_name();
 
 
-  if(!w1.generate(working_folder + "/" + path_source_wallet, ""))
+  try
   {
-    LOG_ERROR("failed to load source wallet from " << path_source_wallet);
+    w1.generate(working_folder + "/" + path_source_wallet, "");
+    w2.generate(working_folder + "/" + path_terget_wallet, "");
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("failed to generate wallet: " << e.what());
     return false;
   }
 
-  if(!w2.generate(working_folder + "/" + path_terget_wallet, ""))
-  {
-    LOG_ERROR( "failed to generate target load wallet from " << path_source_wallet );
-    return false;
-  }
+  w1.init(daemon_addr_a);
 
-  if(!w1.init(daemon_addr_a))
-  {
-    LOG_ERROR("failed to init source wallet from " << daemon_addr_a );
-    return false;
-  }
   size_t blocks_fetched = 0;
-  tools::wallet2::fail_details fd;
-  if(!w1.refresh(blocks_fetched, fd))
+  bool received_money;
+  bool ok;
+  if(!w1.refresh(blocks_fetched, received_money, ok))
   {
     LOG_ERROR( "failed to refresh source wallet from " << daemon_addr_a );
     return false;
   }
 
-  if(!w2.init(daemon_addr_b))
-  {
-    LOG_ERROR( "failed to init target wallet from " << daemon_addr_b );
-    return false;
-  }
+  w2.init(daemon_addr_b);
+
   LOG_PRINT_GREEN("Using wallets: " << ENDL
     << "Source:  " << w1.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
     << "Target:  " << w2.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_terget_wallet, LOG_LEVEL_1);
@@ -125,7 +127,6 @@ bool transactions_flow_test(std::string& working_folder,
   bool r = net_utils::invoke_http_json_remote_command2(daemon_addr_a + "/stop_mine", daemon1_req, daemon1_rsp, http_client, 10000);
   CHECK_AND_ASSERT_MES(r, false, "failed to stop mining");
 
-
   COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req);
   COMMAND_RPC_START_MINING::response daemon_rsp = AUTO_VAL_INIT(daemon_rsp);
   daemon_req.miner_address = w1.get_account().get_public_address_str();
@@ -135,11 +136,11 @@ bool transactions_flow_test(std::string& working_folder,
   CHECK_AND_ASSERT_MES(daemon_rsp.status == CORE_RPC_STATUS_OK, false, "failed to getrandom_outs.bin");
 
   //wait for money, until balance will have enough money
-  w1.refresh(blocks_fetched, fd);
+  w1.refresh(blocks_fetched, received_money, ok);
   while(w1.unlocked_balance() < amount_to_transfer)
   {
     misc_utils::sleep_no_w(1000);
-    w1.refresh(blocks_fetched, fd);
+    w1.refresh(blocks_fetched, received_money, ok);
   }
 
   //lets make a lot of small outs to ourselves
@@ -166,7 +167,7 @@ bool transactions_flow_test(std::string& working_folder,
     }else
     {
       misc_utils::sleep_no_w(1000);
-      w1.refresh(fd);
+      w1.refresh(blocks_fetched, received_money, ok);
     }
   }
   //do actual transfer
@@ -188,7 +189,7 @@ bool transactions_flow_test(std::string& working_folder,
     {
       misc_utils::sleep_no_w(1000);
       LOG_PRINT_L0("not enough money, waiting for cashback or mining");
-      w1.refresh(blocks_fetched, fd);
+      w1.refresh(blocks_fetched, received_money, ok);
     }
 
     transaction tx;
@@ -203,7 +204,7 @@ bool transactions_flow_test(std::string& working_folder,
     if(!do_send_money(w1, w2, mix_in_factor, amount_to_tx, tx))
     {
       LOG_PRINT_L0("failed to transfer money, tx: " << get_transaction_hash(tx) << ", refresh and try again" );
-      w1.refresh(blocks_fetched, fd);
+      w1.refresh(blocks_fetched, received_money, ok);
       if(!do_send_money(w1, w2, mix_in_factor, amount_to_tx, tx))
       {
         LOG_PRINT_L0( "failed to transfer money, second chance. tx: " << get_transaction_hash(tx) << ", exit" );
@@ -228,7 +229,7 @@ bool transactions_flow_test(std::string& working_folder,
   misc_utils::sleep_no_w(DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN*20*1000);//wait two blocks before sync on another wallet on another daemon
   LOG_PRINT_L0( "refreshing...");
   bool recvd_money = false;
-  while(w2.refresh(blocks_fetched, recvd_money, fd) && ( (blocks_fetched && recvd_money) || !blocks_fetched  ) )
+  while(w2.refresh(blocks_fetched, recvd_money, ok) && ( (blocks_fetched && recvd_money) || !blocks_fetched  ) )
   {
     misc_utils::sleep_no_w(DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN*1000);//wait two blocks before sync on another wallet on another daemon
   }

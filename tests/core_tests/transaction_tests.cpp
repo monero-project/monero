@@ -7,6 +7,7 @@
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "cryptonote_core/account.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
+#include "misc_language.h"
 
 using namespace cryptonote;
 
@@ -35,19 +36,18 @@ bool test_transaction_generation_and_ring_signature()
   rv_acc.generate();
   account_base rv_acc2;
   rv_acc2.generate();
-  std::vector<size_t> b;
   transaction tx_mine_1;
-  construct_miner_tx(0, 0, miner_acc1.get_keys().m_account_address, tx_mine_1, 0, b, 10);
+  construct_miner_tx(0, 0, 0, 10, 0, miner_acc1.get_keys().m_account_address, tx_mine_1);
   transaction tx_mine_2;
-  construct_miner_tx(0, 0, miner_acc2.get_keys().m_account_address, tx_mine_2, 0, b, 0);
+  construct_miner_tx(0, 0, 0, 0, 0, miner_acc2.get_keys().m_account_address, tx_mine_2);
   transaction tx_mine_3;
-  construct_miner_tx(0, 0, miner_acc3.get_keys().m_account_address, tx_mine_3, 0, b, 0);
+  construct_miner_tx(0, 0, 0, 0, 0, miner_acc3.get_keys().m_account_address, tx_mine_3);
   transaction tx_mine_4;
-  construct_miner_tx(0, 0, miner_acc4.get_keys().m_account_address, tx_mine_4, 0, b, 0);
+  construct_miner_tx(0, 0, 0, 0, 0, miner_acc4.get_keys().m_account_address, tx_mine_4);
   transaction tx_mine_5;
-  construct_miner_tx(0, 0, miner_acc5.get_keys().m_account_address, tx_mine_5, 0, b, 0);
+  construct_miner_tx(0, 0, 0, 0, 0, miner_acc5.get_keys().m_account_address, tx_mine_5);
   transaction tx_mine_6;
-  construct_miner_tx(0, 0, miner_acc6.get_keys().m_account_address, tx_mine_6, 0, b, 0);
+  construct_miner_tx(0, 0, 0, 0, 0, miner_acc6.get_keys().m_account_address, tx_mine_6);
 
   //fill inputs entry
   typedef tx_source_entry::output_entry tx_output_entry;
@@ -111,7 +111,7 @@ bool test_transaction_generation_and_ring_signature()
 
   std::vector<size_t> outs;
   uint64_t money = 0;
-  
+
   r = lookup_acc_outs(rv_acc.get_keys(), tx_rc1, get_tx_pub_key_from_extra(tx_rc1), outs,  money);
   CHECK_AND_ASSERT_MES(r, false, "failed to lookup_acc_outs");
   CHECK_AND_ASSERT_MES(td.amount == money, false, "wrong money amount in new transaction");
@@ -130,7 +130,7 @@ bool test_block_creation()
   bool r = get_account_address_from_str(adr, "0099be99c70ef10fd534c43c88e9d13d1c8853213df7e362afbec0e4ee6fec4948d0c190b58f4b356cd7feaf8d9d0a76e7c7e5a9a0a497a6b1faf7a765882dd08ac2");
   CHECK_AND_ASSERT_MES(r, false, "failed to import");
   block b;
-  r = construct_miner_tx(90, 3553616528562147, adr, b.miner_tx, 10000000, szs, 33094, 11);
+  r = construct_miner_tx(90, epee::misc_utils::median(szs), 3553616528562147, 33094, 10000000, adr, b.miner_tx, blobdata(), 11);
   return r;
 }
 

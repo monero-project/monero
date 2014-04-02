@@ -25,7 +25,7 @@ namespace cryptonote {
   //-----------------------------------------------------------------------------------------------
   size_t get_max_block_size()
   {
-    return CRYPTONOTE_MAX_BLOCK_SIZE; 
+    return CRYPTONOTE_MAX_BLOCK_SIZE;
   }
   //-----------------------------------------------------------------------------------------------
   size_t get_max_tx_size()
@@ -33,46 +33,39 @@ namespace cryptonote {
     return CRYPTONOTE_MAX_TX_SIZE;
   }
   //-----------------------------------------------------------------------------------------------
-  uint64_t get_block_reward(std::vector<size_t>& last_blocks_sizes, size_t current_block_size, bool& block_too_big, uint64_t already_generated_coins)
-  {
-    block_too_big = false;
-
+  bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t &reward) {
     uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> 18;
 
-    if(current_block_size < CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE)
-      return base_reward;
-
-    size_t med_sz = misc_utils::median(last_blocks_sizes);
-
     //make it soft
-    if(med_sz < CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE)
-      med_sz = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE;
+    if (median_size < CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE) {
+      median_size = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE;
+    }
 
-    if(current_block_size > med_sz)
-    {
-      if(current_block_size > med_sz*2)
-      {
-        LOG_PRINT_L0("Block cumulative size is too big: " << current_block_size << ", expected less than " << med_sz*2);
-         block_too_big = true;
-         return 0;
-      }
+    if (current_block_size <= median_size) {
+      reward = base_reward;
+      return true;
+    }
 
-      assert(med_sz < std::numeric_limits<uint32_t>::max());
-      assert(current_block_size < std::numeric_limits<uint32_t>::max());
+    if(current_block_size > 2 * median_size) {
+      LOG_PRINT_L4("Block cumulative size is too big: " << current_block_size << ", expected less than " << 2 * median_size);
+      return false;
+    }
 
-      uint64_t product_hi;
-      uint64_t product_lo = mul128(base_reward, current_block_size * (2 * med_sz - current_block_size), &product_hi);
+    assert(median_size < std::numeric_limits<uint32_t>::max());
+    assert(current_block_size < std::numeric_limits<uint32_t>::max());
 
-      uint64_t reward_hi;
-      uint64_t reward_lo;
-      div128_32(product_hi, product_lo, static_cast<uint32_t>(med_sz), &reward_hi, &reward_lo);
-      div128_32(reward_hi, reward_lo, static_cast<uint32_t>(med_sz), &reward_hi, &reward_lo);
-      assert(0 == reward_hi);
-      assert(reward_lo < base_reward);
+    uint64_t product_hi;
+    uint64_t product_lo = mul128(base_reward, current_block_size * (2 * median_size - current_block_size), &product_hi);
 
-      return reward_lo;
-    }else
-      return base_reward;
+    uint64_t reward_hi;
+    uint64_t reward_lo;
+    div128_32(product_hi, product_lo, static_cast<uint32_t>(median_size), &reward_hi, &reward_lo);
+    div128_32(reward_hi, reward_lo, static_cast<uint32_t>(median_size), &reward_hi, &reward_lo);
+    assert(0 == reward_hi);
+    assert(reward_lo < base_reward);
+
+    reward = reward_lo;
+    return true;
   }
   //------------------------------------------------------------------------------------
   uint8_t get_account_address_checksum(const public_address_outer_blob& bl)

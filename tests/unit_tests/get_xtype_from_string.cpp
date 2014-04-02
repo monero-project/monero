@@ -45,6 +45,7 @@ TEST_pos(uint16_t,     0,     "0");
 TEST_pos(uint16_t,     1,     "1");
 TEST_pos(uint16_t, 65535, "65535");
 
+TEST_neg(uint16_t, "");
 TEST_neg(uint16_t, "+0");
 TEST_neg(uint16_t, "+1");
 TEST_neg(uint16_t, "+65535");
@@ -77,6 +78,7 @@ TEST_pos(uint32_t,          0,          "0");
 TEST_pos(uint32_t,          1,          "1");
 TEST_pos(uint32_t, 4294967295, "4294967295");
 
+TEST_neg(uint32_t, "");
 TEST_neg(uint32_t, "+0");
 TEST_neg(uint32_t, "+1");
 TEST_neg(uint32_t, "+4294967295");
@@ -107,6 +109,7 @@ TEST_pos(uint64_t, 0, "0");
 TEST_pos(uint64_t, 1, "1");
 TEST_pos(uint64_t, 18446744073709551615ULL, "18446744073709551615");
 
+TEST_neg(uint64_t, "");
 TEST_neg(uint64_t, "+0");
 TEST_neg(uint64_t, "+1");
 TEST_neg(uint64_t, "+18446744073709551615");

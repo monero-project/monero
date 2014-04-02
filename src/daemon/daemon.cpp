@@ -29,9 +29,6 @@ using namespace epee;
 
 namespace po = boost::program_options;
 
-
-BOOST_CLASS_VERSION(nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >, 1);
-
 namespace
 {
   const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", "Specify configuration file", std::string(CRYPTONOTE_NAME ".conf")};
@@ -51,7 +48,7 @@ int main(int argc, char* argv[])
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
 #endif
   log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, 0);
   LOG_PRINT_L0("Starting...");
 
   TRY_ENTRY();  

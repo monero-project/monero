@@ -7,30 +7,28 @@
 #include "common/util.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
-TEST(parse_and_validate_tx_extra, is_correct_parse_and_validate_tx_extra) 
+TEST(parse_and_validate_tx_extra, is_correct_parse_and_validate_tx_extra)
 {
   cryptonote::transaction tx = AUTO_VAL_INIT(tx);
   cryptonote::account_base acc;
   acc.generate();
-  std::vector<size_t> bss;
   cryptonote::blobdata b = "dsdsdfsdfsf";
-  bool r = cryptonote::construct_miner_tx(0, 10000000000000, acc.get_keys().m_account_address, tx, DEFAULT_FEE, bss, 1000, b, 1);
+  bool r = cryptonote::construct_miner_tx(0, 0, 10000000000000, 1000, DEFAULT_FEE, acc.get_keys().m_account_address, tx, b, 1);
   ASSERT_TRUE(r);
   crypto::public_key tx_pub_key;
   r = cryptonote::parse_and_validate_tx_extra(tx, tx_pub_key);
   ASSERT_TRUE(r);
 }
-TEST(parse_and_validate_tx_extra, is_correct_extranonce_too_big) 
+TEST(parse_and_validate_tx_extra, is_correct_extranonce_too_big)
 {
   cryptonote::transaction tx = AUTO_VAL_INIT(tx);
   cryptonote::account_base acc;
   acc.generate();
-  std::vector<size_t> bss;
   cryptonote::blobdata b(260, 0);
-  bool r = cryptonote::construct_miner_tx(0, 10000000000000, acc.get_keys().m_account_address, tx, DEFAULT_FEE, bss, 1000, b, 1);
+  bool r = cryptonote::construct_miner_tx(0, 0, 10000000000000, 1000, DEFAULT_FEE, acc.get_keys().m_account_address, tx, b, 1);
   ASSERT_FALSE(r);
 }
-TEST(parse_and_validate_tx_extra, is_correct_wrong_extra_couner_too_big) 
+TEST(parse_and_validate_tx_extra, is_correct_wrong_extra_couner_too_big)
 {
   cryptonote::transaction tx = AUTO_VAL_INIT(tx);
   tx.extra.resize(20, 0);
@@ -75,7 +73,7 @@ TEST(validate_parse_amount_case, validate_parse_amount)
   r = cryptonote::parse_amount(res, "   100.0001    ");
   ASSERT_TRUE(r);
   ASSERT_EQ(res, 10000010000);
-  
+
   r = cryptonote::parse_amount(res, "   100.0000    ");
   ASSERT_TRUE(r);
   ASSERT_EQ(res, 10000000000);
@@ -88,10 +86,10 @@ TEST(validate_parse_amount_case, validate_parse_amount)
 
   r = cryptonote::parse_amount(res, "100 . 0000");
   ASSERT_FALSE(r);
-  
+
   r = cryptonote::parse_amount(res, "100.00 00");
   ASSERT_FALSE(r);
-  
+
   r = cryptonote::parse_amount(res, "1 00.00 00");
   ASSERT_FALSE(r);
 }
