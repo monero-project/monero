@@ -1,7 +1,7 @@
 #pragma once
 
 #include "serialization/keyvalue_serialization.h"
-
+#include "storages/portable_storage_base.h"
 
 namespace demo
 {
@@ -41,6 +41,8 @@ namespace demo
     std::list<bool> m_list_of_bool;
     some_test_subdata m_subobj;
     std::list<some_test_data> m_list_of_self;
+    epee::serialization::storage_entry m_storage_entry_int;
+    epee::serialization::storage_entry m_storage_entry_string;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(m_str)
@@ -67,6 +69,8 @@ namespace demo
       KV_SERIALIZE(m_list_of_double)
       KV_SERIALIZE(m_list_of_bool)
       KV_SERIALIZE(m_list_of_self)
+      KV_SERIALIZE(m_storage_entry_int)
+      KV_SERIALIZE(m_storage_entry_string)
     END_KV_SERIALIZE_MAP()
   };
 
@@ -162,6 +166,8 @@ namespace demo
       ||  b.m_list_of_bool != a.m_list_of_bool
       ||  b.m_subobj != a.m_subobj
       ||  b.m_list_of_self != a.m_list_of_self
+      ||  b.m_storage_entry_int.which() != a.m_storage_entry_int.which()
+      ||  b.m_storage_entry_string.which() != a.m_storage_entry_string.which()
       )
       return false;
     return true;
@@ -208,6 +214,8 @@ namespace demo
 
     s.m_subobj.m_str = "subszzzzzzzz";
     s.m_list_of_self.push_back(s);
+    s.m_storage_entry_int = epee::serialization::storage_entry(uint64_t(22222));;
+    s.m_storage_entry_string = epee::serialization::storage_entry(std::string("sdsvsdvs"));
     return s;
   }
 }

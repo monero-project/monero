@@ -43,7 +43,7 @@ bool communicate(const std::string url, t_request& req, t_response& rsp, const s
     {
       epee::json_rpc::request<t_request> req_t = AUTO_VAL_INIT(req_t);
       req_t.jsonrpc = "2.0";
-      req_t.id = "10";
+      req_t.id = epee::serialization::storage_entry(10);
       req_t.method = "command_example_1";
       req_t.params = req;
       epee::json_rpc::response<t_response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
 
   demo::demo_http_server srv;
 
-  start_default_console(&srv);
+  start_default_console(&srv, "#");
 
   std::string bind_param = "0.0.0.0";
   std::string port = "83";
@@ -195,7 +195,7 @@ namespace demo
     return true;
   }
 
-  bool demo_http_server::on_request_api_1(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res)
+  bool demo_http_server::on_request_api_1(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, connection_context& ctxt)
   {
     CHECK_AND_ASSERT_MES(req.sub == demo::get_test_data(), false, "wrong request");
     res.m_success = true;
@@ -203,14 +203,14 @@ namespace demo
     return true;
   }
 
-  bool demo_http_server::on_request_api_1_with_error(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, epee::json_rpc::error& error_resp)
+  bool demo_http_server::on_request_api_1_with_error(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, epee::json_rpc::error& error_resp, connection_context& ctxt)
   {
     error_resp.code = 232432;
     error_resp.message = "bla bla bla";
     return false;
   }
 
-  bool demo_http_server::on_request_api_2(const COMMAND_EXAMPLE_2::request& req, COMMAND_EXAMPLE_2::response& res)
+  bool demo_http_server::on_request_api_2(const COMMAND_EXAMPLE_2::request& req, COMMAND_EXAMPLE_2::response& res, connection_context& ctxt)
   {
     return true;
   }

@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
 
   demo::demo_levin_server srv;
 
-  start_default_console(&srv);
+  start_default_console(&srv, "#");
 
   std::string bind_param = "0.0.0.0";
   std::string port = "12345";

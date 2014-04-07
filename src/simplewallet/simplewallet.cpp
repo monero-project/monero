@@ -92,10 +92,10 @@ namespace
     }
 
     template<typename T>
-    message_writer& operator<<(const T& val)
+    std::ostream& operator<<(const T& val)
     {
       m_oss << val;
-      return *this;
+      return m_oss;
     }
 
     ~message_writer()
@@ -166,7 +166,7 @@ simple_wallet::simple_wallet()
   : m_daemon_port(0)
   , m_refresh_progress_reporter(*this)
 {
-  m_cmd_binder.set_handler("start_mining", boost::bind(&simple_wallet::start_mining, this, _1), "start_mining <threads_count> - Start mining in daemon");
+  m_cmd_binder.set_handler("start_mining", boost::bind(&simple_wallet::start_mining, this, _1), "start_mining [<number_of_threads>] - Start mining in daemon");
   m_cmd_binder.set_handler("stop_mining", boost::bind(&simple_wallet::stop_mining, this, _1), "Stop mining in daemon");
   m_cmd_binder.set_handler("refresh", boost::bind(&simple_wallet::refresh, this, _1), "Resynchronize transactions and balance");
   m_cmd_binder.set_handler("balance", boost::bind(&simple_wallet::show_balance, this, _1), "Show current wallet balance");
@@ -295,7 +295,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   try
   {
     m_wallet->generate(wallet_file, password);
-    message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str();
+    message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str() << std::endl << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   }
   catch (const std::exception& e)
   {
@@ -389,6 +389,8 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   COMMAND_RPC_START_MINING::request req;
   req.miner_address = m_wallet->get_account().get_public_address_str();
 
+  bool ok = true;
+  size_t max_mining_threads_count = (std::max)(std::thread::hardware_concurrency(), static_cast<unsigned>(2));
   if (0 == args.size())
   {
     req.threads_count = 1;
@@ -396,17 +398,19 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   else if (1 == args.size())
   {
     uint16_t num;
-    bool ok = string_tools::get_xtype_from_string(num, args[0]);
-    if(!ok || 0 == num)
-    {
-      fail_msg_writer() << "wrong number of mining threads: \"" << args[0] << "\"";
-      return true;
-    }
+    ok = string_tools::get_xtype_from_string(num, args[0]);
+    ok &= (1 <= num && num <= max_mining_threads_count);
     req.threads_count = num;
   }
   else
   {
-    fail_msg_writer() << "wrong number of arguments, expected the number of mining threads";
+    ok = false;
+  }
+
+  if (!ok)
+  {
+    fail_msg_writer() << "invalid arguments. Please use start_mining [<number_of_threads>], " <<
+      "<number_of_threads> should be from 1 to " << max_mining_threads_count;
     return true;
   }
 

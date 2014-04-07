@@ -48,7 +48,8 @@ namespace cryptonote
     m_last_hr_merge_time(0),
     m_hashes(0),
     m_do_print_hashrate(false),
-    m_do_mining(false)
+    m_do_mining(false),
+    m_current_hash_rate(0)
   {
 
   }
@@ -225,7 +226,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   uint64_t miner::get_speed()
   {
-    return m_current_hash_rate;
+    if(is_mining())
+      return m_current_hash_rate;
+    else
+      return 0;
   }
   //-----------------------------------------------------------------------------------------------------
   void miner::send_stop_signal()

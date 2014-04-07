@@ -48,12 +48,14 @@ namespace epee
     public:
       typedef epee::serialization::hsection hsection;
       typedef epee::serialization::harray  harray;
+      typedef storage_entry meta_entry;
 
       portable_storage(){}
       virtual ~portable_storage(){}
       hsection   open_section(const std::string& section_name,  hsection hparent_section, bool create_if_notexist = false);
       template<class t_value>
       bool       get_value(const std::string& value_name, t_value& val, hsection hparent_section);
+      bool       get_value(const std::string& value_name, storage_entry& val, hsection hparent_section);
       template<class t_value>
       bool       set_value(const std::string& value_name, const t_value& target, hsection hparent_section);
 
@@ -221,10 +223,24 @@ namespace epee
       //CATCH_ENTRY("portable_storage::template<>get_value", false);
     }
     //---------------------------------------------------------------------------------------------------------------
+    inline
+    bool portable_storage::get_value(const std::string& value_name, storage_entry& val, hsection hparent_section)
+    {
+      //TRY_ENTRY();
+      if(!hparent_section) hparent_section = &m_root;
+      storage_entry* pentry = find_storage_entry(value_name, hparent_section);
+      if(!pentry)
+        return false;
+
+      val = *pentry;
+      return true;
+      //CATCH_ENTRY("portable_storage::template<>get_value", false);
+    }
+    //---------------------------------------------------------------------------------------------------------------
     template<class t_value>
     bool       portable_storage::set_value(const std::string& value_name, const t_value& v, hsection hparent_section)        
     {
-      BOOST_MPL_ASSERT(( boost::mpl::contains<storage_entry::types, t_value> )); 
+      BOOST_MPL_ASSERT(( boost::mpl::contains<boost::mpl::push_front<storage_entry::types, storage_entry>::type, t_value> )); 
       TRY_ENTRY();
       if(!hparent_section)
         hparent_section = &m_root;

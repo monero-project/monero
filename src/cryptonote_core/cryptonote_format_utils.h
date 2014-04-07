@@ -36,7 +36,7 @@ namespace cryptonote
     uint64_t amount;                    //money
     account_public_address addr;        //destination address
 
-    tx_destination_entry() { }
+    tx_destination_entry() : amount(0), addr(AUTO_VAL_INIT(addr)) { }
     tx_destination_entry(uint64_t a, const account_public_address &ad) : amount(a), addr(ad) { }
   };
 

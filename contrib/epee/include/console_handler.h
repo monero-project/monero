@@ -311,7 +311,7 @@ namespace epee
   bool start_default_console(t_server* ptsrv, t_handler handlr, const std::string& prompt, const std::string& usage = "")
   {
     std::shared_ptr<async_console_handler> console_handler = std::make_shared<async_console_handler>();
-    boost::thread(boost::bind(&async_console_handler::run<t_server, t_handler>, console_handler, ptsrv, handlr, prompt, usage)).detach();
+    boost::thread([=](){console_handler->run<t_server, t_handler>(ptsrv, handlr, prompt, usage);}).detach();
     return true;
   }
 

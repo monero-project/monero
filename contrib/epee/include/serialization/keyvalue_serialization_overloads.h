@@ -280,7 +280,9 @@ namespace epee
         return unserialize_stl_container_t_obj(d, stg, hparent_section, pname);
       } 
     };
-    typedef boost::mpl::vector<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string>::type base_serializable_types;
+    template<class t_storage>
+    struct base_serializable_types: public boost::mpl::vector<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, typename t_storage::meta_entry>::type 
+    {};
     //-------------------------------------------------------------------------------------------------------------------
     template<bool> struct selector;
     template<>
@@ -330,37 +332,37 @@ namespace epee
     template<class t_type, class t_storage>
     bool kv_serialize(const t_type& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types, typename std::remove_const<t_type>::type>::value>::kv_serialize(d, stg, hparent_section, pname);
+      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types<t_storage>, typename std::remove_const<t_type>::type>::value>::kv_serialize(d, stg, hparent_section, pname);
     }
     //-------------------------------------------------------------------------------------------------------------------
     template<class t_type, class t_storage>
     bool kv_unserialize(t_type& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types, typename std::remove_const<t_type>::type>::value>::kv_unserialize(d, stg, hparent_section, pname);
+      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types<t_storage>, typename std::remove_const<t_type>::type>::value>::kv_unserialize(d, stg, hparent_section, pname);
     } 
     //-------------------------------------------------------------------------------------------------------------------
     template<class t_type, class t_storage>
     bool kv_serialize(const std::vector<t_type>& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types, typename std::remove_const<t_type>::type>::value>::kv_serialize(d, stg, hparent_section, pname);
+      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types<t_storage>, typename std::remove_const<t_type>::type>::value>::kv_serialize(d, stg, hparent_section, pname);
     }
     //-------------------------------------------------------------------------------------------------------------------
     template<class t_type, class t_storage>
     bool kv_unserialize(std::vector<t_type>& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types, typename std::remove_const<t_type>::type>::value>::kv_unserialize(d, stg, hparent_section, pname);
+      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types<t_storage>, typename std::remove_const<t_type>::type>::value>::kv_unserialize(d, stg, hparent_section, pname);
     } 
     //-------------------------------------------------------------------------------------------------------------------
     template<class t_type, class t_storage>
     bool kv_serialize(const std::list<t_type>& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types, typename std::remove_const<t_type>::type>::value>::kv_serialize(d, stg, hparent_section, pname);
+      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types<t_storage>, typename std::remove_const<t_type>::type>::value>::kv_serialize(d, stg, hparent_section, pname);
     }
     //-------------------------------------------------------------------------------------------------------------------
     template<class t_type, class t_storage>
     bool kv_unserialize(std::list<t_type>& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types, typename std::remove_const<t_type>::type>::value>::kv_unserialize(d, stg, hparent_section, pname);
+      return kv_serialization_overloads_impl_is_base_serializable_types<boost::mpl::contains<base_serializable_types<t_storage>, typename std::remove_const<t_type>::type>::value>::kv_unserialize(d, stg, hparent_section, pname);
     } 
   }
 }

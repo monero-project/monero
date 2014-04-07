@@ -1,3 +1,8 @@
+Release notes 0.8.4
+
+- Formalization of high level API
+- Improvements for wallet JSON RPC API
+
 Release notes 0.8.3
 
 - JSON RPC for wallet
