@@ -5,6 +5,7 @@
 #pragma once
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_core/difficulty.h"
 #include "crypto/hash.h"
 
 namespace cryptonote
@@ -330,8 +331,100 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+  
+  struct block_header_responce
+  {
+      uint8_t major_version;
+      uint8_t minor_version;
+      uint64_t timestamp;
+      std::string prev_hash;
+      uint32_t nonce;
+      bool orphan_status;
+      uint64_t height;
+      uint64_t depth;
+      std::string hash;
+      difficulty_type difficulty;
+      uint64_t reward;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(major_version)
+        KV_SERIALIZE(minor_version)
+        KV_SERIALIZE(timestamp)
+        KV_SERIALIZE(prev_hash)
+        KV_SERIALIZE(nonce)
+        KV_SERIALIZE(orphan_status)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(depth)
+        KV_SERIALIZE(hash)
+        KV_SERIALIZE(difficulty)
+        KV_SERIALIZE(reward)
+      END_KV_SERIALIZE_MAP()
+  };
+  
+  struct COMMAND_RPC_GET_LAST_BLOCK_HEADER
+  {
+    typedef std::list<std::string> request;
 
+    struct response
+    {
+      std::string status;
+      block_header_responce block_header;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(block_header)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
 
+  };
+  
+  struct COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH
+  {
+    struct request
+    {
+      std::string hash;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(hash)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      block_header_responce block_header;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(block_header)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+
+  };
+
+  struct COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT
+  {
+    struct request
+    {
+      uint64_t height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      block_header_responce block_header;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(block_header)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+
+  };
 
 }
 

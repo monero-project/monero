@@ -11,6 +11,7 @@ using namespace epee;
 #include "common/command_line.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_core/account.h"
+#include "cryptonote_core/cryptonote_basic_impl.h"
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
@@ -413,6 +414,140 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-
-
+  uint64_t core_rpc_server::get_block_reward(const block& blk)
+  {
+    uint64_t reward = 0;
+    BOOST_FOREACH(const tx_out& out, blk.miner_tx.vout)
+    {
+      reward += out.amount;
+    }
+    return reward;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::fill_block_header_responce(const block& blk, bool orphan_status, uint64_t height, const crypto::hash& hash, block_header_responce& responce)
+  {
+    responce.major_version = blk.major_version;
+    responce.minor_version = blk.minor_version;
+    responce.timestamp = blk.timestamp;
+    responce.prev_hash = string_tools::pod_to_hex(blk.prev_id);
+    responce.nonce = blk.nonce;
+    responce.orphan_status = orphan_status;
+    responce.height = height;
+    responce.depth = m_core.get_current_blockchain_height() - height - 1;
+    responce.hash = string_tools::pod_to_hex(hash);
+    responce.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
+    responce.reward = get_block_reward(blk);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_last_block_header(const COMMAND_RPC_GET_LAST_BLOCK_HEADER::request& req, COMMAND_RPC_GET_LAST_BLOCK_HEADER::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  {
+    if(!check_core_ready())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+    uint64_t last_block_height;
+    crypto::hash last_block_hash;
+    bool have_last_block_hash = m_core.get_blockchain_top(last_block_height, last_block_hash);
+    if (!have_last_block_hash)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't get last block hash.";
+      return false;
+    }
+    block last_block;
+    bool have_last_block = m_core.get_block_by_hash(last_block_hash, last_block);
+    if (!have_last_block)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't get last block.";
+      return false;
+    }
+    bool responce_filled = fill_block_header_responce(last_block, false, last_block_height, last_block_hash, res.block_header);
+    if (!responce_filled)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't produce valid response.";
+      return false;
+    }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_block_header_by_hash(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response& res, epee::json_rpc::error& error_resp, connection_context& cntx){
+    if(!check_core_ready())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+    crypto::hash block_hash;
+    bool hash_parsed = parse_hash256(req.hash, block_hash);
+    if(!hash_parsed)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Failed to parse hex representation of block hash. Hex = " + req.hash + '.';
+      return false;
+    }
+    block blk;
+    bool have_block = m_core.get_block_by_hash(block_hash, blk);
+    if (!have_block)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't get block by hash. Hash = " + req.hash + '.';
+      return false;
+    }
+    if (blk.miner_tx.vin.front().type() != typeid(txin_gen))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: coinbase transaction in the block has the wrong type";
+      return false;
+    }
+    uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
+    bool responce_filled = fill_block_header_responce(blk, false, block_height, block_hash, res.block_header);
+    if (!responce_filled)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't produce valid response.";
+      return false;
+    }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res, epee::json_rpc::error& error_resp, connection_context& cntx){
+    if(!check_core_ready())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+    if(m_core.get_current_blockchain_height() <= req.height)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
+      error_resp.message = std::string("To big height: ") + std::to_string(req.height) + ", current blockchain height = " +  std::to_string(m_core.get_current_blockchain_height());
+      return false;
+    }
+    crypto::hash block_hash = m_core.get_block_id_by_height(req.height);
+    block blk;
+    bool have_block = m_core.get_block_by_hash(block_hash, blk);
+    if (!have_block)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't get block by height. Height = " + req.height + '.';
+      return false;
+    }
+    bool responce_filled = fill_block_header_responce(blk, false, req.height, block_hash, res.block_header);
+    if (!responce_filled)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't produce valid response.";
+      return false;
+    }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }

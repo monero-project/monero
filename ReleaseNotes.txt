@@ -1,3 +1,8 @@
+Release notes 0.8.5
+
+- Port mapping for daemon using UPnP
+- Improvements for daemon JSON RPC API
+
 Release notes 0.8.4
 
 - Formalization of high level API

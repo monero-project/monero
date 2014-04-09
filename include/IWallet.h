@@ -13,7 +13,7 @@
 #include <system_error>
 #include <vector>
 
-namespace cryptonote {
+namespace CryptoNote {
 
 typedef size_t TransactionId;
 typedef size_t TransferId;

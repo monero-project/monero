@@ -15,6 +15,9 @@
 #include "net/local_ip.h"
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
+#include <miniupnpc/miniupnpc.h>
+#include <miniupnpc/upnpcommands.h>
+
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
 
@@ -233,6 +236,38 @@ namespace nodetool
     LOG_PRINT_GREEN("Net service binded on " << m_bind_ip << ":" << m_listenning_port, LOG_LEVEL_0);
     if(m_external_port)
       LOG_PRINT_L0("External port defined as " << m_external_port);
+
+    // Add UPnP port mapping
+    LOG_PRINT_L0("Attempting to add IGD port mapping.");
+    int result;
+    UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
+    UPNPUrls urls;
+    IGDdatas igdData;
+    char lanAddress[64];
+    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+    freeUPNPDevlist(deviceList);
+    if (result != 0) {
+      if (result == 1) {
+        std::ostringstream portString;
+        portString << m_listenning_port;
+        if (UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0") != 0) {
+          LOG_ERROR("UPNP_AddPortMapping failed.");
+        } else {
+          LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
+        }
+      } else if (result == 2) {
+        LOG_PRINT_L0("IGD was found but reported as not connected.");
+      } else if (result == 3) {
+        LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
+      } else {
+        LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
+      }
+
+      FreeUPNPUrls(&urls);
+    } else {
+      LOG_PRINT_L0("No IGD was found.");
+    }
+
     return res;
   }
   //-----------------------------------------------------------------------------------

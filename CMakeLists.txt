@@ -7,7 +7,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
 
-include_directories(src contrib/epee/include "${CMAKE_BINARY_DIR}/version")
+include_directories(src contrib/epee/include external "${CMAKE_BINARY_DIR}/version")
 
 set(STATIC ${MSVC} CACHE BOOL "Link libraries statically")
 
@@ -110,5 +110,6 @@ else()
   endif()
 endif()
 
+add_subdirectory(external)
 add_subdirectory(src)
 add_subdirectory(tests)
