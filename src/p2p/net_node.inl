@@ -192,16 +192,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
-    ADD_HARDCODED_SEED_NODE("seed.bytecoin.org:8080");
-    ADD_HARDCODED_SEED_NODE("85.25.201.95:8080");
-    ADD_HARDCODED_SEED_NODE("85.25.196.145:8080");
-    ADD_HARDCODED_SEED_NODE("85.25.196.146:8080");
-    ADD_HARDCODED_SEED_NODE("85.25.196.144:8080");
-    ADD_HARDCODED_SEED_NODE("5.199.168.138:8080");
-    ADD_HARDCODED_SEED_NODE("62.75.236.152:8080");
-    ADD_HARDCODED_SEED_NODE("85.25.194.245:8080");
-    ADD_HARDCODED_SEED_NODE("95.211.224.160:8080");
-    ADD_HARDCODED_SEED_NODE("144.76.200.44:8080");
+    ADD_HARDCODED_SEED_NODE("107.158.233.98:18080");
 
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");

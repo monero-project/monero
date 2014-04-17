@@ -1,3 +1,7 @@
+Release notes -> BMR
+
+- forked for Bitmonero project
+
 Release notes 0.8.5
 
 - Port mapping for daemon using UPnP
