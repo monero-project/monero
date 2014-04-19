@@ -572,7 +572,7 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
   diffic = get_difficulty_for_next_block();
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
 
-  median_size = m_current_block_cumul_sz_limit;
+  median_size = m_current_block_cumul_sz_limit / 2;
   already_generated_coins = m_blocks.back().already_generated_coins;
 
   CRITICAL_REGION_END();
