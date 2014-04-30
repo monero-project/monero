@@ -41,7 +41,6 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
   
   // Temporarily disabled due to messed up tx_extra from someone
   // screwing around with MMing. 2014-04-30
-  
   // THROW_WALLET_EXCEPTION_IF(!r, error::tx_extra_parse_error, tx);
   
   // We don't know how to handle this weird tx, so return
