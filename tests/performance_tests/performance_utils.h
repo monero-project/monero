@@ -14,7 +14,7 @@
 
 void set_process_affinity(int core)
 {
-#if defined (__APPLE__)
+#if defined(__APPLE__)
     return;
 #elif defined(BOOST_WINDOWS)
   DWORD_PTR mask = 1;

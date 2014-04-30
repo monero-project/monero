@@ -35,7 +35,7 @@ namespace cryptonote
     static void init_options(boost::program_options::options_description& desc);
     bool set_block_template(const block& bl, const difficulty_type& diffic, uint64_t height);
     bool on_block_chain_update();
-    bool start(const account_public_address& adr, size_t threads_count);
+    bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs);
     uint64_t get_speed();
     void send_stop_signal();
     bool stop();

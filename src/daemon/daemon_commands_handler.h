@@ -291,7 +291,10 @@ private:
       threads_count = (ok && 0 < threads_count) ? threads_count : 1;
     }
 
-    m_srv.get_payload_object().get_core().get_miner().start(adr, threads_count);
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+
+    m_srv.get_payload_object().get_core().get_miner().start(adr, threads_count, attrs);
     return true;
   }
   //--------------------------------------------------------------------------------

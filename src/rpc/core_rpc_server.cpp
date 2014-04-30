@@ -252,7 +252,10 @@ namespace cryptonote
       return true;
     }
 
-    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count)))
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+
+    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs))
     {
       res.status = "Failed, mining not started";
       return true;

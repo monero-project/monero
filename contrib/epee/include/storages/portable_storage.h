@@ -210,7 +210,7 @@ namespace epee
     template<class t_value>
     bool portable_storage::get_value(const std::string& value_name, t_value& val, hsection hparent_section)
     {
-      //BOOST_MPL_ASSERT(( boost::mpl::contains<storage_entry::types, t_value> )); 
+      BOOST_MPL_ASSERT(( boost::mpl::contains<storage_entry::types, t_value> )); 
       //TRY_ENTRY();
       if(!hparent_section) hparent_section = &m_root;
       storage_entry* pentry = find_storage_entry(value_name, hparent_section);

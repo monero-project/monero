@@ -193,7 +193,7 @@ namespace cryptonote
     return !m_stop;
   }
   //----------------------------------------------------------------------------------------------------- 
-  bool miner::start(const account_public_address& adr, size_t threads_count)
+  bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs)
   {
     m_mine_address = adr;
     m_threads_total = static_cast<uint32_t>(threads_count);
@@ -218,7 +218,9 @@ namespace cryptonote
     boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
 
     for(size_t i = 0; i != threads_count; i++)
-      m_threads.push_back(boost::thread(boost::bind(&miner::worker_thread, this)));
+    {
+      m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
+    }
 
     LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" )
     return true;
@@ -269,7 +271,10 @@ namespace cryptonote
   {
     if(m_do_mining)
     {
-      start(m_mine_address, m_threads_total);
+      boost::thread::attributes attrs;
+      attrs.set_stack_size(THREAD_STACK_SIZE);
+
+      start(m_mine_address, m_threads_total, attrs);
     }
   }
   //-----------------------------------------------------------------------------------------------------

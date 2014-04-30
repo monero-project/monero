@@ -153,7 +153,7 @@ namespace net_utils
     bool init_server(const std::string port,  const std::string& address = "0.0.0.0");
 
     /// Run the server's io_service loop.
-    bool run_server(size_t threads_count, bool wait = true);
+    bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());
 
     /// wait for service workers stop
     bool timed_wait_server_stop(uint64_t wait_mseconds);
