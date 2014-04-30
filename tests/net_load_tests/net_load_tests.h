@@ -212,8 +212,8 @@ namespace net_load_tests
 
     struct request
     {
-      size_t open_request_target;
-      size_t max_opened_conn_count;
+      uint64_t open_request_target;
+      uint64_t max_opened_conn_count;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(open_request_target)
@@ -240,9 +240,9 @@ namespace net_load_tests
 
     struct response
     {
-      size_t opened_connections_count;
-      size_t new_connection_counter;
-      size_t close_connection_counter;
+      uint64_t opened_connections_count;
+      uint64_t new_connection_counter;
+      uint64_t close_connection_counter;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(opened_connections_count)
@@ -295,7 +295,7 @@ namespace net_load_tests
 
     struct request
     {
-      size_t request_size;
+      uint64_t request_size;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(request_size)
@@ -310,7 +310,7 @@ namespace net_load_tests
     struct request
     {
       std::string data;
-      size_t response_size;
+      uint64_t response_size;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(data)

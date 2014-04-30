@@ -469,7 +469,7 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
     return true;
 
   message_writer() << "Starting refresh...";
-  uint64_t fetched_blocks = 0;
+  size_t fetched_blocks = 0;
   bool ok = false;
   std::ostringstream ss;
   try

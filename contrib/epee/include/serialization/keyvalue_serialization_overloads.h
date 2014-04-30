@@ -281,7 +281,7 @@ namespace epee
       } 
     };
     template<class t_storage>
-    struct base_serializable_types: public boost::mpl::vector<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, typename t_storage::meta_entry>::type 
+    struct base_serializable_types: public boost::mpl::vector<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, typename t_storage::meta_entry>::type
     {};
     //-------------------------------------------------------------------------------------------------------------------
     template<bool> struct selector;

@@ -25,7 +25,7 @@ namespace cryptonote
     typedef std::pair<uint64_t, crypto::public_key> output_entry;
 
     std::vector<output_entry> outputs;  //index + key
-    uint64_t real_output;               //index in outputs vector of real output_entry
+    size_t real_output;                 //index in outputs vector of real output_entry
     crypto::public_key real_out_tx_key; //incoming real tx public key
     size_t real_output_in_tx_index;     //index in transaction outputs vector
     uint64_t amount;                    //money

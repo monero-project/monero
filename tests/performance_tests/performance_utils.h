@@ -14,7 +14,9 @@
 
 void set_process_affinity(int core)
 {
-#if defined(BOOST_WINDOWS)
+#if defined (__APPLE__)
+    return;
+#elif defined(BOOST_WINDOWS)
   DWORD_PTR mask = 1;
   for (int i = 0; i < core; ++i)
   {
@@ -34,7 +36,9 @@ void set_process_affinity(int core)
 
 void set_thread_high_priority()
 {
-#if defined(BOOST_WINDOWS)
+#if defined(__APPLE__)
+    return;
+#elif defined(BOOST_WINDOWS)
   ::SetPriorityClass(::GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 #elif defined(BOOST_HAS_PTHREADS)
   pthread_attr_t attr;

@@ -3,11 +3,21 @@ cmake_minimum_required(VERSION 2.8.6)
 set(VERSION "0.1")
 # $Format:Packaged from commit %H%nset(COMMIT %h)%nset(REFS "%d")$
 
+function(set_static_flags)
+if (NOT APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+endif()
+endfunction(set_static_flags)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
 
 include_directories(src contrib/epee/include external "${CMAKE_BINARY_DIR}/version")
+
+if(APPLE)
+include_directories(SYSTEM /usr/include/malloc)
+endif()
 
 set(STATIC ${MSVC} CACHE BOOL "Link libraries statically")
 
@@ -65,7 +75,7 @@ else()
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
   if(STATIC)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+    set_static_flags()
   endif()
 endif()
 
@@ -81,7 +91,7 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(Boost_LIBRARIES "${Boost_LIBRARIES};ws2_32;mswsock")
 elseif(NOT MSVC)
-  set(Boost_LIBRARIES "${Boost_LIBRARIES};rt")
+  set(Boost_LIBRARIES "${Boost_LIBRARIES}")
 endif()
 
 set(COMMIT_ID_IN_VERSION ON CACHE BOOL "Include commit ID in version")

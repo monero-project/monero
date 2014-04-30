@@ -204,6 +204,8 @@
 #define GTEST_NAME_ "Google Test"
 #define GTEST_PROJECT_URL_ "http://code.google.com/p/googletest/"
 
+#define GTEST_HAS_TR1_TUPLE 0
+
 // Determines the version of gcc that is used to compile this.
 #ifdef __GNUC__
 // 40302 means version 4.3.2.

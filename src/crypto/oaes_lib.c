@@ -37,6 +37,7 @@ static const char _NR[] = {
 #include <malloc.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #ifdef WIN32
 #include <process.h>

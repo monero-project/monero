@@ -745,7 +745,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::get_local_node_data(basic_node_data& node_data)
   {
-    time(&node_data.local_time);
+    time_t local_time;
+    time(&local_time);
+    node_data.local_time = local_time;
     node_data.peer_id = m_config.m_peer_id;
     if(!m_hide_my_port)
       node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
