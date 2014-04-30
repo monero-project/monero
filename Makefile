@@ -25,9 +25,6 @@ test-release: build-release
 all-release: build-release
 
 clean:
-	@echo "WARNING: Back-up your wallet if it exists within ./build!" ; \
-        read -r -p "This will destroy the build directory, continue (y/N)?: " CONTINUE; \
-	[ $$CONTINUE = "y" ] || [ $$CONTINUE = "Y" ] || (echo "Exiting."; exit 1;)
 	rm -rf build
 
 tags:
