@@ -38,7 +38,10 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
   uint64_t tx_money_got_in_outs = 0;
   crypto::public_key tx_pub_key = null_pkey;
   bool r = parse_and_validate_tx_extra(tx, tx_pub_key);
-  THROW_WALLET_EXCEPTION_IF(!r, error::tx_extra_parse_error, tx);
+  
+  // Temporarily disabled due to messed up tx_extra from someone
+  // screwing around with MMing. 2014-04-30
+  // THROW_WALLET_EXCEPTION_IF(!r, error::tx_extra_parse_error, tx);
 
   r = lookup_acc_outs(m_account.get_keys(), tx, tx_pub_key, outs, tx_money_got_in_outs);
   THROW_WALLET_EXCEPTION_IF(!r, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
