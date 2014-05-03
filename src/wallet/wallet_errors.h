@@ -34,7 +34,6 @@ namespace tools
     //         block_parse_error
     //         get_blocks_error
     //         get_out_indexes_error
-    //         tx_extra_parse_error
     //         tx_parse_error
     //       transfer_error *
     //         get_random_outs_general_error
@@ -247,28 +246,6 @@ namespace tools
     typedef failed_rpc_request<refresh_error, get_blocks_error_message_index> get_blocks_error;
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_out_indices_error_message_index> get_out_indices_error;
-    //----------------------------------------------------------------------------------------------------
-    struct tx_extra_parse_error : public refresh_error
-    {
-      explicit tx_extra_parse_error(std::string&& loc, const cryptonote::transaction& tx)
-        : refresh_error(std::move(loc), "transaction extra parse error")
-        , m_tx(tx)
-      {
-      }
-
-      const cryptonote::transaction& tx() const { return m_tx; }
-
-      std::string to_string() const
-      {
-        std::ostringstream ss;
-        cryptonote::transaction tx = m_tx;
-        ss << refresh_error::to_string() << ", tx: " << cryptonote::obj_to_json_str(tx);
-        return ss.str();
-      }
-
-    private:
-      const cryptonote::transaction m_tx;
-    };
     //----------------------------------------------------------------------------------------------------
     struct tx_parse_error : public refresh_error
     {

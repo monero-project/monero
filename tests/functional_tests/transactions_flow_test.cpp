@@ -52,7 +52,7 @@ bool do_send_money(tools::wallet2& w1, tools::wallet2& w2, size_t mix_in_factor,
 
   try
   {
-    w1.transfer(dsts, mix_in_factor, 0, DEFAULT_FEE, tools::detail::null_split_strategy, tools::tx_dust_policy(DEFAULT_FEE), tx);
+    w1.transfer(dsts, mix_in_factor, 0, DEFAULT_FEE, std::vector<uint8_t>(), tools::detail::null_split_strategy, tools::tx_dust_policy(DEFAULT_FEE), tx);
     return true;
   }
   catch (const std::exception&)
@@ -144,7 +144,7 @@ bool transactions_flow_test(std::string& working_folder,
   }
 
   //lets make a lot of small outs to ourselves
-  //since it is not possible to start from transaction that bigger than 20Kb, we gonna make transactions 
+  //since it is not possible to start from transaction that bigger than 20Kb, we gonna make transactions
   //with 500 outs (about 18kb), and we have to wait appropriate count blocks, mined for test wallet
   while(true)
   {

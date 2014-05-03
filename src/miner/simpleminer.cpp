@@ -120,6 +120,7 @@ namespace mining
         COMMAND_RPC_LOGIN::request req = AUTO_VAL_INIT(req);
         req.login = m_login;
         req.pass = m_pass;
+        req.agent = "simpleminer/0.1";
         COMMAND_RPC_LOGIN::response resp = AUTO_VAL_INIT(resp);
         if(!epee::net_utils::invoke_http_json_rpc<mining::COMMAND_RPC_LOGIN>("/", req, resp, m_http_client))
         {
@@ -137,7 +138,12 @@ namespace mining
         }
         pool_session_id = resp.id;
         //78
-        if(!text_job_details_to_native_job_details(resp.job, job))
+        if (resp.job.blob.empty() && resp.job.target.empty() && resp.job.job_id.empty())
+        {
+            LOG_PRINT_L0("Job didn't change");
+            continue;
+        }
+        else if(!text_job_details_to_native_job_details(resp.job, job))
         {
           LOG_PRINT_L0("Failed to text_job_details_to_native_job_details(), disconnect and sleep....");
           m_http_client.disconnect();
@@ -161,7 +167,8 @@ namespace mining
           COMMAND_RPC_SUBMITSHARE::response submit_response = AUTO_VAL_INIT(submit_response);
           submit_request.id     = pool_session_id;
           submit_request.job_id = job.job_id;
-          submit_request.nonce  = epee::string_tools::pod_to_hex((*((uint32_t*)&job.blob.data()[78])));
+          submit_request.nonce  = epee::string_tools::pod_to_hex((*((uint32_t*)&job.blob.data()[39])));
+          submit_request.result = epee::string_tools::pod_to_hex(h);
           LOG_PRINT_L0("Share found: nonce=" << submit_request.nonce << " for job=" << job.job_id << ", submitting...");
           if(!epee::net_utils::invoke_http_json_rpc<mining::COMMAND_RPC_SUBMITSHARE>("/", submit_request, submit_response, m_http_client))
           {
@@ -193,7 +200,12 @@ namespace mining
         epee::misc_utils::sleep_no_w(1000);
         break;
       }
-      if(!text_job_details_to_native_job_details(getjob_response, job))
+      if (getjob_response.blob.empty() && getjob_response.target.empty() && getjob_response.job_id.empty())
+      {
+        LOG_PRINT_L0("Job didn't change");
+        continue;
+      }
+      else if(!text_job_details_to_native_job_details(getjob_response, job))
       {
         LOG_PRINT_L0("Failed to text_job_details_to_native_job_details(), disconnect and sleep....");
         m_http_client.disconnect();

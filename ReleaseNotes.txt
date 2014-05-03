@@ -1,6 +1,12 @@
-Release notes -> BMR
+Bitmonero
 
-- forked for Bitmonero project
+Release notes 0.8.6
+
+- Simplwallet can set extra for transfers
+- Improvements in JSON RPC for wallet
+- UX improvements in simplewallet
+- Win32 compilation
+- Mac OSX compilation
 
 Release notes 0.8.5
 

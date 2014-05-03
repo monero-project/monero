@@ -425,8 +425,11 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
             ts.amount = oi.amount;
             ts.real_output_in_tx_index = oi.out_no;
             ts.real_out_tx_key = get_tx_pub_key_from_extra(*oi.p_tx); // incoming tx public key
-            if (!fill_output_entries(outs[o.first], sender_out, nmix, ts.real_output, ts.outputs))
+            size_t realOutput;
+            if (!fill_output_entries(outs[o.first], sender_out, nmix, realOutput, ts.outputs))
               continue;
+
+            ts.real_output = realOutput;
 
             sources.push_back(ts);
 
@@ -528,7 +531,7 @@ bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote
   vector<tx_destination_entry> destinations;
   fill_tx_sources_and_destinations(events, blk_head, from, to, amount, fee, nmix, sources, destinations);
 
-  return construct_tx(from.get_keys(), sources, destinations, tx, 0);
+  return construct_tx(from.get_keys(), sources, destinations, std::vector<uint8_t>(), tx, 0);
 }
 
 transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const block& blk_head,

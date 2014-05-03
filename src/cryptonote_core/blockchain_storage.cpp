@@ -582,6 +582,42 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
   if (!m_tx_pool.fill_block_template(b, median_size, already_generated_coins, txs_size, fee)) {
     return false;
   }
+#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
+  size_t real_txs_size = 0;
+  uint64_t real_fee = 0;
+  CRITICAL_REGION_BEGIN(m_tx_pool.m_transactions_lock);
+  BOOST_FOREACH(crypto::hash &cur_hash, b.tx_hashes) {
+    auto cur_res = m_tx_pool.m_transactions.find(cur_hash);
+    if (cur_res == m_tx_pool.m_transactions.end()) {
+      LOG_ERROR("Creating block template: error: transaction not found");
+      continue;
+    }
+    tx_memory_pool::tx_details &cur_tx = cur_res->second;
+    real_txs_size += cur_tx.blob_size;
+    real_fee += cur_tx.fee;
+    if (cur_tx.blob_size != get_object_blobsize(cur_tx.tx)) {
+      LOG_ERROR("Creating block template: error: invalid transaction size");
+    }
+    uint64_t inputs_amount;
+    if (!get_inputs_money_amount(cur_tx.tx, inputs_amount)) {
+      LOG_ERROR("Creating block template: error: cannot get inputs amount");
+    } else if (cur_tx.fee != inputs_amount - get_outs_money_amount(cur_tx.tx)) {
+      LOG_ERROR("Creating block template: error: invalid fee");
+    }
+  }
+  if (txs_size != real_txs_size) {
+    LOG_ERROR("Creating block template: error: wrongly calculated transaction size");
+  }
+  if (fee != real_fee) {
+    LOG_ERROR("Creating block template: error: wrongly calculated fee");
+  }
+  CRITICAL_REGION_END();
+  LOG_PRINT_L1("Creating block template: height " << height <<
+    ", median size " << median_size <<
+    ", already generated coins " << already_generated_coins <<
+    ", transaction size " << txs_size <<
+    ", fee " << fee);
+#endif
 
   /*
      two-phase miner transaction generation: we don't know exact block size until we prepare block, but we don't know reward until we know
@@ -590,27 +626,32 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob size
   bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, 11);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, first chance");
-#ifdef _DEBUG
-  std::list<size_t> try_val;
-  try_val.push_back(get_object_blobsize(b.miner_tx));
-#endif
-
   size_t cumulative_size = txs_size + get_object_blobsize(b.miner_tx);
+#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
+  LOG_PRINT_L1("Creating block template: miner tx size " << get_object_blobsize(b.miner_tx) <<
+    ", cumulative size " << cumulative_size);
+#endif
   for (size_t try_count = 0; try_count != 10; ++try_count) {
     r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, 11);
-#ifdef _DEBUG
-    try_val.push_back(get_object_blobsize(b.miner_tx));
-#endif
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, second chance");
     size_t coinbase_blob_size = get_object_blobsize(b.miner_tx);
     if (coinbase_blob_size > cumulative_size - txs_size) {
       cumulative_size = txs_size + coinbase_blob_size;
+#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
+      LOG_PRINT_L1("Creating block template: miner tx size " << coinbase_blob_size <<
+        ", cumulative size " << cumulative_size << " is greater then before");
+#endif
       continue;
     }
 
     if (coinbase_blob_size < cumulative_size - txs_size) {
       size_t delta = cumulative_size - txs_size - coinbase_blob_size;
+#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
+      LOG_PRINT_L1("Creating block template: miner tx size " << coinbase_blob_size <<
+        ", cumulative size " << txs_size + coinbase_blob_size <<
+        " is less then before, adding " << delta << " zero bytes");
+#endif
       b.miner_tx.extra.insert(b.miner_tx.extra.end(), delta, 0);
       //here  could be 1 byte difference, because of extra field counter is varint, and it can become from 1-byte len to 2-bytes len.
       if (cumulative_size != txs_size + get_object_blobsize(b.miner_tx)) {
@@ -626,6 +667,10 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
       }
     }
     CHECK_AND_ASSERT_MES(cumulative_size == txs_size + get_object_blobsize(b.miner_tx), false, "unexpected case: cumulative_size=" << cumulative_size << " is not equal txs_cumulative_size=" << txs_size << " + get_object_blobsize(b.miner_tx)=" << get_object_blobsize(b.miner_tx));
+#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
+    LOG_PRINT_L1("Creating block template: miner tx size " << coinbase_blob_size <<
+      ", cumulative size " << cumulative_size << " is now good");
+#endif
     return true;
   }
   LOG_ERROR("Failed to create_block_template with " << 10 << " tries");

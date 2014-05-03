@@ -24,7 +24,7 @@ namespace cryptonote {
 #include <winnt.h>
 
   static inline void mul(uint64_t a, uint64_t b, uint64_t &low, uint64_t &high) {
-    low = UnsignedMultiply128(a, b, &high);
+    low = mul128(a, b, &high);
   }
 
 #else

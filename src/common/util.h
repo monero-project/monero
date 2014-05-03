@@ -52,7 +52,7 @@ namespace tools
 
   private:
 #if defined(WIN32)
-    static BOOL win_handler(DWORD type)
+    static BOOL WINAPI win_handler(DWORD type)
     {
       if (CTRL_C_EVENT == type || CTRL_BREAK_EVENT == type)
       {

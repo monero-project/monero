@@ -41,11 +41,26 @@ namespace cryptonote
   };
 
   //---------------------------------------------------------------
-  bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, transaction& tx, uint64_t unlock_time);
-  bool parse_and_validate_tx_extra(const transaction& tx, crypto::public_key& tx_pub_key);
+  bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time);
+
+  template<typename T>
+  bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field)
+  {
+    auto it = std::find_if(tx_extra_fields.begin(), tx_extra_fields.end(), [](const tx_extra_field& f) { return typeid(T) == f.type(); });
+    if(tx_extra_fields.end() == it)
+      return false;
+
+    field = boost::get<T>(*it);
+    return true;
+  }
+
+  bool parse_tx_extra(const std::vector<uint8_t>& tx_extra, std::vector<tx_extra_field>& tx_extra_fields);
+  crypto::public_key get_tx_pub_key_from_extra(const std::vector<uint8_t>& tx_extra);
   crypto::public_key get_tx_pub_key_from_extra(const transaction& tx);
   bool add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key);
-  bool add_tx_extra_nonce(transaction& tx, const blobdata& extra_nonce);
+  bool add_extra_nonce_to_tx_extra(std::vector<uint8_t>& tx_extra, const blobdata& extra_nonce);
+  void set_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash& payment_id);
+  bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id);
   bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, size_t output_index);
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, const crypto::public_key& tx_pub_key, std::vector<size_t>& outs, uint64_t& money_transfered);
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, std::vector<size_t>& outs, uint64_t& money_transfered);

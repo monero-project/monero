@@ -36,10 +36,12 @@ namespace mining
     {
       std::string login;
       std::string pass;
+      std::string agent;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(login)
         KV_SERIALIZE(pass)
+        KV_SERIALIZE(agent)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -82,11 +84,13 @@ namespace mining
     {
       std::string id;
       std::string nonce;
+      std::string result;
       std::string job_id;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(id)
         KV_SERIALIZE(nonce)
+        KV_SERIALIZE(result)
         KV_SERIALIZE(job_id)
       END_KV_SERIALIZE_MAP()
     };

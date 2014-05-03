@@ -72,7 +72,7 @@ bool gen_uint_overflow_base::mark_last_valid_block(cryptonote::core& c, size_t e
 
 bool gen_uint_overflow_1::generate(std::vector<test_event_entry>& events) const
 {
-  uint64_t ts_start = 1338224400;  
+  uint64_t ts_start = 1338224400;
 
   GENERATE_ACCOUNT(miner_account);
   MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);
@@ -116,7 +116,7 @@ bool gen_uint_overflow_1::generate(std::vector<test_event_entry>& events) const
 
 bool gen_uint_overflow_2::generate(std::vector<test_event_entry>& events) const
 {
-  uint64_t ts_start = 1338224400;  
+  uint64_t ts_start = 1338224400;
 
   GENERATE_ACCOUNT(miner_account);
   MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);
@@ -148,7 +148,7 @@ bool gen_uint_overflow_2::generate(std::vector<test_event_entry>& events) const
   destinations.push_back(tx_destination_entry(sources.front().amount - MONEY_SUPPLY - MONEY_SUPPLY + 1 - TESTS_DEFAULT_FEE, bob_addr));
 
   cryptonote::transaction tx_1;
-  if (!construct_tx(miner_account.get_keys(), sources, destinations, tx_1, 0))
+  if (!construct_tx(miner_account.get_keys(), sources, destinations, std::vector<uint8_t>(), tx_1, 0))
     return false;
   events.push_back(tx_1);
 
@@ -174,7 +174,7 @@ bool gen_uint_overflow_2::generate(std::vector<test_event_entry>& events) const
   destinations.push_back(de);
 
   cryptonote::transaction tx_2;
-  if (!construct_tx(bob_account.get_keys(), sources, destinations, tx_2, 0))
+  if (!construct_tx(bob_account.get_keys(), sources, destinations, std::vector<uint8_t>(), tx_2, 0))
     return false;
   events.push_back(tx_2);
 
