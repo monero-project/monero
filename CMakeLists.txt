@@ -96,7 +96,7 @@ if(MINGW)
 elseif(APPLE)
   set(Boost_LIBRARIES "${Boost_LIBRARIES}")
 elseif(NOT MSVC)
-  set(Boost_LIBRARIES "${Boost_LIBRARIES};rt")
+  set(Boost_LIBRARIES "${Boost_LIBRARIES};rt;pthread")
 endif()
 
 set(COMMIT_ID_IN_VERSION ON CACHE BOOL "Include commit ID in version")
