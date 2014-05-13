@@ -109,7 +109,7 @@ namespace mining
       if(!m_http_client.is_connected())
       {
         LOG_PRINT_L0("Connecting " << m_pool_ip << ":" << m_pool_port << "....");
-        if(!m_http_client.connect(m_pool_ip, m_pool_port, 10000))
+        if(!m_http_client.connect(m_pool_ip, m_pool_port, 20000))
         {
           LOG_PRINT_L0("Failed to connect " << m_pool_ip << ":" << m_pool_port << ", sleep....");
           epee::misc_utils::sleep_no_w(1000);
