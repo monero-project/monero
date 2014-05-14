@@ -93,7 +93,12 @@ inline bool do_serialize(Archive &ar, T &v)
     ar.serialize_varint(f); \
     if (!ar.stream().good()) return false; \
   } while(0);
-
+#define VARINT_FIELD_N(t, f) \
+  do { \
+    ar.tag(t); \
+    ar.serialize_varint(f); \
+    if (!ar.stream().good()) return false; \
+  } while(0);
 namespace serialization {
   namespace detail
   {
