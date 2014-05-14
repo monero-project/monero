@@ -34,6 +34,7 @@ public:
     m_cmd_binder.set_handler("show_hr", boost::bind(&daemon_cmmands_handler::show_hr, this, _1), "Start showing hash rate");
     m_cmd_binder.set_handler("hide_hr", boost::bind(&daemon_cmmands_handler::hide_hr, this, _1), "Stop showing hash rate");
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
+    m_cmd_binder.set_handler("diff", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Show difficulty");
   }
 
   bool start_handling()
@@ -97,6 +98,17 @@ private:
     m_srv.get_payload_object().get_core().get_miner().do_print_hashrate(false);
     return true;
   }
+  //--------------------------------------------------------------------------------
+  bool diff(const std::vector<std::string>& args)
+  {
+	  cryptonote::difficulty_type difficulty = m_srv.get_payload_object().get_core().get_blockchain_storage().get_difficulty_for_next_block();
+	  uint64_t height = m_srv.get_payload_object().get_core().get_blockchain_storage().get_current_blockchain_height();
+
+	  LOG_PRINT_GREEN("BH: " << height << ", DIFF: " << difficulty 
+		  << ", HR: " << (int) difficulty / 60L << " H/s", LOG_LEVEL_0);
+
+	  return true;
+  } 
   //--------------------------------------------------------------------------------
   bool print_bc_outs(const std::vector<std::string>& args)
   {
