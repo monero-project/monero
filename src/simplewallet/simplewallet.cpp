@@ -181,6 +181,7 @@ simple_wallet::simple_wallet()
 {
   m_cmd_binder.set_handler("start_mining", boost::bind(&simple_wallet::start_mining, this, _1), "start_mining [<number_of_threads>] - Start mining in daemon");
   m_cmd_binder.set_handler("stop_mining", boost::bind(&simple_wallet::stop_mining, this, _1), "Stop mining in daemon");
+  m_cmd_binder.set_handler("save_bc", boost::bind(&simple_wallet::save_bc, this, _1), "Save current blockchain data");
   m_cmd_binder.set_handler("refresh", boost::bind(&simple_wallet::refresh, this, _1), "Resynchronize transactions and balance");
   m_cmd_binder.set_handler("balance", boost::bind(&simple_wallet::show_balance, this, _1), "Show current wallet balance");
   m_cmd_binder.set_handler("incoming_transfers", boost::bind(&simple_wallet::show_incoming_transfers, this, _1), "incoming_transfers [available|unavailable] - Show incoming transfers - all of them or filter them by availability");
@@ -488,6 +489,22 @@ bool simple_wallet::stop_mining(const std::vector<std::string>& args)
     success_msg_writer() << "Mining stopped in daemon";
   else
     fail_msg_writer() << "mining has NOT been stopped: " << err;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::save_bc(const std::vector<std::string>& args)
+{
+  if (!try_connect_to_daemon())
+    return true;
+
+  COMMAND_RPC_SAVE_BC::request req;
+  COMMAND_RPC_SAVE_BC::response res;
+  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/save_bc", req, res, m_http_client);
+  std::string err = interpret_rpc_response(r, res.status);
+  if (err.empty())
+    success_msg_writer() << "Blockchain saved";
+  else
+    fail_msg_writer() << "Blockchain can't be saved: " << err;
   return true;
 }
 //----------------------------------------------------------------------------------------------------
