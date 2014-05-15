@@ -280,9 +280,7 @@ namespace cryptonote
     CHECK_CORE_READY();
     if( !m_core.get_blockchain_storage().store_blockchain() )
     {
-      // TODO
       res.status = "Error while storing blockhain";
-
       return true;
     }
     res.status = CORE_RPC_STATUS_OK;
