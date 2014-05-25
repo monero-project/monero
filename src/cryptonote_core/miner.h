@@ -36,10 +36,12 @@ namespace cryptonote
     bool set_block_template(const block& bl, const difficulty_type& diffic, uint64_t height);
     bool on_block_chain_update();
     bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs);
-    uint64_t get_speed();
+    uint64_t get_speed() const;
+    uint32_t get_threads_count() const;
     void send_stop_signal();
     bool stop();
-    bool is_mining();
+    bool is_mining() const;
+    const account_public_address& get_mining_address() const;
     bool on_idle();
     void on_synchronized();
     //synchronous analog (for fast calls)

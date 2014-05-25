@@ -188,9 +188,18 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::is_mining()
+  bool miner::is_mining() const
   {
     return !m_stop;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  const account_public_address& miner::get_mining_address() const
+  {
+    return m_mine_address;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  uint32_t miner::get_threads_count() const {
+    return m_threads_total;
   }
   //----------------------------------------------------------------------------------------------------- 
   bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs)
@@ -226,12 +235,14 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  uint64_t miner::get_speed()
+  uint64_t miner::get_speed() const
   {
-    if(is_mining())
+    if(is_mining()) {
       return m_current_hash_rate;
-    else
+    }
+    else {
       return 0;
+    }
   }
   //-----------------------------------------------------------------------------------------------------
   void miner::send_stop_signal()
