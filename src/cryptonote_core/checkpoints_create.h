@@ -12,12 +12,9 @@
 namespace cryptonote {
   inline bool create_checkpoints(cryptonote::checkpoints& checkpoints)
   {      
-    // Checkpointing disabled until we can make the client not fast-sync
-    // without checking PoW at some point. Otherwise we may be exposed
-    // to blockchain corruption attacks. Need to investigate this further.
-    // 8-5-14
-    // ADD_CHECKPOINT(22231, "7cb10e29d67e1c069e6e11b17d30b809724255fee2f6868dc14cfc6ed44dfb25");
-    // ADD_CHECKPOINT(29556, "53c484a8ed91e4da621bb2fa88106dbde426fe90d7ef07b9c1e5127fb6f3a7f6");
+    ADD_CHECKPOINT(22231, "7cb10e29d67e1c069e6e11b17d30b809724255fee2f6868dc14cfc6ed44dfb25");
+    ADD_CHECKPOINT(29556, "53c484a8ed91e4da621bb2fa88106dbde426fe90d7ef07b9c1e5127fb6f3a7f6");
+    ADD_CHECKPOINT(50000, "0fe8758ab06a8b9cb35b7328fd4f757af530a5d37759f9d3e421023231f7b31c");
     return true;
   }
 }

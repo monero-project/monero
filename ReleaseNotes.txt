@@ -1,5 +1,18 @@
 Bitmonero
 
+Release notes 0.8.8
+
+- JSON RPC v2.0 compatibility
+- JSON RPC over TCP added- Further optimizations
+- Fixed a bug with checkpoints behavior
+- UI improvements for daemon
+- Fixed COIN value (10^12)
+- Raised minimum fee to (1/2) * (10^10)
+
+Release notes 0.8.7
+
+- Slow hash optimizations
+
 Release notes 0.8.6
 
 - Simplwallet can set extra for transfers

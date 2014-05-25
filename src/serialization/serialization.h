@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <boost/type_traits/is_integral.hpp>
+#include <boost/type_traits/integral_constant.hpp>
 
 template <class T>
 struct is_blob_type { typedef boost::false_type type; };
@@ -79,8 +80,10 @@ inline bool do_serialize(Archive &ar, T &v)
     if (!r || !ar.stream().good()) return false; \
   } while(0);
 #define FIELDS(f) \
+  do { \
     bool r = ::do_serialize(ar, f); \
-    if (!r || !ar.stream().good()) return false;
+    if (!r || !ar.stream().good()) return false; \
+  } while(0);
 #define FIELD(f) \
   do { \
     ar.tag(#f); \
@@ -99,6 +102,7 @@ inline bool do_serialize(Archive &ar, T &v)
     ar.serialize_varint(f); \
     if (!ar.stream().good()) return false; \
   } while(0);
+
 namespace serialization {
   namespace detail
   {

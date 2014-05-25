@@ -55,20 +55,20 @@ namespace net_utils
 		/************************************************************************/
 		/*                                                                      */
 		/************************************************************************/
-    template<class t_connection_context  = net_utils::connection_context_base>
+		template<class t_connection_context  = net_utils::connection_context_base>
 		class simple_http_connection_handler
 		{
 		public:
-      typedef t_connection_context connection_context;//t_connection_context net_utils::connection_context_base connection_context;
+			typedef t_connection_context connection_context;//t_connection_context net_utils::connection_context_base connection_context;
 			typedef http_server_config config_type;
 
 			simple_http_connection_handler(i_service_endpoint* psnd_hndlr, config_type& config);
 			virtual ~simple_http_connection_handler(){}
 
-      bool release_protocol()
-      {
-        return true;
-      }
+			bool release_protocol()
+			{
+				return true;
+			}
 
 			virtual bool thread_init()
 			{
@@ -85,10 +85,6 @@ namespace net_utils
 			}
 			virtual bool handle_recv(const void* ptr, size_t cb);
 			virtual bool handle_request(const http::http_request_info& query_info, http_response_info& response);
-    
-      
-      //temporary here
-      //bool parse_uri(const std::string uri, uri_content& content);
 
 		private:
 			enum machine_state{
@@ -142,34 +138,37 @@ namespace net_utils
 			i_service_endpoint* m_psnd_hndlr; 
 		};
 
-    template<class t_connection_context>
+		template<class t_connection_context>
 		struct i_http_server_handler
 		{
 			virtual ~i_http_server_handler(){}
-			virtual bool handle_http_request(const http_request_info& query_info, http_response_info& response, t_connection_context& m_conn_context)=0;
-      virtual bool init_server_thread(){return true;}
+			virtual bool handle_http_request(const http_request_info& query_info,
+																						 http_response_info& response,
+																						 t_connection_context& m_conn_context) = 0;
+			virtual bool init_server_thread(){return true;}
 			virtual bool deinit_server_thread(){return true;}
 		};
 
-    template<class t_connection_context>
+		template<class t_connection_context>
 		struct custum_handler_config: public http_server_config
 		{
 			i_http_server_handler<t_connection_context>* m_phandler;
 		};
 
-    /************************************************************************/
-    /*                                                                      */
-    /************************************************************************/
+		/************************************************************************/
+		/*                                                                      */
+		/************************************************************************/
 
-    template<class t_connection_context = net_utils::connection_context_base>
+		template<class t_connection_context = net_utils::connection_context_base>
 		class http_custom_handler: public simple_http_connection_handler<t_connection_context>
 		{
 		public:
 			typedef custum_handler_config<t_connection_context> config_type;
 			
-			http_custom_handler(i_service_endpoint* psnd_hndlr, config_type& config, t_connection_context& conn_context):simple_http_connection_handler<t_connection_context>(psnd_hndlr, config), 
-				m_config(config),
-				m_conn_context(conn_context)
+			http_custom_handler(i_service_endpoint* psnd_hndlr, config_type& config, t_connection_context& conn_context)
+				: simple_http_connection_handler<t_connection_context>(psnd_hndlr, config),
+					m_config(config),
+					m_conn_context(conn_context)
 			{}
 			inline bool handle_request(const http_request_info& query_info, http_response_info& response)
 			{
@@ -191,8 +190,8 @@ namespace net_utils
 			{
 				return m_config.m_phandler->deinit_server_thread();
 			}
-      void handle_qued_callback()   
-      {}
+			void handle_qued_callback()
+			{}
 			bool after_init_connection()
 			{
 				return true;
