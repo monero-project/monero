@@ -1526,7 +1526,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
 
   // If we're at a checkpoint, ensure that our hardcoded checkpoint hash
   // is correct.
-  if(!m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height()))
+  if(m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height()))
   {
     if(!m_checkpoints.check_block(get_current_blockchain_height(), id))
     {
