@@ -7,7 +7,8 @@ Release notes 0.8.8
 - Fixed a bug with checkpoints behavior
 - UI improvements for daemon
 - Fixed COIN value (10^12)
-- Raised minimum fee to (1/2) * (10^10)
+- Raised minimum fee to 5 * (10^9)
+- Temporary fix for block reward DoS attack
 
 Release notes 0.8.7
 
