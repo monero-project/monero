@@ -357,13 +357,18 @@ namespace cryptonote
 
     size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE; // Max block size
     std::unordered_set<crypto::key_image> k_images;
+
+    // Tx size limit as in wallet2.h
+    uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+
     BOOST_FOREACH(transactions_container::value_type& tx, m_transactions)
     {
       // Can not exceed maximum block size
       if (max_total_size < total_size + tx.second.blob_size)
         continue;
 
-      // Check to see if the minimum fee is included
+      // Check to see if the minimum fee is included;
+      // exclude tx missing minimum fee
       if (tx.second.fee < DEFAULT_FEE)
         continue;
 
@@ -372,14 +377,20 @@ namespace cryptonote
       // such that it is based on median block size;
       // We need to make a similar patch for
       // wallet2.h
-      uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
       if (tx.second.blob_size > upper_transaction_size_limit)
+        continue;
+
+      // If adding this tx will make the block size
+      // greater than 130% of the median, reject the
+      // tx; this will keep down largely punitive tx
+      // from being included
+      if ( (total_size + tx.second.blob_size) > ((130 * median_size) / 100) )
         continue;
 
       // If we've exceeded the penalty free size,
       // stop including more tx
       if (total_size > median_size)
-        continue;      
+        break;      
 
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
