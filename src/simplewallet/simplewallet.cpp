@@ -1054,14 +1054,20 @@ int main(int argc, char* argv[])
 
     std::vector<std::string> command = command_line::get_arg(vm, arg_command);
     if (!command.empty())
+    {
       w.process_command(command);
-
-    tools::signal_handler::install([&w] {
       w.stop();
-    });
-    w.run();
+      w.deinit();
+    }
+    else
+    {
+      tools::signal_handler::install([&w] {
+        w.stop();
+      });
+      w.run();
 
-    w.deinit();
+      w.deinit();
+    }
   }
   return 1;
   //CATCH_ENTRY_L0("main", 1);
