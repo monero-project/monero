@@ -350,6 +350,10 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee)
   {
+    // Warning: This function takes already_generated_
+    // coins as an argument and appears to do nothing
+    // with it.
+
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     total_size = 0;
@@ -359,7 +363,10 @@ namespace cryptonote
     std::unordered_set<crypto::key_image> k_images;
 
     // Tx size limit as in wallet2.h
-    uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    // tx_pool.cpp uses uint64_t for tx sizes, whereas
+    // wallet2.h uses uint64_t; just use size_t here 
+    // for now
+    size_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
 
     // Calculate size limit based on median too; useful
     // for when we actually fix wallet2.h's maximum
@@ -368,7 +375,7 @@ namespace cryptonote
     // Can be removed when wallet2.h calculates max
     // tx size based on the median too; just use
     // upper_transaction_size_limit_median in all cases
-    uint64_t upper_transaction_size_limit_median = ((median_size * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    size_t upper_transaction_size_limit_median = ((median_size * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     if (upper_transaction_size_limit_median > upper_transaction_size_limit)
       upper_transaction_size_limit = upper_transaction_size_limit_median;
 
