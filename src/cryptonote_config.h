@@ -26,8 +26,8 @@
 #define CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE          600
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
 // COIN - number of smallest units in one coin
-#define COIN                                            ((uint64_t)100000000) // pow(10, 8)
-#define DEFAULT_FEE                                     ((uint64_t)1000000) // pow(10, 6)
+#define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
+#define DEFAULT_FEE                                     ((uint64_t)5000000000) // 5 * pow(10, 9)
 
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
