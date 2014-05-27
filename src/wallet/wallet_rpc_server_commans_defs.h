@@ -121,6 +121,42 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
   };
+  
+  struct transfer_details
+  {
+    uint64_t amount;
+    bool spent;
+    uint64_t global_index;
+    std::string tx_hash;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(amount)
+      KV_SERIALIZE(spent)
+      KV_SERIALIZE(global_index)
+      KV_SERIALIZE(tx_hash)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_INCOMING_TRANSFERS
+  {
+    struct request
+    {
+      std::string transfer_type;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(transfer_type)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<transfer_details> transfers;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(transfers)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 }
 
