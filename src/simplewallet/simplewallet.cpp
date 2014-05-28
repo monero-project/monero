@@ -1071,6 +1071,6 @@ int main(int argc, char* argv[])
 
     w.deinit();
   }
-  return 1;
+  return 0;
   //CATCH_ENTRY_L0("main", 1);
 }
