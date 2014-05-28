@@ -38,6 +38,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_daemon_address = {"daemon-address", "Use daemon instance at <host>:<port>", ""};
   const command_line::arg_descriptor<std::string> arg_daemon_host = {"daemon-host", "Use daemon instance at host <arg> instead of localhost", ""};
   const command_line::arg_descriptor<std::string> arg_password = {"password", "Wallet password", "", true};
+  const command_line::arg_descriptor<std::string> arg_exit_after_cmd = {"exit-after-cmd", "Will not enter in the CLI console after command execution. Default: false", ""};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
 
@@ -928,6 +929,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_daemon_host);
   command_line::add_arg(desc_params, arg_daemon_port);
   command_line::add_arg(desc_params, arg_command);
+  command_line::add_arg(desc_params, arg_exit_after_cmd);
   command_line::add_arg(desc_params, arg_log_level);
   tools::wallet_rpc_server::init_options(desc_params);
 
@@ -1059,7 +1061,13 @@ int main(int argc, char* argv[])
     tools::signal_handler::install([&w] {
       w.stop();
     });
-    w.run();
+
+    const std::string& exit_after_command = command_line::get_arg(vm, arg_exit_after_cmd);
+
+    /* Enters in CLI mode only if --exit-after-cmd is not set to true */
+    if ( !boost::iequals(exit_after_command,"true") && !boost::iequals(exit_after_command,"yes") ) {
+      w.run();
+    }
 
     w.deinit();
   }
