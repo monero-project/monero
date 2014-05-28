@@ -363,7 +363,7 @@ namespace cryptonote
     std::unordered_set<crypto::key_image> k_images;
 
     // Tx size limit as in wallet2.h
-    // tx_pool.cpp uses uint64_t for tx sizes, whereas
+    // tx_pool.cpp uses size_t for tx sizes, whereas
     // wallet2.h uses uint64_t; just use size_t here 
     // for now
     size_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
