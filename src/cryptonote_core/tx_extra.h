@@ -135,7 +135,6 @@ namespace cryptonote
   //   varint tag;
   //   varint size;
   //   varint data[];
-  //typedef boost::variant<tx_extra_padding, tx_extra_pub_key, tx_extra_nonce> tx_extra_field;
   typedef boost::variant<tx_extra_padding, tx_extra_pub_key, tx_extra_nonce, tx_extra_merge_mining_tag> tx_extra_field;
 }
 

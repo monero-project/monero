@@ -83,7 +83,7 @@ namespace epee
       bool		load_from_binary(const binarybuffer& target);
       template<class trace_policy>
       bool		  dump_as_xml(std::string& targetObj, const std::string& root_name = "");
-      bool		  dump_as_json(std::string& targetObj, size_t indent = 0);
+      bool		  dump_as_json(std::string& targetObj, size_t indent = 0, bool insert_newlines = true);
       bool		  load_from_json(const std::string& source);
 
     private:
@@ -106,17 +106,17 @@ namespace epee
 #pragma pack(pop)
     };
     inline
-    bool		  portable_storage::dump_as_json(std::string& buff, size_t indent)
+    bool portable_storage::dump_as_json(std::string& buff, size_t indent, bool insert_newlines)
     {
       TRY_ENTRY();
       std::stringstream ss;
-      epee::serialization::dump_as_json(ss, m_root, indent);
+      epee::serialization::dump_as_json(ss, m_root, indent, insert_newlines);
       buff = ss.str();
       return true;
       CATCH_ENTRY("portable_storage::dump_as_json", false)
     }
     inline
-    bool		portable_storage::load_from_json(const std::string& source)
+    bool portable_storage::load_from_json(const std::string& source)
     {
       TRY_ENTRY();
       return json::load_from_json(source, *this);
@@ -124,13 +124,13 @@ namespace epee
     }
 
     template<class trace_policy>
-    bool		  portable_storage::dump_as_xml(std::string& targetObj, const std::string& root_name)
+    bool portable_storage::dump_as_xml(std::string& targetObj, const std::string& root_name)
     {
       return false;//TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
     }
 
     inline
-    bool		portable_storage::store_to_binary(binarybuffer& target)
+    bool portable_storage::store_to_binary(binarybuffer& target)
     {
       TRY_ENTRY();
       std::stringstream ss;
@@ -145,7 +145,7 @@ namespace epee
       CATCH_ENTRY("portable_storage::store_to_binary", false)
     }
     inline
-    bool		portable_storage::load_from_binary(const binarybuffer& source)
+    bool portable_storage::load_from_binary(const binarybuffer& source)
     {
       m_root.m_entries.clear();
       if(source.size() < sizeof(storage_block_header))
@@ -174,7 +174,7 @@ namespace epee
     }
     //---------------------------------------------------------------------------------------------------------------
     inline
-    hsection   portable_storage::open_section(const std::string& section_name,  hsection hparent_section, bool create_if_notexist)
+    hsection portable_storage::open_section(const std::string& section_name,  hsection hparent_section, bool create_if_notexist)
     {
       TRY_ENTRY();
       hparent_section = hparent_section ? hparent_section:&m_root;
@@ -238,7 +238,7 @@ namespace epee
     }
     //---------------------------------------------------------------------------------------------------------------
     template<class t_value>
-    bool       portable_storage::set_value(const std::string& value_name, const t_value& v, hsection hparent_section)        
+    bool portable_storage::set_value(const std::string& value_name, const t_value& v, hsection hparent_section)        
     {
       BOOST_MPL_ASSERT(( boost::mpl::contains<boost::mpl::push_front<storage_entry::types, storage_entry>::type, t_value> )); 
       TRY_ENTRY();
@@ -345,7 +345,7 @@ namespace epee
 
 
     template<class t_value>
-    bool          portable_storage::get_next_value(harray hval_array, t_value& target)
+    bool portable_storage::get_next_value(harray hval_array, t_value& target)
     {
       BOOST_MPL_ASSERT(( boost::mpl::contains<storage_entry::types, t_value> )); 
       //TRY_ENTRY();
@@ -462,7 +462,7 @@ namespace epee
     }
     //---------------------------------------------------------------------------------------------------------------
     inline
-    bool            portable_storage::insert_next_section(harray hsec_array, hsection& hinserted_childsection)
+    bool portable_storage::insert_next_section(harray hsec_array, hsection& hinserted_childsection)
     {
       TRY_ENTRY();
       CHECK_AND_ASSERT(hsec_array, false);

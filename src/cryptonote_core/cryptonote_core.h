@@ -115,13 +115,13 @@ namespace cryptonote
      tx_memory_pool m_mempool;
      blockchain_storage m_blockchain_storage;
      i_cryptonote_protocol* m_pprotocol;
-     critical_section m_incoming_tx_lock;
+     epee::critical_section m_incoming_tx_lock;
      //m_miner and m_miner_addres are probably temporary here
      miner m_miner;
      account_public_address m_miner_address;
      std::string m_config_folder;
      cryptonote_protocol_stub m_protocol_stub;
-     math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
+     epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed;
    };
