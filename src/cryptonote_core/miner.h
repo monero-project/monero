@@ -4,7 +4,6 @@
 
 #pragma once 
 
-#include <boost/atomic.hpp>
 #include <boost/program_options.hpp>
 #include <atomic>
 #include "cryptonote_basic.h"
@@ -64,7 +63,7 @@ namespace cryptonote
 
 
     volatile uint32_t m_stop;
-    ::critical_section m_template_lock;
+    epee::critical_section m_template_lock;
     block m_template;
     std::atomic<uint32_t> m_template_no;
     std::atomic<uint32_t> m_starter_nonce;
@@ -73,21 +72,21 @@ namespace cryptonote
     volatile uint32_t m_thread_index; 
     volatile uint32_t m_threads_total;
     std::atomic<int32_t> m_pausers_count;
-    ::critical_section m_miners_count_lock;
+    epee::critical_section m_miners_count_lock;
 
     std::list<boost::thread> m_threads;
-    ::critical_section m_threads_lock;
+    epee::critical_section m_threads_lock;
     i_miner_handler* m_phandler;
     account_public_address m_mine_address;
-    math_helper::once_a_time_seconds<5> m_update_block_template_interval;
-    math_helper::once_a_time_seconds<2> m_update_merge_hr_interval;
+    epee::math_helper::once_a_time_seconds<5> m_update_block_template_interval;
+    epee::math_helper::once_a_time_seconds<2> m_update_merge_hr_interval;
     std::vector<blobdata> m_extra_messages;
     miner_config m_config;
     std::string m_config_folder_path;    
     std::atomic<uint64_t> m_last_hr_merge_time;
     std::atomic<uint64_t> m_hashes;
     std::atomic<uint64_t> m_current_hash_rate;
-    critical_section m_last_hash_rates_lock;
+    epee::critical_section m_last_hash_rates_lock;
     std::list<uint64_t> m_last_hash_rates;
     bool m_do_print_hashrate;
     bool m_do_mining;

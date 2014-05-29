@@ -24,8 +24,7 @@
 #include "p2p_networks.h"
 #include "math_helper.h"
 #include "net_node_common.h"
-
-using namespace epee;
+#include "common/command_line.h"
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -39,7 +38,7 @@ namespace nodetool
   };
 
   template<class t_payload_net_handler>
-  class node_server: public levin::levin_commands_handler<p2p_connection_context_t<typename t_payload_net_handler::connection_context> >,
+  class node_server: public epee::levin::levin_commands_handler<p2p_connection_context_t<typename t_payload_net_handler::connection_context> >,
                      public i_p2p_endpoint<typename t_payload_net_handler::connection_context>
   {
     struct by_conn_id{};
@@ -126,7 +125,7 @@ namespace nodetool
     bool parse_peer_from_string(nodetool::net_address& pe, const std::string& node_addr);
     bool handle_command_line(const boost::program_options::variables_map& vm);
     bool idle_worker();
-    bool handle_remote_peerlist(const std::list<peerlist_entry>& peerlist, time_t local_time, const net_utils::connection_context_base& context);
+    bool handle_remote_peerlist(const std::list<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
     bool get_local_node_data(basic_node_data& node_data);
     //bool get_local_handshake_data(handshake_data& hshd);
 
@@ -136,7 +135,7 @@ namespace nodetool
     bool connections_maker();
     bool peer_sync_idle_maker();
     bool do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context, bool just_take_peerlist = false);
-    bool do_peer_timed_sync(const net_utils::connection_context_base& context, peerid_type peer_id);
+    bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
 
     bool make_new_connection_from_peerlist(bool use_white_list);
     bool try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, bool white = true);
@@ -146,12 +145,19 @@ namespace nodetool
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
     bool make_expected_connections_count(bool white_list, size_t expected_connections);
+    bool is_priority_node(const net_address& na);
+
+    template <class Container>
+    bool connect_to_peerlist(const Container& peers);
+
+    template <class Container>
+    bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
     //debug functions
     std::string print_connections_container();
 
 
-    typedef net_utils::boosted_tcp_server<levin::async_protocol_handler<p2p_connection_context> > net_server;
+    typedef epee::net_utils::boosted_tcp_server<epee::levin::async_protocol_handler<p2p_connection_context> > net_server;
 
     struct config
     {
@@ -181,9 +187,9 @@ namespace nodetool
     t_payload_net_handler& m_payload_handler;
     peerlist_manager m_peerlist;
 
-    math_helper::once_a_time_seconds<P2P_DEFAULT_HANDSHAKE_INTERVAL> m_peer_handshake_idle_maker_interval;
-    math_helper::once_a_time_seconds<1> m_connections_maker_interval;
-    math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
+    epee::math_helper::once_a_time_seconds<P2P_DEFAULT_HANDSHAKE_INTERVAL> m_peer_handshake_idle_maker_interval;
+    epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
+    epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
 
     std::string m_bind_ip;
     std::string m_port;
@@ -191,6 +197,7 @@ namespace nodetool
     uint64_t m_last_stat_request_time;
 #endif
     std::list<net_address>   m_priority_peers;
+    std::vector<net_address> m_exclusive_peers;
     std::vector<net_address> m_seed_nodes;
     std::list<nodetool::peerlist_entry> m_command_line_peers;
     uint64_t m_peer_livetime;

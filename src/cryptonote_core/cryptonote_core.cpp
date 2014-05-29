@@ -502,7 +502,7 @@ namespace cryptonote
       LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL 
         << "The daemon will start synchronizing with the network. It may take up to several hours." << ENDL 
         << ENDL
-        << "You can set the level of process detailization by using command \"set_log <level>\", where <level> is either 0 (no details), 1 (current block height synchronized), or 2 (all details)." << ENDL
+        << "You can set the level of process detailization* through \"set_log <level>\" command*, where <level> is between 0 (no details) and 4 (very verbose)." << ENDL
         << ENDL
         << "Use \"help\" command to see the list of available commands." << ENDL
         << ENDL

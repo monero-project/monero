@@ -350,18 +350,69 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee)
   {
+    // Warning: This function takes already_generated_
+    // coins as an argument and appears to do nothing
+    // with it.
+
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     total_size = 0;
     fee = 0;
 
-    size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE; // Max block size
     std::unordered_set<crypto::key_image> k_images;
+
+    // Tx size limit as in wallet2.h
+    // tx_pool.cpp uses size_t for tx sizes, whereas
+    // wallet2.h uses uint64_t; just use size_t here 
+    // for now
+    size_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+
+    // Calculate size limit based on median too; useful
+    // for when we actually fix wallet2.h's maximum
+    // allowable tx size
+    //
+    // Can be removed when wallet2.h calculates max
+    // tx size based on the median too; just use
+    // upper_transaction_size_limit_median in all cases
+    size_t upper_transaction_size_limit_median = ((median_size * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    if (upper_transaction_size_limit_median > upper_transaction_size_limit)
+      upper_transaction_size_limit = upper_transaction_size_limit_median;
+
     BOOST_FOREACH(transactions_container::value_type& tx, m_transactions)
     {
+      // Can not exceed maximum block size
       if (max_total_size < total_size + tx.second.blob_size)
         continue;
 
+      // Check to see if the minimum fee is included;
+      // exclude tx missing minimum fee
+      if (tx.second.fee < DEFAULT_FEE)
+        continue;
+
+      // Skip transactions that are too large
+      // TODO: Correct upper_transactions_size_limit
+      // such that it is based on median block size;
+      // We need to make a similar patch for
+      // wallet2.h
+      if (tx.second.blob_size > upper_transaction_size_limit)
+        continue;
+
+      // If adding this tx will make the block size
+      // greater than 130% of the median, reject the
+      // tx; this will keep down largely punitive tx
+      // from being included
+      if ( (total_size + tx.second.blob_size) > ((130 * median_size) / 100) )
+        continue;
+
+      // If we've exceeded the penalty free size,
+      // stop including more tx
+      if (total_size > median_size)
+        break;      
+
+      // Skip transactions that are not ready to be
+      // included into the blockchain or that are
+      // missing key images
       if (!is_transaction_ready_to_go(tx.second) || have_key_images(k_images, tx.second.tx))
         continue;
 

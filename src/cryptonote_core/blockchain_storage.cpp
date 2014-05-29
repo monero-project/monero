@@ -372,7 +372,7 @@ bool blockchain_storage::rollback_blockchain_switching(std::list<block>& origina
   return true;
 }
 //------------------------------------------------------------------
-bool blockchain_storage::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain)
+bool blockchain_storage::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   CHECK_AND_ASSERT_MES(alt_chain.size(), false, "switch_to_alternative_blockchain: empty chain passed");
@@ -414,16 +414,19 @@ bool blockchain_storage::switch_to_alternative_blockchain(std::list<blocks_ext_b
     }
   }
 
-  //pushing old chain as alternative chain
-  BOOST_FOREACH(auto& old_ch_ent, disconnected_chain)
+  if(!discard_disconnected_chain)
   {
-    block_verification_context bvc = boost::value_initialized<block_verification_context>();
-    bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc);
-    if(!r)
+    //pushing old chain as alternative chain
+    BOOST_FOREACH(auto& old_ch_ent, disconnected_chain)
     {
-      LOG_ERROR("Failed to push ex-main chain blocks to alternative chain ");
-      rollback_blockchain_switching(disconnected_chain, split_height);
-      return false;
+      block_verification_context bvc = boost::value_initialized<block_verification_context>();
+      bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc);
+      if(!r)
+      {
+        LOG_ERROR("Failed to push ex-main chain blocks to alternative chain ");
+        rollback_blockchain_switching(disconnected_chain, split_height);
+        return false;
+      }
     }
   }
 
@@ -701,6 +704,22 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  uint64_t block_height = get_block_height(b);
+  if(0 == block_height)
+  {
+    LOG_ERROR("Block with id: " << string_tools::pod_to_hex(id) << " (as alternative) have wrong miner transaction");
+    bvc.m_verifivation_failed = true;
+    return false;
+  }
+  if (!m_checkpoints.is_alternative_block_allowed(get_current_blockchain_height(), block_height))
+  {
+    LOG_PRINT_RED_L0("Block with id: " << id
+      << ENDL << " can't be accepted for alternative chain, block height: " << block_height
+      << ENDL << " blockchain height: " << get_current_blockchain_height());
+    bvc.m_verifivation_failed = true;
+    return false;
+  }
+
   //block is not related with head of main chain
   //first of all - look in alternative chains container
   auto it_main_prev = m_blocks_index.find(b.prev_id);
@@ -746,31 +765,28 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
     block_extended_info bei = boost::value_initialized<block_extended_info>();
     bei.bl = b;
     bei.height = alt_chain.size() ? it_prev->second.height + 1 : it_main_prev->second + 1;
+
+    bool is_a_checkpoint;
+    if(!m_checkpoints.check_block(bei.height, id, is_a_checkpoint))
+    {
+      LOG_ERROR("CHECKPOINT VALIDATION FAILED");
+      bvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    // Always check PoW for alternative blocks
+    m_is_in_checkpoint_zone = false;
     difficulty_type current_diff = get_next_difficulty_for_alternative_chain(alt_chain, bei);
     CHECK_AND_ASSERT_MES(current_diff, false, "!!!!!!! DIFFICULTY OVERHEAD !!!!!!!");
     crypto::hash proof_of_work = null_hash;
-    if(!m_checkpoints.is_in_checkpoint_zone(bei.height))
+    get_block_longhash(bei.bl, proof_of_work, bei.height);
+    if(!check_hash(proof_of_work, current_diff))
     {
-      m_is_in_checkpoint_zone = false;
-      get_block_longhash(bei.bl, proof_of_work, bei.height);
-
-      if(!check_hash(proof_of_work, current_diff))
-      {
-        LOG_PRINT_RED_L0("Block with id: " << id
-          << ENDL << " for alternative chain, have not enough proof of work: " << proof_of_work
-          << ENDL << " expected difficulty: " << current_diff);
-        bvc.m_verifivation_failed = true;
-        return false;
-      }
-    }else
-    {
-      m_is_in_checkpoint_zone = true;
-      if(!m_checkpoints.check_block(bei.height, id))
-      {
-        LOG_ERROR("CHECKPOINT VALIDATION FAILED");
-        bvc.m_verifivation_failed = true;
-        return false;
-      }
+      LOG_PRINT_RED_L0("Block with id: " << id
+        << ENDL << " for alternative chain, have not enough proof of work: " << proof_of_work
+        << ENDL << " expected difficulty: " << current_diff);
+      bvc.m_verifivation_failed = true;
+      return false;
     }
 
     if(!prevalidate_miner_transaction(b, bei.height))
@@ -792,29 +808,39 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
     auto i_res = m_alternative_chains.insert(blocks_ext_by_hash::value_type(id, bei));
     CHECK_AND_ASSERT_MES(i_res.second, false, "insertion of new alternative block returned as it already exist");
     alt_chain.push_back(i_res.first);
-    //check if difficulty bigger then in main chain
-    if(m_blocks.back().cumulative_difficulty < bei.cumulative_difficulty)
+
+    if(is_a_checkpoint)
     {
       //do reorganize!
-      LOG_PRINT_GREEN("###### REORGANIZE on height: " << alt_chain.front()->second.height << " of " << m_blocks.size() -1  << " with cum_difficulty " << m_blocks.back().cumulative_difficulty
-        << ENDL << " alternative blockchain size: " << alt_chain.size() << " with cum_difficulty " << bei.cumulative_difficulty, LOG_LEVEL_0);
-      bool r = switch_to_alternative_blockchain(alt_chain);
+      LOG_PRINT_GREEN("###### REORGANIZE on height: " << alt_chain.front()->second.height << " of " << m_blocks.size() - 1 <<
+        ", checkpoint is found in alternative chain on height " << bei.height, LOG_LEVEL_0);
+      bool r = switch_to_alternative_blockchain(alt_chain, true);
       if(r) bvc.m_added_to_main_chain = true;
       else bvc.m_verifivation_failed = true;
       return r;
+    }else if(m_blocks.back().cumulative_difficulty < bei.cumulative_difficulty) //check if difficulty bigger then in main chain
+    {
+      //do reorganize!
+      LOG_PRINT_GREEN("###### REORGANIZE on height: " << alt_chain.front()->second.height << " of " << m_blocks.size() - 1 << " with cum_difficulty " << m_blocks.back().cumulative_difficulty
+        << ENDL << " alternative blockchain size: " << alt_chain.size() << " with cum_difficulty " << bei.cumulative_difficulty, LOG_LEVEL_0);
+      bool r = switch_to_alternative_blockchain(alt_chain, false);
+      if(r) bvc.m_added_to_main_chain = true;
+      else bvc.m_verifivation_failed = true;
+      return r;
+    }else
+    {
+      LOG_PRINT_BLUE("----- BLOCK ADDED AS ALTERNATIVE ON HEIGHT " << bei.height
+        << ENDL << "id:\t" << id
+        << ENDL << "PoW:\t" << proof_of_work
+        << ENDL << "difficulty:\t" << current_diff, LOG_LEVEL_0);
+      return true;
     }
-    LOG_PRINT_BLUE("----- BLOCK ADDED AS ALTERNATIVE ON HEIGHT " << bei.height
-      << ENDL << "id:\t" << id
-      << ENDL << "PoW:\t" << proof_of_work
-      << ENDL << "difficulty:\t" << current_diff, LOG_LEVEL_0);
-    return true;
   }else
   {
     //block orphaned
     bvc.m_marked_as_orphaned = true;
     LOG_PRINT_RED_L0("Block recognized as orphaned and rejected, id = " << id);
   }
-
 
   return true;
 }
@@ -1480,19 +1506,27 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   TIME_MEASURE_FINISH(target_calculating_time);
   TIME_MEASURE_START(longhash_calculating_time);
   crypto::hash proof_of_work = null_hash;
-  if(!m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height()))
-  {
-    proof_of_work = get_block_longhash(bl, m_blocks.size());
 
-    if(!check_hash(proof_of_work, current_diffic))
-    {
-      LOG_PRINT_L0("Block with id: " << id << ENDL
-        << "have not enough proof of work: " << proof_of_work << ENDL
-        << "nexpected difficulty: " << current_diffic );
-      bvc.m_verifivation_failed = true;
-      return false;
-    }
-  }else
+  // Formerly the code below contained an if loop with the following condition
+  // !m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height())
+  // however, this caused the daemon to not bother checking PoW for blocks
+  // before checkpoints, which is very dangerous behaviour. We moved the PoW
+  // validation out of the next chunk of code to make sure that we correctly
+  // check PoW now.
+  proof_of_work = get_block_longhash(bl, m_blocks.size());
+
+  if(!check_hash(proof_of_work, current_diffic))
+  {
+    LOG_PRINT_L0("Block with id: " << id << ENDL
+      << "have not enough proof of work: " << proof_of_work << ENDL
+      << "nexpected difficulty: " << current_diffic );
+    bvc.m_verifivation_failed = true;
+    return false;
+  }
+
+  // If we're at a checkpoint, ensure that our hardcoded checkpoint hash
+  // is correct.
+  if(m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height()))
   {
     if(!m_checkpoints.check_block(get_current_blockchain_height(), id))
     {
@@ -1501,6 +1535,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
       return false;
     }
   }
+
   TIME_MEASURE_FINISH(longhash_calculating_time);
 
   if(!prevalidate_miner_transaction(bl, m_blocks.size()))

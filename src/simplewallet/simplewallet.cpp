@@ -202,7 +202,7 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
     return true;
   }
   uint16_t l = 0;
-  if(!string_tools::get_xtype_from_string(l, args[0]))
+  if(!epee::string_tools::get_xtype_from_string(l, args[0]))
   {
     fail_msg_writer() << "wrong number format, use: set_log <log_level_number_0-4>";
     return true;
@@ -229,8 +229,8 @@ bool simple_wallet::ask_wallet_create_if_needed()
   wallet_path = string_tools::trim(wallet_path);
 
   bool keys_file_exists;
-  bool wallet_file_exitst;
-  tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exitst);
+  bool wallet_file_exists;
+  tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exists);
 
   bool r;
   if(keys_file_exists)
@@ -239,7 +239,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
     r = true;
   }else
   {
-    if(!wallet_file_exitst)
+    if(!wallet_file_exists)
     {
       std::cout << "The wallet doesn't exist, generating new one" << std::endl;
       m_generate_new = wallet_path;
@@ -749,7 +749,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   }
 
   size_t fake_outs_count;
-  if(!string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
+  if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
   {
     fail_msg_writer() << "mixin_count should be non-negative integer, got " << local_args[0];
     return true;
