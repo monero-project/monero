@@ -29,10 +29,11 @@ namespace cryptonote
     return !m_points.empty() && (height <= (--m_points.end())->first);
   }
   //---------------------------------------------------------------------------
-  bool checkpoints::check_block(uint64_t height, const crypto::hash& h) const
+  bool checkpoints::check_block(uint64_t height, const crypto::hash& h, bool& is_a_checkpoint) const
   {
     auto it = m_points.find(height);
-    if(it == m_points.end())
+    is_a_checkpoint = it != m_points.end();
+    if(!is_a_checkpoint)
       return true;
 
     if(it->second == h)
@@ -44,5 +45,26 @@ namespace cryptonote
       LOG_ERROR("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH: " << it->second << ", FETCHED HASH: " << h);
       return false;
     }
+  }
+  //---------------------------------------------------------------------------
+  bool checkpoints::check_block(uint64_t height, const crypto::hash& h) const
+  {
+    bool ignored;
+    return check_block(height, h, ignored);
+  }
+  //---------------------------------------------------------------------------
+  bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const
+  {
+    if (0 == block_height)
+      return false;
+
+    auto it = m_points.upper_bound(blockchain_height);
+    // Is blockchain_height before the first checkpoint?
+    if (it == m_points.begin())
+      return true;
+
+    --it;
+    uint64_t checkpoint_height = it->first;
+    return checkpoint_height < block_height;
   }
 }

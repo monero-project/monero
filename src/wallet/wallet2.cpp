@@ -455,14 +455,14 @@ void wallet2::generate(const std::string& wallet_, const std::string& password)
   store();
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exitst)
+void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
 {
   std::string keys_file, wallet_file;
   do_prepare_file_names(file_path, keys_file, wallet_file);
 
   boost::system::error_code ignore;
   keys_file_exists = boost::filesystem::exists(keys_file, ignore);
-  wallet_file_exitst = boost::filesystem::exists(wallet_file, ignore);
+  wallet_file_exists = boost::filesystem::exists(wallet_file, ignore);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)

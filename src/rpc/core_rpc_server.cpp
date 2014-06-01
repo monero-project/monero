@@ -413,7 +413,7 @@ namespace cryptonote
       return false;
     }
     res.blocktemplate_blob = string_tools::buff_to_hex_nodelimer(block_blob);
-
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -441,7 +441,7 @@ namespace cryptonote
       error_resp.message = "Block not accepted";
       return false;
     }
-    res.status = "OK";
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

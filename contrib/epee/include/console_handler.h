@@ -267,23 +267,6 @@ namespace epee
         if(0 == command.compare("exit") || 0 == command.compare("q"))
         {
           continue_handle = false;
-        }else if (!command.compare(0, 7, "set_log"))
-        {
-          //parse set_log command
-          if(command.size() != 9)
-          {
-            std::cout << "wrong syntax: " << command << std::endl << "use set_log n" << std::endl;
-            continue;
-          }
-          uint16_t n = 0;
-          if(!string_tools::get_xtype_from_string(n, command.substr(8, 1)))
-          {
-            std::cout << "wrong syntax: " << command << std::endl << "use set_log n" << std::endl;
-            continue;
-          }
-          log_space::get_set_log_detalisation_level(true, n);
-          std::cout << "New log level set " << n;
-          LOG_PRINT_L2("New log level set " << n);
         }else if (command.empty())
         {
           continue;
