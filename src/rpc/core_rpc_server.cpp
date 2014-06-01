@@ -275,6 +275,24 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_mining_status(const COMMAND_RPC_MINING_STATUS::request& req, COMMAND_RPC_MINING_STATUS::response& res, connection_context& cntx)
+  {
+    CHECK_CORE_READY();
+
+    const miner& lMiner = m_core.get_miner();
+    res.active = lMiner.is_mining();
+    
+    if ( lMiner.is_mining() ) {
+      res.speed = lMiner.get_speed();
+      res.threads_count = lMiner.get_threads_count();
+      const account_public_address& lMiningAdr = lMiner.get_mining_address();
+      res.address = get_account_address_as_str(lMiningAdr);
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_save_bc(const COMMAND_RPC_SAVE_BC::request& req, COMMAND_RPC_SAVE_BC::response& res, connection_context& cntx)
   {
     CHECK_CORE_READY();

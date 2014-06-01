@@ -34,6 +34,24 @@ namespace wallet_rpc
     };
   };
 
+    struct COMMAND_RPC_GET_ADDRESS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string   address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct trnsfer_destination
   {
     uint64_t amount;
