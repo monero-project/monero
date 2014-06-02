@@ -70,12 +70,14 @@ namespace wallet_rpc
       uint64_t fee;
       uint64_t mixin;
       uint64_t unlock_time;
+      std::string payment_id;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
         KV_SERIALIZE(fee)
         KV_SERIALIZE(mixin)
         KV_SERIALIZE(unlock_time)
+        KV_SERIALIZE(payment_id)
       END_KV_SERIALIZE_MAP()
     };
 
