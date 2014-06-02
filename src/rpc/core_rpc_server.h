@@ -76,6 +76,7 @@ namespace cryptonote
     bool on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res, epee::json_rpc::error& error_resp, connection_context& cntx);
     //-----------------------
     bool handle_command_line(const boost::program_options::variables_map& vm);
+    bool check_core_busy();
     bool check_core_ready();
     
     //utils
