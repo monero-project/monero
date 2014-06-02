@@ -171,7 +171,7 @@ namespace tools
     if(req.transfer_type.compare("all") != 0 && req.transfer_type.compare("available") != 0 && req.transfer_type.compare("unavailable") != 0)
     {
       er.code = WALLET_RPC_ERROR_CODE_TRANSFER_TYPE;
-      er.message = "Transfer type must be one of: all, available, or unavailable; provided: "
+      er.message = "Transfer type must be one of: all, available, or unavailable";
       return false;
     }
 
@@ -211,19 +211,6 @@ namespace tools
 
     if (!transfers_found)
     {
-      er.code = WALLET_RPC_ERROR_CODE_NO_TRANSFERS;
-      if (!filter)
-      {
-        er.message = "No incoming transfers";
-      }
-      else if (available)
-      {
-        er.message = "No incoming available transfers";
-      }
-      else
-      {
-        er.message = "No incoming unavailable transfers";
-      }
       return false;
     }
   
