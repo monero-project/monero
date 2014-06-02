@@ -64,19 +64,6 @@ namespace
     return err;
   }
 
-  bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
-  {
-    blobdata payment_id_data;
-    if(!string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_data))
-      return false;
-
-    if(sizeof(crypto::hash) != payment_id_data.size())
-      return false;
-
-    payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_data.data());
-    return true;
-  }
-
   class message_writer
   {
   public:
@@ -680,7 +667,7 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
   for(std::string arg : args)
   {
     crypto::hash payment_id;
-    if(parse_payment_id(arg, payment_id))
+    if(tools::wallet2::parse_payment_id(arg, payment_id))
     {
       std::list<tools::wallet2::payment_details> payments;
       m_wallet->get_payments(payment_id, payments);
@@ -763,7 +750,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     local_args.pop_back();
 
     crypto::hash payment_id;
-    bool r = parse_payment_id(payment_id_str, payment_id);
+    bool r = tools::wallet2::parse_payment_id(payment_id_str, payment_id);
     if(r)
     {
       std::string extra_nonce;
@@ -944,7 +931,7 @@ int main(int argc, char* argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      success_msg_writer() << "bytecoin wallet v" << PROJECT_VERSION_LONG;
+      success_msg_writer() << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
       success_msg_writer() << "Usage: simplewallet [--wallet-file=<file>|--generate-new-wallet=<file>] [--daemon-address=<host>:<port>] [<COMMAND>]";
       success_msg_writer() << desc_all << '\n' << w.get_commands_str();
       return false;
@@ -961,7 +948,7 @@ int main(int argc, char* argv[])
     return true;
   });
   if (!r)
-    return 1;
+    return 0;
 
   //set up logging options
   log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
@@ -1069,6 +1056,6 @@ int main(int argc, char* argv[])
       w.deinit();
     }
   }
-  return 1;
+  return 0;
   //CATCH_ENTRY_L0("main", 1);
 }
