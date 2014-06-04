@@ -257,9 +257,8 @@ namespace epee
         std::string command;
         if(!m_stdin_reader.get_line(command))
         {
-          LOG_PRINT("Failed to read line. Stopping...", LOG_LEVEL_0);
-          continue_handle = false;
-          break;
+          LOG_PRINT("Failed to read line. Ignoring and continuing to run, exiting daemon may require a SIGTERM kill.", LOG_LEVEL_0);
+          continue;
         }
         string_tools::trim(command);
 
