@@ -97,7 +97,7 @@ namespace tools
       END_SERIALIZE()
     };
 
-    void generate(const std::string& wallet, const std::string& password);
+    void generate(const std::string& wallet, const std::string& password, const crypto::secret_key& recovery_param, bool recover = false);
     void load(const std::string& wallet, const std::string& password);
     void store();
     cryptonote::account_base& get_account(){return m_account;}
@@ -227,6 +227,7 @@ namespace boost
 
 namespace tools
 {
+
   namespace detail
   {
     //----------------------------------------------------------------------------------------------------

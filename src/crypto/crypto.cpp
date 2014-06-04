@@ -50,6 +50,7 @@ namespace crypto {
     return &reinterpret_cast<const unsigned char &>(scalar);
   }
 
+  /* generate a random 32-byte (256-bit) integer and copy it to res */
   static inline void random_scalar(ec_scalar &res) {
     unsigned char tmp[64];
     generate_random_bytes(64, tmp);
@@ -62,6 +63,11 @@ namespace crypto {
     sc_reduce32(&res);
   }
 
+  /* 
+   * generate public and secret keys from a random 256-bit integer
+   * TODO: allow specifiying random value (for wallet recovery)
+   * 
+   */
   void crypto_ops::generate_keys(public_key &pub, secret_key &sec) {
     lock_guard<mutex> lock(random_lock);
     ge_p3 point;

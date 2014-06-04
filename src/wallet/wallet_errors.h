@@ -188,6 +188,17 @@ namespace tools
 
       std::string to_string() const { return wallet_logic_error::to_string(); }
     };
+
+    //----------------------------------------------------------------------------------------------------
+    struct invalid_pregenerated_random : public wallet_logic_error
+    {
+      explicit invalid_pregenerated_random (std::string&& loc)
+        : wallet_logic_error(std::move(loc), "invalid pregenerated random for wallet creation/recovery")
+      {
+      }
+
+      std::string to_string() const { return wallet_logic_error::to_string(); }
+    };
     //----------------------------------------------------------------------------------------------------
     struct refresh_error : public wallet_logic_error
     {

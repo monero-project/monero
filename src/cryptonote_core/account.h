@@ -31,7 +31,7 @@ namespace cryptonote
   {
   public:
     account_base();
-    void generate();
+    void generate(const crypto::secret_key& recovery_key, bool recover);
     const account_keys& get_keys() const;
     std::string get_public_address_str();
 
