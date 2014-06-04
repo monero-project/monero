@@ -30,3 +30,19 @@ cmake -G "Visual Studio 11 Win64" ..
 
 And then do Build.
 Good luck!
+
+
+Build documentation (Doxygen) :
+Pequired Packages:
+* doxygen
+* graphviz (optional)
+
+From root code directory, execute :
+
+    doxygen Doxyfile
+
+If you have installed *graphviz*, you can also generate in-doc diagrams :
+
+    HAVE_DOT=YES doxygen Doxyfile
+
+The output will go in **doc/html/**
