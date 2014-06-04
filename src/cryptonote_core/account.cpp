@@ -29,7 +29,7 @@ DISABLE_VS_WARNINGS(4244 4345)
     m_keys = account_keys();
   }
   //-----------------------------------------------------------------
-  void account_base::generate()
+  void account_base::generate(const crypto::secret_key& recovery_key, bool recover)
   {
     generate_keys(m_keys.m_account_address.m_spend_public_key, m_keys.m_spend_secret_key);
     generate_keys(m_keys.m_account_address.m_view_public_key, m_keys.m_view_secret_key);

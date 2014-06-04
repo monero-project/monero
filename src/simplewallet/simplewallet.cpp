@@ -17,6 +17,8 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "wallet/wallet_rpc_server.h"
 #include "version.h"
+#include "crypto/crypto.h"  // for crypto::secret_key definition
+#include "crypto/electrum-words.h"
 
 #if defined(WIN32)
 #include <crtdbg.h>
@@ -38,6 +40,8 @@ namespace
   const command_line::arg_descriptor<std::string> arg_daemon_address = {"daemon-address", "Use daemon instance at <host>:<port>", ""};
   const command_line::arg_descriptor<std::string> arg_daemon_host = {"daemon-host", "Use daemon instance at host <arg> instead of localhost", ""};
   const command_line::arg_descriptor<std::string> arg_password = {"password", "Wallet password", "", true};
+  const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", "Specify electrum seed for wallet recovery/creation", ""};
+  const command_line::arg_descriptor<bool> arg_recover = {"recover", "Recover wallet using mnemonic generator (e.g. electrum word list)", false};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
 
@@ -284,7 +288,24 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
   if (!m_generate_new.empty())
   {
-    bool r = new_wallet(m_generate_new, pwd_container.password());
+    // check for recover flag.  if present, require electrum word list (only recovery option for now).
+    if (m_recover)
+    {
+      if (m_electrum_seed.empty())
+      {
+        fail_msg_writer() << "specify a recovery parameter (e.g. electrum word list) with the recover option";
+        return false;
+      }
+      else  // verify recovery param (electrum word list) and convert to byte representation
+      {
+        CHECK_AND_ASSERT_MES(
+            crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key),
+            false,
+            "electrum-style word list failed verification"
+        );
+      }
+    }
+    bool r = new_wallet(m_generate_new, pwd_container.password(), m_recovery_key, m_recover);
     CHECK_AND_ASSERT_MES(r, false, "account creation failed");
   }
   else
@@ -311,6 +332,8 @@ void simple_wallet::handle_command_line(const boost::program_options::variables_
   m_daemon_address = command_line::get_arg(vm, arg_daemon_address);
   m_daemon_host    = command_line::get_arg(vm, arg_daemon_host);
   m_daemon_port    = command_line::get_arg(vm, arg_daemon_port);
+  m_electrum_seed  = command_line::get_arg(vm, arg_electrum_seed);
+  m_recover        = command_line::get_arg(vm, arg_recover);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::try_connect_to_daemon()
@@ -324,8 +347,14 @@ bool simple_wallet::try_connect_to_daemon()
   }
   return true;
 }
+
+bool simple_wallet::parse_electrum()
+{
+  return false;
+}
+
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const string &wallet_file, const std::string& password)
+bool simple_wallet::new_wallet(const string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key, bool recover)
 {
   m_wallet_file = wallet_file;
 
@@ -333,7 +362,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   m_wallet->callback(this);
   try
   {
-    m_wallet->generate(wallet_file, password);
+    m_wallet->generate(wallet_file, password, recovery_key, recover);
     message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str() << std::endl << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   }
   catch (const std::exception& e)
