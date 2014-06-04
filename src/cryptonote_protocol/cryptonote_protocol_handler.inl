@@ -108,6 +108,11 @@ namespace cryptonote
       return true;
     }
 
+    /* As I don't know if accessing hshd from core could be a good practice, 
+    I prefer pushing target height to the core at the same time it is pushed to the user.
+    Nz. */
+    m_core.set_target_blockchain_height(hshd.current_height);
+    
     int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(m_core.get_current_blockchain_height());
     LOG_PRINT_CCONTEXT_YELLOW("Sync data returned unknown top block: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
       << " [" << std::abs(diff) << " blocks (" << diff / (24 * 60 * 60 / DIFFICULTY_TARGET) << " days) "
