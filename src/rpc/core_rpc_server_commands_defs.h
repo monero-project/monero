@@ -214,6 +214,7 @@ namespace cryptonote
     {
       std::string status;
       uint64_t height;
+      uint64_t target_height;
       uint64_t difficulty;
       uint64_t tx_count;
       uint64_t tx_pool_size;
@@ -226,6 +227,7 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(height)
+        KV_SERIALIZE(target_height)
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(tx_count)
         KV_SERIALIZE(tx_pool_size)
