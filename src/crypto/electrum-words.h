@@ -12,6 +12,9 @@ namespace crypto
 {
   namespace ElectrumWords
   {
+
+    const int NUMWORDS = 1626;
+
     bool words_to_bytes(const std::string& words, crypto::secret_key& dst);
     bool bytes_to_words(const crypto::secret_key& src, std::string& words);
 
