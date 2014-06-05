@@ -28,7 +28,8 @@ namespace cryptonote
               m_blockchain_storage(m_mempool),
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()), 
-              m_starter_message_showed(false)
+              m_starter_message_showed(false),
+              m_target_blockchain_height(0)
   {
     set_cryptonote_protocol(pprotocol);
   }
@@ -516,4 +517,11 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  void core::set_target_blockchain_height(uint64_t target_blockchain_height) {
+    m_target_blockchain_height = target_blockchain_height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_target_blockchain_height() const {
+    return m_target_blockchain_height;
+  }
 }

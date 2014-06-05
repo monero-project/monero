@@ -90,6 +90,9 @@ namespace cryptonote
      void print_blockchain_outs(const std::string& file);
      void on_synchronized();
 
+     void set_target_blockchain_height(uint64_t target_blockchain_height);
+     uint64_t get_target_blockchain_height() const;
+
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
@@ -124,6 +127,8 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed;
+
+     uint64_t m_target_blockchain_height;
    };
 }
 
