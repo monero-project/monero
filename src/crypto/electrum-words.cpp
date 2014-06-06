@@ -50,8 +50,8 @@ namespace crypto
         }
 
         w1 = wordsMap.at(wlist[i*3]);
-        w2 = wordsMap(wlist[i*3 + 1]);
-        w3 = wordsMap(wlist[i*3 + 2]);
+        w2 = wordsMap.at(wlist[i*3 + 1]);
+        w3 = wordsMap.at(wlist[i*3 + 2]);
 
         val = w1 + n * ((w2 - w1) % n) + n * n * ((w3 - w2) % n);
 
