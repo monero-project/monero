@@ -26,10 +26,7 @@ namespace crypto {
   };
 
   POD_CLASS ec_scalar {
-    // FIXME: temporary to get wallet recovery to work.  Need to
-    // discuss proper solution with team
-    public:
-      char data[32];
+    char data[32];
   };
 
   POD_CLASS public_key: ec_point {
