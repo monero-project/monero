@@ -255,10 +255,15 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     return false;
   }
 
-  size_t c = 0;
-  if(!m_generate_new.empty()) ++c;
-  if(!m_wallet_file.empty()) ++c;
-  if (1 != c)
+  if(m_recover)
+  {
+    if (m_generate_new.empty())
+    {
+      fail_msg_writer() << "You must specify a wallet file name to recover to using either --generate-new-wallet=\"name\"";
+      return false;
+    }
+  }
+  else if(!m_generate_new.empty() ^ !m_wallet_file.empty())
   {
     if(!ask_wallet_create_if_needed())
       return false;
@@ -286,7 +291,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
   }
 
-  if (!m_generate_new.empty())
+  if (!m_generate_new.empty() || m_recover)
   {
     // check for recover flag.  if present, require electrum word list (only recovery option for now).
     if (m_recover)
