@@ -10,7 +10,10 @@
 #include "account.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
+extern "C"
+{
 #include "crypto/blake256.h"
+}
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 using namespace std;
