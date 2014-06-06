@@ -36,7 +36,7 @@ namespace crypto
       // error on non-compliant word list
       if (wlist.size() != 12 && wlist.size() != 24) return false;
 
-      for (int i=0; i < wlist.size() / 3; i++)
+      for (unsigned int i=0; i < wlist.size() / 3; i++)
       {
         uint32_t val;
         uint32_t w1, w2, w3;
@@ -55,12 +55,12 @@ namespace crypto
 
         val = w1 + n * ((w2 - w1) % n) + n * n * ((w3 - w2) % n);
 
-        memcpy(dst.data + i * 4, val, 4);  // copy 4 bytes to position
+        memcpy(&dst.data + i * 4, &val, 4);  // copy 4 bytes to position
       }
 
       if (wlist.size() == 12)
       {
-        memcpy(dst.data, dst.data + 16, 16);  // if electrum 12-word seed, duplicate
+        memcpy(&dst.data, &dst.data + 16, 16);  // if electrum 12-word seed, duplicate
       }
 
       return true;
@@ -78,13 +78,13 @@ namespace crypto
       if (sizeof(src.data) % 4 != 0) return false;
 
       // 8 bytes -> 3 words.  8 digits base 16 -> 3 digits base 1626
-      for (int i=0; i < sizeof(src.data)/4; i++, words += ' ')
+      for (unsigned int i=0; i < sizeof(src.data)/4; i++, words += ' ')
       {
         uint32_t w1, w2, w3;
         
         uint32_t val;
 
-        memcpy(val, src, 4);
+        memcpy(&val, &src.data, 4);
 
         w1 = val % n;
         w2 = ((val / n) + w1) % n;

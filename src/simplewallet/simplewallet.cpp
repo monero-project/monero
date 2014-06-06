@@ -360,9 +360,11 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   m_wallet.reset(new tools::wallet2());
   m_wallet->callback(this);
+
+  crypto::secret_key recovery_val;
   try
   {
-    m_wallet->generate(wallet_file, password, recovery_key, recover);
+    recovery_val = m_wallet->generate(wallet_file, password, recovery_key, recover);
     message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str() << std::endl << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   }
   catch (const std::exception& e)
@@ -373,6 +375,10 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   m_wallet->init(m_daemon_address);
 
+  // convert rng value to electrum-style word list
+  std::string electrum_words;
+  crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
+
   success_msg_writer() <<
     "**********************************************************************\n" <<
     "Your wallet has been generated.\n" <<
@@ -381,6 +387,8 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
     "Always use \"exit\" command when closing simplewallet to save\n" <<
     "current session's state. Otherwise, you will possibly need to synchronize \n" <<
     "your wallet again. Your wallet key is NOT under risk anyway.\n" <<
+    "\nYour wallet can be recovered using the following electrum-style word list:\n" <<
+    electrum_words << "\n" <<
     "**********************************************************************";
   return true;
 }
