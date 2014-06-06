@@ -10,6 +10,7 @@
 #include "account.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
+#include "crypto/blake256.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 using namespace std;
@@ -29,11 +30,17 @@ DISABLE_VS_WARNINGS(4244 4345)
     m_keys = account_keys();
   }
   //-----------------------------------------------------------------
-  void account_base::generate(const crypto::secret_key& recovery_key, bool recover)
+  crypto::secret_key account_base::generate(const crypto::secret_key& recovery_key, bool recover)
   {
-    generate_keys(m_keys.m_account_address.m_spend_public_key, m_keys.m_spend_secret_key);
-    generate_keys(m_keys.m_account_address.m_view_public_key, m_keys.m_view_secret_key);
+    crypto::secret_key first = generate_keys(m_keys.m_account_address.m_spend_public_key, m_keys.m_spend_secret_key, recovery_key, recover);
+
+    // rng for generating second set of keys is hash of first rng.  means only one set of electrum-style words needed for recovery
+    crypto::secret_key second;
+    blake256_hash((uint8_t *)&second, (uint8_t *)&first, sizeof(crypto::secret_key));
+
+    generate_keys(m_keys.m_account_address.m_view_public_key, m_keys.m_view_secret_key, second, true);
     m_creation_timestamp = time(NULL);
+    return first;
   }
   //-----------------------------------------------------------------
   const account_keys& account_base::get_keys() const

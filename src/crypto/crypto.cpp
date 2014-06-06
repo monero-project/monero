@@ -68,12 +68,27 @@ namespace crypto {
    * TODO: allow specifiying random value (for wallet recovery)
    * 
    */
-  void crypto_ops::generate_keys(public_key &pub, secret_key &sec) {
+  secret_key crypto_ops::generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover) {
     lock_guard<mutex> lock(random_lock);
     ge_p3 point;
-    random_scalar(sec);
+
+    secret_key rng;
+
+    if (recover)
+    {
+      rng = recovery_key;
+    }
+    else
+    {
+      random_scalar(rng);
+    }
+    sec = rng;
+    sc_reduce32(&sec);  // reduce in case second round of keys (sendkeys)
+
     ge_scalarmult_base(&point, &sec);
     ge_p3_tobytes(&pub, &point);
+
+    return rng;
   }
 
   bool crypto_ops::check_key(const public_key &key) {
