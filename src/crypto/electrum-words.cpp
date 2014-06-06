@@ -5,6 +5,7 @@
  */
 
 #include <string>
+#include <cassert>
 #include <map>
 #include <cstdint>
 #include <vector>
@@ -55,13 +56,21 @@ namespace crypto
 
         val = w1 + n * ((w2 - w1) % n) + n * n * ((w3 - w2) % n);
 
-        memcpy(&dst.data + i * 4, &val, 4);  // copy 4 bytes to position
+        memcpy(dst.data + i * 4, &val, 4);  // copy 4 bytes to position
       }
 
+      std::string wlist_copy = words;
       if (wlist.size() == 12)
       {
-        memcpy(&dst.data, &dst.data + 16, 16);  // if electrum 12-word seed, duplicate
+        memcpy(dst.data, dst.data + 16, 16);  // if electrum 12-word seed, duplicate
+        wlist_copy += ' ';
+        wlist_copy += words;
       }
+
+      std::string back_to_words;
+      bytes_to_words(dst, back_to_words);
+
+      assert(wlist_copy == back_to_words);  // sanity check
 
       return true;
     }

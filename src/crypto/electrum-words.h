@@ -5,6 +5,7 @@
  */
 
 #include <string>
+#include <cstdint>
 #include <map>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
 
@@ -18,7 +19,7 @@ namespace crypto
     bool words_to_bytes(const std::string& words, crypto::secret_key& dst);
     bool bytes_to_words(const crypto::secret_key& src, std::string& words);
 
-    const std::map<std::string, int> wordsMap = {
+    const std::map<std::string,uint32_t> wordsMap = {
       {"like", 0},
       {"just", 1},
       {"love", 2},
