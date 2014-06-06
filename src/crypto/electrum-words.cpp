@@ -54,7 +54,9 @@ namespace crypto
         w2 = wordsMap.at(wlist[i*3 + 1]);
         w3 = wordsMap.at(wlist[i*3 + 2]);
 
-        val = w1 + n * ((w2 - w1) % n) + n * n * ((w3 - w2) % n);
+        val = w1 + n * (((n - w1) + w2) % n) + n * n * (((n - w2) + w3) % n);
+
+        if (!(val % n == w1)) return false;
 
         memcpy(dst.data + i * 4, &val, 4);  // copy 4 bytes to position
       }
@@ -66,11 +68,6 @@ namespace crypto
         wlist_copy += ' ';
         wlist_copy += words;
       }
-
-      std::string back_to_words;
-      bytes_to_words(dst, back_to_words);
-
-      assert(wlist_copy == back_to_words);  // sanity check
 
       return true;
     }
