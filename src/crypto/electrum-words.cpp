@@ -84,7 +84,7 @@ namespace crypto
         
         uint32_t val;
 
-        memcpy(&val, &src.data, 4);
+        memcpy(&val, (src.data) + (i * 4), 4);
 
         w1 = val % n;
         w2 = ((val / n) + w1) % n;
