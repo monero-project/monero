@@ -131,7 +131,7 @@ namespace cryptonote
     std::string m_electrum_seed;  // electrum-style seed parameter
 
     crypto::secret_key m_recovery_key;  // recovery key (used as random for wallet gen)
-    bool m_recover;  // recover flag
+    bool m_restore_deterministic_wallet;  // recover flag
 
     std::string m_daemon_address;
     std::string m_daemon_host;
