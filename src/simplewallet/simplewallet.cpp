@@ -212,12 +212,10 @@ bool simple_wallet::ask_wallet_create_if_needed()
 {
   std::string wallet_path;
 
-  std::cout << "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n";
-  std::cout << "Wallet file name: ";
-
-  std::getline(std::cin, wallet_path);
-
-  wallet_path = string_tools::trim(wallet_path);
+  wallet_path = command_line::input_line(
+      "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n"
+      "Wallet file name: "
+  );
 
   bool keys_file_exists;
   bool wallet_file_exists;
