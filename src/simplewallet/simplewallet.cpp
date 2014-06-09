@@ -42,7 +42,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_password = {"password", "Wallet password", "", true};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", "Specify electrum seed for wallet recovery/creation", ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", "Recover wallet using electrum-style mnemonic", false};
-  const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", "requires --generate-new-wallet, uses old generation method", false};
+  const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", "created non-deterministic view and spend keys", false};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
 
@@ -399,7 +399,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   if (!two_random)
   {
-    print_electrum = "\nYour wallet can be recovered using the following electrum-style word list:\n";
+    print_electrum = "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control. You will not be able to view these words again, so it is imperative to make note of them now.\n";
     print_electrum += electrum_words;
     print_electrum += "\n";
   }
