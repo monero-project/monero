@@ -436,7 +436,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
 }
 //----------------------------------------------------------------------------------------------------
-crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password, const crypto::secret_key& recovery_param, bool recover)
+crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password, const crypto::secret_key& recovery_param, bool recover, bool two_random)
 {
   clear();
   prepare_file_names(wallet_);
@@ -445,7 +445,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
   THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
 
-  crypto::secret_key retval = m_account.generate(recovery_param, recover);
+  crypto::secret_key retval = m_account.generate(recovery_param, recover, two_random);
 
   m_account_public_address = m_account.get_keys().m_account_address;
 
