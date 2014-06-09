@@ -40,9 +40,7 @@ namespace cryptonote
 
     bool run_console_handler();
 
-    bool parse_electrum();
-
-    bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false);
+    bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false);
     bool open_wallet(const std::string &wallet_file, const std::string& password);
     bool close_wallet();
 
@@ -132,6 +130,7 @@ namespace cryptonote
 
     crypto::secret_key m_recovery_key;  // recovery key (used as random for wallet gen)
     bool m_restore_deterministic_wallet;  // recover flag
+    bool m_non_deterministic;  // old 2-random generation
 
     std::string m_daemon_address;
     std::string m_daemon_host;

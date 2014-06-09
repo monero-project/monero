@@ -42,6 +42,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_password = {"password", "Wallet password", "", true};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", "Specify electrum seed for wallet recovery/creation", ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", "Recover wallet using electrum-style mnemonic", false};
+  const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", "requires --generate-new-wallet, uses old generation method", false};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
 
@@ -221,6 +222,16 @@ bool simple_wallet::ask_wallet_create_if_needed()
   bool wallet_file_exists;
   tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exists);
 
+  // add logic to error out if new wallet requested but named wallet file exists
+  if (keys_file_exists || wallet_file_exists)
+  {
+    if (!m_generate_new.empty() || m_restore_deterministic_wallet)
+    {
+      fail_msg_writer() << "Attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.";
+      return false;
+    }
+  }
+
   bool r;
   if(keys_file_exists)
   {
@@ -251,15 +262,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   {
     fail_msg_writer() << "you can't specify daemon host or port several times";
     return false;
-  }
-
-  if(m_restore_deterministic_wallet)
-  {
-    if (m_generate_new.empty())
-    {
-      fail_msg_writer() << "You must specify a wallet file name to recover to using --wallet-file=\"name\"";
-      return false;
-    }
   }
 
   if(!m_generate_new.empty() && !m_wallet_file.empty())
@@ -301,25 +303,29 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     // check for recover flag.  if present, require electrum word list (only recovery option for now).
     if (m_restore_deterministic_wallet)
     {
+      if (m_non_deterministic)
+      {
+        fail_msg_writer() << "Cannot specify both --restore-deterministic-wallet and --non-deterministic";
+        return false;
+      }
+
       if (m_electrum_seed.empty())
       {
         m_electrum_seed = command_line::input_line("Specify electrum seed: ");
         if (m_electrum_seed.empty())
         {
-          fail_msg_writer() << "specify a recovery parameter (e.g. electrum word list) with the --electrum-seed=\"words list here\"";
+          fail_msg_writer() << "specify a recovery parameter with the --electrum-seed=\"words list here\"";
           return false;
         }
       }
-      else  // verify recovery param (electrum word list) and convert to byte representation
+
+      if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key))
       {
-        if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key))
-        {
-            fail_msg_writer() << "electrum-style word list failed verification";
-            return false;
-        }
+          fail_msg_writer() << "electrum-style word list failed verification";
+          return false;
       }
     }
-    bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet);
+    bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic);
     CHECK_AND_ASSERT_MES(r, false, "account creation failed");
   }
   else
@@ -341,13 +347,14 @@ bool simple_wallet::deinit()
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::handle_command_line(const boost::program_options::variables_map& vm)
 {
-  m_wallet_file    = command_line::get_arg(vm, arg_wallet_file);
-  m_generate_new   = command_line::get_arg(vm, arg_generate_new_wallet);
-  m_daemon_address = command_line::get_arg(vm, arg_daemon_address);
-  m_daemon_host    = command_line::get_arg(vm, arg_daemon_host);
-  m_daemon_port    = command_line::get_arg(vm, arg_daemon_port);
-  m_electrum_seed  = command_line::get_arg(vm, arg_electrum_seed);
-  m_restore_deterministic_wallet        = command_line::get_arg(vm, arg_restore_deterministic_wallet);
+  m_wallet_file                   = command_line::get_arg(vm, arg_wallet_file);
+  m_generate_new                  = command_line::get_arg(vm, arg_generate_new_wallet);
+  m_daemon_address                = command_line::get_arg(vm, arg_daemon_address);
+  m_daemon_host                   = command_line::get_arg(vm, arg_daemon_host);
+  m_daemon_port                   = command_line::get_arg(vm, arg_daemon_port);
+  m_electrum_seed                 = command_line::get_arg(vm, arg_electrum_seed);
+  m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
+  m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::try_connect_to_daemon()
@@ -362,13 +369,8 @@ bool simple_wallet::try_connect_to_daemon()
   return true;
 }
 
-bool simple_wallet::parse_electrum()
-{
-  return false;
-}
-
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key, bool recover)
+bool simple_wallet::new_wallet(const string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key, bool recover, bool two_random)
 {
   m_wallet_file = wallet_file;
 
@@ -378,7 +380,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   crypto::secret_key recovery_val;
   try
   {
-    recovery_val = m_wallet->generate(wallet_file, password, recovery_key, recover);
+    recovery_val = m_wallet->generate(wallet_file, password, recovery_key, recover, two_random);
     message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str() << std::endl << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   }
   catch (const std::exception& e)
@@ -393,6 +395,15 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   std::string electrum_words;
   crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
 
+  std::string print_electrum = "";
+
+  if (!two_random)
+  {
+    print_electrum = "\nYour wallet can be recovered using the following electrum-style word list:\n";
+    print_electrum += electrum_words;
+    print_electrum += "\n";
+  }
+
   success_msg_writer() <<
     "**********************************************************************\n" <<
     "Your wallet has been generated.\n" <<
@@ -401,8 +412,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
     "Always use \"exit\" command when closing simplewallet to save\n" <<
     "current session's state. Otherwise, you will possibly need to synchronize \n" <<
     "your wallet again. Your wallet key is NOT under risk anyway.\n" <<
-    "\nYour wallet can be recovered using the following electrum-style word list:\n" <<
-    electrum_words << "\n" <<
+    print_electrum << 
     "**********************************************************************";
   return true;
 }
@@ -968,6 +978,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_command);
   command_line::add_arg(desc_params, arg_log_level);
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
+  command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );
   tools::wallet_rpc_server::init_options(desc_params);
 
