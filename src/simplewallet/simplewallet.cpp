@@ -42,7 +42,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_password = {"password", "Wallet password", "", true};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", "Specify electrum seed for wallet recovery/creation", ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", "Recover wallet using electrum-style mnemonic", false};
-  const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", "created non-deterministic view and spend keys", false};
+  const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", "creates non-deterministic view and spend keys", false};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
 
@@ -397,12 +397,6 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   std::string print_electrum = "";
 
-  if (!two_random)
-  {
-    print_electrum = "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control. You will not be able to view these words again, so it is imperative to make note of them now.\n";
-    print_electrum += electrum_words;
-    print_electrum += "\n";
-  }
 
   success_msg_writer() <<
     "**********************************************************************\n" <<
@@ -411,9 +405,16 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
     "Use \"help\" command to see the list of available commands.\n" <<
     "Always use \"exit\" command when closing simplewallet to save\n" <<
     "current session's state. Otherwise, you will possibly need to synchronize \n" <<
-    "your wallet again. Your wallet key is NOT under risk anyway.\n" <<
-    print_electrum << 
-    "**********************************************************************";
+    "your wallet again. Your wallet key is NOT under risk anyway.\n"
+  ;
+
+  if (!two_random)
+  {
+    success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control. You will not be able to view these words again, so it is imperative to make note of them now.\n";
+    success_msg_writer() << electrum_words;
+  }
+  success_msg_writer() << "**********************************************************************";
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
