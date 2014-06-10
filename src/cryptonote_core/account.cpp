@@ -12,7 +12,7 @@
 #include "crypto/crypto.h"
 extern "C"
 {
-#include "crypto/blake256.h"
+#include "crypto/keccak.h"
 }
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
@@ -39,7 +39,7 @@ DISABLE_VS_WARNINGS(4244 4345)
 
     // rng for generating second set of keys is hash of first rng.  means only one set of electrum-style words needed for recovery
     crypto::secret_key second;
-    blake256_hash((uint8_t *)&second, (uint8_t *)&first, sizeof(crypto::secret_key));
+    keccak((uint8_t *)&first, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
 
     generate_keys(m_keys.m_account_address.m_view_public_key, m_keys.m_view_secret_key, second, two_random ? false : true);
     m_creation_timestamp = time(NULL);
