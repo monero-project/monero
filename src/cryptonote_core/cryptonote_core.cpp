@@ -432,6 +432,18 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  // Used by the RPC server to check the size of an incoming
+  // block_blob
+  bool core::check_incoming_block_size(const blobdata& block_blob)
+  {
+    if(block_blob.size() > get_max_block_size())
+    {
+      LOG_PRINT_L0("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
+      return false;
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   crypto::hash core::get_tail_id()
   {
     return m_blockchain_storage.get_tail_id();
