@@ -80,7 +80,7 @@ else()
     set(DEBUG_FLAGS "-g3 -O0")
   endif()
   set(RELEASE_FLAGS "-Ofast -DNDEBUG -Wno-unused-variable")
-  if(NOT APPLE)
+  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # There is a clang bug that does not allow to compile code that uses AES-NI intrinsics if -flto is enabled
     set(RELEASE_FLAGS "${RELEASE_FLAGS} -flto")
   endif()
