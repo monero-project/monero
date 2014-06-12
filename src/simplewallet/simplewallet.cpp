@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <thread>
+#include <iostream>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
@@ -411,7 +412,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   if (!two_random)
   {
     success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control. You will not be able to view these words again, so it is imperative to make note of them now.\n";
-    success_msg_writer() << electrum_words;
+    std::cout << electrum_words << std::endl;
   }
   success_msg_writer() << "**********************************************************************";
 
