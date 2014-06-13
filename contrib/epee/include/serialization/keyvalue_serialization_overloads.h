@@ -126,7 +126,6 @@ namespace epee
     static bool serialize_stl_container_pod_val_as_blob(const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
       if(!container.size()) return true;
-      typename stl_container::const_iterator it = container.begin();
       std::string mb;
       mb.resize(sizeof(typename stl_container::value_type)*container.size());
       typename stl_container::value_type* p_elem = (typename stl_container::value_type*)mb.data();
