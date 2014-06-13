@@ -8,6 +8,7 @@
 
 #include "console_handler.h"
 #include "p2p/net_node.h"
+#include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "common/util.h"
 #include "crypto/hash.h"
