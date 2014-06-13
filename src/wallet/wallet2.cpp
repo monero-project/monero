@@ -630,10 +630,17 @@ namespace
   }
 }
 //----------------------------------------------------------------------------------------------------
+// Select random input sources for transaction.
+// returns:
+//    direct return: amount of money found
+//    modified reference: selected_transfers, a list of iterators/indices of input sources
 uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
+
+  // aggregate sources available for transfers
+  // if dust needed, take dust from only one source (so require source has at least dust amount)
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];

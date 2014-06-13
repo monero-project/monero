@@ -304,9 +304,13 @@ namespace tools
     uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx)
   {
     using namespace cryptonote;
+    // throw if attempting a transaction with no destinations
     THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
 
     uint64_t needed_money = fee;
+
+    // calculate total amount being sent to all destinations
+    // throw if total amount overflows uint64_t
     BOOST_FOREACH(auto& dt, dsts)
     {
       THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
@@ -314,6 +318,8 @@ namespace tools
       THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee);
     }
 
+    // randomly select inputs for transaction
+    // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
     uint64_t found_money = select_transfers(needed_money, 0 == fake_outputs_count, dust_policy.dust_threshold, selected_transfers);
     THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
