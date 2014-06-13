@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
   log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
   LOG_PRINT_L0("Starting...");
 
-  TRY_ENTRY();  
+  TRY_ENTRY();
 
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_log_file);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_console);
-  
+
 
   cryptonote::core::init_options(desc_cmd_sett);
   cryptonote::core_rpc_server::init_options(desc_cmd_sett);
@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
 
   //create objects and link them
   cryptonote::core ccore(NULL);
-  ccore.set_checkpoints(std::move(checkpoints));  
+  ccore.set_checkpoints(std::move(checkpoints));
   cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > p2psrv(cprotocol);
   cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
   res = ccore.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
   LOG_PRINT_L0("Core initialized OK");
-  
+
   // start components
   if(!command_line::has_arg(vm, arg_console))
   {
