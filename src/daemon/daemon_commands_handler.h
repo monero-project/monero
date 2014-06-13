@@ -141,12 +141,12 @@ private:
     uint64_t start_index = 0;
     uint64_t end_index = 0;
     uint64_t end_block_parametr = m_srv.get_payload_object().get_core().get_current_blockchain_height();
-    if(!string_tools::get_xtype_from_string(start_index, args[0]))
+    if(!epee::string_tools::get_xtype_from_string(start_index, args[0]))
     {
       std::cout << "wrong starter block index parameter" << ENDL;
       return false;
     }
-    if(args.size() >1 && !string_tools::get_xtype_from_string(end_index, args[1]))
+    if(args.size() >1 && !epee::string_tools::get_xtype_from_string(end_index, args[1]))
     {
       std::cout << "wrong end block index parameter" << ENDL;
       return false;
@@ -185,7 +185,7 @@ private:
     }
 
     uint16_t l = 0;
-    if(!string_tools::get_xtype_from_string(l, args[0]))
+    if(!epee::string_tools::get_xtype_from_string(l, args[0]))
     {
       std::cout << "wrong number format, use: set_log <log_level_number_0-4>" << ENDL;
       return true;
@@ -197,7 +197,7 @@ private:
       return true;
     }
 
-    log_space::log_singletone::get_set_log_detalisation_level(true, l);
+    epee::log_space::log_singletone::get_set_log_detalisation_level(true, l);
 
     return true;
   }
@@ -345,7 +345,7 @@ private:
     size_t threads_count = 1;
     if(args.size() > 1)
     {
-      bool ok = string_tools::get_xtype_from_string(threads_count, args[1]);
+      bool ok = epee::string_tools::get_xtype_from_string(threads_count, args[1]);
       threads_count = (ok && 0 < threads_count) ? threads_count : 1;
     }
 
