@@ -53,7 +53,7 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
     // Some code
-    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_hide_my_port(false)
+    node_server(t_payload_net_handler& payload_handler):m_allow_local_ip(false), m_hide_my_port(false), m_payload_handler(payload_handler)
     {}
 
     static void init_options(boost::program_options::options_description& desc);
