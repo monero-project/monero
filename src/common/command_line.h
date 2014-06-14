@@ -14,6 +14,9 @@
 
 namespace command_line
 {
+
+  std::string input_line(const std::string& prompt);
+
   template<typename T, bool required = false>
   struct arg_descriptor;
 
