@@ -89,6 +89,12 @@ namespace tools
   bool wallet_rpc_server::on_transfer(const wallet_rpc::COMMAND_RPC_TRANSFER::request& req, wallet_rpc::COMMAND_RPC_TRANSFER::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
 
+    if ( req.fee < DEFAULT_FEE ) {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_FEE;
+      er.message = "Fee is not valid. Minimum fee : " + std::to_string(DEFAULT_FEE) + " (Moneroshi)";
+      return false;
+    }
+
     std::vector<cryptonote::tx_destination_entry> dsts;
     for (auto it = req.destinations.begin(); it != req.destinations.end(); it++)
     {
