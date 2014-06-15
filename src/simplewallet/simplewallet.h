@@ -54,6 +54,10 @@ namespace cryptonote
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
+    vector<vector<cryptonote::tx_destination_entry>> simple_wallet::split_amounts(
+        vector<cryptonote::tx_destination_entry> dsts, size_t num_splits
+    );
+    void create_transactions(vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra);
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
