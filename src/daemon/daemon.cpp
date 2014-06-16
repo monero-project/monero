@@ -13,7 +13,6 @@ using namespace epee;
 
 #include <boost/program_options.hpp>
 #include <initializer_list>
-#include <vector>
 
 #include "crypto/hash.h"
 #include "console_handler.h"
@@ -34,16 +33,24 @@ namespace bf = boost::filesystem;
 
 namespace
 {
-  const command_line::arg_descriptor<std::string>              arg_config_file    = {"config-file", "Specify configuration file"};
-  const command_line::arg_descriptor<bool>                     arg_os_version     = {"os-version", "OS for which this executable was compiled"};
-  const command_line::arg_descriptor<std::string>              arg_log_file       = {"log-file", "", ""};
-  const command_line::arg_descriptor<int>                      arg_log_level      = {"log-level", "", LOG_LEVEL_0};
-  const command_line::arg_descriptor<bool>                     arg_console        = {"no-console", "Disable daemon console commands"};
+  const command_line::arg_descriptor<std::string> arg_config_file    = {"config-file", "Specify configuration file"};
+  const command_line::arg_descriptor<bool>        arg_os_version     = {"os-version", "OS for which this executable was compiled"};
+  const command_line::arg_descriptor<std::string> arg_log_file       = {"log-file", "", ""};
+  const command_line::arg_descriptor<int>         arg_log_level      = {"log-level", "", LOG_LEVEL_0};
+  const command_line::arg_descriptor<bool>        arg_console        = {"no-console", "Disable daemon console commands"};
 
-  const command_line::arg_descriptor<bool>                     arg_start_daemon   = {"start-daemon", "Run as daemon"};
-  const command_line::arg_descriptor<bool>                     arg_stop_daemon    = {"stop-daemon", "Stop running daemon"};
-  const command_line::arg_descriptor<bool>                     arg_help_daemon    = {"daemon-help", "Display daemon command help"};
-  const command_line::arg_descriptor<std::vector<std::string>> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
+  const command_line::arg_descriptor<bool>        arg_start_daemon   = {"daemonize", "Run as daemon (*nix only)"};
+  const command_line::arg_descriptor<bool>        arg_stop_daemon    = {"stop-daemon", "Stop running daemon"};
+  const command_line::arg_descriptor<bool>        arg_help_daemon    = {"daemon-help", "Display daemon command help"};
+  const command_line::arg_descriptor<std::string> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
+}
+
+bool is_there_more_than_one(po::variables_map vm, std::initializer_list<std::string> arg_names) {
+  int count = 0;
+  for (auto & arg_name : arg_names) {
+    if (vm[arg_name].empty() || !vm[arg_name].defaulted()) ++count;
+  }
+  return count > 1;
 }
 
 int main(int argc, char* argv[])
@@ -99,11 +106,18 @@ int main(int argc, char* argv[])
     argument_spec.add(daemon_commands_spec).add(core_settings_spec);
   }
 
-  // Perform Boost parsing
+  // Do command line parsing
   po::variables_map vm;
   bool success = command_line::handle_error_helper(argument_spec, [&]()
   {
     po::store(po::parse_command_line(argc, argv, argument_spec), vm);
+
+    if (is_there_more_than_one(vm,
+          {arg_start_daemon.name, arg_stop_daemon.name, arg_help_daemon.name, arg_daemon_command.name}))
+    {
+      return false;
+    }
+
     return true;
   });
   if (!success) return 1;
@@ -162,6 +176,24 @@ int main(int argc, char* argv[])
     std::string log_dir;
     log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
     log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
+  }
+
+  if (command_line::has_arg(vm, arg_start_daemon)) {
+    std::cout << "start daemon" << std::endl;
+    return 0;
+  }
+  if (command_line::has_arg(vm, arg_stop_daemon)) {
+    std::cout << "stop daemon" << std::endl;
+    return 0;
+  }
+  if (command_line::has_arg(vm, arg_help_daemon)) {
+    std::cout << "daemon help" << std::endl;
+    return 0;
+  }
+  if (command_line::has_arg(vm, arg_daemon_command)) {
+    std::string command = command_line::get_arg(vm, arg_daemon_command);
+    std::cout << "daemon command: " << command << std::endl;
+    return 0;
   }
 
   // Begin logging
