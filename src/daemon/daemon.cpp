@@ -31,11 +31,13 @@ namespace po = boost::program_options;
 
 namespace
 {
-  const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", "Specify configuration file", std::string(CRYPTONOTE_NAME ".conf")};
-  const command_line::arg_descriptor<bool>        arg_os_version  = {"os-version", ""};
-  const command_line::arg_descriptor<std::string> arg_log_file    = {"log-file", "", ""};
-  const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", LOG_LEVEL_0};
-  const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
+  const command_line::arg_descriptor<std::string> arg_config_file   = {"config-file", "Specify configuration file", std::string(CRYPTONOTE_NAME ".conf")};
+  const command_line::arg_descriptor<bool>        arg_os_version    = {"os-version", ""};
+  const command_line::arg_descriptor<std::string> arg_log_file      = {"log-file", "", ""};
+  const command_line::arg_descriptor<int>         arg_log_level     = {"log-level", "", LOG_LEVEL_0};
+  const command_line::arg_descriptor<bool>        arg_console       = {"no-console", "Disable daemon console commands"};
+  const command_line::arg_descriptor<bool>        arg_start_daemon  = {"start-daemon", "Run as daemon", false};
+  const command_line::arg_descriptor<bool>        arg_stop_daemon   = {"stop-daemon", "Stop running daemon", false};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm);
@@ -65,6 +67,8 @@ int main(int argc, char* argv[])
   // tools::get_default_data_dir() can't be called during static initialization
   command_line::add_arg(desc_cmd_only, command_line::arg_data_dir, default_data_dir);
   command_line::add_arg(desc_cmd_only, arg_config_file);
+  command_line::add_arg(desc_cmd_only, arg_start_daemon);
+  command_line::add_arg(desc_cmd_only, arg_stop_daemon);
 
   command_line::add_arg(desc_cmd_sett, arg_log_file, default_log_file);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
