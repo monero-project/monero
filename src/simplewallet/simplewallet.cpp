@@ -790,10 +790,10 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
 //
 // split amount for each dst in dsts into num_splits parts
 // and make num_splits new vector<crypt...> instances to hold these new amounts
-vector<vector<cryptonote::tx_destination_entry>> simple_wallet::split_amounts(
-    vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
+std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_amounts(
+    std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
 {
-  vector<vector<cryptonote::tx_destination_entry>> retVal;
+  std::vector<std::vector<cryptonote::tx_destination_entry>> retVal;
 
   if (num_splits <= 1)
   {
@@ -804,7 +804,7 @@ vector<vector<cryptonote::tx_destination_entry>> simple_wallet::split_amounts(
   // for each split required
   for (size_t i=0; i < num_splits; i++)
   {
-    vector<cryptonote::tx_destination_entry> new_dsts;
+    std::vector<cryptonote::tx_destination_entry> new_dsts;
 
     // for each destination
     for (size_t j=0; j < dsts.size(); j++)
@@ -836,33 +836,94 @@ vector<vector<cryptonote::tx_destination_entry>> simple_wallet::split_amounts(
 //
 // this function will make multiple calls to wallet2::transfer if multiple
 // transactions will be required
-void simple_wallet::create_transactions(vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
+void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
 {
+  // for now, limit to 5 attempts.  TODO: discuss a good number to limit to.
+  const size_t MAX_ATTEMPTS = 5;
+
   // failsafe split attempt counter
   size_t attempt_count = 0;
 
-  for(attempt_count = 1;;attempt_count++)
+  for(attempt_count = 1; attempt_count <= 5 ;attempt_count++)
   {
+    auto split_values = split_amounts(dsts, attempt_count);
+
+    // Throw if split_amounts comes back with a vector of size different than it should
+    if (split_values.size() != attempt_count)
+    {
+      throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
+    }
+
+    std::vector<tools::wallet2::pending_tx> ptx_vector;
     try
     {
-      vector<cryptonote::transaction> tx_vector;
       for (size_t i=0; i < attempt_count; i++)
       {
         cryptonote::transaction tx;
-        m_wallet->transfer(dsts, fake_outs_count, 0, DEFAULT_FEE, extra, tx);
-        tx_vector.push_back(tx);
+        tools::wallet2::pending_tx ptx;
+        m_wallet->transfer(dsts, fake_outs_count, unlock_time, fee, extra, tx, ptx);
+        ptx_vector.push_back(ptx);
+
+        // mark transfers to be used as "spent"
+        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it, ptx.selected_transfers)
+          it->m_spent = true;
       }
+
+      // if we made it this far, we've selected our transactions.  committing them will mark them spent,
+      // so this is a failsafe in case they don't go through
+      // unmark pending tx transfers as spent
+      for (auto & ptx : ptx_vector)
+      {
+        // mark transfers to be used as not spent
+        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it2, ptx.selected_transfers)
+          it2->m_spent = false;
+
+      }
+
       // if we made it this far, we're OK to actually send the transactions
+      while (!ptx_vector.empty())
+      {
+        m_wallet->commit_tx(ptx_vector.back());
+        // if no exception, remove element from vector
+        ptx_vector.pop_back();
+      }
+
     }
-        success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(tx);
     // only catch this here, other exceptions need to pass through to the calling function
     catch (const tools::error::tx_too_big& e)
     {
-      cryptonote::transaction tx = e.tx();
-      fail_msg_writer() << "transaction " << get_transaction_hash(e.tx()) << " is too big. Transaction size: " <<
-          get_object_blobsize(e.tx()) << " bytes, transaction size limit: " << e.tx_size_limit() << " bytes";
+
+      // unmark pending tx transfers as spent
+      for (auto & ptx : ptx_vector)
+      {
+        // mark transfers to be used as not spent
+        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it2, ptx.selected_transfers)
+          it2->m_spent = false;
+
+      }
+
+      if (attempt_count >= MAX_ATTEMPTS)
+      {
+        throw;
+      }
+    }
+    catch (...)
+    {
+      // in case of some other exception, make sure any tx in queue are marked unspent again
+
+      // unmark pending tx transfers as spent
+      for (auto & ptx : ptx_vector)
+      {
+        // mark transfers to be used as not spent
+        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it2, ptx.selected_transfers)
+          it2->m_spent = false;
+
+      }
+
+      throw;
     }
   }
+  //success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(tx);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -931,6 +992,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
 
   try
   {
+    create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, DEFAULT_FEE, extra);
   }
   catch (const tools::error::daemon_busy&)
   {
@@ -979,6 +1041,10 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   catch (const tools::error::zero_destination&)
   {
     fail_msg_writer() << "one of destinations is zero";
+  }
+  catch (const tools::error::tx_too_big& e)
+  {
+    fail_msg_writer() << "Failed to find a suitable way to split transactions";
   }
   catch (const tools::error::transfer_error& e)
   {
