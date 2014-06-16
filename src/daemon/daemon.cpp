@@ -40,7 +40,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_console        = {"no-console", "Disable daemon console commands"};
 
   const command_line::arg_descriptor<bool>        arg_start_daemon   = {"daemonize", "Run as daemon (*nix only)"};
-  const command_line::arg_descriptor<bool>        arg_stop_daemon    = {"stop-daemon", "Stop running daemon"};
+  const command_line::arg_descriptor<bool>        arg_stop_daemon    = {"stop", "Stop running daemon"};
   const command_line::arg_descriptor<bool>        arg_help_daemon    = {"daemon-help", "Display daemon command help"};
   const command_line::arg_descriptor<std::string> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
 }
@@ -178,19 +178,19 @@ int main(int argc, char* argv[])
     log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
   }
 
-  if (command_line::has_arg(vm, arg_start_daemon)) {
+  if (command_line::arg_present(vm, arg_start_daemon)) {
     std::cout << "start daemon" << std::endl;
     return 0;
   }
-  if (command_line::has_arg(vm, arg_stop_daemon)) {
+  if (command_line::arg_present(vm, arg_stop_daemon)) {
     std::cout << "stop daemon" << std::endl;
     return 0;
   }
-  if (command_line::has_arg(vm, arg_help_daemon)) {
+  if (command_line::arg_present(vm, arg_help_daemon)) {
     std::cout << "daemon help" << std::endl;
     return 0;
   }
-  if (command_line::has_arg(vm, arg_daemon_command)) {
+  if (command_line::arg_present(vm, arg_daemon_command)) {
     std::string command = command_line::get_arg(vm, arg_daemon_command);
     std::cout << "daemon command: " << command << std::endl;
     return 0;
