@@ -87,13 +87,13 @@ private:
   //--------------------------------------------------------------------------------
   bool show_hr(const std::vector<std::string>& args)
   {
-	if(!m_srv.get_payload_object().get_core().get_miner().is_mining()) 
-	{
-	  std::cout << "Mining is not started. You need start mining before you can see hash rate." << ENDL;
-	} else 
-	{
-	  m_srv.get_payload_object().get_core().get_miner().do_print_hashrate(true);
-	}
+  if(!m_srv.get_payload_object().get_core().get_miner().is_mining())
+  {
+    std::cout << "Mining is not started. You need start mining before you can see hash rate." << ENDL;
+  } else
+  {
+    m_srv.get_payload_object().get_core().get_miner().do_print_hashrate(true);
+  }
     return true;
   }
   //--------------------------------------------------------------------------------
@@ -105,14 +105,14 @@ private:
   //--------------------------------------------------------------------------------
   bool diff(const std::vector<std::string>& args)
   {
-	  cryptonote::difficulty_type difficulty = m_srv.get_payload_object().get_core().get_blockchain_storage().get_difficulty_for_next_block();
-	  uint64_t height = m_srv.get_payload_object().get_core().get_blockchain_storage().get_current_blockchain_height();
+    cryptonote::difficulty_type difficulty = m_srv.get_payload_object().get_core().get_blockchain_storage().get_difficulty_for_next_block();
+    uint64_t height = m_srv.get_payload_object().get_core().get_blockchain_storage().get_current_blockchain_height();
 
-	  LOG_PRINT_GREEN("BH: " << height << ", DIFF: " << difficulty 
-		  << ", HR: " << (int) difficulty / 60L << " H/s", LOG_LEVEL_0);
+    LOG_PRINT_GREEN("BH: " << height << ", DIFF: " << difficulty
+      << ", HR: " << (int) difficulty / 60L << " H/s", LOG_LEVEL_0);
 
-	  return true;
-  } 
+    return true;
+  }
   //--------------------------------------------------------------------------------
   bool print_bc_outs(const std::vector<std::string>& args)
   {
