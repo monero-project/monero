@@ -11,6 +11,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "common/util.h"
 #include "crypto/hash.h"
+#include "version.h"
 
 
 class daemon_cmmands_handler
@@ -34,6 +35,8 @@ public:
     m_cmd_binder.set_handler("show_hr", boost::bind(&daemon_cmmands_handler::show_hr, this, _1), "Start showing hash rate");
     m_cmd_binder.set_handler("hide_hr", boost::bind(&daemon_cmmands_handler::hide_hr, this, _1), "Stop showing hash rate");
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
+    m_cmd_binder.set_handler("set_log", boost::bind(&daemon_cmmands_handler::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
+    m_cmd_binder.set_handler("diff", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Show difficulty");
   }
 
   bool start_handling()
@@ -54,6 +57,7 @@ private:
   std::string get_commands_str()
   {
     std::stringstream ss;
+    ss << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL;
     ss << "Commands: " << ENDL;
     std::string usage = m_cmd_binder.get_usage();
     boost::replace_all(usage, "\n", "\n  ");
@@ -98,6 +102,17 @@ private:
     return true;
   }
   //--------------------------------------------------------------------------------
+  bool diff(const std::vector<std::string>& args)
+  {
+	  cryptonote::difficulty_type difficulty = m_srv.get_payload_object().get_core().get_blockchain_storage().get_difficulty_for_next_block();
+	  uint64_t height = m_srv.get_payload_object().get_core().get_blockchain_storage().get_current_blockchain_height();
+
+	  LOG_PRINT_GREEN("BH: " << height << ", DIFF: " << difficulty 
+		  << ", HR: " << (int) difficulty / 60L << " H/s", LOG_LEVEL_0);
+
+	  return true;
+  } 
+  //--------------------------------------------------------------------------------
   bool print_bc_outs(const std::vector<std::string>& args)
   {
     if(args.size() != 1)
@@ -123,19 +138,34 @@ private:
       return false;
     }
     uint64_t start_index = 0;
+    uint64_t end_index = 0;
     uint64_t end_block_parametr = m_srv.get_payload_object().get_core().get_current_blockchain_height();
     if(!string_tools::get_xtype_from_string(start_index, args[0]))
     {
       std::cout << "wrong starter block index parameter" << ENDL;
       return false;
     }
-    if(args.size() >1 && !string_tools::get_xtype_from_string(end_block_parametr, args[1]))
+    if(args.size() >1 && !string_tools::get_xtype_from_string(end_index, args[1]))
     {
       std::cout << "wrong end block index parameter" << ENDL;
       return false;
     }
+    if (end_index == 0)
+    {
+      end_index = end_block_parametr;
+    }
+    if (end_index > end_block_parametr)
+    {
+      std::cout << "end block index parameter shouldn't be greater than " << end_block_parametr << ENDL;
+      return false;
+    }
+    if (end_index <= start_index)
+    {
+      std::cout << "end block index should be greater than starter block index" << ENDL;
+      return false;
+    }
 
-    m_srv.get_payload_object().get_core().print_blockchain(start_index, end_block_parametr);
+    m_srv.get_payload_object().get_core().print_blockchain(start_index, end_index);
     return true;
   }
   //--------------------------------------------------------------------------------
@@ -144,6 +174,33 @@ private:
     m_srv.get_payload_object().get_core().print_blockchain_index();
     return true;
   }
+
+  bool set_log(const std::vector<std::string>& args)
+  {
+    if(args.size() != 1)
+    {
+      std::cout << "use: set_log <log_level_number_0-4>" << ENDL;
+      return true;
+    }
+
+    uint16_t l = 0;
+    if(!string_tools::get_xtype_from_string(l, args[0]))
+    {
+      std::cout << "wrong number format, use: set_log <log_level_number_0-4>" << ENDL;
+      return true;
+    }
+
+    if(LOG_LEVEL_4 < l)
+    {
+      std::cout << "wrong number range, use: set_log <log_level_number_0-4>" << ENDL;
+      return true;
+    }
+
+    log_space::log_singletone::get_set_log_detalisation_level(true, l);
+
+    return true;
+  }
+
   //--------------------------------------------------------------------------------
   template <typename T>
   static bool print_as_json(T& obj)

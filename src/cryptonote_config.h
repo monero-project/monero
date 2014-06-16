@@ -8,7 +8,7 @@
 #define CRYPTONOTE_MAX_BLOCK_SIZE                       500000000  // block header blob limit, never used!
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0
-#define CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX         18 // addresses start with "2"
+#define CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX         18 // addresses start with "4"
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            60
 #define CURRENT_TRANSACTION_VERSION                     1
 #define CURRENT_BLOCK_MAJOR_VERSION                     1
@@ -26,8 +26,8 @@
 #define CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE          600
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
 // COIN - number of smallest units in one coin
-#define COIN                                            ((uint64_t)100000000) // pow(10, 8)
-#define DEFAULT_FEE                                     ((uint64_t)1000000) // pow(10, 6)
+#define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
+#define DEFAULT_FEE                                     ((uint64_t)5000000000) // 5 * pow(10, 9)
 
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
@@ -51,6 +51,8 @@
 #define BLOCKS_SYNCHRONIZING_DEFAULT_COUNT              200    //by default, blocks count in blocks downloading
 #define CRYPTONOTE_PROTOCOL_HOP_RELAX_COUNT             3      //value of hop, after which we use only announce of new block
 
+#define CRYPTONOTE_MEMPOOL_TX_LIVETIME                    86400 //seconds, one day
+#define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
 
 #define P2P_DEFAULT_PORT                                18080
 #define RPC_DEFAULT_PORT                                18081

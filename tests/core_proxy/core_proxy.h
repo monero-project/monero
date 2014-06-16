@@ -41,6 +41,7 @@ namespace tests
   public:
     void on_synchronized(){}
     uint64_t get_current_blockchain_height(){return 1;}
+    void set_target_blockchain_height(uint64_t) {}
     bool init(const boost::program_options::variables_map& vm);
     bool deinit(){return true;}
     bool get_short_chain_history(std::list<crypto::hash>& ids);

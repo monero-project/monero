@@ -62,8 +62,8 @@ namespace crypto {
     void operator=(const crypto_ops &);
     ~crypto_ops();
 
-    static void generate_keys(public_key &, secret_key &);
-    friend void generate_keys(public_key &, secret_key &);
+    static secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false);
+    friend secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover);
     static bool check_key(const public_key &);
     friend bool check_key(const public_key &);
     static bool secret_key_to_public_key(const secret_key &, public_key &);
@@ -102,8 +102,8 @@ namespace crypto {
 
   /* Generate a new key pair
    */
-  inline void generate_keys(public_key &pub, secret_key &sec) {
-    crypto_ops::generate_keys(pub, sec);
+  inline secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false) {
+    return crypto_ops::generate_keys(pub, sec, recovery_key, recover);
   }
 
   /* Check a public key. Returns true if it is valid, false otherwise.

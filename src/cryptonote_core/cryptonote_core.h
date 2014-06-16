@@ -34,6 +34,7 @@ namespace cryptonote
      bool on_idle();
      bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block);
      bool handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate = true);
+     bool check_incoming_block_size(const blobdata& block_blob);
      i_cryptonote_protocol* get_protocol(){return m_pprotocol;}
 
      //-------------------- i_miner_handler -----------------------
@@ -90,6 +91,9 @@ namespace cryptonote
      void print_blockchain_outs(const std::string& file);
      void on_synchronized();
 
+     void set_target_blockchain_height(uint64_t target_blockchain_height);
+     uint64_t get_target_blockchain_height() const;
+
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
@@ -115,15 +119,17 @@ namespace cryptonote
      tx_memory_pool m_mempool;
      blockchain_storage m_blockchain_storage;
      i_cryptonote_protocol* m_pprotocol;
-     critical_section m_incoming_tx_lock;
+     epee::critical_section m_incoming_tx_lock;
      //m_miner and m_miner_addres are probably temporary here
      miner m_miner;
      account_public_address m_miner_address;
      std::string m_config_folder;
      cryptonote_protocol_stub m_protocol_stub;
-     math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
+     epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed;
+
+     uint64_t m_target_blockchain_height;
    };
 }
 

@@ -31,6 +31,8 @@
 #include "misc_log_ex.h"
 #include "enableable.h"
 #include "keyvalue_serialization_overloads.h"
+#include "serialization/serialization.h"
+
 namespace epee
 {
   /************************************************************************/
@@ -41,12 +43,12 @@ public: \
   template<class t_storage> \
   bool store( t_storage& st, typename t_storage::hsection hparent_section = nullptr) const\
   {\
-  return serialize_map<true>(*this, st, hparent_section);\
+    return serialize_map<true>(*this, st, hparent_section);\
   }\
   template<class t_storage> \
   bool _load( t_storage& stg, typename t_storage::hsection hparent_section = nullptr)\
   {\
-  return serialize_map<false>(*this, stg, hparent_section);\
+    return serialize_map<false>(*this, stg, hparent_section);\
   }\
   template<class t_storage> \
   bool load( t_storage& stg, typename t_storage::hsection hparent_section = nullptr)\

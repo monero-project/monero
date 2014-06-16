@@ -80,7 +80,7 @@ namespace cryptonote
 #endif
     block_reward += fee;
 
-    std::vector<size_t> out_amounts;
+    std::vector<uint64_t> out_amounts;
     decompose_amount_into_digits(block_reward, DEFAULT_FEE,
       [&out_amounts](uint64_t a_chunk) { out_amounts.push_back(a_chunk); },
       [&out_amounts](uint64_t a_dust) { out_amounts.push_back(a_dust); });
@@ -92,7 +92,7 @@ namespace cryptonote
       out_amounts.resize(out_amounts.size() - 1);
     }
 
-    size_t summary_amounts = 0;
+    uint64_t summary_amounts = 0;
     for (size_t no = 0; no < out_amounts.size(); no++)
     {
       crypto::key_derivation derivation = AUTO_VAL_INIT(derivation);;
@@ -239,8 +239,7 @@ namespace cryptonote
   crypto::public_key get_tx_pub_key_from_extra(const std::vector<uint8_t>& tx_extra)
   {
     std::vector<tx_extra_field> tx_extra_fields;
-    if (!parse_tx_extra(tx_extra, tx_extra_fields))
-      return null_pkey;
+    parse_tx_extra(tx_extra, tx_extra_fields);
 
     tx_extra_pub_key pub_key_field;
     if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field))

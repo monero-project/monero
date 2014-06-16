@@ -233,6 +233,7 @@ namespace epee
 
     void stop()
     {
+      m_running = false;
       m_stdin_reader.stop();
     }
 
@@ -244,6 +245,10 @@ namespace epee
       bool continue_handle = true;
       while(continue_handle)
       {
+        if (!m_running)
+        {
+          break;
+        }
         if (!prompt.empty())
         {
           epee::log_space::set_console_color(epee::log_space::console_color_yellow, true);
@@ -257,9 +262,7 @@ namespace epee
         std::string command;
         if(!m_stdin_reader.get_line(command))
         {
-          LOG_PRINT("Failed to read line. Stopping...", LOG_LEVEL_0);
-          continue_handle = false;
-          break;
+          LOG_PRINT("Failed to read line.", LOG_LEVEL_0);
         }
         string_tools::trim(command);
 
@@ -267,23 +270,6 @@ namespace epee
         if(0 == command.compare("exit") || 0 == command.compare("q"))
         {
           continue_handle = false;
-        }else if (!command.compare(0, 7, "set_log"))
-        {
-          //parse set_log command
-          if(command.size() != 9)
-          {
-            std::cout << "wrong syntax: " << command << std::endl << "use set_log n" << std::endl;
-            continue;
-          }
-          uint16_t n = 0;
-          if(!string_tools::get_xtype_from_string(n, command.substr(8, 1)))
-          {
-            std::cout << "wrong syntax: " << command << std::endl << "use set_log n" << std::endl;
-            continue;
-          }
-          log_space::get_set_log_detalisation_level(true, n);
-          std::cout << "New log level set " << n;
-          LOG_PRINT_L2("New log level set " << n);
         }else if (command.empty())
         {
           continue;
@@ -304,6 +290,7 @@ namespace epee
 
   private:
     async_stdin_reader m_stdin_reader;
+    bool m_running = true;
   };
 
 

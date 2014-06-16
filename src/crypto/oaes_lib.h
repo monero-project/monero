@@ -32,6 +32,7 @@
 #define _OAES_LIB_H
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus 
 extern "C" {
@@ -101,6 +102,30 @@ typedef int ( * oaes_step_cb ) (
 
 typedef uint16_t OAES_OPTION;
 
+typedef struct _oaes_key
+{
+  size_t data_len;
+  uint8_t *data;
+  size_t exp_data_len;
+  uint8_t *exp_data;
+  size_t num_keys;
+  size_t key_base;
+} oaes_key;
+
+typedef struct _oaes_ctx
+{
+#ifdef OAES_HAVE_ISAAC
+  randctx * rctx;
+#endif // OAES_HAVE_ISAAC
+
+#ifdef OAES_DEBUG
+  oaes_step_cb step_cb;
+#endif // OAES_DEBUG
+
+  oaes_key * key;
+  OAES_OPTION options;
+  uint8_t iv[OAES_BLOCK_SIZE];
+} oaes_ctx;
 /*
  * // usage:
  * 

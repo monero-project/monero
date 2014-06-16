@@ -19,6 +19,7 @@ using namespace epee;
 #include "profile_tools.h"
 #include "crypto/crypto.h"
 #include "serialization/binary_utils.h"
+#include "cryptonote_protocol/blobdatatype.h"
 
 using namespace cryptonote;
 
@@ -37,6 +38,7 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
     keys_file += ".keys";
   }
 }
+
 } //namespace
 
 namespace tools
@@ -434,7 +436,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::generate(const std::string& wallet_, const std::string& password)
+crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password, const crypto::secret_key& recovery_param, bool recover, bool two_random)
 {
   clear();
   prepare_file_names(wallet_);
@@ -443,7 +445,8 @@ void wallet2::generate(const std::string& wallet_, const std::string& password)
   THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
   THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
 
-  m_account.generate();
+  crypto::secret_key retval = m_account.generate(recovery_param, recover, two_random);
+
   m_account_public_address = m_account.get_keys().m_account_address;
 
   bool r = store_keys(m_keys_file, password);
@@ -453,16 +456,30 @@ void wallet2::generate(const std::string& wallet_, const std::string& password)
   if(!r) LOG_PRINT_RED_L0("String with address text not saved");
 
   store();
+  return retval;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exitst)
+void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
 {
   std::string keys_file, wallet_file;
   do_prepare_file_names(file_path, keys_file, wallet_file);
 
   boost::system::error_code ignore;
   keys_file_exists = boost::filesystem::exists(keys_file, ignore);
-  wallet_file_exitst = boost::filesystem::exists(wallet_file, ignore);
+  wallet_file_exists = boost::filesystem::exists(wallet_file, ignore);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
+{
+  cryptonote::blobdata payment_id_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_data))
+    return false;
+
+  if(sizeof(crypto::hash) != payment_id_data.size())
+    return false;
+
+  payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_data.data());
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)

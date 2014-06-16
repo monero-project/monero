@@ -4,7 +4,6 @@
 
 #pragma once 
 
-#include <boost/atomic.hpp>
 #include <boost/program_options.hpp>
 #include <atomic>
 #include "cryptonote_basic.h"
@@ -36,10 +35,12 @@ namespace cryptonote
     bool set_block_template(const block& bl, const difficulty_type& diffic, uint64_t height);
     bool on_block_chain_update();
     bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs);
-    uint64_t get_speed();
+    uint64_t get_speed() const;
+    uint32_t get_threads_count() const;
     void send_stop_signal();
     bool stop();
-    bool is_mining();
+    bool is_mining() const;
+    const account_public_address& get_mining_address() const;
     bool on_idle();
     void on_synchronized();
     //synchronous analog (for fast calls)
@@ -64,7 +65,7 @@ namespace cryptonote
 
 
     volatile uint32_t m_stop;
-    ::critical_section m_template_lock;
+    epee::critical_section m_template_lock;
     block m_template;
     std::atomic<uint32_t> m_template_no;
     std::atomic<uint32_t> m_starter_nonce;
@@ -73,21 +74,21 @@ namespace cryptonote
     volatile uint32_t m_thread_index; 
     volatile uint32_t m_threads_total;
     std::atomic<int32_t> m_pausers_count;
-    ::critical_section m_miners_count_lock;
+    epee::critical_section m_miners_count_lock;
 
     std::list<boost::thread> m_threads;
-    ::critical_section m_threads_lock;
+    epee::critical_section m_threads_lock;
     i_miner_handler* m_phandler;
     account_public_address m_mine_address;
-    math_helper::once_a_time_seconds<5> m_update_block_template_interval;
-    math_helper::once_a_time_seconds<2> m_update_merge_hr_interval;
+    epee::math_helper::once_a_time_seconds<5> m_update_block_template_interval;
+    epee::math_helper::once_a_time_seconds<2> m_update_merge_hr_interval;
     std::vector<blobdata> m_extra_messages;
     miner_config m_config;
     std::string m_config_folder_path;    
     std::atomic<uint64_t> m_last_hr_merge_time;
     std::atomic<uint64_t> m_hashes;
     std::atomic<uint64_t> m_current_hash_rate;
-    critical_section m_last_hash_rates_lock;
+    epee::critical_section m_last_hash_rates_lock;
     std::list<uint64_t> m_last_hash_rates;
     bool m_do_print_hashrate;
     bool m_do_mining;

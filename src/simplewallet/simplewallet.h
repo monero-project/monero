@@ -13,6 +13,7 @@
 #include "wallet/wallet2.h"
 #include "console_handler.h"
 #include "password_container.h"
+#include "crypto/crypto.h"  // for definition of crypto::secret_key
 
 
 namespace cryptonote
@@ -39,13 +40,14 @@ namespace cryptonote
 
     bool run_console_handler();
 
-    bool new_wallet(const std::string &wallet_file, const std::string& password);
+    bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false);
     bool open_wallet(const std::string &wallet_file, const std::string& password);
     bool close_wallet();
 
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
+    bool save_bc(const std::vector<std::string>& args);
     bool refresh(const std::vector<std::string> &args);
     bool show_balance(const std::vector<std::string> &args = std::vector<std::string>());
     bool show_incoming_transfers(const std::vector<std::string> &args);
@@ -124,6 +126,12 @@ namespace cryptonote
     std::string m_generate_new;
     std::string m_import_path;
 
+    std::string m_electrum_seed;  // electrum-style seed parameter
+
+    crypto::secret_key m_recovery_key;  // recovery key (used as random for wallet gen)
+    bool m_restore_deterministic_wallet;  // recover flag
+    bool m_non_deterministic;  // old 2-random generation
+
     std::string m_daemon_address;
     std::string m_daemon_host;
     int m_daemon_port;
@@ -131,7 +139,7 @@ namespace cryptonote
     epee::console_handlers_binder m_cmd_binder;
 
     std::unique_ptr<tools::wallet2> m_wallet;
-    net_utils::http::http_simple_client m_http_client;
+    epee::net_utils::http::http_simple_client m_http_client;
     refresh_progress_reporter_t m_refresh_progress_reporter;
   };
 }

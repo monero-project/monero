@@ -28,7 +28,8 @@ namespace cryptonote
               m_blockchain_storage(m_mempool),
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()), 
-              m_starter_message_showed(false)
+              m_starter_message_showed(false),
+              m_target_blockchain_height(0)
   {
     set_cryptonote_protocol(pprotocol);
   }
@@ -431,6 +432,18 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  // Used by the RPC server to check the size of an incoming
+  // block_blob
+  bool core::check_incoming_block_size(const blobdata& block_blob)
+  {
+    if(block_blob.size() > get_max_block_size())
+    {
+      LOG_PRINT_L0("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
+      return false;
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   crypto::hash core::get_tail_id()
   {
     return m_blockchain_storage.get_tail_id();
@@ -502,7 +515,7 @@ namespace cryptonote
       LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL 
         << "The daemon will start synchronizing with the network. It may take up to several hours." << ENDL 
         << ENDL
-        << "You can set the level of process detailization by using command \"set_log <level>\", where <level> is either 0 (no details), 1 (current block height synchronized), or 2 (all details)." << ENDL
+        << "You can set the level of process detailization* through \"set_log <level>\" command*, where <level> is between 0 (no details) and 4 (very verbose)." << ENDL
         << ENDL
         << "Use \"help\" command to see the list of available commands." << ENDL
         << ENDL
@@ -513,7 +526,15 @@ namespace cryptonote
 
     m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
     m_miner.on_idle();
+    m_mempool.on_idle();
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  void core::set_target_blockchain_height(uint64_t target_blockchain_height) {
+    m_target_blockchain_height = target_blockchain_height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_target_blockchain_height() const {
+    return m_target_blockchain_height;
+  }
 }

@@ -52,11 +52,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter* &pfilter)
                           : strand_(io_service),
                             socket_(io_service),
-                            m_protocol_handler(this, config, context), 
                             m_want_close_connection(0), 
                             m_was_shutdown(0), 
                             m_ref_sockets_count(sock_count), 
-                            m_pfilter(pfilter)
+                            m_pfilter(pfilter),
+                            m_protocol_handler(this, config, context)
   {
     boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count);
   }

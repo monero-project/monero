@@ -97,12 +97,17 @@ namespace tools
       END_SERIALIZE()
     };
 
-    void generate(const std::string& wallet, const std::string& password);
+    crypto::secret_key generate(const std::string& wallet, const std::string& password, const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false, bool two_random = false);
     void load(const std::string& wallet, const std::string& password);
     void store();
     cryptonote::account_base& get_account(){return m_account;}
 
-    void init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE*2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+    // upper_transaction_size_limit as defined below is set to 
+    // approximately 125% of the fixed minimum allowable penalty
+    // free block size. TODO: fix this so that it actually takes
+    // into account the current median block size rather than
+    // the minimum block size.
+    void init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     bool deinit();
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
@@ -144,7 +149,9 @@ namespace tools
       a & m_payments;
     }
 
-    static void wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exitst);
+    static void wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists);
+
+    static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
 
   private:
     bool store_keys(const std::string& keys_file_name, const std::string& password);
@@ -220,6 +227,7 @@ namespace boost
 
 namespace tools
 {
+
   namespace detail
   {
     //----------------------------------------------------------------------------------------------------
@@ -326,7 +334,7 @@ namespace tools
         req.amounts.push_back(it->amount());
       }
 
-      bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
+      bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
       THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
       THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
@@ -421,7 +429,7 @@ namespace tools
     COMMAND_RPC_SEND_RAW_TX::request req;
     req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(tx));
     COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
-    r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
+    r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
     THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
     THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, tx, daemon_send_resp.status);
