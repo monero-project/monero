@@ -132,7 +132,8 @@ namespace tools
     try
     {
       cryptonote::transaction tx;
-      m_wallet.transfer(dsts, req.mixin, req.unlock_time, req.fee, extra, tx);
+      wallet2::pending_tx ptx;
+      m_wallet.transfer(dsts, req.mixin, req.unlock_time, req.fee, extra, tx, ptx);
       res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(tx));
       return true;
     }

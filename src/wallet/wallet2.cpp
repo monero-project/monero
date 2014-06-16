@@ -685,16 +685,43 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t cha
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx)
+                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx)
 {
-  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(fee), tx);
+  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(fee), tx, ptx);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
                        uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra)
 {
   cryptonote::transaction tx;
-  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, tx);
+  pending_tx ptx;
+  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, tx, ptx);
 }
 //----------------------------------------------------------------------------------------------------
+// take a pending tx and actually send it to the daemon
+void wallet2::commit_tx(pending_tx& ptx)
+{
+  using namespace cryptonote;
+  COMMAND_RPC_SEND_RAW_TX::request req;
+  req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
+  COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
+  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
+  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
+  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);
+
+  add_unconfirmed_tx(ptx.tx, ptx.change_dts.amount);
+
+  LOG_PRINT_L2("transaction " << get_transaction_hash(ptx.tx) << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
+
+  BOOST_FOREACH(transfer_container::iterator it, ptx.selected_transfers)
+    it->m_spent = true;
+
+  LOG_PRINT_L0("Transaction successfully sent. <" << get_transaction_hash(ptx.tx) << ">" << ENDL
+                << "Commission: " << print_money(ptx.fee+ptx.dust) << " (dust: " << print_money(ptx.dust) << ")" << ENDL
+                << "Balance: " << print_money(balance()) << ENDL
+                << "Unlocked: " << print_money(unlocked_balance()) << ENDL
+                << "Please, wait for confirmation for your balance to be unlocked.");
+}
+
 }
