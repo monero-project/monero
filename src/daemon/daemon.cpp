@@ -12,6 +12,8 @@
 using namespace epee;
 
 #include <boost/program_options.hpp>
+#include <initializer_list>
+#include <vector>
 
 #include "crypto/hash.h"
 #include "console_handler.h"
@@ -32,13 +34,16 @@ namespace bf = boost::filesystem;
 
 namespace
 {
-  const command_line::arg_descriptor<std::string> arg_config_file   = {"config-file", "Specify configuration file"};
-  const command_line::arg_descriptor<bool>        arg_os_version    = {"os-version", "OS for which this executable was compiled"};
-  const command_line::arg_descriptor<std::string> arg_log_file      = {"log-file", "", ""};
-  const command_line::arg_descriptor<int>         arg_log_level     = {"log-level", "", LOG_LEVEL_0};
-  const command_line::arg_descriptor<bool>        arg_console       = {"no-console", "Disable daemon console commands"};
-  const command_line::arg_descriptor<bool>        arg_start_daemon  = {"start-daemon", "Run as daemon", false};
-  const command_line::arg_descriptor<bool>        arg_stop_daemon   = {"stop-daemon", "Stop running daemon", false};
+  const command_line::arg_descriptor<std::string>              arg_config_file    = {"config-file", "Specify configuration file"};
+  const command_line::arg_descriptor<bool>                     arg_os_version     = {"os-version", "OS for which this executable was compiled"};
+  const command_line::arg_descriptor<std::string>              arg_log_file       = {"log-file", "", ""};
+  const command_line::arg_descriptor<int>                      arg_log_level      = {"log-level", "", LOG_LEVEL_0};
+  const command_line::arg_descriptor<bool>                     arg_console        = {"no-console", "Disable daemon console commands"};
+
+  const command_line::arg_descriptor<bool>                     arg_start_daemon   = {"start-daemon", "Run as daemon"};
+  const command_line::arg_descriptor<bool>                     arg_stop_daemon    = {"stop-daemon", "Stop running daemon"};
+  const command_line::arg_descriptor<bool>                     arg_help_daemon    = {"daemon-help", "Display daemon command help"};
+  const command_line::arg_descriptor<std::vector<std::string>> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
 }
 
 int main(int argc, char* argv[])
@@ -77,6 +82,8 @@ int main(int argc, char* argv[])
     po::options_description daemon_commands_spec("Daemon Commands");
     command_line::add_arg(daemon_commands_spec, arg_start_daemon);
     command_line::add_arg(daemon_commands_spec, arg_stop_daemon);
+    command_line::add_arg(daemon_commands_spec, arg_help_daemon);
+    command_line::add_arg(daemon_commands_spec, arg_daemon_command);
 
     // Core Options
     command_line::add_arg(core_settings_spec, arg_log_file, default_log_file_abs.string());
