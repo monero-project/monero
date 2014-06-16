@@ -40,7 +40,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_stop_daemon   = {"stop-daemon", "Stop running daemon", false};
 }
 
-bool command_line_preprocessor(const boost::program_options::variables_map& vm);
+bool validate_arguments(const boost::program_options::variables_map& vm);
 
 int main(int argc, char* argv[])
 {
@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
   log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
   LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
 
-  if (command_line_preprocessor(vm))
+  if (validate_arguments(vm))
   {
     return 0;
   }
@@ -216,7 +216,10 @@ int main(int argc, char* argv[])
   CATCH_ENTRY_L0("main", 1);
 }
 
-bool command_line_preprocessor(const boost::program_options::variables_map& vm)
+/**
+ * @return true if application should exit
+ */
+bool validate_arguments(const boost::program_options::variables_map& vm)
 {
   bool exit = false;
   if (command_line::get_arg(vm, command_line::arg_version))
