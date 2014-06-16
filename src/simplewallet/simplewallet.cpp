@@ -880,6 +880,22 @@ void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_e
 
       }
 
+      // prompt user to confirm splits (if needed)
+      if (attempt_count > 1)
+      {
+        std::string prompt_str = "Your transaction needs to be split into ";
+        prompt_str += attempt_count;
+        prompt_str += " transactions.  This will result in a fee of ";
+        prompt_str += print_money(attempt_count * DEFAULT_FEE);
+        prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
+        std::string accepted = command_line::input_line(prompt_str);
+        if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+        {
+          fail_msg_writer() << "Transaction cancelled.";
+          return;
+        }
+      }
+
       // if we made it this far, we're OK to actually send the transactions
       while (!ptx_vector.empty())
       {
