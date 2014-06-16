@@ -23,7 +23,8 @@ using namespace epee;
 #include "miner.h"
 
 
-
+extern "C" void slow_hash_allocate_state();
+extern "C" void slow_hash_free_state();
 namespace cryptonote
 {
 
@@ -188,9 +189,18 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::is_mining()
+  bool miner::is_mining() const
   {
     return !m_stop;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  const account_public_address& miner::get_mining_address() const
+  {
+    return m_mine_address;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  uint32_t miner::get_threads_count() const {
+    return m_threads_total;
   }
   //----------------------------------------------------------------------------------------------------- 
   bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs)
@@ -226,12 +236,14 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  uint64_t miner::get_speed()
+  uint64_t miner::get_speed() const
   {
-    if(is_mining())
+    if(is_mining()) {
       return m_current_hash_rate;
-    else
+    }
+    else {
       return 0;
+    }
   }
   //-----------------------------------------------------------------------------------------------------
   void miner::send_stop_signal()
@@ -309,6 +321,7 @@ namespace cryptonote
     difficulty_type local_diff = 0;
     uint32_t local_template_ver = 0;
     block b;
+	  slow_hash_allocate_state();
     while(!m_stop)
     {
       if(m_pausers_count)//anti split workaround
@@ -357,6 +370,7 @@ namespace cryptonote
       nonce+=m_threads_total;
       ++m_hashes;
     }
+	  slow_hash_free_state();
     LOG_PRINT_L0("Miner thread stopped ["<< th_local_index << "]");
     return true;
   }
