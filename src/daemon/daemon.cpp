@@ -32,15 +32,13 @@ namespace po = boost::program_options;
 namespace
 {
   const command_line::arg_descriptor<std::string> arg_config_file   = {"config-file", "Specify configuration file", std::string(CRYPTONOTE_NAME ".conf")};
-  const command_line::arg_descriptor<bool>        arg_os_version    = {"os-version", ""};
+  const command_line::arg_descriptor<bool>        arg_os_version    = {"os-version", "OS for which this executable was compiled"};
   const command_line::arg_descriptor<std::string> arg_log_file      = {"log-file", "", ""};
   const command_line::arg_descriptor<int>         arg_log_level     = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console       = {"no-console", "Disable daemon console commands"};
   const command_line::arg_descriptor<bool>        arg_start_daemon  = {"start-daemon", "Run as daemon", false};
   const command_line::arg_descriptor<bool>        arg_stop_daemon   = {"stop-daemon", "Stop running daemon", false};
 }
-
-bool validate_arguments(const boost::program_options::variables_map& vm);
 
 int main(int argc, char* argv[])
 {
@@ -55,46 +53,75 @@ int main(int argc, char* argv[])
 
   TRY_ENTRY();
 
-  po::options_description desc_cmd_only("Command line options");
-  po::options_description desc_cmd_sett("Command line options and settings options");
-
-  std::string default_data_dir = tools::get_default_data_dir();
-  std::string default_log_file = default_data_dir + "/bitmonero.log";
-
-  command_line::add_arg(desc_cmd_only, command_line::arg_help);
-  command_line::add_arg(desc_cmd_only, command_line::arg_version);
-  command_line::add_arg(desc_cmd_only, arg_os_version);
-  // tools::get_default_data_dir() can't be called during static initialization
-  command_line::add_arg(desc_cmd_only, command_line::arg_data_dir, default_data_dir);
-  command_line::add_arg(desc_cmd_only, arg_config_file);
-  command_line::add_arg(desc_cmd_only, arg_start_daemon);
-  command_line::add_arg(desc_cmd_only, arg_stop_daemon);
-
-  command_line::add_arg(desc_cmd_sett, arg_log_file, default_log_file);
-  command_line::add_arg(desc_cmd_sett, arg_log_level);
-  command_line::add_arg(desc_cmd_sett, arg_console);
-
-
-  cryptonote::core::init_options(desc_cmd_sett);
-  cryptonote::core_rpc_server::init_options(desc_cmd_sett);
-  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >::init_options(desc_cmd_sett);
-  cryptonote::miner::init_options(desc_cmd_sett);
-
-  po::options_description desc_options("Allowed options");
-  desc_options.add(desc_cmd_only).add(desc_cmd_sett);
-
-  po::variables_map vm;
-  bool r = command_line::handle_error_helper(desc_options, [&]()
+  // Build argument description
+  po::options_description argument_spec("Options");
+  po::options_description core_settings_spec("Core Settings");
   {
-    po::store(po::parse_command_line(argc, argv, desc_options), vm);
+    // Query Options
+    boost::filesystem::path default_log_file = log_space::log_singletone::get_default_log_file();
+    boost::filesystem::path default_log_folder = log_space::log_singletone::get_default_log_folder();
+    boost::filesystem::path default_log_path = default_log_folder / default_log_file;
+    command_line::add_arg(argument_spec, command_line::arg_help);
+    command_line::add_arg(argument_spec, command_line::arg_version);
+    command_line::add_arg(argument_spec, arg_os_version);
+    command_line::add_arg(argument_spec, command_line::arg_data_dir, tools::get_default_data_dir());
+    command_line::add_arg(argument_spec, arg_config_file);
 
+    // Daemon Options Descriptions
+    po::options_description daemon_commands_spec("Daemon Commands");
+    command_line::add_arg(daemon_commands_spec, arg_start_daemon);
+    command_line::add_arg(daemon_commands_spec, arg_stop_daemon);
+
+    // Core Options
+    command_line::add_arg(core_settings_spec, arg_log_file, default_log_path.string());
+    command_line::add_arg(core_settings_spec, arg_log_level);
+    command_line::add_arg(core_settings_spec, arg_console);
+    // Add component-specific settings
+    cryptonote::core::init_options(core_settings_spec);
+    cryptonote::core_rpc_server::init_options(core_settings_spec);
+    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >::init_options(core_settings_spec);
+    cryptonote::miner::init_options(core_settings_spec);
+
+    // All Options
+    argument_spec.add(daemon_commands_spec).add(core_settings_spec);
+  }
+
+  // Perform Boost parsing
+  po::variables_map vm;
+  bool success = command_line::handle_error_helper(argument_spec, [&]()
+  {
+    po::store(po::parse_command_line(argc, argv, argument_spec), vm);
+    return true;
+  });
+  if (!success) return 1;
+
+  // Check Query Options
+  {
+    // Help
     if (command_line::get_arg(vm, command_line::arg_help))
     {
       std::cout << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL << ENDL;
-      std::cout << desc_options << std::endl;
-      return false;
+      std::cout << argument_spec << std::endl;
+      return 0;
     }
 
+    // Monero Version
+    if (command_line::get_arg(vm, command_line::arg_version))
+    {
+      std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
+      return 0;
+    }
+
+    // OS
+    if (command_line::get_arg(vm, arg_os_version))
+    {
+      std::cout << "OS: " << tools::get_os_version_string() << ENDL;
+      return 0;
+    }
+  }
+
+  // Parse config file if it exists
+  {
     std::string data_dir = command_line::get_arg(vm, command_line::arg_data_dir);
     std::string config = command_line::get_arg(vm, arg_config_file);
 
@@ -108,31 +135,38 @@ int main(int argc, char* argv[])
     boost::system::error_code ec;
     if (boost::filesystem::exists(config_path, ec))
     {
-      po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), desc_cmd_sett), vm);
+      po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings_spec), vm);
     }
     po::notify(vm);
-
-    return true;
-  });
-  if (!r)
-    return 1;
-
-  //set up logging options
-  boost::filesystem::path log_file_path(command_line::get_arg(vm, arg_log_file));
-  if (log_file_path.empty())
-    log_file_path = log_space::log_singletone::get_default_log_file();
-  std::string log_dir;
-  log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
-
-  log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
-  LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-
-  if (validate_arguments(vm))
-  {
-    return 0;
   }
 
-  LOG_PRINT("Module folder: " << argv[0], LOG_LEVEL_0);
+  // Set log file
+  {
+    boost::filesystem::path log_file_path(command_line::get_arg(vm, arg_log_file));
+    boost::system::error_code ec;
+    if (log_file_path.empty() || !boost::filesystem::exists(log_file_path, ec))
+      log_file_path = log_space::log_singletone::get_default_log_file();
+    std::string log_dir;
+    log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
+    log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
+  }
+
+  // Begin logging
+  LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
+
+  // Set log level
+  {
+    int new_log_level = command_line::get_arg(vm, arg_log_level);
+    if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
+    {
+      LOG_PRINT_L0("Wrong log level value: " << new_log_level);
+    }
+    else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
+    {
+      log_space::get_set_log_detalisation_level(true, new_log_level);
+      LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
+    }
+  }
 
   bool res = true;
   cryptonote::checkpoints checkpoints;
@@ -206,7 +240,6 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Deinitializing p2p...");
   p2psrv.deinit();
 
-
   ccore.set_cryptonote_protocol(NULL);
   cprotocol.set_p2p_endpoint(NULL);
 
@@ -214,34 +247,4 @@ int main(int argc, char* argv[])
   return 0;
 
   CATCH_ENTRY_L0("main", 1);
-}
-
-/**
- * @return true if application should exit
- */
-bool validate_arguments(const boost::program_options::variables_map& vm)
-{
-  if (command_line::get_arg(vm, command_line::arg_version))
-  {
-    std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
-    return true;
-  }
-  if (command_line::get_arg(vm, arg_os_version))
-  {
-    std::cout << "OS: " << tools::get_os_version_string() << ENDL;
-    return true;
-  }
-
-  int new_log_level = command_line::get_arg(vm, arg_log_level);
-  if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
-  {
-    LOG_PRINT_L0("Wrong log level value: " << new_log_level);
-  }
-  else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
-  {
-    log_space::get_set_log_detalisation_level(true, new_log_level);
-    LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
-  }
-
-  return false;
 }
