@@ -883,7 +883,9 @@ void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_e
       // if we made it this far, we're OK to actually send the transactions
       while (!ptx_vector.empty())
       {
-        m_wallet->commit_tx(ptx_vector.back());
+        auto & ptx = ptx_vector.back();
+        m_wallet->commit_tx(ptx);
+        success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(ptx.tx);
         // if no exception, remove element from vector
         ptx_vector.pop_back();
       }
