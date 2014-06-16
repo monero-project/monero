@@ -28,10 +28,11 @@ using namespace epee;
 #endif
 
 namespace po = boost::program_options;
+namespace bf = boost::filesystem;
 
 namespace
 {
-  const command_line::arg_descriptor<std::string> arg_config_file   = {"config-file", "Specify configuration file", std::string(CRYPTONOTE_NAME ".conf")};
+  const command_line::arg_descriptor<std::string> arg_config_file   = {"config-file", "Specify configuration file"};
   const command_line::arg_descriptor<bool>        arg_os_version    = {"os-version", "OS for which this executable was compiled"};
   const command_line::arg_descriptor<std::string> arg_log_file      = {"log-file", "", ""};
   const command_line::arg_descriptor<int>         arg_log_level     = {"log-level", "", LOG_LEVEL_0};
@@ -57,15 +58,20 @@ int main(int argc, char* argv[])
   po::options_description argument_spec("Options");
   po::options_description core_settings_spec("Core Settings");
   {
-    // Query Options
-    boost::filesystem::path default_log_file = log_space::log_singletone::get_default_log_file();
-    boost::filesystem::path default_log_folder = log_space::log_singletone::get_default_log_folder();
-    boost::filesystem::path default_log_path = default_log_folder / default_log_file;
+    // Defaults
+    bf::path default_data_dir = bf::absolute(tools::get_default_data_dir());
+    bf::path default_log_file_rel = log_space::log_singletone::get_default_log_file();
+    bf::path default_log_folder = log_space::log_singletone::get_default_log_folder();
+    bf::path default_log_file_abs = bf::absolute( default_log_folder / default_log_file_rel );
+    bf::path default_config_file_rel = std::string(CRYPTONOTE_NAME ".conf");
+    bf::path default_config_file_abs = default_data_dir / default_config_file_rel;
+
+    // Misc Options
     command_line::add_arg(argument_spec, command_line::arg_help);
     command_line::add_arg(argument_spec, command_line::arg_version);
     command_line::add_arg(argument_spec, arg_os_version);
-    command_line::add_arg(argument_spec, command_line::arg_data_dir, tools::get_default_data_dir());
-    command_line::add_arg(argument_spec, arg_config_file);
+    command_line::add_arg(argument_spec, command_line::arg_data_dir, default_data_dir.string());
+    command_line::add_arg(argument_spec, arg_config_file, default_config_file_abs.string());
 
     // Daemon Options Descriptions
     po::options_description daemon_commands_spec("Daemon Commands");
@@ -73,7 +79,7 @@ int main(int argc, char* argv[])
     command_line::add_arg(daemon_commands_spec, arg_stop_daemon);
 
     // Core Options
-    command_line::add_arg(core_settings_spec, arg_log_file, default_log_path.string());
+    command_line::add_arg(core_settings_spec, arg_log_file, default_log_file_abs.string());
     command_line::add_arg(core_settings_spec, arg_log_level);
     command_line::add_arg(core_settings_spec, arg_console);
     // Add component-specific settings
@@ -125,15 +131,15 @@ int main(int argc, char* argv[])
     std::string data_dir = command_line::get_arg(vm, command_line::arg_data_dir);
     std::string config = command_line::get_arg(vm, arg_config_file);
 
-    boost::filesystem::path data_dir_path(data_dir);
-    boost::filesystem::path config_path(config);
+    bf::path data_dir_path(data_dir);
+    bf::path config_path(config);
     if (!config_path.has_parent_path())
     {
       config_path = data_dir_path / config_path;
     }
 
     boost::system::error_code ec;
-    if (boost::filesystem::exists(config_path, ec))
+    if (bf::exists(config_path, ec))
     {
       po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings_spec), vm);
     }
@@ -142,9 +148,9 @@ int main(int argc, char* argv[])
 
   // Set log file
   {
-    boost::filesystem::path log_file_path(command_line::get_arg(vm, arg_log_file));
+    bf::path log_file_path(command_line::get_arg(vm, arg_log_file));
     boost::system::error_code ec;
-    if (log_file_path.empty() || !boost::filesystem::exists(log_file_path, ec))
+    if (log_file_path.empty() || !bf::exists(log_file_path, ec))
       log_file_path = log_space::log_singletone::get_default_log_file();
     std::string log_dir;
     log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
