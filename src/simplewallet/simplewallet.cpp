@@ -839,7 +839,7 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_
 void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
 {
   // for now, limit to 5 attempts.  TODO: discuss a good number to limit to.
-  const size_t MAX_ATTEMPTS = 5;
+  const size_t MAX_ATTEMPTS = 30;
 
   // failsafe split attempt counter
   size_t attempt_count = 0;
