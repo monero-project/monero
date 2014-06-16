@@ -221,27 +221,21 @@ int main(int argc, char* argv[])
  */
 bool validate_arguments(const boost::program_options::variables_map& vm)
 {
-  bool exit = false;
   if (command_line::get_arg(vm, command_line::arg_version))
   {
     std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
-    exit = true;
+    return true;
   }
   if (command_line::get_arg(vm, arg_os_version))
   {
     std::cout << "OS: " << tools::get_os_version_string() << ENDL;
-    exit = true;
-  }
-
-  if (exit)
-  {
     return true;
   }
 
   int new_log_level = command_line::get_arg(vm, arg_log_level);
   if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
   {
-    LOG_PRINT_L0("Wrong log level value: ");
+    LOG_PRINT_L0("Wrong log level value: " << new_log_level);
   }
   else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
   {
