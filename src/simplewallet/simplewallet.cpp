@@ -813,15 +813,12 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_
       uint64_t amount;
 
       amount = dsts[j].amount;
-      std::cout << "Amount before split: " << amount << "; num_splits: " << num_splits;
       amount = amount / num_splits;
-      std::cout << "; amount after split: " << amount;
 
       // if last split, add remainder
       if (i + 1 == num_splits)
       {
         amount += dsts[j].amount % num_splits;
-        std::cout << "; amount after remainder: " << amount;
       }
       std::cout << std::endl;
       
@@ -844,20 +841,14 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_
 // transactions will be required
 void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
 {
-  // for now, limit to 5 attempts.  TODO: discuss a good number to limit to.
-  const size_t MAX_ATTEMPTS = 5;
+  // for now, limit to 30 attempts.  TODO: discuss a good number to limit to.
+  const size_t MAX_ATTEMPTS = 30;
 
   // failsafe split attempt counter
   size_t attempt_count = 0;
 
   for(attempt_count = 1; ;attempt_count++)
   {
-    if (attempt_count > 1)
-    {
-      std::string prompt = "Attempt #";
-      prompt.append(std::to_string(attempt_count));
-      command_line::input_line(prompt);
-    }
     auto split_values = split_amounts(dsts, attempt_count);
 
     // Throw if split_amounts comes back with a vector of size different than it should
