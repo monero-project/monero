@@ -820,7 +820,6 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_
       {
         amount += dsts[j].amount % num_splits;
       }
-      std::cout << std::endl;
       
       de.addr = dsts[j].addr;
       de.amount = amount;
