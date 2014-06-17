@@ -10,6 +10,7 @@ using namespace epee;
 #include "common/command_line.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_core/account.h"
+#include "wallet_rpc_server_commands_defs.h"
 #include "misc_language.h"
 #include "string_tools.h"
 #include "crypto/hash.h"
@@ -85,12 +86,11 @@ namespace tools
     }
     return true;
   }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::on_transfer(const wallet_rpc::COMMAND_RPC_TRANSFER::request& req, wallet_rpc::COMMAND_RPC_TRANSFER::response& res, epee::json_rpc::error& er, connection_context& cntx)
-  {
 
-    std::vector<cryptonote::tx_destination_entry> dsts;
-    for (auto it = req.destinations.begin(); it != req.destinations.end(); it++)
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, const std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t> extra, epee::json_rpc::error& er)
+  {
+    for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
       cryptonote::tx_destination_entry de;
       if(!get_account_address_from_str(de.addr, it->address))
@@ -103,11 +103,11 @@ namespace tools
       dsts.push_back(de);
     }
 
-    std::vector<uint8_t> extra;
-    if (!req.payment_id.empty()) {
+    if (!payment_id.empty())
+    {
 
       /* Just to clarify */
-      const std::string& payment_id_str = req.payment_id;
+      const std::string& payment_id_str = payment_id;
 
       crypto::hash payment_id;
       /* Parse payment ID */
@@ -128,13 +128,85 @@ namespace tools
       }
 
     }
+    return true;
+  }
+
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_transfer(const wallet_rpc::COMMAND_RPC_TRANSFER::request& req, wallet_rpc::COMMAND_RPC_TRANSFER::response& res, epee::json_rpc::error& er, connection_context& cntx)
+  {
+
+    std::vector<cryptonote::tx_destination_entry> dsts;
+    std::vector<uint8_t> extra;
+
+    // validate the transfer requested and populate dsts & extra
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    {
+      return false;
+    }
 
     try
     {
-      cryptonote::transaction tx;
-      wallet2::pending_tx ptx;
-      m_wallet.transfer(dsts, req.mixin, req.unlock_time, req.fee, extra, tx, ptx);
-      res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(tx));
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+
+      // reject proposed transactions if there are more than one.  see on_transfer_split below.
+      if (ptx_vector.size() != 1)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+        er.message = "Transaction would be too large.  try /transfer_split.";
+        return false;
+      }
+
+      m_wallet.commit_tx(ptx_vector);
+
+      // populate response with tx hash
+      res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      return true;
+    }
+    catch (const tools::error::daemon_busy& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const std::exception& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    catch (...)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_transfer_split(const wallet_rpc::COMMAND_RPC_TRANSFER_SPLIT::request& req, wallet_rpc::COMMAND_RPC_TRANSFER_SPLIT::response& res, epee::json_rpc::error& er, connection_context& cntx)
+  {
+
+    std::vector<cryptonote::tx_destination_entry> dsts;
+    std::vector<uint8_t> extra;
+
+    // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    {
+      return false;
+    }
+
+    try
+    {
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+
+      m_wallet.commit_tx(ptx_vector);
+
+      // populate response with tx hashes
+      for (auto & ptx : ptx_vector)
+      {
+        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+      }
+
       return true;
     }
     catch (const tools::error::daemon_busy& e)

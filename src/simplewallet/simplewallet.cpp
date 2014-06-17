@@ -786,169 +786,6 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
   return true;
 }
 
-// split_amounts(vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
-//
-// split amount for each dst in dsts into num_splits parts
-// and make num_splits new vector<crypt...> instances to hold these new amounts
-std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_amounts(
-    std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
-{
-  std::vector<std::vector<cryptonote::tx_destination_entry>> retVal;
-
-  if (num_splits <= 1)
-  {
-    retVal.push_back(dsts);
-    return retVal;
-  }
-
-  // for each split required
-  for (size_t i=0; i < num_splits; i++)
-  {
-    std::vector<cryptonote::tx_destination_entry> new_dsts;
-
-    // for each destination
-    for (size_t j=0; j < dsts.size(); j++)
-    {
-      cryptonote::tx_destination_entry de;
-      uint64_t amount;
-
-      amount = dsts[j].amount;
-      amount = amount / num_splits;
-
-      // if last split, add remainder
-      if (i + 1 == num_splits)
-      {
-        amount += dsts[j].amount % num_splits;
-      }
-      
-      de.addr = dsts[j].addr;
-      de.amount = amount;
-
-      new_dsts.push_back(de);
-    }
-
-    retVal.push_back(new_dsts);
-  }
-
-  return retVal;
-}
-
-//----------------------------------------------------------------------------------------------------
-// separated the call(s) to wallet2::transfer into their own function
-//
-// this function will make multiple calls to wallet2::transfer if multiple
-// transactions will be required
-void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
-{
-  // for now, limit to 30 attempts.  TODO: discuss a good number to limit to.
-  const size_t MAX_ATTEMPTS = 30;
-
-  // failsafe split attempt counter
-  size_t attempt_count = 0;
-
-  for(attempt_count = 1; ;attempt_count++)
-  {
-    auto split_values = split_amounts(dsts, attempt_count);
-
-    // Throw if split_amounts comes back with a vector of size different than it should
-    if (split_values.size() != attempt_count)
-    {
-      throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
-    }
-
-    std::vector<tools::wallet2::pending_tx> ptx_vector;
-    try
-    {
-      // for each new destination vector (i.e. for each new tx)
-      for (auto & dst_vector : split_values)
-      {
-        cryptonote::transaction tx;
-        tools::wallet2::pending_tx ptx;
-        m_wallet->transfer(dst_vector, fake_outs_count, unlock_time, fee, extra, tx, ptx);
-        ptx_vector.push_back(ptx);
-
-        // mark transfers to be used as "spent"
-        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it, ptx.selected_transfers)
-          it->m_spent = true;
-      }
-
-      // if we made it this far, we've selected our transactions.  committing them will mark them spent,
-      // so this is a failsafe in case they don't go through
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it2, ptx.selected_transfers)
-          it2->m_spent = false;
-
-      }
-
-      // prompt user to confirm splits (if needed)
-      if (attempt_count > 1)
-      {
-        std::string prompt_str = "Your transaction needs to be split into ";
-        prompt_str += std::to_string(attempt_count);
-        prompt_str += " transactions.  This will result in a fee of ";
-        prompt_str += print_money(attempt_count * DEFAULT_FEE);
-        prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
-        std::string accepted = command_line::input_line(prompt_str);
-        if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
-        {
-          fail_msg_writer() << "Transaction cancelled.";
-          return;
-        }
-      }
-
-      // if we made it this far, we're OK to actually send the transactions
-      while (!ptx_vector.empty())
-      {
-        auto & ptx = ptx_vector.back();
-        m_wallet->commit_tx(ptx);
-        success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(ptx.tx);
-        // if no exception, remove element from vector
-        ptx_vector.pop_back();
-      }
-
-      return;
-
-    }
-    // only catch this here, other exceptions need to pass through to the calling function
-    catch (const tools::error::tx_too_big& e)
-    {
-
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it2, ptx.selected_transfers)
-          it2->m_spent = false;
-
-      }
-
-      if (attempt_count >= MAX_ATTEMPTS)
-      {
-        throw;
-      }
-    }
-    catch (...)
-    {
-      // in case of some other exception, make sure any tx in queue are marked unspent again
-
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        BOOST_FOREACH(tools::wallet2::transfer_container::iterator it2, ptx.selected_transfers)
-          it2->m_spent = false;
-
-      }
-
-      throw;
-    }
-  }
-  //success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(tx);
-}
-
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer(const std::vector<std::string> &args_)
 {
@@ -1015,7 +852,38 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
 
   try
   {
-    create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, DEFAULT_FEE, extra);
+    // figure out what tx will be necessary
+    auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, DEFAULT_FEE, extra);
+
+    // if more than one tx necessary, prompt user to confirm
+    if (ptx_vector.size() > 1)
+    {
+        std::string prompt_str = "Your transaction needs to be split into ";
+        prompt_str += std::to_string(ptx_vector.size());
+        prompt_str += " transactions.  This will result in a fee of ";
+        prompt_str += print_money(ptx_vector.size() * DEFAULT_FEE);
+        prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
+        std::string accepted = command_line::input_line(prompt_str);
+        if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+        {
+          fail_msg_writer() << "Transaction cancelled.";
+
+          // would like to return false, because no tx made, but everything else returns true
+          // and I don't know what returning false might adversely affect.  *sigh*
+          return true; 
+        }
+    }
+
+    // actually commit the transactions
+    while (!ptx_vector.empty())
+    {
+      auto & ptx = ptx_vector.back();
+      m_wallet->commit_tx(ptx);
+      success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(ptx.tx);
+
+      // if no exception, remove element from vector
+      ptx_vector.pop_back();
+    }
   }
   catch (const tools::error::daemon_busy&)
   {
