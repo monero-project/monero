@@ -350,17 +350,12 @@ namespace epee
     return true;
   }*/
 
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  class console_handlers_binder
-  {
-    typedef boost::function<bool (const std::vector<std::string> &)> console_command_handler;
-    typedef std::map<std::string, std::pair<console_command_handler, std::string> > command_handlers_map;
-    std::unique_ptr<boost::thread> m_console_thread;
-    command_handlers_map m_command_handlers;
-    async_console_handler m_console_handler;
+  // TODO - Should this live somewhere else?
+  class command_handler {
   public:
+    typedef boost::function<bool (const std::vector<std::string> &)> callback;
+    typedef std::map<std::string, std::pair<callback, std::string> > lookup;
+
     std::string get_usage()
     {
       std::stringstream ss;
@@ -376,12 +371,14 @@ namespace epee
       }
       return ss.str();
     }
-    void set_handler(const std::string& cmd, const console_command_handler& hndlr, const std::string& usage = "")
+
+    void set_handler(const std::string& cmd, const callback& hndlr, const std::string& usage = "")
     {
-      command_handlers_map::mapped_type & vt = m_command_handlers[cmd];
+      lookup::mapped_type & vt = m_command_handlers[cmd];
       vt.first = hndlr;
       vt.second = usage;
     }
+
     bool process_command_vec(const std::vector<std::string>& cmd)
     {
       if(!cmd.size())
@@ -399,13 +396,38 @@ namespace epee
       boost::split(cmd_v,cmd,boost::is_any_of(" "), boost::token_compress_on);
       return process_command_vec(cmd_v);
     }
+  private:
+    lookup m_command_handlers;
+  };
 
-    /*template<class t_srv>
-    bool start_handling(t_srv& srv, const std::string& usage_string = "")
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  class console_handlers_binder
+  {
+    typedef command_handler::callback console_command_handler;
+    typedef command_handler::lookup command_handlers_map;
+    command_handler m_command_handler;
+    std::unique_ptr<boost::thread> m_console_thread;
+    async_console_handler m_console_handler;
+  public:
+    std::string get_usage()
     {
-      start_default_console_handler_no_srv_param(&srv, boost::bind(&console_handlers_binder::process_command_str, this, _1));
-      return true;
-    }*/
+      return m_command_handler.get_usage();
+    }
+    void set_handler(const std::string& cmd, const console_command_handler& hndlr, const std::string& usage = "")
+    {
+      m_command_handler.set_handler(cmd, hndlr, usage);
+    }
+    bool process_command_vec(const std::vector<std::string>& cmd)
+    {
+      return m_command_handler.process_command_vec(cmd);
+    }
+
+    bool process_command_str(const std::string& cmd)
+    {
+      return m_command_handler.process_command_str(cmd);
+    }
 
     bool start_handling(const std::string& prompt, const std::string& usage_string = "")
     {
@@ -423,12 +445,6 @@ namespace epee
     {
       return m_console_handler.run(boost::bind(&console_handlers_binder::process_command_str, this, _1), prompt, usage_string);
     }
-
-    /*template<class t_srv>
-    bool run_handling(t_srv& srv, const std::string& usage_string)
-    {
-      return run_default_console_handler_no_srv_param(&srv, boost::bind<bool>(&console_handlers_binder::process_command_str, this, _1), usage_string);
-    }*/
   };
 
   /* work around because of broken boost bind */
