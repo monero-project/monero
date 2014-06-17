@@ -812,15 +812,21 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_
       cryptonote::tx_destination_entry de;
       uint64_t amount;
 
-      amount = dsts[j].amount / num_splits;
+      amount = dsts[j].amount;
+      std::cout << "Amount before split: " << amount << "; num_splits: " << num_splits;
+      amount = amount / num_splits;
+      std::cout << "; amount after split: " << amount;
 
       // if last split, add remainder
       if (i + 1 == num_splits)
       {
         amount += dsts[j].amount % num_splits;
+        std::cout << "; amount after remainder: " << amount;
       }
+      std::cout << std::endl;
       
       de.addr = dsts[j].addr;
+      de.amount = amount;
 
       new_dsts.push_back(de);
     }
@@ -839,13 +845,19 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> simple_wallet::split_
 void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
 {
   // for now, limit to 5 attempts.  TODO: discuss a good number to limit to.
-  const size_t MAX_ATTEMPTS = 30;
+  const size_t MAX_ATTEMPTS = 5;
 
   // failsafe split attempt counter
   size_t attempt_count = 0;
 
-  for(attempt_count = 1; attempt_count <= 5 ;attempt_count++)
+  for(attempt_count = 1; ;attempt_count++)
   {
+    if (attempt_count > 1)
+    {
+      std::string prompt = "Attempt #";
+      prompt.append(std::to_string(attempt_count));
+      command_line::input_line(prompt);
+    }
     auto split_values = split_amounts(dsts, attempt_count);
 
     // Throw if split_amounts comes back with a vector of size different than it should
@@ -857,11 +869,12 @@ void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_e
     std::vector<tools::wallet2::pending_tx> ptx_vector;
     try
     {
-      for (size_t i=0; i < attempt_count; i++)
+      // for each new destination vector (i.e. for each new tx)
+      for (auto & dst_vector : split_values)
       {
         cryptonote::transaction tx;
         tools::wallet2::pending_tx ptx;
-        m_wallet->transfer(dsts, fake_outs_count, unlock_time, fee, extra, tx, ptx);
+        m_wallet->transfer(dst_vector, fake_outs_count, unlock_time, fee, extra, tx, ptx);
         ptx_vector.push_back(ptx);
 
         // mark transfers to be used as "spent"
@@ -884,7 +897,7 @@ void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_e
       if (attempt_count > 1)
       {
         std::string prompt_str = "Your transaction needs to be split into ";
-        prompt_str += attempt_count;
+        prompt_str += std::to_string(attempt_count);
         prompt_str += " transactions.  This will result in a fee of ";
         prompt_str += print_money(attempt_count * DEFAULT_FEE);
         prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
@@ -905,6 +918,8 @@ void simple_wallet::create_transactions(std::vector<cryptonote::tx_destination_e
         // if no exception, remove element from vector
         ptx_vector.pop_back();
       }
+
+      return;
 
     }
     // only catch this here, other exceptions need to pass through to the calling function

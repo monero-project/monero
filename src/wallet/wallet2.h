@@ -23,6 +23,7 @@
 
 #include "wallet_errors.h"
 
+#include <iostream>
 #define DEFAULT_TX_SPENDABLE_AGE                               10
 #define WALLET_RCP_CONNECTION_TIMEOUT                          200000
 
@@ -328,6 +329,8 @@ namespace tools
       needed_money += dt.amount;
       THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee);
     }
+
+    std::cout << "Attempting to create transaction, needed money = " << needed_money << std::endl;
 
     // randomly select inputs for transaction
     // throw if requested send amount is greater than amount available to send
