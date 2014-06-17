@@ -330,8 +330,6 @@ namespace tools
       THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee);
     }
 
-    std::cout << "Attempting to create transaction, needed money = " << needed_money << std::endl;
-
     // randomly select inputs for transaction
     // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
