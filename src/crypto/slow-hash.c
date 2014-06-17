@@ -49,13 +49,20 @@
 
 #define U64(x) ((uint64_t *) (x))
 #define R128(x) ((__m128i *) (x))
-#define SWAP(a, b) (((a) -= (b)), ((b) += (a)), ((a) = (b) - (a)))
 
 #define state_index(x) (((*((uint64_t *)x) >> 4) & (TOTALBLOCKS - 1)) << 4)
 #if defined(_MSC_VER)
-#define __mul() lo = _umul128(c[0], b[0], &hi);
+#if !defined(_WIN64)
+#define __mul() lo = mul128(c[0], b[0], &hi);
 #else
+#define __mul() lo = _umul128(c[0], b[0], &hi);
+#endif
+#else
+#if defined(__x86_64__)
 #define __mul() ASM("mulq %3\n\t" : "=d"(hi), "=a"(lo) : "%a" (c[0]), "rm" (b[0]) : "cc");
+#else
+#define __mul() lo = mul128(c[0], b[0], &hi);
+#endif
 #endif
 
 #define pre_aes() \
