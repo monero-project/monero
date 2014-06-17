@@ -5,6 +5,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "p2p/net_node.h"
 #include <functional>
+#include <boost/algorithm/string.hpp>
 
 namespace daemonize {
 
@@ -38,7 +39,7 @@ public:
   {
     if(!m_srv.get_payload_object().get_core().get_miner().is_mining())
     {
-      std::cout << "Mining is not started. You need start mining before you can see hash rate." << ENDL;
+      std::cout << "Mining is not started. You need start mining before you can see hash rate." << std::endl;
     } else
     {
       m_srv.get_payload_object().get_core().get_miner().do_print_hashrate(true);
@@ -57,8 +58,8 @@ public:
     cryptonote::difficulty_type difficulty = m_srv.get_payload_object().get_core().get_blockchain_storage().get_difficulty_for_next_block();
     uint64_t height = m_srv.get_payload_object().get_core().get_blockchain_storage().get_current_blockchain_height();
 
-    LOG_PRINT_GREEN("BH: " << height << ", DIFF: " << difficulty
-      << ", HR: " << (int) difficulty / 60L << " H/s", LOG_LEVEL_0);
+    std::cout << "BH: " << height << ", DIFF: " << difficulty
+      << ", HR: " << (int) difficulty / 60L << " H/s" << std::endl;
 
     return true;
   }
@@ -67,7 +68,7 @@ public:
   {
     if(args.size() != 1)
     {
-      std::cout << "need file path as parameter" << ENDL;
+      std::cout << "need file path as parameter" << std::endl;
       return true;
     }
     m_srv.get_payload_object().get_core().print_blockchain_outs(args[0]);
@@ -84,7 +85,7 @@ public:
   {
     if(!args.size())
     {
-      std::cout << "need block index parameter" << ENDL;
+      std::cout << "need block index parameter" << std::endl;
       return false;
     }
     uint64_t start_index = 0;
@@ -92,12 +93,12 @@ public:
     uint64_t end_block_parametr = m_srv.get_payload_object().get_core().get_current_blockchain_height();
     if(!epee::string_tools::get_xtype_from_string(start_index, args[0]))
     {
-      std::cout << "wrong starter block index parameter" << ENDL;
+      std::cout << "wrong starter block index parameter" << std::endl;
       return false;
     }
     if(args.size() >1 && !epee::string_tools::get_xtype_from_string(end_index, args[1]))
     {
-      std::cout << "wrong end block index parameter" << ENDL;
+      std::cout << "wrong end block index parameter" << std::endl;
       return false;
     }
     if (end_index == 0)
@@ -106,12 +107,12 @@ public:
     }
     if (end_index > end_block_parametr)
     {
-      std::cout << "end block index parameter shouldn't be greater than " << end_block_parametr << ENDL;
+      std::cout << "end block index parameter shouldn't be greater than " << end_block_parametr << std::endl;
       return false;
     }
     if (end_index <= start_index)
     {
-      std::cout << "end block index should be greater than starter block index" << ENDL;
+      std::cout << "end block index should be greater than starter block index" << std::endl;
       return false;
     }
 
@@ -129,20 +130,20 @@ public:
   {
     if(args.size() != 1)
     {
-      std::cout << "use: set_log <log_level_number_0-4>" << ENDL;
+      std::cout << "use: set_log <log_level_number_0-4>" << std::endl;
       return true;
     }
 
     uint16_t l = 0;
     if(!epee::string_tools::get_xtype_from_string(l, args[0]))
     {
-      std::cout << "wrong number format, use: set_log <log_level_number_0-4>" << ENDL;
+      std::cout << "wrong number format, use: set_log <log_level_number_0-4>" << std::endl;
       return true;
     }
 
     if(LOG_LEVEL_4 < l)
     {
-      std::cout << "wrong number range, use: set_log <log_level_number_0-4>" << ENDL;
+      std::cout << "wrong number range, use: set_log <log_level_number_0-4>" << std::endl;
       return true;
     }
 
@@ -154,7 +155,7 @@ public:
   template <typename T>
   static bool print_as_json(T& obj)
   {
-    std::cout << cryptonote::obj_to_json_str(obj) << ENDL;
+    std::cout << cryptonote::obj_to_json_str(obj) << std::endl;
     return true;
   }
 
@@ -166,7 +167,7 @@ public:
     if (1 == blocks.size())
     {
       cryptonote::block& block = blocks.front();
-      std::cout << "block_id: " << get_block_hash(block) << ENDL;
+      std::cout << "block_id: " << get_block_hash(block) << std::endl;
       print_as_json(block);
     }
     else
@@ -267,13 +268,13 @@ public:
 
   bool print_pool(const std::vector<std::string>& args)
   {
-    LOG_PRINT_L0("Pool state: " << ENDL << m_srv.get_payload_object().get_core().print_pool(false));
+    std::cout << "Pool state: " << std::endl << m_srv.get_payload_object().get_core().print_pool(false) << std::endl;
     return true;
   }
 
   bool print_pool_sh(const std::vector<std::string>& args)
   {
-    LOG_PRINT_L0("Pool state: " << ENDL << m_srv.get_payload_object().get_core().print_pool(true));
+    std::cout << "Pool state: " << std::endl << m_srv.get_payload_object().get_core().print_pool(true) << std::endl;
     return true;
   }
 
@@ -348,19 +349,19 @@ public:
 private:
   bool help(const std::vector<std::string>& args)
   {
-    std::cout << get_commands_str() << ENDL;
+    std::cout << get_commands_str() << std::endl;
     return true;
   }
 
   std::string get_commands_str()
   {
     std::stringstream ss;
-    ss << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL;
-    ss << "Commands: " << ENDL;
+    ss << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << std::endl;
+    ss << "Commands: " << std::endl;
     std::string usage = m_handler.get_usage();
     boost::replace_all(usage, "\n", "\n  ");
     usage.insert(0, "  ");
-    ss << usage << ENDL;
+    ss << usage << std::endl;
     return ss.str();
   }
 };
