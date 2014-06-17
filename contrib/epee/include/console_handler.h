@@ -350,7 +350,6 @@ namespace epee
     return true;
   }*/
 
-  // TODO - Should this live somewhere else?
   class command_handler {
   public:
     typedef boost::function<bool (const std::vector<std::string> &)> callback;
@@ -403,32 +402,13 @@ namespace epee
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
-  class console_handlers_binder
+  class console_handlers_binder : public command_handler
   {
     typedef command_handler::callback console_command_handler;
     typedef command_handler::lookup command_handlers_map;
-    command_handler m_command_handler;
     std::unique_ptr<boost::thread> m_console_thread;
     async_console_handler m_console_handler;
   public:
-    std::string get_usage()
-    {
-      return m_command_handler.get_usage();
-    }
-    void set_handler(const std::string& cmd, const console_command_handler& hndlr, const std::string& usage = "")
-    {
-      m_command_handler.set_handler(cmd, hndlr, usage);
-    }
-    bool process_command_vec(const std::vector<std::string>& cmd)
-    {
-      return m_command_handler.process_command_vec(cmd);
-    }
-
-    bool process_command_str(const std::string& cmd)
-    {
-      return m_command_handler.process_command_str(cmd);
-    }
-
     bool start_handling(const std::string& prompt, const std::string& usage_string = "")
     {
       m_console_thread.reset(new boost::thread(boost::bind(&console_handlers_binder::run_handling, this, prompt, usage_string)));
@@ -447,32 +427,31 @@ namespace epee
     }
   };
 
-  /* work around because of broken boost bind */
-  template<class t_server>
-  class srv_console_handlers_binder: public console_handlers_binder
-  {
-    bool process_command_str(t_server* /*psrv*/, const std::string& cmd)
-    {
-      return console_handlers_binder::process_command_str(cmd);
-    }
-  public:
-    bool start_handling(t_server* psrv, const std::string& prompt, const std::string& usage_string = "")
-    {
-      boost::thread(boost::bind(&srv_console_handlers_binder<t_server>::run_handling, this, psrv, prompt, usage_string)).detach();
-      return true;
-    }
+  ///* work around because of broken boost bind */
+  //template<class t_server>
+  //class srv_console_handlers_binder: public command_handler
+  //{
+  //  async_console_handler m_console_handler;
+  //public:
+  //  bool start_handling(t_server* psrv, const std::string& prompt, const std::string& usage_string = "")
+  //  {
+  //    boost::thread(boost::bind(&srv_console_handlers_binder<t_server>::run_handling, this, psrv, prompt, usage_string)).detach();
+  //    return true;
+  //  }
 
-    bool run_handling(t_server* psrv, const std::string& prompt, const std::string& usage_string)
-    {
-      return m_console_handler.run(psrv, boost::bind(&srv_console_handlers_binder<t_server>::process_command_str, this, _1, _2), prompt, usage_string);
-    }
+  //  bool run_handling(t_server* psrv, const std::string& prompt, const std::string& usage_string)
+  //  {
+  //    return m_console_handler.run(psrv, boost::bind(&srv_console_handlers_binder<t_server>::process_command_str, this, _1, _2), prompt, usage_string);
+  //  }
 
-    void stop_handling()
-    {
-      m_console_handler.stop();
-    }
-
-  private:
-    async_console_handler m_console_handler;
-  };
+  //  void stop_handling()
+  //  {
+  //    m_console_handler.stop();
+  //  }
+  //private:
+  //  bool process_command_str(t_server* /*psrv*/, const std::string& cmd)
+  //  {
+  //    return console_handlers_binder::process_command_str(cmd);
+  //  }
+  //};
 }

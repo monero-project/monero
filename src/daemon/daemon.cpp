@@ -8,6 +8,7 @@
 
 #include "include_base_utils.h"
 #include "version.h"
+#include "daemon/console_command_thread.h"
 
 using namespace epee;
 
@@ -21,12 +22,16 @@ using namespace epee;
 #include "cryptonote_core/cryptonote_core.h"
 #include "rpc/core_rpc_server.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
-#include "daemon_commands_handler.h"
-#include "version.h"
+
+//#if !defined(WIN32)
+//#include "posix_daemonize.h"
+//#endif
 
 #if defined(WIN32)
 #include <crtdbg.h>
 #endif
+
+using namespace daemonize;
 
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;
@@ -43,14 +48,14 @@ namespace
   const command_line::arg_descriptor<bool>        arg_stop_daemon    = {"stop", "Stop running daemon"};
   const command_line::arg_descriptor<bool>        arg_help_daemon    = {"daemon-help", "Display daemon command help"};
   const command_line::arg_descriptor<std::string> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
-}
 
-bool is_there_more_than_one(po::variables_map vm, std::initializer_list<std::string> arg_names) {
-  int count = 0;
-  for (auto & arg_name : arg_names) {
-    if (vm[arg_name].empty() || !vm[arg_name].defaulted()) ++count;
+  bool is_there_more_than_one(po::variables_map vm, std::initializer_list<std::string> arg_names) {
+    int count = 0;
+    for (auto & arg_name : arg_names) {
+      if (vm[arg_name].empty() || !vm[arg_name].defaulted()) ++count;
+    }
+    return count > 1;
   }
-  return count > 1;
 }
 
 int main(int argc, char* argv[])
@@ -226,7 +231,7 @@ int main(int argc, char* argv[])
   cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
   cprotocol.set_p2p_endpoint(&p2psrv);
   ccore.set_cryptonote_protocol(&cprotocol);
-  daemon_cmmands_handler dch(p2psrv);
+  t_console_command_thread console_command_thread(p2psrv);
 
   //initialize objects
   LOG_PRINT_L0("Initializing p2p server...");
@@ -253,7 +258,7 @@ int main(int argc, char* argv[])
   // start components
   if(!command_line::has_arg(vm, arg_console))
   {
-    dch.start_handling();
+    console_command_thread.start();
   }
 
   LOG_PRINT_L0("Starting core rpc server...");
@@ -261,8 +266,8 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
   LOG_PRINT_L0("Core rpc server started ok");
 
-  tools::signal_handler::install([&dch, &p2psrv] {
-    dch.stop_handling();
+  tools::signal_handler::install([&console_command_thread, &p2psrv] {
+    console_command_thread.stop();
     p2psrv.send_stop_signal();
   });
 
