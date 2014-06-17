@@ -290,7 +290,7 @@ namespace epee
 
   private:
     async_stdin_reader m_stdin_reader;
-    bool m_running = true;
+    std::atomic<bool> m_running = {true};
   };
 
 
