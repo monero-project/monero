@@ -1,7 +1,8 @@
 #pragma once
 
 #include <string>
-// #include <inttypes.h>
+#include <vector>
+#include <inttypes.h>
 
 namespace tools { class wallet2; }
 
@@ -44,6 +45,15 @@ namespace Errors {
 
 }
 
+struct Transfer {
+    uint64_t block_height;
+    uint64_t global_output_index;
+    size_t local_output_index;
+    bool spent;
+    amount_mini_t amount_mini;
+    amount_t amount;
+};
+
 class Wallet {
     
 public:
@@ -62,6 +72,8 @@ public:
 
     static bool walletExists(const std::string pWalletFile, bool& oWallet_data_exists, bool& oWallet_keys_exist);
     static Wallet generateWallet(const std::string pWalletFile, const std::string& pWalletPassword);
+
+    const std::vector<Transfer> getIncomingTransfers() const;
 
 private:
     tools::wallet2* wallet_impl;

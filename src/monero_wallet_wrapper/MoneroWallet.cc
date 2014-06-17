@@ -70,6 +70,33 @@ amount_t Wallet::getUnlockedBalance() const {
     return fromMini(getUnlockedBalanceMini());
 }
 
+const std::vector<Transfer> Wallet::getIncomingTransfers() const {
+
+    std::vector<Transfer> lTransfers;
+
+    tools::wallet2::transfer_container lIncomingTransfers;
+    
+
+    /* TODO : Throw exception */
+    wallet_impl->get_transfers(lIncomingTransfers);
+
+
+    for(tools::wallet2::transfer_details lTransferDetail : lIncomingTransfers) {
+        Transfer lTransfer;
+        lTransfer.block_height = lTransferDetail.m_block_height;
+        lTransfer.global_output_index = lTransferDetail.m_global_output_index;
+        lTransfer.local_output_index = lTransferDetail.m_internal_output_index;
+        lTransfer.spent = lTransferDetail.m_spent;
+        lTransfer.amount_mini = lTransferDetail.amount();
+
+        lTransfer.amount = fromMini(lTransfer.amount_mini);
+        
+        lTransfers.push_back(lTransfer);
+    }
+
+    return lTransfers;
+
+}
 
 bool Wallet::walletExists(const std::string pWalletFile, bool& oWallet_data_exists, bool& oWallet_keys_exist) {
 
