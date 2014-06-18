@@ -23,9 +23,9 @@ using namespace epee;
 #include "rpc/core_rpc_server.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
-//#ifndef WIN32
-//#include "posix_daemonize.h"
-//#endif
+#ifndef WIN32
+#include "posix_fork.h"
+#endif
 
 #ifdef WIN32
 #include <crtdbg.h>
@@ -166,8 +166,8 @@ int main(int argc, char* argv[])
 
 #ifndef WIN32
   if (command_line::arg_present(vm, arg_detach)) {
-    std::cout << "start daemon" << std::endl;
-    return 0;
+    std::cout << "forking to background..." << std::endl;
+    posix_fork();
   }
 #endif
 
@@ -225,9 +225,10 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
   LOG_PRINT_L0("Core initialized OK");
 
-  // start components
-  if(!command_line::has_arg(vm, arg_console))
+  // Start handling console input if requested and not detached
+  if(!command_line::arg_present(vm, arg_console) && !command_line::arg_present(vm, arg_detach))
   {
+    LOG_PRINT_L0("Begin handling console input");
     console_command_thread.start();
   }
 
