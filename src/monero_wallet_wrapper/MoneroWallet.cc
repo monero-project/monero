@@ -43,8 +43,6 @@ private:
 
 
 
-
-
 amount_t fromMini(amount_mini_t pAmountMini) {
     return pAmountMini * pow(10,-12);
 }
@@ -64,7 +62,6 @@ static amount_mini_t default_fee = DEFAULT_FEE;
 Wallet::Wallet(const std::string& pWalletFile, const std::string& pWalletPassword)
     : wallet_impl(new tools::wallet2()), observer(NULL)
 {
-    // default_fee = DEFAULT_FEE;
 
     try {
         wallet_impl->load(pWalletFile, pWalletPassword);
@@ -75,12 +72,6 @@ Wallet::Wallet(const std::string& pWalletFile, const std::string& pWalletPasswor
     catch(tools::error::file_error_base<1>) {
         throw(Errors::iInvalidFile);
     }
-
-    std::cout << "Default FEE : " << default_fee << std::endl;
-    // catch(tools::error::file_read_error) {
-    //     throw(Errors::iInvalidFile);
-    // }
-
 
 }
 
@@ -170,19 +161,50 @@ bool Wallet::connect(const std::string pDaemonRPCEndpoint) {
 
 }
 
-// bool transferMini(const std::string& pRecipient, amount_mini_t pAmountMini, pFee = DEFAULT_FEE, std::string& pPaymentId = "" ) 
-// {
 
-// }
+const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, const std::string& pPaymentId = "") 
+{
+    return transferMini(pDestsToAmountMini, getDefaultFee(), pPaymentId);
+}
 
-bool Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee, const std::string& pPaymentId) 
+const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "") 
+{
+    return transferMini(pDestsToAmountMini, 0, 0, pFee, pPaymentId);
+}
+
+const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId = "") 
+{
+    return transferMini(pDestAddress, pAmount, getDefaultFee(), pPaymentId);
+}
+
+const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "") 
+{
+    std::multimap<std::string,amount_mini_t> lDestsMap;
+    lDestsMap.emplace(pDestAddress, pAmount);
+    return transferMini(lDestsMap, pFee, pPaymentId);
+}
+
+
+const std::string transfer(const std::string& pDestAddress, amount_t pAmount, const std::string& pPaymentId = "") 
+{
+    return transferMini(pDestAddress, toMini(pAmount), pPaymentId);
+}
+
+
+const std::string transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "") 
+{
+    return transferMini(pDestAddress, toMini(pAmount), toMini(pFee), pPaymentId);
+}
+
+
+
+const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId) 
 {
     std::vector<cryptonote::tx_destination_entry> lDestinations;
     for(std::pair<std::string,amount_mini_t> lDestAmountPair : pDestsToAmountMini) {
         cryptonote::tx_destination_entry lDestEntry;
         if(!get_account_address_from_str(lDestEntry.addr, lDestAmountPair.first)) {
-            // TODO throw
-            return false;
+            throw(Errors::iInvalidAddress);
         }
         lDestEntry.amount = lDestAmountPair.second;
         
@@ -190,9 +212,7 @@ bool Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsT
     }
 
 
-
     std::string lExtraNonce;
-
 
     if (!pPaymentId.empty()) {
 
@@ -200,29 +220,28 @@ bool Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsT
 
         /* Parse payment ID */
         if (!tools::wallet2::parse_payment_id(pPaymentId, lPaymentIdBytes)) {
-            // TODO throw
-            std::cout << "Should throw : parse_payment_id error" << std::endl;
-            return false;
+            throw(Errors::iInvalidPaymentID);
         }
-        cryptonote::set_payment_id_to_tx_extra_nonce(lExtraNonce, lPaymentIdBytes);
 
+        cryptonote::set_payment_id_to_tx_extra_nonce(lExtraNonce, lPaymentIdBytes);
     }
 
     std::vector<uint8_t> lExtra;
     /* Append Payment ID data into extra */
     if (!cryptonote::add_extra_nonce_to_tx_extra(lExtra, lExtraNonce)) {
         // TODO throw
-        std::cout << "Should throw : add_extra_nonce_to_tx_extra error" << std::endl;
-        return false;
+        throw(Errors::iInvalidNonce);
+
     }
 
-
     std::cout << "Commiting transfer ..." << std::endl;
-
+          
     cryptonote::transaction lTransaction;
-    wallet_impl->transfer(lDestinations, 0, 0ULL, pFee, lExtra, lTransaction);
+    wallet_impl->transfer(lDestinations, pFakeOutputsCount, pUnlockTime, pFee, lExtra, lTransaction);
 
-    return true;
+    const std::string& lTransactionId = boost::lexical_cast<std::string>(get_transaction_hash(lTransaction));
+
+    return lTransactionId;
 
 }
 
@@ -242,10 +261,23 @@ void Wallet::setObserver(WalletObserver* pObserver) {
 /* STATIC */
 /**********/
 
+
+static size_t default_fake_output_count = 0;
+
+static uint64_t default_unlock_time = 0;
+
+
 amount_mini_t Wallet::getDefaultFee() {
     return default_fee;
 }
 
+size_t Wallet::getDefaultFakeOutputCount() {
+    return default_fake_output_count;
+}
+
+uint64_t Wallet::getDefaultUnlockTime() {
+    return default_unlock_time;
+}
 
 bool Wallet::walletExists(const std::string pWalletFile, bool& oWallet_data_exists, bool& oWallet_keys_exist) {
 
