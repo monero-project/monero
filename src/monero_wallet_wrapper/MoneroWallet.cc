@@ -73,7 +73,7 @@ public:
 
     virtual void on_payment_received(const crypto::hash payment_id, const tools::wallet2::payment_details& payment) {
         std::cout << "Impl observer : " << "on_payment_received" << std::endl;
-
+        observer->on_payment_received(epee::string_tools::pod_to_hex(payment_id), paymentFromRawPaymentDetails(payment));
     }
 
 private:
