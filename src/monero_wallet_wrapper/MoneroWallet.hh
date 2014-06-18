@@ -4,6 +4,7 @@
 #include <vector>
 #include <inttypes.h>
 #include <map>
+#include <list>
 
 #include "MoneroErrors.hh"
 
@@ -18,6 +19,7 @@ typedef long double amount_t;
 
 
 struct Transfer {
+    std::string transaction_id;
     uint64_t block_height;
     uint64_t global_output_index;
     size_t local_output_index;
@@ -25,6 +27,16 @@ struct Transfer {
     amount_mini_t amount_mini;
     amount_t amount;
 };
+
+struct Payment {
+    std::string transaction_id;
+    uint64_t block_height;
+    uint64_t unlock_time;
+    amount_mini_t amount_mini;
+    amount_t amount;
+};
+
+
 
 /**
 * @class Wallet Represents a Wallet instance or can be used with static methods for checking Wallets.
@@ -67,6 +79,8 @@ public:
     */
     bool connect(const std::string pDaemonRPCEndpoint = "http://localhost:18081");
 
+    void store();
+
     /* Offline methods */
     /**
     * @brîef Returns the address of the Wakket account.
@@ -104,6 +118,10 @@ public:
     */
     const std::vector<Transfer> getIncomingTransfers() const;
 
+    const std::list<Payment> getPayments(const std::string& pPaymentId) const;
+
+    const std::multimap<std::string,Payment> getAllPayments() const;
+
     /**
     * @brief Performs a transfer to one of multiple destinations
     *
@@ -116,10 +134,10 @@ public:
     const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
     
     const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, const std::string& pPaymentId = "");
-    const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
+    const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee, const std::string& pPaymentId = "");
 
     const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId = "");
-    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
+    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee, const std::string& pPaymentId = "");
 
     /**
     * @brief Performs a transfer to one destination

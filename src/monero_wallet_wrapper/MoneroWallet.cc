@@ -51,8 +51,31 @@ amount_mini_t toMini(amount_t pAmount) {
     return pAmount * pow(10,12);
 }
 
+const Transfer transferFromRawTransferDetails(const tools::wallet2::transfer_details& pTransferDetails)
+{
+    Transfer lTransfer;
+    lTransfer.transaction_id = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(pTransferDetails.m_tx));
+    lTransfer.block_height = pTransferDetails.m_block_height;
+    lTransfer.global_output_index = pTransferDetails.m_global_output_index;
+    lTransfer.local_output_index = pTransferDetails.m_internal_output_index;
+    lTransfer.spent = pTransferDetails.m_spent;
+    lTransfer.amount_mini = pTransferDetails.amount();
+    lTransfer.amount = fromMini(lTransfer.amount_mini);
 
+    return lTransfer;
+}
 
+const Payment paymentFromRawPaymentDetails(const tools::wallet2::payment_details& pPaymentDetails)
+{
+    Payment lPayment;
+    lPayment.transaction_id = epee::string_tools::pod_to_hex(pPaymentDetails.m_tx_hash);
+    lPayment.block_height = pPaymentDetails.m_block_height;
+    lPayment.unlock_time = pPaymentDetails.m_unlock_time;
+    lPayment.amount_mini = pPaymentDetails.m_amount;
+    lPayment.amount = fromMini(lPayment.amount_mini);
+
+    return lPayment;
+}
 
 static amount_mini_t default_fee = DEFAULT_FEE;
 
@@ -112,29 +135,57 @@ amount_t Wallet::getUnlockedBalance() const {
 const std::vector<Transfer> Wallet::getIncomingTransfers() const 
 {
 
-    std::vector<Transfer> lTransfers;
-
-    tools::wallet2::transfer_container lIncomingTransfers;
-    
-
     /* TODO : Throw exception */
+    tools::wallet2::transfer_container lIncomingTransfers;   
     wallet_impl->get_transfers(lIncomingTransfers);
 
 
+    std::vector<Transfer> lTransfers;
     for(tools::wallet2::transfer_details lTransferDetail : lIncomingTransfers) {
-        Transfer lTransfer;
-        lTransfer.block_height = lTransferDetail.m_block_height;
-        lTransfer.global_output_index = lTransferDetail.m_global_output_index;
-        lTransfer.local_output_index = lTransferDetail.m_internal_output_index;
-        lTransfer.spent = lTransferDetail.m_spent;
-        lTransfer.amount_mini = lTransferDetail.amount();
-
-        lTransfer.amount = fromMini(lTransfer.amount_mini);
-        
+        const Transfer& lTransfer = transferFromRawTransferDetails(lTransferDetail);
         lTransfers.push_back(lTransfer);
     }
 
     return lTransfers;
+
+}
+
+const std::list<Payment> Wallet::getPayments(const std::string& pPaymentId) const 
+{
+
+    crypto::hash lPaymentIdBytes;
+
+    /* Parse payment ID */
+    if (!tools::wallet2::parse_payment_id(pPaymentId, lPaymentIdBytes)) {
+        throw(Errors::iInvalidPaymentID);
+    }
+
+    std::list<tools::wallet2::payment_details> oPaymentsDetails;
+    wallet_impl->get_payments(lPaymentIdBytes, oPaymentsDetails);
+
+    std::cout << "Got " << oPaymentsDetails.size() << " payments for '" << pPaymentId << "'" << std::endl;
+
+    std::list<Payment> lPayments;
+    for (const tools::wallet2::payment_details lPaymentDetails : oPaymentsDetails) {
+        const Payment& lPayment = paymentFromRawPaymentDetails(lPaymentDetails);
+        lPayments.push_back(lPayment);
+    }
+
+    return lPayments;
+}
+
+const std::multimap<std::string,Payment> Wallet::getAllPayments() const {
+
+    std::multimap<std::string,Payment> lPaymentsMap;
+    const tools::wallet2::payment_container& lPaymentsContainer = wallet_impl->get_all_payments();
+
+    for (const std::pair<crypto::hash,tools::wallet2::payment_details> lHashPaymentDetails : lPaymentsContainer) {
+        const std::string& lPaymentId = epee::string_tools::pod_to_hex(lHashPaymentDetails.first);
+        const Payment& lPayment = paymentFromRawPaymentDetails(lHashPaymentDetails.second);
+        lPaymentsMap.emplace(lPaymentId, lPayment);
+    }
+
+    return lPaymentsMap;
 
 }
 
@@ -161,23 +212,26 @@ bool Wallet::connect(const std::string pDaemonRPCEndpoint) {
 
 }
 
+void Wallet::store() {
+    wallet_impl->store();
+}
 
-const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, const std::string& pPaymentId = "") 
+const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, const std::string& pPaymentId) 
 {
     return transferMini(pDestsToAmountMini, getDefaultFee(), pPaymentId);
 }
 
-const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "") 
+const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee, const std::string& pPaymentId) 
 {
     return transferMini(pDestsToAmountMini, 0, 0, pFee, pPaymentId);
 }
 
-const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId = "") 
+const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId) 
 {
     return transferMini(pDestAddress, pAmount, getDefaultFee(), pPaymentId);
 }
 
-const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "") 
+const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee, const std::string& pPaymentId) 
 {
     std::multimap<std::string,amount_mini_t> lDestsMap;
     lDestsMap.emplace(pDestAddress, pAmount);
@@ -185,13 +239,13 @@ const std::string Wallet::transferMini(const std::string& pDestAddress, amount_m
 }
 
 
-const std::string transfer(const std::string& pDestAddress, amount_t pAmount, const std::string& pPaymentId = "") 
+const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, const std::string& pPaymentId) 
 {
     return transferMini(pDestAddress, toMini(pAmount), pPaymentId);
 }
 
 
-const std::string transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "") 
+const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee, const std::string& pPaymentId) 
 {
     return transferMini(pDestAddress, toMini(pAmount), toMini(pFee), pPaymentId);
 }
@@ -237,7 +291,15 @@ const std::string Wallet::transferMini(const std::multimap<std::string,amount_mi
     std::cout << "Commiting transfer ..." << std::endl;
           
     cryptonote::transaction lTransaction;
-    wallet_impl->transfer(lDestinations, pFakeOutputsCount, pUnlockTime, pFee, lExtra, lTransaction);
+    try {
+        wallet_impl->transfer(lDestinations, pFakeOutputsCount, pUnlockTime, pFee, lExtra, lTransaction);
+    }
+    catch(tools::error::no_connection_to_daemon) {
+        throw(Errors::iNoDaemonConnection);
+    }
+    catch(tools::error::daemon_busy) {
+        throw(Errors::iDaemonBusy);
+    }
 
     const std::string& lTransactionId = boost::lexical_cast<std::string>(get_transaction_hash(lTransaction));
 

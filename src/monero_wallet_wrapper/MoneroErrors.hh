@@ -50,7 +50,7 @@ namespace Monero {
         public: 
             virtual const char* what() const throw()
             {
-                return "Payment ID should be a Hex of 32 bits";
+                return "Payment ID should be a Hex of 32 bits (64 chars hex string)";
             }
 
         } iInvalidPaymentID;
@@ -65,5 +65,27 @@ namespace Monero {
             }
 
         } iInvalidNonce;
+
+
+        class NoDaemonConnection: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "No connection to daemon. Use 'connect()' first. And check that 'bitmonerod' is running";
+            }
+
+        } iNoDaemonConnection;
+
+
+        class DaemonBusy: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Daemon is busy. Please wait for blockchain operations and try again";
+            }
+
+        } iDaemonBusy;
     }
 }
