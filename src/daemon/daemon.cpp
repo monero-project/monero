@@ -5,7 +5,6 @@
 // node.cpp : Defines the entry point for the console application.
 //
 
-
 #include "include_base_utils.h"
 #include "version.h"
 #include "daemon/console_command_thread.h"
@@ -40,7 +39,7 @@ namespace
 {
   const command_line::arg_descriptor<std::string> arg_config_file    = {"config-file", "Specify configuration file.  This can either be an absolute path or a path relative to the data directory"};
   const command_line::arg_descriptor<bool>        arg_os_version     = {"os-version", "OS for which this executable was compiled"};
-  const command_line::arg_descriptor<std::string> arg_log_file       = {"log-file", "", ""};
+  const command_line::arg_descriptor<std::string> arg_log_file       = {"log-file", "Specify log file.  This can either be an absolute path or a path relative to the data directory"};
   const command_line::arg_descriptor<int>         arg_log_level      = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console        = {"no-console", "Disable daemon console commands"};
 
@@ -66,26 +65,20 @@ int main(int argc, char* argv[])
   po::options_description argument_spec("Options");
   po::options_description core_settings_spec("Settings");
   {
-    // Defaults
     bf::path default_data_dir = bf::absolute(tools::get_default_data_dir());
-    bf::path default_log_file_rel = log_space::log_singletone::get_default_log_file();
-    bf::path default_log_folder = log_space::log_singletone::get_default_log_folder();
-    bf::path default_log_file_abs = bf::absolute( default_log_folder / default_log_file_rel );
-    //bf::path default_config_file_rel = std::string(CRYPTONOTE_NAME ".conf");
-    //bf::path default_config_file_abs = default_data_dir / default_config_file_rel;
 
     // Misc Options
     command_line::add_arg(argument_spec, command_line::arg_help);
     command_line::add_arg(argument_spec, command_line::arg_version);
     command_line::add_arg(argument_spec, arg_os_version);
+    command_line::add_arg(argument_spec, command_line::arg_data_dir, default_data_dir.string());
     command_line::add_arg(argument_spec, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
 
     // Settings
-    command_line::add_arg(core_settings_spec, command_line::arg_data_dir, default_data_dir.string());
 #ifndef WIN32
     command_line::add_arg(core_settings_spec, arg_detach);
 #endif
-    command_line::add_arg(core_settings_spec, arg_log_file, default_log_file_abs.string());
+    command_line::add_arg(core_settings_spec, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
     command_line::add_arg(core_settings_spec, arg_log_level);
     command_line::add_arg(core_settings_spec, arg_console);
     // Add component-specific settings
@@ -135,12 +128,10 @@ int main(int argc, char* argv[])
 
   // Parse config file if it exists
   {
-    std::string data_dir = command_line::get_arg(vm, command_line::arg_data_dir);
-    std::string config = command_line::get_arg(vm, arg_config_file);
+    bf::path data_dir_path(bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir)));
+    bf::path config_path(command_line::get_arg(vm, arg_config_file));
 
-    bf::path data_dir_path(data_dir);
-    bf::path config_path(config);
-    if (!config_path.has_parent_path())
+    if (config_path.is_relative())
     {
       config_path = data_dir_path / config_path;
     }
@@ -155,10 +146,20 @@ int main(int argc, char* argv[])
 
   // Set log file
   {
+    bf::path data_dir(bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir)));
     bf::path log_file_path(command_line::get_arg(vm, arg_log_file));
+
+    if (log_file_path.is_relative())
+    {
+      log_file_path = data_dir / log_file_path;
+    }
+
     boost::system::error_code ec;
-    if (log_file_path.empty() || !bf::exists(log_file_path, ec))
+    if (!log_file_path.has_parent_path() || !bf::exists(log_file_path.parent_path(), ec))
+    {
       log_file_path = log_space::log_singletone::get_default_log_file();
+    }
+
     std::string log_dir;
     log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
     log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
