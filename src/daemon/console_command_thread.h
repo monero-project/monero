@@ -9,7 +9,10 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "daemon/command_server.h"
 #include "p2p/net_node.h"
+#include <condition_variable>
 #include <functional>
+#include <memory>
+#include <mutex>
 
 namespace daemonize {
 
@@ -21,11 +24,13 @@ private:
   t_command_server m_server;
   t_server & m_srv;
   async_console_handler m_console_handler;
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool m_finished = false;
 public:
   t_console_command_thread(nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& srv) :
       m_server(srv)
     , m_srv(srv)
-    , m_console_handler()
   {}
 
   void start()
@@ -38,6 +43,11 @@ public:
 
     auto loop = [this, process_command_callback]() {
       m_console_handler.run(&m_srv, process_command_callback, "", "");
+
+      // notify the control thread that this thread has finished
+      std::unique_lock<std::mutex> lck(mtx);
+      m_finished = true;
+      cv.notify_all();
     };
     std::thread(loop).detach();
   }
@@ -45,6 +55,11 @@ public:
   void stop()
   {
     m_console_handler.stop();
+
+    // wait until we're sure the thread is finished since it uses a shared
+    // node_server
+    std::unique_lock<std::mutex> lck(mtx);
+    while (!m_finished) cv.wait(lck);
   }
 };
 
