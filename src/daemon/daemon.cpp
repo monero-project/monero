@@ -51,13 +51,6 @@ namespace
   const command_line::arg_descriptor<bool>        arg_help_daemon    = {"daemon-help", "Display daemon command help"};
   const command_line::arg_descriptor<std::string> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
 
-  bool is_there_more_than_one(po::variables_map vm, std::initializer_list<std::string> arg_names) {
-    int count = 0;
-    for (auto & arg_name : arg_names) {
-      if (vm[arg_name].empty() || !vm[arg_name].defaulted()) ++count;
-    }
-    return count > 1;
-  }
 }
 
 int main(int argc, char* argv[])
@@ -120,19 +113,6 @@ int main(int argc, char* argv[])
   bool success = command_line::handle_error_helper(argument_spec, [&]()
   {
     po::store(po::parse_command_line(argc, argv, argument_spec), vm);
-
-    if (is_there_more_than_one(vm,
-          {
-#ifndef WIN32
-              arg_start_daemon.name
-#endif
-            , arg_stop_daemon.name
-            , arg_help_daemon.name
-            , arg_daemon_command.name
-          }))
-    {
-      return false;
-    }
 
     return true;
   });
