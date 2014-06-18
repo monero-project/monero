@@ -44,10 +44,6 @@ namespace
   const command_line::arg_descriptor<int>         arg_log_level      = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console        = {"no-console", "Disable daemon console commands"};
 
-  const command_line::arg_descriptor<bool>        arg_stop_daemon    = {"stop", "Stop running daemon"};
-  const command_line::arg_descriptor<bool>        arg_help_daemon    = {"command-help", "Display remote command help"};
-  const command_line::arg_descriptor<std::string> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
-
 #ifndef WIN32
   const command_line::arg_descriptor<bool>        arg_detach         = {"detach", "Run as daemon"};
 #endif
@@ -84,12 +80,6 @@ int main(int argc, char* argv[])
     command_line::add_arg(argument_spec, arg_os_version);
     command_line::add_arg(argument_spec, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
 
-    // Daemon Options Descriptions
-    po::options_description daemon_commands_spec("Commands");
-    command_line::add_arg(daemon_commands_spec, arg_stop_daemon);
-    command_line::add_arg(daemon_commands_spec, arg_help_daemon);
-    command_line::add_arg(daemon_commands_spec, arg_daemon_command);
-
     // Settings
     command_line::add_arg(core_settings_spec, command_line::arg_data_dir, default_data_dir.string());
 #ifndef WIN32
@@ -105,7 +95,7 @@ int main(int argc, char* argv[])
     cryptonote::miner::init_options(core_settings_spec);
 
     // All Options
-    argument_spec.add(daemon_commands_spec).add(core_settings_spec);
+    argument_spec.add(core_settings_spec);
   }
 
   // Do command line parsing
@@ -180,19 +170,6 @@ int main(int argc, char* argv[])
     return 0;
   }
 #endif
-  if (command_line::arg_present(vm, arg_stop_daemon)) {
-    std::cout << "stop daemon" << std::endl;
-    return 0;
-  }
-  if (command_line::arg_present(vm, arg_help_daemon)) {
-    std::cout << "daemon help" << std::endl;
-    return 0;
-  }
-  if (command_line::arg_present(vm, arg_daemon_command)) {
-    std::string command = command_line::get_arg(vm, arg_daemon_command);
-    std::cout << "daemon command: " << command << std::endl;
-    return 0;
-  }
 
   // Begin logging
   LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
