@@ -10,39 +10,6 @@
 using namespace Monero;
 
 
-class WalletCallback : public tools::i_wallet2_callback {
-
-public:
-    WalletCallback(WalletObserver* pObserver) : observer(pObserver) {}
-
-    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {
-        std::cout << "Impl observer : " << "on_new_block" << std::endl;
-
-    }
-
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {
-        std::cout << "Impl observer : " << "on_money_received" << std::endl;
-        observer->on_money_received(height, tx.vout[out_index].amount);
-    }
-
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {
-        std::cout << "Impl observer : " << "on_money_spent" << std::endl;
-
-    }
-
-    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {
-        std::cout << "Impl observer : " << "on_skip_transaction" << std::endl;
-
-    }
-
-private:
-
-    WalletObserver* observer;
-
-};
-
-
-
 amount_t fromMini(amount_mini_t pAmountMini) {
     return pAmountMini * pow(10,-12);
 }
@@ -76,6 +43,46 @@ const Payment paymentFromRawPaymentDetails(const tools::wallet2::payment_details
 
     return lPayment;
 }
+
+
+
+class WalletCallback : public tools::i_wallet2_callback {
+
+public:
+    WalletCallback(WalletObserver* pObserver) : observer(pObserver) {}
+
+    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {
+        std::cout << "Impl observer : " << "on_new_block" << std::endl;
+
+    }
+
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {
+        std::cout << "Impl observer : " << "on_money_received" << std::endl;
+        observer->on_money_received(height, tx.vout[out_index].amount);
+    }
+
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {
+        std::cout << "Impl observer : " << "on_money_spent" << std::endl;
+
+    }
+
+    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {
+        std::cout << "Impl observer : " << "on_skip_transaction" << std::endl;
+
+    }
+
+    virtual void on_payment_received(const crypto::hash payment_id, const tools::wallet2::payment_details& payment) {
+        std::cout << "Impl observer : " << "on_payment_received" << std::endl;
+
+    }
+
+private:
+
+    WalletObserver* observer;
+
+};
+
+
 
 static amount_mini_t default_fee = DEFAULT_FEE;
 

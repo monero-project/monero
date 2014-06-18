@@ -27,14 +27,8 @@
 
 namespace tools
 {
-  class i_wallet2_callback
-  {
-  public:
-    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
-    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
-  };
+  class i_wallet2_callback;
+
 
   struct tx_dust_policy
   {
@@ -187,6 +181,16 @@ namespace tools
     std::atomic<bool> m_run;
 
     i_wallet2_callback* m_callback;
+  };
+
+  class i_wallet2_callback
+  {
+  public:
+    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
+    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
+    virtual void on_payment_received(const crypto::hash payment_id, const wallet2::payment_details& payment) {}
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)

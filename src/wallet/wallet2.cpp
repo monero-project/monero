@@ -149,6 +149,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
         payment.m_unlock_time  = tx.unlock_time;
         m_payments.emplace(payment_id, payment);
         LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
+        m_callback->on_payment_received(payment_id, payment);
       }
     }
   }
