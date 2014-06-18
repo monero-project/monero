@@ -23,11 +23,11 @@ using namespace epee;
 #include "rpc/core_rpc_server.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
-//#if !defined(WIN32)
+//#ifndef WIN32
 //#include "posix_daemonize.h"
 //#endif
 
-#if defined(WIN32)
+#ifdef WIN32
 #include <crtdbg.h>
 #endif
 
@@ -44,7 +44,9 @@ namespace
   const command_line::arg_descriptor<int>         arg_log_level      = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console        = {"no-console", "Disable daemon console commands"};
 
-  const command_line::arg_descriptor<bool>        arg_start_daemon   = {"daemonize", "Run as daemon (*nix only)"};
+#ifndef WIN32
+  const command_line::arg_descriptor<bool>        arg_start_daemon   = {"detach", "Detach from console"};
+#endif
   const command_line::arg_descriptor<bool>        arg_stop_daemon    = {"stop", "Stop running daemon"};
   const command_line::arg_descriptor<bool>        arg_help_daemon    = {"daemon-help", "Display daemon command help"};
   const command_line::arg_descriptor<std::string> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
@@ -73,7 +75,7 @@ int main(int argc, char* argv[])
 
   // Build argument description
   po::options_description argument_spec("Options");
-  po::options_description core_settings_spec("Core Settings");
+  po::options_description core_settings_spec("Settings");
   {
     // Defaults
     bf::path default_data_dir = bf::absolute(tools::get_default_data_dir());
@@ -92,7 +94,9 @@ int main(int argc, char* argv[])
 
     // Daemon Options Descriptions
     po::options_description daemon_commands_spec("Daemon Commands");
+#ifndef WIN32
     command_line::add_arg(daemon_commands_spec, arg_start_daemon);
+#endif
     command_line::add_arg(daemon_commands_spec, arg_stop_daemon);
     command_line::add_arg(daemon_commands_spec, arg_help_daemon);
     command_line::add_arg(daemon_commands_spec, arg_daemon_command);
@@ -118,7 +122,14 @@ int main(int argc, char* argv[])
     po::store(po::parse_command_line(argc, argv, argument_spec), vm);
 
     if (is_there_more_than_one(vm,
-          {arg_start_daemon.name, arg_stop_daemon.name, arg_help_daemon.name, arg_daemon_command.name}))
+          {
+#ifndef WIN32
+              arg_start_daemon.name
+#endif
+            , arg_stop_daemon.name
+            , arg_help_daemon.name
+            , arg_daemon_command.name
+          }))
     {
       return false;
     }
@@ -183,10 +194,12 @@ int main(int argc, char* argv[])
     log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
   }
 
+#ifndef WIN32
   if (command_line::arg_present(vm, arg_start_daemon)) {
     std::cout << "start daemon" << std::endl;
     return 0;
   }
+#endif
   if (command_line::arg_present(vm, arg_stop_daemon)) {
     std::cout << "stop daemon" << std::endl;
     return 0;
