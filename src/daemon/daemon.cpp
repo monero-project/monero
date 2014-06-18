@@ -38,19 +38,19 @@ namespace bf = boost::filesystem;
 
 namespace
 {
-  const command_line::arg_descriptor<std::string> arg_config_file    = {"config-file", "Specify configuration file"};
+  const command_line::arg_descriptor<std::string> arg_config_file    = {"config-file", "Specify configuration file.  This can either be an absolute path or a path relative to the data directory"};
   const command_line::arg_descriptor<bool>        arg_os_version     = {"os-version", "OS for which this executable was compiled"};
   const command_line::arg_descriptor<std::string> arg_log_file       = {"log-file", "", ""};
   const command_line::arg_descriptor<int>         arg_log_level      = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console        = {"no-console", "Disable daemon console commands"};
 
-#ifndef WIN32
-  const command_line::arg_descriptor<bool>        arg_start_daemon   = {"detach", "Detach from console"};
-#endif
   const command_line::arg_descriptor<bool>        arg_stop_daemon    = {"stop", "Stop running daemon"};
-  const command_line::arg_descriptor<bool>        arg_help_daemon    = {"daemon-help", "Display daemon command help"};
+  const command_line::arg_descriptor<bool>        arg_help_daemon    = {"command-help", "Display remote command help"};
   const command_line::arg_descriptor<std::string> arg_daemon_command = {"send-command", "Send a command string to the running daemon"};
 
+#ifndef WIN32
+  const command_line::arg_descriptor<bool>        arg_detach         = {"detach", "Run as daemon"};
+#endif
 }
 
 int main(int argc, char* argv[])
@@ -75,26 +75,26 @@ int main(int argc, char* argv[])
     bf::path default_log_file_rel = log_space::log_singletone::get_default_log_file();
     bf::path default_log_folder = log_space::log_singletone::get_default_log_folder();
     bf::path default_log_file_abs = bf::absolute( default_log_folder / default_log_file_rel );
-    bf::path default_config_file_rel = std::string(CRYPTONOTE_NAME ".conf");
-    bf::path default_config_file_abs = default_data_dir / default_config_file_rel;
+    //bf::path default_config_file_rel = std::string(CRYPTONOTE_NAME ".conf");
+    //bf::path default_config_file_abs = default_data_dir / default_config_file_rel;
 
     // Misc Options
     command_line::add_arg(argument_spec, command_line::arg_help);
     command_line::add_arg(argument_spec, command_line::arg_version);
     command_line::add_arg(argument_spec, arg_os_version);
-    command_line::add_arg(argument_spec, command_line::arg_data_dir, default_data_dir.string());
-    command_line::add_arg(argument_spec, arg_config_file, default_config_file_abs.string());
+    command_line::add_arg(argument_spec, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
 
     // Daemon Options Descriptions
-    po::options_description daemon_commands_spec("Daemon Commands");
-#ifndef WIN32
-    command_line::add_arg(daemon_commands_spec, arg_start_daemon);
-#endif
+    po::options_description daemon_commands_spec("Commands");
     command_line::add_arg(daemon_commands_spec, arg_stop_daemon);
     command_line::add_arg(daemon_commands_spec, arg_help_daemon);
     command_line::add_arg(daemon_commands_spec, arg_daemon_command);
 
-    // Core Options
+    // Settings
+    command_line::add_arg(core_settings_spec, command_line::arg_data_dir, default_data_dir.string());
+#ifndef WIN32
+    command_line::add_arg(core_settings_spec, arg_detach);
+#endif
     command_line::add_arg(core_settings_spec, arg_log_file, default_log_file_abs.string());
     command_line::add_arg(core_settings_spec, arg_log_level);
     command_line::add_arg(core_settings_spec, arg_console);
@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
   }
 
 #ifndef WIN32
-  if (command_line::arg_present(vm, arg_start_daemon)) {
+  if (command_line::arg_present(vm, arg_detach)) {
     std::cout << "start daemon" << std::endl;
     return 0;
   }
