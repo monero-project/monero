@@ -28,7 +28,7 @@ private:
   std::condition_variable cv;
   bool m_finished = false;
 public:
-  t_console_command_thread(nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& srv) :
+  t_console_command_thread(t_server & srv) :
       m_server(srv)
     , m_srv(srv)
   {}
