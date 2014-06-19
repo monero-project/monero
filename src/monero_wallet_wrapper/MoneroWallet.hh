@@ -79,6 +79,7 @@ public:
     */
     bool connect(const std::string pDaemonRPCEndpoint = "http://localhost:18081");
 
+    
     void store();
 
     /* Offline methods */
