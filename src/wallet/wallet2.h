@@ -126,7 +126,7 @@ namespace tools
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     size_t get_payments_count() const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments) const;
-    const payment_container& get_all_payments() const;
+    const payment_container get_all_payments() const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)

@@ -590,7 +590,7 @@ size_t get_payments_count() const
   return m_payments.size(); 
 }
 //----------------------------------------------------------------------------------------------------
-const wallet2::payment_container& wallet2::get_all_payments() const
+const wallet2::payment_container wallet2::get_all_payments() const
 {
   return m_payments;
 }
