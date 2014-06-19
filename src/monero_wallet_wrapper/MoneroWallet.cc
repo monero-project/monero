@@ -139,7 +139,7 @@ amount_t Wallet::getUnlockedBalance() const {
     return fromMini(getUnlockedBalanceMini());
 }
 
-const std::vector<Transfer> Wallet::getIncomingTransfers() const 
+const std::vector<Transfer> Wallet::getIncomingTransfers() 
 {
 
     if (transfers_cache.size() != wallet_impl->get_transfers_count()) {
@@ -187,9 +187,10 @@ const std::list<Payment> Wallet::getPayments(const std::string& pPaymentId) cons
     return lPayments;
 }
 
-const std::multimap<std::string,Payment> Wallet::getAllPayments() const {
+const std::multimap<std::string,Payment> Wallet::getAllPayments() 
+{
 
-    if (payments_cache.size() != wallet_impl->get_all_payments()) {
+    if (payments_cache.size() != wallet_impl->get_payments_count()) {
 
         std::multimap<std::string,Payment> lPaymentsMap;
         const tools::wallet2::payment_container& lPaymentsContainer = wallet_impl->get_all_payments();

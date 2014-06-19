@@ -117,11 +117,11 @@ public:
     * @brief Returns a list of incoming transfers
     *
     */
-    const std::vector<Transfer> getIncomingTransfers() const;
+    const std::vector<Transfer> getIncomingTransfers();
 
     const std::list<Payment> getPayments(const std::string& pPaymentId) const;
 
-    const std::multimap<std::string,Payment> getAllPayments() const;
+    const std::multimap<std::string,Payment> getAllPayments();
 
     /**
     * @brief Performs a transfer to one of multiple destinations
