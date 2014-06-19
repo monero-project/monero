@@ -17,7 +17,7 @@ public:
 
     // virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) = 0;
 
-    virtual void on_payment_received(const std::string& payment_id, const Payment& payment) = 0;
+    virtual void on_payment_received(uint64_t height, const std::string& payment_id, const Payment& payment) = 0;
 };
 
 }

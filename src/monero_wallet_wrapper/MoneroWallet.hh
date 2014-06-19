@@ -148,8 +148,16 @@ public:
     * @param pFee Fee to apply for the transaction, in Monero
     * @param pPayment Choosen payment ID of the transaction
     */
-    const std::string transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
+    const std::string transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee, const std::string& pPaymentId = "");
     
+    /**
+    * @brief Performs a transfer to one destination.
+    * Default network fee applies.
+    * 
+    * @param pDestAddress String representation of destination address.
+    * @param pAmount Amount to send in Monero
+    * @param pPayment Choosen payment ID of the transaction
+    */
     const std::string transfer(const std::string& pDestAddress, amount_t pAmount, const std::string& pPaymentId = "");
 
     /**

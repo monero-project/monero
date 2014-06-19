@@ -192,7 +192,7 @@ namespace tools
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
     virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
     virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
-    virtual void on_payment_received(const crypto::hash payment_id, const wallet2::payment_details& payment) {}
+    virtual void on_payment_received(uint64_t height, const crypto::hash payment_id, const wallet2::payment_details& payment) {}
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)

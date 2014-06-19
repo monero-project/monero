@@ -71,9 +71,8 @@ public:
 
     }
 
-    virtual void on_payment_received(const crypto::hash payment_id, const tools::wallet2::payment_details& payment) {
-        std::cout << "Impl observer : " << "on_payment_received" << std::endl;
-        observer->on_payment_received(epee::string_tools::pod_to_hex(payment_id), paymentFromRawPaymentDetails(payment));
+    virtual void on_payment_received(uint64_t height, const crypto::hash payment_id, const tools::wallet2::payment_details& payment) {
+        observer->on_payment_received(height, epee::string_tools::pod_to_hex(payment_id), paymentFromRawPaymentDetails(payment));
     }
 
 private:
@@ -176,8 +175,6 @@ const std::list<Payment> Wallet::getPayments(const std::string& pPaymentId) cons
     std::list<tools::wallet2::payment_details> oPaymentsDetails;
     wallet_impl->get_payments(lPaymentIdBytes, oPaymentsDetails);
 
-    std::cout << "Got " << oPaymentsDetails.size() << " payments for '" << pPaymentId << "'" << std::endl;
-
     std::list<Payment> lPayments;
     for (const tools::wallet2::payment_details lPaymentDetails : oPaymentsDetails) {
         const Payment& lPayment = paymentFromRawPaymentDetails(lPaymentDetails);
@@ -216,10 +213,6 @@ bool Wallet::refresh() {
     bool lIsOk;
 
     wallet_impl->refresh(lFetchedBlocks, lHasReceivedMoney, lIsOk);
-
-    std::cout << "Fetched : " << lFetchedBlocks << std::endl;
-    std::cout << "Has Received Moneey : " << lHasReceivedMoney << std::endl;
-    std::cout << "Is Ok : " << lIsOk << std::endl;
 
     return lIsOk;
 }
@@ -307,8 +300,6 @@ const std::string Wallet::transferMini(const std::multimap<std::string,amount_mi
         throw(Errors::iInvalidNonce);
 
     }
-
-    std::cout << "Commiting transfer ..." << std::endl;
           
     cryptonote::transaction lTransaction;
     try {
