@@ -567,7 +567,7 @@ uint64_t wallet2::balance()
   return amount;
 }
 //----------------------------------------------------------------------------------------------------
-size_t get_transfers_count() const 
+size_t wallet2::get_transfers_count() const 
 {
   return m_transfers.size();
 }
@@ -585,7 +585,7 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
   });
 }
 //----------------------------------------------------------------------------------------------------
-size_t get_payments_count() const 
+size_t wallet2::get_payments_count() const 
 {
   return m_payments.size(); 
 }
