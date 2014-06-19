@@ -52,17 +52,17 @@ public:
     WalletCallback(WalletObserver* pObserver) : observer(pObserver) {}
 
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {
-        std::cout << "Impl observer : " << "on_new_block" << std::endl;
-
+        // std::cout << "Impl observer : " << "on_new_block" << std::endl;
+        observer->on_new_block(height);
     }
 
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {
-        std::cout << "Impl observer : " << "on_money_received" << std::endl;
         observer->on_money_received(height, tx.vout[out_index].amount);
     }
 
     virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {
-        std::cout << "Impl observer : " << "on_money_spent" << std::endl;
+        // std::cout << "Impl observer : " << "on_money_spent" << std::endl;
+        observer->on_money_spent(height, in_tx.vout[out_index].amount);
 
     }
 
