@@ -67,8 +67,7 @@ public:
     }
 
     virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {
-        std::cout << "Impl observer : " << "on_skip_transaction" << std::endl;
-
+        observer->on_skip_transaction(height, epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(tx)));
     }
 
     virtual void on_payment_received(uint64_t height, const crypto::hash payment_id, const tools::wallet2::payment_details& payment) {
