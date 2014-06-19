@@ -196,6 +196,9 @@ private:
     tools::wallet2* wallet_impl;
     WalletObserver* observer;
 
+    std::multimap<std::string,Payment> payments_cache;
+    std::vector<Transfer> transfers_cache;
+
     Wallet(tools::wallet2* pWalletImpl);
 };
 

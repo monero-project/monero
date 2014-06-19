@@ -142,18 +142,24 @@ amount_t Wallet::getUnlockedBalance() const {
 const std::vector<Transfer> Wallet::getIncomingTransfers() const 
 {
 
-    /* TODO : Throw exception */
-    tools::wallet2::transfer_container lIncomingTransfers;   
-    wallet_impl->get_transfers(lIncomingTransfers);
+    if (transfers_cache.size() != wallet_impl->get_transfers_count()) {
+        
+        /* TODO : Throw exception */
+        tools::wallet2::transfer_container lIncomingTransfers;   
+        wallet_impl->get_transfers(lIncomingTransfers);
 
+        std::vector<Transfer> lTransfers;
+        for(tools::wallet2::transfer_details lTransferDetail : lIncomingTransfers) {
+            const Transfer& lTransfer = transferFromRawTransferDetails(lTransferDetail);
+            lTransfers.push_back(lTransfer);
+        }
 
-    std::vector<Transfer> lTransfers;
-    for(tools::wallet2::transfer_details lTransferDetail : lIncomingTransfers) {
-        const Transfer& lTransfer = transferFromRawTransferDetails(lTransferDetail);
-        lTransfers.push_back(lTransfer);
+        transfers_cache = lTransfers;
+
     }
 
-    return lTransfers;
+
+    return transfers_cache;
 
 }
 
@@ -183,16 +189,22 @@ const std::list<Payment> Wallet::getPayments(const std::string& pPaymentId) cons
 
 const std::multimap<std::string,Payment> Wallet::getAllPayments() const {
 
-    std::multimap<std::string,Payment> lPaymentsMap;
-    const tools::wallet2::payment_container& lPaymentsContainer = wallet_impl->get_all_payments();
+    if (payments_cache.size() != wallet_impl->get_all_payments()) {
 
-    for (const std::pair<crypto::hash,tools::wallet2::payment_details> lHashPaymentDetails : lPaymentsContainer) {
-        const std::string& lPaymentId = epee::string_tools::pod_to_hex(lHashPaymentDetails.first);
-        const Payment& lPayment = paymentFromRawPaymentDetails(lHashPaymentDetails.second);
-        lPaymentsMap.emplace(lPaymentId, lPayment);
+        std::multimap<std::string,Payment> lPaymentsMap;
+        const tools::wallet2::payment_container& lPaymentsContainer = wallet_impl->get_all_payments();
+
+        for (const std::pair<crypto::hash,tools::wallet2::payment_details> lHashPaymentDetails : lPaymentsContainer) {
+            const std::string& lPaymentId = epee::string_tools::pod_to_hex(lHashPaymentDetails.first);
+            const Payment& lPayment = paymentFromRawPaymentDetails(lHashPaymentDetails.second);
+            lPaymentsMap.emplace(lPaymentId, lPayment);
+        }
+
+        payments_cache = lPaymentsMap;
+        
     }
 
-    return lPaymentsMap;
+    return payments_cache;
 
 }
 
