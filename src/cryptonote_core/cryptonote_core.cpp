@@ -526,6 +526,7 @@ namespace cryptonote
 
     m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
     m_miner.on_idle();
+    m_mempool.on_idle();
     return true;
   }
   //-----------------------------------------------------------------------------------------------
