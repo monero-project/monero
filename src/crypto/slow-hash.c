@@ -304,8 +304,13 @@ void slow_hash_allocate_state(void)
     hp_state = (uint8_t *) VirtualAlloc(hp_state, MEMORY, MEM_LARGE_PAGES |
                                         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #else
+#if defined(__APPLE__)
+    hp_state = mmap(0, MEMORY, PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANON, 0, 0);    
+#else
     hp_state = mmap(0, MEMORY, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, 0, 0);
+#endif
     if(hp_state == MAP_FAILED)
         hp_state = NULL;
 #endif
