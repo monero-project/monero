@@ -135,7 +135,7 @@ amount_t Wallet::getUnlockedBalance() const {
     return fromMini(getUnlockedBalanceMini());
 }
 
-const std::vector<Transfer> Wallet::getIncomingTransfers() 
+const std::vector<Transfer> Wallet::getIncomingTransfers(GetIncomingTransfersFilter pFilter) 
 {
 
     if (transfers_cache.size() != wallet_impl->get_transfers_count()) {
@@ -154,6 +154,9 @@ const std::vector<Transfer> Wallet::getIncomingTransfers()
 
     }
 
+    if ( pFilter != GetIncomingTransfersFilter::NoFilter) {
+        return fitlerTransfers(transfers_cache, pFilter);
+    }
 
     return transfers_cache;
 
@@ -385,5 +388,34 @@ const std::string Wallet::doTransferMini(const std::multimap<std::string,amount_
     const std::string& lTransactionId = boost::lexical_cast<std::string>(get_transaction_hash(lTransaction));
 
     return lTransactionId;
+
+}
+
+
+bool doesTransferPassFilter(const Transfer& pTransfer, GetIncomingTransfersFilter pFilter) {
+
+    switch(pFilter) {
+        case GetIncomingTransfersFilter::AvailablesOnly:
+            return !pTransfer.spent;
+        case GetIncomingTransfersFilter::UnavailablesOnly:        
+            return pTransfer.spent;
+        default:
+            return true;
+    }
+
+}
+
+const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter) {
+
+    std::vector<Transfer> lFilteredTransfers;
+    for (const Transfer& lTransfer : pTransfers) {
+
+        if (doesTransferPassFilter(lTransfer, pFilter)) {
+            lFilteredTransfers.push_back(lTransfer);
+        }
+
+    }
+
+    return lFilteredTransfers;
 
 }

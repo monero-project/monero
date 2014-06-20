@@ -37,7 +37,11 @@ struct Payment {
     amount_t amount;
 };
 
-
+enum GetIncomingTransfersFilter {
+    NoFilter,
+    AvailablesOnly,
+    UnavailablesOnly
+};
 
 /**
 * @class Wallet Represents a Wallet instance. Can also be used with static methods for checking Wallets.
@@ -121,7 +125,7 @@ public:
     * @brief Returns a list of incoming transfers
     *
     */
-    const std::vector<Transfer> getIncomingTransfers();
+    const std::vector<Transfer> getIncomingTransfers(GetIncomingTransfersFilter pFilter = GetIncomingTransfersFilter::NoFilter);
 
     const std::list<Payment> getPayments(const std::string& pPaymentId) const;
 
@@ -212,6 +216,9 @@ private:
     std::vector<Transfer> transfers_cache;
 
     const std::string doTransferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId);
+
+    const std::vector<Transfer> fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter);
+
 
     Wallet(tools::wallet2* pWalletImpl);
 
