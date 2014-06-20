@@ -8,13 +8,13 @@
 
 namespace daemonize {
 
-class t_console_command_executor final : public t_command_executor {
+class t_interactive_command_executor final : public t_command_executor {
 public:
   typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > t_node_server;
 private:
   t_node_server & m_srv;
 public:
-  t_console_command_executor(t_node_server & srv);
+  t_interactive_command_executor(t_node_server & srv);
 
   bool print_peer_list() override;
 

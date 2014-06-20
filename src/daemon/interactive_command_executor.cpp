@@ -1,22 +1,22 @@
-#include "daemon/console_command_executor.h"
+#include "daemon/interactive_command_executor.h"
 
 using namespace daemonize;
 
-t_console_command_executor::t_console_command_executor(t_node_server & srv) :
+t_interactive_command_executor::t_interactive_command_executor(t_node_server & srv) :
     m_srv(srv)
 {}
 
-bool t_console_command_executor::print_peer_list() {
+bool t_interactive_command_executor::print_peer_list() {
   m_srv.log_peerlist();
   return true;
 }
 
-bool t_console_command_executor::save_blockchain() {
+bool t_interactive_command_executor::save_blockchain() {
   m_srv.get_payload_object().get_core().get_blockchain_storage().store_blockchain();
   return true;
 }
 
-bool t_console_command_executor::show_hash_rate() {
+bool t_interactive_command_executor::show_hash_rate() {
   if(!m_srv.get_payload_object().get_core().get_miner().is_mining())
   {
     std::cout << "Mining is not started. You need start mining before you can see hash rate." << std::endl;
@@ -27,12 +27,12 @@ bool t_console_command_executor::show_hash_rate() {
   return true;
 }
 
-bool t_console_command_executor::hide_hash_rate() {
+bool t_interactive_command_executor::hide_hash_rate() {
   m_srv.get_payload_object().get_core().get_miner().do_print_hashrate(false);
   return true;
 }
 
-bool t_console_command_executor::show_difficulty() {
+bool t_interactive_command_executor::show_difficulty() {
   cryptonote::difficulty_type difficulty = m_srv.get_payload_object().get_core().get_blockchain_storage().get_difficulty_for_next_block();
   uint64_t height = m_srv.get_payload_object().get_core().get_blockchain_storage().get_current_blockchain_height();
 
@@ -42,12 +42,12 @@ bool t_console_command_executor::show_difficulty() {
   return true;
 }
 
-bool t_console_command_executor::print_connections() {
+bool t_interactive_command_executor::print_connections() {
    m_srv.get_payload_object().log_connections();
    return true;
 }
 
-bool t_console_command_executor::print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) {
+bool t_interactive_command_executor::print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) {
   uint64_t end_block_parametr = m_srv.get_payload_object().get_core().get_current_blockchain_height();
   if (end_block_index == 0)
   {
@@ -68,12 +68,12 @@ bool t_console_command_executor::print_blockchain_info(uint64_t start_block_inde
   return true;
 }
 
-bool t_console_command_executor::set_log_level(uint16_t level) {
+bool t_interactive_command_executor::set_log_level(uint16_t level) {
   epee::log_space::log_singletone::get_set_log_detalisation_level(true, level);
   return true;
 }
 
-bool t_console_command_executor::print_block_by_hash(crypto::hash block_hash) {
+bool t_interactive_command_executor::print_block_by_hash(crypto::hash block_hash) {
   std::list<crypto::hash> block_ids;
   block_ids.push_back(block_hash);
   std::list<cryptonote::block> blocks;
@@ -94,7 +94,7 @@ bool t_console_command_executor::print_block_by_hash(crypto::hash block_hash) {
   return true;
 }
 
-bool t_console_command_executor::print_block_by_height(uint64_t height) {
+bool t_interactive_command_executor::print_block_by_height(uint64_t height) {
   std::list<cryptonote::block> blocks;
   m_srv.get_payload_object().get_core().get_blocks(height, 1, blocks);
 
@@ -116,7 +116,7 @@ bool t_console_command_executor::print_block_by_height(uint64_t height) {
   return true;
 }
 
-bool t_console_command_executor::print_transaction(crypto::hash transaction_hash) {
+bool t_interactive_command_executor::print_transaction(crypto::hash transaction_hash) {
   std::vector<crypto::hash> tx_ids;
   tx_ids.push_back(transaction_hash);
   std::list<cryptonote::transaction> txs;
@@ -137,17 +137,17 @@ bool t_console_command_executor::print_transaction(crypto::hash transaction_hash
   return true;
 }
 
-bool t_console_command_executor::print_transaction_pool_long() {
+bool t_interactive_command_executor::print_transaction_pool_long() {
   std::cout << "Pool state: " << std::endl << m_srv.get_payload_object().get_core().print_pool(false) << std::endl;
   return true;
 }
 
-bool t_console_command_executor::print_transaction_pool_short() {
+bool t_interactive_command_executor::print_transaction_pool_short() {
   std::cout << "Pool state: " << std::endl << m_srv.get_payload_object().get_core().print_pool(true) << std::endl;
   return true;
 }
 
-bool t_console_command_executor::start_mining(cryptonote::account_public_address address, size_t num_threads) {
+bool t_interactive_command_executor::start_mining(cryptonote::account_public_address address, size_t num_threads) {
   boost::thread::attributes attrs;
   attrs.set_stack_size(THREAD_STACK_SIZE);
 
@@ -155,7 +155,7 @@ bool t_console_command_executor::start_mining(cryptonote::account_public_address
   return true;
 }
 
-bool t_console_command_executor::stop_mining() {
+bool t_interactive_command_executor::stop_mining() {
   m_srv.get_payload_object().get_core().get_miner().stop();
   return true;
 }
