@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <map>
 #include <list>
+#include <mutex>
 
 #include "MoneroErrors.hh"
 
@@ -39,11 +40,11 @@ struct Payment {
 
 
 /**
-* @class Wallet Represents a Wallet instance or can be used with static methods for checking Wallets.
+* @class Wallet Represents a Wallet instance. Can also be used with static methods for checking Wallets.
 *
-* In this class, we distinguish two type of "Monero" units : 
-*    - Mini (amount_mini_t) : This is the minimal unit spendable in Monero. Most internal function in Monero Core uses this unit.
-*    - Monero (amount_t) : This is the human-readable value of Monero. Alias : XMR.
+* In this class, we distinguish two types of "Monero" units : 
+*    - Mini (amount_mini_t) : This is the minimal unit possible in Monero. Most internal function in Monero Core uses this unit.
+*    - Monero (amount_t) : This is the human-readable value of Monero. Alias : XMR. Reprensented as a double with value 10^-12 * mini
 *
 * Examples :
 *    - 123684360000 Mini =  1.2368436 Monero
@@ -79,7 +80,10 @@ public:
     */
     bool connect(const std::string pDaemonRPCEndpoint = "http://localhost:18081");
 
-    
+    /**
+    * @brief Writes the Wallet to its data file
+    *
+    */
     void store();
 
     /* Offline methods */
@@ -187,7 +191,7 @@ public:
     * @param pWalletPassword Password of the Wallet to be created.
     *
     */
-    static Wallet generateWallet(const std::string pWalletFile, const std::string& pWalletPassword);
+    static Wallet* generateWallet(const std::string pWalletFile, const std::string& pWalletPassword);
 
     /**
     * @brief Get gets the default (a minimal) fee in Mini 
@@ -207,7 +211,15 @@ private:
     std::multimap<std::string,Payment> payments_cache;
     std::vector<Transfer> transfers_cache;
 
+    const std::string doTransferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId);
+
     Wallet(tools::wallet2* pWalletImpl);
+
+
+    /* Mutexes (doesn't guarantee thread safety) */
+    std::mutex transfer_mutex;
+    std::mutex refresh_mutex;
+    std::mutex store_mutex;
 };
 
 

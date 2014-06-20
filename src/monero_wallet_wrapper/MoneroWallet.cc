@@ -104,7 +104,7 @@ Wallet::Wallet(const std::string& pWalletFile, const std::string& pWalletPasswor
 }
 
 Wallet::Wallet(tools::wallet2* pWalletImpl) 
-    : wallet_impl(pWalletImpl) 
+    : wallet_impl(pWalletImpl), observer(NULL)
 {
 
 }
@@ -115,9 +115,7 @@ Wallet::~Wallet() {
 }
 
 const std::string Wallet::getAddress() const {
-
     return wallet_impl->get_account().get_public_address_str();
-
 }
 
 amount_mini_t Wallet::getBalanceMini() const {
@@ -207,6 +205,8 @@ const std::multimap<std::string,Payment> Wallet::getAllPayments()
 
 bool Wallet::refresh() {
 
+    std::lock_guard<std::mutex> lLockRefresh(refresh_mutex);
+
     size_t lFetchedBlocks;
     bool lHasReceivedMoney;
     bool lIsOk;
@@ -217,14 +217,16 @@ bool Wallet::refresh() {
 }
 
 
-bool Wallet::connect(const std::string pDaemonRPCEndpoint) {
-
+bool Wallet::connect(const std::string pDaemonRPCEndpoint) 
+{
     wallet_impl->init(pDaemonRPCEndpoint);
     return true;
-
 }
 
-void Wallet::store() {
+void Wallet::store() 
+{
+    std::lock_guard<std::mutex> lLockStore(store_mutex);
+
     wallet_impl->store();
 }
 
@@ -263,9 +265,78 @@ const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAm
 }
 
 
-
 const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId) 
 {
+    /* All "transfer" calls pass in this blocl */
+    std::lock_guard<std::mutex> lTransferLock(transfer_mutex);
+
+    return doTransferMini(pDestsToAmountMini, pFakeOutputsCount, pUnlockTime, pFee, pPaymentId);
+}
+
+
+
+void Wallet::setObserver(WalletObserver* pObserver) {
+    WalletCallback* lWalletCallbackImpl = new WalletCallback(pObserver);
+
+    /* Binds to wallet2 */
+    wallet_impl->callback(lWalletCallbackImpl);
+
+    observer = pObserver;
+}
+
+
+/**********/
+/* STATIC */
+/**********/
+
+
+static size_t default_fake_output_count = 0;
+
+static uint64_t default_unlock_time = 0;
+
+
+amount_mini_t Wallet::getDefaultFee() {
+    return default_fee;
+}
+
+size_t Wallet::getDefaultFakeOutputCount() {
+    return default_fake_output_count;
+}
+
+uint64_t Wallet::getDefaultUnlockTime() {
+    return default_unlock_time;
+}
+
+bool Wallet::walletExists(const std::string pWalletFile, bool& oWallet_data_exists, bool& oWallet_keys_exist) {
+
+    bool lDataExists = false;
+    bool lKeysExists = false;
+    tools::wallet2::wallet_exists(pWalletFile, lDataExists, lKeysExists);
+
+    return lKeysExists;
+
+}
+
+Wallet* Wallet::generateWallet(const std::string pWalletFile, const std::string& pWalletPassword) {
+
+    try {
+        tools::wallet2* lWalletImpl = new tools::wallet2();
+        lWalletImpl->generate(pWalletFile, pWalletPassword);
+        return new Wallet(lWalletImpl);    
+    }
+    catch(tools::error::file_save_error) {
+        throw(Errors::iNotWritableFile);
+    }
+    catch(tools::error::file_exists) {
+        throw(Errors::iNotWritableFile);
+    }
+
+}
+
+
+const std::string Wallet::doTransferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId) 
+{
+
     std::vector<cryptonote::tx_destination_entry> lDestinations;
     for(std::pair<std::string,amount_mini_t> lDestAmountPair : pDestsToAmountMini) {
         cryptonote::tx_destination_entry lDestEntry;
@@ -314,65 +385,5 @@ const std::string Wallet::transferMini(const std::multimap<std::string,amount_mi
     const std::string& lTransactionId = boost::lexical_cast<std::string>(get_transaction_hash(lTransaction));
 
     return lTransactionId;
-
-}
-
-
-
-void Wallet::setObserver(WalletObserver* pObserver) {
-    WalletCallback* lWalletCallbackImpl = new WalletCallback(pObserver);
-
-    /* Binds to wallet2 */
-    wallet_impl->callback(lWalletCallbackImpl);
-
-    observer = pObserver;
-}
-
-
-/**********/
-/* STATIC */
-/**********/
-
-
-static size_t default_fake_output_count = 0;
-
-static uint64_t default_unlock_time = 0;
-
-
-amount_mini_t Wallet::getDefaultFee() {
-    return default_fee;
-}
-
-size_t Wallet::getDefaultFakeOutputCount() {
-    return default_fake_output_count;
-}
-
-uint64_t Wallet::getDefaultUnlockTime() {
-    return default_unlock_time;
-}
-
-bool Wallet::walletExists(const std::string pWalletFile, bool& oWallet_data_exists, bool& oWallet_keys_exist) {
-
-    bool lDataExists = false;
-    bool lKeysExists = false;
-    tools::wallet2::wallet_exists(pWalletFile, lDataExists, lKeysExists);
-
-    return lKeysExists;
-
-}
-
-Wallet Wallet::generateWallet(const std::string pWalletFile, const std::string& pWalletPassword) {
-
-    try {
-        tools::wallet2* lWalletImpl = new tools::wallet2();
-        lWalletImpl->generate(pWalletFile, pWalletPassword);
-        return Wallet(lWalletImpl);    
-    }
-    catch(tools::error::file_save_error) {
-        throw(Errors::iNotWritableFile);
-    }
-    catch(tools::error::file_exists) {
-        throw(Errors::iNotWritableFile);
-    }
 
 }
