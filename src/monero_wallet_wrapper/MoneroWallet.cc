@@ -398,7 +398,7 @@ const std::string Wallet::doTransferMini(const std::multimap<std::string,amount_
 }
 
 
-bool doesTransferPassFilter(const Transfer& pTransfer, GetIncomingTransfersFilter pFilter) {
+bool canTransferPassFilter(const Transfer& pTransfer, GetIncomingTransfersFilter pFilter) {
 
     switch(pFilter) {
         case GetIncomingTransfersFilter::AvailablesOnly:
@@ -416,7 +416,7 @@ const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>&
     std::vector<Transfer> lFilteredTransfers;
     for (const Transfer& lTransfer : pTransfers) {
 
-        if (doesTransferPassFilter(lTransfer, pFilter)) {
+        if (canTransferPassFilter(lTransfer, pFilter)) {
             lFilteredTransfers.push_back(lTransfer);
         }
 
