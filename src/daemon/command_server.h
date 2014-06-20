@@ -15,7 +15,9 @@ public:
       t_command_executor * executor
     );
 
-  bool process_command(const std::string& cmd);
+  bool process_command_str(const std::string& cmd);
+
+  bool process_command_vec(const std::vector<std::string>& cmd);
 
 private:
   bool help(const std::vector<std::string>& args);

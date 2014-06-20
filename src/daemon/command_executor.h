@@ -8,6 +8,7 @@ namespace daemonize {
 
 class t_command_executor {
 public:
+  virtual ~t_command_executor() {}
   virtual bool print_peer_list() = 0;
   virtual bool save_blockchain() = 0;
   virtual bool show_hash_rate() = 0;

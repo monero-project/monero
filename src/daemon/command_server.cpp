@@ -29,9 +29,14 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler("diff", std::bind(&t_command_parser_executor::show_difficulty, &m_parser, p::_1), "Show difficulty");
 }
 
-bool t_command_server::process_command(const std::string& cmd)
+bool t_command_server::process_command_str(const std::string& cmd)
 {
   return m_command_lookup.process_command_str(cmd);
+}
+
+bool t_command_server::process_command_vec(const std::vector<std::string>& cmd)
+{
+  return m_command_lookup.process_command_vec(cmd);
 }
 
 bool t_command_server::help(const std::vector<std::string>& args)

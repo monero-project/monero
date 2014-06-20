@@ -38,7 +38,7 @@ public:
     using namespace std::placeholders;
 
     auto process_command_callback = [this](t_server* /*psrv*/, const std::string& cmd) {
-      return m_server.process_command(cmd);
+      return m_server.process_command_str(cmd);
     };
 
     auto loop = [this, process_command_callback]() {
