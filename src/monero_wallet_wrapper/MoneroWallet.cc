@@ -208,13 +208,19 @@ const std::multimap<std::string,Payment> Wallet::getAllPayments()
 
 bool Wallet::refresh() {
 
-    std::lock_guard<std::mutex> lLockRefresh(refresh_mutex);
+    refresh_mutex.lock();
 
     size_t lFetchedBlocks;
     bool lHasReceivedMoney;
     bool lIsOk;
 
     wallet_impl->refresh(lFetchedBlocks, lHasReceivedMoney, lIsOk);
+
+    refresh_mutex.unlock();
+
+    if (lIsOk && observer) {
+        observer->on_wallet_refreshed(this, lFetchedBlocks, lHasReceivedMoney);
+    }
 
     return lIsOk;
 }
