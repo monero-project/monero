@@ -23,13 +23,13 @@ public:
 private:
   t_command_server m_server;
   t_server & m_srv;
-  async_console_handler m_console_handler;
+  epee::async_console_handler m_console_handler;
   std::mutex mtx;
   std::condition_variable cv;
   bool m_finished = false;
 public:
   t_console_command_thread(t_server & srv) :
-      m_server(srv)
+      m_server(new t_interactive_command_executor(srv))
     , m_srv(srv)
   {}
 
