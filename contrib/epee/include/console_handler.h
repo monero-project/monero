@@ -26,11 +26,13 @@
 
 #pragma once
 
+#include "misc_log_ex.h"
 #include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <iostream>
 
 namespace epee
 {
