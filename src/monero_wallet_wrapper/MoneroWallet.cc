@@ -57,12 +57,12 @@ public:
     }
 
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {
-        observer->on_money_received(height, tx.vout[out_index].amount);
+        observer->on_money_received(height, epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(tx)), tx.vout[out_index].amount);
     }
 
     virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {
         // std::cout << "Impl observer : " << "on_money_spent" << std::endl;
-        observer->on_money_spent(height, in_tx.vout[out_index].amount);
+        observer->on_money_spent(height, epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(spend_tx)), in_tx.vout[out_index].amount);
 
     }
 
