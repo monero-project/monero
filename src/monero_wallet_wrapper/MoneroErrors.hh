@@ -34,7 +34,6 @@ namespace Monero {
 
         };
 
-
         class InvalidAddress: public std::exception
         {
         public: 
@@ -88,5 +87,91 @@ namespace Monero {
             }
 
         };
+
+        class WalletInternalError
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Unknown Internal error. Restarting the application could resolve the problem.";
+            }
+
+        };
+
+
+        /* Transfer errors */
+        class TransactionTooBig: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Your transaction is too big";
+            }
+        };
+
+        class TransactionZeroDestination: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "No destination or invalid destination(s)";
+            }
+        };
+
+
+        class TransactionSumOverflow: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Transaction sum overflow (too much money ?)";
+            }
+        };
+
+
+        class TransactionNotEnoughMoney: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Not enough money for this transaction";
+            }
+        };
+
+
+        class TransactionNotEnoughOuts: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Not enough output transactions for mixin";
+            }
+        };
+
+
+        class TransactionUnexpectedType: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Internal error : Wrong transaction type";
+            }
+        };
+
+
+        class TransactionRejected: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Your transaction was rejected by Daemon. Aborted.";
+            }
+        };
+
+
+
+
+
+
     }
 }

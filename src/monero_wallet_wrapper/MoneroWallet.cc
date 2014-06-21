@@ -390,6 +390,30 @@ const std::string Wallet::doTransferMini(const std::multimap<std::string,amount_
     catch(tools::error::daemon_busy) {
         throw(Errors::DaemonBusy());
     }
+    catch(tools::error::tx_too_big) {
+        throw(Errors::TransactionTooBig());
+    }
+    catch(tools::error::zero_destination) {
+        throw(Errors::TransactionZeroDestination());
+    }
+    catch(tools::error::tx_sum_overflow) {
+        throw(Errors::TransactionSumOverflow());
+    }
+    catch(tools::error::not_enough_money) {
+        throw(Errors::TransactionNotEnoughMoney());
+    }
+    catch(tools::error::unexpected_txin_type) {
+        throw(Errors::TransactionUnexpectedType());
+    }
+    catch(tools::error::wallet_internal_error) {
+        throw(Errors::WalletInternalError());
+    }
+    catch(tools::error::not_enough_outs_to_mix) {
+        throw(Errors::TransactionNotEnoughOuts());
+    }
+    catch(tools::error::tx_rejected) {
+        throw(Errors::TransactionRejected());
+    }
 
     const std::string& lTransactionId = boost::lexical_cast<std::string>(get_transaction_hash(lTransaction));
 
