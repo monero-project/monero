@@ -1,3 +1,4 @@
+#pragma once
 
 namespace Monero {
     
@@ -10,7 +11,7 @@ namespace Monero {
             {
                 return "Wrong wallet password";
             }
-        } iInvalidPassword;
+        };
 
 
         class InvalidFile: public std::exception
@@ -20,7 +21,7 @@ namespace Monero {
             {
                 return "Wallet file not found or invalid";
             }
-        } iInvalidFile;
+        };
 
 
         class NotWritableFile: public std::exception
@@ -31,7 +32,7 @@ namespace Monero {
                 return "Unable to write file";
             }
 
-        } iNotWritableFile;
+        };
 
 
         class InvalidAddress: public std::exception
@@ -42,7 +43,7 @@ namespace Monero {
                 return "Address should be composed of 95 alphanumerics characters";
             }
 
-        } iInvalidAddress;
+        };
 
 
         class InvalidPaymentID: public std::exception
@@ -53,7 +54,7 @@ namespace Monero {
                 return "Payment ID should be a Hex of 32 bits (64 chars hex string)";
             }
 
-        } iInvalidPaymentID;
+        };
 
 
         class InvalidNonce: public std::exception
@@ -64,7 +65,7 @@ namespace Monero {
                 return "Invalid Nonce";
             }
 
-        } iInvalidNonce;
+        };
 
 
         class NoDaemonConnection: public std::exception
@@ -75,7 +76,7 @@ namespace Monero {
                 return "No connection to daemon. Use 'connect()' first. And check that 'bitmonerod' is running";
             }
 
-        } iNoDaemonConnection;
+        };
 
 
         class DaemonBusy: public std::exception
@@ -86,6 +87,6 @@ namespace Monero {
                 return "Daemon is busy. Please wait for blockchain operations and try again";
             }
 
-        } iDaemonBusy;
+        };
     }
 }
