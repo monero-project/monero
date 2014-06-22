@@ -12,14 +12,6 @@
 using namespace Monero;
 
 
-amount_t miniToMonero(amount_mini_t pAmountMini) {
-    return pAmountMini * pow(10,-12);
-}
-
-amount_mini_t moneroToMini(amount_t pAmount) {
-    return pAmount * pow(10,12);
-}
-
 const Transfer transferFromRawTransferDetails(const tools::wallet2::transfer_details& pTransferDetails)
 {
     Transfer lTransfer;
@@ -29,7 +21,7 @@ const Transfer transferFromRawTransferDetails(const tools::wallet2::transfer_det
     lTransfer.local_output_index = pTransferDetails.m_internal_output_index;
     lTransfer.spent = pTransferDetails.m_spent;
     lTransfer.amount_mini = pTransferDetails.amount();
-    lTransfer.amount = miniToMonero(lTransfer.amount_mini);
+    lTransfer.amount = Wallet::miniToMonero(lTransfer.amount_mini);
 
     return lTransfer;
 }
@@ -41,7 +33,7 @@ const Payment paymentFromRawPaymentDetails(const tools::wallet2::payment_details
     lPayment.block_height = pPaymentDetails.m_block_height;
     lPayment.unlock_time = pPaymentDetails.m_unlock_time;
     lPayment.amount_mini = pPaymentDetails.m_amount;
-    lPayment.amount = miniToMonero(lPayment.amount_mini);
+    lPayment.amount = Wallet::miniToMonero(lPayment.amount_mini);
 
     return lPayment;
 }
@@ -54,7 +46,6 @@ public:
     WalletCallback(WalletObserver* pObserver) : observer(pObserver) {}
 
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {
-        // std::cout << "Impl observer : " << "on_new_block" << std::endl;
         observer->on_new_block(height);
     }
 
@@ -63,7 +54,6 @@ public:
     }
 
     virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {
-        // std::cout << "Impl observer : " << "on_money_spent" << std::endl;
         observer->on_money_spent(height, epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(spend_tx)), in_tx.vout[out_index].amount);
 
     }
@@ -273,19 +263,19 @@ const std::string Wallet::transferMini(const std::string& pDestAddress, amount_m
 
 const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_t pFee, const std::string& pPaymentId) 
 {
-    return transferMini(pDestAddress, moneroToMini(pAmount), pFakeOutputsCount, pUnlockTime, moneroToMini(pFee), pPaymentId);
+    return transferMini(pDestAddress, Wallet::moneroToMini(pAmount), pFakeOutputsCount, pUnlockTime, Wallet::moneroToMini(pFee), pPaymentId);
 }
 
 
 const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, const std::string& pPaymentId) 
 {
-    return transferMini(pDestAddress, moneroToMini(pAmount), pPaymentId);
+    return transferMini(pDestAddress, Wallet::moneroToMini(pAmount), pPaymentId);
 }
 
 
 const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee, const std::string& pPaymentId) 
 {
-    return transferMini(pDestAddress, moneroToMini(pAmount), moneroToMini(pFee), pPaymentId);
+    return transferMini(pDestAddress, Wallet::moneroToMini(pAmount), Wallet::moneroToMini(pFee), pPaymentId);
 }
 
 
@@ -511,4 +501,13 @@ const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>&
 
     return lFilteredTransfers;
 
+}
+
+
+amount_t Wallet::miniToMonero(amount_mini_t pAmountMini) {
+    return pAmountMini * pow(10,-12);
+}
+
+amount_mini_t Wallet::moneroToMini(amount_t pAmount) {
+    return pAmount * pow(10,12);
 }

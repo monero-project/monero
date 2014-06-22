@@ -446,6 +446,22 @@ public:
     static const std::string recoverWallet(const std::string pWalletFile, const std::string& pWalletPassword, const std::string& pSeed);
 
     /**
+    * @brief Converts Mini amount to Monero amount
+    * @param pAmountMini Amount in Mini (smallest possible unit)
+    *
+    * @return Monero amount
+    */
+    static amount_t miniToMonero(amount_mini_t pAmountMini);
+
+    /**
+    * @brief Converts Monero amount to Mini amount
+    * @param pAmount Amount in Monero (currently 1000000000000 Mini)
+    *
+    * @return Mini amount
+    */
+    static amount_mini_t moneroToMini(amount_t pAmount);
+
+    /**
     * @brief Get gets the default (a minimal) fee in Mini 
     *
     * @returns  The default fee, in Mini.
