@@ -148,6 +148,12 @@ public:
     const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId = "");
     const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee, const std::string& pPaymentId = "");
 
+
+    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
+
+
+    const std::string transfer(const std::string& pDestAddress, amount_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
+
     /**
     * @brief Performs a transfer to one destination
     * 
@@ -192,10 +198,23 @@ public:
     * @brief Generates a new Wallet
     *
     * @param pWalletFile File path of the Wallet to be created.
-    * @param pWalletPassword Password of the Wallet to be created.
+    * @param pWalletPassword New password of the Wallet to be created.
+    *
+    * @returns Recovery seed of the Wallet. Save it in a SAFE PLACE (your brain is safe) for being able to recover your Wallet.
     *
     */
-    static Wallet* generateWallet(const std::string pWalletFile, const std::string& pWalletPassword);
+    static const std::string generateWallet(const std::string pWalletFile, const std::string& pWalletPassword, bool pDeterministic = true);
+
+    /**
+    * @brief Recover an existing Wallet. Useful if you lose your wallet keys (<wallet_name>.keys)
+    *
+    * @param pWalletFile File path of the Wallet to be created.
+    * @param pWalletPassword NEW password of the Wallet to be recovered.
+    *
+    * @returns Recovery seed of the Wallet. Save it in a SAFE PLACE (your brain is safe) for being able to recover your Wallet.
+    *
+    */
+    static const std::string recoverWallet(const std::string pWalletFile, const std::string& pWalletPassword, const std::string& pSeed);
 
     /**
     * @brief Get gets the default (a minimal) fee in Mini 

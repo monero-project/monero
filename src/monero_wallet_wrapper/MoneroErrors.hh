@@ -1,5 +1,7 @@
 #pragma once
 
+#include <exception>
+
 namespace Monero {
     
     namespace Errors {
@@ -23,6 +25,14 @@ namespace Monero {
             }
         };
 
+        class InvalidSeed: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Invalid electrum seed. Check you have not added extra spaces/line ends";
+            }
+        };
 
         class NotWritableFile: public std::exception
         {
@@ -83,12 +93,12 @@ namespace Monero {
         public: 
             virtual const char* what() const throw()
             {
-                return "Daemon is busy. Please wait for blockchain operations and try again";
+                return "Daemon is busy. Please wait for blockchain synchronization and try again";
             }
 
         };
 
-        class WalletInternalError
+        class WalletInternalError: public std::exception
         {
         public: 
             virtual const char* what() const throw()
@@ -105,7 +115,7 @@ namespace Monero {
         public: 
             virtual const char* what() const throw()
             {
-                return "Your transaction is too big";
+                return "Your transaction is too big. Try to split it in multiple transactions.";
             }
         };
 
@@ -167,10 +177,6 @@ namespace Monero {
                 return "Your transaction was rejected by Daemon. Aborted.";
             }
         };
-
-
-
-
 
 
     }

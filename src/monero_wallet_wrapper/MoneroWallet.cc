@@ -6,15 +6,17 @@
 
 
 #include "wallet/wallet2.h"
+#include "crypto/crypto.h"
+#include "crypto/electrum-words.h"
 
 using namespace Monero;
 
 
-amount_t fromMini(amount_mini_t pAmountMini) {
+amount_t miniToMonero(amount_mini_t pAmountMini) {
     return pAmountMini * pow(10,-12);
 }
 
-amount_mini_t toMini(amount_t pAmount) {
+amount_mini_t moneroToMini(amount_t pAmount) {
     return pAmount * pow(10,12);
 }
 
@@ -27,7 +29,7 @@ const Transfer transferFromRawTransferDetails(const tools::wallet2::transfer_det
     lTransfer.local_output_index = pTransferDetails.m_internal_output_index;
     lTransfer.spent = pTransferDetails.m_spent;
     lTransfer.amount_mini = pTransferDetails.amount();
-    lTransfer.amount = fromMini(lTransfer.amount_mini);
+    lTransfer.amount = miniToMonero(lTransfer.amount_mini);
 
     return lTransfer;
 }
@@ -39,7 +41,7 @@ const Payment paymentFromRawPaymentDetails(const tools::wallet2::payment_details
     lPayment.block_height = pPaymentDetails.m_block_height;
     lPayment.unlock_time = pPaymentDetails.m_unlock_time;
     lPayment.amount_mini = pPaymentDetails.m_amount;
-    lPayment.amount = fromMini(lPayment.amount_mini);
+    lPayment.amount = miniToMonero(lPayment.amount_mini);
 
     return lPayment;
 }
@@ -110,7 +112,8 @@ Wallet::Wallet(tools::wallet2* pWalletImpl)
 }
 
 Wallet::~Wallet() {
-    wallet_impl->store();
+    // wallet_impl->store();
+    wallet_impl->stop();
     delete wallet_impl;
 }
 
@@ -128,11 +131,11 @@ amount_mini_t Wallet::getUnlockedBalanceMini() const {
 }
 
 amount_t Wallet::getBalance() const {
-    return fromMini(getBalanceMini());
+    return miniToMonero(getBalanceMini());
 }
 
 amount_t Wallet::getUnlockedBalance() const {
-    return fromMini(getUnlockedBalanceMini());
+    return miniToMonero(getUnlockedBalanceMini());
 }
 
 const std::vector<Transfer> Wallet::getIncomingTransfers(GetIncomingTransfersFilter pFilter) 
@@ -256,27 +259,39 @@ const std::string Wallet::transferMini(const std::string& pDestAddress, amount_m
 
 const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee, const std::string& pPaymentId) 
 {
+    return transferMini(pDestAddress, pAmount, 0, 0, pFee, pPaymentId);
+}
+
+const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId) 
+{
     std::multimap<std::string,amount_mini_t> lDestsMap;
     lDestsMap.emplace(pDestAddress, pAmount);
-    return transferMini(lDestsMap, pFee, pPaymentId);
+    return transferMini(lDestsMap, pFakeOutputsCount, pUnlockTime, pFee, pPaymentId);
+}
+
+const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_t pFee, const std::string& pPaymentId) 
+{
+    return transferMini(pDestAddress, moneroToMini(pAmount), pFakeOutputsCount, pUnlockTime, moneroToMini(pFee), pPaymentId);
 }
 
 
 const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, const std::string& pPaymentId) 
 {
-    return transferMini(pDestAddress, toMini(pAmount), pPaymentId);
+    return transferMini(pDestAddress, moneroToMini(pAmount), pPaymentId);
 }
 
 
 const std::string Wallet::transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee, const std::string& pPaymentId) 
 {
-    return transferMini(pDestAddress, toMini(pAmount), toMini(pFee), pPaymentId);
+    return transferMini(pDestAddress, moneroToMini(pAmount), moneroToMini(pFee), pPaymentId);
 }
+
+
 
 
 const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId) 
 {
-    /* All "transfer" calls pass in this blocl */
+    /* All "transfer" calls pass in this block */
     std::lock_guard<std::mutex> lTransferLock(transfer_mutex);
 
     return doTransferMini(pDestsToAmountMini, pFakeOutputsCount, pUnlockTime, pFee, pPaymentId);
@@ -326,12 +341,27 @@ bool Wallet::walletExists(const std::string pWalletFile, bool& oWallet_data_exis
 
 }
 
-Wallet* Wallet::generateWallet(const std::string pWalletFile, const std::string& pWalletPassword) {
+const std::string Wallet::generateWallet(const std::string pWalletFile, const std::string& pWalletPassword, bool pDeterministic) {
 
     try {
         tools::wallet2* lWalletImpl = new tools::wallet2();
-        lWalletImpl->generate(pWalletFile, pWalletPassword);
-        return new Wallet(lWalletImpl);    
+
+        crypto::secret_key lEmptyInputRecoveryKey;
+        crypto::secret_key lRecoveryKey = lWalletImpl->generate(pWalletFile, pWalletPassword, lEmptyInputRecoveryKey, false, !pDeterministic);
+
+        /* Seed cannot be used in non-deterministic Wallets */
+        if (!pDeterministic) {
+            return "";
+        }
+        else {
+
+            std::string lRecoverySeed;
+            crypto::ElectrumWords::bytes_to_words(lRecoveryKey, lRecoverySeed);
+
+            return lRecoverySeed;
+            
+        }
+        
     }
     catch(tools::error::file_save_error) {
         throw(Errors::NotWritableFile());
@@ -342,6 +372,32 @@ Wallet* Wallet::generateWallet(const std::string pWalletFile, const std::string&
 
 }
 
+const std::string Wallet::recoverWallet(const std::string pWalletFile, const std::string& pWalletPassword, const std::string& pSeed) {
+
+    try {
+        tools::wallet2* lWalletImpl = new tools::wallet2();
+
+        crypto::secret_key lInputRecoveryKey;
+        if (!crypto::ElectrumWords::words_to_bytes(pSeed, lInputRecoveryKey)) {
+            throw(Errors::InvalidSeed());
+        }
+
+        crypto::secret_key lRecoveryKey = lWalletImpl->generate(pWalletFile, pWalletPassword, lInputRecoveryKey, true);
+
+        std::string lRecoverySeed;
+        crypto::ElectrumWords::bytes_to_words(lRecoveryKey, lRecoverySeed);
+
+        return lRecoverySeed;
+        
+    }
+    catch(tools::error::file_save_error) {
+        throw(Errors::NotWritableFile());
+    }
+    catch(tools::error::file_exists) {
+        throw(Errors::NotWritableFile());
+    }
+
+}
 
 const std::string Wallet::doTransferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId) 
 {
@@ -375,7 +431,6 @@ const std::string Wallet::doTransferMini(const std::multimap<std::string,amount_
     std::vector<uint8_t> lExtra;
     /* Append Payment ID data into extra */
     if (!cryptonote::add_extra_nonce_to_tx_extra(lExtra, lExtraNonce)) {
-        // TODO throw
         throw(Errors::InvalidNonce());
 
     }
