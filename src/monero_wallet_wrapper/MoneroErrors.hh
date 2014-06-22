@@ -25,6 +25,16 @@ namespace Monero {
             }
         };
 
+        class NotMatchingDataKeys: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Wallet data file and wallet '.keys' file don't match !";
+            }
+        };
+
+        
         class InvalidSeed: public std::exception
         {
         public: 

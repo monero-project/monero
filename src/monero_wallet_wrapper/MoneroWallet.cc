@@ -102,6 +102,9 @@ Wallet::Wallet(const std::string& pWalletFile, const std::string& pWalletPasswor
     catch(tools::error::file_error_base<1>) {
         throw(Errors::InvalidFile());
     }
+    catch(tools::error::wallet_files_doesnt_correspond) {
+        throw(Errors::NotMatchingDataKeys());
+    }
 
 }
 
@@ -112,7 +115,6 @@ Wallet::Wallet(tools::wallet2* pWalletImpl)
 }
 
 Wallet::~Wallet() {
-    // wallet_impl->store();
     wallet_impl->stop();
     delete wallet_impl;
 }
@@ -244,7 +246,7 @@ void Wallet::store()
 
 const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, const std::string& pPaymentId) 
 {
-    return transferMini(pDestsToAmountMini, getDefaultFee(), pPaymentId);
+    return transferMini(pDestsToAmountMini, getDefaultFeeMini(), pPaymentId);
 }
 
 const std::string Wallet::transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee, const std::string& pPaymentId) 
@@ -254,7 +256,7 @@ const std::string Wallet::transferMini(const std::multimap<std::string,amount_mi
 
 const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId) 
 {
-    return transferMini(pDestAddress, pAmount, getDefaultFee(), pPaymentId);
+    return transferMini(pDestAddress, pAmount, getDefaultFeeMini(), pPaymentId);
 }
 
 const std::string Wallet::transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee, const std::string& pPaymentId) 
@@ -319,7 +321,7 @@ static size_t default_fake_output_count = 0;
 static uint64_t default_unlock_time = 0;
 
 
-amount_mini_t Wallet::getDefaultFee() {
+amount_mini_t Wallet::getDefaultFeeMini() {
     return default_fee;
 }
 

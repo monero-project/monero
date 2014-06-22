@@ -15,10 +15,20 @@ namespace Monero {
 
 class WalletObserver;
 
+/**
+* @typedef amount_mini_t Represents an amount in Mini (smallest unit of Monero : 0.000000000001 Monero)
+*/
 typedef unsigned long long amount_mini_t;
+
+/**
+* @typedef amount_t Represents an amount in Monero (human unit of Monero : 1000000000000 Mini)
+*/
 typedef long double amount_t;
 
 
+/**
+* @struct Transfer 
+*/
 struct Transfer {
     std::string transaction_id;
     uint64_t block_height;
@@ -29,6 +39,9 @@ struct Transfer {
     amount_t amount;
 };
 
+/**
+* @struct Payment 
+*/
 struct Payment {
     std::string transaction_id;
     uint64_t block_height;
@@ -37,10 +50,11 @@ struct Payment {
     amount_t amount;
 };
 
+/*! Filter types for getIncomingTransfers method */
 enum GetIncomingTransfersFilter {
-    NoFilter,
-    AvailablesOnly,
-    UnavailablesOnly
+    NoFilter,           /*!< All transfers */
+    AvailablesOnly,     /*!< Unspent transfers */
+    UnavailablesOnly    /*!< Spent transfers */
 };
 
 /**
@@ -67,9 +81,15 @@ class Wallet {
     
 public:
     /**
-    * @brief Insanciates a new Wallet, using pWalletFile as wallet data and pWalletPassword as wallet password.
+    * @brief Opens an existing Wallet, using pWalletFile as wallet data and pWalletPassword as wallet password.
+    * @param pWalletFile Data file associated with the Wallet.
+    * @param pWalletPassword Password of the wallet.
     *
     * Will throw an excpetion if pWalletFile is not found or pWalletPassword is wrong.
+    *
+    * @throws Errors::InvalidPassword
+    * @throws Errors::InvalidFile
+    * @throws Errors::NotMatchingDataKeys
     */
     Wallet(const std::string& pWalletFile, const std::string& pWalletPassword);
 
@@ -93,84 +113,288 @@ public:
     /* Offline methods */
     /**
     * @brîef Returns the address of the Wakket account.
-    * @returns Address as string
+    * @return Address as string
     */
     const std::string getAddress() const;
 
     /**
     * @brief Gets total balance in Mini unit.
-    * @returns Total balance in Mini unit.
+    * @return Total balance in Mini unit.
     */
     amount_mini_t getBalanceMini() const;
 
     /**
     * @brief Gets unlocked balance in Mini unit.
-    * @returns Total balance (spendable funds) in Mini unit.
+    * @return Total balance (spendable funds) in Mini unit.
     */
     amount_mini_t getUnlockedBalanceMini() const;
 
     /**
     * @brief Gets total balance in Monero unit.
-    * @returns Total balance in Monero unit.
+    * @return Total balance in Monero unit.
     */
     amount_t getBalance() const;
 
     /**
     * @brief Gets unlocked balance in Monero unit.
-    * @returns Total balance (spendable funds) in Monero unit.
+    * @return Total balance (spendable funds) in Monero unit.
     */
     amount_t getUnlockedBalance() const;
 
     /**
     * @brief Returns a list of incoming transfers
+    * @param pFilter Optional filter (currently filtering spent or unspent transfers)
     *
+    * @return A vector containing a copy of all filter-compliant Transfer
     */
     const std::vector<Transfer> getIncomingTransfers(GetIncomingTransfersFilter pFilter = GetIncomingTransfersFilter::NoFilter);
 
+    /**
+    * @brief Returns a list of received payments associated with the ID
+    * @param pPaymentId ID of the payment. A Payment ID can be user in 'transfer' methods in order to 'deanonymize' an unique transaction. This method is used in services/exchanges.
+    *
+    * @return A list of Payment associated with the ID
+    *
+    * @throws Errors::InvalidPaymentID
+    */
     const std::list<Payment> getPayments(const std::string& pPaymentId) const;
 
+    /**
+    * @brief Returns a map of all received payments
+    *
+    * @return A PaymentID-indexed map of all received payments
+    */
     const std::multimap<std::string,Payment> getAllPayments();
 
     /**
-    * @brief Performs a transfer to one of multiple destinations
+    * @brief Performs a transfer to one or multiple destinations
     *
     * @param pDestsToAmountMini Multimap referencing destinations addresses (as std::string) with their respective amount (in Mini)
     * @param pFakeOutputCount Number of fake outputs to simulate : The more outputs, the more intraceable the transfer.
     * @param pUnlockTime TODO (unlocked balance delay)
-    * @param pFee Fee to be applied for this transfer. Fees are sent to the network and indirectly to block finders (miners). You should NOT try to use a fee below value returned by 'getDefaultFee()'.
+    * @param pFee Fee to be applied for this transfer. Fees are sent to the network and indirectly to block finders (miners). You should NOT try to use a fee below value returned by 'getDefaultFeeMini()'.
     * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
     */
-    const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
+    const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee = Wallet::getDefaultFeeMini(), const std::string& pPaymentId = "");
     
+    /**
+    * @brief Performs a transfer to one or multiple destinations
+    *
+    * @param pDestsToAmountMini Multimap referencing destinations addresses (as std::string) with their respective amount (in Mini)
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
+    */
     const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, const std::string& pPaymentId = "");
+
+    /**
+    * @brief Performs a transfer to one or multiple destinations
+    *
+    * @param pDestsToAmountMini Multimap referencing destinations addresses (as std::string) with their respective amount (in Mini)
+    * @param pFee Fee to be applied for this transfer. Fees are sent to the network and indirectly to block finders (miners). You should NOT try to use a fee below value returned by 'getDefaultFeeMini()'.
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
+    */
     const std::string transferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, amount_mini_t pFee, const std::string& pPaymentId = "");
-
-    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId = "");
-    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee, const std::string& pPaymentId = "");
-
-
-    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
-
-
-    const std::string transfer(const std::string& pDestAddress, amount_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_t pFee = Wallet::getDefaultFee(), const std::string& pPaymentId = "");
 
     /**
     * @brief Performs a transfer to one destination
-    * 
+    *
+    * @param pDestAddress String representation of destination address.
+    * @param pAmount Amount to send in Mini
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
+    */
+    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, const std::string& pPaymentId = "");
+
+    /**
+    * @brief Performs a transfer to one destination
+    *
+    * @param pDestAddress String representation of destination address.
+    * @param pAmount Amount to send in Mini
+    * @param pFee Fee to be applied for this transfer. Fees are sent to the network and indirectly to block finders (miners). You should NOT try to use a fee below value returned by 'getDefaultFeeMini()'.
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
+    */
+    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, amount_mini_t pFee, const std::string& pPaymentId = "");
+
+    /**
+    * @brief Performs a transfer to one or multiple destinations
+    *
+    * @param pDestAddress String representation of destination address.
+    * @param pAmount Amount to send in Mini
+    * @param pFakeOutputCount Number of fake outputs to simulate : The more outputs, the more intraceable the transfer.
+    * @param pUnlockTime TODO (unlocked balance delay)
+    * @param pFee Fee to be applied for this transfer. Fees are sent to the network and indirectly to block finders (miners). You should NOT try to use a fee below value returned by 'getDefaultFeeMini()'.
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
+    */
+    const std::string transferMini(const std::string& pDestAddress, amount_mini_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee = Wallet::getDefaultFeeMini(), const std::string& pPaymentId = "");
+
+    /**
+    * @brief Performs a transfer to one destination
+    *
     * @param pDestAddress String representation of destination address.
     * @param pAmount Amount to send in Monero
-    * @param pFee Fee to apply for the transaction, in Monero
-    * @param pPayment Choosen payment ID of the transaction
+    * @param pUnlockTime TODO (unlocked balance delay)
+    * @param pFee Fee to be applied for this transfer. Fees are sent to the network and indirectly to block finders (miners). You should NOT try to use a fee below value returned by 'getDefaultFeeMini()'.
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
+    */
+    const std::string transfer(const std::string& pDestAddress, amount_t pAmount, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_t pFee, const std::string& pPaymentId = "");
+
+    /**
+    * @brief Performs a transfer to one destination
+    *
+    * @param pDestAddress String representation of destination address.
+    * @param pFee Fee to be applied for this transfer. Fees are sent to the network and indirectly to block finders (miners). You should NOT try to use a fee below value returned by 'getDefaultFeeMini()'.
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
     */
     const std::string transfer(const std::string& pDestAddress, amount_t pAmount, amount_t pFee, const std::string& pPaymentId = "");
     
     /**
-    * @brief Performs a transfer to one destination.
-    * Default network fee applies.
-    * 
+    * @brief Performs a transfer to one destination
+    *
     * @param pDestAddress String representation of destination address.
     * @param pAmount Amount to send in Monero
-    * @param pPayment Choosen payment ID of the transaction
+    * @param pPaymentID 32 bits Hex string representing a payment ID (TODO: create a generator). Payment ID can be used by services/exchanges to authenticate user deposits.
+    *
+    * @return Transaction ID of the transfer
+    *
+    * @throws Errors::NoDaemonConnection
+    * @throws Errors::DaemonBusy
+    * @throws Errors::TransactionTooBig
+    * @throws Errors::TransactionZeroDestination
+    * @throws Errors::TransactionSumOverflow
+    * @throws Errors::TransactionNotEnoughMoney
+    * @throws Errors::TransactionUnexpectedType
+    * @throws Errors::WalletInternalError
+    * @throws Errors::TransactionNotEnoughOuts
+    * @throws Errors::TransactionRejected
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidNonce
+    * @trhows Errors::InvalidPaymentID
     */
     const std::string transfer(const std::string& pDestAddress, amount_t pAmount, const std::string& pPaymentId = "");
 
@@ -189,8 +413,9 @@ public:
 
     /**
     * @brief Checks if the given Wallet file exists
-    * 
     * @param pWalletFile File path of the Wallet data file.
+    *
+    * @return true if the given wallet keys exist, false otherwise
     */
     static bool walletExists(const std::string pWalletFile, bool& oWallet_data_exists, bool& oWallet_keys_exist);
     
@@ -200,8 +425,9 @@ public:
     * @param pWalletFile File path of the Wallet to be created.
     * @param pWalletPassword New password of the Wallet to be created.
     *
-    * @returns Recovery seed of the Wallet. Save it in a SAFE PLACE (your brain is safe) for being able to recover your Wallet.
+    * @return Recovery seed of the Wallet. Save it in a SAFE PLACE (your brain is safe) for being able to recover your Wallet.
     *
+    * @throws Errors::NotWritableFile
     */
     static const std::string generateWallet(const std::string pWalletFile, const std::string& pWalletPassword, bool pDeterministic = true);
 
@@ -210,9 +436,12 @@ public:
     *
     * @param pWalletFile File path of the Wallet to be created.
     * @param pWalletPassword NEW password of the Wallet to be recovered.
+    * @param pSeed Previously generated Electrum-style seed
     *
-    * @returns Recovery seed of the Wallet. Save it in a SAFE PLACE (your brain is safe) for being able to recover your Wallet.
+    * @return Recovery seed of the Wallet. Save it in a SAFE PLACE (your brain is safe) for being able to recover your Wallet.
     *
+    * @throws Errors::InvalidSeed
+    * @throws Errors::NotWritableFile
     */
     static const std::string recoverWallet(const std::string pWalletFile, const std::string& pWalletPassword, const std::string& pSeed);
 
@@ -221,7 +450,7 @@ public:
     *
     * @returns  The default fee, in Mini.
     */
-    static amount_mini_t getDefaultFee();
+    static amount_mini_t getDefaultFeeMini();
 
     static size_t getDefaultFakeOutputCount();
 
