@@ -341,6 +341,12 @@ bool Wallet::walletExists(const std::string pWalletFile, bool& oWallet_data_exis
 
 }
 
+// trim from end
+static inline std::string& rtrim(std::string& s) {
+        s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+        return s;
+}
+
 const std::string Wallet::generateWallet(const std::string pWalletFile, const std::string& pWalletPassword, bool pDeterministic) {
 
     try {
@@ -358,7 +364,7 @@ const std::string Wallet::generateWallet(const std::string pWalletFile, const st
             std::string lRecoverySeed;
             crypto::ElectrumWords::bytes_to_words(lRecoveryKey, lRecoverySeed);
 
-            return lRecoverySeed;
+            return rtrim(lRecoverySeed);
             
         }
         
@@ -387,7 +393,7 @@ const std::string Wallet::recoverWallet(const std::string pWalletFile, const std
         std::string lRecoverySeed;
         crypto::ElectrumWords::bytes_to_words(lRecoveryKey, lRecoverySeed);
 
-        return lRecoverySeed;
+        return rtrim(lRecoverySeed);
         
     }
     catch(tools::error::file_save_error) {
