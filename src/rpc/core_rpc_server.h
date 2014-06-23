@@ -23,6 +23,9 @@ namespace cryptonote
   public:
     typedef epee::net_utils::connection_context_base connection_context;
 
+    static const command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
+    static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
+
     core_rpc_server(core& cr, nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p);
 
     static void init_options(boost::program_options::options_description& desc);

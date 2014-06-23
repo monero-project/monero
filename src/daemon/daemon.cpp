@@ -158,7 +158,10 @@ int main(int argc, char* argv[])
   if (command_line::arg_present(vm, arg_command))
   {
     auto command = command_line::get_arg(vm, arg_command);
-    auto args = t_rpc_command_executor::parse_host("127.0.0.1", "18081");
+    auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
+    auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
+
+    auto args = t_rpc_command_executor::parse_host(rpc_ip_str, rpc_port_str);
     if (!args.ok)
     {
       std::cerr << "Invalid RPC host" << std::endl;

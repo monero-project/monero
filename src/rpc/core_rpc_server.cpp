@@ -17,11 +17,8 @@ using namespace epee;
 
 namespace cryptonote
 {
-  namespace
-  {
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {"rpc-bind-ip", "", "127.0.0.1"};
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {"rpc-bind-port", "", std::to_string(RPC_DEFAULT_PORT)};
-  }
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_ip   = {"rpc-bind-ip", "", "127.0.0.1"};
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {"rpc-bind-port", "", std::to_string(RPC_DEFAULT_PORT)};
 
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
@@ -30,7 +27,11 @@ namespace cryptonote
     command_line::add_arg(desc, arg_rpc_bind_port);
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  core_rpc_server::core_rpc_server(core& cr, nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p):m_core(cr), m_p2p(p2p)
+  core_rpc_server::core_rpc_server(
+      core& cr, nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
+    ) :
+      m_core(cr)
+    , m_p2p(p2p)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::handle_command_line(const boost::program_options::variables_map& vm)
