@@ -6,6 +6,8 @@ t_interactive_command_executor::t_interactive_command_executor(t_node_server & s
     m_srv(srv)
 {}
 
+t_interactive_command_executor::t_interactive_command_executor(t_interactive_command_executor && other) = default;
+
 bool t_interactive_command_executor::print_peer_list() {
   m_srv.log_peerlist();
   return true;

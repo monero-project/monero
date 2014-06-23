@@ -2,27 +2,25 @@
 
 using namespace daemonize;
 
-t_rpc_command_executor * t_rpc_command_executor::parse_host_and_create(
+t_rpc_command_executor::t_constructor_args t_rpc_command_executor::parse_host(
     std::string rpc_host_ip_str, std::string rpc_host_port_str)
 {
-  bool ok;
-  uint32_t rpc_host_ip;
-  uint16_t rpc_host_port;
+  t_constructor_args args;
 
-  ok = epee::string_tools::get_ip_int32_from_string(rpc_host_ip, rpc_host_ip_str);
-  ok = epee::string_tools::get_xtype_from_string(rpc_host_port, rpc_host_port_str);
+  bool ip_ok = epee::string_tools::get_ip_int32_from_string(args.rpc_host_ip, rpc_host_ip_str);
+  bool port_ok = epee::string_tools::get_xtype_from_string(args.rpc_host_port, rpc_host_port_str);
+  args.ok = ip_ok && port_ok;
 
-  if (ok) {
-    return new t_rpc_command_executor(rpc_host_port, rpc_host_ip);
-  } else {
-    return nullptr;
-  }
+  return args;
 }
 
-t_rpc_command_executor::t_rpc_command_executor(uint32_t rpc_host_ip, uint16_t rpc_host_port) :
-    m_rpc_host_ip(rpc_host_ip)
-  , m_rpc_host_port(rpc_host_port)
+t_rpc_command_executor::t_rpc_command_executor(t_constructor_args const & args) :
+    mp_http_client(new epee::net_utils::http::http_simple_client())
+  , m_rpc_host_ip(args.rpc_host_ip)
+  , m_rpc_host_port(args.rpc_host_port)
 {}
+
+t_rpc_command_executor::t_rpc_command_executor(t_rpc_command_executor && other) = default;
 
 bool t_rpc_command_executor::print_peer_list() {
   std::cout << "print peer list" << std::endl;

@@ -21,7 +21,7 @@ class t_console_command_thread
 public:
   typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > t_server;
 private:
-  t_command_server m_server;
+  t_command_server<t_interactive_command_executor> m_server;
   t_server & m_srv;
   epee::async_console_handler m_console_handler;
   std::mutex mtx;
@@ -29,7 +29,7 @@ private:
   bool m_finished = false;
 public:
   t_console_command_thread(t_server & srv) :
-      m_server(new t_interactive_command_executor(srv))
+      m_server(t_interactive_command_executor(srv))
     , m_srv(srv)
   {}
 

@@ -1,16 +1,15 @@
 #pragma once
 
-#include "daemon/command_executor.h"
-
 namespace daemonize {
 
+template <typename T_command_executor>
 class t_command_parser_executor final
 {
 private:
-  std::unique_ptr<t_command_executor> mp_executor;
+  T_command_executor m_executor;
 public:
-  t_command_parser_executor(t_command_executor * executor) :
-      mp_executor(executor)
+  t_command_parser_executor(T_command_executor && executor) :
+      m_executor(std::move(executor))
   {}
 
   bool print_peer_list(const std::vector<std::string>& args);

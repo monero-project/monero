@@ -4,52 +4,58 @@
 #include "misc_log_ex.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
-#include "daemon/command_executor.h"
 #include "p2p/net_node.h"
-#include <boost/optional.hpp>
 
 namespace daemonize {
 
-class t_rpc_command_executor final : public t_command_executor {
+class t_rpc_command_executor final {
 private:
-  epee::net_utils::http::http_simple_client m_http_client = {};
+  std::unique_ptr<epee::net_utils::http::http_simple_client> mp_http_client;
   uint32_t m_rpc_host_ip;
   uint16_t m_rpc_host_port;
 public:
-  static t_rpc_command_executor * parse_host_and_create(
+  struct t_constructor_args {
+    bool ok;
+    uint32_t rpc_host_ip;
+    uint16_t rpc_host_port;
+  };
+
+  static t_constructor_args parse_host(
       std::string rpc_host_ip_str, std::string rpc_host_port_str);
 
-  t_rpc_command_executor(uint32_t rpc_host_ip, uint16_t rpc_host_port);
+  t_rpc_command_executor(t_constructor_args const & args);
 
-  bool print_peer_list() override;
+  t_rpc_command_executor(t_rpc_command_executor && other);
 
-  bool save_blockchain() override;
+  bool print_peer_list();
 
-  bool show_hash_rate() override;
+  bool save_blockchain();
 
-  bool hide_hash_rate() override;
+  bool show_hash_rate();
 
-  bool show_difficulty() override;
+  bool hide_hash_rate();
 
-  bool print_connections() override;
+  bool show_difficulty();
 
-  bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) override;
+  bool print_connections();
 
-  bool set_log_level(uint16_t level) override;
+  bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index);
 
-  bool print_block_by_hash(crypto::hash block_hash) override;
+  bool set_log_level(uint16_t level);
 
-  bool print_block_by_height(uint64_t height) override;
+  bool print_block_by_hash(crypto::hash block_hash);
 
-  bool print_transaction(crypto::hash transaction_hash) override;
+  bool print_block_by_height(uint64_t height);
 
-  bool print_transaction_pool_long() override;
+  bool print_transaction(crypto::hash transaction_hash);
 
-  bool print_transaction_pool_short() override;
+  bool print_transaction_pool_long();
 
-  bool start_mining(cryptonote::account_public_address address, size_t num_threads) override;
+  bool print_transaction_pool_short();
 
-  bool stop_mining() override;
+  bool start_mining(cryptonote::account_public_address address, size_t num_threads);
+
+  bool stop_mining();
 };
 
 } // namespace daemonize

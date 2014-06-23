@@ -158,14 +158,14 @@ int main(int argc, char* argv[])
   if (command_line::arg_present(vm, arg_command))
   {
     auto command = command_line::get_arg(vm, arg_command);
-    auto executor = t_rpc_command_executor::parse_host_and_create("127.0.0.1", "18081");
-    if (!executor)
+    auto args = t_rpc_command_executor::parse_host("127.0.0.1", "18081");
+    if (!args.ok)
     {
       std::cerr << "Invalid RPC host" << std::endl;
       return 1;
     }
 
-    t_command_server rpc_commands(executor);
+    t_command_server<t_rpc_command_executor> rpc_commands{t_rpc_command_executor{args}};
     if (rpc_commands.process_command_vec(command))
     {
       return 0;
