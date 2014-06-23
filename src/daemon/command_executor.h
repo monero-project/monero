@@ -22,7 +22,7 @@ public:
   virtual bool print_transaction(crypto::hash transaction_hash) = 0;
   virtual bool print_transaction_pool_long() = 0;
   virtual bool print_transaction_pool_short() = 0;
-  virtual bool start_mining(cryptonote::account_public_address address, size_t num_threads) = 0;
+  virtual bool start_mining(cryptonote::account_public_address address, uint64_t num_threads) = 0;
   virtual bool stop_mining() = 0;
 };
 

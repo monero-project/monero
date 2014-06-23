@@ -147,7 +147,7 @@ bool t_interactive_command_executor::print_transaction_pool_short() {
   return true;
 }
 
-bool t_interactive_command_executor::start_mining(cryptonote::account_public_address address, size_t num_threads) {
+bool t_interactive_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads) {
   boost::thread::attributes attrs;
   attrs.set_stack_size(THREAD_STACK_SIZE);
 

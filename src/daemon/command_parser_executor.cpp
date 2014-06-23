@@ -154,7 +154,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
 {
   if(!args.size())
   {
-    std::cout << "Please, specify wallet address to mine for: start_mining <addr> [threads=1]" << std::endl;
+    std::cout << "Please specify a wallet address to mine for: start_mining <addr> [threads=1]" << std::endl;
     return true;
   }
 
@@ -164,7 +164,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
     std::cout << "target account address has wrong format" << std::endl;
     return true;
   }
-  size_t threads_count = 1;
+  uint64_t threads_count = 1;
   if(args.size() > 2)
   {
     return false;
