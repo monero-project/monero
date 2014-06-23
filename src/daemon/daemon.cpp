@@ -136,22 +136,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  // If there are positional options, we're running a daemon command
-  if (command_line::arg_present(vm, arg_command))
-  {
-    auto command = command_line::get_arg(vm, arg_command);
-    t_command_server rpc_commands(new t_rpc_command_executor());
-    if (rpc_commands.process_command_vec(command))
-    {
-      return 0;
-    }
-    else
-    {
-      std::cerr << "Unknown command" << std::endl;
-      return 1;
-    }
-  }
-
   // Parse config file if it exists
   {
     bf::path data_dir_path(bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir)));
@@ -168,6 +152,29 @@ int main(int argc, char* argv[])
       po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
     }
     po::notify(vm);
+  }
+
+  // If there are positional options, we're running a daemon command
+  if (command_line::arg_present(vm, arg_command))
+  {
+    auto command = command_line::get_arg(vm, arg_command);
+    auto executor = t_rpc_command_executor::parse_host_and_create("127.0.0.1", "18081");
+    if (!executor)
+    {
+      std::cerr << "Invalid RPC host" << std::endl;
+      return 1;
+    }
+
+    t_command_server rpc_commands(executor);
+    if (rpc_commands.process_command_vec(command))
+    {
+      return 0;
+    }
+    else
+    {
+      std::cerr << "Unknown command" << std::endl;
+      return 1;
+    }
   }
 
   // Set log file

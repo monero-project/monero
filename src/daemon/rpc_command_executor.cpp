@@ -2,6 +2,28 @@
 
 using namespace daemonize;
 
+t_rpc_command_executor * t_rpc_command_executor::parse_host_and_create(
+    std::string rpc_host_ip_str, std::string rpc_host_port_str)
+{
+  bool ok;
+  uint32_t rpc_host_ip;
+  uint16_t rpc_host_port;
+
+  ok = epee::string_tools::get_ip_int32_from_string(rpc_host_ip, rpc_host_ip_str);
+  ok = epee::string_tools::get_xtype_from_string(rpc_host_port, rpc_host_port_str);
+
+  if (ok) {
+    return new t_rpc_command_executor(rpc_host_port, rpc_host_ip);
+  } else {
+    return nullptr;
+  }
+}
+
+t_rpc_command_executor::t_rpc_command_executor(uint32_t rpc_host_ip, uint16_t rpc_host_port) :
+    m_rpc_host_ip(rpc_host_ip)
+  , m_rpc_host_port(rpc_host_port)
+{}
+
 bool t_rpc_command_executor::print_peer_list() {
   std::cout << "print peer list" << std::endl;
   return true;
