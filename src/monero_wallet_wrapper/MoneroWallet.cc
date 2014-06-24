@@ -12,6 +12,11 @@
 using namespace Monero;
 
 
+/* Normally one char, but could change */
+const std::string cPaymentAddressSeparator = "+";
+const size_t cAddressSize = 95;
+const size_t cPaymentIdSize = 64;
+
 const Transfer transferFromRawTransferDetails(const tools::wallet2::transfer_details& pTransferDetails)
 {
     Transfer lTransfer;
@@ -113,6 +118,10 @@ const std::string Wallet::getAddress() const {
     return wallet_impl->get_account().get_public_address_str();
 }
 
+const std::string Wallet::getPaymentAddress(const std::string& pPaymentId) const {
+    return Wallet::concatenatePaymentAddress(getAddress(), pPaymentId);
+}
+
 amount_mini_t Wallet::getBalanceMini() const {
     return wallet_impl->balance();
 }
@@ -149,7 +158,7 @@ const std::vector<Transfer> Wallet::getIncomingTransfers(GetIncomingTransfersFil
     }
 
     if ( pFilter != GetIncomingTransfersFilter::NoFilter) {
-        return fitlerTransfers(transfers_cache, pFilter);
+        return Wallet::fitlerTransfers(transfers_cache, pFilter);
     }
 
     return transfers_cache;
@@ -503,6 +512,27 @@ std::string random_string(size_t length)
 
 const std::string Wallet::generatePaymentId() {
     return random_string(64);
+}
+
+
+const std::string Wallet::concatenatePaymentAddress(const std::string& pAddress, const std::string& pPaymentId) {
+
+    if (pAddress.size() != cAddressSize) {
+        throw(Errors::InvalidAddress());
+    }
+
+    if (pPaymentId.size() != cPaymentIdSize) {
+        throw(Errors::InvalidPaymentID());
+    }
+
+    size_t lLength = cAddressSize + cPaymentAddressSeparator.size() + cPaymentIdSize;
+    std::string lPaymentAddress;
+    lPaymentAddress.reserve(lLength);
+    lPaymentAddress.append(pAddress);
+    lPaymentAddress.append(cPaymentAddressSeparator);
+    lPaymentAddress.append(pPaymentId);
+    
+    return lPaymentAddress;
 }
 
 const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter) 

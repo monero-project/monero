@@ -74,7 +74,7 @@ namespace Monero {
             }
 
         };
-
+        
 
         class InvalidNonce: public std::exception
         {

@@ -118,6 +118,15 @@ public:
     const std::string getAddress() const;
 
     /**
+    * @brief Experimental : Concatenates your address and previously generated payment id for unified displaying
+    * The "paymentAddress" could be used for using implicitly a combined address and payment ID
+    *
+    * @throw Errors::InvalidAddress
+    * @throw Errors::InvalidPaymentID
+    */
+    const std::string getPaymentAddress(const std::string& pPaymentId) const;
+
+    /**
     * @brief Gets total balance in Mini unit.
     * @return Total balance in Mini unit.
     */
@@ -480,6 +489,14 @@ public:
 
     static uint64_t getDefaultUnlockTime();
 
+    /**
+    * @brief Experimental : Concatenates address and payment id for unified displaying
+    *
+    * @throw Errors::InvalidAddress
+    * @throw Errors::InvalidPaymentID
+    */
+    static const std::string concatenatePaymentAddress(const std::string& pAddress, const std::string& pPaymentId);
+
 private:
     tools::wallet2* wallet_impl;
     WalletObserver* observer;
@@ -489,7 +506,7 @@ private:
 
     const std::string doTransferMini(const std::multimap<std::string,amount_mini_t> pDestsToAmountMini, size_t pFakeOutputsCount, uint64_t pUnlockTime, amount_mini_t pFee, const std::string& pPaymentId);
 
-    const std::vector<Transfer> fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter);
+    static const std::vector<Transfer> fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter);
 
 
     Wallet(tools::wallet2* pWalletImpl);
