@@ -152,7 +152,7 @@ namespace cryptonote
         << "transaction id = " << get_transaction_hash(tx));
 
       auto it_in_set = key_image_set.find(get_transaction_hash(tx));
-      CHECK_AND_ASSERT_MES(it_in_set != key_image_set.end, false, "transaction id not found in key_image set, img=" << txin.k_image << ENDL
+      CHECK_AND_ASSERT_MES(it_in_set != key_image_set.end(), false, "transaction id not found in key_image set, img=" << txin.k_image << ENDL
         << "transaction id = " << get_transaction_hash(tx));
       key_image_set.erase(it_in_set);
       if(!key_image_set.size())
