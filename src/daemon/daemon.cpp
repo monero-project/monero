@@ -161,14 +161,15 @@ int main(int argc, char* argv[])
     auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
     auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
 
-    auto args = t_rpc_command_executor::parse_host(rpc_ip_str, rpc_port_str);
-    if (!args.ok)
+    auto host = t_rpc_command_executor::parse_host(rpc_ip_str, rpc_port_str);
+    if (!host.ok)
     {
       std::cerr << "Invalid RPC host" << std::endl;
       return 1;
     }
 
-    t_command_server<t_rpc_command_executor> rpc_commands{t_rpc_command_executor{args}};
+    t_command_server<t_rpc_command_executor>
+      rpc_commands{t_rpc_command_executor{std::move(rpc_ip_str), std::move(rpc_port_str)}};
     if (rpc_commands.process_command_vec(command))
     {
       return 0;

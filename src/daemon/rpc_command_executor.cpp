@@ -5,24 +5,24 @@
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 
-using namespace daemonize;
+namespace daemonize {
 
-t_rpc_command_executor::t_constructor_args t_rpc_command_executor::parse_host(
-    std::string rpc_host_ip_str, std::string rpc_host_port_str)
+t_rpc_command_executor::t_host_result t_rpc_command_executor::parse_host(
+    std::string const & rpc_host_ip_str, std::string const & rpc_host_port_str)
 {
-  t_constructor_args args;
+  t_host_result result;
 
-  bool ip_ok = epee::string_tools::get_ip_int32_from_string(args.rpc_host_ip, rpc_host_ip_str);
-  bool port_ok = epee::string_tools::get_xtype_from_string(args.rpc_host_port, rpc_host_port_str);
-  args.ok = ip_ok && port_ok;
+  bool ip_ok = epee::string_tools::get_ip_int32_from_string(result.rpc_host_ip, rpc_host_ip_str);
+  bool port_ok = epee::string_tools::get_xtype_from_string(result.rpc_host_port, rpc_host_port_str);
+  result.ok = ip_ok && port_ok;
 
-  return args;
+  return result;
 }
 
-t_rpc_command_executor::t_rpc_command_executor(t_constructor_args const & args) :
-    mp_http_client(new epee::net_utils::http::http_simple_client())
-  , m_rpc_host_ip(args.rpc_host_ip)
-  , m_rpc_host_port(args.rpc_host_port)
+t_rpc_command_executor::t_rpc_command_executor(std::string && rpc_host_ip_str, std::string && rpc_host_port_str)
+  : mp_http_client(new epee::net_utils::http::http_simple_client())
+  , m_rpc_host_ip_str(std::move(rpc_host_ip_str))
+  , m_rpc_host_port_str(std::move(rpc_host_port_str))
 {}
 
 t_rpc_command_executor::t_rpc_command_executor(t_rpc_command_executor && other) = default;
@@ -94,35 +94,49 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
 
 bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads) {
   cryptonote::COMMAND_RPC_START_MINING::request req;
+  cryptonote::COMMAND_RPC_START_MINING::response res;
   req.miner_address = cryptonote::get_account_address_as_str(address);
   req.threads_count = num_threads;
 
-  std::string daemon_ip = epee::string_tools::get_ip_string_from_int32(m_rpc_host_ip);
-  std::string daemon_port = std::to_string(m_rpc_host_port);
-  std::string rpc_url = "http://" + daemon_ip + ":" + daemon_port + "/start_mining";
-
-  t_http_connection connection(mp_http_client.get(), daemon_ip, daemon_port);
-
-  cryptonote::COMMAND_RPC_START_MINING::response res;
-  bool ok = connection.is_open();
-  ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, *mp_http_client);
-  if (!ok)
-  {
-    tools::fail_msg_writer() << "Couldn't connect to daemon.  Is it running?";
-  }
-  else if (res.status == CORE_RPC_STATUS_OK)
-  {
-    tools::success_msg_writer() << "Mining started!";
-  }
-  else
-  {
-    tools::fail_msg_writer() << "Mining has NOT been started: " << res.status;
-  }
-
-  return true;
+  return rpc_request(req, res, "/start_mining", "Mining started", "Mining did not start");
 }
 
 bool t_rpc_command_executor::stop_mining() {
-  std::cout << "stop mining" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_STOP_MINING::request req;
+  cryptonote::COMMAND_RPC_STOP_MINING::response res;
+
+  return rpc_request(req, res, "/stop_mining", "Mining stopped", "Mining did not stop");
 }
+
+template <typename T_req, typename T_res>
+bool t_rpc_command_executor::rpc_request(
+    T_req & request
+  , T_res & response
+  , std::string const & relative_url
+  , std::string const & success_msg
+  , std::string const & fail_msg
+  )
+{
+  std::string rpc_url = "http://" + m_rpc_host_ip_str + ":" + m_rpc_host_port_str + relative_url;
+  t_http_connection connection(mp_http_client.get(), m_rpc_host_ip_str, m_rpc_host_port_str);
+
+  bool ok = connection.is_open();
+  ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, request, response, *mp_http_client);
+  if (!ok)
+  {
+    tools::fail_msg_writer() << "Couldn't connect to daemon";
+    return false;
+  }
+  else if (response.status == CORE_RPC_STATUS_OK)
+  {
+    tools::success_msg_writer() << success_msg;
+    return true;
+  }
+  else
+  {
+    tools::fail_msg_writer() << fail_msg << " -- " << response.status;
+    return false;
+  }
+}
+
+} // namespace daemonize

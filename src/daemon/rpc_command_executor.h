@@ -11,19 +11,19 @@ namespace daemonize {
 class t_rpc_command_executor final {
 private:
   std::unique_ptr<epee::net_utils::http::http_simple_client> mp_http_client;
-  uint32_t m_rpc_host_ip;
-  uint16_t m_rpc_host_port;
+  std::string m_rpc_host_ip_str;
+  std::string m_rpc_host_port_str;
 public:
-  struct t_constructor_args {
+  struct t_host_result {
     bool ok;
     uint32_t rpc_host_ip;
     uint16_t rpc_host_port;
   };
 
-  static t_constructor_args parse_host(
-      std::string rpc_host_ip_str, std::string rpc_host_port_str);
+  static t_host_result parse_host(
+      std::string const & rpc_host_ip_str, std::string const & rpc_host_port_str);
 
-  t_rpc_command_executor(t_constructor_args const & args);
+  t_rpc_command_executor(std::string && rpc_host_ip_str, std::string && rpc_host_port_str);
 
   t_rpc_command_executor(t_rpc_command_executor && other);
 
@@ -56,6 +56,16 @@ public:
   bool start_mining(cryptonote::account_public_address address, size_t num_threads);
 
   bool stop_mining();
+
+private:
+  template <typename T_req, typename T_res>
+  bool rpc_request(
+      T_req & request
+    , T_res & response
+    , std::string const & relative_url
+    , std::string const & success_msg
+    , std::string const & fail_msg
+    );
 };
 
 } // namespace daemonize
