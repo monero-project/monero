@@ -351,14 +351,13 @@ namespace cryptonote
     if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
     {
       res.status = "Error: log level not valid";
-      return false;
     }
     else
     {
       epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
       res.status = CORE_RPC_STATUS_OK;
-      return true;
     }
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res, connection_context& cntx)
