@@ -338,13 +338,12 @@ namespace cryptonote
     {
       m_core.get_miner().do_print_hashrate(req.visible);
       res.status = CORE_RPC_STATUS_OK;
-      return true;
     }
     else
     {
       res.status = CORE_RPC_STATUS_NOT_MINING;
-      return false;
     }
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_set_log_level(const COMMAND_RPC_SET_LOG_LEVEL::request& req, COMMAND_RPC_SET_LOG_LEVEL::response& res, connection_context& cntx)
