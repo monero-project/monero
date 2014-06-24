@@ -314,7 +314,6 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res, connection_context& cntx)
   {
-    // No need to worry about the core here
     std::list<nodetool::peerlist_entry> white_list;
     std::list<nodetool::peerlist_entry> gray_list;
     m_p2p.get_peerlist(white_list, gray_list);
@@ -331,6 +330,34 @@ namespace cryptonote
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_log_hash_rate(const COMMAND_RPC_SET_LOG_HASH_RATE::request& req, COMMAND_RPC_SET_LOG_HASH_RATE::response& res, connection_context& cntx)
+  {
+    if(m_core.get_miner().is_mining())
+    {
+      m_core.get_miner().do_print_hashrate(req.visible);
+      res.status = CORE_RPC_STATUS_OK;
+      return true;
+    }
+    else
+    {
+      res.status = CORE_RPC_STATUS_NOT_MINING;
+      return false;
+    }
+  }
+  bool core_rpc_server::on_set_log_level(const COMMAND_RPC_SET_LOG_LEVEL::request& req, COMMAND_RPC_SET_LOG_LEVEL::response& res, connection_context& cntx)
+  {
+    if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
+    {
+      res.status = "Error: log level not valid";
+      return false;
+    }
+    else
+    {
+      epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
+      return true;
+    }
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, connection_context& cntx)

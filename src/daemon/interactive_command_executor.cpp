@@ -70,7 +70,7 @@ bool t_interactive_command_executor::print_blockchain_info(uint64_t start_block_
   return true;
 }
 
-bool t_interactive_command_executor::set_log_level(uint16_t level) {
+bool t_interactive_command_executor::set_log_level(int8_t level) {
   epee::log_space::log_singletone::get_set_log_detalisation_level(true, level);
   return true;
 }

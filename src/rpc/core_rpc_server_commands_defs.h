@@ -11,8 +11,9 @@
 namespace cryptonote
 {
   //-----------------------------------------------
-#define CORE_RPC_STATUS_OK   "OK"
-#define CORE_RPC_STATUS_BUSY   "BUSY"
+#define CORE_RPC_STATUS_OK         "OK"
+#define CORE_RPC_STATUS_BUSY       "BUSY"
+#define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -519,5 +520,44 @@ namespace cryptonote
     };
   };
 
+  struct COMMAND_RPC_SET_LOG_HASH_RATE
+  {
+    struct request
+    {
+      bool visible;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(visible)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_LEVEL
+  {
+    struct request
+    {
+      int8_t level;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(level)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 

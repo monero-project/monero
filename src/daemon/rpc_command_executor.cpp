@@ -68,18 +68,44 @@ bool t_rpc_command_executor::print_peer_list() {
 }
 
 bool t_rpc_command_executor::save_blockchain() {
-  std::cout << "save blockchain" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_SAVE_BC::request req;
+  cryptonote::COMMAND_RPC_SAVE_BC::response res;
+
+  if (rpc_request(req, res, "/save_bc", "Couldn't save blockchain"))
+  {
+    tools::success_msg_writer() << "Blockchain saved";
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::show_hash_rate() {
-  std::cout << "show hash rate" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::request req;
+  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::response res;
+  req.visible = true;
+
+  if (rpc_request(req, res, "/set_log_hash_rate", "Unsuccessful"))
+  {
+    tools::success_msg_writer() << "Hash rate logging is on";
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::hide_hash_rate() {
-  std::cout << "hide hash rate" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::request req;
+  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::response res;
+  req.visible = false;
+
+  if (rpc_request(req, res, "/set_log_hash_rate", "Unsuccessful"))
+  {
+    tools::success_msg_writer() << "Hash rate logging is off";
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::show_difficulty() {
@@ -106,9 +132,18 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   return true;
 }
 
-bool t_rpc_command_executor::set_log_level(uint16_t level) {
-  std::cout << "set log level" << std::endl;
-  return true;
+bool t_rpc_command_executor::set_log_level(int8_t level) {
+  cryptonote::COMMAND_RPC_SET_LOG_LEVEL::request req;
+  cryptonote::COMMAND_RPC_SET_LOG_LEVEL::response res;
+  req.level = level;
+
+  if (rpc_request(req, res, "/set_log_level", "Unsuccessful"))
+  {
+    tools::success_msg_writer() << "Log level is now " << boost::lexical_cast<std::string>(level);
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
