@@ -477,5 +477,47 @@ namespace cryptonote
 
   };
 
+  struct peer {
+    uint64_t id;
+    uint32_t ip;
+    uint16_t port;
+    time_t last_seen;
+
+    peer() = default;
+
+    peer(uint64_t id, uint32_t ip, uint16_t port, time_t last_seen)
+      : id(id), ip(ip), port(port), last_seen(last_seen)
+    {}
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(id)
+      KV_SERIALIZE(ip)
+      KV_SERIALIZE(port)
+      KV_SERIALIZE(last_seen)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_PEER_LIST
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<peer> white_list;
+      std::vector<peer> gray_list;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(white_list)
+        KV_SERIALIZE(gray_list)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 

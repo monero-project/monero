@@ -72,6 +72,10 @@ namespace nodetool
       a & m_config.m_peer_id;
     }
     // debug functions
+    void get_peerlist(
+        std::list<peerlist_entry> & white_list
+      , std::list<peerlist_entry> & gray_list
+      );
     bool log_peerlist();
     bool log_connections();
     virtual uint64_t get_connections_count();

@@ -1072,6 +1072,15 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  void node_server<t_payload_net_handler>::get_peerlist(
+      std::list<peerlist_entry> & white_list
+    , std::list<peerlist_entry> & gray_list
+    )
+  {
+    m_peerlist.get_peerlist_full(gray_list, white_list);
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::log_peerlist()
   {
     std::list<peerlist_entry> pl_wite;

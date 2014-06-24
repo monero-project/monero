@@ -11,6 +11,7 @@ using namespace epee;
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_core/account.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
+#include "p2p/p2p_protocol_defs.h"
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
@@ -307,6 +308,27 @@ namespace cryptonote
       res.status = "Error while storing blockhain";
       return true;
     }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res, connection_context& cntx)
+  {
+    // No need to worry about the core here
+    std::list<nodetool::peerlist_entry> white_list;
+    std::list<nodetool::peerlist_entry> gray_list;
+    m_p2p.get_peerlist(white_list, gray_list);
+
+    for (auto & entry : white_list)
+    {
+      res.white_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
+    }
+
+    for (auto & entry : gray_list)
+    {
+      res.gray_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
+    }
+
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

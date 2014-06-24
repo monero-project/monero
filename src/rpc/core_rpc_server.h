@@ -46,6 +46,7 @@ namespace cryptonote
       MAP_URI_AUTO_JON2("/mining_status", on_mining_status, COMMAND_RPC_MINING_STATUS)
       MAP_URI_AUTO_JON2("/save_bc", on_save_bc, COMMAND_RPC_SAVE_BC)
       MAP_URI_AUTO_JON2("/getinfo", on_get_info, COMMAND_RPC_GET_INFO)
+      MAP_URI_AUTO_JON2("/get_peer_list", on_get_peer_list, COMMAND_RPC_GET_PEER_LIST)
       BEGIN_JSON_RPC_MAP("/json_rpc")
         MAP_JON_RPC("getblockcount",             on_getblockcount,              COMMAND_RPC_GETBLOCKCOUNT)
         MAP_JON_RPC_WE("on_getblockhash",        on_getblockhash,               COMMAND_RPC_GETBLOCKHASH)
@@ -68,6 +69,7 @@ namespace cryptonote
     bool on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res, connection_context& cntx);        
     bool on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, connection_context& cntx);        
     bool on_save_bc(const COMMAND_RPC_SAVE_BC::request& req, COMMAND_RPC_SAVE_BC::response& res, connection_context& cntx);
+    bool on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res, connection_context& cntx);
     
     //json_rpc
     bool on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, connection_context& cntx);

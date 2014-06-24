@@ -60,8 +60,8 @@ public:
 private:
   template <typename T_req, typename T_res>
   bool rpc_request(
-      T_req & request
-    , T_res & response
+      T_req & req
+    , T_res & res
     , std::string const & relative_url
     , std::string const & fail_msg
     );

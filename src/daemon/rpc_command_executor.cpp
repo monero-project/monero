@@ -4,8 +4,27 @@
 #include "daemon/http_connection.h"
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include <boost/format.hpp>
+#include <ctime>
 
 namespace daemonize {
+
+namespace {
+  void print_peer(std::string const & prefix, cryptonote::peer const & peer)
+  {
+    time_t now;
+    time(&now);
+
+    std::string id_str;
+    std::string port_str;
+    std::string elapsed = epee::misc_utils::get_time_interval_string(now - peer.last_seen);
+    std::string ip_str = epee::string_tools::get_ip_string_from_int32(peer.ip);
+    epee::string_tools::xtype_to_string(peer.id, id_str);
+    epee::string_tools::xtype_to_string(peer.port, port_str);
+    std::string addr_str = ip_str + ":" + port_str;
+    tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
+  }
+}
 
 t_rpc_command_executor::t_host_result t_rpc_command_executor::parse_host(
     std::string const & rpc_host_ip_str, std::string const & rpc_host_port_str)
@@ -28,7 +47,23 @@ t_rpc_command_executor::t_rpc_command_executor(std::string && rpc_host_ip_str, s
 t_rpc_command_executor::t_rpc_command_executor(t_rpc_command_executor && other) = default;
 
 bool t_rpc_command_executor::print_peer_list() {
-  std::cout << "print peer list" << std::endl;
+  cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
+  cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
+
+  bool ok = rpc_request(req, res, "/get_peer_list", "Couldn't retrieve peer list");
+
+  if (!ok) return false;
+
+  for (auto & peer : res.white_list)
+  {
+    print_peer("white", peer);
+  }
+
+  for (auto & peer : res.gray_list)
+  {
+    print_peer("gray", peer);
+  }
+
   return true;
 }
 
@@ -123,8 +158,8 @@ bool t_rpc_command_executor::stop_mining() {
 
 template <typename T_req, typename T_res>
 bool t_rpc_command_executor::rpc_request(
-    T_req & request
-  , T_res & response
+    T_req & req
+  , T_res & res
   , std::string const & relative_url
   , std::string const & fail_msg
   )
@@ -133,15 +168,15 @@ bool t_rpc_command_executor::rpc_request(
   t_http_connection connection(mp_http_client.get(), m_rpc_host_ip_str, m_rpc_host_port_str);
 
   bool ok = connection.is_open();
-  ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, request, response, *mp_http_client);
+  ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, *mp_http_client);
   if (!ok)
   {
     tools::fail_msg_writer() << "Couldn't connect to daemon";
     return false;
   }
-  else if (response.status != CORE_RPC_STATUS_OK)
+  else if (res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
   {
-    tools::fail_msg_writer() << fail_msg << " -- " << response.status;
+    tools::fail_msg_writer() << fail_msg << " -- " << res.status;
     return false;
   }
   else
