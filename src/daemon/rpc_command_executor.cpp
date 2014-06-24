@@ -1,4 +1,8 @@
+#include "string_tools.h"
+#include "storages/http_abstract_invoke.h"
+#include "common/scoped_message_writer.h"
 #include "daemon/rpc_command_executor.h"
+#include "rpc/core_rpc_server_commands_defs.h"
 
 using namespace daemonize;
 
@@ -88,7 +92,29 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
 }
 
 bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads) {
-  std::cout << "start mining" << std::endl;
+  cryptonote::COMMAND_RPC_START_MINING::request req;
+  req.miner_address = cryptonote::get_account_address_as_str(address);
+  req.threads_count = num_threads;
+
+  std::string daemon_ip = epee::string_tools::get_ip_string_from_int32(m_rpc_host_ip);
+  std::string daemon_port = std::to_string(m_rpc_host_port);
+  std::string rpc_url = "http://" + daemon_ip + ":" + daemon_port + "/start_mining";
+
+  cryptonote::COMMAND_RPC_START_MINING::response res;
+  bool ok = epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, *mp_http_client);
+  if (!ok)
+  {
+    tools::fail_msg_writer() << "Couldn't connect to daemon.  Is it running?";
+  }
+  else if (res.status == CORE_RPC_STATUS_OK)
+  {
+    tools::success_msg_writer() << "Mining started!";
+  }
+  else
+  {
+    tools::fail_msg_writer() << "Mining has NOT been started: " << res.status;
+  }
+
   return true;
 }
 
