@@ -497,6 +497,8 @@ public:
     */
     static const std::string concatenatePaymentAddress(const std::string& pAddress, const std::string& pPaymentId);
 
+    static bool extractPaymentAndAddress(const std::string& pPaymentAddress, std::string& oAddress, std::string& oPaymentId);
+
 private:
     tools::wallet2* wallet_impl;
     WalletObserver* observer;

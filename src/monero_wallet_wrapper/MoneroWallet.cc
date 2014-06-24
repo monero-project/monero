@@ -535,6 +535,25 @@ const std::string Wallet::concatenatePaymentAddress(const std::string& pAddress,
     return lPaymentAddress;
 }
 
+bool Wallet::extractPaymentAndAddress(const std::string& pPaymentAddress, std::string& oAddress, std::string& oPaymentId) {
+
+    if (pPaymentAddress.size() != cAddressSize + cPaymentIdSize + cPaymentAddressSeparator.size()) {
+        throw(Errors::InvalidPaymentAddress());
+    }
+
+    size_t lSeparatorPositionBegin = pPaymentAddress.find(cPaymentAddressSeparator);
+    if (lSeparatorPositionBegin == std::string::npos) {
+        throw(Errors::InvalidPaymentAddress());
+    }
+
+    oAddress = pPaymentAddress.substr(0, lSeparatorPositionBegin);
+
+    size_t lSeparatorPositionEnd = lSeparatorPositionBegin + cPaymentAddressSeparator.size();
+    oPaymentId = pPaymentAddress.substr(lSeparatorPositionEnd);
+
+    return true;
+}
+
 const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter) 
 {
 

@@ -64,6 +64,15 @@ namespace Monero {
 
         };
 
+        class InvalidPaymentAddress: public std::exception
+        {
+        public: 
+            virtual const char* what() const throw()
+            {
+                return "Payment Address should be composed of <address><separator><payment_id>";
+            }
+
+        };
 
         class InvalidPaymentID: public std::exception
         {
@@ -74,7 +83,7 @@ namespace Monero {
             }
 
         };
-        
+
 
         class InvalidNonce: public std::exception
         {
