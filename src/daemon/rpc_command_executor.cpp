@@ -159,7 +159,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response res;
 
-  if (rpc_request(req, res, "/json_rpc/getblockheadersrange", "Unsuccessful"))
+  if (json_rpc_request(req, res, "getblockheadersrange", "Unsuccessful"))
   {
     for (auto & header : res.headers)
     {
@@ -198,7 +198,7 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
 
   req.hash = epee::string_tools::pod_to_hex(block_hash);
 
-  if (rpc_request(req, res, "/json_rpc/getblockheaderbyhash", "Unsuccessful"))
+  if (json_rpc_request(req, res, "getblockheaderbyhash", "Unsuccessful"))
   {
     print_block_header(res.block_header);
     return true;
@@ -213,7 +213,7 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
 
   req.height = height;
 
-  if (rpc_request(req, res, "/json_rpc/getblockheaderbyheight", "Unsuccessful"))
+  if (json_rpc_request(req, res, "getblockheaderbyheight", "Unsuccessful"))
   {
     print_block_header(res.block_header);
     return true;
@@ -309,6 +309,35 @@ bool t_rpc_command_executor::stop_mining() {
   bool ok = rpc_request(req, res, "/stop_mining", "Mining did not stop");
   if (ok) tools::success_msg_writer() << "Mining stopped";
   return ok;
+}
+
+template <typename T_req, typename T_res>
+bool t_rpc_command_executor::json_rpc_request(
+    T_req & req
+  , T_res & res
+  , std::string const & method_name
+  , std::string const & fail_msg
+  )
+{
+  std::string rpc_url = "http://" + m_rpc_host_ip_str + ":" + m_rpc_host_port_str + "/json_rpc";
+  t_http_connection connection(mp_http_client.get(), m_rpc_host_ip_str, m_rpc_host_port_str);
+
+  bool ok = connection.is_open();
+  ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, *mp_http_client);
+  if (!ok)
+  {
+    tools::fail_msg_writer() << "Couldn't connect to daemon";
+    return false;
+  }
+  else if (res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
+  {
+    tools::fail_msg_writer() << fail_msg << " -- " << res.status;
+    return false;
+  }
+  else
+  {
+    return true;
+  }
 }
 
 template <typename T_req, typename T_res>

@@ -59,6 +59,14 @@ public:
 
 private:
   template <typename T_req, typename T_res>
+  bool json_rpc_request(
+      T_req & req
+    , T_res & res
+    , std::string const & method_name
+    , std::string const & fail_msg
+    );
+
+  template <typename T_req, typename T_res>
   bool rpc_request(
       T_req & req
     , T_res & res
