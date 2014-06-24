@@ -63,7 +63,6 @@ private:
       T_req & request
     , T_res & response
     , std::string const & relative_url
-    , std::string const & success_msg
     , std::string const & fail_msg
     );
 };

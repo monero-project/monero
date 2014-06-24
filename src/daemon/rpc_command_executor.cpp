@@ -48,8 +48,17 @@ bool t_rpc_command_executor::hide_hash_rate() {
 }
 
 bool t_rpc_command_executor::show_difficulty() {
-  std::cout << "show difficulty" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_GET_INFO::request req;
+  cryptonote::COMMAND_RPC_GET_INFO::response res;
+
+  bool ok = rpc_request(req, res, "/getinfo", "Problem fetching info");
+  if (ok)
+  {
+    tools::success_msg_writer() <<   "BH: " << res.height
+                                << ", DIFF: " << res.difficulty
+                                << ", HR: " << (int) res.difficulty / 60L << " H/s";
+  }
+  return ok;
 }
 
 bool t_rpc_command_executor::print_connections() {
@@ -98,14 +107,18 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
   req.miner_address = cryptonote::get_account_address_as_str(address);
   req.threads_count = num_threads;
 
-  return rpc_request(req, res, "/start_mining", "Mining started", "Mining did not start");
+  bool ok = rpc_request(req, res, "/start_mining", "Mining did not start");
+  if (ok) tools::success_msg_writer() << "Mining started";
+  return ok;
 }
 
 bool t_rpc_command_executor::stop_mining() {
   cryptonote::COMMAND_RPC_STOP_MINING::request req;
   cryptonote::COMMAND_RPC_STOP_MINING::response res;
 
-  return rpc_request(req, res, "/stop_mining", "Mining stopped", "Mining did not stop");
+  bool ok = rpc_request(req, res, "/stop_mining", "Mining did not stop");
+  if (ok) tools::success_msg_writer() << "Mining stopped";
+  return ok;
 }
 
 template <typename T_req, typename T_res>
@@ -113,7 +126,6 @@ bool t_rpc_command_executor::rpc_request(
     T_req & request
   , T_res & response
   , std::string const & relative_url
-  , std::string const & success_msg
   , std::string const & fail_msg
   )
 {
@@ -127,15 +139,14 @@ bool t_rpc_command_executor::rpc_request(
     tools::fail_msg_writer() << "Couldn't connect to daemon";
     return false;
   }
-  else if (response.status == CORE_RPC_STATUS_OK)
-  {
-    tools::success_msg_writer() << success_msg;
-    return true;
-  }
-  else
+  else if (response.status != CORE_RPC_STATUS_OK)
   {
     tools::fail_msg_writer() << fail_msg << " -- " << response.status;
     return false;
+  }
+  else
+  {
+    return true;
   }
 }
 
