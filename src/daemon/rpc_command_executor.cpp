@@ -159,6 +159,9 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response res;
 
+  req.start_height = start_block_index;
+  req.end_height = end_block_index;
+
   if (json_rpc_request(req, res, "getblockheadersrange", "Unsuccessful"))
   {
     for (auto & header : res.headers)
@@ -168,7 +171,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
                 << ", cumul_dif " << header.cumulative_difficulty
                 << ", cumul_size " << header.cumulative_size << std::endl
                 << "id " << header.hash << std::endl
-                << "difficulty" << header.difficulty
+                << "difficulty " << header.difficulty
                 << ", nonce " << header.nonce
                 << ", tx_count " << header.tx_count << std::endl;
     }
