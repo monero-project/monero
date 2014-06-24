@@ -169,7 +169,6 @@ const std::list<Payment> Wallet::getPayments(const std::string& pPaymentId) cons
 {
 
     crypto::hash lPaymentIdBytes;
-
     /* Parse payment ID */
     if (!tools::wallet2::parse_payment_id(pPaymentId, lPaymentIdBytes)) {
         throw(Errors::InvalidPaymentID());
@@ -494,16 +493,16 @@ bool canTransferPassFilter(const Transfer& pTransfer, GetIncomingTransfersFilter
 
 }
 
+const char cPaymentIdChars[] = "0123456789"
+                               "abcdef";
+
 /* From "C.."'s stackoverflow post : http://stackoverflow.com/a/12468109/1636977 */
-std::string random_string(size_t length)
+std::string random_hex_string(size_t length)
 {
     auto randchar = []() -> char
     {
-        const char charset[] =
-        "0123456789"
-        "abcdef";
-        const size_t max_index = (sizeof(charset) - 1);
-        return charset[ rand() % max_index ];
+        const size_t max_index = (sizeof(cPaymentIdChars) - 1);
+        return cPaymentIdChars[ rand() % max_index ];
     };
     std::string str(length,0);
     std::generate_n( str.begin(), length, randchar );
@@ -511,7 +510,7 @@ std::string random_string(size_t length)
 }
 
 const std::string Wallet::generatePaymentId() {
-    return random_string(64);
+    return random_hex_string(64);
 }
 
 
@@ -535,7 +534,7 @@ const std::string Wallet::concatenatePaymentAddress(const std::string& pAddress,
     return lPaymentAddress;
 }
 
-bool Wallet::extractPaymentAndAddress(const std::string& pPaymentAddress, std::string& oAddress, std::string& oPaymentId) {
+void Wallet::extractPaymentAndAddress(const std::string& pPaymentAddress, std::string& oAddress, std::string& oPaymentId) {
 
     if (pPaymentAddress.size() != cAddressSize + cPaymentIdSize + cPaymentAddressSeparator.size()) {
         throw(Errors::InvalidPaymentAddress());
@@ -547,11 +546,17 @@ bool Wallet::extractPaymentAndAddress(const std::string& pPaymentAddress, std::s
     }
 
     oAddress = pPaymentAddress.substr(0, lSeparatorPositionBegin);
+    if (!isValidAddress(oAddress)) {
+        throw(Errors::InvalidPaymentAddress());
+    }
 
     size_t lSeparatorPositionEnd = lSeparatorPositionBegin + cPaymentAddressSeparator.size();
     oPaymentId = pPaymentAddress.substr(lSeparatorPositionEnd);
 
-    return true;
+    if (!isValidPaymentId(oPaymentId)) {
+        throw(Errors::InvalidPaymentAddress());
+    }
+ 
 }
 
 const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter) 
@@ -568,6 +573,18 @@ const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>&
 
     return lFilteredTransfers;
 
+}
+
+bool Wallet::isValidAddress(const std::string& pAddress) {
+    /* Trusts Monero Core for address checking */
+    cryptonote::tx_destination_entry lDestEntry;
+    return get_account_address_from_str(lDestEntry.addr, pAddress);
+}
+
+bool Wallet::isValidPaymentId(const std::string& pPaymentId) {
+    /* Trusts (partially) Monero Core for payment ID checking */
+    crypto::hash lPaymentIdBytes;
+    return pPaymentId.find_first_not_of(cPaymentIdChars) == std::string::npos && tools::wallet2::parse_payment_id(pPaymentId, lPaymentIdBytes);
 }
 
 

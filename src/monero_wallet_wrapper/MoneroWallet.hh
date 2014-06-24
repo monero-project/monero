@@ -492,12 +492,23 @@ public:
     /**
     * @brief Experimental : Concatenates address and payment id for unified displaying
     *
-    * @throw Errors::InvalidAddress
-    * @throw Errors::InvalidPaymentID
+    * @throws Errors::InvalidAddress
+    * @throws Errors::InvalidPaymentID
     */
     static const std::string concatenatePaymentAddress(const std::string& pAddress, const std::string& pPaymentId);
 
-    static bool extractPaymentAndAddress(const std::string& pPaymentAddress, std::string& oAddress, std::string& oPaymentId);
+    /**
+    * @brief Experimental : Extracts Address and Payment ID from PaymentAddress string
+    *
+    * @throws Errors::InvalidPaymentAddress
+    *
+    */
+    static void extractPaymentAndAddress(const std::string& pPaymentAddress, std::string& oAddress, std::string& oPaymentId);
+
+
+    static bool isValidAddress(const std::string& pAddress);
+    static bool isValidPaymentId(const std::string& pPaymentId);
+    // static bool isValidPaymentAddress(const std::string& pPaymentAddress);
 
 private:
     tools::wallet2* wallet_impl;
