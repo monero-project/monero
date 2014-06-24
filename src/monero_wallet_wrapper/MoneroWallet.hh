@@ -462,6 +462,14 @@ public:
     static amount_mini_t moneroToMini(amount_t pAmount);
 
     /**
+    * @brief Generates a new payment ID.
+    * You should check duplicates if you are generating many Payment ID (if you find duplicate, please play lottery)
+    *
+    * @return A generated 64 hex-char payment ID.
+    */
+    static const std::string generatePaymentId();
+
+    /**
     * @brief Get gets the default (a minimal) fee in Mini 
     *
     * @returns  The default fee, in Mini.

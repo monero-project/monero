@@ -135,7 +135,6 @@ const std::vector<Transfer> Wallet::getIncomingTransfers(GetIncomingTransfersFil
 
     if (transfers_cache.size() != wallet_impl->get_transfers_count()) {
         
-        /* TODO : Throw exception */
         tools::wallet2::transfer_container lIncomingTransfers;   
         wallet_impl->get_transfers(lIncomingTransfers);
 
@@ -301,10 +300,9 @@ void Wallet::setObserver(WalletObserver* pObserver) {
 }
 
 
-/**********/
-/* STATIC */
-/**********/
-
+/***************/
+/* STATIC ZONE */
+/***************/
 
 static size_t default_fake_output_count = 0;
 
@@ -333,7 +331,6 @@ bool Wallet::walletExists(const std::string pWalletFile, bool& oWallet_data_exis
 
 }
 
-// trim from end
 static inline std::string& rtrim(std::string& s) {
         s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
         return s;
@@ -488,7 +485,28 @@ bool canTransferPassFilter(const Transfer& pTransfer, GetIncomingTransfersFilter
 
 }
 
-const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter) {
+/* From "C.."'s stackoverflow post : http://stackoverflow.com/a/12468109/1636977 */
+std::string random_string(size_t length)
+{
+    auto randchar = []() -> char
+    {
+        const char charset[] =
+        "0123456789"
+        "abcdef";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    std::string str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    return str;
+}
+
+const std::string Wallet::generatePaymentId() {
+    return random_string(64);
+}
+
+const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>& pTransfers, GetIncomingTransfersFilter pFilter) 
+{
 
     std::vector<Transfer> lFilteredTransfers;
     for (const Transfer& lTransfer : pTransfers) {
@@ -504,10 +522,12 @@ const std::vector<Transfer> Wallet::fitlerTransfers(const std::vector<Transfer>&
 }
 
 
-amount_t Wallet::miniToMonero(amount_mini_t pAmountMini) {
+amount_t Wallet::miniToMonero(amount_mini_t pAmountMini) 
+{
     return pAmountMini * pow(10,-12);
 }
 
-amount_mini_t Wallet::moneroToMini(amount_t pAmount) {
+amount_mini_t Wallet::moneroToMini(amount_t pAmount) 
+{
     return pAmount * pow(10,12);
 }
