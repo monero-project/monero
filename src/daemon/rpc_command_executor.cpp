@@ -1,6 +1,7 @@
 #include "string_tools.h"
 #include "storages/http_abstract_invoke.h"
 #include "common/scoped_message_writer.h"
+#include "daemon/http_connection.h"
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 
@@ -100,8 +101,11 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
   std::string daemon_port = std::to_string(m_rpc_host_port);
   std::string rpc_url = "http://" + daemon_ip + ":" + daemon_port + "/start_mining";
 
+  t_http_connection connection(mp_http_client.get(), daemon_ip, daemon_port);
+
   cryptonote::COMMAND_RPC_START_MINING::response res;
-  bool ok = epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, *mp_http_client);
+  bool ok = connection.is_open();
+  ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, *mp_http_client);
   if (!ok)
   {
     tools::fail_msg_writer() << "Couldn't connect to daemon.  Is it running?";
