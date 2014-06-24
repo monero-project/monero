@@ -154,6 +154,29 @@ int main(int argc, char* argv[])
     po::notify(vm);
   }
 
+  // Start with log level 0
+  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
+
+  // Add console logger if we're not forking
+  if (!command_line::arg_present(vm, arg_detach))
+  {
+    log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  }
+
+  // Set log level
+  {
+    int new_log_level = command_line::get_arg(vm, arg_log_level);
+    if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
+    {
+      LOG_PRINT_L0("Wrong log level value: " << new_log_level);
+    }
+    else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
+    {
+      log_space::get_set_log_detalisation_level(true, new_log_level);
+      LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
+    }
+  }
+
   // If there are positional options, we're running a daemon command
   if (command_line::arg_present(vm, arg_command))
   {
@@ -202,34 +225,16 @@ int main(int argc, char* argv[])
     log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
   }
 
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
 #ifndef WIN32
-  if (command_line::arg_present(vm, arg_detach)) {
+  if (command_line::arg_present(vm, arg_detach))
+  {
     std::cout << "forking to background..." << std::endl;
     posix_fork();
-  } else {
-    log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
   }
-#else
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
 #endif
 
   // Begin logging
   LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-
-  // Set log level
-  {
-    int new_log_level = command_line::get_arg(vm, arg_log_level);
-    if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
-    {
-      LOG_PRINT_L0("Wrong log level value: " << new_log_level);
-    }
-    else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
-    {
-      log_space::get_set_log_detalisation_level(true, new_log_level);
-      LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
-    }
-  }
 
   bool res = true;
   cryptonote::checkpoints checkpoints;
