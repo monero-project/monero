@@ -162,13 +162,52 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
 }
 
 bool t_rpc_command_executor::print_transaction_pool_long() {
-  std::cout << "print transaction pool long" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
+
+  if (rpc_request(req, res, "/get_transaction_pool", "Mining did not start"))
+  {
+    for (auto & tx_info : res.transactions)
+    {
+      tools::msg_writer() << "id: " << tx_info.id << std::endl
+                          << "blob_size: " << tx_info.blob_size << std::endl
+                          << "fee: " << tx_info.fee << std::endl
+                          << "kept_by_block: " << tx_info.kept_by_block << std::endl
+                          << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
+                          << "max_used_block_id: " << tx_info.max_used_block_id << std::endl
+                          << "last_failed_height: " << tx_info.last_failed_height << std::endl
+                          << "last_failed_id: " << tx_info.last_failed_id << std::endl;
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::print_transaction_pool_short() {
-  std::cout << "print transaction pool short" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
+
+  if (rpc_request(req, res, "/get_transaction_pool", "Mining did not start"))
+  {
+    for (auto & tx_info : res.transactions)
+    {
+      tools::msg_writer() << "id: " << tx_info.id << std::endl
+                          <<  tx_info.tx_json << std::endl
+                          << "blob_size: " << tx_info.blob_size << std::endl
+                          << "fee: " << tx_info.fee << std::endl
+                          << "kept_by_block: " << tx_info.kept_by_block << std::endl
+                          << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
+                          << "max_used_block_id: " << tx_info.max_used_block_id << std::endl
+                          << "last_failed_height: " << tx_info.last_failed_height << std::endl
+                          << "last_failed_id: " << tx_info.last_failed_id << std::endl;
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads) {
