@@ -548,6 +548,7 @@ namespace cryptonote
       std::vector<tx_info> transactions;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
         KV_SERIALIZE(transactions)
       END_KV_SERIALIZE_MAP()
     };
