@@ -12,6 +12,7 @@ file(GLOB_RECURSE CONN_TOOL connectivity_tool/*)
 file(GLOB_RECURSE WALLET wallet/*)
 file(GLOB_RECURSE MINER miner/*)
 file(GLOB_RECURSE MONERO_WALLET_WRAPPER monero_wallet_wrapper/*)
+file(GLOB_RECURSE MONERO_WALLET_WRAPPER_HEADERS monero_wallet_wrapper/*.hh)
 
 source_group(common FILES ${COMMON})
 source_group(crypto FILES ${CRYPTO})
@@ -54,3 +55,10 @@ set_property(TARGET common crypto cryptonote_core rpc wallet monerowallet PROPER
 set_property(TARGET daemon simplewallet connectivity_tool simpleminer PROPERTY FOLDER "prog")
 set_property(TARGET daemon PROPERTY OUTPUT_NAME "bitmonerod")
 
+INSTALL(TARGETS monerowallet
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)
+
+INSTALL(FILES ${MONERO_WALLET_WRAPPER_HEADERS} DESTINATION include/MoneroWallet)
