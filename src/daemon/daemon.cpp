@@ -154,29 +154,6 @@ int main(int argc, char* argv[])
     po::notify(vm);
   }
 
-  // Start with log level 0
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
-
-  // Add console logger if we're not forking
-  if (!command_line::arg_present(vm, arg_detach))
-  {
-    log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-  }
-
-  // Set log level
-  {
-    int new_log_level = command_line::get_arg(vm, arg_log_level);
-    if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
-    {
-      LOG_PRINT_L0("Wrong log level value: " << new_log_level);
-    }
-    else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
-    {
-      log_space::get_set_log_detalisation_level(true, new_log_level);
-      LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
-    }
-  }
-
   // If there are positional options, we're running a daemon command
   if (command_line::arg_present(vm, arg_command))
   {
@@ -201,6 +178,29 @@ int main(int argc, char* argv[])
     {
       std::cerr << "Unknown command" << std::endl;
       return 1;
+    }
+  }
+
+  // Start with log level 0
+  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
+
+  // Add console logger if we're not forking
+  if (!command_line::arg_present(vm, arg_detach))
+  {
+    log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  }
+
+  // Set log level
+  {
+    int new_log_level = command_line::get_arg(vm, arg_log_level);
+    if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
+    {
+      LOG_PRINT_L0("Wrong log level value: " << new_log_level);
+    }
+    else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
+    {
+      log_space::get_set_log_detalisation_level(true, new_log_level);
+      LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
     }
   }
 
