@@ -39,6 +39,8 @@ public:
   bool start_mining(const std::vector<std::string>& args);
 
   bool stop_mining(const std::vector<std::string>& args);
+
+  bool stop_daemon(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize

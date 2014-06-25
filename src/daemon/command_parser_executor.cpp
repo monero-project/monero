@@ -217,6 +217,15 @@ stop_mining(const std::vector<std::string>& args)
   return m_executor.stop_mining();
 }
 
+template <typename T_command_executor>
+bool t_command_parser_executor<T_command_executor>::
+stop_daemon(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+
+  return m_executor.stop_daemon();
+}
+
 template class t_command_parser_executor<t_interactive_command_executor>;
 template class t_command_parser_executor<t_rpc_command_executor>;
 

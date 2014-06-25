@@ -161,3 +161,8 @@ bool t_interactive_command_executor::stop_mining() {
   m_srv.get_payload_object().get_core().get_miner().stop();
   return true;
 }
+
+bool t_interactive_command_executor::stop_daemon() {
+  std::cout << "This is a stub!  The old interactive commands should go away once testing is complete!" << std::endl;
+  return true;
+}

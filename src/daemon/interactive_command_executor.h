@@ -46,6 +46,8 @@ public:
   bool start_mining(cryptonote::account_public_address address, uint64_t num_threads);
 
   bool stop_mining();
+
+  bool stop_daemon();
 };
 
 } // namespace daemonize

@@ -313,6 +313,18 @@ bool t_rpc_command_executor::stop_mining() {
   return true;
 }
 
+bool t_rpc_command_executor::stop_daemon()
+{
+  cryptonote::COMMAND_RPC_STOP_DAEMON::request req;
+  cryptonote::COMMAND_RPC_STOP_DAEMON::response res;
+
+  if (rpc_request(req, res, "/stop_daemon", "Daemon did not stop"))
+  {
+    tools::success_msg_writer() << "Stop signal sent";
+  }
+  return true;
+}
+
 template <typename T_req, typename T_res>
 bool t_rpc_command_executor::json_rpc_request(
     T_req & req

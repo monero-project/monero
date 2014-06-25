@@ -57,6 +57,8 @@ public:
 
   bool stop_mining();
 
+  bool stop_daemon();
+
 private:
   template <typename T_req, typename T_res>
   bool json_rpc_request(

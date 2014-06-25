@@ -90,6 +90,11 @@ t_command_server<T_command_executor>::t_command_server(
     , std::bind(&t_command_parser_executor<T_command_executor>::show_difficulty, &m_parser, p::_1)
     , "Show difficulty"
     );
+  m_command_lookup.set_handler(
+      "stop_daemon"
+    , std::bind(&t_command_parser_executor<T_command_executor>::stop_daemon, &m_parser, p::_1)
+    , "Stop the daemon"
+    );
 }
 
 template <typename T_command_executor>
