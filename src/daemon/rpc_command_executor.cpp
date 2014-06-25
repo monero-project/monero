@@ -157,15 +157,30 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
 }
 
 bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
-  std::cout << "print transaction" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
+
+  if (rpc_request(req, res, "/gettransactions", "Problem fetching transaction"))
+  {
+    if (1 == res.txs_as_hex.size())
+    {
+      tools::success_msg_writer() << res.txs_as_hex.front();
+      return true;
+    }
+    else
+    {
+      tools::fail_msg_writer() << "transaction wasn't found: <" << transaction_hash << '>' << std::endl;
+    }
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::print_transaction_pool_long() {
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
 
-  if (rpc_request(req, res, "/get_transaction_pool", "Mining did not start"))
+  if (rpc_request(req, res, "/get_transaction_pool", "Problem fetching transaction pool"))
   {
     for (auto & tx_info : res.transactions)
     {
