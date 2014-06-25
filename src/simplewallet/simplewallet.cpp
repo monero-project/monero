@@ -16,7 +16,6 @@
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "storages/http_abstract_invoke.h"
 #include "rpc/core_rpc_server_commands_defs.h"
-#include "wallet/wallet_rpc_server.h"
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "crypto/electrum-words.h"
@@ -1010,7 +1009,6 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
   command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );
-  tools::wallet_rpc_server::init_options(desc_params);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
@@ -1059,96 +1057,25 @@ int main(int argc, char* argv[])
     log_space::get_set_log_detalisation_level(true, command_line::get_arg(vm, arg_log_level));
   }
 
-  if(command_line::has_arg(vm, tools::wallet_rpc_server::arg_rpc_bind_port))
+  //runs wallet with console interface
+  r = w.init(vm);
+  CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet");
+
+  std::vector<std::string> command = command_line::get_arg(vm, arg_command);
+  if (!command.empty())
   {
-    log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
-    //runs wallet with rpc interface
-    if(!command_line::has_arg(vm, arg_wallet_file) )
-    {
-      LOG_ERROR("Wallet file not set.");
-      return 1;
-    }
-    if(!command_line::has_arg(vm, arg_daemon_address) )
-    {
-      LOG_ERROR("Daemon address not set.");
-      return 1;
-    }
-    if(!command_line::has_arg(vm, arg_password) )
-    {
-      LOG_ERROR("Wallet password not set.");
-      return 1;
-    }
-
-    std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
-    std::string wallet_password = command_line::get_arg(vm, arg_password);
-    std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
-    std::string daemon_host = command_line::get_arg(vm, arg_daemon_host);
-    int daemon_port = command_line::get_arg(vm, arg_daemon_port);
-    if (daemon_host.empty())
-      daemon_host = "localhost";
-    if (!daemon_port)
-      daemon_port = RPC_DEFAULT_PORT;
-    if (daemon_address.empty())
-      daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
-
-    tools::wallet2 wal;
-    try
-    {
-      LOG_PRINT_L0("Loading wallet...");
-      wal.load(wallet_file, wallet_password);
-      wal.init(daemon_address);
-      wal.refresh();
-      LOG_PRINT_GREEN("Loaded ok", LOG_LEVEL_0);
-    }
-    catch (const std::exception& e)
-    {
-      LOG_ERROR("Wallet initialize failed: " << e.what());
-      return 1;
-    }
-    tools::wallet_rpc_server wrpc(wal);
-    bool r = wrpc.init(vm);
-    CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet rpc server");
-
-    tools::signal_handler::install([&wrpc, &wal] {
-      wrpc.send_stop_signal();
-      wal.store();
-    });
-    LOG_PRINT_L0("Starting wallet rpc server");
-    wrpc.run();
-    LOG_PRINT_L0("Stopped wallet rpc server");
-    try
-    {
-      LOG_PRINT_L0("Storing wallet...");
-      wal.store();
-      LOG_PRINT_GREEN("Stored ok", LOG_LEVEL_0);
-    }
-    catch (const std::exception& e)
-    {
-      LOG_ERROR("Failed to store wallet: " << e.what());
-      return 1;
-    }
-  }else
+    w.process_command(command);
+    w.stop();
+    w.deinit();
+  }
+  else
   {
-    //runs wallet with console interface
-    r = w.init(vm);
-    CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet");
-
-    std::vector<std::string> command = command_line::get_arg(vm, arg_command);
-    if (!command.empty())
-    {
-      w.process_command(command);
+    tools::signal_handler::install([&w] {
       w.stop();
-      w.deinit();
-    }
-    else
-    {
-      tools::signal_handler::install([&w] {
-        w.stop();
-      });
-      w.run();
+    });
+    w.run();
 
-      w.deinit();
-    }
+    w.deinit();
   }
   return 0;
   //CATCH_ENTRY_L0("main", 1);
