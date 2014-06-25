@@ -242,6 +242,10 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
 
   if (rpc_request(req, res, "/get_transaction_pool", "Problem fetching transaction pool"))
   {
+    if (res.transactions.empty())
+    {
+      tools::msg_writer() << "Pool is empty" << std::endl;
+    }
     for (auto & tx_info : res.transactions)
     {
       tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
@@ -266,6 +270,10 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   {
     for (auto & tx_info : res.transactions)
     {
+      if (res.transactions.empty())
+      {
+        tools::msg_writer() << "Pool is empty" << std::endl;
+      }
       tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
                           <<  tx_info.tx_json << std::endl
                           << "blob_size: " << tx_info.blob_size << std::endl
