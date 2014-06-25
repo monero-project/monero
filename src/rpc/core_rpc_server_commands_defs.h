@@ -562,6 +562,7 @@ namespace cryptonote
 
   struct tx_info
   {
+    crypto::hash id;
     std::string tx_json;
     size_t blob_size;
     uint64_t fee;
@@ -574,12 +575,14 @@ namespace cryptonote
 
     tx_info() = default;
 
-    tx_info(std::string tx_json, size_t blob_size, uint64_t fee
+    tx_info(
+          crypto::hash id, std::string tx_json, size_t blob_size, uint64_t fee
         , crypto::hash max_used_block_id, uint64_t max_used_block_height
         , bool kept_by_block, uint64_t last_failed_height
         , crypto::hash last_failed_id, time_t receive_time
         )
-      : tx_json(std::move(tx_json))
+      : id(std::move(id))
+      , tx_json(std::move(tx_json))
       , blob_size(blob_size)
       , fee(fee)
       , max_used_block_id(std::move(max_used_block_id))
@@ -590,6 +593,7 @@ namespace cryptonote
     {}
 
     BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_VAL_POD_AS_BLOB(id)
       KV_SERIALIZE(tx_json)
       KV_SERIALIZE(blob_size)
       KV_SERIALIZE(fee)

@@ -73,7 +73,7 @@ namespace cryptonote
     bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     std::string print_pool(bool short_format);
-    void each_transaction(std::function<void (tx_details &)> callback);
+    void each_transaction(std::function<void (crypto::hash const &, tx_details const &)> callback);
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/

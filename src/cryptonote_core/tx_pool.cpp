@@ -374,13 +374,14 @@ namespace cryptonote
     return ss.str();
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::each_transaction(std::function<void (tx_details &)> callback)
+  void tx_memory_pool::each_transaction(std::function<void (crypto::hash const &, tx_details const &)> callback)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     BOOST_FOREACH(transactions_container::value_type& txe,  m_transactions)
     {
-      tx_details& details = txe.second;
-      callback(details);
+      auto & id = txe.first;
+      auto & details = txe.second;
+      callback(id, details);
     }
   }
   //---------------------------------------------------------------------------------

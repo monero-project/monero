@@ -88,7 +88,7 @@ namespace cryptonote
      void print_blockchain(uint64_t start_index, uint64_t end_index);
      void print_blockchain_index();
      std::string print_pool(bool short_format);
-     void each_transaction(std::function<void (tx_memory_pool::tx_details &)> callback);
+     void each_transaction(std::function<void (crypto::hash const &, tx_memory_pool::tx_details const &)> callback);
 
      void print_blockchain_outs(const std::string& file);
      void on_synchronized();

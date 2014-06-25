@@ -502,7 +502,7 @@ namespace cryptonote
     return m_mempool.print_pool(short_format);
   }
   //-----------------------------------------------------------------------------------------------
-  void core::each_transaction(std::function<void (tx_memory_pool::tx_details &)> callback)
+  void core::each_transaction(std::function<void (crypto::hash const &, tx_memory_pool::tx_details const &)> callback)
   {
     m_mempool.each_transaction(callback);
   }
