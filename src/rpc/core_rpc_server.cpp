@@ -346,6 +346,7 @@ namespace cryptonote
       return false;
     }
   }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_set_log_level(const COMMAND_RPC_SET_LOG_LEVEL::request& req, COMMAND_RPC_SET_LOG_LEVEL::response& res, connection_context& cntx)
   {
     if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
@@ -358,6 +359,25 @@ namespace cryptonote
       epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
       return true;
     }
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res, connection_context& cntx)
+  {
+    CHECK_CORE_BUSY();
+    m_core.each_transaction([&res](tx_memory_pool::tx_details & details) {
+        res.transactions.emplace_back(
+            obj_to_json_str(details.tx)
+          , details.blob_size
+          , details.fee
+          , details.max_used_block_id
+          , details.max_used_block_height
+          , details.kept_by_block
+          , details.last_failed_height
+          , details.last_failed_id
+          , details.receive_time
+          );
+      });
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, connection_context& cntx)

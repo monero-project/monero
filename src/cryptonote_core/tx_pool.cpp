@@ -374,6 +374,16 @@ namespace cryptonote
     return ss.str();
   }
   //---------------------------------------------------------------------------------
+  void tx_memory_pool::each_transaction(std::function<void (tx_details &)> callback)
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    BOOST_FOREACH(transactions_container::value_type& txe,  m_transactions)
+    {
+      tx_details& details = txe.second;
+      callback(details);
+    }
+  }
+  //---------------------------------------------------------------------------------
   bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee)
   {
     // Warning: This function takes already_generated_

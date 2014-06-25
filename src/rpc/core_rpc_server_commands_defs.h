@@ -559,5 +559,66 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct tx_info
+  {
+    std::string tx_json;
+    size_t blob_size;
+    uint64_t fee;
+    crypto::hash max_used_block_id;
+    uint64_t max_used_block_height;
+    bool kept_by_block;
+    uint64_t last_failed_height;
+    crypto::hash last_failed_id;
+    time_t receive_time;
+
+    tx_info() = default;
+
+    tx_info(std::string tx_json, size_t blob_size, uint64_t fee
+        , crypto::hash max_used_block_id, uint64_t max_used_block_height
+        , bool kept_by_block, uint64_t last_failed_height
+        , crypto::hash last_failed_id, time_t receive_time
+        )
+      : tx_json(std::move(tx_json))
+      , blob_size(blob_size)
+      , fee(fee)
+      , max_used_block_id(std::move(max_used_block_id))
+      , kept_by_block(kept_by_block)
+      , last_failed_height(last_failed_height)
+      , last_failed_id(std::move(last_failed_id))
+      , receive_time(receive_time)
+    {}
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(tx_json)
+      KV_SERIALIZE(blob_size)
+      KV_SERIALIZE(fee)
+      KV_SERIALIZE_VAL_POD_AS_BLOB(max_used_block_id)
+      KV_SERIALIZE(max_used_block_height)
+      KV_SERIALIZE(kept_by_block)
+      KV_SERIALIZE(last_failed_height)
+      KV_SERIALIZE_VAL_POD_AS_BLOB(last_failed_id)
+      KV_SERIALIZE(receive_time)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_TRANSACTION_POOL
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<tx_info> transactions;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(transactions)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 
