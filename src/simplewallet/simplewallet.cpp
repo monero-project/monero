@@ -304,7 +304,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   try
   {
     recovery_val = m_wallet->generate(wallet_file, password, recovery_key, recover, two_random);
-    message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str() << std::endl << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+    tools::scoped_message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str() << std::endl << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   }
   catch (const std::exception& e)
   {
@@ -350,7 +350,7 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
   try
   {
     m_wallet->load(m_wallet_file, password);
-    message_writer(epee::log_space::console_color_white, true) << "Opened wallet: " << m_wallet->get_account().get_public_address_str();
+    tools::scoped_message_writer(epee::log_space::console_color_white, true) << "Opened wallet: " << m_wallet->get_account().get_public_address_str();
   }
   catch (const std::exception& e)
   {
@@ -487,7 +487,7 @@ void simple_wallet::on_new_block(uint64_t height, const cryptonote::block& block
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index)
 {
-  message_writer(epee::log_space::console_color_green, false) <<
+  tools::scoped_message_writer(epee::log_space::console_color_green, false) <<
     "Height " << height <<
     ", transaction " << get_transaction_hash(tx) <<
     ", received " << print_money(tx.vout[out_index].amount);
@@ -496,7 +496,7 @@ void simple_wallet::on_money_received(uint64_t height, const cryptonote::transac
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx)
 {
-  message_writer(epee::log_space::console_color_magenta, false) <<
+  tools::scoped_message_writer(epee::log_space::console_color_magenta, false) <<
     "Height " << height <<
     ", transaction " << get_transaction_hash(spend_tx) <<
     ", spent " << print_money(in_tx.vout[out_index].amount);
@@ -505,7 +505,7 @@ void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transactio
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
 {
-  message_writer(epee::log_space::console_color_red, true) <<
+  tools::scoped_message_writer(epee::log_space::console_color_red, true) <<
     "Height " << height <<
     ", transaction " << get_transaction_hash(tx) <<
     ", unsupported transaction format";
@@ -517,7 +517,7 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  message_writer() << "Starting refresh...";
+  tools::scoped_message_writer() << "Starting refresh...";
   size_t fetched_blocks = 0;
   bool ok = false;
   std::ostringstream ss;
@@ -606,10 +606,10 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
     {
       if (!transfers_found)
       {
-        message_writer() << "        amount       \tspent\tglobal index\t                              tx id";
+        tools::scoped_message_writer() << "        amount       \tspent\tglobal index\t                              tx id";
         transfers_found = true;
       }
-      message_writer(td.m_spent ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
+      tools::scoped_message_writer(td.m_spent ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
         std::setw(21) << print_money(td.amount()) << '\t' <<
         std::setw(3) << (td.m_spent ? 'T' : 'F') << "  \t" <<
         std::setw(12) << td.m_global_output_index << '\t' <<
@@ -644,7 +644,7 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
     return true;
   }
 
-  message_writer() << "                            payment                             \t" <<
+  tools::scoped_message_writer() << "                            payment                             \t" <<
     "                          transaction                           \t" <<
     "  height\t       amount        \tunlock time";
 
@@ -945,7 +945,7 @@ int main(int argc, char* argv[])
     log_space::log_singletone::get_default_log_file().c_str(),
     log_space::log_singletone::get_default_log_folder().c_str(), LOG_LEVEL_4);
 
-  message_writer(epee::log_space::console_color_white, true) << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+  tools::scoped_message_writer(epee::log_space::console_color_white, true) << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
 
   if(command_line::has_arg(vm, arg_log_level))
   {
