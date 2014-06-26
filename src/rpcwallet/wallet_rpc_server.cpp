@@ -36,7 +36,14 @@ namespace tools
   bool wallet_rpc_server::run()
   {
     m_net_server.add_idle_handler([this](){
-      m_wallet.refresh();
+      try
+      {
+        m_wallet.refresh();
+      }
+      catch(...)
+      {
+        LOG_PRINT_L0("\nError refreshing wallet balance, possible lost connection to daemon.");
+      }
       return true;
     }, 20000);
 
@@ -456,13 +463,20 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("Loading wallet...");
     wal.load(wallet_file, wallet_password);
     wal.init(daemon_address);
-    wal.refresh();
     LOG_PRINT_GREEN("Loaded ok", LOG_LEVEL_0);
   }
   catch (const std::exception& e)
   {
     LOG_ERROR("Wallet initialize failed: " << e.what());
     return 1;
+  }
+  try
+  {
+    wal.refresh();
+  }
+  catch(...)
+  {
+    LOG_PRINT_L0("\nError refreshing wallet, possible lost connection to daemon.");
   }
   tools::wallet_rpc_server wrpc(wal);
 
