@@ -18,6 +18,7 @@
 
 #include "warnings.h"
 #include "net/levin_server_cp2.h"
+#include "connection_info.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "net_peerlist.h"
@@ -78,6 +79,7 @@ namespace nodetool
       );
     bool log_peerlist();
     bool log_connections();
+    std::vector<connection_info> get_connection_info();
     virtual uint64_t get_connections_count();
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
@@ -159,7 +161,6 @@ namespace nodetool
 
     //debug functions
     std::string print_connections_container();
-
 
     typedef epee::net_utils::boosted_tcp_server<epee::levin::async_protocol_handler<p2p_connection_context> > net_server;
 

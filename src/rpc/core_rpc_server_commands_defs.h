@@ -7,6 +7,7 @@
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/difficulty.h"
 #include "crypto/hash.h"
+#include "p2p/connection_info.h"
 
 namespace cryptonote
 {
@@ -621,6 +622,25 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(transactions)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_CONNECTIONS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<nodetool::connection_info> connections;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(connections)
       END_KV_SERIALIZE_MAP()
     };
   };

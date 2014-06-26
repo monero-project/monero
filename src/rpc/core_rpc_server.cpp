@@ -357,6 +357,7 @@ namespace cryptonote
     else
     {
       epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
+      res.status = CORE_RPC_STATUS_OK;
       return true;
     }
   }
@@ -378,6 +379,13 @@ namespace cryptonote
           , details.receive_time
           );
       });
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  bool core_rpc_server::on_get_connections(const COMMAND_RPC_GET_CONNECTIONS::request& req, COMMAND_RPC_GET_CONNECTIONS::response& res, connection_context& cntx)
+  {
+    res.connections = m_p2p.get_connection_info();
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
