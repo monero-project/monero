@@ -250,14 +250,14 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
   {
     for (auto & tx_info : res.transactions)
     {
-      tools::msg_writer() << "id: " << tx_info.id << std::endl
+      tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
                           << "blob_size: " << tx_info.blob_size << std::endl
                           << "fee: " << tx_info.fee << std::endl
                           << "kept_by_block: " << tx_info.kept_by_block << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                          << "max_used_block_id: " << tx_info.max_used_block_id << std::endl
+                          << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
                           << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                          << "last_failed_id: " << tx_info.last_failed_id << std::endl;
+                          << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
     }
 
     return true;
@@ -274,15 +274,15 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   {
     for (auto & tx_info : res.transactions)
     {
-      tools::msg_writer() << "id: " << tx_info.id << std::endl
+      tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
                           <<  tx_info.tx_json << std::endl
                           << "blob_size: " << tx_info.blob_size << std::endl
                           << "fee: " << tx_info.fee << std::endl
                           << "kept_by_block: " << tx_info.kept_by_block << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                          << "max_used_block_id: " << tx_info.max_used_block_id << std::endl
+                          << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
                           << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                          << "last_failed_id: " << tx_info.last_failed_id << std::endl;
+                          << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
     }
 
     return true;
