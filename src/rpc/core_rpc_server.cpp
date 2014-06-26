@@ -570,6 +570,7 @@ namespace cryptonote
     responce.hash = string_tools::pod_to_hex(hash);
     responce.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
     responce.reward = get_block_reward(blk);
+    responce.tx_count = blk.tx_hashes.size();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
