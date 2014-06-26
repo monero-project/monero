@@ -425,6 +425,14 @@ namespace cryptonote
         continue;
 
       // If adding this tx will make the block size
+      // greater than CRYPTONOTE_GETBLOCKTEMPLATE_MAX
+      // _BLOCK_SIZE bytes, reject the tx; this will 
+      // keep block sizes from becoming too unwieldly
+      // to propagate at 60s block times.
+      if ( (total_size + tx.second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
+        continue;
+
+      // If adding this tx will make the block size
       // greater than 130% of the median, reject the
       // tx; this will keep down largely punitive tx
       // from being included
