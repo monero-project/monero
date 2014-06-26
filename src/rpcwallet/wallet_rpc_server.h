@@ -10,6 +10,7 @@
 #include "wallet_rpc_server_commands_defs.h"
 #include "wallet/wallet2.h"
 #include "common/command_line.h"
+#include <ctime>
 namespace tools
 {
   /************************************************************************/
@@ -30,6 +31,11 @@ namespace tools
     bool init(const boost::program_options::variables_map& vm);
     bool run();
   private:
+
+    const static int STALE_WALLET_TIME = 600; // max allowed time without refresh
+
+    // check if the time since the last refresh is too long
+    bool check_time(epee::json_rpc::error& er);
 
     CHAIN_HTTP_TO_MAP2(connection_context); //forward http requests to uri map
 
@@ -60,5 +66,6 @@ namespace tools
       wallet2& m_wallet;
       std::string m_port;
       std::string m_bind_ip;
+      time_t m_last_refresh;
   };
 }

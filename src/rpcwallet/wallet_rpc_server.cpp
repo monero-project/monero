@@ -16,6 +16,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "common/util.h"
 #include "version.h"
+#include <ctime>
 #include <iostream>
 
 namespace tools
@@ -30,19 +31,42 @@ namespace tools
     command_line::add_arg(desc, arg_rpc_bind_port);
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w)
+  wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w), m_last_refresh(0)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
+
+  // check if the time since the last refresh is too long
+  bool wallet_rpc_server::check_time(epee::json_rpc::error& er)
+  {
+    if (difftime(time(NULL), m_last_refresh) > STALE_WALLET_TIME)
+    {
+      // try to refresh just in case a daemon has been started in between auto-refresh
+      try
+      {
+        m_wallet.refresh();
+        m_last_refresh = time(NULL);
+      }
+      catch(...)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_STALE_WALLET;
+        er.message = "Too much time has passed since the last successful refresh.  The wallet may not be able to connect to a running daemon.";
+        return false;
+      }
+    }
+    return true;
+  }
+
   bool wallet_rpc_server::run()
   {
     m_net_server.add_idle_handler([this](){
       try
       {
         m_wallet.refresh();
+        m_last_refresh = time(NULL); // if refresh successful, update last refresh time
       }
       catch(...)
       {
-        LOG_PRINT_L0("\nError refreshing wallet balance, possible lost connection to daemon.");
+        LOG_PRINT_L0("Error refreshing wallet balance, possible lost connection to daemon.");
       }
       return true;
     }, 20000);
@@ -68,6 +92,12 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
+    // return failure if balance is stale
+    if (!check_time(er))
+    {
+      return false;
+    }
+
     try
     {
       res.balance = m_wallet.balance();
@@ -144,6 +174,11 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_transfer(const wallet_rpc::COMMAND_RPC_TRANSFER::request& req, wallet_rpc::COMMAND_RPC_TRANSFER::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
+    // return failure if balance is stale
+    if (!check_time(er))
+    {
+      return false;
+    }
 
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
@@ -195,6 +230,11 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_transfer_split(const wallet_rpc::COMMAND_RPC_TRANSFER_SPLIT::request& req, wallet_rpc::COMMAND_RPC_TRANSFER_SPLIT::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
+    // return failure if balance is stale
+    if (!check_time(er))
+    {
+      return false;
+    }
 
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
@@ -257,6 +297,12 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_payments(const wallet_rpc::COMMAND_RPC_GET_PAYMENTS::request& req, wallet_rpc::COMMAND_RPC_GET_PAYMENTS::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
+    // return failure if balance is stale
+    if (!check_time(er))
+    {
+      return false;
+    }
+
     crypto::hash payment_id;
     cryptonote::blobdata payment_id_blob;
     if(!epee::string_tools::parse_hexstr_to_binbuff(req.payment_id, payment_id_blob))
@@ -293,6 +339,12 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_incoming_transfers(const wallet_rpc::COMMAND_RPC_INCOMING_TRANSFERS::request& req, wallet_rpc::COMMAND_RPC_INCOMING_TRANSFERS::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
+    // return failure if balance is stale
+    if (!check_time(er))
+    {
+      return false;
+    }
+
     if(req.transfer_type.compare("all") != 0 && req.transfer_type.compare("available") != 0 && req.transfer_type.compare("unavailable") != 0)
     {
       er.code = WALLET_RPC_ERROR_CODE_TRANSFER_TYPE;
@@ -476,7 +528,7 @@ int main(int argc, char* argv[])
   }
   catch(...)
   {
-    LOG_PRINT_L0("\nError refreshing wallet, possible lost connection to daemon.");
+    LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon.");
   }
   tools::wallet_rpc_server wrpc(wal);
 
