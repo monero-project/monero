@@ -1050,6 +1050,11 @@ bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash
   return true;
 }
 //------------------------------------------------------------------
+uint64_t blockchain_storage::block_cumulative_difficulty(size_t i)
+{
+  return m_blocks[i].cumulative_difficulty;
+}
+//------------------------------------------------------------------
 uint64_t blockchain_storage::block_difficulty(size_t i)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
