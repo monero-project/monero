@@ -686,4 +686,30 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_block_headers_range(const COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request& req, COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response& res, epee::json_rpc::error& error_resp, connection_context& cntx){
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+    if(m_core.get_current_blockchain_height() <= req.start_height)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
+      error_resp.message = std::string("To big height: ") + std::to_string(req.start_height) + ", current blockchain height = " +  std::to_string(m_core.get_current_blockchain_height());
+      return false;
+    }
+    if(m_core.get_current_blockchain_height() <= req.end_height)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
+      error_resp.message = std::string("To big height: ") + std::to_string(req.end_height) + ", current blockchain height = " +  std::to_string(m_core.get_current_blockchain_height());
+      return false;
+    }
+
+    res.headers = m_core.get_blockchain_storage().get_block_headers(req.start_height, req.end_height);
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }

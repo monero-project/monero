@@ -155,8 +155,26 @@ bool t_rpc_command_executor::print_connections() {
 }
 
 bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) {
-  std::cout << "print blockchain info" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request req;
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response res;
+
+  if (rpc_request(req, res, "/json_rpc/getblockheadersrange", "Unsuccessful"))
+  {
+    for (auto & header : res.headers)
+    {
+      std::cout << "height " << header.height
+                << ", timestamp " << header.timestamp
+                << ", cumul_dif " << header.cumulative_difficulty
+                << ", cumul_size " << header.cumulative_size << std::endl
+                << "id " << header.hash << std::endl
+                << "difficulty" << header.difficulty
+                << ", nonce " << header.nonce
+                << ", tx_count " << header.tx_count << std::endl;
+    }
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::set_log_level(int8_t level) {
