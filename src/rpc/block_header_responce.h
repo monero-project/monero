@@ -16,7 +16,7 @@ namespace cryptonote {
       std::string hash;
       uint64_t difficulty;
       uint64_t reward;
-      size_t tx_count;
+      uint64_t tx_count;
       uint64_t cumulative_difficulty;
 
       block_header_responce() = default;
@@ -33,7 +33,7 @@ namespace cryptonote {
         , std::string hash
         , uint64_t difficulty
         , uint64_t reward
-        , size_t tx_count
+        , uint64_t tx_count
         , uint64_t cumulative_difficulty
         )
         : major_version(major_version)
