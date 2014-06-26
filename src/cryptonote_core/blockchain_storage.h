@@ -108,6 +108,7 @@ namespace cryptonote
     uint64_t get_current_comulative_blocksize_limit();
     bool is_storing_blockchain(){return m_is_blockchain_storing;}
     uint64_t block_cumulative_difficulty(size_t i);
+    uint64_t block_cumulative_size(size_t i);
     uint64_t block_difficulty(size_t i);
     std::vector<block_header_responce> get_block_headers(uint64_t start_index, uint64_t end_index);
 

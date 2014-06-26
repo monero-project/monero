@@ -1055,6 +1055,11 @@ uint64_t blockchain_storage::block_cumulative_difficulty(size_t i)
   return m_blocks[i].cumulative_difficulty;
 }
 //------------------------------------------------------------------
+uint64_t blockchain_storage::block_cumulative_size(size_t i)
+{
+  return m_blocks[i].block_cumulative_size;
+}
+//------------------------------------------------------------------
 uint64_t blockchain_storage::block_difficulty(size_t i)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1093,6 +1098,7 @@ std::vector<block_header_responce> blockchain_storage::get_block_headers(uint64_
         , reward
         , blk.tx_hashes.size()
         , block_info.cumulative_difficulty
+        , block_info.block_cumulative_size
       );
     }
   }

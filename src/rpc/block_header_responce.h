@@ -18,6 +18,7 @@ namespace cryptonote {
       uint64_t reward;
       uint64_t tx_count;
       uint64_t cumulative_difficulty;
+      uint64_t cumulative_size;
 
       block_header_responce() = default;
 
@@ -35,6 +36,7 @@ namespace cryptonote {
         , uint64_t reward
         , uint64_t tx_count
         , uint64_t cumulative_difficulty
+        , uint64_t cumulative_size
         )
         : major_version(major_version)
         , minor_version(minor_version)
@@ -49,6 +51,7 @@ namespace cryptonote {
         , reward(reward)
         , tx_count(tx_count)
         , cumulative_difficulty(cumulative_difficulty)
+        , cumulative_size(cumulative_size)
       {}
 
       BEGIN_KV_SERIALIZE_MAP()
