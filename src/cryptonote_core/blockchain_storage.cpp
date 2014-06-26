@@ -1065,6 +1065,40 @@ uint64_t blockchain_storage::block_difficulty(size_t i)
   return m_blocks[i].cumulative_difficulty - m_blocks[i-1].cumulative_difficulty;
 }
 //------------------------------------------------------------------
+std::vector<block_header_responce> blockchain_storage::get_block_headers(uint64_t start_index, uint64_t end_index)
+{
+  std::vector<block_header_responce> result;
+  if(start_index < m_blocks.size() && end_index < m_blocks.size() && start_index < end_index)
+  {
+    for (auto i = start_index; i <= end_index; ++i)
+    {
+      auto & block_info = m_blocks[i];
+      auto & blk = block_info.bl;
+      uint64_t reward = 0;
+      for (auto & out : blk.miner_tx.vout)
+      {
+        reward += out.amount;
+      }
+      result.emplace_back(
+          blk.major_version
+        , blk.minor_version
+        , blk.timestamp
+        , string_tools::pod_to_hex(blk.prev_id)
+        , blk.nonce
+        , false
+        , i
+        , get_current_blockchain_height() - i - 1
+        , string_tools::pod_to_hex(get_block_hash(blk))
+        , block_difficulty(i)
+        , reward
+        , blk.tx_hashes.size()
+        , block_info.cumulative_difficulty
+      );
+    }
+  }
+  return result;
+}
+//------------------------------------------------------------------
 void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_index)
 {
   std::stringstream ss;
