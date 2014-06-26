@@ -18,6 +18,7 @@
 #include "cryptonote_basic_impl.h"
 #include "verification_context.h"
 #include "crypto/hash.h"
+#include "rpc/tx_info.h"
 
 
 namespace cryptonote
@@ -73,7 +74,7 @@ namespace cryptonote
     bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     std::string print_pool(bool short_format);
-    void each_transaction(std::function<void (crypto::hash const &, tx_details const &)> callback);
+    std::vector<tx_info> pool_info();
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/

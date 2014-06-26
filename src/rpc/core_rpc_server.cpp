@@ -365,20 +365,7 @@ namespace cryptonote
   bool core_rpc_server::on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res, connection_context& cntx)
   {
     CHECK_CORE_BUSY();
-    m_core.each_transaction([&res](crypto::hash const & id, tx_memory_pool::tx_details const & details) {
-        res.transactions.emplace_back(
-            string_tools::pod_to_hex(id)
-          , obj_to_json_str(const_cast<transaction &>(details.tx)) // The serialization macros do not handle const correctness
-          , details.blob_size
-          , details.fee
-          , string_tools::pod_to_hex(details.max_used_block_id)
-          , details.max_used_block_height
-          , details.kept_by_block
-          , details.last_failed_height
-          , string_tools::pod_to_hex(details.last_failed_id)
-          , details.receive_time
-          );
-      });
+    res.transactions = m_core.transaction_pool_info();
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
