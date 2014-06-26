@@ -571,6 +571,7 @@ namespace cryptonote
     responce.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
     responce.reward = get_block_reward(blk);
     responce.tx_count = blk.tx_hashes.size();
+    responce.cumulative_difficulty = m_core.get_blockchain_storage().block_cumulative_difficulty(height);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

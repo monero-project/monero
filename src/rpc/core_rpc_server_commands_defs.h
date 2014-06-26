@@ -399,6 +399,7 @@ namespace cryptonote
       difficulty_type difficulty;
       uint64_t reward;
       size_t tx_count;
+      uint64_t cumulative_difficulty;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(major_version)
@@ -413,6 +414,7 @@ namespace cryptonote
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(reward)
         KV_SERIALIZE(tx_count)
+        KV_SERIALIZE(cumulative_difficulty)
       END_KV_SERIALIZE_MAP()
   };
 
