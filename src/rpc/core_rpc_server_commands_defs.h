@@ -8,8 +8,8 @@
 #include "cryptonote_core/difficulty.h"
 #include "crypto/hash.h"
 #include "rpc/block_header_responce.h"
+#include "rpc/connection_info.h"
 #include "rpc/tx_info.h"
-#include "p2p/connection_info.h"
 
 namespace cryptonote
 {

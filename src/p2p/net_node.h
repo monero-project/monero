@@ -18,7 +18,6 @@
 
 #include "warnings.h"
 #include "net/levin_server_cp2.h"
-#include "connection_info.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "net_peerlist.h"
@@ -26,6 +25,7 @@
 #include "math_helper.h"
 #include "net_node_common.h"
 #include "common/command_line.h"
+#include "rpc/connection_info.h"
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
