@@ -165,8 +165,27 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
 }
 
 bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
-  std::cout << "print block by height" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req;
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response res;
+
+  req.height = height;
+
+  if (rpc_request(req, res, "/json_rpc/getblockheaderbyheight", "Unsuccessful"))
+  {
+    tools::success_msg_writer()
+      << "timestamp: " << boost::lexical_cast<std::string>(res.block_header.timestamp) << std::endl
+      << "previous hash: " << res.block_header.prev_hash << std::endl
+      << "nonce: " << boost::lexical_cast<std::string>(res.block_header.nonce) << std::endl
+      << "is orphan: " << res.block_header.orphan_status << std::endl
+      << "height: " << boost::lexical_cast<std::string>(res.block_header.height) << std::endl
+      << "depth: " << boost::lexical_cast<std::string>(res.block_header.depth) << std::endl
+      << "hash: " << res.block_header.hash
+      << "difficulty: " << boost::lexical_cast<std::string>(res.block_header.difficulty) << std::endl
+      << "reward: " << boost::lexical_cast<std::string>(res.block_header.reward);
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
