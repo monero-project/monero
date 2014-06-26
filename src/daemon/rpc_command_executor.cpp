@@ -14,10 +14,11 @@ namespace {
   {
     time_t now;
     time(&now);
+    time_t last_seen = static_cast<time_t>(peer.last_seen);
 
     std::string id_str;
     std::string port_str;
-    std::string elapsed = epee::misc_utils::get_time_interval_string(now - peer.last_seen);
+    std::string elapsed = epee::misc_utils::get_time_interval_string(now - last_seen);
     std::string ip_str = epee::string_tools::get_ip_string_from_int32(peer.ip);
     epee::string_tools::xtype_to_string(peer.id, id_str);
     epee::string_tools::xtype_to_string(peer.port, port_str);

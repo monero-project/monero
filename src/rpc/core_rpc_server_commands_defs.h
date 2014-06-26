@@ -455,11 +455,11 @@ namespace cryptonote
     uint64_t id;
     uint32_t ip;
     uint16_t port;
-    time_t last_seen;
+    uint64_t last_seen;
 
     peer() = default;
 
-    peer(uint64_t id, uint32_t ip, uint16_t port, time_t last_seen)
+    peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen)
       : id(id), ip(ip), port(port), last_seen(last_seen)
     {}
 
