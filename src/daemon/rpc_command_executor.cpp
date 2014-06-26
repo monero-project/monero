@@ -123,8 +123,21 @@ bool t_rpc_command_executor::show_difficulty() {
 }
 
 bool t_rpc_command_executor::print_connections() {
-  std::cout << "print connections" << std::endl;
-  return true;
+  cryptonote::COMMAND_RPC_GET_CONNECTIONS::request req;
+  cryptonote::COMMAND_RPC_GET_CONNECTIONS::response res;
+
+  if (rpc_request(req, res, "/get_connections", "Unsuccessful"))
+  {
+    for (auto & info : res.connections)
+    {
+      std::string address = epee::string_tools::get_ip_string_from_int32(info.ip) + ":" + boost::lexical_cast<std::string>(info.port);
+      std::string in_out = info.is_incoming ? "INC" : "OUT";
+      tools::msg_writer() << boost::format("%-25s peer_id: %-25s conn_id: %-25s %s") % address % info.peer_id % info.uuid % in_out;
+    }
+    return true;
+  }
+
+  return false;
 }
 
 bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) {
