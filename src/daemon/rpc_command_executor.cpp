@@ -24,6 +24,20 @@ namespace {
     std::string addr_str = ip_str + ":" + port_str;
     tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
   }
+
+  void print_block_header(cryptonote::block_header_responce const & header)
+  {
+    tools::success_msg_writer()
+      << "timestamp: " << boost::lexical_cast<std::string>(header.timestamp) << std::endl
+      << "previous hash: " << header.prev_hash << std::endl
+      << "nonce: " << boost::lexical_cast<std::string>(header.nonce) << std::endl
+      << "is orphan: " << header.orphan_status << std::endl
+      << "height: " << boost::lexical_cast<std::string>(header.height) << std::endl
+      << "depth: " << boost::lexical_cast<std::string>(header.depth) << std::endl
+      << "hash: " << header.hash
+      << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
+      << "reward: " << boost::lexical_cast<std::string>(header.reward);
+  }
 }
 
 t_rpc_command_executor::t_host_result t_rpc_command_executor::parse_host(
@@ -167,16 +181,7 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
 
   if (rpc_request(req, res, "/json_rpc/getblockheaderbyhash", "Unsuccessful"))
   {
-    tools::success_msg_writer()
-      << "timestamp: " << boost::lexical_cast<std::string>(res.block_header.timestamp) << std::endl
-      << "previous hash: " << res.block_header.prev_hash << std::endl
-      << "nonce: " << boost::lexical_cast<std::string>(res.block_header.nonce) << std::endl
-      << "is orphan: " << res.block_header.orphan_status << std::endl
-      << "height: " << boost::lexical_cast<std::string>(res.block_header.height) << std::endl
-      << "depth: " << boost::lexical_cast<std::string>(res.block_header.depth) << std::endl
-      << "hash: " << res.block_header.hash
-      << "difficulty: " << boost::lexical_cast<std::string>(res.block_header.difficulty) << std::endl
-      << "reward: " << boost::lexical_cast<std::string>(res.block_header.reward);
+    print_block_header(res.block_header);
     return true;
   }
 
@@ -191,16 +196,7 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
 
   if (rpc_request(req, res, "/json_rpc/getblockheaderbyheight", "Unsuccessful"))
   {
-    tools::success_msg_writer()
-      << "timestamp: " << boost::lexical_cast<std::string>(res.block_header.timestamp) << std::endl
-      << "previous hash: " << res.block_header.prev_hash << std::endl
-      << "nonce: " << boost::lexical_cast<std::string>(res.block_header.nonce) << std::endl
-      << "is orphan: " << res.block_header.orphan_status << std::endl
-      << "height: " << boost::lexical_cast<std::string>(res.block_header.height) << std::endl
-      << "depth: " << boost::lexical_cast<std::string>(res.block_header.depth) << std::endl
-      << "hash: " << res.block_header.hash
-      << "difficulty: " << boost::lexical_cast<std::string>(res.block_header.difficulty) << std::endl
-      << "reward: " << boost::lexical_cast<std::string>(res.block_header.reward);
+    print_block_header(res.block_header);
     return true;
   }
 
