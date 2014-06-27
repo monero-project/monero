@@ -60,7 +60,7 @@ namespace cryptonote
      bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<transaction>& txs, std::list<crypto::hash>& missed_txs);
      bool get_transaction(const crypto::hash &h, transaction &tx);
      bool get_block_by_hash(const crypto::hash &h, block &blk);
-     void get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid);
+     //void get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid);
 
      bool get_alternative_blocks(std::list<block>& blocks);
      size_t get_alternative_blocks_count();
@@ -71,13 +71,13 @@ namespace cryptonote
      bool get_pool_transactions(std::list<transaction>& txs);
      size_t get_pool_transactions_count();
      size_t get_blockchain_total_transactions();
-     bool get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys);
+     //bool get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys);
      bool have_block(const crypto::hash& id);
      bool get_short_chain_history(std::list<crypto::hash>& ids);
      bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp);
      bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count);
      bool get_stat_info(core_stat_info& st_inf);
-     bool get_backward_blocks_sizes(uint64_t from_height, std::vector<size_t>& sizes, size_t count);
+     //bool get_backward_blocks_sizes(uint64_t from_height, std::vector<size_t>& sizes, size_t count);
      bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs);
      crypto::hash get_tail_id();
      bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res);
