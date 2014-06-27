@@ -17,6 +17,13 @@ namespace serialization
     }
 
     template <typename Archive>
+    bool serialize_vector_element(Archive& ar, uint32_t& e)
+    {
+      ar.serialize_varint(e);
+      return true;
+    }
+
+    template <typename Archive>
     bool serialize_vector_element(Archive& ar, uint64_t& e)
     {
       ar.serialize_varint(e);
