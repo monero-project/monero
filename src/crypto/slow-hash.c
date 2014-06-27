@@ -350,7 +350,6 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     RDATA_ALIGN16 uint64_t a[2];
     RDATA_ALIGN16 uint64_t b[2];
     RDATA_ALIGN16 uint64_t c[2];
-    RDATA_ALIGN16 uint8_t aes_key[AES_KEY_SIZE];
     union cn_slow_hash_state state;
     __m128i _a, _b, _c;
     uint64_t hi, lo;
