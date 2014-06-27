@@ -130,7 +130,7 @@ namespace nodetool
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
         return false;
     }
-    else if (command_line::has_arg(vm, arg_p2p_add_priority_node))
+    if (command_line::has_arg(vm, arg_p2p_add_priority_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_priority_node, m_priority_peers))
         return false;
