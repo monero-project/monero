@@ -309,7 +309,8 @@ void wallet2::refresh(size_t & blocks_fetched, bool& received_money)
       else
       {
         LOG_ERROR("pull_blocks failed, try_count=" << try_count);
-        throw;
+        //throw;
+        return;
       }
     }
   }
