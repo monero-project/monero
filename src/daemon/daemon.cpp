@@ -11,8 +11,6 @@
 #include "daemon/rpc_command_executor.h"
 #include "daemon/console_command_thread.h"
 
-using namespace epee;
-
 #include <boost/program_options.hpp>
 #include <initializer_list>
 
@@ -53,7 +51,7 @@ namespace
 int main(int argc, char* argv[])
 {
 
-  string_tools::set_module_name_and_folder(argv[0]);
+  epee::string_tools::set_module_name_and_folder(argv[0]);
 #ifdef WIN32
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
 #endif
@@ -182,12 +180,12 @@ int main(int argc, char* argv[])
   }
 
   // Start with log level 0
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
+  epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
 
   // Add console logger if we're not forking
   if (!command_line::arg_present(vm, arg_detach))
   {
-    log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+    epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
   }
 
   // Set log level
@@ -197,9 +195,9 @@ int main(int argc, char* argv[])
     {
       LOG_PRINT_L0("Wrong log level value: " << new_log_level);
     }
-    else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
+    else if (epee::log_space::get_set_log_detalisation_level(false) != new_log_level)
     {
-      log_space::get_set_log_detalisation_level(true, new_log_level);
+      epee::log_space::get_set_log_detalisation_level(true, new_log_level);
       LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
     }
   }
@@ -217,12 +215,12 @@ int main(int argc, char* argv[])
     boost::system::error_code ec;
     if (!log_file_path.has_parent_path() || !bf::exists(log_file_path.parent_path(), ec))
     {
-      log_file_path = log_space::log_singletone::get_default_log_file();
+      log_file_path = epee::log_space::log_singletone::get_default_log_file();
     }
 
     std::string log_dir;
-    log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
-    log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
+    log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : epee::log_space::log_singletone::get_default_log_folder();
+    epee::log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
   }
 
 #ifndef WIN32
