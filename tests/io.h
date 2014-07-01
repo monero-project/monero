@@ -80,7 +80,7 @@ inline void get(std::istream &input, std::vector<char> &res) {
   }
 }
 
-#if !defined(_MSC_VER)
+#if !defined(_MSC_VER) || _MSC_VER >= 1800
 
 template<typename T, typename... TT>
 typename std::enable_if<(sizeof...(TT) > 0), void>::type
