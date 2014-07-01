@@ -414,7 +414,11 @@ namespace cryptonote
   
   struct COMMAND_RPC_GET_LAST_BLOCK_HEADER
   {
-    typedef std::list<std::string> request;
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
 
     struct response
     {
