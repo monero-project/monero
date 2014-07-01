@@ -81,24 +81,6 @@ namespace cryptonote
     return m_blockchain_storage.get_transactions(txs_ids, txs, missed_txs);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_transaction(const crypto::hash &h, transaction &tx)
-  {
-    std::vector<crypto::hash> ids;
-    ids.push_back(h);
-    std::list<transaction> ltx;
-    std::list<crypto::hash> missing;
-    if (m_blockchain_storage.get_transactions(ids, ltx, missing))
-    {
-      if (ltx.size() > 0)
-      {
-        tx = *ltx.begin();
-        return true;
-      }
-    }
-
-    return false;
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::get_alternative_blocks(std::list<block>& blocks)
   {
     return m_blockchain_storage.get_alternative_blocks(blocks);

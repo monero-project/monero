@@ -58,7 +58,6 @@ namespace cryptonote
      }
      crypto::hash get_block_id_by_height(uint64_t height);
      bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<transaction>& txs, std::list<crypto::hash>& missed_txs);
-     bool get_transaction(const crypto::hash &h, transaction &tx);
      bool get_block_by_hash(const crypto::hash &h, block &blk);
      //void get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid);
 
