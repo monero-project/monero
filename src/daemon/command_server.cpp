@@ -1,16 +1,16 @@
 #include "cryptonote_config.h"
 #include "version.h"
 #include "daemon/command_server.h"
-#include "daemon/rpc_command_executor.h"
 
 namespace daemonize {
 
 namespace p = std::placeholders;
 
 t_command_server::t_command_server(
-    t_rpc_command_executor && executor
-  ) :
-    m_parser(std::move(executor))
+    uint32_t ip
+  , uint16_t port
+  )
+  : m_parser(ip, port)
   , m_command_lookup()
 {
   m_command_lookup.set_handler(

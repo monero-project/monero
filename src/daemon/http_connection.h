@@ -13,12 +13,15 @@ public:
 
   t_http_connection(
       epee::net_utils::http::http_simple_client * p_http_client
-    , std::string const & daemon_ip
-    , std::string const & daemon_port
+    , uint32_t ip
+    , uint16_t port
     )
     : mp_http_client(p_http_client)
   {
-    m_ok = mp_http_client->connect(daemon_ip, daemon_port, TIMEOUT);
+    // TODO fix http client so that it accepts properly typed arguments
+    std::string ip_str = boost::lexical_cast<std::string>(ip);
+    std::string port_str = boost::lexical_cast<std::string>(port);
+    m_ok = mp_http_client->connect(ip_str, port_str, TIMEOUT);
   }
 
   ~t_http_connection()

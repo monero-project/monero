@@ -2,7 +2,6 @@
 
 #include "console_handler.h"
 #include "daemon/command_parser_executor.h"
-#include "daemon/rpc_command_executor.h"
 
 namespace daemonize {
 
@@ -12,7 +11,8 @@ private:
   epee::command_handler m_command_lookup;
 public:
   t_command_server(
-      t_rpc_command_executor && executor
+      uint32_t ip
+    , uint16_t port
     );
 
   bool process_command_str(const std::string& cmd);

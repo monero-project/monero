@@ -39,27 +39,27 @@ namespace {
       << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
       << "reward: " << boost::lexical_cast<std::string>(header.reward);
   }
+
+  std::string build_url(uint32_t host, uint16_t port, std::string const & relative_url)
+  {
+    std::string result =
+            "http://"
+           + boost::lexical_cast<std::string>(host)
+           + ":"
+           + boost::lexical_cast<std::string>(port)
+           + relative_url;
+    return result;
+  }
 }
 
-t_rpc_command_executor::t_host_result t_rpc_command_executor::parse_host(
-    std::string const & rpc_host_ip_str, std::string const & rpc_host_port_str)
-{
-  t_host_result result;
-
-  bool ip_ok = epee::string_tools::get_ip_int32_from_string(result.rpc_host_ip, rpc_host_ip_str);
-  bool port_ok = epee::string_tools::get_xtype_from_string(result.rpc_host_port, rpc_host_port_str);
-  result.ok = ip_ok && port_ok;
-
-  return result;
-}
-
-t_rpc_command_executor::t_rpc_command_executor(std::string && rpc_host_ip_str, std::string && rpc_host_port_str)
+t_rpc_command_executor::t_rpc_command_executor(
+    uint32_t ip
+  , uint16_t port
+  )
   : m_http_client()
-  , m_rpc_host_ip_str(std::move(rpc_host_ip_str))
-  , m_rpc_host_port_str(std::move(rpc_host_port_str))
+  , m_ip(ip)
+  , m_port(port)
 {}
-
-t_rpc_command_executor::t_rpc_command_executor(t_rpc_command_executor && other) = default;
 
 bool t_rpc_command_executor::print_peer_list() {
   cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
@@ -333,8 +333,8 @@ bool t_rpc_command_executor::json_rpc_request(
   , std::string const & fail_msg
   )
 {
-  std::string rpc_url = "http://" + m_rpc_host_ip_str + ":" + m_rpc_host_port_str + "/json_rpc";
-  t_http_connection connection(&m_http_client, m_rpc_host_ip_str, m_rpc_host_port_str);
+  std::string rpc_url = build_url(m_ip, m_port, "/json_rpc");
+  t_http_connection connection(&m_http_client, m_ip, m_port);
 
   bool ok = connection.is_open();
   ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
@@ -362,8 +362,8 @@ bool t_rpc_command_executor::rpc_request(
   , std::string const & fail_msg
   )
 {
-  std::string rpc_url = "http://" + m_rpc_host_ip_str + ":" + m_rpc_host_port_str + relative_url;
-  t_http_connection connection(&m_http_client, m_rpc_host_ip_str, m_rpc_host_port_str);
+  std::string rpc_url = build_url(m_ip, m_port, relative_url);
+  t_http_connection connection(&m_http_client, m_ip, m_port);
 
   bool ok = connection.is_open();
   ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, m_http_client);

@@ -8,7 +8,6 @@
 #include "include_base_utils.h"
 #include "version.h"
 #include "daemon/command_server.h"
-#include "daemon/rpc_command_executor.h"
 
 #include <boost/program_options.hpp>
 #include <initializer_list>
@@ -156,15 +155,20 @@ int main(int argc, char* argv[])
     auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
     auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
 
-    auto host = t_rpc_command_executor::parse_host(rpc_ip_str, rpc_port_str);
-    if (!host.ok)
+    uint32_t rpc_ip;
+    uint16_t rpc_port;
+    if (!epee::string_tools::get_xtype_from_string(rpc_ip, rpc_ip_str))
     {
-      std::cerr << "Invalid RPC host" << std::endl;
+      std::cerr << "Invalid IP" << std::endl;
+      return 1;
+    }
+    if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
+    {
+      std::cerr << "Invalid port" << std::endl;
       return 1;
     }
 
-    t_command_server<t_rpc_command_executor>
-      rpc_commands{t_rpc_command_executor{std::move(rpc_ip_str), std::move(rpc_port_str)}};
+    t_command_server rpc_commands{rpc_ip, rpc_port};
     if (rpc_commands.process_command_vec(command))
     {
       return 0;

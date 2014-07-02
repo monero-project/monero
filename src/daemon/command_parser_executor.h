@@ -9,9 +9,10 @@ class t_command_parser_executor final
 private:
   t_rpc_command_executor m_executor;
 public:
-  t_command_parser_executor(t_rpc_command_executor && executor) :
-      m_executor(std::move(executor))
-  {}
+  t_command_parser_executor(
+      uint32_t ip
+    , uint16_t port
+    );
 
   bool print_peer_list(const std::vector<std::string>& args);
 

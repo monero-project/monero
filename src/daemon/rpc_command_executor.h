@@ -11,21 +11,13 @@ namespace daemonize {
 class t_rpc_command_executor final {
 private:
   epee::net_utils::http::http_simple_client m_http_client;
-  std::string m_rpc_host_ip_str;
-  std::string m_rpc_host_port_str;
+  uint32_t m_ip;
+  uint16_t m_port;
 public:
-  struct t_host_result {
-    bool ok;
-    uint32_t rpc_host_ip;
-    uint16_t rpc_host_port;
-  };
-
-  static t_host_result parse_host(
-      std::string const & rpc_host_ip_str, std::string const & rpc_host_port_str);
-
-  t_rpc_command_executor(std::string && rpc_host_ip_str, std::string && rpc_host_port_str);
-
-  t_rpc_command_executor(t_rpc_command_executor && other);
+  t_rpc_command_executor(
+      uint32_t ip
+    , uint16_t port
+    );
 
   bool print_peer_list();
 
