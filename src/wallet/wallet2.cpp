@@ -149,6 +149,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
         payment.m_unlock_time  = tx.unlock_time;
         m_payments.emplace(payment_id, payment);
         LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
+        m_callback->on_payment_received(height, payment_id, payment);
       }
     }
   }
@@ -566,6 +567,11 @@ uint64_t wallet2::balance()
   return amount;
 }
 //----------------------------------------------------------------------------------------------------
+size_t wallet2::get_transfers_count() const 
+{
+  return m_transfers.size();
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::get_transfers(wallet2::transfer_container& incoming_transfers) const
 {
   incoming_transfers = m_transfers;
@@ -577,6 +583,16 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
   std::for_each(range.first, range.second, [&payments](const payment_container::value_type& x) {
     payments.push_back(x.second);
   });
+}
+//----------------------------------------------------------------------------------------------------
+size_t wallet2::get_payments_count() const 
+{
+  return m_payments.size(); 
+}
+//----------------------------------------------------------------------------------------------------
+const wallet2::payment_container wallet2::get_all_payments() const
+{
+  return m_payments;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_transfer_unlocked(const transfer_details& td) const
