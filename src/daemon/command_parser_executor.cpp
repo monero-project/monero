@@ -1,67 +1,58 @@
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "daemon/command_parser_executor.h"
-#include "daemon/interactive_command_executor.h"
-#include "daemon/rpc_command_executor.h"
 
 namespace daemonize {
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-print_peer_list(const std::vector<std::string>& args)
+t_command_parser_executor::t_command_parser_executor(
+    uint32_t ip
+  , uint16_t port
+  )
+  : m_executor(ip, port)
+{}
+
+bool t_command_parser_executor::print_peer_list(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.print_peer_list();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-save_blockchain(const std::vector<std::string>& args)
+bool t_command_parser_executor::save_blockchain(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.save_blockchain();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-show_hash_rate(const std::vector<std::string>& args)
+bool t_command_parser_executor::show_hash_rate(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.show_hash_rate();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-hide_hash_rate(const std::vector<std::string>& args)
+bool t_command_parser_executor::hide_hash_rate(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.hide_hash_rate();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-show_difficulty(const std::vector<std::string>& args)
+bool t_command_parser_executor::show_difficulty(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.show_difficulty();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-print_connections(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_connections(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.print_connections();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-print_blockchain_info(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_blockchain_info(const std::vector<std::string>& args)
 {
   if(!args.size())
   {
@@ -84,9 +75,7 @@ print_blockchain_info(const std::vector<std::string>& args)
   return m_executor.print_blockchain_info(start_index, end_index);
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-set_log_level(const std::vector<std::string>& args)
+bool t_command_parser_executor::set_log_level(const std::vector<std::string>& args)
 {
   if(args.size() != 1)
   {
@@ -110,9 +99,7 @@ set_log_level(const std::vector<std::string>& args)
   return m_executor.set_log_level(l);
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-print_block(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_block(const std::vector<std::string>& args)
 {
   if (args.empty())
   {
@@ -138,9 +125,7 @@ print_block(const std::vector<std::string>& args)
   return false;
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-print_transaction(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_transaction(const std::vector<std::string>& args)
 {
   if (args.empty())
   {
@@ -158,27 +143,21 @@ print_transaction(const std::vector<std::string>& args)
   return true;
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-print_transaction_pool_long(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_transaction_pool_long(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.print_transaction_pool_long();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-print_transaction_pool_short(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_transaction_pool_short(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.print_transaction_pool_short();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-start_mining(const std::vector<std::string>& args)
+bool t_command_parser_executor::start_mining(const std::vector<std::string>& args)
 {
   if(!args.size())
   {
@@ -208,25 +187,18 @@ start_mining(const std::vector<std::string>& args)
   return true;
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-stop_mining(const std::vector<std::string>& args)
+bool t_command_parser_executor::stop_mining(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.stop_mining();
 }
 
-template <typename T_command_executor>
-bool t_command_parser_executor<T_command_executor>::
-stop_daemon(const std::vector<std::string>& args)
+bool t_command_parser_executor::stop_daemon(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
   return m_executor.stop_daemon();
 }
-
-template class t_command_parser_executor<t_interactive_command_executor>;
-template class t_command_parser_executor<t_rpc_command_executor>;
 
 } // namespace daemonize

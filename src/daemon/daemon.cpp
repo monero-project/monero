@@ -9,7 +9,6 @@
 #include "version.h"
 #include "daemon/command_server.h"
 #include "daemon/rpc_command_executor.h"
-#include "daemon/console_command_thread.h"
 
 #include <boost/program_options.hpp>
 #include <initializer_list>
@@ -41,7 +40,6 @@ namespace
   const command_line::arg_descriptor<bool>        arg_os_version     = {"os-version", "OS for which this executable was compiled"};
   const command_line::arg_descriptor<std::string> arg_log_file       = {"log-file", "Specify log file.  This can either be an absolute path or a path relative to the data directory"};
   const command_line::arg_descriptor<int>         arg_log_level      = {"log-level", "", LOG_LEVEL_0};
-  const command_line::arg_descriptor<bool>        arg_console        = {"no-console", "Disable daemon console commands"};
 #ifndef WIN32
   const command_line::arg_descriptor<bool>        arg_detach         = {"detach", "Run as daemon"};
 #endif
@@ -78,7 +76,6 @@ int main(int argc, char* argv[])
 #endif
     command_line::add_arg(core_settings, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
     command_line::add_arg(core_settings, arg_log_level);
-    command_line::add_arg(core_settings, arg_console);
     // Add component-specific settings
     cryptonote::core::init_options(core_settings);
     cryptonote::core_rpc_server::init_options(core_settings);
@@ -247,7 +244,6 @@ int main(int argc, char* argv[])
   cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
   cprotocol.set_p2p_endpoint(&p2psrv);
   ccore.set_cryptonote_protocol(&cprotocol);
-  t_console_command_thread console_command_thread(p2psrv);
 
   //initialize objects
   LOG_PRINT_L0("Initializing p2p server...");
@@ -271,20 +267,12 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
   LOG_PRINT_L0("Core initialized OK");
 
-  // Start handling console input if requested and not detached
-  if(!command_line::arg_present(vm, arg_console) && !command_line::arg_present(vm, arg_detach))
-  {
-    LOG_PRINT_L0("Begin handling console input");
-    console_command_thread.start();
-  }
-
   LOG_PRINT_L0("Starting core rpc server...");
   res = rpc_server.run(2, false);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
   LOG_PRINT_L0("Core rpc server started ok");
 
-  tools::signal_handler::install([&console_command_thread, &p2psrv] {
-    console_command_thread.stop();
+  tools::signal_handler::install([&p2psrv] {
     p2psrv.send_stop_signal();
   });
 

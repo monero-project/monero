@@ -1,14 +1,15 @@
 #pragma once
 
+#include "daemon/rpc_command_executor.h"
+
 namespace daemonize {
 
-template <typename T_command_executor>
 class t_command_parser_executor final
 {
 private:
-  T_command_executor m_executor;
+  t_rpc_command_executor m_executor;
 public:
-  t_command_parser_executor(T_command_executor && executor) :
+  t_command_parser_executor(t_rpc_command_executor && executor) :
       m_executor(std::move(executor))
   {}
 
