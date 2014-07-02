@@ -54,7 +54,7 @@ t_rpc_command_executor::t_host_result t_rpc_command_executor::parse_host(
 }
 
 t_rpc_command_executor::t_rpc_command_executor(std::string && rpc_host_ip_str, std::string && rpc_host_port_str)
-  : mp_http_client(new epee::net_utils::http::http_simple_client())
+  : m_http_client()
   , m_rpc_host_ip_str(std::move(rpc_host_ip_str))
   , m_rpc_host_port_str(std::move(rpc_host_port_str))
 {}
@@ -334,10 +334,10 @@ bool t_rpc_command_executor::json_rpc_request(
   )
 {
   std::string rpc_url = "http://" + m_rpc_host_ip_str + ":" + m_rpc_host_port_str + "/json_rpc";
-  t_http_connection connection(mp_http_client.get(), m_rpc_host_ip_str, m_rpc_host_port_str);
+  t_http_connection connection(&m_http_client, m_rpc_host_ip_str, m_rpc_host_port_str);
 
   bool ok = connection.is_open();
-  ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, *mp_http_client);
+  ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
   if (!ok)
   {
     tools::fail_msg_writer() << "Couldn't connect to daemon";
@@ -363,10 +363,10 @@ bool t_rpc_command_executor::rpc_request(
   )
 {
   std::string rpc_url = "http://" + m_rpc_host_ip_str + ":" + m_rpc_host_port_str + relative_url;
-  t_http_connection connection(mp_http_client.get(), m_rpc_host_ip_str, m_rpc_host_port_str);
+  t_http_connection connection(&m_http_client, m_rpc_host_ip_str, m_rpc_host_port_str);
 
   bool ok = connection.is_open();
-  ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, *mp_http_client);
+  ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, m_http_client);
   if (!ok)
   {
     tools::fail_msg_writer() << "Couldn't connect to daemon";

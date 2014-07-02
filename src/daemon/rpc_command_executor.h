@@ -10,7 +10,7 @@ namespace daemonize {
 
 class t_rpc_command_executor final {
 private:
-  std::unique_ptr<epee::net_utils::http::http_simple_client> mp_http_client;
+  epee::net_utils::http::http_simple_client m_http_client;
   std::string m_rpc_host_ip_str;
   std::string m_rpc_host_port_str;
 public:
