@@ -45,7 +45,7 @@ public:
 
   bool print_transaction_pool_short();
 
-  bool start_mining(cryptonote::account_public_address address, size_t num_threads);
+  bool start_mining(cryptonote::account_public_address address, uint64_t num_threads);
 
   bool stop_mining();
 
