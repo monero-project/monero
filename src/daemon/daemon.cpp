@@ -184,10 +184,14 @@ int main(int argc, char* argv[])
   epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
 
   // Add console logger if we're not forking
+#ifdef WIN32
+  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+#else
   if (!command_line::arg_present(vm, arg_detach))
   {
     epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
   }
+#endif
 
   // Set log level
   {
