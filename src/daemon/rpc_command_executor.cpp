@@ -44,7 +44,7 @@ namespace {
   {
     std::string result =
             "http://"
-           + boost::lexical_cast<std::string>(host)
+           + epee::string_tools::get_ip_string_from_int32(host)
            + ":"
            + boost::lexical_cast<std::string>(port)
            + relative_url;

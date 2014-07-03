@@ -157,14 +157,14 @@ int main(int argc, char* argv[])
 
     uint32_t rpc_ip;
     uint16_t rpc_port;
-    if (!epee::string_tools::get_xtype_from_string(rpc_ip, rpc_ip_str))
+    if (!epee::string_tools::get_ip_int32_from_string(rpc_ip, rpc_ip_str))
     {
-      std::cerr << "Invalid IP" << std::endl;
+      std::cerr << "Invalid IP: " << rpc_ip_str << std::endl;
       return 1;
     }
     if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
     {
-      std::cerr << "Invalid port" << std::endl;
+      std::cerr << "Invalid port: " << rpc_port_str << std::endl;
       return 1;
     }
 

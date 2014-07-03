@@ -1,5 +1,6 @@
 #pragma once
 
+#include "string_tools.h"
 #include "net/http_client.h"
 
 namespace daemonize {
@@ -19,7 +20,7 @@ public:
     : mp_http_client(p_http_client)
   {
     // TODO fix http client so that it accepts properly typed arguments
-    std::string ip_str = boost::lexical_cast<std::string>(ip);
+    std::string ip_str = epee::string_tools::get_ip_string_from_int32(ip);
     std::string port_str = boost::lexical_cast<std::string>(port);
     m_ok = mp_http_client->connect(ip_str, port_str, TIMEOUT);
   }
