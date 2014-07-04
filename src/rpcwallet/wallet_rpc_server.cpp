@@ -412,6 +412,17 @@ namespace
   const command_line::arg_descriptor<uint32_t>      arg_log_level        = {"set_log", "", 0, true};
 }  // file-local namespace
 
+
+void print_version() 
+{
+  cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG << endl;
+}
+
+void print_usage()
+{
+  cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]" << endl;
+}
+
 int main(int argc, char* argv[])
 {
 #ifdef WIN32
@@ -445,13 +456,12 @@ int main(int argc, char* argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
-      cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]";
+      print_usage();
       return false;
     }
     else if (command_line::get_arg(vm, command_line::arg_version))
     {
-      cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+      print_version();
       return false;
     }
 
@@ -470,7 +480,7 @@ int main(int argc, char* argv[])
     log_space::log_singletone::get_default_log_file().c_str(),
     log_space::log_singletone::get_default_log_folder().c_str(), LOG_LEVEL_4);
 
-  cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+  print_version();
 
   if(command_line::has_arg(vm, arg_log_level))
   {
@@ -484,16 +494,19 @@ int main(int argc, char* argv[])
   if(!command_line::has_arg(vm, arg_wallet_file) )
   {
     LOG_ERROR("Wallet file not set.");
+    print_usage();
     return 1;
   }
   if(!command_line::has_arg(vm, arg_daemon_address) )
   {
     LOG_ERROR("Daemon address not set.");
+    print_usage();
     return 1;
   }
   if(!command_line::has_arg(vm, arg_password) )
   {
     LOG_ERROR("Wallet password not set.");
+    print_usage();
     return 1;
   }
 
