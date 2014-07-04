@@ -405,10 +405,11 @@ namespace po = boost::program_options;
 namespace
 {
   const command_line::arg_descriptor<std::string>   arg_wallet_file      = {"wallet-file", "Use wallet <arg>", ""};
+  const command_line::arg_descriptor<std::string>   arg_password         = {"password", "Wallet password", "", true};
   const command_line::arg_descriptor<std::string>   arg_daemon_address   = {"daemon-address", "Use daemon instance at <host>:<port>", ""};
   const command_line::arg_descriptor<std::string>   arg_daemon_host      = {"daemon-host", "Use daemon instance at host <arg> instead of localhost", ""};
   const command_line::arg_descriptor<int>           arg_daemon_port      = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
-  const command_line::arg_descriptor<std::string>   arg_password         = {"password", "Wallet password", "", true};
+  const command_line::arg_descriptor<std::string>   arg_rpc_bind_port    = {"rpc-bind-port", "Use port <arg> as RPC listening port"};
   const command_line::arg_descriptor<uint32_t>      arg_log_level        = {"set_log", "", 0, true};
 }  // file-local namespace
 
@@ -420,7 +421,7 @@ void print_version()
 
 void print_usage()
 {
-  cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]" << endl;
+  cout << "Usage: rpcwallet --wallet-file=<file> --wallet-password=<password> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]" << endl;
 }
 
 int main(int argc, char* argv[])
@@ -509,6 +510,12 @@ int main(int argc, char* argv[])
     print_usage();
     return 1;
   }
+  if(!command_line::has_arg(vm, arg_rpc_bind_port) )
+  {
+    LOG_ERROR("RPC bind port not set.");
+    print_usage();
+    return 1;
+  }
 
   std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
   std::string wallet_password = command_line::get_arg(vm, arg_password);
@@ -541,12 +548,15 @@ int main(int argc, char* argv[])
   }
   catch(...)
   {
-    LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon.");
+    LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon. Is 'bitmonerod' running ?");
     return 3;
   }
+
+  LOG_PRINT_L0("Initializing RPC server");
   tools::wallet_rpc_server wrpc(wal);
 
   CHECK_AND_ASSERT_MES(wrpc.init(vm), 1, "Failed to initialize wallet rpc server");
+  LOG_PRINT_L0("RPC server ready to start")
 
   tools::signal_handler::install([&wrpc, &wal] {
     wrpc.send_stop_signal();
