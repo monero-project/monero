@@ -533,7 +533,7 @@ int main(int argc, char* argv[])
   catch (const std::exception& e)
   {
     LOG_ERROR("Wallet initialize failed: " << e.what());
-    return 1;
+    return 2;
   }
   try
   {
@@ -542,6 +542,7 @@ int main(int argc, char* argv[])
   catch(...)
   {
     LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon.");
+    return 3;
   }
   tools::wallet_rpc_server wrpc(wal);
 
@@ -563,6 +564,6 @@ int main(int argc, char* argv[])
   catch (const std::exception& e)
   {
     LOG_ERROR("Failed to store wallet: " << e.what());
-    return 1;
+    return 4;
   }
 }
