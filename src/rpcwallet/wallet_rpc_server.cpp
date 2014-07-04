@@ -128,7 +128,7 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, const std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, const std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, uint64_t fee, epee::json_rpc::error& er)
   {
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
@@ -168,6 +168,13 @@ namespace tools
       }
 
     }
+
+    if (fee < DEFAULT_FEE) {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_TRANSFER_FEE;
+      er.message = "Fee value is too low. Minimal value is " + std::to_string(DEFAULT_FEE);
+      return false;    
+    }
+    
     return true;
   }
 
@@ -180,18 +187,23 @@ namespace tools
       return false;
     }
 
+    uint64_t effective_fee = req.fee;
+    if (effective_fee <= 0) {
+      effective_fee = DEFAULT_FEE;
+    }
+
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, effective_fee, er))
     {
       return false;
     }
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, effective_fee, extra);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -236,18 +248,23 @@ namespace tools
       return false;
     }
 
+    uint64_t effective_fee = req.fee;
+    if (effective_fee <= 0) {
+      effective_fee = DEFAULT_FEE;
+    }
+
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, effective_fee, er))
     {
       return false;
     }
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, effective_fee, extra);
 
       m_wallet.commit_tx(ptx_vector);
 
