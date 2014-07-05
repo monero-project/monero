@@ -10,9 +10,19 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdexcept>
+#include <string>
 #include <sys/stat.h>
 
 namespace daemonize {
+
+namespace {
+  void quit(std::string const & message)
+  {
+    LOG_ERROR(message);
+    throw std::runtime_error(message);
+  }
+}
 
 void posix_fork()
 {
@@ -32,8 +42,7 @@ void posix_fork()
     }
     else
     {
-      LOG_ERROR("First fork failed: %m");
-      exit(1);
+      quit("First fork failed");
     }
   }
 
@@ -47,8 +56,7 @@ void posix_fork()
   // directory avoids this problem.
   if (chdir("/") < 0)
   {
-    LOG_ERROR("Unable to change working directory to root");
-    exit(1);
+    quit("Unable to change working directory to root");
   }
 
   // The file mode creation mask is also inherited from the parent process.
@@ -65,8 +73,7 @@ void posix_fork()
     }
     else
     {
-      LOG_ERROR("Second fork failed");
-      exit(1);
+      quit("Second fork failed");
     }
   }
 
@@ -79,8 +86,7 @@ void posix_fork()
   // We don't want the daemon to have any standard input.
   if (open("/dev/null", O_RDONLY) < 0)
   {
-    LOG_ERROR("Unable to open /dev/null");
-    exit(1);
+    quit("Unable to open /dev/null");
   }
 
   // Send standard output to a log file.
@@ -89,15 +95,13 @@ void posix_fork()
   const mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   if (open(output, flags, mode) < 0)
   {
-    LOG_ERROR("Unable to open output file: " << output);
-    exit(1);
+    quit("Unable to open output file: " + std::string(output));
   }
 
   // Also send standard error to the same log file.
   if (dup(1) < 0)
   {
-    LOG_ERROR("Unable to dup output descriptor");
-    exit(1);
+    quit("Unable to dup output descriptor");
   }
 }
 
