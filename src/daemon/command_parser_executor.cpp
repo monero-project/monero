@@ -99,6 +99,13 @@ bool t_command_parser_executor::set_log_level(const std::vector<std::string>& ar
   return m_executor.set_log_level(l);
 }
 
+bool t_command_parser_executor::print_height(const std::vector<std::string>& args) 
+{
+  if (!args.empty()) return false;
+
+  return m_executor.print_height();
+}
+
 bool t_command_parser_executor::print_block(const std::vector<std::string>& args)
 {
   if (args.empty())

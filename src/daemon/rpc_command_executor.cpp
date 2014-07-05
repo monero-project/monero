@@ -189,6 +189,18 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
   return true;
 }
 
+bool t_rpc_command_executor::print_height() {
+  cryptonote::COMMAND_RPC_GET_HEIGHT::request req;
+  cryptonote::COMMAND_RPC_GET_HEIGHT::response res;
+
+  if (rpc_request(req, res, "/getheight", "Unsuccessful"))
+  {
+    tools::success_msg_writer() << boost::lexical_cast<std::string>(res.height);
+  }
+
+  return true;
+}
+
 bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response res;

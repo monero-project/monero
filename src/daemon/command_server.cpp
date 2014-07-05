@@ -19,6 +19,11 @@ t_command_server::t_command_server(
     , "Show this help"
     );
   m_command_lookup.set_handler(
+      "print_height"
+    , std::bind(&t_command_parser_executor::print_height, &m_parser, p::_1)
+    , "Print local blockchain height"
+    );
+  m_command_lookup.set_handler(
       "print_pl"
     , std::bind(&t_command_parser_executor::print_peer_list, &m_parser, p::_1)
     , "Print peer list"
