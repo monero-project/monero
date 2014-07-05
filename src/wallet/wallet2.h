@@ -9,7 +9,6 @@
 #include <boost/serialization/vector.hpp>
 #include <atomic>
 
-#include "include_base_utils.h"
 #include "cryptonote_core/account.h"
 #include "cryptonote_core/account_boost_serialization.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
@@ -29,14 +28,8 @@
 
 namespace tools
 {
-  class i_wallet2_callback
-  {
-  public:
-    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
-    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
-  };
+  class i_wallet2_callback;
+
 
   struct tx_dust_policy
   {
@@ -142,8 +135,11 @@ namespace tools
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra);
     bool check_connection();
+    size_t get_transfers_count() const;
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
+    size_t get_payments_count() const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments) const;
+    const payment_container get_all_payments() const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
@@ -200,6 +196,16 @@ namespace tools
     std::atomic<bool> m_run;
 
     i_wallet2_callback* m_callback;
+  };
+
+  class i_wallet2_callback
+  {
+  public:
+    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
+    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
+    virtual void on_payment_received(uint64_t height, const crypto::hash payment_id, const wallet2::payment_details& payment) {}
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)
