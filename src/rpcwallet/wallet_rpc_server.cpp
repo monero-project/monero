@@ -21,6 +21,18 @@ using namespace epee;
 
 namespace tools
 {
+
+  /* Removes '<' and '>' */
+  const std::string make_proper_tx_hash(const std::string& tx_hash_dirty)
+  {
+    
+    if (tx_hash_dirty.size() == 66) {
+      return tx_hash_dirty.substr(1,tx_hash_dirty.size()-2);
+    }
+    else {
+      throw(std::invalid_argument("Tx hash '" + tx_hash_dirty + "' is not a valid <hash>"));
+    }
+  }
   //-----------------------------------------------------------------------------------
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_port = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
@@ -218,10 +230,17 @@ namespace tools
       // populate response with tx hash
       const std::string tx_hash_dirty = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
       res.tx_hash = tx_hash_dirty;
-      /* tx_hash_proper removes '<' and '>' */
-      if (tx_hash_dirty.size() > 2) {
-        res.tx_hash_proper = tx_hash_dirty.substr(1,tx_hash_dirty.size()-2);
+      
+      try {
+        res.tx_hash_proper = make_proper_tx_hash(tx_hash_dirty);
       }
+      catch(std::invalid_argument e) {
+        LOG_PRINT_L0(e.what());
+        er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+        er.message = e.what();
+        return false;
+      }
+      
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -276,7 +295,18 @@ namespace tools
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        const std::string tx_hash_dirty = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx));
+        res.tx_hash_list.push_back(tx_hash_dirty);
+        try {
+          res.tx_hash_proper_list.push_back(make_proper_tx_hash(tx_hash_dirty));
+        }
+        /* Break the loop, since the exception should never happen */
+        catch(std::invalid_argument e) {
+          LOG_PRINT_L0(e.what());
+          er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+          er.message = e.what();
+          return false;
+        }
       }
 
       return true;
@@ -350,6 +380,8 @@ namespace tools
     {
       wallet_rpc::payment_details rpc_payment;
       rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.m_tx_hash);
+      /* Adding duplicate for consistency. Few impact on perfs */
+      rpc_payment.tx_hash_proper  = rpc_payment.tx_hash;
       rpc_payment.amount       = payment.m_amount;
       rpc_payment.block_height = payment.m_block_height;
       rpc_payment.unlock_time  = payment.m_unlock_time;
@@ -404,6 +436,12 @@ namespace tools
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
         rpc_transfers.tx_hash      = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(td.m_tx));
+        try {
+          rpc_transfers.tx_hash_proper = make_proper_tx_hash(rpc_transfers.tx_hash);
+        }
+        catch(std::invalid_argument e) {
+          rpc_transfers.tx_hash_proper = "";
+        }
         res.transfers.push_back(rpc_transfers);
       }
     }
