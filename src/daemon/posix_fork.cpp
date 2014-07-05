@@ -27,17 +27,7 @@ void posix_fork()
       //
       // When the exit() function is used, the program terminates without
       // invoking local variables' destructors. Only global variables are
-      // destroyed. As the io_service object is a local variable, this means
-      // we do not have to call:
-      //
-      //   io_service.notify_fork(boost::asio::io_service::fork_parent);
-      //
-      // However, this line should be added before each call to exit() if
-      // using a global io_service object. An additional call:
-      //
-      //   io_service.notify_fork(boost::asio::io_service::fork_prepare);
-      //
-      // should also precede the second fork().
+      // destroyed.
       exit(0);
     }
     else
