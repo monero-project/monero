@@ -53,6 +53,7 @@ public:
 
   bool stop_daemon();
 
+  bool print_status();
 
 private:
   template <typename T_req, typename T_res>

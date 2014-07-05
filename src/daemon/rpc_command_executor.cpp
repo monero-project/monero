@@ -337,6 +337,22 @@ bool t_rpc_command_executor::stop_daemon()
   return true;
 }
 
+bool t_rpc_command_executor::print_status() 
+{
+  const std::string rpc_url = build_url(m_ip, m_port, "/json_rpc");
+  t_http_connection connection(&m_http_client, m_ip, m_port);
+
+  /* Checks if the daemon is alive */
+  if(connection.is_open()) {
+    tools::success_msg_writer() << "bitmonerod is running";
+  }
+  else {
+    tools::fail_msg_writer() << "bitmonerod is NOT running";
+  }
+
+  return true;
+}
+
 template <typename T_req, typename T_res>
 bool t_rpc_command_executor::json_rpc_request(
     T_req & req

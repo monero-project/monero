@@ -98,6 +98,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::stop_daemon, &m_parser, p::_1)
     , "Stop the daemon"
     );
+  m_command_lookup.set_handler(
+      "print_status"
+    , std::bind(&t_command_parser_executor::print_status, &m_parser, p::_1)
+    , "Prints daemon status"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)
