@@ -709,6 +709,12 @@ void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts
   transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(fee), tx, ptx);
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx)
+{
+  pending_tx ptx;
+  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(fee), tx, ptx);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
                        uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra)
 {
