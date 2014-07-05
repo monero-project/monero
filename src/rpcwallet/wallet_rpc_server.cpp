@@ -216,7 +216,12 @@ namespace tools
       m_wallet.commit_tx(ptx_vector);
 
       // populate response with tx hash
-      res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      const std::string tx_hash_dirty = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      res.tx_hash = tx_hash_dirty;
+      /* tx_hash_proper removes '<' and '>' */
+      if (tx_hash_dirty.size() > 2) {
+        res.tx_hash_proper = tx_hash_dirty.substr(1,tx_hash_dirty.size()-2);
+      }
       return true;
     }
     catch (const tools::error::daemon_busy& e)

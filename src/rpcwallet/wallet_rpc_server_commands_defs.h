@@ -84,9 +84,11 @@ namespace wallet_rpc
     struct response
     {
       std::string tx_hash;
+      std::string tx_hash_proper;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(tx_hash_proper)
       END_KV_SERIALIZE_MAP()
     };
   };
