@@ -25,6 +25,7 @@
 #include "math_helper.h"
 #include "net_node_common.h"
 #include "common/command_line.h"
+#include "rpc/connection_info.h"
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -53,7 +54,7 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
     // Some code
-    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_hide_my_port(false)
+    node_server(t_payload_net_handler& payload_handler):m_allow_local_ip(false), m_hide_my_port(false), m_payload_handler(payload_handler)
     {}
 
     static void init_options(boost::program_options::options_description& desc);
@@ -72,8 +73,13 @@ namespace nodetool
       a & m_config.m_peer_id;
     }
     // debug functions
+    void get_peerlist(
+        std::list<peerlist_entry> & white_list
+      , std::list<peerlist_entry> & gray_list
+      );
     bool log_peerlist();
     bool log_connections();
+    std::vector<connection_info> get_connection_info();
     virtual uint64_t get_connections_count();
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
@@ -155,7 +161,6 @@ namespace nodetool
 
     //debug functions
     std::string print_connections_container();
-
 
     typedef epee::net_utils::boosted_tcp_server<epee::levin::async_protocol_handler<p2p_connection_context> > net_server;
 

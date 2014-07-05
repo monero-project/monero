@@ -502,6 +502,11 @@ namespace cryptonote
     return m_mempool.print_pool(short_format);
   }
   //-----------------------------------------------------------------------------------------------
+  std::vector<tx_info> core::transaction_pool_info()
+  {
+    return m_mempool.pool_info();
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::update_miner_block_template()
   {
     m_miner.on_block_chain_update();

@@ -8,6 +8,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 #include <boost/serialization/version.hpp>
 #include <boost/utility.hpp>
 
@@ -17,6 +18,7 @@
 #include "cryptonote_basic_impl.h"
 #include "verification_context.h"
 #include "crypto/hash.h"
+#include "rpc/tx_info.h"
 
 
 namespace cryptonote
@@ -30,6 +32,21 @@ namespace cryptonote
   {
   public:
     tx_memory_pool(blockchain_storage& bchs);
+
+    struct tx_details
+    {
+      transaction tx;
+      size_t blob_size;
+      uint64_t fee;
+      crypto::hash max_used_block_id;
+      uint64_t max_used_block_height;
+      bool kept_by_block;
+      //
+      uint64_t last_failed_height;
+      crypto::hash last_failed_id;
+      time_t receive_time;
+    };
+
     bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
     bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
     //gets tx and remove it from pool
@@ -57,6 +74,7 @@ namespace cryptonote
     bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     std::string print_pool(bool short_format);
+    std::vector<tx_info> pool_info();
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
@@ -72,20 +90,6 @@ namespace cryptonote
       a & m_transactions;
       a & m_spent_key_images;
     }
-
-    struct tx_details
-    {
-      transaction tx;
-      size_t blob_size;
-      uint64_t fee;
-      crypto::hash max_used_block_id;
-      uint64_t max_used_block_height;
-      bool kept_by_block;
-      //
-      uint64_t last_failed_height;
-      crypto::hash last_failed_id;
-      time_t receive_time;
-    };
 
   private:
   	bool remove_stuck_transactions();

@@ -43,6 +43,7 @@
 #include <boost/interprocess/detail/atomic.hpp>
 #include "net/net_utils_base.h"
 #include "misc_language.h"
+#include "misc_log_ex.h"
 //#include "profile_tools.h"
 #include "../string_tools.h"
 

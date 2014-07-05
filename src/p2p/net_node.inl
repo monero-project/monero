@@ -1072,6 +1072,15 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  void node_server<t_payload_net_handler>::get_peerlist(
+      std::list<peerlist_entry> & white_list
+    , std::list<peerlist_entry> & gray_list
+    )
+  {
+    m_peerlist.get_peerlist_full(gray_list, white_list);
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::log_peerlist()
   {
     std::list<peerlist_entry> pl_wite;
@@ -1103,6 +1112,19 @@ namespace nodetool
     });
     std::string s = ss.str();
     return s;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  std::vector<connection_info> node_server<t_payload_net_handler>::get_connection_info()
+  {
+    std::vector<connection_info> result;
+    m_net_server.get_config_object().foreach_connection([&result](const p2p_connection_context& cntxt)
+    {
+      std::string connection_id = boost::lexical_cast<std::string>(cntxt.m_connection_id);
+      result.emplace_back(std::move(connection_id), cntxt.m_is_income, cntxt.m_remote_ip, cntxt.m_remote_port, cntxt.peer_id);
+      return true;
+    });
+    return result;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
