@@ -30,6 +30,8 @@ public:
 
   bool set_log_level(const std::vector<std::string>& args);
 
+  bool print_height(const std::vector<std::string>& args);
+
   bool print_block(const std::vector<std::string>& args);
 
   bool print_transaction(const std::vector<std::string>& args);
@@ -43,6 +45,8 @@ public:
   bool stop_mining(const std::vector<std::string>& args);
 
   bool stop_daemon(const std::vector<std::string>& args);
+
+  bool print_status(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize
