@@ -5,9 +5,9 @@
 //
 
 #include "daemon/posix_fork.h"
+#include "misc_log_ex.h"
 
 #include <cstdlib>
-#include <syslog.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -42,7 +42,7 @@ void posix_fork()
     }
     else
     {
-      syslog(LOG_ERR | LOG_USER, "First fork failed: %m");
+      LOG_ERROR("First fork failed: %m");
       exit(1);
     }
   }
@@ -57,7 +57,7 @@ void posix_fork()
   // directory avoids this problem.
   if (chdir("/") < 0)
   {
-    syslog(LOG_ERR | LOG_USER, "Unable to change working directory to root");
+    LOG_ERROR("Unable to change working directory to root");
     exit(1);
   }
 
@@ -75,7 +75,7 @@ void posix_fork()
     }
     else
     {
-      syslog(LOG_ERR | LOG_USER, "Second fork failed: %m");
+      LOG_ERROR("Second fork failed");
       exit(1);
     }
   }
@@ -89,24 +89,24 @@ void posix_fork()
   // We don't want the daemon to have any standard input.
   if (open("/dev/null", O_RDONLY) < 0)
   {
-    syslog(LOG_ERR | LOG_USER, "Unable to open /dev/null: %m");
+    LOG_ERROR("Unable to open /dev/null");
     exit(1);
   }
 
   // Send standard output to a log file.
-  const char* output = "/tmp/bitmonero.daemon.out";
+  const char* output = "/tmp/bitmonero.daemon.stdout.stderr";
   const int flags = O_WRONLY | O_CREAT | O_APPEND;
   const mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   if (open(output, flags, mode) < 0)
   {
-    syslog(LOG_ERR | LOG_USER, "Unable to open output file %s: %m", output);
+    LOG_ERROR("Unable to open output file: " << output);
     exit(1);
   }
 
   // Also send standard error to the same log file.
   if (dup(1) < 0)
   {
-    syslog(LOG_ERR | LOG_USER, "Unable to dup output descriptor: %m");
+    LOG_ERROR("Unable to dup output descriptor");
     exit(1);
   }
 }
