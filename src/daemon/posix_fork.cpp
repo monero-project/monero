@@ -55,7 +55,11 @@ void posix_fork()
   // on a mounted filesystem, which means that the running daemon would
   // prevent this filesystem from being unmounted. Changing to the root
   // directory avoids this problem.
-  chdir("/");
+  if (chdir("/") < 0)
+  {
+    syslog(LOG_ERR | LOG_USER, "Unable to change working directory to root");
+    exit(1);
+  }
 
   // The file mode creation mask is also inherited from the parent process.
   // We don't want to restrict the permissions on files created by the
