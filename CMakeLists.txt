@@ -23,7 +23,7 @@ set(STATIC ${MSVC} CACHE BOOL "Link libraries statically")
 
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
-  find_package(Threads REQUIRED)
+  find_package(Threads)
 endif()
 
 if(MSVC)

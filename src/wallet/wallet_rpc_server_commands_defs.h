@@ -52,7 +52,7 @@ namespace wallet_rpc
     };
   };
 
-  struct trnsfer_destination
+  struct transfer_destination
   {
     uint64_t amount;
     std::string address;
@@ -66,7 +66,7 @@ namespace wallet_rpc
   {
     struct request
     {
-      std::list<trnsfer_destination> destinations;
+      std::list<transfer_destination> destinations;
       uint64_t fee;
       uint64_t mixin;
       uint64_t unlock_time;
@@ -87,6 +87,35 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_TRANSFER_SPLIT
+  {
+    struct request
+    {
+      std::list<transfer_destination> destinations;
+      uint64_t fee;
+      uint64_t mixin;
+      uint64_t unlock_time;
+      std::string payment_id;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(destinations)
+        KV_SERIALIZE(fee)
+        KV_SERIALIZE(mixin)
+        KV_SERIALIZE(unlock_time)
+        KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<std::string> tx_hash_list;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash_list)
       END_KV_SERIALIZE_MAP()
     };
   };
