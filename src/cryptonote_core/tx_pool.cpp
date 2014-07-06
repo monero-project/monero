@@ -152,7 +152,7 @@ namespace cryptonote
         << "transaction id = " << get_transaction_hash(tx));
 
       auto it_in_set = key_image_set.find(get_transaction_hash(tx));
-      CHECK_AND_ASSERT_MES(key_image_set.size(), false, "transaction id not found in key_image set, img=" << txin.k_image << ENDL
+      CHECK_AND_ASSERT_MES(it_in_set != key_image_set.end(), false, "transaction id not found in key_image set, img=" << txin.k_image << ENDL
         << "transaction id = " << get_transaction_hash(tx));
       key_image_set.erase(it_in_set);
       if(!key_image_set.size())
@@ -351,7 +351,7 @@ namespace cryptonote
         ss << "id: " << txe.first << ENDL
           << "blob_size: " << txd.blob_size << ENDL
           << "fee: " << txd.fee << ENDL
-          << "kept_by_block: " << txd.kept_by_block << ENDL
+          << "kept_by_block: " << (txd.kept_by_block ? "true":"false") << ENDL
           << "max_used_block_height: " << txd.max_used_block_height << ENDL
           << "max_used_block_id: " << txd.max_used_block_id << ENDL
           << "last_failed_height: " << txd.last_failed_height << ENDL
@@ -363,7 +363,7 @@ namespace cryptonote
           <<  obj_to_json_str(txd.tx) << ENDL
           << "blob_size: " << txd.blob_size << ENDL
           << "fee: " << txd.fee << ENDL
-          << "kept_by_block: " << txd.kept_by_block << ENDL
+          << "kept_by_block: " << (txd.kept_by_block ? "true":"false") << ENDL
           << "max_used_block_height: " << txd.max_used_block_height << ENDL
           << "max_used_block_id: " << txd.max_used_block_id << ENDL
           << "last_failed_height: " << txd.last_failed_height << ENDL
@@ -422,6 +422,14 @@ namespace cryptonote
       // We need to make a similar patch for
       // wallet2.h
       if (tx.second.blob_size > upper_transaction_size_limit)
+        continue;
+
+      // If adding this tx will make the block size
+      // greater than CRYPTONOTE_GETBLOCKTEMPLATE_MAX
+      // _BLOCK_SIZE bytes, reject the tx; this will 
+      // keep block sizes from becoming too unwieldly
+      // to propagate at 60s block times.
+      if ( (total_size + tx.second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
         continue;
 
       // If adding this tx will make the block size
