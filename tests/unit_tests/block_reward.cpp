@@ -25,25 +25,27 @@ namespace
     ASSERT_TRUE(m_block_not_too_big);                                                                       \
     ASSERT_EQ(m_block_reward, UINT64_C(expected_reward));
 
+  /* In XMR, emission speed factor is set to 20 */
   TEST_F(block_reward_and_already_generated_coins, handles_first_values)
   {
-    TEST_ALREADY_GENERATED_COINS(0, 70368744177663);
-    TEST_ALREADY_GENERATED_COINS(m_block_reward, 70368475742208);
-    TEST_ALREADY_GENERATED_COINS(UINT64_C(2756434948434199641), 59853779316998);
+    TEST_ALREADY_GENERATED_COINS(0, 17592186044415);
+    /* I got '17592169267199' in a test C++ program */
+    TEST_ALREADY_GENERATED_COINS(m_block_reward, 17592169267200);
+    TEST_ALREADY_GENERATED_COINS(UINT64_C(2756434948434199641), 14963444829249);
   }
 
   TEST_F(block_reward_and_already_generated_coins, correctly_steps_from_2_to_1)
   {
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((2 << 18) + 1), 2);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY -  (2 << 18)     , 2);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((2 << 18) - 1), 1);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((2 << 20) + 1), 2);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY -  (2 << 20)     , 2);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((2 << 20) - 1), 1);
   }
 
   TEST_F(block_reward_and_already_generated_coins, handles_max)
   {
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 18) + 1), 1);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY -  (1 << 18)     , 1);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 18) - 1), 0);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) + 1), 1);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY -  (1 << 20)     , 1);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) - 1), 0);
   }
 
   //--------------------------------------------------------------------------------------------------------------------
