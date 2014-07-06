@@ -4,13 +4,20 @@ file(GLOB_RECURSE COMMON common/*)
 file(GLOB_RECURSE CRYPTO crypto/*)
 file(GLOB_RECURSE CRYPTONOTE_CORE cryptonote_core/*)
 file(GLOB_RECURSE CRYPTONOTE_PROTOCOL cryptonote_protocol/*)
-file(GLOB_RECURSE DAEMON daemon/*)
+file(GLOB_RECURSE DAEMON daemon/*.cpp)
+if(WIN32)
+  file(GLOB_RECURSE DAEMON_POSIX daemon/posix_fork.cpp)
+  list(REMOVE_ITEM DAEMON "${DAEMON_POSIX}")
+endif()
 file(GLOB_RECURSE P2P p2p/*)
 file(GLOB_RECURSE RPC rpc/*)
 file(GLOB_RECURSE SIMPLEWALLET simplewallet/*)
 file(GLOB_RECURSE CONN_TOOL connectivity_tool/*)
 file(GLOB_RECURSE WALLET wallet/*)
+file(GLOB_RECURSE RPCWALLET rpcwallet/*)
 file(GLOB_RECURSE MINER miner/*)
+file(GLOB_RECURSE MONERO_WALLET_WRAPPER monero_wallet_wrapper/*)
+file(GLOB_RECURSE MONERO_WALLET_WRAPPER_HEADERS monero_wallet_wrapper/*.hh)
 
 source_group(common FILES ${COMMON})
 source_group(crypto FILES ${CRYPTO})
@@ -22,7 +29,9 @@ source_group(rpc FILES ${RPC})
 source_group(simplewallet FILES ${SIMPLEWALLET})
 source_group(connectivity-tool FILES ${CONN_TOOL})
 source_group(wallet FILES ${WALLET})
+source_group(rpcwallet FILES ${RPCWALLET})
 source_group(simpleminer FILES ${MINER})
+source_group(monero_wallet_wrapper FILES ${MONERO_WALLET_WRAPPER})
 
 add_library(common ${COMMON})
 add_library(crypto ${CRYPTO})
@@ -36,11 +45,29 @@ target_link_libraries(simpleminer cryptonote_core crypto common ${CMAKE_THREAD_L
 add_library(rpc ${RPC})
 add_library(wallet ${WALLET})
 add_executable(simplewallet ${SIMPLEWALLET} )
+add_executable(rpcwallet ${RPCWALLET} )
 target_link_libraries(simplewallet wallet rpc cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(rpcwallet wallet rpc cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 add_dependencies(daemon version)
 add_dependencies(rpc version)
 add_dependencies(simplewallet version)
+add_dependencies(rpcwallet version)
 
 set_property(TARGET common crypto cryptonote_core rpc wallet PROPERTY FOLDER "libs")
-set_property(TARGET daemon simplewallet connectivity_tool simpleminer PROPERTY FOLDER "prog")
+set_property(TARGET daemon simplewallet rpcwallet connectivity_tool simpleminer PROPERTY FOLDER "prog")
+
+add_library(monerowallet SHARED ${MONERO_WALLET_WRAPPER})
+add_dependencies(monerowallet wallet)
+target_link_libraries(monerowallet wallet cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+
+#target_link_libraries(monerowallet wallet rpc cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+
 set_property(TARGET daemon PROPERTY OUTPUT_NAME "bitmonerod")
+
+INSTALL(TARGETS monerowallet
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)
+
+INSTALL(FILES ${MONERO_WALLET_WRAPPER_HEADERS} DESTINATION include/MoneroWallet)

@@ -9,7 +9,6 @@
 #include <boost/serialization/vector.hpp>
 #include <atomic>
 
-#include "include_base_utils.h"
 #include "cryptonote_core/account.h"
 #include "cryptonote_core/account_boost_serialization.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
@@ -23,19 +22,14 @@
 
 #include "wallet_errors.h"
 
+#include <iostream>
 #define DEFAULT_TX_SPENDABLE_AGE                               10
 #define WALLET_RCP_CONNECTION_TIMEOUT                          200000
 
 namespace tools
 {
-  class i_wallet2_callback
-  {
-  public:
-    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
-    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
-  };
+  class i_wallet2_callback;
+
 
   struct tx_dust_policy
   {
@@ -86,6 +80,15 @@ namespace tools
     typedef std::vector<transfer_details> transfer_container;
     typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;
 
+    struct pending_tx
+    {
+      cryptonote::transaction tx;
+      uint64_t dust, fee;
+      cryptonote::tx_destination_entry change_dts;
+      std::list<transfer_container::iterator> selected_transfers;
+      std::string key_images;
+    };
+
     struct keys_file_data
     {
       crypto::chacha8_iv iv;
@@ -125,12 +128,19 @@ namespace tools
     template<typename T>
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy);
     template<typename T>
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx);
+    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx& ptx);
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra);
+    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx);
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx);
+    void commit_tx(pending_tx& ptx_vector);
+    void commit_tx(std::vector<pending_tx>& ptx_vector);
+    std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra);
     bool check_connection();
+    size_t get_transfers_count() const;
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
+    size_t get_payments_count() const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments) const;
+    const payment_container get_all_payments() const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
@@ -187,6 +197,16 @@ namespace tools
     std::atomic<bool> m_run;
 
     i_wallet2_callback* m_callback;
+  };
+
+  class i_wallet2_callback
+  {
+  public:
+    virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
+    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
+    virtual void on_payment_received(uint64_t height, const crypto::hash payment_id, const wallet2::payment_details& payment) {}
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)
@@ -295,18 +315,23 @@ namespace tools
   void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
     uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy)
   {
+    pending_tx ptx;
     cryptonote::transaction tx;
-    transfer(dsts, fake_outputs_count, unlock_time, fee, extra, destination_split_strategy, dust_policy, tx);
+    transfer(dsts, fake_outputs_count, unlock_time, fee, extra, destination_split_strategy, dust_policy, tx, ptx);
   }
 
   template<typename T>
   void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction &tx)
+    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx)
   {
     using namespace cryptonote;
+    // throw if attempting a transaction with no destinations
     THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
 
     uint64_t needed_money = fee;
+
+    // calculate total amount being sent to all destinations
+    // throw if total amount overflows uint64_t
     BOOST_FOREACH(auto& dt, dsts)
     {
       THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
@@ -314,6 +339,8 @@ namespace tools
       THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee);
     }
 
+    // randomly select inputs for transaction
+    // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
     uint64_t found_money = select_transfers(needed_money, 0 == fake_outputs_count, dust_policy.dust_threshold, selected_transfers);
     THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
@@ -426,25 +453,14 @@ namespace tools
     });
     THROW_WALLET_EXCEPTION_IF(!all_are_txin_to_key, error::unexpected_txin_type, tx);
 
-    COMMAND_RPC_SEND_RAW_TX::request req;
-    req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(tx));
-    COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
-    r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
-    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
-    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, tx, daemon_send_resp.status);
+    ptx.key_images = key_images;
+    ptx.fee = fee;
+    ptx.dust = dust;
+    ptx.tx = tx;
+    ptx.change_dts = change_dts;
+    ptx.selected_transfers = selected_transfers;
 
-    add_unconfirmed_tx(tx, change_dts.amount);
-
-    LOG_PRINT_L2("transaction " << get_transaction_hash(tx) << " generated ok and sent to daemon, key_images: [" << key_images << "]");
-
-    BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
-      it->m_spent = true;
-
-    LOG_PRINT_L0("Transaction successfully sent. <" << get_transaction_hash(tx) << ">" << ENDL
-                  << "Commission: " << print_money(fee+dust) << " (dust: " << print_money(dust) << ")" << ENDL
-                  << "Balance: " << print_money(balance()) << ENDL
-                  << "Unlocked: " << print_money(unlocked_balance()) << ENDL
-                  << "Please, wait for confirmation for your balance to be unlocked.");
   }
+
+
 }

@@ -17,6 +17,7 @@
 #include "cryptonote_core/cryptonote_stat_info.h"
 #include "warnings.h"
 #include "crypto/hash.h"
+#include "rpc/tx_info.h"
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -88,6 +89,8 @@ namespace cryptonote
      void print_blockchain(uint64_t start_index, uint64_t end_index);
      void print_blockchain_index();
      std::string print_pool(bool short_format);
+     std::vector<tx_info> transaction_pool_info();
+
      void print_blockchain_outs(const std::string& file);
      void on_synchronized();
 

@@ -7,12 +7,16 @@
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/difficulty.h"
 #include "crypto/hash.h"
+#include "rpc/block_header_responce.h"
+#include "rpc/connection_info.h"
+#include "rpc/tx_info.h"
 
 namespace cryptonote
 {
   //-----------------------------------------------
-#define CORE_RPC_STATUS_OK   "OK"
-#define CORE_RPC_STATUS_BUSY   "BUSY"
+#define CORE_RPC_STATUS_OK         "OK"
+#define CORE_RPC_STATUS_BUSY       "BUSY"
+#define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -240,7 +244,7 @@ namespace cryptonote
     };
   };
 
-    
+
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING
   {
@@ -311,7 +315,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
-  
+
   //
   struct COMMAND_RPC_GETBLOCKCOUNT
   {
@@ -372,7 +376,7 @@ namespace cryptonote
   struct COMMAND_RPC_SUBMITBLOCK
   {
     typedef std::vector<std::string> request;
-    
+
     struct response
     {
       std::string status;
@@ -382,36 +386,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
-  
-  struct block_header_responce
-  {
-      uint8_t major_version;
-      uint8_t minor_version;
-      uint64_t timestamp;
-      std::string prev_hash;
-      uint32_t nonce;
-      bool orphan_status;
-      uint64_t height;
-      uint64_t depth;
-      std::string hash;
-      difficulty_type difficulty;
-      uint64_t reward;
-      
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(major_version)
-        KV_SERIALIZE(minor_version)
-        KV_SERIALIZE(timestamp)
-        KV_SERIALIZE(prev_hash)
-        KV_SERIALIZE(nonce)
-        KV_SERIALIZE(orphan_status)
-        KV_SERIALIZE(height)
-        KV_SERIALIZE(depth)
-        KV_SERIALIZE(hash)
-        KV_SERIALIZE(difficulty)
-        KV_SERIALIZE(reward)
-      END_KV_SERIALIZE_MAP()
-  };
-  
+
   struct COMMAND_RPC_GET_LAST_BLOCK_HEADER
   {
     typedef std::list<std::string> request;
@@ -420,7 +395,7 @@ namespace cryptonote
     {
       std::string status;
       block_header_responce block_header;
-      
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(block_header)
         KV_SERIALIZE(status)
@@ -428,7 +403,7 @@ namespace cryptonote
     };
 
   };
-  
+
   struct COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH
   {
     struct request
@@ -444,7 +419,7 @@ namespace cryptonote
     {
       std::string status;
       block_header_responce block_header;
-      
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(block_header)
         KV_SERIALIZE(status)
@@ -468,7 +443,7 @@ namespace cryptonote
     {
       std::string status;
       block_header_responce block_header;
-      
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(block_header)
         KV_SERIALIZE(status)
@@ -477,5 +452,169 @@ namespace cryptonote
 
   };
 
+  struct peer {
+    uint64_t id;
+    uint32_t ip;
+    uint16_t port;
+    uint64_t last_seen;
+
+    peer() = default;
+
+    peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen)
+      : id(id), ip(ip), port(port), last_seen(last_seen)
+    {}
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(id)
+      KV_SERIALIZE(ip)
+      KV_SERIALIZE(port)
+      KV_SERIALIZE(last_seen)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_PEER_LIST
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<peer> white_list;
+      std::vector<peer> gray_list;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(white_list)
+        KV_SERIALIZE(gray_list)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_HASH_RATE
+  {
+    struct request
+    {
+      bool visible;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(visible)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_LEVEL
+  {
+    struct request
+    {
+      int8_t level;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(level)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_TRANSACTION_POOL
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<tx_info> transactions;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(transactions)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_CONNECTIONS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<nodetool::connection_info> connections;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(connections)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_BLOCK_HEADERS_RANGE
+  {
+    struct request
+    {
+      uint64_t start_height;
+      uint64_t end_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(start_height)
+        KV_SERIALIZE(end_height)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<block_header_responce> headers;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(headers)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_STOP_DAEMON
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 

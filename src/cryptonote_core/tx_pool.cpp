@@ -17,6 +17,7 @@
 #include "misc_language.h"
 #include "warnings.h"
 #include "crypto/hash.h"
+#include "string_tools.h"
 
 DISABLE_VS_WARNINGS(4244 4345 4503) //'boost::foreach_detail_::or_' : decorated name length exceeded, name was truncated
 
@@ -372,6 +373,31 @@ namespace cryptonote
 
     }
     return ss.str();
+  }
+  //---------------------------------------------------------------------------------
+  std::vector<tx_info> tx_memory_pool::pool_info()
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+
+    std::vector<tx_info> result;
+    BOOST_FOREACH(transactions_container::value_type& txe,  m_transactions)
+    {
+      auto & id = txe.first;
+      auto & details = txe.second;
+      result.emplace_back(
+          epee::string_tools::pod_to_hex(id)
+        , obj_to_json_str(details.tx)
+        , details.blob_size
+        , details.fee
+        , epee::string_tools::pod_to_hex(details.max_used_block_id)
+        , details.max_used_block_height
+        , details.kept_by_block
+        , details.last_failed_height
+        , epee::string_tools::pod_to_hex(details.last_failed_id)
+        , details.receive_time
+        );
+    }
+    return result;
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee)
