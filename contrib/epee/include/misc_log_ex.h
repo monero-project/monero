@@ -1304,16 +1304,6 @@ POP_WARNINGS
     return true;
   }
 }
-#if defined(_DEBUG) || defined(__GNUC__)
-  #define  ENABLE_LOGGING_INTERNAL
-#endif
-
-#if defined(ENABLE_RELEASE_LOGGING)
-  #define  ENABLE_LOGGING_INTERNAL
-#endif
-
-
-#if defined(ENABLE_LOGGING_INTERNAL)
 
 #define LOG_PRINT_NO_PREFIX2(log_name, x, y) {if ( y <= epee::log_space::log_singletone::get_log_detalisation_level() )\
   {std::stringstream ss________; ss________ << x << std::endl; epee::log_space::log_singletone::do_log_message(ss________.str() , y, epee::log_space::console_color_default, false, log_name);}}
@@ -1341,29 +1331,6 @@ POP_WARNINGS
   std::stringstream ss________; ss________ << epee::log_space::log_singletone::get_prefix_entry() << "ERROR " << __FILE__ << ":" << __LINE__ << " " << x << std::endl; epee::log_space::log_singletone::do_log_message(ss________.str(), LOG_LEVEL_0, epee::log_space::console_color_red, true, log_name);LOCAL_ASSERT(0); epee::log_space::log_singletone::get_set_err_count(true, epee::log_space::log_singletone::get_set_err_count()+1);}
 
 #define LOG_FRAME2(log_name, x, y) epee::log_space::log_frame frame(x, y, log_name)
-
-#else
-
-
-#define LOG_PRINT_NO_PREFIX2(log_name, x, y)
-
-#define LOG_PRINT_NO_PREFIX_NO_POSTFIX2(log_name, x, y)
-
-#define LOG_PRINT_NO_POSTFIX2(log_name, x, y)
-
-#define LOG_PRINT_COLOR2(log_name, x, y, color)
-
-#define LOG_PRINT2_JORNAL(log_name, x, y)
-
-#define LOG_PRINT2(log_name, x, y)
-
-#define LOG_ERROR2(log_name, x)
-
-
-#define LOG_FRAME2(log_name, x, y)
-
-
-#endif
 
 
 #ifndef LOG_DEFAULT_TARGET
