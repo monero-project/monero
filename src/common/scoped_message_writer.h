@@ -77,17 +77,17 @@ public:
   }
 };
 
-scoped_message_writer success_msg_writer()
+inline scoped_message_writer success_msg_writer()
 {
   return scoped_message_writer(epee::log_space::console_color_green, false, std::string(), LOG_LEVEL_2);
 }
 
-scoped_message_writer msg_writer(epee::log_space::console_colors color = epee::log_space::console_color_default)
+inline scoped_message_writer msg_writer(epee::log_space::console_colors color = epee::log_space::console_color_default)
 {
   return scoped_message_writer(color, false, std::string(), LOG_LEVEL_2);
 }
 
-scoped_message_writer fail_msg_writer()
+inline scoped_message_writer fail_msg_writer()
 {
   return scoped_message_writer(epee::log_space::console_color_red, true, "Error: ", LOG_LEVEL_0);
 }
