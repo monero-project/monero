@@ -244,13 +244,21 @@ int main(int argc, char* argv[])
   }
 
   /**
-   * On first launch, we ask Windows to relaunch the executable as a
+   * Windows
+   * -------
+   *
+   * If detach is requested, we ask Windows to relaunch the executable as a
    * service with the added --run-as-service argument, which indicates that the
    * process is running in the background.
    *
    * On relaunch the --run-as-service argument is detected, and the
-   * t_service_runner class finishes registering as a service and installs
-   * the required service lifecycle handler callback.
+   * t_service_runner class finishes registering as a service and installs the
+   * required service lifecycle handler callback.
+   *
+   * Posix
+   * -----
+   *
+   * Much simpler.  We just fork if detach is requested.
    */
   if (win_service) // running as windows service
   {
