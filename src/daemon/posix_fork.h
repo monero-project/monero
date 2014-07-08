@@ -1,7 +1,11 @@
 #pragma once
 
-namespace daemonize {
+#ifndef WIN32
 
-void posix_fork();
+namespace posix {
+
+void fork();
 
 }
+
+#endif

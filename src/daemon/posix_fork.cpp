@@ -14,7 +14,7 @@
 #include <string>
 #include <sys/stat.h>
 
-namespace daemonize {
+namespace posix {
 
 namespace {
   void quit(std::string const & message)
@@ -24,12 +24,12 @@ namespace {
   }
 }
 
-void posix_fork()
+void fork()
 {
   // Fork the process and have the parent exit. If the process was started
   // from a shell, this returns control to the user. Forking a new process is
   // also a prerequisite for the subsequent call to setsid().
-  if (pid_t pid = fork())
+  if (pid_t pid = ::fork())
   {
     if (pid > 0)
     {
@@ -65,7 +65,7 @@ void posix_fork()
   umask(0);
 
   // A second fork ensures the process cannot acquire a controlling terminal.
-  if (pid_t pid = fork())
+  if (pid_t pid = ::fork())
   {
     if (pid > 0)
     {
@@ -105,4 +105,4 @@ void posix_fork()
   }
 }
 
-}
+} // namespace posix

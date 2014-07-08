@@ -1,9 +1,9 @@
 #include "string_tools.h"
 #include "storages/http_abstract_invoke.h"
 #include "common/scoped_message_writer.h"
-#include "daemon/daemonize.h"
 #include "daemon/http_connection.h"
 #include "daemon/rpc_command_executor.h"
+#include "daemon/windows_service.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include <boost/format.hpp>
 #include <ctime>
@@ -331,13 +331,21 @@ bool t_rpc_command_executor::stop_daemon()
   cryptonote::COMMAND_RPC_STOP_DAEMON::request req;
   cryptonote::COMMAND_RPC_STOP_DAEMON::response res;
 
-  // Stop via system API if available (Windows)
-  if (::daemonize::unregister())
-  {
-    tools::success_msg_writer() << "Service deleted";
-  }
-  // Otherwise use RPC
-  else if(rpc_request(req, res, "/stop_daemon", "Daemon did not stop"))
+# ifdef WIN32
+    // Stop via service API
+    // TODO - this is only temporary!  Get rid of hard-coded constants!
+    bool ok = windows::stop_service("BitMonero Daemon");
+    ok = windows::uninstall_service("BitMonero Daemon");
+    //bool ok = windows::stop_service(SERVICE_NAME);
+    //ok = windows::uninstall_service(SERVICE_NAME);
+    if (ok)
+    {
+      return true;
+    }
+# endif
+
+  // Stop via RPC
+  if(rpc_request(req, res, "/stop_daemon", "Daemon did not stop"))
   {
     tools::success_msg_writer() << "Stop signal sent";
   }

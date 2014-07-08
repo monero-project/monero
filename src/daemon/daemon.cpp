@@ -48,19 +48,6 @@ public:
   }
 };
 
-t_daemon t_daemon::create(
-    boost::program_options::variables_map const & vm
-  , bool has_console
-  )
-{
-  if (has_console)
-  {
-    epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-  }
-  LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-  return t_daemon{vm};
-}
-
 t_daemon::t_daemon(
     boost::program_options::variables_map const & vm
   )
