@@ -102,25 +102,6 @@ bool start_service(
     return false;
   }
 
-  //if (!QueryServiceStatusEx(
-  //    p_service.get()
-  //  , SC_STATUS_PROCESS_INFO
-  //  , reinterpret_cast<LPBYTE>(&service_status)
-  //  , sizeof(SERVICE_STATUS_PROCESS)
-  //  , &unused
-  //  ))
-  //{
-  //  std::cerr << "Service status query failed: " << GetLastError() << std::endl;
-  //  return false;
-  //}
-
-  //if (service_status.dwCurrentState != SERVICE_STOPPED
-  //  && service_status.dwCurrentState != SERVICE_STOP_PENDING)
-  //{
-  //  std::cerr << "Service still running" << std::endl;
-  //  return false;
-  //}
-
   if (!StartService(
       p_service.get()
     , 0
@@ -166,23 +147,6 @@ bool stop_service(
     LOG_ERROR("Couldn't find service: " << GetLastError());
     return false;
   }
-
-  //SERVICE_STATUS_PROCESS service_status = {};
-  //DWORD unused = 0;
-
-  //if (!QueryServiceStatusEx(
-  //    p_service.get()
-  //  , SC_STATUS_PROCESS_INFO
-  //  , reinterpret_cast<LPBYTE>(&service_status)
-  //  , sizeof(SERVICE_STATUS_PROCESS)
-  //  , &unused
-  //  ))
-  //{
-  //  std::cerr << "Service status query failed: " << GetLastError() << std::endl;
-  //  return false;
-  //}
-
-  //std::cout << "Permissions: " << service_status.dwControlsAccepted << std::endl;
 
   SERVICE_STATUS status = {};
   if (!ControlService(p_service.get(), SERVICE_CONTROL_STOP, &status))
