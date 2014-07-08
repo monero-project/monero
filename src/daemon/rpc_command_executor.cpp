@@ -337,7 +337,7 @@ bool t_rpc_command_executor::stop_daemon()
   return true;
 }
 
-bool t_rpc_command_executor::print_status() 
+bool t_rpc_command_executor::print_status()
 {
   const std::string rpc_url = build_url(m_ip, m_port, "/json_rpc");
   t_http_connection connection(&m_http_client, m_ip, m_port);

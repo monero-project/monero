@@ -208,7 +208,7 @@ bool t_command_parser_executor::stop_daemon(const std::vector<std::string>& args
   return m_executor.stop_daemon();
 }
 
-bool t_command_parser_executor::print_status(const std::vector<std::string>& args) 
+bool t_command_parser_executor::print_status(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 

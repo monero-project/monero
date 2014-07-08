@@ -34,7 +34,7 @@ public:
   bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index);
 
   bool set_log_level(int8_t level);
-  
+
   bool print_height();
 
   bool print_block_by_hash(crypto::hash block_hash);
