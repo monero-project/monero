@@ -2,6 +2,7 @@
 #undef _UNICODE
 
 #include "daemon/windows_service.h"
+#include "misc_log_ex.h"
 #include <iostream>
 #include <utility>
 #include <memory>
@@ -31,7 +32,7 @@ bool install_service(
   };
   if (p_manager == nullptr)
   {
-    std::cerr << "Couldn't connect to service manager: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
     return false;
   }
 
@@ -57,12 +58,11 @@ bool install_service(
   };
   if (p_service == nullptr)
   {
-    std::cerr << "Couldn't create service" << std::endl;
-    std::cerr << "Error Code: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't create service: " << GetLastError());
     return false;
   }
 
-  std::cout << "Service installed" << std::endl;
+  LOG_PRINT_L0("Service installed");
   return true;
 }
 
@@ -83,7 +83,7 @@ bool start_service(
   };
   if (p_manager == nullptr)
   {
-    std::cerr << "Couldn't connect to service manager: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
     return false;
   }
 
@@ -98,7 +98,7 @@ bool start_service(
   };
   if (p_service == nullptr)
   {
-    std::cerr << "Couldn't find service: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't find service: " << GetLastError());
     return false;
   }
 
@@ -127,13 +127,11 @@ bool start_service(
     , nullptr
     ))
   {
-    std::cerr << "Service start request failed: " << GetLastError() << std::endl;
+    LOG_ERROR("Service start request failed: " << GetLastError());
     return false;
   }
 
-  // TODO - consider waiting until service reports itself as running
-
-  std::cout << "Service started" << std::endl;
+  LOG_PRINT_L0("Service started");
   return true;
 }
 
@@ -151,7 +149,7 @@ bool stop_service(
   };
   if (p_manager == nullptr)
   {
-    std::cerr << "Couldn't connect to service manager: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
     return false;
   }
 
@@ -165,7 +163,7 @@ bool stop_service(
   };
   if (p_service == nullptr)
   {
-    std::cerr << "Couldn't find service: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't find service: " << GetLastError());
     return false;
   }
 
@@ -189,11 +187,11 @@ bool stop_service(
   SERVICE_STATUS status = {};
   if (!ControlService(p_service.get(), SERVICE_CONTROL_STOP, &status))
   {
-    std::cerr << "Couldn't request service stop: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't request service stop: " << GetLastError());
     return false;
   }
 
-  std::cout << "Service stopped" << std::endl;
+  LOG_PRINT_L0("Service stopped");
   return true;
 }
 
@@ -211,7 +209,7 @@ bool uninstall_service(
   };
   if (p_manager == nullptr)
   {
-    std::cerr << "Couldn't connect to service manager: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
     return false;
   }
 
@@ -225,18 +223,18 @@ bool uninstall_service(
   };
   if (p_service == nullptr)
   {
-    std::cerr << "Couldn't find service: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't find service: " << GetLastError());
     return false;
   }
 
   SERVICE_STATUS status = {};
   if (!DeleteService(p_service.get()))
   {
-    std::cerr << "Couldn't uninstall service: " << GetLastError() << std::endl;
+    LOG_ERROR("Couldn't uninstall service: " << GetLastError());
     return false;
   }
 
-  std::cout << "Service uninstalled" << std::endl;
+  LOG_PRINT_L0("Service uninstalled");
 
   return true;
 }
