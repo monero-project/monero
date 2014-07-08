@@ -1,313 +1,103 @@
-// Copyright (c) 2012-2013 The Cryptonote developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#include "daemon/daemon.h"
 
-// node.cpp : Defines the entry point for the console application.
-//
-
-#include "include_base_utils.h"
+#include "common/util.h"
+#include "daemon/core.h"
+#include "daemon/p2p.h"
+#include "daemon/protocol.h"
+#include "daemon/rpc.h"
+#include "misc_log_ex.h"
 #include "version.h"
-#include "daemon/command_server.h"
-
 #include <boost/program_options.hpp>
-#include <initializer_list>
+#include <functional>
 
-#include "crypto/hash.h"
-#include "console_handler.h"
-#include "p2p/net_node.h"
-#include "cryptonote_core/checkpoints_create.h"
-#include "cryptonote_core/cryptonote_core.h"
-#include "rpc/core_rpc_server.h"
-#include "cryptonote_protocol/cryptonote_protocol_handler.h"
+namespace daemonize {
 
-#ifndef WIN32
-#include "posix_fork.h"
-#endif
+class t_daemon_impl final {
+private:
+  t_core m_core;
+  t_protocol m_protocol;
+  t_p2p m_p2p;
+  t_rpc m_rpc;
+public:
+  t_daemon_impl(
+      boost::program_options::variables_map const & vm
+    )
+    : m_core{vm}
+    , m_protocol{vm, m_core}
+    , m_p2p{vm, m_protocol}
+    , m_rpc{vm, m_core, m_p2p}
+  {
+    // Handle circular dependencies
+    m_protocol.set_p2p_endpoint(m_p2p.get());
+    m_core.set_protocol(m_protocol.get());
+  }
 
-#ifdef WIN32
-#include <crtdbg.h>
-#endif
+  void run()
+  {
+    tools::signal_handler::install(std::bind(&daemonize::t_daemon_impl::stop, this));
+    m_rpc.run();
+    m_p2p.run();
+    m_rpc.stop();
+    LOG_PRINT("Node stopped.", LOG_LEVEL_0);
+  }
 
-using namespace daemonize;
+  void stop()
+  {
+    m_p2p.stop();
+    m_rpc.stop();
+  }
+};
 
-namespace po = boost::program_options;
-namespace bf = boost::filesystem;
-
-namespace
+t_daemon t_daemon::create(
+    boost::program_options::variables_map const & vm
+  , bool has_console
+  )
 {
-  const command_line::arg_descriptor<std::string> arg_config_file    = {"config-file", "Specify configuration file.  This can either be an absolute path or a path relative to the data directory"};
-  const command_line::arg_descriptor<bool>        arg_os_version     = {"os-version", "OS for which this executable was compiled"};
-  const command_line::arg_descriptor<std::string> arg_log_file       = {"log-file", "Specify log file.  This can either be an absolute path or a path relative to the data directory"};
-  const command_line::arg_descriptor<int>         arg_log_level      = {"log-level", "", LOG_LEVEL_0};
-#ifndef WIN32
-  const command_line::arg_descriptor<bool>        arg_detach         = {"detach", "Run as daemon"};
-#endif
-  const command_line::arg_descriptor<std::vector<std::string>> arg_command = {"daemon_command", "Unused"};
-}
-
-int main(int argc, char* argv[])
-{
-
-  epee::string_tools::set_module_name_and_folder(argv[0]);
-#ifdef WIN32
-  _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-#endif
-  TRY_ENTRY();
-
-  // Build argument description
-  po::options_description all_options("All");
-  po::options_description visible_options("Options");
-  po::options_description core_settings("Settings");
-  po::positional_options_description positional;
-  {
-    bf::path default_data_dir = bf::absolute(tools::get_default_data_dir());
-
-    // Misc Options
-    command_line::add_arg(visible_options, command_line::arg_help);
-    command_line::add_arg(visible_options, command_line::arg_version);
-    command_line::add_arg(visible_options, arg_os_version);
-    command_line::add_arg(visible_options, command_line::arg_data_dir, default_data_dir.string());
-    command_line::add_arg(visible_options, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
-
-    // Settings
-#ifndef WIN32
-    command_line::add_arg(core_settings, arg_detach);
-#endif
-    command_line::add_arg(core_settings, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
-    command_line::add_arg(core_settings, arg_log_level);
-    // Add component-specific settings
-    cryptonote::core::init_options(core_settings);
-    cryptonote::core_rpc_server::init_options(core_settings);
-    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >::init_options(core_settings);
-    cryptonote::miner::init_options(core_settings);
-
-    // All Options
-    visible_options.add(core_settings);
-
-    all_options.add(visible_options);
-    //all_options.add_options()(arg_command.name, po::value<std::vector<std::string>>()->default_value(std::vector<std::string>(), ""), "Unused");
-    command_line::add_arg(all_options, arg_command);
-
-    // Positional
-    positional.add(arg_command.name, -1); // -1 for unlimited arguments
-  }
-
-  // Do command line parsing
-  po::variables_map vm;
-  bool success = command_line::handle_error_helper(all_options, [&]()
-  {
-    //po::store(po::parse_command_line(argc, argv, visible_options), vm);
-    po::store(po::command_line_parser(argc, argv).options(all_options).positional(positional).run(), vm);
-    //po::store(po::command_line_parser(argc, argv).options(all_options).run(), vm);
-
-    return true;
-  });
-  if (!success) return 1;
-
-  // Check Query Options
-  {
-    // Help
-    if (command_line::get_arg(vm, command_line::arg_help))
-    {
-      std::cout << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL << ENDL;
-      std::cout << "Usage: " << argv[0] << " [options|settings] [daemon_command...]" << std::endl << std::endl;
-      std::cout << visible_options << std::endl;
-      return 0;
-    }
-
-    // Monero Version
-    if (command_line::get_arg(vm, command_line::arg_version))
-    {
-      std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
-      return 0;
-    }
-
-    // OS
-    if (command_line::get_arg(vm, arg_os_version))
-    {
-      std::cout << "OS: " << tools::get_os_version_string() << ENDL;
-      return 0;
-    }
-  }
-
-  // Parse config file if it exists
-  {
-    bf::path data_dir_path(bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir)));
-    bf::path config_path(command_line::get_arg(vm, arg_config_file));
-
-    if (config_path.is_relative())
-    {
-      config_path = data_dir_path / config_path;
-    }
-
-    boost::system::error_code ec;
-    if (bf::exists(config_path, ec))
-    {
-      po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
-    }
-    po::notify(vm);
-  }
-
-  // If there are positional options, we're running a daemon command
-  if (command_line::arg_present(vm, arg_command))
-  {
-    auto command = command_line::get_arg(vm, arg_command);
-    auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
-    auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
-
-    uint32_t rpc_ip;
-    uint16_t rpc_port;
-    if (!epee::string_tools::get_ip_int32_from_string(rpc_ip, rpc_ip_str))
-    {
-      std::cerr << "Invalid IP: " << rpc_ip_str << std::endl;
-      return 1;
-    }
-    if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
-    {
-      std::cerr << "Invalid port: " << rpc_port_str << std::endl;
-      return 1;
-    }
-
-    t_command_server rpc_commands{rpc_ip, rpc_port};
-    if (rpc_commands.process_command_vec(command))
-    {
-      return 0;
-    }
-    else
-    {
-      std::cerr << "Unknown command" << std::endl;
-      return 1;
-    }
-  }
-
-  // Start with log level 0
-  epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
-
-  // Add console logger if we're not forking
-#ifdef WIN32
-  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-#else
-  if (!command_line::arg_present(vm, arg_detach))
+  if (has_console)
   {
     epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
   }
-#endif
-
-  // Set log level
-  {
-    int new_log_level = command_line::get_arg(vm, arg_log_level);
-    if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
-    {
-      LOG_PRINT_L0("Wrong log level value: " << new_log_level);
-    }
-    else if (epee::log_space::get_set_log_detalisation_level(false) != new_log_level)
-    {
-      epee::log_space::get_set_log_detalisation_level(true, new_log_level);
-      LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
-    }
-  }
-
-  // Set log file
-  {
-    bf::path data_dir(bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir)));
-    bf::path log_file_path(command_line::get_arg(vm, arg_log_file));
-
-    if (log_file_path.is_relative())
-    {
-      log_file_path = data_dir / log_file_path;
-    }
-
-    boost::system::error_code ec;
-    if (!log_file_path.has_parent_path() || !bf::exists(log_file_path.parent_path(), ec))
-    {
-      log_file_path = epee::log_space::log_singletone::get_default_log_file();
-    }
-
-    std::string log_dir;
-    log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : epee::log_space::log_singletone::get_default_log_folder();
-    epee::log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
-  }
-
-#ifndef WIN32
-  if (command_line::arg_present(vm, arg_detach))
-  {
-    std::cout << "forking to background..." << std::endl;
-    posix_fork();
-  }
-#endif
-
-  // Begin logging
   LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-
-  bool res = true;
-  cryptonote::checkpoints checkpoints;
-  res = cryptonote::create_checkpoints(checkpoints);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize checkpoints");
-
-  //create objects and link them
-  cryptonote::core ccore(NULL);
-  ccore.set_checkpoints(std::move(checkpoints));
-  cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);
-  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > p2psrv(cprotocol);
-  cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
-  cprotocol.set_p2p_endpoint(&p2psrv);
-  ccore.set_cryptonote_protocol(&cprotocol);
-
-  //initialize objects
-  LOG_PRINT_L0("Initializing p2p server...");
-  res = p2psrv.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize p2p server.");
-  LOG_PRINT_L0("P2p server initialized OK");
-
-  LOG_PRINT_L0("Initializing cryptonote protocol...");
-  res = cprotocol.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize cryptonote protocol.");
-  LOG_PRINT_L0("Cryptonote protocol initialized OK");
-
-  LOG_PRINT_L0("Initializing core rpc server...");
-  res = rpc_server.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
-  LOG_PRINT_GREEN("Core rpc server initialized OK on port: " << rpc_server.get_binded_port(), LOG_LEVEL_0);
-
-  //initialize core here
-  LOG_PRINT_L0("Initializing core...");
-  res = ccore.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
-  LOG_PRINT_L0("Core initialized OK");
-
-  LOG_PRINT_L0("Starting core rpc server...");
-  res = rpc_server.run(2, false);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
-  LOG_PRINT_L0("Core rpc server started ok");
-
-  tools::signal_handler::install([&p2psrv] {
-    p2psrv.send_stop_signal();
-  });
-
-  LOG_PRINT_L0("Starting p2p net loop...");
-  p2psrv.run();
-  LOG_PRINT_L0("p2p net loop stopped");
-
-  //stop components
-  LOG_PRINT_L0("Stopping core rpc server...");
-  rpc_server.send_stop_signal();
-  rpc_server.timed_wait_server_stop(5000);
-
-  //deinitialize components
-  LOG_PRINT_L0("Deinitializing core...");
-  ccore.deinit();
-  LOG_PRINT_L0("Deinitializing rpc server ...");
-  rpc_server.deinit();
-  LOG_PRINT_L0("Deinitializing cryptonote_protocol...");
-  cprotocol.deinit();
-  LOG_PRINT_L0("Deinitializing p2p...");
-  p2psrv.deinit();
-
-  ccore.set_cryptonote_protocol(NULL);
-  cprotocol.set_p2p_endpoint(NULL);
-
-  LOG_PRINT("Node stopped.", LOG_LEVEL_0);
-  return 0;
-
-  CATCH_ENTRY_L0("main", 1);
+  return t_daemon{vm};
 }
+
+t_daemon::t_daemon(
+    boost::program_options::variables_map const & vm
+  )
+  : mp_impl{new t_daemon_impl{vm}}
+{}
+
+t_daemon::~t_daemon() = default;
+
+// MSVC is brain-dead and can't default this...
+t_daemon::t_daemon(t_daemon && other)
+{
+  if (this != &other)
+  {
+    mp_impl = std::move(other.mp_impl);
+    other.mp_impl.reset(nullptr);
+  }
+}
+
+// or this
+t_daemon & t_daemon::operator=(t_daemon && other)
+{
+  if (this != &other)
+  {
+    mp_impl = std::move(other.mp_impl);
+    other.mp_impl.reset(nullptr);
+  }
+  return *this;
+}
+
+void t_daemon::run()
+{
+  mp_impl->run();
+}
+
+void t_daemon::stop()
+{
+  mp_impl->stop();
+}
+
+} // namespace daemonize
