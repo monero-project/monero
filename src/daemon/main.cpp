@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "common/command_line.h"
+#include "common/scoped_message_writer.h"
 #include "common/util.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/miner.h"
@@ -286,10 +287,22 @@ int main(int argc, char* argv[])
       // install windows service
       std::string arguments = get_argument_string(argc, argv) + " --run-as-service";
       bool install = windows::install_service(WINDOWS_SERVICE_NAME, arguments);
-      bool start = windows::start_service(WINDOWS_SERVICE_NAME);
+      bool start = false;
+      if (install)
+      {
+        start = windows::start_service(WINDOWS_SERVICE_NAME);
+      }
       if (install && !start)
       {
         windows::uninstall_service(WINDOWS_SERVICE_NAME);
+      }
+      if (install && start)
+      {
+        tools::success_msg_writer() << "Service started";
+      }
+      else
+      {
+        tools::fail_msg_writer() << "Service start failed.  Are you running as administrator?";
       }
 #   else
       // fork

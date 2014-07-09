@@ -340,6 +340,7 @@ bool t_rpc_command_executor::stop_daemon()
     //ok = windows::uninstall_service(SERVICE_NAME);
     if (ok)
     {
+      tools::success_msg_writer() << "Service stopped";
       return true;
     }
 # endif
