@@ -9,42 +9,63 @@
 #include "version.h"
 #include <boost/program_options.hpp>
 #include <functional>
+#include <memory>
 
 namespace daemonize {
 
+namespace
+{
+  struct t_internals {
+  private:
+    t_protocol protocol;
+    t_core core;
+  public:
+    t_p2p p2p;
+    t_rpc rpc;
+
+    t_internals(
+        boost::program_options::variables_map const & vm
+      )
+      : core{vm}
+      , protocol{vm, core}
+      , p2p{vm, protocol}
+      , rpc{vm, core, p2p}
+    {
+      // Handle circular dependencies
+      protocol.set_p2p_endpoint(p2p.get());
+      core.set_protocol(protocol.get());
+    }
+  };
+}
+
 class t_daemon_impl final {
 private:
-  t_core m_core;
-  t_protocol m_protocol;
-  t_p2p m_p2p;
-  t_rpc m_rpc;
+  std::unique_ptr<t_internals> mp_internals;
 public:
   t_daemon_impl(
       boost::program_options::variables_map const & vm
     )
-    : m_core{vm}
-    , m_protocol{vm, m_core}
-    , m_p2p{vm, m_protocol}
-    , m_rpc{vm, m_core, m_p2p}
-  {
-    // Handle circular dependencies
-    m_protocol.set_p2p_endpoint(m_p2p.get());
-    m_core.set_protocol(m_protocol.get());
-  }
+    : mp_internals{new t_internals{vm}}
+  {}
 
   void run()
   {
+    if (nullptr == mp_internals)
+    {
+      throw std::runtime_error{"Can't run stopped daemon"};
+    }
     tools::signal_handler::install(std::bind(&daemonize::t_daemon_impl::stop, this));
-    m_rpc.run();
-    m_p2p.run();
-    m_rpc.stop();
+    mp_internals->rpc.run();
+    mp_internals->p2p.run();
+    mp_internals->rpc.stop();
     LOG_PRINT("Node stopped.", LOG_LEVEL_0);
   }
 
   void stop()
   {
-    m_p2p.stop();
-    m_rpc.stop();
+    mp_internals->p2p.stop();
+    mp_internals->rpc.stop();
+    mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
   }
 };
 
