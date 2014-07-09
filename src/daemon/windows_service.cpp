@@ -3,6 +3,7 @@
 
 #include "daemon/windows_service.h"
 #include "misc_log_ex.h"
+#include "string_tools.h"
 #include <iostream>
 #include <utility>
 #include <memory>
@@ -16,11 +17,11 @@ namespace {
 
 bool install_service(
     std::string const & service_name
-  , std::string const & zombie_argument
+  , std::string const & arguments
   )
 {
-  std::string command_line{GetCommandLine()};
-  std::string full_command = command_line + " " + zombie_argument;
+  std::string command = epee::string_tools::get_current_module_path();
+  std::string full_command = command + arguments;
 
   service_handle p_manager{
     OpenSCManager(

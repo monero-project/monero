@@ -12,7 +12,7 @@ namespace windows
 {
   bool install_service(
       std::string const & service_name
-    , std::string const & zombie_argument
+    , std::string const & arguments
     );
 
   bool uninstall_service(

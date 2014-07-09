@@ -55,6 +55,16 @@ namespace
     "run-as-service"
   , "Hidden -- true if running as windows service"
   };
+
+  std::string get_argument_string(int argc, char * argv[])
+  {
+    std::string result = "";
+    for (int i = 1; i < argc; ++i)
+    {
+      result += " " + std::string{argv[i]};
+    }
+    return result;
+  }
 }
 
 int main(int argc, char* argv[])
@@ -274,7 +284,8 @@ int main(int argc, char* argv[])
   {
 #   ifdef WIN32
       // install windows service
-      bool install = windows::install_service(WINDOWS_SERVICE_NAME, "--run-as-service");
+      std::string arguments = get_argument_string(argc, argv) + " --run-as-service";
+      bool install = windows::install_service(WINDOWS_SERVICE_NAME, arguments);
       bool start = windows::start_service(WINDOWS_SERVICE_NAME);
       if (install && !start)
       {
