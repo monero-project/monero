@@ -296,14 +296,6 @@ int main(int argc, char* argv[])
       {
         windows::uninstall_service(WINDOWS_SERVICE_NAME);
       }
-      if (install && start)
-      {
-        tools::success_msg_writer() << "Service started";
-      }
-      else
-      {
-        tools::fail_msg_writer() << "Service start failed.  Are you running as administrator?";
-      }
 #   else
       // fork
       posix::fork();

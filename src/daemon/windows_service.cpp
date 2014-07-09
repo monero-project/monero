@@ -1,8 +1,8 @@
 #undef UNICODE
 #undef _UNICODE
 
+#include "common/scoped_message_writer.h"
 #include "daemon/windows_service.h"
-#include "misc_log_ex.h"
 #include "string_tools.h"
 #include <iostream>
 #include <utility>
@@ -33,7 +33,7 @@ bool install_service(
   };
   if (p_manager == nullptr)
   {
-    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't connect to service manager: " << GetLastError();
     return false;
   }
 
@@ -59,11 +59,11 @@ bool install_service(
   };
   if (p_service == nullptr)
   {
-    LOG_ERROR("Couldn't create service: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't create service: " << GetLastError();
     return false;
   }
 
-  LOG_PRINT_L0("Service installed");
+  tools::success_msg_writer() << "Service installed";
   return true;
 }
 
@@ -84,7 +84,7 @@ bool start_service(
   };
   if (p_manager == nullptr)
   {
-    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't connect to service manager: " << GetLastError();
     return false;
   }
 
@@ -99,7 +99,7 @@ bool start_service(
   };
   if (p_service == nullptr)
   {
-    LOG_ERROR("Couldn't find service: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't find service: " << GetLastError();
     return false;
   }
 
@@ -109,11 +109,11 @@ bool start_service(
     , nullptr
     ))
   {
-    LOG_ERROR("Service start request failed: " << GetLastError());
+    tools::fail_msg_writer() << "Service start request failed: " << GetLastError();
     return false;
   }
 
-  LOG_PRINT_L0("Service started");
+  tools::success_msg_writer() << "Service started";
   return true;
 }
 
@@ -131,7 +131,7 @@ bool stop_service(
   };
   if (p_manager == nullptr)
   {
-    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't connect to service manager: " << GetLastError();
     return false;
   }
 
@@ -145,18 +145,18 @@ bool stop_service(
   };
   if (p_service == nullptr)
   {
-    LOG_ERROR("Couldn't find service: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't find service: " << GetLastError();
     return false;
   }
 
   SERVICE_STATUS status = {};
   if (!ControlService(p_service.get(), SERVICE_CONTROL_STOP, &status))
   {
-    LOG_ERROR("Couldn't request service stop: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't request service stop: " << GetLastError();
     return false;
   }
 
-  LOG_PRINT_L0("Service stopped");
+  tools::success_msg_writer() << "Service stopped";
   return true;
 }
 
@@ -174,7 +174,7 @@ bool uninstall_service(
   };
   if (p_manager == nullptr)
   {
-    LOG_ERROR("Couldn't connect to service manager: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't connect to service manager: " << GetLastError();
     return false;
   }
 
@@ -188,18 +188,18 @@ bool uninstall_service(
   };
   if (p_service == nullptr)
   {
-    LOG_ERROR("Couldn't find service: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't find service: " << GetLastError();
     return false;
   }
 
   SERVICE_STATUS status = {};
   if (!DeleteService(p_service.get()))
   {
-    LOG_ERROR("Couldn't uninstall service: " << GetLastError());
+    tools::fail_msg_writer() << "Couldn't uninstall service: " << GetLastError();
     return false;
   }
 
-  LOG_PRINT_L0("Service uninstalled");
+  tools::success_msg_writer() << "Service uninstalled";
 
   return true;
 }
