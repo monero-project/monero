@@ -70,9 +70,6 @@ namespace
 int main(int argc, char const * argv[])
 {
   epee::string_tools::set_module_name_and_folder(argv[0]);
-# ifdef WIN32
-    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-# endif
   TRY_ENTRY();
 
   // Build argument description
