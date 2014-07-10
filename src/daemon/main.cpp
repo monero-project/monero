@@ -55,7 +55,7 @@ namespace
   };
 
 #ifdef WIN32
-  std::string get_argument_string(int argc, char * argv[])
+  std::string get_argument_string(int argc, char const * argv[])
   {
     std::string result = "";
     for (int i = 1; i < argc; ++i)
