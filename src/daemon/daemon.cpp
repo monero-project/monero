@@ -13,59 +13,25 @@
 
 namespace daemonize {
 
-namespace
-{
-  struct t_internals {
-  private:
-    t_protocol protocol;
-    t_core core;
-  public:
-    t_p2p p2p;
-    t_rpc rpc;
-
-    t_internals(
-        boost::program_options::variables_map const & vm
-      )
-      : core{vm}
-      , protocol{vm, core}
-      , p2p{vm, protocol}
-      , rpc{vm, core, p2p}
-    {
-      // Handle circular dependencies
-      protocol.set_p2p_endpoint(p2p.get());
-      core.set_protocol(protocol.get());
-    }
-  };
-}
-
-class t_daemon_impl final {
+struct t_internals {
 private:
-  std::unique_ptr<t_internals> mp_internals;
+  t_protocol protocol;
+  t_core core;
 public:
-  t_daemon_impl(
+  t_p2p p2p;
+  t_rpc rpc;
+
+  t_internals(
       boost::program_options::variables_map const & vm
     )
-    : mp_internals{new t_internals{vm}}
-  {}
-
-  void run()
+    : core{vm}
+    , protocol{vm, core}
+    , p2p{vm, protocol}
+    , rpc{vm, core, p2p}
   {
-    if (nullptr == mp_internals)
-    {
-      throw std::runtime_error{"Can't run stopped daemon"};
-    }
-    tools::signal_handler::install(std::bind(&daemonize::t_daemon_impl::stop, this));
-    mp_internals->rpc.run();
-    mp_internals->p2p.run();
-    mp_internals->rpc.stop();
-    LOG_PRINT("Node stopped.", LOG_LEVEL_0);
-  }
-
-  void stop()
-  {
-    mp_internals->p2p.stop();
-    mp_internals->rpc.stop();
-    mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
+    // Handle circular dependencies
+    protocol.set_p2p_endpoint(p2p.get());
+    core.set_protocol(protocol.get());
   }
 };
 
@@ -79,7 +45,7 @@ void t_daemon::init_options(boost::program_options::options_description & option
 t_daemon::t_daemon(
     boost::program_options::variables_map const & vm
   )
-  : mp_impl{new t_daemon_impl{vm}}
+  : mp_internals{new t_internals{vm}}
 {}
 
 t_daemon::~t_daemon() = default;
@@ -89,8 +55,8 @@ t_daemon::t_daemon(t_daemon && other)
 {
   if (this != &other)
   {
-    mp_impl = std::move(other.mp_impl);
-    other.mp_impl.reset(nullptr);
+    mp_internals = std::move(other.mp_internals);
+    other.mp_internals.reset(nullptr);
   }
 }
 
@@ -99,20 +65,30 @@ t_daemon & t_daemon::operator=(t_daemon && other)
 {
   if (this != &other)
   {
-    mp_impl = std::move(other.mp_impl);
-    other.mp_impl.reset(nullptr);
+    mp_internals = std::move(other.mp_internals);
+    other.mp_internals.reset(nullptr);
   }
   return *this;
 }
 
 void t_daemon::run()
 {
-  mp_impl->run();
+  if (nullptr == mp_internals)
+  {
+    throw std::runtime_error{"Can't run stopped daemon"};
+  }
+  tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop, this));
+  mp_internals->rpc.run();
+  mp_internals->p2p.run();
+  mp_internals->rpc.stop();
+  LOG_PRINT("Node stopped.", LOG_LEVEL_0);
 }
 
 void t_daemon::stop()
 {
-  mp_impl->stop();
+  mp_internals->p2p.stop();
+  mp_internals->rpc.stop();
+  mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
 }
 
 } // namespace daemonize

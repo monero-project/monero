@@ -5,13 +5,13 @@
 
 namespace daemonize {
 
-class t_daemon_impl;
+class t_internals;
 
 class t_daemon final {
 public:
   static void init_options(boost::program_options::options_description & option_spec);
 private:
-  std::unique_ptr<t_daemon_impl> mp_impl;
+  std::unique_ptr<t_internals> mp_internals;
 public:
   t_daemon(
       boost::program_options::variables_map const & vm
