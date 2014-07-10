@@ -29,4 +29,8 @@ namespace command_line_options
   bool query_system_info(
       boost::program_options::variables_map const & vm
     );
+
+  boost::filesystem::path init_data_directory(
+      boost::program_options::variables_map const & vm
+    );
 }

@@ -127,11 +127,7 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    // Try to create requested/defaulted data directory
-    {
-      bf::path data_dir = bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir));
-      tools::create_directories_if_necessary(data_dir.string());
-    }
+    bf::path data_dir = command_line_options::init_data_directory(vm);
 
     // Parse config file if it exists
     {

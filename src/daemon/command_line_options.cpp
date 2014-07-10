@@ -86,4 +86,14 @@ namespace command_line_options
 
     return false;
   }
+
+  boost::filesystem::path init_data_directory(
+      boost::program_options::variables_map const & vm
+    )
+  {
+    boost::filesystem::path data_dir = boost::filesystem::absolute(
+        command_line::get_arg(vm, command_line::arg_data_dir));
+    tools::create_directories_if_necessary(data_dir.string());
+    return data_dir;
+  }
 }
