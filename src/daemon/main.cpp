@@ -57,6 +57,7 @@ namespace
   , "Hidden -- true if running as windows service"
   };
 
+#ifdef WIN32
   std::string get_argument_string(int argc, char * argv[])
   {
     std::string result = "";
@@ -66,6 +67,7 @@ namespace
     }
     return result;
   }
+#endif
 }
 
 int main(int argc, char* argv[])
