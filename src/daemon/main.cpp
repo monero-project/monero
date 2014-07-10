@@ -7,6 +7,7 @@
 #include "common/util.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/miner.h"
+#include "daemon/command_line_options.h"
 #include "daemon/command_server.h"
 #include "daemon/daemon.h"
 #include "daemon/posix_fork.h"
@@ -30,10 +31,6 @@ namespace
   const command_line::arg_descriptor<std::string> arg_config_file = {
     "config-file"
   , "Specify configuration file.  This can either be an absolute path or a path relative to the data directory"
-  };
-  const command_line::arg_descriptor<bool> arg_os_version = {
-    "os-version"
-  , "OS for which this executable was compiled"
   };
   const command_line::arg_descriptor<std::string> arg_log_file = {
     "log-file"
@@ -87,9 +84,9 @@ int main(int argc, char* argv[])
     bf::path default_data_dir = bf::absolute(tools::get_default_data_dir());
 
     // Misc Options
-    command_line::add_arg(visible_options, command_line::arg_help);
-    command_line::add_arg(visible_options, command_line::arg_version);
-    command_line::add_arg(visible_options, arg_os_version);
+
+    command_line_options::init_help_option(visible_options);
+    command_line_options::init_system_query_options(visible_options);
     command_line::add_arg(visible_options, command_line::arg_data_dir, default_data_dir.string());
     command_line::add_arg(visible_options, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
     command_line::add_arg(visible_options, arg_detach);
@@ -124,30 +121,17 @@ int main(int argc, char* argv[])
   });
   if (!success) return 1;
 
-  // Check Query Options
+  if (command_line_options::print_help(
+        "Usage: " + std::string{argv[0]} + " [options|settings] [daemon_command...]"
+      , vm, visible_options
+      ))
   {
-    // Help
-    if (command_line::get_arg(vm, command_line::arg_help))
-    {
-      std::cout << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL << ENDL;
-      std::cout << "Usage: " << argv[0] << " [options|settings] [daemon_command...]" << std::endl << std::endl;
-      std::cout << visible_options << std::endl;
-      return 0;
-    }
+    return 0;
+  }
 
-    // Monero Version
-    if (command_line::get_arg(vm, command_line::arg_version))
-    {
-      std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
-      return 0;
-    }
-
-    // OS
-    if (command_line::get_arg(vm, arg_os_version))
-    {
-      std::cout << "OS: " << tools::get_os_version_string() << ENDL;
-      return 0;
-    }
+  if (command_line_options::query_system_info(vm))
+  {
+    return 0;
   }
 
   // Try to create requested/defaulted data directory
