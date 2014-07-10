@@ -69,6 +69,13 @@ public:
   }
 };
 
+void t_daemon::init_options(boost::program_options::options_description & option_spec)
+{
+  t_core::init_options(option_spec);
+  t_p2p::init_options(option_spec);
+  t_rpc::init_options(option_spec);
+}
+
 t_daemon::t_daemon(
     boost::program_options::variables_map const & vm
   )

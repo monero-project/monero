@@ -12,6 +12,11 @@ namespace daemonize
 
 class t_rpc final
 {
+public:
+  static void init_options(boost::program_options::options_description & option_spec)
+  {
+    cryptonote::core_rpc_server::init_options(option_spec);
+  }
 private:
   cryptonote::core_rpc_server m_server;
 public:

@@ -97,10 +97,7 @@ int main(int argc, char* argv[])
     // Settings
     command_line::add_arg(core_settings, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
     command_line::add_arg(core_settings, arg_log_level);
-    cryptonote::core::init_options(core_settings);
-    cryptonote::core_rpc_server::init_options(core_settings);
-    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >::init_options(core_settings);
-    cryptonote::miner::init_options(core_settings);
+    daemonize::t_daemon::init_options(core_settings);
 
     // Hidden options
     command_line::add_arg(all_options, arg_command);
