@@ -29,6 +29,26 @@ namespace command_line_options
     command_line::add_arg(option_spec, arg_os_version);
   }
 
+  bool parse_options(
+      boost::program_options::variables_map & result
+    , int argc, char const * argv[]
+    , boost::program_options::options_description const & visible_options
+    , boost::program_options::options_description const & all_options
+    , boost::program_options::positional_options_description const & positional_options
+    )
+  {
+    return command_line::handle_error_helper(visible_options, [&]()
+    {
+      boost::program_options::store(
+        boost::program_options::command_line_parser(argc, argv)
+          .options(all_options).positional(positional_options).run()
+      , result
+      );
+
+      return true;
+    });
+  }
+
   bool print_help(
       std::string const & usage_note
     , boost::program_options::variables_map const & vm

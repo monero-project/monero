@@ -10,6 +10,13 @@ namespace command_line_options
   void init_system_query_options(
       boost::program_options::options_description & option_spec
     );
+  bool parse_options(
+      boost::program_options::variables_map & result
+    , int argc, char const * argv[]
+    , boost::program_options::options_description const & visible_options
+    , boost::program_options::options_description const & all_options
+    , boost::program_options::positional_options_description const & positional_options
+    );
   bool print_help(
       std::string const & usage_note
     , boost::program_options::variables_map const & vm

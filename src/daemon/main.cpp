@@ -67,7 +67,7 @@ namespace
 #endif
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char const * argv[])
 {
   epee::string_tools::set_module_name_and_folder(argv[0]);
 # ifdef WIN32
@@ -111,15 +111,10 @@ int main(int argc, char* argv[])
 
   // Do command line parsing
   po::variables_map vm;
-  bool success = command_line::handle_error_helper(all_options, [&]()
+  if (!command_line_options::parse_options(vm, argc, argv, visible_options, all_options, positional))
   {
-    //po::store(po::parse_command_line(argc, argv, visible_options), vm);
-    po::store(po::command_line_parser(argc, argv).options(all_options).positional(positional).run(), vm);
-    //po::store(po::command_line_parser(argc, argv).options(all_options).run(), vm);
-
-    return true;
-  });
-  if (!success) return 1;
+    return 1;
+  }
 
   if (command_line_options::print_help(
         "Usage: " + std::string{argv[0]} + " [options|settings] [daemon_command...]"
