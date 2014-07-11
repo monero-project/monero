@@ -78,10 +78,22 @@ void t_daemon::run()
     throw std::runtime_error{"Can't run stopped daemon"};
   }
   tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop, this));
-  mp_internals->rpc.run();
-  mp_internals->p2p.run();
-  mp_internals->rpc.stop();
-  LOG_PRINT("Node stopped.", LOG_LEVEL_0);
+
+  try
+  {
+    mp_internals->rpc.run();
+    mp_internals->p2p.run();
+    mp_internals->rpc.stop();
+    LOG_PRINT("Node stopped.", LOG_LEVEL_0);
+  }
+  catch (std::exception const & ex)
+  {
+    LOG_ERROR("Uncaught exception! " << ex.what());
+  }
+  catch (...)
+  {
+    LOG_ERROR("Uncaught exception!");
+  }
 }
 
 void t_daemon::stop()
