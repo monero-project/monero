@@ -53,13 +53,13 @@ int main(int argc, char* argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
-      std::cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]";
+      std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG << std::endl;
+      std::cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]" << std::endl;
       return false;
     }
     else if (command_line::get_arg(vm, command_line::arg_version))
     {
-      std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+      std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG << std::endl;
       return false;
     }
 
@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
     epee::log_space::log_singletone::get_default_log_file().c_str(),
     epee::log_space::log_singletone::get_default_log_folder().c_str(), LOG_LEVEL_4);
 
-  std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+  std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG << std::endl;
 
   if(command_line::has_arg(vm, arg_log_level))
   {
@@ -138,6 +138,7 @@ int main(int argc, char* argv[])
   {
     LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon.");
   }
+
   tools::wallet_rpc_server wrpc(wal);
 
   CHECK_AND_ASSERT_MES(wrpc.init(vm), 1, "Failed to initialize wallet rpc server");
