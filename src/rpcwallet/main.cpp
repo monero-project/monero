@@ -1,5 +1,6 @@
 #include "common/command_line.h"
 #include "common/util.h"
+#include "misc_log_ex.h"
 #include "rpcwallet/wallet_rpc_server.h"
 #include "string_tools.h"
 #include "version.h"
@@ -7,10 +8,6 @@
 #include <boost/program_options.hpp>
 #include <iostream>
 
-using namespace std;
-using namespace epee;
-//using namespace cryptonote;
-//using boost::lexical_cast;
 namespace po = boost::program_options;
 
 namespace
@@ -29,7 +26,7 @@ int main(int argc, char* argv[])
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
 #endif
 
-  string_tools::set_module_name_and_folder(argv[0]);
+  epee::string_tools::set_module_name_and_folder(argv[0]);
 
   po::options_description desc_general("General options");
   command_line::add_arg(desc_general, command_line::arg_help);
@@ -56,13 +53,13 @@ int main(int argc, char* argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
-      cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]";
+      std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+      std::cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]";
       return false;
     }
     else if (command_line::get_arg(vm, command_line::arg_version))
     {
-      cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+      std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
       return false;
     }
 
@@ -75,22 +72,22 @@ int main(int argc, char* argv[])
     return 0;
 
   //set up logging options
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
-  //log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
-  log_space::log_singletone::add_logger(LOGGER_FILE,
-    log_space::log_singletone::get_default_log_file().c_str(),
-    log_space::log_singletone::get_default_log_folder().c_str(), LOG_LEVEL_4);
+  epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
+  //epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
+  epee::log_space::log_singletone::add_logger(LOGGER_FILE,
+    epee::log_space::log_singletone::get_default_log_file().c_str(),
+    epee::log_space::log_singletone::get_default_log_folder().c_str(), LOG_LEVEL_4);
 
-  cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
+  std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG;
 
   if(command_line::has_arg(vm, arg_log_level))
   {
     LOG_PRINT_L0("Setting log level = " << command_line::get_arg(vm, arg_log_level));
-    log_space::get_set_log_detalisation_level(true, command_line::get_arg(vm, arg_log_level));
+    epee::log_space::get_set_log_detalisation_level(true, command_line::get_arg(vm, arg_log_level));
   }
 
 
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
+  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
   //runs wallet with rpc interface
   if(!command_line::has_arg(vm, arg_wallet_file) )
   {
