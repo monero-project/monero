@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
     return true;
   });
   if (!r)
-    return 0;
+    return 1;
 
   //set up logging options
   epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
@@ -154,6 +154,7 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("Storing wallet...");
     wal.store();
     LOG_PRINT_GREEN("Stored ok", LOG_LEVEL_0);
+    return 0;
   }
   catch (const std::exception& e)
   {
