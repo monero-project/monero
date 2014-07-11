@@ -481,7 +481,7 @@ void print_version()
 
 void print_usage()
 {
-  cout << "Usage: rpcwallet --wallet-file=<file> --wallet-password=<password> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]" << endl;
+  cout << "Usage: rpcwallet --wallet-file=<file> --password=<password> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]" << endl;
 }
 
 int main(int argc, char* argv[])
