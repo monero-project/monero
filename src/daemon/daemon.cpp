@@ -98,6 +98,10 @@ void t_daemon::run()
 
 void t_daemon::stop()
 {
+  if (nullptr == mp_internals)
+  {
+    throw std::runtime_error{"Can't stop stopped daemon"};
+  }
   mp_internals->p2p.stop();
   mp_internals->rpc.stop();
   mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
