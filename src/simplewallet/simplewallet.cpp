@@ -17,7 +17,6 @@
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "storages/http_abstract_invoke.h"
 #include "rpc/core_rpc_server_commands_defs.h"
-#include "wallet/wallet_rpc_server.h"
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "crypto/electrum-words.h"
@@ -707,6 +706,7 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
     tools::fail_msg_writer() << "failed to get blockchain height: " << err;
   return true;
 }
+
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer(const std::vector<std::string> &args_)
 {
@@ -773,9 +773,38 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
 
   try
   {
-    cryptonote::transaction tx;
-    m_wallet->transfer(dsts, fake_outs_count, 0, DEFAULT_FEE, extra, tx);
-    tools::msg_writer() << "Money successfully sent, transaction " << get_transaction_hash(tx);
+    // figure out what tx will be necessary
+    auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, DEFAULT_FEE, extra);
+
+    // if more than one tx necessary, prompt user to confirm
+    if (ptx_vector.size() > 1)
+    {
+        std::string prompt_str = "Your transaction needs to be split into ";
+        prompt_str += std::to_string(ptx_vector.size());
+        prompt_str += " transactions.  This will result in a fee of ";
+        prompt_str += print_money(ptx_vector.size() * DEFAULT_FEE);
+        prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
+        std::string accepted = command_line::input_line(prompt_str);
+        if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+        {
+          fail_msg_writer() << "Transaction cancelled.";
+
+          // would like to return false, because no tx made, but everything else returns true
+          // and I don't know what returning false might adversely affect.  *sigh*
+          return true; 
+        }
+    }
+
+    // actually commit the transactions
+    while (!ptx_vector.empty())
+    {
+      auto & ptx = ptx_vector.back();
+      m_wallet->commit_tx(ptx);
+      success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(ptx.tx);
+
+      // if no exception, remove element from vector
+      ptx_vector.pop_back();
+    }
   }
   catch (const tools::error::daemon_busy&)
   {
@@ -821,15 +850,13 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   {
     tools::fail_msg_writer() << e.what();
   }
-  catch (const tools::error::tx_too_big& e)
-  {
-    cryptonote::transaction tx = e.tx();
-    tools::fail_msg_writer() << "transaction " << get_transaction_hash(e.tx()) << " is too big. Transaction size: " <<
-      get_object_blobsize(e.tx()) << " bytes, transaction size limit: " << e.tx_size_limit() << " bytes";
-  }
   catch (const tools::error::zero_destination&)
   {
     tools::fail_msg_writer() << "one of destinations is zero";
+  }
+  catch (const tools::error::tx_too_big& e)
+  {
+    fail_msg_writer() << "Failed to find a suitable way to split transactions";
   }
   catch (const tools::error::transfer_error& e)
   {
@@ -904,7 +931,6 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
   command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );
-  tools::wallet_rpc_server::init_options(desc_params);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
@@ -953,96 +979,25 @@ int main(int argc, char* argv[])
     log_space::get_set_log_detalisation_level(true, command_line::get_arg(vm, arg_log_level));
   }
 
-  if(command_line::has_arg(vm, tools::wallet_rpc_server::arg_rpc_bind_port))
+  //runs wallet with console interface
+  r = w.init(vm);
+  CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet");
+
+  std::vector<std::string> command = command_line::get_arg(vm, arg_command);
+  if (!command.empty())
   {
-    log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
-    //runs wallet with rpc interface
-    if(!command_line::has_arg(vm, arg_wallet_file) )
-    {
-      LOG_ERROR("Wallet file not set.");
-      return 1;
-    }
-    if(!command_line::has_arg(vm, arg_daemon_address) )
-    {
-      LOG_ERROR("Daemon address not set.");
-      return 1;
-    }
-    if(!command_line::has_arg(vm, arg_password) )
-    {
-      LOG_ERROR("Wallet password not set.");
-      return 1;
-    }
-
-    std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
-    std::string wallet_password = command_line::get_arg(vm, arg_password);
-    std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
-    std::string daemon_host = command_line::get_arg(vm, arg_daemon_host);
-    int daemon_port = command_line::get_arg(vm, arg_daemon_port);
-    if (daemon_host.empty())
-      daemon_host = "localhost";
-    if (!daemon_port)
-      daemon_port = RPC_DEFAULT_PORT;
-    if (daemon_address.empty())
-      daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
-
-    tools::wallet2 wal;
-    try
-    {
-      LOG_PRINT_L0("Loading wallet...");
-      wal.load(wallet_file, wallet_password);
-      wal.init(daemon_address);
-      wal.refresh();
-      LOG_PRINT_GREEN("Loaded ok", LOG_LEVEL_0);
-    }
-    catch (const std::exception& e)
-    {
-      LOG_ERROR("Wallet initialize failed: " << e.what());
-      return 1;
-    }
-    tools::wallet_rpc_server wrpc(wal);
-    bool r = wrpc.init(vm);
-    CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet rpc server");
-
-    tools::signal_handler::install([&wrpc, &wal] {
-      wrpc.send_stop_signal();
-      wal.store();
-    });
-    LOG_PRINT_L0("Starting wallet rpc server");
-    wrpc.run();
-    LOG_PRINT_L0("Stopped wallet rpc server");
-    try
-    {
-      LOG_PRINT_L0("Storing wallet...");
-      wal.store();
-      LOG_PRINT_GREEN("Stored ok", LOG_LEVEL_0);
-    }
-    catch (const std::exception& e)
-    {
-      LOG_ERROR("Failed to store wallet: " << e.what());
-      return 1;
-    }
-  }else
+    w.process_command(command);
+    w.stop();
+    w.deinit();
+  }
+  else
   {
-    //runs wallet with console interface
-    r = w.init(vm);
-    CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet");
-
-    std::vector<std::string> command = command_line::get_arg(vm, arg_command);
-    if (!command.empty())
-    {
-      w.process_command(command);
+    tools::signal_handler::install([&w] {
       w.stop();
-      w.deinit();
-    }
-    else
-    {
-      tools::signal_handler::install([&w] {
-        w.stop();
-      });
-      w.run();
+    });
+    w.run();
 
-      w.deinit();
-    }
+    w.deinit();
   }
   return 0;
   //CATCH_ENTRY_L0("main", 1);
