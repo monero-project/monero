@@ -71,7 +71,7 @@ t_daemon & t_daemon::operator=(t_daemon && other)
   return *this;
 }
 
-void t_daemon::run()
+bool t_daemon::run()
 {
   if (nullptr == mp_internals)
   {
@@ -85,14 +85,17 @@ void t_daemon::run()
     mp_internals->p2p.run();
     mp_internals->rpc.stop();
     LOG_PRINT("Node stopped.", LOG_LEVEL_0);
+    return true;
   }
   catch (std::exception const & ex)
   {
     LOG_ERROR("Uncaught exception! " << ex.what());
+    return false;
   }
   catch (...)
   {
     LOG_ERROR("Uncaught exception!");
+    return false;
   }
 }
 

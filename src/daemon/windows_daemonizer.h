@@ -2,8 +2,6 @@
 
 #ifdef WIN32
 
-#include "daemon/daemon.h"
-#include "daemon/daemonizer.h"
 #include "daemon/windows_service.h"
 #include "daemon/windows_service_runner.h"
 
@@ -61,7 +59,7 @@ namespace daemonize
     template <typename T_executor>
     bool daemonize(
         int argc, char const * argv[]
-      , T_executor & executor
+      , T_executor && executor // universal ref
       , boost::program_options::variables_map const & vm
       )
     {
@@ -72,35 +70,35 @@ namespace daemonize
         if (windows::ensure_admin(arguments))
         {
           arguments += " --run-as-service";
-          return windows::install_service(T_executor::name, arguments);
+          return windows::install_service(T_executor::NAME, arguments);
         }
       }
       else if (command_line::arg_present(vm, arg_uninstall_service))
       {
         if (windows::ensure_admin(arguments))
         {
-          return windows::uninstall_service(T_executor::name);
+          return windows::uninstall_service(T_executor::NAME);
         }
       }
       else if (command_line::arg_present(vm, arg_start_service))
       {
         if (windows::ensure_admin(arguments))
         {
-          return windows::start_service(T_executor::name);
+          return windows::start_service(T_executor::NAME);
         }
       }
       else if (command_line::arg_present(vm, arg_stop_service))
       {
         if (windows::ensure_admin(arguments))
         {
-          return windows::stop_service(T_executor::name);
+          return windows::stop_service(T_executor::NAME);
         }
       }
       else if (command_line::arg_present(vm, arg_is_service))
       {
         //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
         windows::t_service_runner<T_executor>::run(
-          name
+          T_executor::NAME
         , executor.create_daemon(vm)
         );
         return true;

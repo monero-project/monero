@@ -2,8 +2,7 @@
 
 #ifndef WIN32
 
-#include "daemon/daemon.h"
-#include "daemon/daemonizer.h"
+#include "daemon/posix_fork.h"
 
 namespace daemonize
 {
@@ -29,18 +28,19 @@ namespace daemonize
     template <typename T_executor>
     bool daemonize(
         int argc, char const * argv[]
-      , T_executor & executor
+      , T_executor && executor // universal ref
       , boost::program_options::variables_map const & vm
       )
     {
       if (command_line::arg_present(vm, arg_detach))
       {
         posix::fork();
+        return executor.create_daemon(vm).run();
       }
       else
       {
         //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-        executor.create_daemon(vm).run();
+        return executor.run_interactive(vm);
       }
     }
   }

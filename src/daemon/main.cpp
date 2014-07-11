@@ -10,9 +10,9 @@
 #include "daemon/command_line_options.h"
 #include "daemon/command_server.h"
 #include "daemon/daemon.h"
-#include "daemon/posix_fork.h"
-#include "daemon/windows_service.h"
-#include "daemon/windows_service_runner.h"
+#include "daemon/executor.h"
+#include "daemon/posix_daemonizer.h"
+#include "daemon/windows_daemonizer.h"
 #include "misc_log_ex.h"
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
@@ -45,26 +45,6 @@ namespace
     "daemon_command"
   , "Hidden"
   };
-  const command_line::arg_descriptor<bool> arg_detach = {
-    "detach"
-  , "Run as daemon"
-  };
-  const command_line::arg_descriptor<bool> arg_windows_service = {
-    "run-as-service"
-  , "Hidden -- true if running as windows service"
-  };
-
-#ifdef WIN32
-  std::string get_argument_string(int argc, char const * argv[])
-  {
-    std::string result = "";
-    for (int i = 1; i < argc; ++i)
-    {
-      result += " " + std::string{argv[i]};
-    }
-    return result;
-  }
-#endif
 }
 
 int main(int argc, char const * argv[])
@@ -75,6 +55,7 @@ int main(int argc, char const * argv[])
 
     // Build argument description
     po::options_description all_options("All");
+    po::options_description hidden_options("Hidden");
     po::options_description visible_options("Options");
     po::options_description core_settings("Settings");
     po::positional_options_description positional;
@@ -87,21 +68,19 @@ int main(int argc, char const * argv[])
       command_line_options::init_system_query_options(visible_options);
       command_line::add_arg(visible_options, command_line::arg_data_dir, default_data_dir.string());
       command_line::add_arg(visible_options, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
-      command_line::add_arg(visible_options, arg_detach);
 
       // Settings
       command_line::add_arg(core_settings, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
       command_line::add_arg(core_settings, arg_log_level);
-      daemonize::t_daemon::init_options(core_settings);
+      daemonize::daemonizer::init_options(hidden_options, visible_options, core_settings);
+      daemonize::t_executor::init_options(hidden_options, visible_options, core_settings);
 
       // Hidden options
-      command_line::add_arg(all_options, arg_command);
-#     ifdef WIN32
-        command_line::add_arg(all_options, arg_windows_service);
-#     endif
+      command_line::add_arg(hidden_options, arg_command);
 
       visible_options.add(core_settings);
       all_options.add(visible_options);
+      all_options.add(hidden_options);
 
       // Positional
       positional.add(arg_command.name, -1); // -1 for unlimited arguments
@@ -196,9 +175,6 @@ int main(int argc, char const * argv[])
       }
     }
 
-    bool detach = command_line::arg_present(vm, arg_detach);
-    bool win_service = command_line::arg_present(vm, arg_windows_service);
-
     // Set log file
     {
       bf::path data_dir{bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir))};
@@ -221,67 +197,7 @@ int main(int argc, char const * argv[])
       epee::log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
     }
 
-    if (!detach && !win_service)
-    {
-      epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-    }
-
-    /**
-     * Windows
-     * -------
-     *
-     * If detach is requested, we ask Windows to relaunch the executable as a
-     * service with the added --run-as-service argument, which indicates that the
-     * process is running in the background.
-     *
-     * On relaunch the --run-as-service argument is detected, and the
-     * t_service_runner class finishes registering as a service and installs the
-     * required service lifecycle handler callback.
-     *
-     * Posix
-     * -----
-     *
-     * Much simpler.  We just fork if detach is requested.
-     */
-    if (win_service) // running as windows service
-    {
-#     ifdef WIN32
-        LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-        windows::t_service_runner<daemonize::t_daemon>::run(
-          WINDOWS_SERVICE_NAME
-        , daemonize::t_daemon{vm}
-        );
-#     endif
-    }
-    else if (detach)
-    {
-#     ifdef WIN32
-        // install windows service
-        std::string arguments = get_argument_string(argc, argv) + " --run-as-service";
-        bool install = windows::install_service(WINDOWS_SERVICE_NAME, arguments);
-        bool start = false;
-        if (install)
-        {
-          start = windows::start_service(WINDOWS_SERVICE_NAME);
-        }
-        if (install && !start)
-        {
-          windows::uninstall_service(WINDOWS_SERVICE_NAME);
-        }
-#     else
-        // fork
-        posix::fork();
-        LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-        daemonize::t_daemon{vm}.run();
-#     endif
-    }
-    else // interactive
-    {
-      LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-      daemonize::t_daemon{vm}.run();
-    }
-
-    return 0;
+    return daemonize::daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
   }
   catch (std::exception const & ex)
   {
