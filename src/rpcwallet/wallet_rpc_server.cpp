@@ -556,25 +556,25 @@ int main(int argc, char* argv[])
   {
     LOG_ERROR("Wallet file not set.");
     print_usage();
-    return 1;
+    return tools::wallet2::ReturnCode::BAD_ARGUMENT_ERROR;
   }
   if(!command_line::has_arg(vm, arg_daemon_address) )
   {
     LOG_ERROR("Daemon address not set.");
     print_usage();
-    return 1;
+    return tools::wallet2::ReturnCode::BAD_ARGUMENT_ERROR;
   }
   if(!command_line::has_arg(vm, arg_password) )
   {
     LOG_ERROR("Wallet password not set.");
     print_usage();
-    return 1;
+    return tools::wallet2::ReturnCode::BAD_ARGUMENT_ERROR;
   }
   if(!command_line::has_arg(vm, arg_rpc_bind_port) )
   {
     LOG_ERROR("RPC bind port not set.");
     print_usage();
-    return 1;
+    return tools::wallet2::ReturnCode::BAD_ARGUMENT_ERROR;
   }
 
   std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
@@ -600,7 +600,7 @@ int main(int argc, char* argv[])
   catch (const std::exception& e)
   {
     LOG_ERROR("Wallet initialize failed: " << e.what());
-    return 2;
+    return tools::wallet2::ReturnCode::INITIALIZATION_ERROR;
   }
   try
   {
@@ -609,7 +609,7 @@ int main(int argc, char* argv[])
   catch(...)
   {
     LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon. Is 'bitmonerod' running ?");
-    return 3;
+    return tools::wallet2::ReturnCode::REFRESH_ERROR;
   }
 
   LOG_PRINT_L0("Initializing RPC server");
@@ -634,6 +634,6 @@ int main(int argc, char* argv[])
   catch (const std::exception& e)
   {
     LOG_ERROR("Failed to store wallet: " << e.what());
-    return 4;
+    return tools::wallet2::ReturnCode::STORAGE_ERROR;
   }
 }
