@@ -296,9 +296,8 @@ namespace tools
       for (auto & ptx : ptx_vector)
       {
         const std::string tx_hash_dirty = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx));
-        res.tx_hash_list.push_back(tx_hash_dirty);
         try {
-          res.tx_hash_proper_list.push_back(make_proper_tx_hash(tx_hash_dirty));
+          res.tx_hash_list.push_back(make_proper_tx_hash(tx_hash_dirty));
         }
         /* Break the loop, since the exception should never happen */
         catch(std::invalid_argument e) {

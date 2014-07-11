@@ -115,11 +115,9 @@ namespace wallet_rpc
     struct response
     {
       std::list<std::string> tx_hash_list;
-      std::list<std::string> tx_hash_proper_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
-        KV_SERIALIZE(tx_hash_proper_list)
       END_KV_SERIALIZE_MAP()
     };
   };
