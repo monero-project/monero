@@ -56,6 +56,16 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0) {};
   public:
+
+    enum ReturnCode {
+      GENERIC_ERROR = -1,
+      OK = 0,
+      BAD_ARGUMENT_ERROR = 1,
+      INITIALIZATION_ERROR = 2,
+      REFRESH_ERROR = 3,
+      STORAGE_ERROR = 4
+    };
+
     wallet2() : m_run(true), m_callback(0) {};
     struct transfer_details
     {
