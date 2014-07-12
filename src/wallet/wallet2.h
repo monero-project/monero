@@ -49,6 +49,16 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0) {};
   public:
+
+    enum ReturnCode {
+      GENERIC_ERROR = -1,
+      OK = 0,
+      BAD_ARGUMENT_ERROR = 1,
+      INITIALIZATION_ERROR = 2,
+      REFRESH_ERROR = 3,
+      STORAGE_ERROR = 4
+    };
+
     wallet2() : m_run(true), m_callback(0) {};
     struct transfer_details
     {
@@ -162,6 +172,8 @@ namespace tools
     static void wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists);
 
     static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
+    
+    static std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits);
 
   private:
     bool store_keys(const std::string& keys_file_name, const std::string& password);
