@@ -1,4 +1,5 @@
 #include "common/command_line.h"
+#include "common/scoped_message_writer.h"
 #include "common/util.h"
 #include "misc_log_ex.h"
 #include "rpcwallet/wallet_rpc_server.h"
@@ -91,17 +92,17 @@ int main(int argc, char* argv[])
   //runs wallet with rpc interface
   if(!command_line::has_arg(vm, arg_wallet_file) )
   {
-    LOG_ERROR("Wallet file not set.");
+    tools::fail_msg_writer() << "Wallet file not set.";
     return 1;
   }
   if(!command_line::has_arg(vm, arg_daemon_address) )
   {
-    LOG_ERROR("Daemon address not set.");
+    tools::fail_msg_writer() << "Daemon address not set.";
     return 1;
   }
   if(!command_line::has_arg(vm, arg_password) )
   {
-    LOG_ERROR("Wallet password not set.");
+    tools::fail_msg_writer() << "Wallet password not set.";
     return 1;
   }
 
