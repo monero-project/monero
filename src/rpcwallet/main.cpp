@@ -19,6 +19,8 @@ namespace
   const command_line::arg_descriptor<int>           arg_daemon_port      = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<std::string>   arg_password         = {"password", "Wallet password", "", true};
   const command_line::arg_descriptor<uint32_t>      arg_log_level        = {"set_log", "", 0, true};
+  const command_line::arg_descriptor<std::string>   arg_rpc_bind_port    = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
+  const command_line::arg_descriptor<std::string>   arg_rpc_bind_ip      = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
 }  // file-local namespace
 
 int main(int argc, char* argv[])
@@ -40,7 +42,8 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_daemon_host);
   command_line::add_arg(desc_params, arg_daemon_port);
   command_line::add_arg(desc_params, arg_log_level);
-  tools::wallet_rpc_server::init_options(desc_params);
+  command_line::add_arg(desc_params, arg_rpc_bind_ip);
+  command_line::add_arg(desc_params, arg_rpc_bind_port);
 
   po::positional_options_description positional_options;
 
@@ -111,6 +114,8 @@ int main(int argc, char* argv[])
   std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
   std::string daemon_host = command_line::get_arg(vm, arg_daemon_host);
   int daemon_port = command_line::get_arg(vm, arg_daemon_port);
+  std::string bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
+  std::string bind_port = command_line::get_arg(vm, arg_rpc_bind_port);
   if (daemon_host.empty())
     daemon_host = "localhost";
   if (!daemon_port)
@@ -118,9 +123,19 @@ int main(int argc, char* argv[])
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
-  tools::wallet_rpc_server server{wallet_file, wallet_password, daemon_address};
-
-  CHECK_AND_ASSERT_MES(server.init(vm), 1, "Failed to initialize wallet rpc server");
-
-  server.run();
+  try {
+    tools::wallet_rpc_server server{
+      wallet_file
+    , wallet_password
+    , daemon_address
+    , bind_ip
+    , bind_port
+    };
+    server.run();
+  }
+  catch (...)
+  {
+    LOG_ERROR("Uncaught exception");
+    return 1;
+  }
 }

@@ -4,8 +4,6 @@
 
 #pragma  once
 
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
 #include "net/http_server_impl_base.h"
 #include "wallet_rpc_server_commands_defs.h"
 #include "wallet/wallet2.h"
@@ -26,16 +24,12 @@ namespace tools
         std::string const & wallet_file
       , std::string const & wallet_password
       , std::string const & daemon_address
+      , std::string bind_ip
+      , std::string port
       );
 
     ~wallet_rpc_server();
 
-    const static command_line::arg_descriptor<std::string> arg_rpc_bind_port;
-    const static command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
-
-
-    static void init_options(boost::program_options::options_description& desc);
-    bool init(const boost::program_options::variables_map& vm);
     bool run();
   private:
 
@@ -71,8 +65,8 @@ namespace tools
       bool handle_command_line(const boost::program_options::variables_map& vm);
 
       wallet2 m_wallet;
-      std::string m_port;
-      std::string m_bind_ip;
+      std::string const m_port;
+      std::string const m_bind_ip;
       time_t m_last_refresh;
   };
 }

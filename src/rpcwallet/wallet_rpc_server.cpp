@@ -22,22 +22,17 @@ using namespace epee;
 
 namespace tools
 {
-  //-----------------------------------------------------------------------------------
-  const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_port = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
-  const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
-
-  void wallet_rpc_server::init_options(boost::program_options::options_description& desc)
-  {
-    command_line::add_arg(desc, arg_rpc_bind_ip);
-    command_line::add_arg(desc, arg_rpc_bind_port);
-  }
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::wallet_rpc_server(
       std::string const & wallet_file
     , std::string const & wallet_password
     , std::string const & daemon_address
+    , std::string bind_ip
+    , std::string port
     )
     : m_wallet()
+    , m_bind_ip(std::move(bind_ip))
+    , m_port(std::move(port))
     , m_last_refresh(0)
   {
     try
@@ -61,6 +56,8 @@ namespace tools
       LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon.");
       throw;
     }
+    m_net_server.set_threads_prefix("RPC");
+    epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(m_port, m_bind_ip);
   }
   //-------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::~wallet_rpc_server()
@@ -127,21 +124,6 @@ namespace tools
 
     //DO NOT START THIS SERVER IN MORE THEN 1 THREADS WITHOUT REFACTORING
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::handle_command_line(const boost::program_options::variables_map& vm)
-  {
-    m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
-    m_port = command_line::get_arg(vm, arg_rpc_bind_port);
-    return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::init(const boost::program_options::variables_map& vm)
-  {
-    m_net_server.set_threads_prefix("RPC");
-    bool r = handle_command_line(vm);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
-    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(m_port, m_bind_ip);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, connection_context& cntx)
