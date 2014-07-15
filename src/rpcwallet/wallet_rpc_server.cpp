@@ -12,6 +12,7 @@ using namespace epee;
 #include "cryptonote_core/account.h"
 #include "wallet_rpc_server_commands_defs.h"
 #include "misc_language.h"
+#include "misc_log_ex.h"
 #include "string_tools.h"
 #include "crypto/hash.h"
 #include "common/util.h"
@@ -31,9 +32,56 @@ namespace tools
     command_line::add_arg(desc, arg_rpc_bind_port);
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w), m_last_refresh(0)
-  {}
-  //------------------------------------------------------------------------------------------------------------------------------
+  wallet_rpc_server::wallet_rpc_server(
+      std::string const & wallet_file
+    , std::string const & wallet_password
+    , std::string const & daemon_address
+    )
+    : m_wallet()
+    , m_last_refresh(0)
+  {
+    try
+    {
+      LOG_PRINT_L0("Loading wallet...");
+      m_wallet.load(wallet_file, wallet_password);
+      m_wallet.init(daemon_address);
+      LOG_PRINT_GREEN("Loaded ok", LOG_LEVEL_0);
+    }
+    catch (std::exception const & e)
+    {
+      LOG_ERROR("Wallet initialize failed: " << e.what());
+      throw;
+    }
+    try
+    {
+      m_wallet.refresh();
+    }
+    catch(...)
+    {
+      LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon.");
+      throw;
+    }
+  }
+  //-------------------------------------------------------------------------------------------------------------------------------
+  wallet_rpc_server::~wallet_rpc_server()
+  {
+    LOG_PRINT_L0("Stopped wallet rpc server");
+    try
+    {
+      LOG_PRINT_L0("Storing wallet...");
+      m_wallet.store();
+      LOG_PRINT_GREEN("Stored ok", LOG_LEVEL_0);
+    }
+    catch (const std::exception& e)
+    {
+      LOG_ERROR("Failed to store wallet: " << e.what());
+    }
+    catch (...)
+    {
+      LOG_ERROR("Failed to store wallet");
+    }
+  }
+  //-------------------------------------------------------------------------------------------------------------------------------
 
   // check if the time since the last refresh is too long
   bool wallet_rpc_server::check_time(epee::json_rpc::error& er)
@@ -58,6 +106,12 @@ namespace tools
 
   bool wallet_rpc_server::run()
   {
+    tools::signal_handler::install([this]() {
+      wallet_rpc_server::send_stop_signal();
+      m_wallet.store();
+    });
+
+    LOG_PRINT_L0("Starting wallet rpc server");
     m_net_server.add_idle_handler([this](){
       try
       {

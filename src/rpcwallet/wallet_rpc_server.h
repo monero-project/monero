@@ -11,17 +11,24 @@
 #include "wallet/wallet2.h"
 #include "common/command_line.h"
 #include <ctime>
+#include <string>
 namespace tools
 {
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
-  class wallet_rpc_server: public epee::http_server_impl_base<wallet_rpc_server>
+  class wallet_rpc_server final : public epee::http_server_impl_base<wallet_rpc_server>
   {
   public:
     typedef epee::net_utils::connection_context_base connection_context;
 
-    wallet_rpc_server(wallet2& cr);
+    wallet_rpc_server(
+        std::string const & wallet_file
+      , std::string const & wallet_password
+      , std::string const & daemon_address
+      );
+
+    ~wallet_rpc_server();
 
     const static command_line::arg_descriptor<std::string> arg_rpc_bind_port;
     const static command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
@@ -63,7 +70,7 @@ namespace tools
 
       bool handle_command_line(const boost::program_options::variables_map& vm);
 
-      wallet2& m_wallet;
+      wallet2 m_wallet;
       std::string m_port;
       std::string m_bind_ip;
       time_t m_last_refresh;

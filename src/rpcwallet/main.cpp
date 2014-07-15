@@ -118,49 +118,9 @@ int main(int argc, char* argv[])
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
-  tools::wallet2 wal;
-  try
-  {
-    LOG_PRINT_L0("Loading wallet...");
-    wal.load(wallet_file, wallet_password);
-    wal.init(daemon_address);
-    LOG_PRINT_GREEN("Loaded ok", LOG_LEVEL_0);
-  }
-  catch (const std::exception& e)
-  {
-    LOG_ERROR("Wallet initialize failed: " << e.what());
-    return 1;
-  }
-  try
-  {
-    wal.refresh();
-  }
-  catch(...)
-  {
-    LOG_PRINT_L0("Error refreshing wallet, possible lost connection to daemon.");
-  }
+  tools::wallet_rpc_server server{wallet_file, wallet_password, daemon_address};
 
-  tools::wallet_rpc_server wrpc(wal);
+  CHECK_AND_ASSERT_MES(server.init(vm), 1, "Failed to initialize wallet rpc server");
 
-  CHECK_AND_ASSERT_MES(wrpc.init(vm), 1, "Failed to initialize wallet rpc server");
-
-  tools::signal_handler::install([&wrpc, &wal] {
-    wrpc.send_stop_signal();
-    wal.store();
-  });
-  LOG_PRINT_L0("Starting wallet rpc server");
-  wrpc.run();
-  LOG_PRINT_L0("Stopped wallet rpc server");
-  try
-  {
-    LOG_PRINT_L0("Storing wallet...");
-    wal.store();
-    LOG_PRINT_GREEN("Stored ok", LOG_LEVEL_0);
-    return 0;
-  }
-  catch (const std::exception& e)
-  {
-    LOG_ERROR("Failed to store wallet: " << e.what());
-    return 1;
-  }
+  server.run();
 }
