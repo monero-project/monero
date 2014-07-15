@@ -84,9 +84,11 @@ namespace wallet_rpc
     struct response
     {
       std::string tx_hash;
+      std::string tx_hash_proper;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(tx_hash_proper)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -138,12 +140,14 @@ namespace wallet_rpc
   struct payment_details
   {
     std::string tx_hash;
+    std::string tx_hash_proper;
     uint64_t amount;
     uint64_t block_height;
     uint64_t unlock_time;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(tx_hash)
+      KV_SERIALIZE(tx_hash_proper)
       KV_SERIALIZE(amount)
       KV_SERIALIZE(block_height)
       KV_SERIALIZE(unlock_time)
@@ -177,12 +181,14 @@ namespace wallet_rpc
     bool spent;
     uint64_t global_index;
     std::string tx_hash;
+    std::string tx_hash_proper;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(amount)
       KV_SERIALIZE(spent)
       KV_SERIALIZE(global_index)
       KV_SERIALIZE(tx_hash)
+      KV_SERIALIZE(tx_hash_proper)
     END_KV_SERIALIZE_MAP()
   };
 
