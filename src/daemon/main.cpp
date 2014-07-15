@@ -16,9 +16,6 @@
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
 #include <boost/program_options.hpp>
-#ifdef WIN32
-#  include <crtdbg.h>
-#endif
 
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;

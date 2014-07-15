@@ -25,10 +25,6 @@ namespace
 
 int main(int argc, char* argv[])
 {
-#ifdef WIN32
-  _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-#endif
-
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   po::options_description desc_general("General options");
