@@ -420,9 +420,6 @@ bool wallet2::clear()
 {
   m_blockchain.clear();
   m_transfers.clear();
-  cryptonote::block b;
-  cryptonote::generate_genesis_block(b);
-  m_blockchain.push_back(get_block_hash(b));
   m_local_bc_height = 1;
   return true;
 }
@@ -501,6 +498,10 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str());
   if(!r) LOG_PRINT_RED_L0("String with address text not saved");
 
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
+
   store();
   return retval;
 }
@@ -573,13 +574,26 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
     m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
     error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
 
-  if(m_blockchain.empty())
+  cryptonote::block genesis;
+  generate_genesis(genesis);
+  crypto::hash genesis_hash = get_block_hash(genesis);
+
+  if (m_blockchain.empty())
   {
-    cryptonote::block b;
-    cryptonote::generate_genesis_block(b);
-    m_blockchain.push_back(get_block_hash(b));
+    m_blockchain.push_back(genesis_hash);
   }
+  else
+  {
+    check_genesis(genesis_hash);
+  }
+
   m_local_bc_height = m_blockchain.size();
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::check_genesis(const crypto::hash& genesis_hash) {
+  std::string what("Genesis block missmatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
+
+  THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::store()
@@ -916,6 +930,15 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 
       throw;
     }
+  }
+}
+
+//----------------------------------------------------------------------------------------------------
+void wallet2::generate_genesis(cryptonote::block& b) {
+  if (m_testnet) {
+    cryptonote::generate_testnet_genesis_block(b);
+  } else {
+    cryptonote::generate_genesis_block(b);
   }
 }
 }

@@ -116,14 +116,14 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::init(const boost::program_options::variables_map& vm)
+  bool core::init(const boost::program_options::variables_map& vm, bool testnet)
   {
     bool r = handle_command_line(vm);
 
     r = m_mempool.init(m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
-    r = m_blockchain_storage.init(m_config_folder);
+    r = m_blockchain_storage.init(m_config_folder, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     r = m_miner.init(vm);

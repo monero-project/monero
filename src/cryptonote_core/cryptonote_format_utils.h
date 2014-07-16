@@ -106,6 +106,7 @@ namespace cryptonote
   bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height);
   crypto::hash get_block_longhash(const block& b, uint64_t height);
   bool generate_genesis_block(block& bl);
+  bool generate_testnet_genesis_block(block& bl);
   bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b);
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money);
   uint64_t get_outs_money_amount(const transaction& tx);
