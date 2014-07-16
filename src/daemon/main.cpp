@@ -68,7 +68,7 @@ int main(int argc, char const * argv[])
       // Settings
       command_line::add_arg(core_settings, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
       command_line::add_arg(core_settings, arg_log_level);
-      daemonize::daemonizer::init_options(hidden_options, visible_options);
+      daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
 
       // Hidden options
@@ -193,7 +193,7 @@ int main(int argc, char const * argv[])
       epee::log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
     }
 
-    return daemonize::daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
+    return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
   }
   catch (std::exception const & ex)
   {

@@ -46,7 +46,7 @@ int main(int argc, char const * argv[])
 
   po::positional_options_description positional_options;
 
-  daemonize::daemonizer::init_options(hidden_options, general_options);
+  daemonizer::init_options(hidden_options, general_options);
 
   po::options_description visible_options;
   visible_options.add(general_options).add(wallet_options);
@@ -135,5 +135,5 @@ int main(int argc, char const * argv[])
     , bind_ip
     , bind_port
   };
-  return daemonize::daemonizer::daemonize(argc, argv, std::move(executor), vm);
+  return daemonizer::daemonize(argc, argv, std::move(executor), vm);
 }
