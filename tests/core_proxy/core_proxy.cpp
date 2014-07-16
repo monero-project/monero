@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
   //initialize objects
 
   LOG_PRINT_L0("Initializing p2p server...");
-  bool res = p2psrv.init(vm);
+  bool res = p2psrv.init(vm, false);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize p2p server.");
   LOG_PRINT_L0("P2p server initialized OK");
 

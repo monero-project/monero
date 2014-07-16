@@ -224,19 +224,23 @@ namespace nodetool
   #define ADD_HARDCODED_SEED_NODE(addr) append_net_address(m_seed_nodes, addr);
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
+  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, bool testnet)
   {
-    ADD_HARDCODED_SEED_NODE("62.210.78.186:18080");
-    ADD_HARDCODED_SEED_NODE("195.12.60.154:18080");
-    ADD_HARDCODED_SEED_NODE("54.241.246.125:18080");
-    ADD_HARDCODED_SEED_NODE("107.170.157.169:18080");
-    ADD_HARDCODED_SEED_NODE("54.207.112.216:18080");
-    ADD_HARDCODED_SEED_NODE("78.27.112.54:18080");
-    ADD_HARDCODED_SEED_NODE("209.222.30.57:18080");
-    ADD_HARDCODED_SEED_NODE("80.71.13.55:18080");
-    ADD_HARDCODED_SEED_NODE("107.178.112.126:18080");
-    ADD_HARDCODED_SEED_NODE("107.158.233.98:18080");
-    ADD_HARDCODED_SEED_NODE("64.22.111.2:18080");
+    if (!testnet) {
+      ADD_HARDCODED_SEED_NODE("62.210.78.186:18080");
+      ADD_HARDCODED_SEED_NODE("195.12.60.154:18080");
+      ADD_HARDCODED_SEED_NODE("54.241.246.125:18080");
+      ADD_HARDCODED_SEED_NODE("107.170.157.169:18080");
+      ADD_HARDCODED_SEED_NODE("54.207.112.216:18080");
+      ADD_HARDCODED_SEED_NODE("78.27.112.54:18080");
+      ADD_HARDCODED_SEED_NODE("209.222.30.57:18080");
+      ADD_HARDCODED_SEED_NODE("80.71.13.55:18080");
+      ADD_HARDCODED_SEED_NODE("107.178.112.126:18080");
+      ADD_HARDCODED_SEED_NODE("107.158.233.98:18080");
+      ADD_HARDCODED_SEED_NODE("64.22.111.2:18080");
+    } else {
+      m_network_id.data[0] += 1;
+    }
 
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
@@ -410,7 +414,7 @@ namespace nodetool
         return;
       }
 
-      if(rsp.node_data.network_id != MONERO_NETWORK)
+      if(rsp.node_data.network_id != m_network_id)
       {
         LOG_ERROR_CCONTEXT("COMMAND_HANDSHAKE Failed, wrong network!  (" << epee::string_tools::get_str_from_guid_a(rsp.node_data.network_id) << "), closing connection.");
         return;
@@ -818,7 +822,7 @@ namespace nodetool
       node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
     else 
       node_data.my_port = 0;
-    node_data.network_id = MONERO_NETWORK;
+    node_data.network_id = m_network_id;
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -1038,7 +1042,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   int node_server<t_payload_net_handler>::handle_handshake(int command, typename COMMAND_HANDSHAKE::request& arg, typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
   {
-    if(arg.node_data.network_id != MONERO_NETWORK)
+    if(arg.node_data.network_id != m_network_id)
     {
 
       LOG_PRINT_CCONTEXT_L1("WRONG NETWORK AGENT CONNECTED! id=" << epee::string_tools::get_str_from_guid_a(arg.node_data.network_id));

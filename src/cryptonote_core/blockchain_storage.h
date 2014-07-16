@@ -81,8 +81,8 @@ namespace cryptonote
     blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false)
     {};
 
-    bool init() { return init(tools::get_default_data_dir()); }
-    bool init(const std::string& config_folder);
+    bool init() { return init(tools::get_default_data_dir(), true); }
+    bool init(const std::string& config_folder, bool testnet = false);
     bool deinit();
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
@@ -242,6 +242,7 @@ namespace cryptonote
     uint64_t get_adjusted_time();
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps);
     bool update_next_comulative_size_limit();
+    bool store_genesis_block(bool testnet);
   };
 
 

@@ -62,6 +62,8 @@ namespace
   const command_line::arg_descriptor<std::string> arg_log_file    = {"log-file", "", ""};
   const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
+  const command_line::arg_descriptor<bool>        arg_testnet_on  = {"testnet", "Used to deploy test nets. Checkpoints and hardcoded seeds are ignored, "
+    "network id is changed. Use it with --data-dir flag. The wallet must be launched with --testnet flag.", false};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm)
@@ -123,7 +125,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_log_file);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_console);
-  
+  command_line::add_arg(desc_cmd_sett, arg_testnet_on);
 
   cryptonote::core::init_options(desc_cmd_sett);
   cryptonote::core_rpc_server::init_options(desc_cmd_sett);
@@ -191,7 +193,14 @@ int main(int argc, char* argv[])
 
   //create objects and link them
   cryptonote::core ccore(NULL);
-  ccore.set_checkpoints(std::move(checkpoints));  
+
+  bool testnet_mode = command_line::get_arg(vm, arg_testnet_on);
+  if (testnet_mode) {
+    LOG_PRINT_L0("Starting in testnet mode!");
+  } else {
+    ccore.set_checkpoints(std::move(checkpoints));
+  }
+
   cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > p2psrv(cprotocol);
   cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
@@ -201,7 +210,7 @@ int main(int argc, char* argv[])
 
   //initialize objects
   LOG_PRINT_L0("Initializing P2P server...");
-  res = p2psrv.init(vm);
+  res = p2psrv.init(vm, testnet_mode);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize P2P server.");
   LOG_PRINT_L0("P2P server initialized OK");
 
@@ -217,7 +226,7 @@ int main(int argc, char* argv[])
 
   //initialize core here
   LOG_PRINT_L0("Initializing core...");
-  res = ccore.init(vm);
+  res = ccore.init(vm, testnet_mode);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
   LOG_PRINT_L0("Core initialized OK");
   

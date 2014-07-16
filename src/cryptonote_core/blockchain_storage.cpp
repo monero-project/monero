@@ -82,7 +82,7 @@ uint64_t blockchain_storage::get_current_blockchain_height()
   return m_blocks.size();
 }
 //------------------------------------------------------------------
-bool blockchain_storage::init(const std::string& config_folder)
+bool blockchain_storage::init(const std::string& config_folder, bool testnet)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_config_folder = config_folder;
@@ -121,16 +121,44 @@ bool blockchain_storage::init(const std::string& config_folder)
   if(!m_blocks.size())
   {
     LOG_PRINT_L0("Blockchain not loaded, generating genesis block.");
-    block bl = boost::value_initialized<block>();
-    block_verification_context bvc = boost::value_initialized<block_verification_context>();
-    generate_genesis_block(bl);
-    add_new_block(bl, bvc);
-    CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
+
+    if (!store_genesis_block(testnet)) {
+      return false;
+    }
+  } else {
+    cryptonote::block b;
+    if (testnet) {
+      generate_testnet_genesis_block(b);
+    } else {
+      generate_genesis_block(b);
+    }
+
+    crypto::hash genesis_hash = get_block_hash(m_blocks[0].bl);
+    crypto::hash testnet_genesis_hash = get_block_hash(b);
+    if (genesis_hash != testnet_genesis_hash) {
+      LOG_ERROR("Failed to init: genesis block mismatch. Probably you set --testnet flag with data dir with non-test blockchain or another network.");
+      return false;
+    }
   }
   uint64_t timestamp_diff = time(NULL) - m_blocks.back().bl.timestamp;
   if(!m_blocks.back().bl.timestamp)
     timestamp_diff = time(NULL) - 1341378000;
   LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_blocks.size() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
+  return true;
+}
+//------------------------------------------------------------------
+bool blockchain_storage::store_genesis_block(bool testnet) {
+  block bl = ::boost::value_initialized<block>();
+  block_verification_context bvc = boost::value_initialized<block_verification_context>();
+
+  if (testnet) {
+    generate_testnet_genesis_block(bl);
+  } else {
+    generate_genesis_block(bl);
+  }
+
+  add_new_block(bl, bvc);
+  CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
   return true;
 }
 //------------------------------------------------------------------

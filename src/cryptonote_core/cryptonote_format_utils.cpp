@@ -686,6 +686,16 @@ namespace cryptonote
     miner::find_nonce_for_given_block(bl, 1, 0);
     return true;
   }
+
+  bool generate_testnet_genesis_block(cryptonote::block& b) {
+    if (!generate_genesis_block(b)) {
+      return false;
+    }
+
+    b.nonce += 1;
+    return true;
+  }
+
   //---------------------------------------------------------------
   bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
   {
