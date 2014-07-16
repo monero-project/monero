@@ -1,7 +1,5 @@
 #pragma once
 
-#ifdef WIN32
-
 #include "daemonizer/windows_service.h"
 #include "daemonizer/windows_service_runner.h"
 
@@ -107,5 +105,3 @@ namespace daemonizer
     }
   }
 }
-
-#endif

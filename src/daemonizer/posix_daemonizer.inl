@@ -1,7 +1,5 @@
 #pragma once
 
-#ifndef WIN32
-
 #include "daemonizer/posix_fork.h"
 
 namespace daemonizer
@@ -41,5 +39,3 @@ namespace daemonizer
     }
   }
 }
-
-#endif
