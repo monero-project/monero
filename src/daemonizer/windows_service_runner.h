@@ -5,7 +5,7 @@
 #undef UNICODE
 #undef _UNICODE
 
-#include "daemon/windows_service.h"
+#include "daemonizer/windows_service.h"
 #include <memory>
 #include <string>
 #include <vector>

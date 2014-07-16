@@ -3,7 +3,6 @@
 #include "common/scoped_message_writer.h"
 #include "daemon/http_connection.h"
 #include "daemon/rpc_command_executor.h"
-#include "daemon/windows_service.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include <boost/format.hpp>
 #include <ctime>

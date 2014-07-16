@@ -4,7 +4,7 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 
-#include "daemon/posix_fork.h"
+#include "daemonizer/posix_fork.h"
 #include "misc_log_ex.h"
 
 #include <cstdlib>

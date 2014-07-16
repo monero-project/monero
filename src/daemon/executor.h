@@ -14,10 +14,10 @@ namespace daemonize
     static std::string const NAME;
 
     static void init_options(
-        boost::program_options::options_description & hidden_options
-      , boost::program_options::options_description & normal_options
-      , boost::program_options::options_description & configurable_options
+        boost::program_options::options_description & configurable_options
       );
+
+    std::string const & name();
 
     t_daemon create_daemon(
         boost::program_options::variables_map const & vm

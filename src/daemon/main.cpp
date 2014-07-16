@@ -11,7 +11,7 @@
 #include "daemon/command_server.h"
 #include "daemon/daemon.h"
 #include "daemon/executor.h"
-#include "daemon/daemonizer.h"
+#include "daemonizer/daemonizer.h"
 #include "misc_log_ex.h"
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
@@ -68,8 +68,8 @@ int main(int argc, char const * argv[])
       // Settings
       command_line::add_arg(core_settings, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
       command_line::add_arg(core_settings, arg_log_level);
-      daemonize::daemonizer::init_options(hidden_options, visible_options, core_settings);
-      daemonize::t_executor::init_options(hidden_options, visible_options, core_settings);
+      daemonize::daemonizer::init_options(hidden_options, visible_options);
+      daemonize::t_executor::init_options(core_settings);
 
       // Hidden options
       command_line::add_arg(hidden_options, arg_command);

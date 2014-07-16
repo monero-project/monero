@@ -31,6 +31,7 @@ namespace tools
     ~wallet_rpc_server();
 
     bool run();
+    void stop();
   private:
 
     const static int STALE_WALLET_TIME = 600; // max allowed time without refresh

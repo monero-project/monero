@@ -2,8 +2,8 @@
 
 #ifdef WIN32
 
-#include "daemon/windows_service.h"
-#include "daemon/windows_service_runner.h"
+#include "daemonizer/windows_service.h"
+#include "daemonizer/windows_service_runner.h"
 
 namespace daemonize
 {
@@ -46,7 +46,6 @@ namespace daemonize
     void init_options(
         boost::program_options::options_description & hidden_options
       , boost::program_options::options_description & normal_options
-      , boost::program_options::options_description & configurable_options
       )
     {
       command_line::add_arg(normal_options, arg_install_service);
@@ -70,35 +69,35 @@ namespace daemonize
         if (windows::ensure_admin(arguments))
         {
           arguments += " --run-as-service";
-          return windows::install_service(T_executor::NAME, arguments);
+          return windows::install_service(executor.name(), arguments);
         }
       }
       else if (command_line::arg_present(vm, arg_uninstall_service))
       {
         if (windows::ensure_admin(arguments))
         {
-          return windows::uninstall_service(T_executor::NAME);
+          return windows::uninstall_service(executor.name());
         }
       }
       else if (command_line::arg_present(vm, arg_start_service))
       {
         if (windows::ensure_admin(arguments))
         {
-          return windows::start_service(T_executor::NAME);
+          return windows::start_service(executor.name());
         }
       }
       else if (command_line::arg_present(vm, arg_stop_service))
       {
         if (windows::ensure_admin(arguments))
         {
-          return windows::stop_service(T_executor::NAME);
+          return windows::stop_service(executor.name());
         }
       }
       else if (command_line::arg_present(vm, arg_is_service))
       {
         //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
         windows::t_service_runner<T_executor>::run(
-          T_executor::NAME
+          executor.name()
         , executor.create_daemon(vm)
         );
         return true;

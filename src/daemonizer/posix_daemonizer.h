@@ -2,7 +2,7 @@
 
 #ifndef WIN32
 
-#include "daemon/posix_fork.h"
+#include "daemonizer/posix_fork.h"
 
 namespace daemonize
 {
@@ -19,7 +19,6 @@ namespace daemonize
     void init_options(
         boost::program_options::options_description & hidden_options
       , boost::program_options::options_description & normal_options
-      , boost::program_options::options_description & configurable_options
       )
     {
       command_line::add_arg(normal_options, arg_detach);

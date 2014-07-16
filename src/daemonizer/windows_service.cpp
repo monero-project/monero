@@ -2,7 +2,7 @@
 #undef _UNICODE
 
 #include "common/scoped_message_writer.h"
-#include "daemon/windows_service.h"
+#include "daemonizer/windows_service.h"
 #include "string_tools.h"
 #include <iostream>
 #include <utility>
