@@ -35,22 +35,22 @@ namespace cryptonote
     //gets tx and remove it from pool
     bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee);
 
-    bool have_tx(const crypto::hash &id);
+    bool have_tx(const crypto::hash &id) const;
     bool on_blockchain_inc(uint64_t new_block_height, const crypto::hash& top_block_id);
     bool on_blockchain_dec(uint64_t new_block_height, const crypto::hash& top_block_id);
     void on_idle();
 
-    void lock();
-    void unlock();
+    void lock() const;
+    void unlock() const;
 
     // load/store operations
     bool init(const std::string& config_folder);
     bool deinit();
     bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee);
-    bool get_transactions(std::list<transaction>& txs);
-    bool get_transaction(const crypto::hash& h, transaction& tx);
-    size_t get_transactions_count();
-    std::string print_pool(bool short_format);
+    void get_transactions(std::list<transaction>& txs) const;
+    bool get_transaction(const crypto::hash& h, transaction& tx) const;
+    size_t get_transactions_count() const;
+    std::string print_pool(bool short_format) const;
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
@@ -83,17 +83,17 @@ namespace cryptonote
 
   private:
   	bool remove_stuck_transactions();
-    bool have_tx_keyimg_as_spent(const crypto::key_image& key_im);
-    bool have_tx_keyimges_as_spent(const transaction& tx);
+    bool have_tx_keyimg_as_spent(const crypto::key_image& key_im) const;
+    bool have_tx_keyimges_as_spent(const transaction& tx) const;
     bool remove_transaction_keyimages(const transaction& tx);
     static bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
 
-    bool is_transaction_ready_to_go(tx_details& txd);
+    bool is_transaction_ready_to_go(tx_details& txd) const;
     typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
     typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
 
-    epee::critical_section m_transactions_lock;
+    mutable epee::critical_section m_transactions_lock;
     transactions_container m_transactions;
     key_images_container m_spent_key_images;
     epee::math_helper::once_a_time_seconds<30> m_remove_stuck_tx_interval;

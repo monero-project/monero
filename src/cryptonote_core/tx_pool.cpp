@@ -204,22 +204,20 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  size_t tx_memory_pool::get_transactions_count()
+  size_t tx_memory_pool::get_transactions_count() const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     return m_transactions.size();
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions(std::list<transaction>& txs)
+  void tx_memory_pool::get_transactions(std::list<transaction>& txs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     BOOST_FOREACH(const auto& tx_vt, m_transactions)
       txs.push_back(tx_vt.second.tx);
-
-    return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transaction(const crypto::hash& id, transaction& tx)
+  bool tx_memory_pool::get_transaction(const crypto::hash& id, transaction& tx) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     auto it = m_transactions.find(id);
@@ -239,7 +237,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx(const crypto::hash &id)
+  bool tx_memory_pool::have_tx(const crypto::hash &id) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     if(m_transactions.count(id))
@@ -247,7 +245,7 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx)
+  bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     BOOST_FOREACH(const auto& in, tx.vin)
@@ -259,23 +257,23 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx_keyimg_as_spent(const crypto::key_image& key_im)
+  bool tx_memory_pool::have_tx_keyimg_as_spent(const crypto::key_image& key_im) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     return m_spent_key_images.end() != m_spent_key_images.find(key_im);
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::lock()
+  void tx_memory_pool::lock() const
   {
     m_transactions_lock.lock();
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::unlock()
+  void tx_memory_pool::unlock() const
   {
     m_transactions_lock.unlock();
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::is_transaction_ready_to_go(tx_details& txd)
+  bool tx_memory_pool::is_transaction_ready_to_go(tx_details& txd) const
   {
     //not the best implementation at this time, sorry :(
     //check is ring_signature already checked ?
@@ -339,38 +337,25 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  std::string tx_memory_pool::print_pool(bool short_format)
+  std::string tx_memory_pool::print_pool(bool short_format) const
   {
     std::stringstream ss;
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(transactions_container::value_type& txe,  m_transactions)
-    {
-      if(short_format)
-      {
-        tx_details& txd = txe.second;
-        ss << "id: " << txe.first << ENDL
-          << "blob_size: " << txd.blob_size << ENDL
-          << "fee: " << txd.fee << ENDL
-          << "kept_by_block: " << (txd.kept_by_block ? "true":"false") << ENDL
-          << "max_used_block_height: " << txd.max_used_block_height << ENDL
-          << "max_used_block_id: " << txd.max_used_block_id << ENDL
-          << "last_failed_height: " << txd.last_failed_height << ENDL
-          << "last_failed_id: " << txd.last_failed_id << ENDL;
-      }else
-      {
-        tx_details& txd = txe.second;
-        ss << "id: " << txe.first << ENDL
-          <<  obj_to_json_str(txd.tx) << ENDL
-          << "blob_size: " << txd.blob_size << ENDL
-          << "fee: " << txd.fee << ENDL
-          << "kept_by_block: " << (txd.kept_by_block ? "true":"false") << ENDL
-          << "max_used_block_height: " << txd.max_used_block_height << ENDL
-          << "max_used_block_id: " << txd.max_used_block_id << ENDL
-          << "last_failed_height: " << txd.last_failed_height << ENDL
-          << "last_failed_id: " << txd.last_failed_id << ENDL;
+    for (const transactions_container::value_type& txe : m_transactions) {
+      const tx_details& txd = txe.second;
+      ss << "id: " << txe.first << std::endl;
+      if (!short_format) {
+        ss << obj_to_json_str(*const_cast<transaction*>(&txd.tx)) << std::endl;
       }
-
+      ss << "blob_size: " << txd.blob_size << std::endl
+        << "fee: " << print_money(txd.fee) << std::endl
+        << "kept_by_block: " << (txd.kept_by_block ? 'T' : 'F') << std::endl
+        << "max_used_block_height: " << txd.max_used_block_height << std::endl
+        << "max_used_block_id: " << txd.max_used_block_id << std::endl
+        << "last_failed_height: " << txd.last_failed_height << std::endl
+        << "last_failed_id: " << txd.last_failed_id << std::endl;
     }
+
     return ss.str();
   }
   //---------------------------------------------------------------------------------
