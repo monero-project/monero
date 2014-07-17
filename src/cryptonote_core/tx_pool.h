@@ -86,8 +86,8 @@ namespace cryptonote
     bool have_tx_keyimg_as_spent(const crypto::key_image& key_im);
     bool have_tx_keyimges_as_spent(const transaction& tx);
     bool remove_transaction_keyimages(const transaction& tx);
-    bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
-    bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
+    static bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
+    static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
 
     bool is_transaction_ready_to_go(tx_details& txd);
     typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
