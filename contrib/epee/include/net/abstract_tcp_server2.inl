@@ -67,14 +67,14 @@ template<class t_protocol_handler> network_throttle<t_protocol_handler>::packet_
 
 template<class t_protocol_handler>
 network_throttle<t_protocol_handler>::network_throttle() 
-	: m_window_size(5), 
+	: m_window_size(10), 
 	  m_history( m_window_size )
 {
 	m_network_add_cost = 64;
 	m_network_minimal_segment = 128;
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
-	m_target_speed = 4 * 1024;
+	m_target_speed = 2 * 1024;
 }
 
 template<class t_protocol_handler> void network_throttle<t_protocol_handler>::set_target_speed( network_speed_kbps target ) 
@@ -89,12 +89,13 @@ void network_throttle<t_protocol_handler>::handle_trafic_exact(size_t packet_siz
 	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
 	network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
 
-	if (m_last_sample_time || (last_sample_time_slot < current_sample_time_slot))
+	// TODO: in loop: rotate few seconds if needed (fill with 0 the seconds-slots with no events in them)
+	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
 	{
-		// rotate buffer
-		for (size_t i=0; i<m_history.size()-1; ++i) m_history[i] = m_history[i+1];
+		// rotate buffer 
+		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
 		m_history[0] = packet_info();
-		m_last_sample_time = time_now;
+		m_last_sample_time += 1;
 		m_any_packet_yet=true;
 	}
 
@@ -114,13 +115,14 @@ network_time_seconds network_throttle<t_protocol_handler>::get_sleep_time() cons
 {
 	network_time_seconds window_len = (m_window_size-1) * m_slot_size ; // -1 since current slot is not finished
 	window_len += (m_last_sample_time - time_to_slot(m_last_sample_time));  // add the time for current slot e.g. 13.7-13 = 0.7
+	auto W = window_len;
 	// window_len e.g. 5.7 because takes into account current slot time
 
 	size_t E = 0; // summ of traffic till now
 	for (auto sample : m_history) E += sample.m_size; 
 	//for (int i=0; i<m_history(); ++i) E += sample.m_size;
-	auto target = m_target_speed;
-	double D = (E - target * window_len) / target;
+	auto M = m_target_speed; // max
+	double D = (E - M*W) / M;
 
 	std::ostringstream oss; 
 	oss << "["; 
@@ -128,12 +130,12 @@ network_time_seconds network_throttle<t_protocol_handler>::get_sleep_time() cons
 	oss << "]" << std::ends;
 	std::string history_str = oss.str();
 
-	LOG_PRINT_L3(
+	LOG_PRINT_L0(
 		"Sleep Delay estimate: " 
 		<< "D=" << std::setw(8) <<D<<" "
-		<< " history: " << std::setw(8) << history_str << " "
-		<< " E="<< std::setw(8) << E << " target=" << std::setw(8) << target<<" window_len="<< std::setw(8) << window_len
-		<< " m_last_sample_time=" << std::setw(8) << m_last_sample_time
+		<< "history: " << std::setw(8) << history_str << " "
+		<< "E="<< std::setw(8) << E << " M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
+		<< "m_last_sample_time=" << std::setw(8) << m_last_sample_time
 	);
 
 	return D;

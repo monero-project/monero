@@ -195,6 +195,8 @@ namespace net_utils
     critical_section m_self_refs_lock;
   };
 
+template<class t_protocol_handler> network_throttle_bw<t_protocol_handler> connection<t_protocol_handler>::m_throttle_global;
+
 
   /************************************************************************/
   /*                                                                      */
