@@ -74,7 +74,7 @@ network_throttle<t_protocol_handler>::network_throttle()
 	m_network_minimal_segment = 128;
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
-	m_target_speed = 128;
+	m_target_speed = 4 * 1024;
 }
 
 template<class t_protocol_handler> void network_throttle<t_protocol_handler>::set_target_speed( network_speed_kbps target ) 
@@ -93,7 +93,7 @@ void network_throttle<t_protocol_handler>::handle_trafic_exact(size_t packet_siz
 	{
 		// rotate buffer
 		for (size_t i=0; i<m_history.size()-1; ++i) m_history[i] = m_history[i+1];
-		* m_history.back() = packet_info();
+		m_history[0] = packet_info();
 		m_last_sample_time = time_now;
 		m_any_packet_yet=true;
 	}
@@ -404,6 +404,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       close();
       return false;
     }
+
+		// TODO do not sleep in critical section
+		m_throttle_global.m_out.handle_trafic_tcp( cb ); // increase counter
+		double delay = m_throttle_global.m_out.get_sleep_time();
+		LOG_PRINT_L0("Delay should be:" << delay);
 
     m_send_que.resize(m_send_que.size()+1);
     m_send_que.back().assign((const char*)ptr, cb);

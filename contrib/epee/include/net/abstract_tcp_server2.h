@@ -82,6 +82,7 @@ namespace net_utils
 		// ^--- time is now known by the network_throttle class from index and m_last_sample_time
 
 			packet_info();
+			int xxxxxxxxx; // XXX
 		};
 
 		network_speed_kbps m_target_speed;
