@@ -174,23 +174,13 @@ int main(int argc, char const * argv[])
     // Set log file
     {
       bf::path data_dir{bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir))};
-      bf::path log_file_path{command_line::get_arg(vm, arg_log_file)};
+      bf::path log_file_path{bf::absolute(command_line::get_arg(vm, arg_log_file), data_dir)};
 
-      if (log_file_path.is_relative())
-      {
-        log_file_path = data_dir / log_file_path;
-      }
-
-      // Fall back to relative path for log file
-      boost::system::error_code ec;
-      if (!log_file_path.has_parent_path() || !bf::exists(log_file_path.parent_path(), ec))
-      {
-        log_file_path = epee::log_space::log_singletone::get_default_log_file();
-      }
-
-      std::string log_dir;
-      log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : epee::log_space::log_singletone::get_default_log_folder();
-      epee::log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
+      epee::log_space::log_singletone::add_logger(
+          LOGGER_FILE
+        , log_file_path.filename().string().c_str()
+        , log_file_path.parent_path().string().c_str()
+        );
     }
 
     return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
