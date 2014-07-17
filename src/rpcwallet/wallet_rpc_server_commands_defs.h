@@ -135,6 +135,21 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_STOP
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct payment_details
   {
     std::string tx_hash;
