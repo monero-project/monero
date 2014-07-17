@@ -22,6 +22,7 @@ namespace
   const command_line::arg_descriptor<uint32_t>      arg_log_level        = {"set_log", "", 0, true};
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_port    = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_ip      = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
+  const command_line::arg_descriptor<std::string>   arg_log_file         = {"log-file", "Specify log file"};
 }  // file-local namespace
 
 int main(int argc, char const * argv[])
@@ -82,10 +83,16 @@ int main(int argc, char const * argv[])
 
   //set up logging options
   epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
-  //epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
-  epee::log_space::log_singletone::add_logger(LOGGER_FILE,
-    epee::log_space::log_singletone::get_default_log_file().c_str(),
-    epee::log_space::log_singletone::get_default_log_folder().c_str(), LOG_LEVEL_4);
+  {
+    boost::filesystem::path log_file_path{boost::filesystem::absolute(command_line::get_arg(vm, arg_log_file))};
+
+    epee::log_space::log_singletone::add_logger(
+        LOGGER_FILE
+      , log_file_path.filename().string().c_str()
+      , log_file_path.parent_path().string().c_str()
+      , LOG_LEVEL_4
+      );
+  }
 
   std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG << std::endl;
 
