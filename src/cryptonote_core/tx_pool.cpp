@@ -54,7 +54,7 @@ namespace cryptonote
 
     if(outputs_amount >= inputs_amount)
     {
-      LOG_PRINT_L0("transaction use more money then it has: use " << outputs_amount << ", have " << inputs_amount);
+      LOG_PRINT_L0("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
       tvc.m_verifivation_failed = true;
       return false;
     }
