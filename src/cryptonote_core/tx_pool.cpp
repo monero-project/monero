@@ -468,7 +468,10 @@ namespace cryptonote
     bool res = tools::unserialize_obj_from_file(*this, state_file_path);
     if(!res)
     {
-      LOG_PRINT_L0("Failed to load memory pool from file " << state_file_path);
+      LOG_ERROR("Failed to load memory pool from file " << state_file_path);
+
+      m_transactions.clear();
+      m_spent_key_images.clear();
     }
 
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
@@ -480,7 +483,8 @@ namespace cryptonote
       }
     }
 
-    return res;
+    // Ignore deserialization error
+    return true;
   }
 
   //---------------------------------------------------------------------------------
