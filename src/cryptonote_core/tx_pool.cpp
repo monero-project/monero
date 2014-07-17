@@ -390,7 +390,9 @@ namespace cryptonote
     total_size = 0;
     fee = 0;
 
-    size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE; // Max block size
+    // Maximum block size is 130% of the median block size.  This gives a
+    // little extra headroom for the max size transaction.
+    size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
 
     // Tx size limit as in wallet2.h
