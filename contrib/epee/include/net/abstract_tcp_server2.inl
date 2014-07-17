@@ -36,6 +36,9 @@
 #include <boost/asio/deadline_timer.hpp>
 #include "misc_language.h"
 #include "pragma_comp_defs.h"
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
 
 PRAGMA_WARNING_PUSH
 namespace epee
@@ -46,6 +49,99 @@ namespace net_utils
   /*                                                                      */
   /************************************************************************/
 PRAGMA_WARNING_DISABLE_VS(4355)
+
+
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+
+/*
+template<class t_protocol_handler>
+void network_throttle<t_protocol_handler>::
+*/
+
+template<class t_protocol_handler> network_throttle<t_protocol_handler>::packet_info::packet_info() 
+	: m_size(0)
+{ 
+}
+
+template<class t_protocol_handler>
+network_throttle<t_protocol_handler>::network_throttle() 
+	: m_window_size(5), 
+	  m_history( m_window_size )
+{
+	m_network_add_cost = 64;
+	m_network_minimal_segment = 128;
+	m_any_packet_yet = false;
+	m_slot_size = 1.0; // hard coded in few places
+	m_target_speed = 128;
+}
+
+template<class t_protocol_handler> void network_throttle<t_protocol_handler>::set_target_speed( network_speed_kbps target ) 
+{
+	m_target_speed = target;
+}
+			
+template<class t_protocol_handler>
+void network_throttle<t_protocol_handler>::handle_trafic_exact(size_t packet_size) 
+{
+	double time_now = time( NULL ); // TODO
+	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
+	network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
+
+	if (m_last_sample_time || (last_sample_time_slot < current_sample_time_slot))
+	{
+		// rotate buffer
+		for (size_t i=0; i<m_history.size()-1; ++i) m_history[i] = m_history[i+1];
+		* m_history.back() = packet_info();
+		m_last_sample_time = time_now;
+		m_any_packet_yet=true;
+	}
+
+	m_history[0].m_size += packet_size;
+}
+
+template<class t_protocol_handler>
+void network_throttle<t_protocol_handler>::handle_trafic_tcp(size_t packet_size)
+{
+	size_t all_size = packet_size + m_network_add_cost;
+	all_size = std::max( m_network_minimal_segment , all_size);
+	handle_trafic_exact( all_size );
+}
+
+template<class t_protocol_handler>
+network_time_seconds network_throttle<t_protocol_handler>::get_sleep_time() const 
+{
+	network_time_seconds window_len = (m_window_size-1) * m_slot_size ; // -1 since current slot is not finished
+	window_len += (m_last_sample_time - time_to_slot(m_last_sample_time));  // add the time for current slot e.g. 13.7-13 = 0.7
+	// window_len e.g. 5.7 because takes into account current slot time
+
+	size_t E = 0; // summ of traffic till now
+	for (auto sample : m_history) E += sample.m_size; 
+	//for (int i=0; i<m_history(); ++i) E += sample.m_size;
+	auto target = m_target_speed;
+	double D = (E - target * window_len) / target;
+
+	std::ostringstream oss; 
+	oss << "["; 
+	for (auto sample: m_history) oss << sample.m_size << " ";
+	oss << "]" << std::ends;
+	std::string history_str = oss.str();
+
+	LOG_PRINT_L3(
+		"Sleep Delay estimate: " 
+		<< "D=" << std::setw(8) <<D<<" "
+		<< " history: " << std::setw(8) << history_str << " "
+		<< " E="<< std::setw(8) << E << " target=" << std::setw(8) << target<<" window_len="<< std::setw(8) << window_len
+		<< " m_last_sample_time=" << std::setw(8) << m_last_sample_time
+	);
+
+	return D;
+}
+
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
 
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection(boost::asio::io_service& io_service,

@@ -62,6 +62,65 @@ namespace net_utils
     virtual ~i_connection_filter(){}
   };
 
+
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  /// Represents a single connection from a client.
+
+	// just typedefs to in code define the units used. TODO later it will be enforced that casts to other numericals are only explicit to avoid mistakes
+	typedef double network_speed_kbps;
+	typedef double network_time_seconds;
+
+  template<class t_protocol_handler>
+  class network_throttle {
+
+		struct packet_info {
+			size_t m_size; // octets sent. Summary for given small-window (e.g. for all packaged in 1 second)
+
+		//	network_time_seconds m_time; // some form of monotonic clock, in seconds 
+		// ^--- time is now known by the network_throttle class from index and m_last_sample_time
+
+			packet_info();
+		};
+
+		network_speed_kbps m_target_speed;
+
+		size_t m_network_add_cost; // estimated add cost of headers 
+		size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
+
+		const size_t m_window_size; // the number of samples to average over
+		network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
+		// TODO for big window size, for performance better the substract on change of m_last_sample_time instead of recalculating average of eg >100 elements
+
+		std::vector< packet_info > m_history; // the history of bw usage
+
+		network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer
+		
+		bool m_any_packet_yet; // did we yet got any packet to count
+
+
+		// each sample is now 1 second
+
+		public:
+			network_throttle();
+
+			void set_target_speed( network_speed_kbps target );
+			
+			void handle_trafic_exact(size_t packet_size); // count the new traffic/packet; the size is exact considering all network costs
+			void handle_trafic_tcp(size_t packet_size); // count the new traffic/packet; the size is as TCP, we will consider MTU etc
+
+			network_time_seconds get_sleep_time() const; // ask how much seconds we should sleep now - in order to meet the speed limit. <0 means that we should not sleep
+
+			network_time_seconds time_to_slot(network_time_seconds t) const { return std::floor( t ); } // convert exact time eg 13.7 to rounded time for slot number in history 13
+	};
+
+  template<class t_protocol_handler>
+  struct network_throttle_bw {
+		network_throttle<t_protocol_handler> m_in;
+		network_throttle<t_protocol_handler> m_out;
+	};
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -77,6 +136,9 @@ namespace net_utils
     /// Construct a connection with the given io_service.
     explicit connection(boost::asio::io_service& io_service,
       typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter * &pfilter);
+
+		static network_throttle_bw<t_protocol_handler> m_throttle_global; // global across all peers
+		network_throttle_bw<t_protocol_handler> m_throttle; // per-perr
 
     virtual ~connection();
     /// Get the socket associated with the connection.
