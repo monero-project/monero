@@ -120,7 +120,7 @@ int main(int argc, char const * argv[])
     return 1;
   }
 
-  std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
+  std::string wallet_file     = boost::filesystem::absolute(command_line::get_arg(vm, arg_wallet_file)).string();
   std::string wallet_password = command_line::get_arg(vm, arg_password);
   std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
   std::string daemon_host = command_line::get_arg(vm, arg_daemon_host);
