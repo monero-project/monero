@@ -22,6 +22,11 @@ DISABLE_VS_WARNINGS(4244 4345 4503) //'boost::foreach_detail_::or_' : decorated 
 
 namespace cryptonote
 {
+  namespace
+  {
+    size_t const TRANSACTION_SIZE_LIMIT = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+  }
+
   //---------------------------------------------------------------------------------
   tx_memory_pool::tx_memory_pool(blockchain_storage& bchs): m_blockchain(bchs)
   {
@@ -50,6 +55,13 @@ namespace cryptonote
     if(outputs_amount >= inputs_amount)
     {
       LOG_PRINT_L0("transaction use more money then it has: use " << outputs_amount << ", have " << inputs_amount);
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    if (!kept_by_block && blob_size >= TRANSACTION_SIZE_LIMIT)
+    {
+      LOG_ERROR("transaction is too big: " << blob_size << " bytes, maximum size: " << TRANSACTION_SIZE_LIMIT);
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -446,6 +458,8 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::init(const std::string& config_folder)
   {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+
     m_config_folder = config_folder;
     std::string state_file_path = config_folder + "/" + CRYPTONOTE_POOLDATA_FILENAME;
     boost::system::error_code ec;
@@ -456,6 +470,16 @@ namespace cryptonote
     {
       LOG_PRINT_L0("Failed to load memory pool from file " << state_file_path);
     }
+
+    for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
+      auto it2 = it++;
+      if (it2->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
+        LOG_PRINT_L0("Transaction " << get_transaction_hash(it2->second.tx) << " is too big (" << it2->second.blob_size << " bytes), removing it from pool");
+        remove_transaction_keyimages(it2->second.tx);
+        m_transactions.erase(it2);
+      }
+    }
+
     return res;
   }
 
