@@ -58,7 +58,7 @@ namespace tools
       boost::program_options::variables_map const &
     )
   {
-    epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+    epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, nullptr, nullptr, LOG_LEVEL_2);
     return t_wallet_daemon{
       m_wallet_file
     , m_wallet_password

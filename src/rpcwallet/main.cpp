@@ -103,7 +103,6 @@ int main(int argc, char const * argv[])
   }
 
 
-  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
   //runs wallet with rpc interface
   if(!command_line::has_arg(vm, arg_wallet_file) )
   {
