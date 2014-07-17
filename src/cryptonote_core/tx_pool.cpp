@@ -418,11 +418,6 @@ namespace cryptonote
       if (max_total_size < total_size + tx.second.blob_size)
         continue;
 
-      // Check to see if the minimum fee is included;
-      // exclude tx missing minimum fee
-      if (tx.second.fee < DEFAULT_FEE)
-        continue;
-
       // Skip transactions that are too large
       // TODO: Correct upper_transactions_size_limit
       // such that it is based on median block size;
