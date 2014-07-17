@@ -499,9 +499,9 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   }
   else if (1 == args.size())
   {
-    uint16_t num;
+    uint16_t num = 1;
     ok = string_tools::get_xtype_from_string(num, args[0]);
-    ok &= (1 <= num && num <= max_mining_threads_count);
+    ok = ok && (1 <= num && num <= max_mining_threads_count);
     req.threads_count = num;
   }
   else

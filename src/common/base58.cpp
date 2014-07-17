@@ -110,7 +110,7 @@ namespace tools
 
       void encode_block(const char* block, size_t size, char* res)
       {
-        assert(1 <= size && size <= sizeof(full_block_size));
+        assert(1 <= size && size <= full_block_size);
 
         uint64_t num = uint_8be_to_64(reinterpret_cast<const uint8_t*>(block), size);
         int i = static_cast<int>(encoded_block_sizes[size]) - 1;

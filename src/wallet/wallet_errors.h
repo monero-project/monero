@@ -203,7 +203,7 @@ namespace tools
     struct refresh_error : public wallet_logic_error
     {
     protected:
-      refresh_error(std::string&& loc, const std::string& message)
+      explicit refresh_error(std::string&& loc, const std::string& message)
         : wallet_logic_error(std::move(loc), message)
       {
       }
@@ -277,7 +277,7 @@ namespace tools
     struct transfer_error : public wallet_logic_error
     {
     protected:
-      transfer_error(std::string&& loc, const std::string& message)
+      explicit transfer_error(std::string&& loc, const std::string& message)
         : wallet_logic_error(std::move(loc), message)
       {
       }
@@ -287,7 +287,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct not_enough_money : public transfer_error
     {
-      not_enough_money(std::string&& loc, uint64_t availbable, uint64_t tx_amount, uint64_t fee)
+      explicit not_enough_money(std::string&& loc, uint64_t availbable, uint64_t tx_amount, uint64_t fee)
         : transfer_error(std::move(loc), "not enough money")
         , m_available(availbable)
         , m_tx_amount(tx_amount)
@@ -431,7 +431,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct tx_sum_overflow : public transfer_error
     {
-      tx_sum_overflow(std::string&& loc, const std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t fee)
+      explicit tx_sum_overflow(std::string&& loc, const std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t fee)
         : transfer_error(std::move(loc), "transaction sum + fee exceeds " + cryptonote::print_money(std::numeric_limits<uint64_t>::max()))
         , m_destinations(destinations)
         , m_fee(fee)
@@ -507,7 +507,7 @@ namespace tools
       }
 
     protected:
-      wallet_rpc_error(std::string&& loc, const std::string& message, const std::string& request)
+      explicit wallet_rpc_error(std::string&& loc, const std::string& message, const std::string& request)
         : wallet_logic_error(std::move(loc), message)
         , m_request(request)
       {

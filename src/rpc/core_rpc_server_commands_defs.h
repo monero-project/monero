@@ -115,8 +115,8 @@ namespace cryptonote
   {
     struct request
     {
-      std::list<uint64_t> amounts;
-      uint64_t            outs_count;
+      std::vector<uint64_t> amounts;
+      uint64_t              outs_count;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amounts)
         KV_SERIALIZE(outs_count)
@@ -414,7 +414,11 @@ namespace cryptonote
   
   struct COMMAND_RPC_GET_LAST_BLOCK_HEADER
   {
-    typedef std::list<std::string> request;
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
 
     struct response
     {
