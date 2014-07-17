@@ -418,14 +418,6 @@ namespace cryptonote
       if (max_total_size < total_size + tx.second.blob_size)
         continue;
 
-      // Skip transactions that are too large
-      // TODO: Correct upper_transactions_size_limit
-      // such that it is based on median block size;
-      // We need to make a similar patch for
-      // wallet2.h
-      if (tx.second.blob_size > upper_transaction_size_limit)
-        continue;
-
       // If adding this tx will make the block size
       // greater than CRYPTONOTE_GETBLOCKTEMPLATE_MAX
       // _BLOCK_SIZE bytes, reject the tx; this will 
