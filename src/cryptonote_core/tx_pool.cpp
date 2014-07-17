@@ -426,13 +426,6 @@ namespace cryptonote
       if ( (total_size + tx.second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
         continue;
 
-      // If adding this tx will make the block size
-      // greater than 130% of the median, reject the
-      // tx; this will keep down largely punitive tx
-      // from being included
-      if ( (total_size + tx.second.blob_size) > ((130 * median_size) / 100) )
-        continue;
-
       // If we've exceeded the penalty free size,
       // stop including more tx
       if (total_size > median_size)
