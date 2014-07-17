@@ -141,7 +141,7 @@ namespace nodetool
     bool try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, bool white = true);
     size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
-    bool is_addr_connected(const net_address& peer);  
+    bool is_addr_connected(const net_address& peer);
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
     bool make_expected_connections_count(bool white_list, size_t expected_connections);
@@ -153,7 +153,9 @@ namespace nodetool
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
-    //debug functions
+  	bool set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+
+  	//debug functions
     std::string print_connections_container();
 
 

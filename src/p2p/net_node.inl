@@ -36,6 +36,7 @@ namespace nodetool
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
+    const command_line::arg_descriptor<uint64_t>    arg_limit_rate_up      = {"limit-rate-up", "set limit-rate-up", 100};
   }
 
   //-----------------------------------------------------------------------------------
@@ -49,8 +50,9 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_peer);
     command_line::add_arg(desc, arg_p2p_add_priority_node);
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
-    command_line::add_arg(desc, arg_p2p_seed_node);    
-    command_line::add_arg(desc, arg_p2p_hide_my_port);   }
+    command_line::add_arg(desc, arg_p2p_seed_node);
+    command_line::add_arg(desc, arg_p2p_hide_my_port);
+  	command_line::add_arg(desc, arg_limit_rate_up);   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -113,7 +115,7 @@ namespace nodetool
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
-    {       
+    {
       std::vector<std::string> perrs = command_line::get_arg(vm, arg_p2p_add_peer);
       for(const std::string& pr_str: perrs)
       {
@@ -123,6 +125,13 @@ namespace nodetool
         CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
         m_command_line_peers.push_back(pe);
       }
+    }
+
+    if(command_line::has_arg(vm, arg_limit_rate_up))
+    {
+			LOG_PRINT_L0("dziala if!!");
+			if ( !set_rate_up_limit(vm, arg_limit_rate_up.default_value) )
+				return false;
     }
 
     if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
@@ -218,7 +227,7 @@ namespace nodetool
 
     for(auto& p: m_command_line_peers)
       m_peerlist.append_with_peer_white(p);
-    
+
     //only in case if we really sure that we have external visible ip
     m_have_address = true;
     m_ip_address = 0;
@@ -353,7 +362,7 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
- 
+
 
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context_, bool just_take_peerlist)
@@ -362,11 +371,11 @@ namespace nodetool
     typename COMMAND_HANDSHAKE::response rsp;
     get_local_node_data(arg.node_data);
     m_payload_handler.get_payload_sync_data(arg.payload_data);
-    
+
     epee::simple_event ev;
     std::atomic<bool> hsh_result(false);
-    
-    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(), 
+
+    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(),
       [this, &pi, &ev, &hsh_result, &just_take_peerlist](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
     {
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ev.raise();});
@@ -434,7 +443,7 @@ namespace nodetool
     typename COMMAND_TIMED_SYNC::request arg = AUTO_VAL_INIT(arg);
     m_payload_handler.get_payload_sync_data(arg.payload_data);
 
-    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_TIMED_SYNC::response>(context_.m_connection_id, COMMAND_TIMED_SYNC::ID, arg, m_net_server.get_config_object(), 
+    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_TIMED_SYNC::response>(context_.m_connection_id, COMMAND_TIMED_SYNC::ID, arg, m_net_server.get_config_object(),
       [this](int code, const typename COMMAND_TIMED_SYNC::response& rsp, p2p_connection_context& context)
     {
       if(code < 0)
@@ -616,7 +625,7 @@ namespace nodetool
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
                     << "[white=" << use_white_list
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
-      
+
       if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list))
         continue;
 
@@ -637,7 +646,7 @@ namespace nodetool
       size_t try_count = 0;
       size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
       while(true)
-      {        
+      {
         if(m_net_server.is_stop_signal_sent())
           return false;
 
@@ -783,7 +792,7 @@ namespace nodetool
     node_data.peer_id = m_config.m_peer_id;
     if(!m_hide_my_port)
       node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
-    else 
+    else
       node_data.my_port = 0;
     node_data.network_id = BYTECOIN_NETWORK;
     return true;
@@ -1155,4 +1164,13 @@ namespace nodetool
 
     return true;
   }
+
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
+		LOG_PRINT_L0("Set upload limit to " << limit << "kbps");
+		return true;
+	}
 }
