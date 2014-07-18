@@ -14,6 +14,41 @@ namespace cryptonote
 
 #define BC_COMMANDS_POOL_BASE 2000
 
+  /************************************************************************/
+  /* P2P connection info, serializable to json                            */
+  /************************************************************************/
+  struct connection_info
+  {
+    bool incoming;
+
+    std::string ip;
+    std::string port;
+
+    std::string peer_id;
+
+    uint64_t recv_count;
+    time_t recv_idle_time;
+
+    uint64_t send_count;
+    time_t send_idle_time;
+
+    std::string state;
+
+    time_t live_time;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(incoming)
+      KV_SERIALIZE(ip)
+      KV_SERIALIZE(port)
+      KV_SERIALIZE(peer_id)
+      KV_SERIALIZE(recv_count)
+      KV_SERIALIZE(recv_idle_time)
+      KV_SERIALIZE(send_count)
+      KV_SERIALIZE(send_idle_time)
+      KV_SERIALIZE(state)
+      KV_SERIALIZE(live_time)
+    END_KV_SERIALIZE_MAP()
+  };
 
   /************************************************************************/
   /*                                                                      */

@@ -481,5 +481,24 @@ namespace cryptonote
 
   };
 
+  struct COMMAND_RPC_GET_CONNECTIONS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::list<connection_info> connections;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(connections)
+      END_KV_SERIALIZE_MAP()
+    };
+
+  };
 }
 
