@@ -78,12 +78,15 @@ namespace {
   }
 
   bool relaunch_as_admin(
-      std::string const & full_command
+      std::string const & command
+    , std::string const & arguments
     )
   {
     SHELLEXECUTEINFO info{};
+    info.cbSize = sizeof(info);
     info.lpVerb = "runas";
-    info.lpFile = full_command.c_str();
+    info.lpFile = command.c_str();
+    info.lpParameters = arguments.c_str();
     info.hwnd = nullptr;
     info.nShow = SW_SHOWNORMAL;
     if (!ShellExecuteEx(&info))
@@ -116,8 +119,7 @@ bool ensure_admin(
   else
   {
     std::string command = epee::string_tools::get_current_module_path();
-    std::string full_command = command + arguments;
-    relaunch_as_admin(full_command);
+    relaunch_as_admin(command, arguments);
     return false;
   }
 }
