@@ -11,6 +11,8 @@ namespace daemonize
   class t_executor final
   {
   public:
+    typedef ::daemonize::t_daemon t_daemon;
+
     static std::string const NAME;
 
     static void init_options(

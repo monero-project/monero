@@ -12,6 +12,8 @@ namespace tools
   class t_wallet_executor final
   {
   public:
+    typedef t_wallet_daemon t_daemon;
+
     static void init_options(
         boost::program_options::options_description & hidden_options
       , boost::program_options::options_description & normal_options
