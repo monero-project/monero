@@ -22,7 +22,7 @@ namespace
   const command_line::arg_descriptor<std::string>   arg_daemon_host      = {"daemon-host", "Use daemon instance at host <arg> instead of localhost", ""};
   const command_line::arg_descriptor<int>           arg_daemon_port      = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<std::string>   arg_password         = {"password", "Wallet password", "", true};
-  const command_line::arg_descriptor<uint32_t>      arg_log_level        = {"set_log", "", 0, true};
+  const command_line::arg_descriptor<uint32_t>      arg_log_level        = {"log-level", "", 0, true};
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_port    = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_ip      = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
   const command_line::arg_descriptor<std::string>   arg_log_file         = {"log-file", "Specify log file", "rpcwallet.log"};
