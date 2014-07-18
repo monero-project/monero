@@ -23,6 +23,7 @@ namespace
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_port    = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_ip      = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
   const command_line::arg_descriptor<std::string>   arg_log_file         = {"log-file", "Specify log file"};
+  const command_line::arg_descriptor<std::string>   arg_log_file         = {"stop", "Stop running daemon"};
 }  // file-local namespace
 
 int main(int argc, char const * argv[])
@@ -34,6 +35,7 @@ int main(int argc, char const * argv[])
   po::options_description general_options("General options");
   command_line::add_arg(general_options, command_line::arg_help);
   command_line::add_arg(general_options, command_line::arg_version);
+  command_line::add_arg(general_options, command_line::arg_stop);
 
   po::options_description wallet_options("Wallet options");
   command_line::add_arg(wallet_options, arg_wallet_file);
