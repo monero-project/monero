@@ -787,7 +787,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
         std::string accepted = command_line::input_line(prompt_str);
         if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
         {
-          fail_msg_writer() << "Transaction cancelled.";
+          tools::fail_msg_writer() << "Transaction cancelled.";
 
           // would like to return false, because no tx made, but everything else returns true
           // and I don't know what returning false might adversely affect.  *sigh*
@@ -800,7 +800,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     {
       auto & ptx = ptx_vector.back();
       m_wallet->commit_tx(ptx);
-      success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(ptx.tx);
+      tools::success_msg_writer() << "Money successfully sent, transaction " << get_transaction_hash(ptx.tx);
 
       // if no exception, remove element from vector
       ptx_vector.pop_back();
@@ -856,7 +856,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   }
   catch (const tools::error::tx_too_big& e)
   {
-    fail_msg_writer() << "Failed to find a suitable way to split transactions";
+    tools::fail_msg_writer() << "Failed to find a suitable way to split transactions";
   }
   catch (const tools::error::transfer_error& e)
   {
