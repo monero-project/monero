@@ -46,6 +46,7 @@ int main(int argc, char const * argv[])
   command_line::add_arg(wallet_options, arg_daemon_address);
   command_line::add_arg(wallet_options, arg_daemon_host);
   command_line::add_arg(wallet_options, arg_daemon_port);
+  command_line::add_arg(wallet_options, arg_log_file);
   command_line::add_arg(wallet_options, arg_log_level);
   command_line::add_arg(wallet_options, arg_rpc_bind_ip);
   command_line::add_arg(wallet_options, arg_rpc_bind_port);
