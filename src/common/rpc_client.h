@@ -48,10 +48,15 @@ namespace tools
       t_http_connection connection(&m_http_client, m_ip, m_port);
 
       bool ok = connection.is_open();
-      ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
       if (!ok)
       {
         fail_msg_writer() << "Couldn't connect to daemon";
+        return false;
+      }
+      ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
+      if (!ok)
+      {
+        fail_msg_writer() << "Daemon request failed";
         return false;
       }
       else
