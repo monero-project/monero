@@ -60,7 +60,16 @@ namespace daemonizer
   {
     std::string arguments = get_argument_string(argc, argv);
 
-    if (command_line::arg_present(vm, arg_install_service))
+    if (command_line::arg_present(vm, arg_is_service))
+    {
+      //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
+      windows::t_service_runner<T_executor::t_daemon>::run(
+        executor.name()
+      , executor.create_daemon(vm)
+      );
+      return true;
+    }
+    else if (command_line::arg_present(vm, arg_install_service))
     {
       if (windows::ensure_admin(arguments))
       {
@@ -89,19 +98,12 @@ namespace daemonizer
         return windows::stop_service(executor.name());
       }
     }
-    else if (command_line::arg_present(vm, arg_is_service))
-    {
-      //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
-      windows::t_service_runner<T_executor::t_daemon>::run(
-        executor.name()
-      , executor.create_daemon(vm)
-      );
-      return true;
-    }
     else // interactive
     {
       //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
       return executor.run_interactive(vm);
     }
+
+    return false;
   }
 }
