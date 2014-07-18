@@ -36,7 +36,7 @@ namespace nodetool
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
-    const command_line::arg_descriptor<uint64_t>    arg_limit_rate_up      = {"limit-rate-up", "set limit-rate-up", 100};
+    const command_line::arg_descriptor<uint64_t>    arg_limit_rate_up      = {"limit-rate-up", "set limit-rate-up", 0};
   }
 
   //-----------------------------------------------------------------------------------
@@ -127,18 +127,15 @@ namespace nodetool
       }
     }
 
-    if(command_line::has_arg(vm, arg_limit_rate_up))
+		if ( !set_rate_up_limit(vm, command_line::get_arg(vm, arg_limit_rate_up) ) )
+			return false;
+
+    if(command_line::has_arg(vm, arg_p2p_add_exclusive_node))
     {
-			LOG_PRINT_L0("dziala if!!");
-			if ( !set_rate_up_limit(vm, arg_limit_rate_up.default_value) )
+			if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
 				return false;
     }
 
-    if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
-    {
-      if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
-        return false;
-    }
     else if (command_line::has_arg(vm, arg_p2p_add_priority_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_priority_node, m_priority_peers))
@@ -1170,7 +1167,7 @@ namespace nodetool
 	{
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
-		LOG_PRINT_L0("Set upload limit to " << limit << "kbps");
+		LOG_PRINT_L0("Set limit to " << limit << "kbps");
 		return true;
 	}
 }
