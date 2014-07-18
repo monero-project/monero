@@ -16,7 +16,9 @@
 #include "common/util.h"
 #include "version.h"
 #include <ctime>
+#include <chrono>
 #include <iostream>
+#include <thread>
 
 namespace tools
 {
@@ -121,8 +123,8 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::stop()
   {
-    wallet_rpc_server::send_stop_signal();
     m_wallet.store();
+    wallet_rpc_server::send_stop_signal();
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, connection_context& cntx)
@@ -332,7 +334,16 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_stop(const wallet_rpc::COMMAND_RPC_STOP::request& req, wallet_rpc::COMMAND_RPC_STOP::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
-    wallet_rpc_server::stop();
+    // TODO - This avoids stopping the server before sending a response.  Note
+    // that this is an ugly, ugly, no-good hack, and we should come up with
+    // something better.
+    m_wallet.store();
+    std::thread thread{[this]() {
+      std::chrono::milliseconds dur{200};
+      std::this_thread::sleep_for(dur);
+      wallet_rpc_server::send_stop_signal();
+    }};
+    thread.detach();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
