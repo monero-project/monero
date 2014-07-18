@@ -10,6 +10,10 @@
 
 namespace windows
 {
+  bool ensure_admin(
+      std::string const & arguments
+    );
+
   bool install_service(
       std::string const & service_name
     , std::string const & arguments
