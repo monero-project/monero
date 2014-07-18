@@ -3,7 +3,7 @@
 #include "string_tools.h"
 #include "net/http_client.h"
 
-namespace daemonize {
+namespace tools {
 
 class t_http_connection {
 private:
@@ -39,4 +39,4 @@ public:
   }
 }; // class t_http_connection
 
-} // namespace daemonize
+} // namespace tools

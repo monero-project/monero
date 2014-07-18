@@ -1,7 +1,7 @@
 #include "string_tools.h"
 #include "storages/http_abstract_invoke.h"
 #include "common/scoped_message_writer.h"
-#include "daemon/http_connection.h"
+#include "common/http_connection.h"
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include <boost/format.hpp>
@@ -355,7 +355,7 @@ bool t_rpc_command_executor::stop_daemon()
 bool t_rpc_command_executor::print_status()
 {
   const std::string rpc_url = build_url(m_ip, m_port, "/json_rpc");
-  t_http_connection connection(&m_http_client, m_ip, m_port);
+  tools::t_http_connection connection(&m_http_client, m_ip, m_port);
 
   /* Checks if the daemon is alive */
   if(connection.is_open()) {
@@ -377,7 +377,7 @@ bool t_rpc_command_executor::json_rpc_request(
   )
 {
   std::string rpc_url = build_url(m_ip, m_port, "/json_rpc");
-  t_http_connection connection(&m_http_client, m_ip, m_port);
+  tools::t_http_connection connection(&m_http_client, m_ip, m_port);
 
   bool ok = connection.is_open();
   ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
@@ -406,7 +406,7 @@ bool t_rpc_command_executor::rpc_request(
   )
 {
   std::string rpc_url = build_url(m_ip, m_port, relative_url);
-  t_http_connection connection(&m_http_client, m_ip, m_port);
+  tools::t_http_connection connection(&m_http_client, m_ip, m_port);
 
   bool ok = connection.is_open();
   ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, m_http_client);
