@@ -38,6 +38,29 @@ namespace tools
     }
 
     template <typename T_req, typename T_res>
+    bool basic_json_rpc_request(
+        T_req & req
+      , T_res & res
+      , std::string const & method_name
+      )
+    {
+      std::string rpc_url = build_url("/json_rpc");
+      t_http_connection connection(&m_http_client, m_ip, m_port);
+
+      bool ok = connection.is_open();
+      ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
+      if (!ok)
+      {
+        fail_msg_writer() << "Couldn't connect to daemon";
+        return false;
+      }
+      else
+      {
+        return true;
+      }
+    }
+
+    template <typename T_req, typename T_res>
     bool json_rpc_request(
         T_req & req
       , T_res & res

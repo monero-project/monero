@@ -1,9 +1,12 @@
 #include "common/command_line.h"
+#include "common/rpc_client.h"
 #include "common/scoped_message_writer.h"
 #include "common/util.h"
+#include "rpc/core_rpc_server.h"
 #include "daemonizer/daemonizer.h"
 #include "misc_log_ex.h"
 #include "rpcwallet/wallet_executor.h"
+#include "rpcwallet/wallet_rpc_server_commands_defs.h"
 #include "string_tools.h"
 #include "version.h"
 
@@ -23,7 +26,7 @@ namespace
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_port    = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string>   arg_rpc_bind_ip      = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
   const command_line::arg_descriptor<std::string>   arg_log_file         = {"log-file", "Specify log file"};
-  const command_line::arg_descriptor<std::string>   arg_log_file         = {"stop", "Stop running daemon"};
+  const command_line::arg_descriptor<std::string>   arg_stop             = {"stop", "Stop running daemon"};
 }  // file-local namespace
 
 int main(int argc, char const * argv[])
@@ -35,7 +38,7 @@ int main(int argc, char const * argv[])
   po::options_description general_options("General options");
   command_line::add_arg(general_options, command_line::arg_help);
   command_line::add_arg(general_options, command_line::arg_version);
-  command_line::add_arg(general_options, command_line::arg_stop);
+  command_line::add_arg(general_options, arg_stop);
 
   po::options_description wallet_options("Wallet options");
   command_line::add_arg(wallet_options, arg_wallet_file);
@@ -120,6 +123,40 @@ int main(int argc, char const * argv[])
   {
     tools::fail_msg_writer() << "Wallet password not set.";
     return 1;
+  }
+
+  if (command_line::arg_present(vm, arg_stop))
+  {
+    auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
+    auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
+
+    uint32_t rpc_ip;
+    uint16_t rpc_port;
+    if (!epee::string_tools::get_ip_int32_from_string(rpc_ip, rpc_ip_str))
+    {
+      std::cerr << "Invalid IP: " << rpc_ip_str << std::endl;
+      return 1;
+    }
+    if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
+    {
+      std::cerr << "Invalid port: " << rpc_port_str << std::endl;
+      return 1;
+    }
+
+    tools::wallet_rpc::COMMAND_RPC_STOP::request req;
+    tools::wallet_rpc::COMMAND_RPC_STOP::response res;
+
+    tools::t_rpc_client rpc_client{rpc_ip, rpc_port};
+
+    if (rpc_client.basic_json_rpc_request(req, res, "stop"))
+    {
+      tools::success_msg_writer() << "Stop message sent";
+      return 0;
+    }
+    else
+    {
+      return 1;
+    }
   }
 
   std::string wallet_file     = boost::filesystem::absolute(command_line::get_arg(vm, arg_wallet_file)).string();
