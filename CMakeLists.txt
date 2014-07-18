@@ -3,6 +3,14 @@ cmake_minimum_required(VERSION 2.8.6)
 set(VERSION "0.1")
 # $Format:Packaged from commit %H%nset(COMMIT %h)%nset(REFS "%d")$
 
+# Options
+
+option(BUILD_TESTS "Build tests" ON)
+option(BUILD_CONN_TOOL "Build connectivity tool" ON)
+option(BUILD_SIMPLE_MINER "Build simple miner" ON)
+option(BUILD_SIMPLE_WALLET "Build simple wallet" ON)
+option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" OFF)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
@@ -95,7 +103,11 @@ else()
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
   endif()
 endif()
-set(Boost_NO_SYSTEM_PATHS TRUE)
+
+if (BOOST_IGNORE_SYSTEM_PATHS)
+	set(Boost_NO_SYSTEM_PATHS TRUE)
+endif()
+
 if(STATIC)
   set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_STATIC_RUNTIME ON)
@@ -141,4 +153,7 @@ endif()
 
 add_subdirectory(external)
 add_subdirectory(src)
-add_subdirectory(tests)
+
+if (BUILD_TESTS)
+	add_subdirectory(tests)
+endif ()
