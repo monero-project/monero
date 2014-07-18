@@ -108,24 +108,6 @@ int main(int argc, char const * argv[])
     epee::log_space::get_set_log_detalisation_level(true, command_line::get_arg(vm, arg_log_level));
   }
 
-
-  //runs wallet with rpc interface
-  if(!command_line::has_arg(vm, arg_wallet_file) )
-  {
-    tools::fail_msg_writer() << "Wallet file not set.";
-    return 1;
-  }
-  if(!command_line::has_arg(vm, arg_daemon_address) )
-  {
-    tools::fail_msg_writer() << "Daemon address not set.";
-    return 1;
-  }
-  if(!command_line::has_arg(vm, arg_password) )
-  {
-    tools::fail_msg_writer() << "Wallet password not set.";
-    return 1;
-  }
-
   if (command_line::arg_present(vm, arg_stop))
   {
     auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
@@ -158,6 +140,23 @@ int main(int argc, char const * argv[])
     {
       return 1;
     }
+  }
+
+  //runs wallet with rpc interface
+  if(!command_line::has_arg(vm, arg_wallet_file) )
+  {
+    tools::fail_msg_writer() << "Wallet file not set.";
+    return 1;
+  }
+  if(!command_line::has_arg(vm, arg_daemon_address) )
+  {
+    tools::fail_msg_writer() << "Daemon address not set.";
+    return 1;
+  }
+  if(!command_line::has_arg(vm, arg_password) )
+  {
+    tools::fail_msg_writer() << "Wallet password not set.";
+    return 1;
   }
 
   std::string wallet_file     = boost::filesystem::absolute(command_line::get_arg(vm, arg_wallet_file)).string();
