@@ -7,7 +7,6 @@
 #include "common/util.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/miner.h"
-#include "daemon/command_line_options.h"
 #include "daemon/command_server.h"
 #include "daemon/daemon.h"
 #include "daemon/executor.h"
@@ -41,6 +40,10 @@ namespace
     "daemon_command"
   , "Hidden"
   };
+  const command_line::arg_descriptor<bool> arg_os_version = {
+    "os-version"
+  , "OS for which this executable was compiled"
+  };
 }
 
 int main(int argc, char const * argv[])
@@ -54,14 +57,15 @@ int main(int argc, char const * argv[])
     po::options_description hidden_options("Hidden");
     po::options_description visible_options("Options");
     po::options_description core_settings("Settings");
-    po::positional_options_description positional;
+    po::positional_options_description positional_options;
     {
       bf::path default_data_dir = bf::absolute(tools::get_default_data_dir());
 
       // Misc Options
 
-      command_line_options::init_help_option(visible_options);
-      command_line_options::init_system_query_options(visible_options);
+      command_line::add_arg(visible_options, command_line::arg_help);
+      command_line::add_arg(visible_options, command_line::arg_version);
+      command_line::add_arg(visible_options, arg_os_version);
       command_line::add_arg(visible_options, command_line::arg_data_dir, default_data_dir.string());
       command_line::add_arg(visible_options, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
 
@@ -79,30 +83,51 @@ int main(int argc, char const * argv[])
       all_options.add(hidden_options);
 
       // Positional
-      positional.add(arg_command.name, -1); // -1 for unlimited arguments
+      positional_options.add(arg_command.name, -1); // -1 for unlimited arguments
     }
 
     // Do command line parsing
     po::variables_map vm;
-    if (!command_line_options::parse_options(vm, argc, argv, visible_options, all_options, positional))
+    bool ok = command_line::handle_error_helper(visible_options, [&]()
     {
-      return 1;
-    }
+      boost::program_options::store(
+        boost::program_options::command_line_parser(argc, argv)
+          .options(all_options).positional(positional_options).run()
+      , vm
+      );
 
-    if (command_line_options::print_help(
-          "Usage: " + std::string{argv[0]} + " [options|settings] [daemon_command...]"
-        , vm, visible_options
-        ))
+      return true;
+    });
+    if (!ok) return 1;
+
+    if (command_line::get_arg(vm, command_line::arg_help))
     {
+      std::cout << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL << ENDL;
+      std::cout << "Usage: " + std::string{argv[0]} + " [options|settings] [daemon_command...]" << std::endl << std::endl;
+      std::cout << visible_options << std::endl;
       return 0;
     }
 
-    if (command_line_options::query_system_info(vm))
+    // Monero Version
+    if (command_line::get_arg(vm, command_line::arg_version))
     {
+      std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
       return 0;
     }
 
-    bf::path data_dir = command_line_options::init_data_directory(vm);
+    // OS
+    if (command_line::get_arg(vm, arg_os_version))
+    {
+      std::cout << "OS: " << tools::get_os_version_string() << ENDL;
+      return 0;
+    }
+
+    // Create data dir if it doesn't exist
+    {
+      boost::filesystem::path data_dir = boost::filesystem::absolute(
+          command_line::get_arg(vm, command_line::arg_data_dir));
+      tools::create_directories_if_necessary(data_dir.string());
+    }
 
     // Parse config file if it exists
     {
