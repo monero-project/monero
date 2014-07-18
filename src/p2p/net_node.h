@@ -154,6 +154,8 @@ namespace nodetool
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
   	bool set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
 
   	//debug functions
     std::string print_connections_container();

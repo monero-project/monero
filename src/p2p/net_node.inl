@@ -36,7 +36,10 @@ namespace nodetool
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
-    const command_line::arg_descriptor<uint64_t>    arg_limit_rate_up      = {"limit-rate-up", "set limit-rate-up", 0};
+    
+    const command_line::arg_descriptor<uint64_t>    arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up", 128};
+    const command_line::arg_descriptor<uint64_t>    arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down", 128};
+    const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate", 128};
   }
 
   //-----------------------------------------------------------------------------------
@@ -52,7 +55,9 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
     command_line::add_arg(desc, arg_p2p_seed_node);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
-  	command_line::add_arg(desc, arg_limit_rate_up);   }
+  	command_line::add_arg(desc, arg_limit_rate_up);
+  	command_line::add_arg(desc, arg_limit_rate_down);
+  	command_line::add_arg(desc, arg_limit_rate);   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -130,6 +135,13 @@ namespace nodetool
 		if ( !set_rate_up_limit(vm, command_line::get_arg(vm, arg_limit_rate_up) ) )
 			return false;
 
+		if ( !set_rate_down_limit(vm, command_line::get_arg(vm, arg_limit_rate_down) ) )
+			return false;
+
+		if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
+			return false;
+			
+			
     if(command_line::has_arg(vm, arg_p2p_add_exclusive_node))
     {
 			if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
@@ -1166,8 +1178,30 @@ namespace nodetool
 	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
+  	//epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
+		LOG_PRINT_L0("Set limit-up to " << limit << "kbps");
+		return true;
+	}
+	
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+  	//epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
+		LOG_PRINT_L0("Set limit-down to " << limit << "kbps");
+		return true;
+	}
+
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
 		LOG_PRINT_L0("Set limit to " << limit << "kbps");
 		return true;
 	}
+
 }
+
+
+
