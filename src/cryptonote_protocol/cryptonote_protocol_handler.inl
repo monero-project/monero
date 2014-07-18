@@ -3,6 +3,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <boost/interprocess/detail/atomic.hpp>
+#include <list>
+
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
 namespace cryptonote
@@ -89,6 +91,45 @@ namespace cryptonote
       return true;
     });
     LOG_PRINT_L0("Connections: " << ENDL << ss.str());
+  }
+  //------------------------------------------------------------------------------------------------------------------------   
+  // Returns a list of connection_info objects describing each open p2p connection
+  //------------------------------------------------------------------------------------------------------------------------   
+  template<class t_core>
+  std::list<connection_info> t_cryptonote_protocol_handler<t_core>::get_connections()
+  {
+    std::list<connection_info> connections;
+
+    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id)
+    {
+      connection_info cnx;
+      auto timestamp = time(NULL);
+
+      cnx.incoming = cntxt.m_is_income ? true : false;
+
+      cnx.ip = epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip);
+      cnx.port = std::to_string(cntxt.m_remote_port);
+
+      std::stringstream peer_id_str;
+      peer_id_str << std::hex << peer_id;
+      peer_id_str >> cnx.peer_id;
+
+      cnx.recv_count = cntxt.m_recv_cnt;
+      cnx.recv_idle_time = timestamp - cntxt.m_last_recv;
+
+      cnx.send_count = cntxt.m_send_cnt;
+      cnx.send_idle_time = timestamp;
+
+      cnx.state = get_protocol_state_string(cntxt.m_state);
+
+      cnx.live_time = timestamp - cntxt.m_started;
+      
+      connections.push_back(cnx);
+
+      return true;
+    });
+
+    return connections;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core> 

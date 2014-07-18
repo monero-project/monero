@@ -5,6 +5,8 @@
 #pragma once
 
 #include <boost/program_options/variables_map.hpp>
+#include <string>
+#include <ctime>
 
 #include "storages/levin_abstract_invoke2.h"
 #include "warnings.h"
@@ -53,6 +55,7 @@ namespace cryptonote
     t_core& get_core(){return m_core;}
     bool is_synchronized(){return m_synchronized;}
     void log_connections();
+    std::list<connection_info> get_connections();
   private:
     //----------------- commands handlers ----------------------------------------------
     int handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context);
