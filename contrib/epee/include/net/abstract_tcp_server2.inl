@@ -87,11 +87,11 @@ void network_throttle<t_protocol_handler>::handle_trafic_exact(size_t packet_siz
 {
 	double time_now = time( NULL ); // TODO
 	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
-	network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
 
 	// TODO: in loop: rotate few seconds if needed (fill with 0 the seconds-slots with no events in them)
 	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
 	{
+		network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
 		// rotate buffer 
 		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
 		m_history[0] = packet_info();
