@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/scoped_message_writer.h"
 #include "daemonizer/posix_fork.h"
 
 namespace daemonizer
@@ -29,6 +30,7 @@ namespace daemonizer
   {
     if (command_line::arg_present(vm, arg_detach))
     {
+      tools::success_msg_writer() << "Forking to background...";
       posix::fork();
       return executor.create_daemon(vm).run();
     }
