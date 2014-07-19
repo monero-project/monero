@@ -169,10 +169,12 @@ namespace wallet_rpc
   {
     struct request
     {
-      std::string payment_id;
+      std::vector<std::string> payment_ids;
+      uint64_t min_block_height;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(payment_ids)
+        KV_SERIALIZE(min_block_height)
       END_KV_SERIALIZE_MAP()
     };
 

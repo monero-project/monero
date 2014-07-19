@@ -574,11 +574,14 @@ void wallet2::get_transfers(wallet2::transfer_container& incoming_transfers) con
   incoming_transfers = m_transfers;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments) const
+void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height) const
 {
   auto range = m_payments.equal_range(payment_id);
-  std::for_each(range.first, range.second, [&payments](const payment_container::value_type& x) {
-    payments.push_back(x.second);
+  std::for_each(range.first, range.second, [&payments, &min_height](const payment_container::value_type& x) {
+    if (min_height < x.second.m_block_height)
+    {
+      payments.push_back(x.second);
+    }
   });
 }
 //----------------------------------------------------------------------------------------------------

@@ -355,27 +355,35 @@ namespace tools
       return false;
     }
 
-    crypto::hash payment_id;
-    cryptonote::blobdata payment_id_blob;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(req.payment_id, payment_id_blob))
-    {
-      er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-      er.message = "Payment ID has invald format";
-      return false;
-    }
-
-    if(sizeof(payment_id) != payment_id_blob.size())
-    {
-      er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-      er.message = "Payment ID has invalid size";
-      return false;
-    }
-
-    payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
-
     res.payments.clear();
+
     std::list<wallet2::payment_details> payment_list;
-    m_wallet.get_payments(payment_id, payment_list);
+    for (auto & payment_id_str : req.payment_ids)
+    {
+      crypto::hash payment_id;
+      cryptonote::blobdata payment_id_blob;
+
+      // TODO - should the whole thing fail because of one bad id?
+
+      if(!epee::string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_blob))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+        er.message = "Payment ID has invalid format: " + payment_id_str;
+        return false;
+      }
+
+      if(sizeof(payment_id) != payment_id_blob.size())
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+        er.message = "Payment ID has invalid size: " + payment_id_str;
+        return false;
+      }
+
+      payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
+
+      m_wallet.get_payments(payment_id, payment_list, req.min_block_height);
+    }
+
     for (auto payment : payment_list)
     {
       wallet_rpc::payment_details rpc_payment;
