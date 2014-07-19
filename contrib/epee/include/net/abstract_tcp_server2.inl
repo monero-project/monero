@@ -34,6 +34,8 @@
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/deadline_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/thread.hpp> 
 #include "misc_language.h"
 #include "pragma_comp_defs.h"
 #include <sstream>
@@ -87,15 +89,22 @@ void network_throttle<t_protocol_handler>::handle_trafic_exact(size_t packet_siz
 {
 	double time_now = time( NULL ); // TODO
 	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
+	network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
+
+	LOG_PRINT_L1("Traffic (counter " << (void*)this << ") packet_size="<<packet_size);
 
 	// TODO: in loop: rotate few seconds if needed (fill with 0 the seconds-slots with no events in them)
 	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
 	{
-		network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
+		LOG_PRINT_L0("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
 		// rotate buffer 
 		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
 		m_history[0] = packet_info();
-		m_last_sample_time += 1;
+		if (! m_any_packet_yet) 
+		{
+			m_last_sample_time = time_now;	
+		}
+		m_last_sample_time += 1;	last_sample_time_slot = time_to_slot( m_last_sample_time ); // increase and recalculate time, time slot
 		m_any_packet_yet=true;
 	}
 
@@ -120,6 +129,8 @@ network_time_seconds network_throttle<t_protocol_handler>::get_sleep_time() cons
 
 	size_t E = 0; // summ of traffic till now
 	for (auto sample : m_history) E += sample.m_size; 
+
+	double A = E/W; // current avg. speed
 	//for (int i=0; i<m_history(); ++i) E += sample.m_size;
 	auto M = m_target_speed; // max
 	double D = (E - M*W) / M;
@@ -132,9 +143,12 @@ network_time_seconds network_throttle<t_protocol_handler>::get_sleep_time() cons
 
 	LOG_PRINT_L0(
 		"Sleep Delay estimate: " 
+		<< "speed is A=" << std::setw(8) <<A<<" vs "
+		<< "M=" << std::setw(8) <<M<<" "
+		<< " so "
 		<< "D=" << std::setw(8) <<D<<" "
-		<< "history: " << std::setw(8) << history_str << " "
 		<< "E="<< std::setw(8) << E << " M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
+		<< "history: " << std::setw(8) << history_str << " "
 		<< "m_last_sample_time=" << std::setw(8) << m_last_sample_time
 	);
 
@@ -380,6 +394,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::call_run_once_service_io", false);
   }
+
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
   bool connection<t_protocol_handler>::do_send(const void* ptr, size_t cb)
@@ -398,7 +413,24 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //some data should be wrote to stream
     //request complete
     
-    epee::critical_region_t<decltype(m_send_que_lock)> send_guard(m_send_que_lock);
+		{ // rate limiting
+			double delay=0; // will be calculated
+			{ // increase counter and decide
+	    	epee::critical_region_t<decltype(m_send_que_lock)> guard(m_throttle_global_lock); // *** critical *** 
+				// !! warning, m_throttle is NOT locked here (yet)
+				m_throttle_global.m_out.handle_trafic_tcp( cb ); // increase counter
+			 	delay = m_throttle_global.m_out.get_sleep_time();
+				LOG_PRINT_L0("Delay should be:" << delay);
+			}
+			if (delay > 0) {
+				double sleep_ms = delay * 1000. ;
+				LOG_PRINT_L0("SLEEP *** for delay = " << delay << "( sleep_ms = " << sleep_ms << " )");
+				boost::this_thread::sleep(boost::posix_time::milliseconds( sleep_ms ));
+				LOG_PRINT_L0("SLEEP *** for delay = " << delay << " - done");
+			}
+		}
+
+    epee::critical_region_t<decltype(m_send_que_lock)> send_guard(m_send_que_lock); // *** critical ***
     if(m_send_que.size() > ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
     {
       send_guard.unlock();
@@ -406,11 +438,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       close();
       return false;
     }
-
-		// TODO do not sleep in critical section
-		m_throttle_global.m_out.handle_trafic_tcp( cb ); // increase counter
-		double delay = m_throttle_global.m_out.get_sleep_time();
-		LOG_PRINT_L0("Delay should be:" << delay);
 
     m_send_que.resize(m_send_que.size()+1);
     m_send_que.back().assign((const char*)ptr, cb);

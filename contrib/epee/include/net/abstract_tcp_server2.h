@@ -139,7 +139,10 @@ namespace net_utils
       typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter * &pfilter);
 
 		static network_throttle_bw<t_protocol_handler> m_throttle_global; // global across all peers
+    static critical_section m_throttle_global_lock;
+
 		network_throttle_bw<t_protocol_handler> m_throttle; // per-perr
+    critical_section m_throttle_lock;
 
     virtual ~connection();
     /// Get the socket associated with the connection.
@@ -196,7 +199,7 @@ namespace net_utils
   };
 
 template<class t_protocol_handler> network_throttle_bw<t_protocol_handler> connection<t_protocol_handler>::m_throttle_global;
-
+template<class t_protocol_handler> critical_section connection<t_protocol_handler>::m_throttle_global_lock;
 
   /************************************************************************/
   /*                                                                      */
