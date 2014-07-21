@@ -132,12 +132,12 @@ void network_throttle::handle_trafic_exact(size_t packet_size)
 	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
 	network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
 
-	LOG_PRINT_L1("Traffic (counter " << (void*)this << ") packet_size="<<packet_size);
+	LOG_PRINT_L2("Traffic (counter " << (void*)this << ") packet_size="<<packet_size);
 
 	// TODO: in loop: rotate few seconds if needed (fill with 0 the seconds-slots with no events in them)
 	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
 	{
-		LOG_PRINT_L0("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
+		// LOG_PRINT_L4("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
 		// rotate buffer 
 		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
 		m_history[0] = packet_info();
@@ -181,10 +181,10 @@ network_time_seconds network_throttle::get_sleep_time() const
 	std::string history_str = oss.str();
 
 	LOG_PRINT_L0(
-		"Sleep Delay estimate: " 
+		"Rate limit: " 
 		<< "speed is A=" << std::setw(8) <<A<<" vs "
 		<< "M=" << std::setw(8) <<M<<" "
-		<< " so "
+		<< " so sleep for "
 		<< "D=" << std::setw(8) <<D<<" "
 		<< "E="<< std::setw(8) << E << " M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
 		<< "history: " << std::setw(8) << history_str << " "
@@ -213,6 +213,12 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, i_connec
 	m_was_shutdown(0), 
 	m_pfilter(pfilter)
 { 
+	boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
+	option.level(IPPROTO_IP);
+	option.name(IP_TOS);
+	option.value(&tos);
+	option.size = sizeof(tos);
+	socket_.set_option(option);
 }
 
 connection_basic::~connection_basic() {
@@ -234,6 +240,7 @@ void connection_basic::set_rate_limit(uint64_t limit) {
 
 void connection_basic::set_rate_autodetect(uint64_t limit) {
 	// TODO
+	LOG_PRINT_L0("inside connection_basic we set autodetect (this is additional notification).");
 }
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
@@ -244,13 +251,13 @@ void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
 			// !! warning, m_throttle is NOT locked here (yet)
 			mI->m_throttle_global.m_out.handle_trafic_tcp( cb ); // increase counter
 			delay = mI->m_throttle_global.m_out.get_sleep_time();
-			LOG_PRINT_L0("Delay should be:" << delay);
+		//	LOG_PRINT_L0("Delay should be:" << delay);
 		}
 		if (delay > 0) {
 			double sleep_ms = delay * 1000. ;
-			LOG_PRINT_L0("SLEEP *** for delay = " << delay << "( sleep_ms = " << sleep_ms << " )");
+	//		LOG_PRINT_L0("SLEEP *** for delay = " << delay << "( sleep_ms = " << sleep_ms << " )");
 			boost::this_thread::sleep(boost::posix_time::milliseconds( sleep_ms ));
-			LOG_PRINT_L0("SLEEP *** for delay = " << delay << " - done");
+	//		LOG_PRINT_L0("SLEEP *** for delay = " << delay << " - done");
 		}
 	}
 }

@@ -35,5 +35,7 @@
 #include <algorithm>
 
 
+#include <boost/asio/basic_socket.hpp>
+#include <boost/asio/ip/unicast.hpp>
 #include "../../contrib/epee/include/net/abstract_tcp_server2.h"
 
