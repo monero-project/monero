@@ -43,7 +43,7 @@ namespace daemonizer
     }
   }
 
-  void init_options(
+  inline void init_options(
       boost::program_options::options_description & hidden_options
     , boost::program_options::options_description & normal_options
     )
@@ -55,7 +55,7 @@ namespace daemonizer
     command_line::add_arg(hidden_options, arg_is_service);
   }
 
-  boost::filesystem::path get_relative_path_base(
+  inline boost::filesystem::path get_relative_path_base(
       boost::program_options::variables_map const & vm
     )
   {
@@ -77,7 +77,7 @@ namespace daemonizer
   }
 
   template <typename T_executor>
-  bool daemonize(
+  inline bool daemonize(
       int argc, char const * argv[]
     , T_executor && executor // universal ref
     , boost::program_options::variables_map const & vm
