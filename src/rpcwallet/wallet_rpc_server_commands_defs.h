@@ -165,6 +165,27 @@ namespace wallet_rpc
     END_KV_SERIALIZE_MAP()
   };
 
+  struct COMMAND_RPC_GET_PAYMENTS
+  {
+    struct request
+    {
+      std::string payment_id;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<payment_details> payments;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(payments)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_GET_BULK_PAYMENTS
   {
     struct request
