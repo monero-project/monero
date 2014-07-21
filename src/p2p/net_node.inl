@@ -40,6 +40,7 @@ namespace nodetool
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up", 128};
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down", 128};
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate", 128};
+  	const command_line::arg_descriptor<uint64_t>    arg_limit_auto      	= {"limit-auto", "set auto limit-rate", 128};
   }
 
   //-----------------------------------------------------------------------------------
@@ -57,7 +58,8 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_hide_my_port);
   	command_line::add_arg(desc, arg_limit_rate_up);
   	command_line::add_arg(desc, arg_limit_rate_down);
-  	command_line::add_arg(desc, arg_limit_rate);   }
+  	command_line::add_arg(desc, arg_limit_rate);   
+  	command_line::add_arg(desc, arg_limit_auto);   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -139,6 +141,9 @@ namespace nodetool
 			return false;
 
 		if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
+			return false; 
+			
+		if ( !set_rate_autodetect(vm, command_line::get_arg(vm, arg_limit_auto) ) )
 			return false;
 			
 			
