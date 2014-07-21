@@ -1,7 +1,7 @@
 
 /* implementation for the non-template base, for the connection<> template class */
 
-#include "src/epee/abstract_tcp_server2-connection_core.precompile.hpp"
+#include "abstract_tcp_server2-connection_core.precompile.hpp"
 
 // ################################################################################################
 // ################################################################################################
