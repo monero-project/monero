@@ -20,20 +20,10 @@ namespace tools
       , boost::program_options::options_description & configurable_options
       );
   private:
-    static std::string const BASE_NAME;
     std::string m_name;
-    std::string m_wallet_file;
-    std::string m_wallet_password;
-    std::string m_daemon_address;
-    std::string m_bind_ip;
-    std::string m_port;
   public:
     t_wallet_executor(
-        std::string wallet_file
-      , std::string wallet_password
-      , std::string daemon_address
-      , std::string bind_ip
-      , std::string port
+        boost::program_options::variables_map const & vm
       );
 
     std::string const & name();
