@@ -25,11 +25,11 @@ namespace
 
   const command_line::arg_descriptor<std::string> arg_config_file = {
     "config-file"
-  , "Specify configuration file.  This can either be an absolute path or a path relative to the data directory"
+  , "Specify configuration file"
   };
   const command_line::arg_descriptor<std::string> arg_log_file = {
     "log-file"
-  , "Specify log file.  This can either be an absolute path or a path relative to the data directory"
+  , "Specify log file"
   };
   const command_line::arg_descriptor<int> arg_log_level = {
     "log-level"
@@ -67,10 +67,12 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, command_line::arg_version);
       command_line::add_arg(visible_options, arg_os_version);
       command_line::add_arg(visible_options, command_line::arg_data_dir, default_data_dir.string());
-      command_line::add_arg(visible_options, arg_config_file, std::string(CRYPTONOTE_NAME ".conf"));
+      bf::path default_conf = default_data_dir / std::string(CRYPTONOTE_NAME ".conf");
+      command_line::add_arg(visible_options, arg_config_file, default_conf.string());
 
       // Settings
-      command_line::add_arg(core_settings, arg_log_file, std::string(CRYPTONOTE_NAME ".log"));
+      bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
+      command_line::add_arg(core_settings, arg_log_file, default_log.string());
       command_line::add_arg(core_settings, arg_log_level);
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -129,15 +131,11 @@ int main(int argc, char const * argv[])
       tools::create_directories_if_necessary(data_dir.string());
     }
 
+    bf::path relative_path_base = daemonizer::get_relative_path_base(vm);
+
     // Parse config file if it exists
     {
-      bf::path data_dir_path(bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir)));
-      bf::path config_path(command_line::get_arg(vm, arg_config_file));
-
-      if (config_path.is_relative())
-      {
-        config_path = data_dir_path / config_path;
-      }
+      bf::path config_path(bf::absolute(command_line::get_arg(vm, arg_config_file), relative_path_base));
 
       boost::system::error_code ec;
       if (bf::exists(config_path, ec))
@@ -198,8 +196,7 @@ int main(int argc, char const * argv[])
 
     // Set log file
     {
-      bf::path data_dir{bf::absolute(command_line::get_arg(vm, command_line::arg_data_dir))};
-      bf::path log_file_path{bf::absolute(command_line::get_arg(vm, arg_log_file), data_dir)};
+      bf::path log_file_path{bf::absolute(command_line::get_arg(vm, arg_log_file), relative_path_base)};
 
       epee::log_space::log_singletone::add_logger(
           LOGGER_FILE

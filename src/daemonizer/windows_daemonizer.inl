@@ -1,7 +1,11 @@
 #pragma once
 
+#include "common/util.h"
 #include "daemonizer/windows_service.h"
 #include "daemonizer/windows_service_runner.h"
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 
 namespace daemonizer
 {
@@ -49,6 +53,27 @@ namespace daemonizer
     command_line::add_arg(normal_options, arg_start_service);
     command_line::add_arg(normal_options, arg_stop_service);
     command_line::add_arg(hidden_options, arg_is_service);
+  }
+
+  boost::filesystem::path get_relative_path_base(
+      boost::program_options::variables_map const & vm
+    )
+  {
+    if (command_line::arg_present(vm, arg_is_service))
+    {
+      if (command_line::arg_present(vm, command_line::arg_data_dir))
+      {
+        return command_line::get_arg(vm, command_line::arg_data_dir);
+      }
+      else
+      {
+        return tools::get_default_data_dir();
+      }
+    }
+    else
+    {
+      return boost::filesystem::current_path();
+    }
   }
 
   template <typename T_executor>

@@ -87,10 +87,12 @@ int main(int argc, char const * argv[])
     return 0;
   }
 
+  boost::filesystem::path relative_path_base = daemonizer::get_relative_path_base(vm);
+
   //set up logging options
   epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
   {
-    boost::filesystem::path log_file_path{boost::filesystem::absolute(command_line::get_arg(vm, arg_log_file), tools::get_default_data_dir())};
+    boost::filesystem::path log_file_path{boost::filesystem::absolute(command_line::get_arg(vm, arg_log_file), relative_path_base)};
 
     epee::log_space::log_singletone::add_logger(
         LOGGER_FILE
@@ -159,7 +161,7 @@ int main(int argc, char const * argv[])
     return 1;
   }
 
-  std::string wallet_file     = boost::filesystem::absolute(command_line::get_arg(vm, arg_wallet_file), tools::get_default_data_dir()).string();
+  std::string wallet_file     = boost::filesystem::absolute(command_line::get_arg(vm, arg_wallet_file), relative_path_base).string();
   std::string wallet_password = command_line::get_arg(vm, arg_password);
   std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
   std::string daemon_host = command_line::get_arg(vm, arg_daemon_host);

@@ -3,6 +3,9 @@
 #include "common/scoped_message_writer.h"
 #include "daemonizer/posix_fork.h"
 
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
 namespace daemonizer
 {
   namespace
@@ -19,6 +22,13 @@ namespace daemonizer
     )
   {
     command_line::add_arg(normal_options, arg_detach);
+  }
+
+  boost::filesystem::path get_relative_path_base(
+      boost::program_options::variables_map const & vm
+    )
+  {
+    return boost::filesystem::current_path();
   }
 
   template <typename T_executor>
