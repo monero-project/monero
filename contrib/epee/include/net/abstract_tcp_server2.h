@@ -44,6 +44,9 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/thread/thread.hpp>
+
+#include <memory>
+
 #include "net_utils_base.h"
 #include "syncobj.h"
 
@@ -68,81 +71,60 @@ namespace net_utils
   /************************************************************************/
   /// Represents a single connection from a client.
 
-	// just typedefs to in code define the units used. TODO later it will be enforced that casts to other numericals are only explicit to avoid mistakes
-	typedef double network_speed_kbps;
-	typedef double network_time_seconds;
-
-  template<class t_protocol_handler>
-  class network_throttle {
-
-		struct packet_info {
-			size_t m_size; // octets sent. Summary for given small-window (e.g. for all packaged in 1 second)
-
-		//	network_time_seconds m_time; // some form of monotonic clock, in seconds 
-		// ^--- time is now known by the network_throttle class from index and m_last_sample_time
-
-			packet_info();
-			int xxxxxxxxx; // XXX
-		};
-
-		network_speed_kbps m_target_speed;
-
-		size_t m_network_add_cost; // estimated add cost of headers 
-		size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
-
-		const size_t m_window_size; // the number of samples to average over
-		network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
-		// TODO for big window size, for performance better the substract on change of m_last_sample_time instead of recalculating average of eg >100 elements
-
-		std::vector< packet_info > m_history; // the history of bw usage
-
-		network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer
-		
-		bool m_any_packet_yet; // did we yet got any packet to count
-
-
-		// each sample is now 1 second
-
-		public:
-			network_throttle();
-
-			void set_target_speed( network_speed_kbps target );
-			
-			void handle_trafic_exact(size_t packet_size); // count the new traffic/packet; the size is exact considering all network costs
-			void handle_trafic_tcp(size_t packet_size); // count the new traffic/packet; the size is as TCP, we will consider MTU etc
-
-			network_time_seconds get_sleep_time() const; // ask how much seconds we should sleep now - in order to meet the speed limit. <0 means that we should not sleep
-
-			network_time_seconds time_to_slot(network_time_seconds t) const { return std::floor( t ); } // convert exact time eg 13.7 to rounded time for slot number in history 13
-	};
-
-  template<class t_protocol_handler>
-  struct network_throttle_bw {
-		network_throttle<t_protocol_handler> m_in;
-		network_throttle<t_protocol_handler> m_out;
-	};
-
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
   /// Represents a single connection from a client.
+
+class connection_basic_pimpl; // PIMPL for this class
+
+class connection_basic { // not-templated base class for rapid developmet of some code parts
+	public:
+		std::unique_ptr< connection_basic_pimpl > mI; // my Implementation
+
+		// moved here from orginal connecton<> - common member variables that do not depend on template in connection<>
+    volatile uint32_t m_want_close_connection;
+    std::atomic<bool> m_was_shutdown;
+    critical_section m_send_que_lock;
+    std::list<std::string> m_send_que;
+    i_connection_filter* &m_pfilter;
+    volatile bool m_is_multithreaded;
+
+    /// Strand to ensure the connection's handlers are not called concurrently.
+    boost::asio::io_service::strand strand_;
+    /// Socket for the connection.
+    boost::asio::ip::tcp::socket socket_;
+
+	public:
+		connection_basic(boost::asio::io_service& io_service, i_connection_filter* &pfilter);
+		virtual ~connection_basic();
+
+		void do_send_handler_start(const void * ptr , size_t cb);
+		void do_send_handler_delayed(const void * ptr , size_t cb);
+		void do_send_handler_write(const void * ptr , size_t cb);
+		void do_send_handler_stop(const void * ptr , size_t cb);
+		void do_send_handler_after_write( const boost::system::error_code& e, size_t cb ); // from handle_write
+		void do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb ); // from handle_write, sending next part
+
+		static void set_rate_up_limit(uint64_t limit);
+		static void set_rate_down_limit(uint64_t limit);
+		static void set_rate_limit(uint64_t limit);
+		static void set_rate_autodetect(uint64_t limit);
+};
+
+  /************************************************************************/
   template<class t_protocol_handler>
   class connection
     : public boost::enable_shared_from_this<connection<t_protocol_handler> >,
     private boost::noncopyable, 
-    public i_service_endpoint
+    public i_service_endpoint,
+		public connection_basic
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
     /// Construct a connection with the given io_service.
     explicit connection(boost::asio::io_service& io_service,
       typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter * &pfilter);
-
-		static network_throttle_bw<t_protocol_handler> m_throttle_global; // global across all peers
-    static critical_section m_throttle_global_lock;
-
-		network_throttle_bw<t_protocol_handler> m_throttle; // per-perr
-    critical_section m_throttle_lock;
 
     virtual ~connection();
     /// Get the socket associated with the connection.
@@ -154,6 +136,7 @@ namespace net_utils
     void get_context(t_connection_context& context_){context_ = context;}
 
     void call_back_starter();
+
   private:
     //----------------- i_service_endpoint ---------------------
     virtual bool do_send(const void* ptr, size_t cb);
@@ -173,23 +156,13 @@ namespace net_utils
     /// Handle completion of a write operation.
     void handle_write(const boost::system::error_code& e, size_t cb);
 
-    /// Strand to ensure the connection's handlers are not called concurrently.
-    boost::asio::io_service::strand strand_;
-
-    /// Socket for the connection.
-    boost::asio::ip::tcp::socket socket_;
 
     /// Buffer for incoming data.
     boost::array<char, 8192> buffer_;
 
     t_connection_context context;
-    volatile uint32_t m_want_close_connection;
-    std::atomic<bool> m_was_shutdown;
-    critical_section m_send_que_lock;
-    std::list<std::string> m_send_que;
-    volatile uint32_t& m_ref_sockets_count;
-    i_connection_filter* &m_pfilter;
-    volatile bool m_is_multithreaded;
+
+    volatile uint32_t& m_ref_sockets_count; // for counting number of existing sockets
 
     //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
     t_protocol_handler m_protocol_handler;
@@ -198,12 +171,10 @@ namespace net_utils
     critical_section m_self_refs_lock;
   };
 
-template<class t_protocol_handler> network_throttle_bw<t_protocol_handler> connection<t_protocol_handler>::m_throttle_global;
-template<class t_protocol_handler> critical_section connection<t_protocol_handler>::m_throttle_global_lock;
-
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
   template<class t_protocol_handler>
   class boosted_tcp_server
     : private boost::noncopyable

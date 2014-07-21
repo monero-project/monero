@@ -1177,30 +1177,35 @@ namespace nodetool
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
-  	//epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
-		LOG_PRINT_L0("Set limit-up to " << limit << "kbps");
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit*1024 );
+		LOG_PRINT_L0("Set limit-up to " << limit << " KiB/s");
 		return true;
 	}
 	
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-  	//epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
-		LOG_PRINT_L0("Set limit-down to " << limit << "kbps");
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit*1024 );
+		LOG_PRINT_L0("Set limit-down to " << limit << " KiB/s");
 		return true;
 	}
 
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_out.set_target_speed( limit );
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::m_throttle_global.m_in.set_target_speed( limit );
-		LOG_PRINT_L0("Set limit to " << limit << "kbps");
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit*1024 );
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit*1024 );
+		LOG_PRINT_L0("Set limit to " << limit << " KiB/s");
 		return true;
 	}
 
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_autodetect( limit );
+		LOG_PRINT_L0("Set autodetect to " << limit << "");
+		return true;
+	}
 }
 
 

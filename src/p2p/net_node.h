@@ -156,6 +156,7 @@ namespace nodetool
   	bool set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit);
 
   	//debug functions
     std::string print_connections_container();

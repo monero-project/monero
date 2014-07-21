@@ -57,117 +57,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   /*                                                                      */
   /************************************************************************/
 
-/*
-template<class t_protocol_handler>
-void network_throttle<t_protocol_handler>::
-*/
-
-template<class t_protocol_handler> network_throttle<t_protocol_handler>::packet_info::packet_info() 
-	: m_size(0)
-{ 
-}
-
-template<class t_protocol_handler>
-network_throttle<t_protocol_handler>::network_throttle() 
-	: m_window_size(10), 
-	  m_history( m_window_size )
-{
-	m_network_add_cost = 64;
-	m_network_minimal_segment = 128;
-	m_any_packet_yet = false;
-	m_slot_size = 1.0; // hard coded in few places
-	m_target_speed = 2 * 1024;
-}
-
-template<class t_protocol_handler> void network_throttle<t_protocol_handler>::set_target_speed( network_speed_kbps target ) 
-{
-	m_target_speed = target;
-}
-			
-template<class t_protocol_handler>
-void network_throttle<t_protocol_handler>::handle_trafic_exact(size_t packet_size) 
-{
-	double time_now = time( NULL ); // TODO
-	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
-	network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
-
-	LOG_PRINT_L1("Traffic (counter " << (void*)this << ") packet_size="<<packet_size);
-
-	// TODO: in loop: rotate few seconds if needed (fill with 0 the seconds-slots with no events in them)
-	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
-	{
-		LOG_PRINT_L0("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
-		// rotate buffer 
-		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
-		m_history[0] = packet_info();
-		if (! m_any_packet_yet) 
-		{
-			m_last_sample_time = time_now;	
-		}
-		m_last_sample_time += 1;	last_sample_time_slot = time_to_slot( m_last_sample_time ); // increase and recalculate time, time slot
-		m_any_packet_yet=true;
-	}
-
-	m_history[0].m_size += packet_size;
-}
-
-template<class t_protocol_handler>
-void network_throttle<t_protocol_handler>::handle_trafic_tcp(size_t packet_size)
-{
-	size_t all_size = packet_size + m_network_add_cost;
-	all_size = std::max( m_network_minimal_segment , all_size);
-	handle_trafic_exact( all_size );
-}
-
-template<class t_protocol_handler>
-network_time_seconds network_throttle<t_protocol_handler>::get_sleep_time() const 
-{
-	network_time_seconds window_len = (m_window_size-1) * m_slot_size ; // -1 since current slot is not finished
-	window_len += (m_last_sample_time - time_to_slot(m_last_sample_time));  // add the time for current slot e.g. 13.7-13 = 0.7
-	auto W = window_len;
-	// window_len e.g. 5.7 because takes into account current slot time
-
-	size_t E = 0; // summ of traffic till now
-	for (auto sample : m_history) E += sample.m_size; 
-
-	double A = E/W; // current avg. speed
-	//for (int i=0; i<m_history(); ++i) E += sample.m_size;
-	auto M = m_target_speed; // max
-	double D = (E - M*W) / M;
-
-	std::ostringstream oss; 
-	oss << "["; 
-	for (auto sample: m_history) oss << sample.m_size << " ";
-	oss << "]" << std::ends;
-	std::string history_str = oss.str();
-
-	LOG_PRINT_L0(
-		"Sleep Delay estimate: " 
-		<< "speed is A=" << std::setw(8) <<A<<" vs "
-		<< "M=" << std::setw(8) <<M<<" "
-		<< " so "
-		<< "D=" << std::setw(8) <<D<<" "
-		<< "E="<< std::setw(8) << E << " M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
-		<< "history: " << std::setw(8) << history_str << " "
-		<< "m_last_sample_time=" << std::setw(8) << m_last_sample_time
-	);
-
-	return D;
-}
-
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
 
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection(boost::asio::io_service& io_service,
     typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter* &pfilter)
-                          : strand_(io_service),
-                            socket_(io_service),
-                            m_want_close_connection(0), 
-                            m_was_shutdown(0), 
+                          : connection_basic(io_service, pfilter), 
                             m_ref_sockets_count(sock_count), 
-                            m_pfilter(pfilter),
                             m_protocol_handler(this, config, context)
   {
     boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count);
@@ -413,22 +308,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //some data should be wrote to stream
     //request complete
     
-		{ // rate limiting
-			double delay=0; // will be calculated
-			{ // increase counter and decide
-	    	epee::critical_region_t<decltype(m_send_que_lock)> guard(m_throttle_global_lock); // *** critical *** 
-				// !! warning, m_throttle is NOT locked here (yet)
-				m_throttle_global.m_out.handle_trafic_tcp( cb ); // increase counter
-			 	delay = m_throttle_global.m_out.get_sleep_time();
-				LOG_PRINT_L0("Delay should be:" << delay);
-			}
-			if (delay > 0) {
-				double sleep_ms = delay * 1000. ;
-				LOG_PRINT_L0("SLEEP *** for delay = " << delay << "( sleep_ms = " << sleep_ms << " )");
-				boost::this_thread::sleep(boost::posix_time::milliseconds( sleep_ms ));
-				LOG_PRINT_L0("SLEEP *** for delay = " << delay << " - done");
-			}
-		}
+		do_send_handler_start( ptr , cb );
 
     epee::critical_region_t<decltype(m_send_que_lock)> send_guard(m_send_que_lock); // *** critical ***
     if(m_send_que.size() > ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
@@ -444,6 +324,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     
     if(m_send_que.size() > 1)
     {
+			do_send_handler_delayed( ptr , cb );
       //active operation should be in progress, nothing to do, just wait last operation callback
     }else
     {
@@ -454,6 +335,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         return false;
       }
 
+			do_send_handler_write( ptr , cb );
       boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), m_send_que.front().size()),
         //strand_.wrap(
         boost::bind(&connection<t_protocol_handler>::handle_write, self, _1, _2)
@@ -463,6 +345,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       LOG_PRINT_L4("[sock " << socket_.native_handle() << "] Async send requested " << m_send_que.front().size());
     }
 
+		do_send_handler_stop( ptr , cb );
     return true;
 
     CATCH_ENTRY_L0("connection<t_protocol_handler>::do_send", false);
@@ -503,6 +386,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   {
     TRY_ENTRY();
     LOG_PRINT_L4("[sock " << socket_.native_handle() << "] Async send calledback " << cb);
+		do_send_handler_after_write(e,cb);
 
     if (e)
     {
@@ -529,6 +413,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }else
     {
       //have more data to send
+			do_send_handler_write_from_queue(e,cb);
       boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), m_send_que.front().size()),
         //strand_.wrap(
           boost::bind(&connection<t_protocol_handler>::handle_write, connection<t_protocol_handler>::shared_from_this(), _1, _2));
