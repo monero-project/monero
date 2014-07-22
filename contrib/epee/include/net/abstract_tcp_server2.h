@@ -110,6 +110,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		static void set_rate_down_limit(uint64_t limit);
 		static void set_rate_limit(uint64_t limit);
 		static void set_rate_autodetect(uint64_t limit);
+		static void set_tos_flag(int tos);
 };
 
   /************************************************************************/
