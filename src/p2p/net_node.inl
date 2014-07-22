@@ -302,11 +302,12 @@ namespace nodetool
     return m_payload_handler;
   }
   //-----------------------------------------------------------------------------------
+
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::run()
   {
     //here you can set worker threads count
-    int thrds_count = 10;
+    int thrds_count = 5;
 
     m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), 1000);
     m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), 1000);
@@ -1182,25 +1183,25 @@ namespace nodetool
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit*1024 );
-		LOG_PRINT_L0("Set limit-up to " << limit << " KiB/s");
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+		LOG_PRINT_L0("Set limit-up to " << limit << " B/s");
 		return true;
 	}
 	
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit*1024 );
-		LOG_PRINT_L0("Set limit-down to " << limit << " KiB/s");
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
 		return true;
 	}
 
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit*1024 );
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit*1024 );
-		LOG_PRINT_L0("Set limit to " << limit << " KiB/s");
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		LOG_PRINT_L0("Set limit to " << limit << " B/s");
 		return true;
 	}
 

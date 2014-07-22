@@ -360,7 +360,7 @@ void connection_basic::do_read_handler_start(const boost::system::error_code& e,
 	const size_t packet_size = bytes_transferred;
 	{
 		epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
-		mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
+//		mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
 	}
 }
 
