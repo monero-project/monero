@@ -268,14 +268,60 @@ namespace tools
     res.payments.clear();
     std::list<wallet2::payment_details> payment_list;
     m_wallet.get_payments(payment_id, payment_list);
-    for (auto payment : payment_list)
+    for (auto & payment : payment_list)
     {
       wallet_rpc::payment_details rpc_payment;
+      rpc_payment.payment_id   = req.payment_id;
       rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.m_tx_hash);
       rpc_payment.amount       = payment.m_amount;
       rpc_payment.block_height = payment.m_block_height;
       rpc_payment.unlock_time  = payment.m_unlock_time;
       res.payments.push_back(rpc_payment);
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_bulk_payments(const wallet_rpc::COMMAND_RPC_GET_BULK_PAYMENTS::request& req, wallet_rpc::COMMAND_RPC_GET_BULK_PAYMENTS::response& res, epee::json_rpc::error& er, connection_context& cntx)
+  {
+    res.payments.clear();
+
+    for (auto & payment_id_str : req.payment_ids)
+    {
+      crypto::hash payment_id;
+      cryptonote::blobdata payment_id_blob;
+
+      // TODO - should the whole thing fail because of one bad id?
+
+      if(!epee::string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_blob))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+        er.message = "Payment ID has invalid format: " + payment_id_str;
+        return false;
+      }
+
+      if(sizeof(payment_id) != payment_id_blob.size())
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+        er.message = "Payment ID has invalid size: " + payment_id_str;
+        return false;
+      }
+
+      payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
+
+      std::list<wallet2::payment_details> payment_list;
+      m_wallet.get_payments(payment_id, payment_list, req.min_block_height);
+
+      for (auto & payment : payment_list)
+      {
+        wallet_rpc::payment_details rpc_payment;
+        rpc_payment.payment_id   = payment_id_str;
+        rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.m_tx_hash);
+        rpc_payment.amount       = payment.m_amount;
+        rpc_payment.block_height = payment.m_block_height;
+        rpc_payment.unlock_time  = payment.m_unlock_time;
+        res.payments.push_back(std::move(rpc_payment));
+      }
     }
 
     return true;
