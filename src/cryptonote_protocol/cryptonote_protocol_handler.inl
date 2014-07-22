@@ -437,7 +437,7 @@ namespace cryptonote
         << "Please note, that the blockchain will be saved only after you quit the daemon with \"exit\" command or if you use \"save\" command." << ENDL 
         << "Otherwise, you will possibly need to synchronize the blockchain again." << ENDL
         << ENDL
-        << "Use \"help\" command to see the list of available commands." << ENDL
+        << "Use \"bitmonerod help\" command to see the list of available commands." << ENDL
         << "**********************************************************************");
       m_core.on_synchronized();
     }
