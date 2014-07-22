@@ -376,14 +376,15 @@ namespace tools
     res.payments.clear();
     std::list<wallet2::payment_details> payment_list;
     m_wallet.get_payments(payment_id, payment_list);
-    for (auto payment : payment_list)
+    for (auto & payment : payment_list)
     {
       wallet_rpc::payment_details rpc_payment;
+      rpc_payment.payment_id   = req.payment_id;
       rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.m_tx_hash);
       rpc_payment.amount       = payment.m_amount;
       rpc_payment.block_height = payment.m_block_height;
       rpc_payment.unlock_time  = payment.m_unlock_time;
-      res.payments.push_back(rpc_payment);
+      res.payments.push_back(std::move(rpc_payment));
     }
 
     return true;
@@ -399,7 +400,6 @@ namespace tools
 
     res.payments.clear();
 
-    std::list<wallet2::payment_details> payment_list;
     for (auto & payment_id_str : req.payment_ids)
     {
       crypto::hash payment_id;
@@ -423,17 +423,19 @@ namespace tools
 
       payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
 
+      std::list<wallet2::payment_details> payment_list;
       m_wallet.get_payments(payment_id, payment_list, req.min_block_height);
-    }
 
-    for (auto payment : payment_list)
-    {
-      wallet_rpc::payment_details rpc_payment;
-      rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.m_tx_hash);
-      rpc_payment.amount       = payment.m_amount;
-      rpc_payment.block_height = payment.m_block_height;
-      rpc_payment.unlock_time  = payment.m_unlock_time;
-      res.payments.push_back(rpc_payment);
+      for (auto & payment : payment_list)
+      {
+        wallet_rpc::payment_details rpc_payment;
+        rpc_payment.payment_id   = payment_id_str;
+        rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.m_tx_hash);
+        rpc_payment.amount       = payment.m_amount;
+        rpc_payment.block_height = payment.m_block_height;
+        rpc_payment.unlock_time  = payment.m_unlock_time;
+        res.payments.push_back(std::move(rpc_payment));
+      }
     }
 
     return true;
