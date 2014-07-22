@@ -21,33 +21,27 @@ typedef double network_speed_kbps;
 typedef double network_time_seconds;
 
 class network_throttle {
+	private:
+		struct packet_info {
+			size_t m_size; // octets sent. Summary for given small-window (e.g. for all packaged in 1 second)
+			packet_info();
+		};
+		network_speed_kbps m_target_speed;
+		size_t m_network_add_cost; // estimated add cost of headers 
+		size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
 
-	struct packet_info {
-		size_t m_size; // octets sent. Summary for given small-window (e.g. for all packaged in 1 second)
-	//	network_time_seconds m_time; // some form of monotonic clock, in seconds 
-	// ^--- time is now known by the network_throttle class from index and m_last_sample_time
+		const size_t m_window_size; // the number of samples to average over
+		network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
+		// TODO for big window size, for performance better the substract on change of m_last_sample_time instead of recalculating average of eg >100 elements
 
-		packet_info();
-	};
+		std::vector< packet_info > m_history; // the history of bw usage
+		network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer
+		bool m_any_packet_yet; // did we yet got any packet to count
 
-	network_speed_kbps m_target_speed;
-
-	size_t m_network_add_cost; // estimated add cost of headers 
-	size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
-
-	const size_t m_window_size; // the number of samples to average over
-	network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
-	// TODO for big window size, for performance better the substract on change of m_last_sample_time instead of recalculating average of eg >100 elements
-
-	std::vector< packet_info > m_history; // the history of bw usage
-
-	network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer
-	
-	bool m_any_packet_yet; // did we yet got any packet to count
-
+		double m_overheat; // last overheat
+		double m_overheat_time; // time in seconds after epoch
 
 	// each sample is now 1 second
-
 	public:
 		network_throttle();
 
@@ -56,10 +50,24 @@ class network_throttle {
 		void handle_trafic_exact(size_t packet_size); // count the new traffic/packet; the size is exact considering all network costs
 		void handle_trafic_tcp(size_t packet_size); // count the new traffic/packet; the size is as TCP, we will consider MTU etc
 
+		void handle_congestion(double overheat); // call this when congestion is detected; see example use
+
 		network_time_seconds get_sleep_time() const; // ask how much seconds we should sleep now - in order to meet the speed limit. <0 means that we should not sleep
 
 		network_time_seconds time_to_slot(network_time_seconds t) const { return std::floor( t ); } // convert exact time eg 13.7 to rounded time for slot number in history 13
+
+		double my_time_seconds() const;
 };
+
+double network_throttle::my_time_seconds() const {
+	using namespace boost::chrono;
+	auto point = steady_clock::now();
+	auto time_from_epoh = point.time_since_epoch();
+	auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
+	double ms_f = ms;
+	return ms_f / 1000.;
+}
+
 
 struct network_throttle_bw {
 	network_throttle m_in;
@@ -75,11 +83,8 @@ class connection_basic_pimpl {
 
 		network_throttle_bw m_throttle; // per-perr
     critical_section m_throttle_lock;
+
 };
-
-
-
-
 
 
 } // namespace
@@ -128,13 +133,14 @@ void network_throttle::set_target_speed( network_speed_kbps target )
 			
 void network_throttle::handle_trafic_exact(size_t packet_size) 
 {
-	double time_now = time( NULL ); // TODO
+	double time_now = my_time_seconds();
+
 	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
 	network_time_seconds last_sample_time_slot = time_to_slot( m_last_sample_time );
 
 	LOG_PRINT_L2("Traffic (counter " << (void*)this << ") packet_size="<<packet_size);
 
-	// TODO: in loop: rotate few seconds if needed (fill with 0 the seconds-slots with no events in them)
+	// moving to next position, and filling gaps 
 	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
 	{
 		// LOG_PRINT_L4("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
@@ -148,6 +154,7 @@ void network_throttle::handle_trafic_exact(size_t packet_size)
 		m_last_sample_time += 1;	last_sample_time_slot = time_to_slot( m_last_sample_time ); // increase and recalculate time, time slot
 		m_any_packet_yet=true;
 	}
+	m_last_sample_time = time_now; // the real exact last time
 
 	m_history[0].m_size += packet_size;
 }
@@ -245,13 +252,16 @@ void connection_basic::set_rate_autodetect(uint64_t limit) {
 }
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
+	// start_time = now();
 	{ // rate limiting
 		double delay=0; // will be calculated
 		{ // increase counter and decide
 			epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
 			// !! warning, m_throttle is NOT locked here (yet)
-			mI->m_throttle_global.m_out.handle_trafic_tcp( cb ); // increase counter
-			delay = mI->m_throttle_global.m_out.get_sleep_time();
+			mI->m_throttle_global.m_out.handle_trafic_tcp( cb ); // increase counter - global
+			mI->m_throttle.m_out.handle_trafic_tcp( cb ); // increase counter - this peer
+
+			delay = mI->m_throttle_global.m_out.get_sleep_time(); // decission from global
 		//	LOG_PRINT_L0("Delay should be:" << delay);
 		}
 		if (delay > 0) {
@@ -270,14 +280,15 @@ void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
 }
 
 void connection_basic::do_send_handler_stop(const void* ptr , size_t cb ) {
-	if (cb<1) std::cout<<"X"; // TODO
-	if (cb<1) std::cout<<"X"; // TODO
 }
 
 void connection_basic::do_send_handler_after_write( const boost::system::error_code& e, size_t cb ) {
+	// dela = end-start;
+
 }
 
 void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb ) {
+	// start_time = now();
 }
 
 
