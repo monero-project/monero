@@ -42,9 +42,12 @@ class network_throttle {
 		double m_overheat; // last overheat
 		double m_overheat_time; // time in seconds after epoch
 
+		std::string m_name; // my name for debug and logs
+
 	// each sample is now 1 second
 	public:
 		network_throttle();
+		void set_name(const std::string &name);
 		void set_target_speed( network_speed_kbps target );
 		
 		// add information about events:
@@ -124,6 +127,11 @@ network_throttle::network_throttle()
 	m_target_speed = 2 * 1024;
 }
 
+void network_throttle::set_name(const std::string &name) 
+{
+	m_name = name;
+}
+
 void network_throttle::set_target_speed( network_speed_kbps target ) 
 {
 	m_target_speed = target;
@@ -163,9 +171,11 @@ void network_throttle::handle_trafic_exact(size_t packet_size)
 
 void network_throttle::_handle_trafic_exact(size_t packet_size) 
 {
-	LOG_PRINT_L0("Traffic packet_size="<<packet_size<<" at current speed"); // XXX
+	double A,W,D;
 	tick();
+	calculate_times(packet_size, A,W,D, false);
 	m_history[0].m_size += packet_size;
+	LOG_PRINT_L0("Throttle " << m_name << ": packet of "<<packet_size<<" b. Speed AVG="<<A<<" bit/s (window="<<W<<" s)"); // XXX
 }
 
 void network_throttle::handle_trafic_tcp(size_t packet_size)
@@ -183,7 +193,7 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const 
 {
 	double A=0, W=0, D=0;
-	calculate_times(packet_size, A,W,D, false);
+	calculate_times(packet_size, A,W,D, true);
 	return D;
 }
 
@@ -222,16 +232,16 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 		oss << "]" << std::ends;
 		std::string history_str = oss.str();
 		LOG_PRINT_L0(
-			"Rate limit: " 
+			"... calculating net rate limit: " 
 			<< "speed is A=" << std::setw(8) <<A<<" vs "
-			<< "M=" << std::setw(8) <<M<<" "
-			<< " so sleep for "
-			<< "D=" << std::setw(8) <<D<<" "
+			<< "Max=" << std::setw(8) <<M<<" "
+			<< " so sleep: "
+			<< "D=" << std::setw(8) <<D<<" sec "
 //			<< "D1=" << std::setw(8) <<D1<<" "
 //			<< "D2=" << std::setw(8) <<D2<<" "
 			<< "E="<< std::setw(8) << E << " "
 			<< "M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
-			<< "history: " << std::setw(8) << history_str << " "
+			<< "History: " << std::setw(8) << history_str << " "
 			<< "m_last_sample_time=" << std::setw(8) << m_last_sample_time
 		);
 
@@ -267,6 +277,9 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, i_connec
 	m_was_shutdown(0), 
 	m_pfilter(pfilter)
 { 
+	mI->m_throttle_global.m_in.set_name("global-IN-DOWNLOAD");
+	mI->m_throttle_global.m_out.set_name("global-OUT-REQUEST");
+
 	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
 	option.level(IPPROTO_IP);
 	option.name(IP_TOS);
@@ -303,7 +316,6 @@ void connection_basic::set_tos_flag(int tos) {
 }
 
 void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase) {
-
 	{
 		epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
 		m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
@@ -319,7 +331,6 @@ void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase) 
 
 		if (delay > 0) { boost::this_thread::sleep(boost::posix_time::milliseconds( (int)(delay * 1000) ));	}
 	} while(delay > 0);
-
 }
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
@@ -345,6 +356,13 @@ void connection_basic::do_send_handler_write_from_queue( const boost::system::er
 	mI->sleep_before_packet(cb,2);
 }
 
+void connection_basic::do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred) { // from read, after read completion
+	const size_t packet_size = bytes_transferred;
+	{
+		epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
+		mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
+	}
+}
 
 } // namespace
 } // namespace

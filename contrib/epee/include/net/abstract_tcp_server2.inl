@@ -219,6 +219,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   {
     TRY_ENTRY();
     LOG_PRINT_L4("[sock " << socket_.native_handle() << "] Async read calledback.");
+
+		do_read_handler_start(e, bytes_transferred);
     
     if (!e)
     {
