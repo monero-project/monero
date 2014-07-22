@@ -213,12 +213,13 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, i_connec
 	m_was_shutdown(0), 
 	m_pfilter(pfilter)
 { 
-	boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
+	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
 	option.level(IPPROTO_IP);
 	option.name(IP_TOS);
 	option.value(&tos);
 	option.size = sizeof(tos);
-	socket_.set_option(option);
+	socket_.set_option(option);*/
+	// TODO socket options
 }
 
 connection_basic::~connection_basic() {
@@ -240,7 +241,7 @@ void connection_basic::set_rate_limit(uint64_t limit) {
 
 void connection_basic::set_rate_autodetect(uint64_t limit) {
 	// TODO
-	LOG_PRINT_L0("inside connection_basic we set autodetect (this is additional notification).");
+	LOG_PRINT_L0("inside connection_basic we set autodetect (this is additional notification)..");
 }
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
