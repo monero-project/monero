@@ -65,7 +65,7 @@ class network_throttle {
 
 	private:
 		network_time_seconds time_to_slot(network_time_seconds t) const { return std::floor( t ); } // convert exact time eg 13.7 to rounded time for slot number in history 13
-		void _handle_trafic_exact(size_t packet_size); 
+		void _handle_trafic_exact(size_t packet_size, size_t orginal_size); 
 };
 
 struct network_throttle_bw {
@@ -120,8 +120,8 @@ network_throttle::network_throttle()
 	: m_window_size(10),
 	  m_history( m_window_size )
 {
-	m_network_add_cost = 64;
-	m_network_minimal_segment = 128;
+	m_network_add_cost = 128;
+	m_network_minimal_segment = 256;
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
 	m_target_speed = 2 * 1024;
@@ -166,23 +166,23 @@ void network_throttle::tick()
 
 void network_throttle::handle_trafic_exact(size_t packet_size) 
 {
-	_handle_trafic_exact(packet_size);
+	_handle_trafic_exact(packet_size, packet_size);
 }
 
-void network_throttle::_handle_trafic_exact(size_t packet_size) 
+void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_size)
 {
 	double A,W,D;
 	tick();
 	calculate_times(packet_size, A,W,D, false);
 	m_history[0].m_size += packet_size;
-	LOG_PRINT_L0("Throttle " << m_name << ": packet of "<<packet_size<<" b. Speed AVG="<<A<<" bit/s (window="<<W<<" s)"); // XXX
+	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" bit/s (window="<<W<<" s)"); // XXX
 }
 
 void network_throttle::handle_trafic_tcp(size_t packet_size)
 {
 	size_t all_size = packet_size + m_network_add_cost;
 	all_size = std::max( m_network_minimal_segment , all_size);
-	handle_trafic_exact( all_size );
+	_handle_trafic_exact( all_size , packet_size );
 }
 
 network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_size) {
