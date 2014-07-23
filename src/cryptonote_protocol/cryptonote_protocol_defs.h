@@ -27,14 +27,14 @@ namespace cryptonote
     std::string peer_id;
 
     uint64_t recv_count;
-    time_t recv_idle_time;
+    uint64_t recv_idle_time;
 
     uint64_t send_count;
-    time_t send_idle_time;
+    uint64_t send_idle_time;
 
     std::string state;
 
-    time_t live_time;
+    uint64_t live_time;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(incoming)
