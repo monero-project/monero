@@ -1,3 +1,5 @@
+include(cotire)
+
 add_definitions(-DSTATICLIB)
 
 file(GLOB_RECURSE COMMON common/*)
@@ -52,6 +54,7 @@ if (BUILD_SIMPLE_MINER)
 endif()
 
 target_link_libraries(daemon rpc cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+cotire(daemon)
 
 add_library(rpc ${RPC})
 add_library(wallet ${WALLET})
