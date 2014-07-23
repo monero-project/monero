@@ -41,6 +41,7 @@ namespace nodetool
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down", 128};
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate", 128};
   	const command_line::arg_descriptor<uint64_t>    arg_limit_auto      	= {"limit-auto", "set auto limit-rate", 128};
+  	const command_line::arg_descriptor<uint64_t>    arg_limit_peer      	= {"limit-peer", "set auto limit-peer", 10};
   }
 
   //-----------------------------------------------------------------------------------
@@ -59,7 +60,8 @@ namespace nodetool
   	command_line::add_arg(desc, arg_limit_rate_up);
   	command_line::add_arg(desc, arg_limit_rate_down);
   	command_line::add_arg(desc, arg_limit_rate);   
-  	command_line::add_arg(desc, arg_limit_auto);   }
+  	command_line::add_arg(desc, arg_limit_auto);
+  	command_line::add_arg(desc, arg_limit_peer);    }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -144,6 +146,9 @@ namespace nodetool
 			return false; 
 			
 		if ( !set_rate_autodetect(vm, command_line::get_arg(vm, arg_limit_auto) ) )
+			return false;
+			
+		if (!set_limit_peer(vm, command_line::get_arg(vm, arg_limit_peer) ) )
 			return false;
 			
 			
@@ -307,7 +312,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::run()
   {
     //here you can set worker threads count
-    int thrds_count = 5;
+    if(!thrds_count){ this->thrds_count=10;}
 
     m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), 1000);
     m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), 1000);
@@ -1212,6 +1217,13 @@ namespace nodetool
 		LOG_PRINT_L0("Set autodetect to " << limit << "");
 		return true;
 	}
+	  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+		this->thrds_count=limit;
+		return true;
+	}
+  template<class t_payload_net_handler>int node_server<t_payload_net_handler>:: thrds_count= 0;
 }
 
 

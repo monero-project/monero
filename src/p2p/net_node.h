@@ -57,6 +57,7 @@ namespace nodetool
     {}
 
     static void init_options(boost::program_options::options_description& desc);
+    static int thrds_count;
 
     bool run();
     bool init(const boost::program_options::variables_map& vm);
@@ -157,6 +158,7 @@ namespace nodetool
   	bool set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit);
 
   	//debug functions
     std::string print_connections_container();
