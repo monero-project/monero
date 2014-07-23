@@ -668,6 +668,8 @@ POP_WARNINGS
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter) );
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
+		// XXX XXX TMP
+		std::cout << "RESOLVER: " << adr << std::endl;
     //////////////////////////////////////////////////////////////////////////
     boost::asio::ip::tcp::resolver resolver(io_service_);
     boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), adr, port);
