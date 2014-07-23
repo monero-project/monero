@@ -138,8 +138,13 @@ Dependencies: MSVC 2013 or later, CMake 2.8.6 or later, and Boost 1.53 or later.
 
    mkdir build
    cd build
-   cmake -G "Visual Studio 11 Win64"
-   And then do Build.
+   cmake -G "Visual Studio 12 Win64" -DBOOST_ROOT="c:\folder\to\boost_1_55_0"
+           -DBOOST_LIBRARYDIR="c:\folder\to\boost_1_55_0\lib64-msvc-12.0"
+   msbuild Project.sln /p:Configuration=Release
+
+- If you don't have your path environment variable configured with the VS paths, you may
+  may want to run 'C:\program files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat'
+  (or equivalent) to temporarily set the environment variables.
 
 ----------------------
 Building Documentation
