@@ -495,6 +495,7 @@ namespace cryptonote
       std::list<connection_info> connections;
       
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
         KV_SERIALIZE(connections)
       END_KV_SERIALIZE_MAP()
     };
