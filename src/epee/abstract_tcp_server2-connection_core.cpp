@@ -2,6 +2,7 @@
 /* implementation for the non-template base, for the connection<> template class */
 
 #include "abstract_tcp_server2-connection_core.precompile.hpp"
+// TODO precompile is not working well yet
 
 // ################################################################################################
 // ################################################################################################
@@ -277,7 +278,7 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, i_connec
 	m_was_shutdown(0), 
 	m_pfilter(pfilter)
 { 
-	mI->m_throttle_global.m_in.set_name("global-IN-DOWNLOAD");
+	mI->m_throttle_global.m_in.set_name("global-IN-DOWNLOAD-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
 	mI->m_throttle_global.m_out.set_name("global-OUT-REQUEST");
 
 	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
@@ -360,7 +361,7 @@ void connection_basic::do_read_handler_start(const boost::system::error_code& e,
 	const size_t packet_size = bytes_transferred;
 	{
 		epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
-//		mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
+		mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
 	}
 }
 

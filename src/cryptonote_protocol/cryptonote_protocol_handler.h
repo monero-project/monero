@@ -20,8 +20,20 @@ DISABLE_VS_WARNINGS(4355)
 namespace cryptonote
 {
 
+	class cryptonote_protocol_handler_base_pimpl;
+	class cryptonote_protocol_handler_base {
+		private:
+			std::unique_ptr<cryptonote_protocol_handler_base_pimpl> mI;
+
+		public:
+			cryptonote_protocol_handler_base();
+			virtual ~cryptonote_protocol_handler_base();
+			void handler_request_blocks_now(size_t count_limit); // before asking for blocks, can adjust the limit of download
+			void handler_request_blocks_history(std::list<crypto::hash>& ids); // before asking for list of objects, we can change the list still
+	};
+
   template<class t_core>
-  class t_cryptonote_protocol_handler:  public i_cryptonote_protocol
+  class t_cryptonote_protocol_handler:  public i_cryptonote_protocol, cryptonote_protocol_handler_base
   { 
   public:
     typedef cryptonote_connection_context connection_context;

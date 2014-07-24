@@ -388,6 +388,8 @@ namespace cryptonote
       size_t count = 0;
       auto it = context.m_needed_objects.begin();
 
+			size_t count_limit = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
+		 	handler_request_blocks_now( count_limit ); // limit, sleep(?)
       while(it != context.m_needed_objects.end() && count < BLOCKS_SYNCHRONIZING_DEFAULT_COUNT)
       {
         if( !(check_having_blocks && m_core.have_block(*it)))
@@ -398,14 +400,16 @@ namespace cryptonote
         }
         context.m_needed_objects.erase(it++);
       }
-      LOG_PRINT_CCONTEXT_L2("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size() << ", txs.size()=" << req.txs.size());
+      LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size() << ", txs.size()=" << req.txs.size()
+				<< "requested blocks count=" << count << " / " << count_limit);
       post_notify<NOTIFY_REQUEST_GET_OBJECTS>(req, context);    
     }else if(context.m_last_response_height < context.m_remote_blockchain_height-1)
     {//we have to fetch more objects ids, request blockchain entry
      
       NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
       m_core.get_short_chain_history(r.block_ids);
-      LOG_PRINT_CCONTEXT_L2("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
+		 	handler_request_blocks_history( r.block_ids ); // limit(?), sleep(?)
+      LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
     }else
     { 
