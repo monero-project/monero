@@ -22,6 +22,18 @@
 
 namespace tools
 {
+  /* Removes '<' and '>' */
+  const std::string make_proper_tx_hash(const std::string& tx_hash_dirty)
+  {
+    
+    if (tx_hash_dirty.size() == 66) {
+      return tx_hash_dirty.substr(1,tx_hash_dirty.size()-2);
+    }
+    else {
+      throw(std::invalid_argument("Tx hash '" + tx_hash_dirty + "' is not a valid <hash>"));
+    }
+  }
+
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::wallet_rpc_server(
       std::string const & wallet_file
@@ -165,7 +177,7 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, const std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, const std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, uint64_t fee, epee::json_rpc::error& er)
   {
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
@@ -205,6 +217,13 @@ namespace tools
       }
 
     }
+
+    if (fee < DEFAULT_FEE) {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_TRANSFER_FEE;
+      er.message = "Fee value is too low. Minimal value is " + std::to_string(DEFAULT_FEE);
+      return false;    
+    }
+    
     return true;
   }
 
@@ -217,18 +236,23 @@ namespace tools
       return false;
     }
 
+    uint64_t effective_fee = req.fee;
+    if (effective_fee <= 0) {
+      effective_fee = DEFAULT_FEE;
+    }
+
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, effective_fee, er))
     {
       return false;
     }
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, effective_fee, extra);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -241,7 +265,19 @@ namespace tools
       m_wallet.commit_tx(ptx_vector);
 
       // populate response with tx hash
-      res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      const std::string tx_hash_dirty = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      res.tx_hash = tx_hash_dirty;
+      
+      try {
+        res.tx_hash_proper = make_proper_tx_hash(tx_hash_dirty);
+      }
+      catch(std::invalid_argument e) {
+        LOG_PRINT_L0(e.what());
+        er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+        er.message = e.what();
+        return false;
+      }
+      
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -273,25 +309,40 @@ namespace tools
       return false;
     }
 
+    uint64_t effective_fee = req.fee;
+    if (effective_fee <= 0) {
+      effective_fee = DEFAULT_FEE;
+    }
+
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, effective_fee, er))
     {
       return false;
     }
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, effective_fee, extra);
 
       m_wallet.commit_tx(ptx_vector);
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        const std::string tx_hash_dirty = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx));
+        try {
+          res.tx_hash_list.push_back(make_proper_tx_hash(tx_hash_dirty));
+        }
+        /* Break the loop, since the exception should never happen */
+        catch(std::invalid_argument e) {
+          LOG_PRINT_L0(e.what());
+          er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+          er.message = e.what();
+          return false;
+        }
       }
 
       return true;
@@ -381,6 +432,8 @@ namespace tools
       wallet_rpc::payment_details rpc_payment;
       rpc_payment.payment_id   = req.payment_id;
       rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.m_tx_hash);
+      /* Adding duplicate for consistency. Few impact on perfs */
+      rpc_payment.tx_hash_proper  = rpc_payment.tx_hash;
       rpc_payment.amount       = payment.m_amount;
       rpc_payment.block_height = payment.m_block_height;
       rpc_payment.unlock_time  = payment.m_unlock_time;
@@ -486,6 +539,12 @@ namespace tools
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
         rpc_transfers.tx_hash      = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(td.m_tx));
+        try {
+          rpc_transfers.tx_hash_proper = make_proper_tx_hash(rpc_transfers.tx_hash);
+        }
+        catch(std::invalid_argument e) {
+          rpc_transfers.tx_hash_proper = "";
+        }
         res.transfers.push_back(rpc_transfers);
       }
     }

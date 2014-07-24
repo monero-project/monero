@@ -704,12 +704,11 @@ void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts
   transfer(dsts, fake_outputs_count, unlock_time, fee, extra, tx, ptx);
 }
 
-namespace {
 // split_amounts(vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
 //
 // split amount for each dst in dsts into num_splits parts
 // and make num_splits new vector<crypt...> instances to hold these new amounts
-std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
+std::vector<std::vector<cryptonote::tx_destination_entry>> wallet2::split_amounts(
     std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
 {
   std::vector<std::vector<cryptonote::tx_destination_entry>> retVal;
@@ -751,7 +750,6 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
 
   return retVal;
 }
-} // anonymous namespace
 
 //----------------------------------------------------------------------------------------------------
 // take a pending tx and actually send it to the daemon
