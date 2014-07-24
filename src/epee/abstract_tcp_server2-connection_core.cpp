@@ -150,7 +150,7 @@ void network_throttle::tick()
 	// TODO optimize when moving few slots at once
 	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
 	{
-		LOG_PRINT_L0("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
+		LOG_PRINT_L4("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
 		// rotate buffer 
 		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
 		m_history[0] = packet_info();
@@ -231,7 +231,7 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 		for (auto sample: m_history) oss << sample.m_size << " ";
 		oss << "]" << std::ends;
 		std::string history_str = oss.str();
-		LOG_PRINT_L0(
+		LOG_PRINT_L1(
 			"... calculating net rate limit: " 
 			<< "speed is A=" << std::setw(8) <<A<<" vs "
 			<< "Max=" << std::setw(8) <<M<<" "
