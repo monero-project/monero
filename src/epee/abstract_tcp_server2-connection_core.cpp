@@ -133,7 +133,7 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 {
 	double A=0, W=0, D=0, R=0;
 	tick();
-	calculate_times(packet_size, A,W,D,R, false);
+	calculate_times(packet_size, A,W,D,R, false,-1);
 	m_history[0].m_size += packet_size;
 	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
 	//  (window="<<W<<" s)"); // XXX
@@ -158,18 +158,26 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const 
 {
 	double A=0, W=0, D=0, R=0;
-	calculate_times(packet_size, A,W,D,R, true);
+	double Dmax;
+	calculate_times(packet_size, A,W,D,R, true, -1);              Dmax=D;
+	calculate_times(packet_size, A,W,D,R, true, m_window_size/2); Dmax=std::max(D,Dmax);
+	calculate_times(packet_size, A,W,D,R, true, 5);               Dmax=std::max(D,Dmax);
 	return D;
 }
 
-void network_throttle::calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg) const 
+void network_throttle::calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const 
 {
+	const double the_window_size = std::min( (double)m_window_size , 
+		((force_window>0) ? force_window : m_window_size) 
+	);
+
 	if (!m_any_packet_yet) {
-		W=0; A=0; D=0;
+		W=0; A=0; D=0; 
+		R=0; // should be overrided by caller
 		return ; // no packet yet, I can not decide about sleep time
 	}
 
-	network_time_seconds window_len = (m_window_size-1) * m_slot_size ; // -1 since current slot is not finished
+	network_time_seconds window_len = (the_window_size-1) * m_slot_size ; // -1 since current slot is not finished
 	window_len += (m_last_sample_time - time_to_slot(m_last_sample_time));  // add the time for current slot e.g. 13.7-13 = 0.7
 
 	auto time_passed = my_time_seconds() - m_start_time;
@@ -192,12 +200,12 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 
 	double Wgood=-1;
 	{	// how much data we recommend now to download
-		Wgood = m_window_size/2 + 1;
-		Wgood = std::min(3., std::max(1., std::min( m_window_size/2., Wgood)));
-		if (W > Wgood) {
+		Wgood = the_window_size/2 + 1;
+		Wgood = std::min(3., std::max(1., std::min( the_window_size/2., Wgood)));
+		if (W > Wgood) { // we have a good enough window to estimate
 			R = M*W - E; 
 		} else { // now window to estimate, so let's request in this way:
-			R = M-E;
+			R = M*1 - E;
 		}
 	}
 
@@ -234,17 +242,23 @@ double network_throttle::my_time_seconds() {
 	return ms_f / 1000.;
 }
 
-size_t network_throttle::get_recommended_size_of_planned_transport() const {
+size_t network_throttle::get_recommended_size_of_planned_transport_window(double force_window) const {
 	double A=0,W=0,D=0,R=0;
-	network_throttle::calculate_times(0, A, W, D, R, true);
-	R = std::min( (double)m_network_max_segment, std::max( (double)m_network_minimal_segment , R + m_network_add_cost ) );
-	size_t RI = (size_t)R;
+	network_throttle::calculate_times(0, A, W, D, R, true, force_window);
+	R += m_network_add_cost;
+	if (R<0) R=0;
+	if (R>m_network_max_segment) R=m_network_max_segment;
+	size_t RI = (long int)R;
 	return RI;
 }
 
-//void network_throttle::add_planned_transport(size_t size) {
-	// TODO
-//}
+size_t network_throttle::get_recommended_size_of_planned_transport() const {
+	size_t Rmin;
+	Rmin =           get_recommended_size_of_planned_transport_window( -1 );
+	Rmin = std::min( get_recommended_size_of_planned_transport_window( m_window_size/2) , Rmin );
+	Rmin = std::min( get_recommended_size_of_planned_transport_window( 8              ) , Rmin );
+	return Rmin;
+}
 
 // ================================================================================================
 // connection_basic

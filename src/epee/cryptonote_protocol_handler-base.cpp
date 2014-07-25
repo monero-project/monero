@@ -80,7 +80,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	using namespace epee::net_utils;
 	size_t est_req_size=0; //  how much data are we now requesting (to be soon send to us)
 
-	auto default_count_limit = count_limit;
+	//auto default_count_limit = count_limit;
 
 	network_throttle_manager::xxx = 3;
 
@@ -91,6 +91,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 
 		{
 			size_t size_limit1=0, size_limit2=0;
+			LOG_PRINT_RED("calculating REQUEST size:", LOG_LEVEL_0);
 			{
 				CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
 				network_throttle_manager::get_global_throttle_in().tick();
@@ -101,9 +102,15 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 				network_throttle_manager::get_global_throttle_inreq().tick();
 				size_limit2 = network_throttle_manager::get_global_throttle_inreq().get_recommended_size_of_planned_transport();
 			}
-			size_t one_block_estimated_size = 5000; // TODO estimate better
+			size_t one_block_estimated_size = 8000; // TODO estimate better
 
-			size_t size_limit = std::min( size_limit1 , size_limit2 );
+			size_t limit_small = std::min( size_limit1 , size_limit2 );
+			size_t size_limit = limit_small/3 + size_limit1/3 + size_limit2/3;
+			if (limit_small <= 0) size_limit = 0;
+			const double estimated_peers = 1.2; // how many peers/threads we want to talk to, in order to not grab entire b/w by 1 thread
+			const double knob = 1.000;
+			size_limit /= (estimated_peers / estimated_peers) * knob;
+			LOG_PRINT_RED("calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit , LOG_LEVEL_0);
 
 			count_limit = size_limit / one_block_estimated_size;
 			// TODO sleep if we decided we can not take ANY block now? (sleep NOT IN LOCK!!)
@@ -112,8 +119,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 			est_req_size = count_limit * one_block_estimated_size ; // how much data did we just requested?
 		}
 
-		if (count_limit > 2) allowed_now = true;
-		if (!allowed_now) boost::this_thread::sleep(boost::posix_time::milliseconds( 300 ) );
+		if (count_limit > 1) allowed_now = true;
+		if (!allowed_now) boost::this_thread::sleep(boost::posix_time::milliseconds( 2000 ) ); // TODO randomize sleeps
 	}
 	// done waiting&sleeping ^
 
