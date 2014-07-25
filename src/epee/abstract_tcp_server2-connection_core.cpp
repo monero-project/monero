@@ -33,7 +33,7 @@ class connection_basic_pimpl {
 		network_throttle_bw m_throttle; // per-perr
     critical_section m_throttle_lock;
 
-		void sleep_before_packet(size_t packet_size, int phase); // execute a sleep
+		void sleep_before_packet(size_t packet_size, int phase); // execute a sleep ; phase is not really used now(?) could be used for different kinds of sleep e.g. direct/queue write
 };
 
 

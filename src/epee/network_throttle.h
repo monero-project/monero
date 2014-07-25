@@ -56,21 +56,30 @@ typedef double network_time_seconds;
 class i_network_throttle;
 
 class network_throttle_manager {
+	// provides global (singleton) in/inreq/out throttle access
+
 	// [[note1]] see also http://www.nuonsoft.com/blog/2012/10/21/implementing-a-thread-safe-singleton-with-c11/
-
+	// [[note2]] _inreq is the requested in traffic - we anticipate we will get in-bound traffic soon as result of what we do (e.g. that we sent network downloads requests)
 	protected:
-		static std::once_flag m_once_get_global_throttle_in;
-//		static std::once_flag m_once_get_global_throttle_in_req;
-//		static std::once_flag m_once_get_global_throttle_out;
-
+		// [[note1]]
+		static std::once_flag m_once_get_global_throttle_in; 
+		static std::once_flag m_once_get_global_throttle_inreq; // [[note2]]
+		static std::once_flag m_once_get_global_throttle_out;
 		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_in;
-//		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_in_req;
-//		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_out;
+		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_inreq;
+		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_out;
 
 	public:
-		static i_network_throttle & get_global_throttle_in(); // singleton
-//		static i_network_throttle & get_global_throttle_in_req(); // singleton
-//		static i_network_throttle & get_global_throttle_out(); // singleton
+    critical_section m_lock_get_global_throttle_in;
+    critical_section m_lock_get_global_throttle_inreq;
+    critical_section m_lock_get_global_throttle_out;
+
+		friend class cryptonote_protocol_handler_base; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
+
+	protected:
+		static i_network_throttle & get_global_throttle_in(); // singleton ; for friend class ; caller MUST use proper locks! like m_lock_get_global_throttle_in
+		static i_network_throttle & get_global_throttle_inreq(); // ditto ; use lock ... _inreq obviously
+		static i_network_throttle & get_global_throttle_out(); // ditto ; use lock ... _out obviously
 };
 
 class i_network_throttle {
