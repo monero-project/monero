@@ -69,18 +69,20 @@ class network_throttle_manager {
 		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_inreq;
 		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_out;
 
-	public:
-    critical_section m_lock_get_global_throttle_in;
-    critical_section m_lock_get_global_throttle_inreq;
-    critical_section m_lock_get_global_throttle_out;
+    static critical_section m_lock_get_global_throttle_in;
+    static critical_section m_lock_get_global_throttle_inreq;
+    static critical_section m_lock_get_global_throttle_out;
 
 		friend class cryptonote_protocol_handler_base; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
+		friend class connection_basic; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
+		friend class connection_basic_pimpl; // ditto
 
 	protected:
 		static i_network_throttle & get_global_throttle_in(); // singleton ; for friend class ; caller MUST use proper locks! like m_lock_get_global_throttle_in
 		static i_network_throttle & get_global_throttle_inreq(); // ditto ; use lock ... _inreq obviously
 		static i_network_throttle & get_global_throttle_out(); // ditto ; use lock ... _out obviously
 };
+
 
 class i_network_throttle {
 	public:

@@ -26,8 +26,8 @@ namespace net_utils
 
 class connection_basic_pimpl {
 	public:
-		static network_throttle_bw m_throttle_global; // global across all peers (and all types since not-templated)
-    static critical_section m_throttle_global_lock;
+		connection_basic_pimpl(const std::string &name);
+
 		static int m_default_tos;
 
 		network_throttle_bw m_throttle; // per-perr
@@ -57,8 +57,15 @@ namespace net_utils
 {
 
 // ================================================================================================
+// connection_basic_pimpl
+// ================================================================================================
+	
+connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name) { }
+
+// ================================================================================================
 // network_throttle
 // ================================================================================================
+
 
 network_throttle::~network_throttle() { }
 
@@ -67,15 +74,16 @@ network_throttle::packet_info::packet_info()
 { 
 }
 
-network_throttle::network_throttle() 
+network_throttle::network_throttle(const std::string &name)
 	: m_window_size(10),
 	  m_history( m_window_size )
 {
+	set_name(name);
 	m_network_add_cost = 128;
 	m_network_minimal_segment = 256;
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
-	m_target_speed = 2 * 1024;
+	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
 }
 
 void network_throttle::set_name(const std::string &name) 
@@ -126,7 +134,8 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	tick();
 	calculate_times(packet_size, A,W,D, false);
 	m_history[0].m_size += packet_size;
-	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" bit/s (window="<<W<<" s)"); // XXX
+	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
+	//  (window="<<W<<" s)"); // XXX
 }
 
 void network_throttle::handle_trafic_tcp(size_t packet_size)
@@ -225,24 +234,18 @@ size_t network_throttle::get_recommended_size_of_planned_transport() const {
 // ================================================================================================
 
 // static variables:
-
-
-network_throttle_bw connection_basic_pimpl::m_throttle_global;
-critical_section connection_basic_pimpl::m_throttle_global_lock;
 int connection_basic_pimpl::m_default_tos;
 
+// methods:
 connection_basic::connection_basic(boost::asio::io_service& io_service, i_connection_filter* &pfilter)
 	: 
-	mI(new connection_basic_pimpl),
+	mI(new connection_basic_pimpl("peer") ),
 	strand_(io_service),
 	socket_(io_service),
 	m_want_close_connection(0), 
 	m_was_shutdown(0), 
 	m_pfilter(pfilter)
 { 
-	mI->m_throttle_global.m_in.set_name("global-IN-DOWNLOAD-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-	mI->m_throttle_global.m_out.set_name("global-OUT-REQUEST");
-
 	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
 	option.level(IPPROTO_IP);
 	option.name(IP_TOS);
@@ -257,16 +260,27 @@ connection_basic::~connection_basic() {
 
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {
-	connection_basic_pimpl::m_throttle_global.m_out.set_target_speed(limit);
+	{
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
+		network_throttle_manager::get_global_throttle_out().set_target_speed(limit);
+	}
+	//	connection_basic_pimpl::m_throttle_global.m_out.set_target_speed(limit);
 }
 
 void connection_basic::set_rate_down_limit(uint64_t limit) {
-	connection_basic_pimpl::m_throttle_global.m_in.set_target_speed(limit);
+	{
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
+		network_throttle_manager::get_global_throttle_in().set_target_speed(limit);
+	}
+
+	{
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_inreq );
+		network_throttle_manager::get_global_throttle_inreq().set_target_speed(limit);
+	}
 }
 
 void connection_basic::set_rate_limit(uint64_t limit) {
-	connection_basic_pimpl::m_throttle_global.m_in.set_target_speed(limit);
-	connection_basic_pimpl::m_throttle_global.m_out.set_target_speed(limit);
+	// TODO
 }
 
 void connection_basic::set_rate_autodetect(uint64_t limit) {
@@ -279,17 +293,23 @@ void connection_basic::set_tos_flag(int tos) {
 }
 
 void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase) {
+// XXX LATER XXX
 	{
-		epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
-		m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
+		network_throttle_manager::get_global_throttle_out().handle_trafic_tcp( packet_size ); // increase counter - global
+
+		//epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
+		//m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
 	}
 
 	double delay=0; // will be calculated
 	do
 	{ // rate limiting
 		{ 
-			epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical ***
-			delay = m_throttle_global.m_out.get_sleep_time_after_tick( 0 ); // decission from global
+	  	CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
+			delay = network_throttle_manager::get_global_throttle_out().get_sleep_time_after_tick( 0 ); // decission from global
+			// epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical ***
+			// delay = m_throttle_global.m_out.get_sleep_time_after_tick( 0 ); // decission from global
 		}
 
 		if (delay > 0) { boost::this_thread::sleep(boost::posix_time::milliseconds( (int)(delay * 1000) ));	}
@@ -322,8 +342,10 @@ void connection_basic::do_send_handler_write_from_queue( const boost::system::er
 void connection_basic::do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred) { // from read, after read completion
 	const size_t packet_size = bytes_transferred;
 	{
-		epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
-		mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
+		network_throttle_manager::get_global_throttle_in().handle_trafic_tcp( packet_size ); // increase counter - global
+		// epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
+		// mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
 	}
 }
 

@@ -16,6 +16,9 @@ class network_throttle : public i_network_throttle {
 			size_t m_size; // octets sent. Summary for given small-window (e.g. for all packaged in 1 second)
 			packet_info();
 		};
+
+
+
 		network_speed_kbps m_target_speed;
 		size_t m_network_add_cost; // estimated add cost of headers 
 		size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
@@ -36,7 +39,7 @@ class network_throttle : public i_network_throttle {
 
 	// each sample is now 1 second
 	public:
-		network_throttle();
+		network_throttle(const std::string &name);
 		virtual ~network_throttle();
 		virtual void set_name(const std::string &name);
 		virtual void set_target_speed( network_speed_kbps target );
@@ -61,9 +64,15 @@ class network_throttle : public i_network_throttle {
 		virtual void _handle_trafic_exact(size_t packet_size, size_t orginal_size); 
 };
 
+
 struct network_throttle_bw {
-	network_throttle m_in;
-	network_throttle m_out;
+	public:
+		network_throttle m_in;
+		network_throttle m_inreq;
+		network_throttle m_out;
+
+	public:
+		network_throttle_bw(const std::string &name1);
 };
 
 
