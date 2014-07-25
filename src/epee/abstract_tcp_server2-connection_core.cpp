@@ -74,8 +74,8 @@ network_throttle::packet_info::packet_info()
 { 
 }
 
-network_throttle::network_throttle(const std::string &name)
-	: m_window_size(10),
+network_throttle::network_throttle(const std::string &name, int window_size)
+	: m_window_size( (window_size==-1) ? 10 : window_size  ),
 	  m_history( m_window_size )
 {
 	set_name(name);
@@ -190,8 +190,9 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 
 	A = Epast/W; // current avg. speed (for info)
 
+	double Wgood=-1;
 	{	// how much data we recommend now to download
-		double Wgood = m_window_size/2 + 1;
+		Wgood = m_window_size/2 + 1;
 		Wgood = std::min(3., std::max(1., std::min( m_window_size/2., Wgood)));
 		if (W > Wgood) {
 			R = M*W - E; 
@@ -206,8 +207,8 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 		for (auto sample: m_history) oss << sample.m_size << " ";
 		oss << "]" << std::ends;
 		std::string history_str = oss.str();
-		LOG_PRINT_L1(
-			"... calculating net rate limit: " 
+		LOG_PRINT_L0(
+			"dbg " << m_name << ": " 
 			<< "speed is A=" << std::setw(8) <<A<<" vs "
 			<< "Max=" << std::setw(8) <<M<<" "
 			<< " so sleep: "
@@ -216,7 +217,7 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 //			<< "D2=" << std::setw(8) <<D2<<" "
 			<< "E="<< std::setw(8) << E << " "
 			<< "M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
-			<< "R=" << std::setw(8) << R << " "
+			<< "R=" << std::setw(8) << R << " Wgood" << std::setw(8) << Wgood << " "
 			<< "History: " << std::setw(8) << history_str << " "
 			<< "m_last_sample_time=" << std::setw(8) << m_last_sample_time
 		);

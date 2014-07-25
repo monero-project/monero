@@ -29,7 +29,7 @@ std::unique_ptr<i_network_throttle> network_throttle_manager::m_obj_get_global_t
 
 
 i_network_throttle & network_throttle_manager::get_global_throttle_inreq() { 
-	std::call_once(m_once_get_global_throttle_inreq, [] { m_obj_get_global_throttle_inreq.reset(new network_throttle("<<<====== global-IN-DOWNLOAD-REQUESTED")); }	);
+	std::call_once(m_once_get_global_throttle_inreq, [] { m_obj_get_global_throttle_inreq.reset(new network_throttle("<<<====== global-IN-DOWNLOAD-REQUESTED",15)); }	);
 	return * m_obj_get_global_throttle_inreq;
 }
 std::once_flag network_throttle_manager::m_once_get_global_throttle_inreq;
