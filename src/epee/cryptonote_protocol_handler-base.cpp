@@ -80,6 +80,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	using namespace epee::net_utils;
 	size_t est_req_size=0; //  how much data are we now requesting (to be soon send to us)
 
+	const auto count_limit_default = count_limit;
+
 	//auto default_count_limit = count_limit;
 
 	network_throttle_manager::xxx = 3;
@@ -113,13 +115,14 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 			LOG_PRINT_RED("calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit , LOG_LEVEL_0);
 
 			count_limit = size_limit / one_block_estimated_size;
-			// TODO sleep if we decided we can not take ANY block now? (sleep NOT IN LOCK!!)
-			count_limit = std::min((size_t)200, std::max((size_t)1, (size_t)count_limit)); // download at least 1 block
+			count_limit = std::min(count_limit_default, count_limit);
+			const size_t count_limit_my = 10; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
+			count_limit = std::min(count_limit_my, count_limit);
 
 			est_req_size = count_limit * one_block_estimated_size ; // how much data did we just requested?
 		}
 
-		if (count_limit > 1) allowed_now = true;
+		if (count_limit > 0) allowed_now = true;
 		if (!allowed_now) boost::this_thread::sleep(boost::posix_time::milliseconds( 2000 ) ); // TODO randomize sleeps
 	}
 	// done waiting&sleeping ^
@@ -130,8 +133,11 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 		network_throttle_manager::get_global_throttle_inreq().handle_trafic_tcp( est_req_size ); // increase countere of the global requested input
 	}
 
-
-	LOG_PRINT_YELLOW("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);	
+	LOG_PRINT_RED("\n", LOG_LEVEL_0);
+	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
+	LOG_PRINT_RED("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);	
+	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
+	LOG_PRINT_RED("\n", LOG_LEVEL_0);
 }
 
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {

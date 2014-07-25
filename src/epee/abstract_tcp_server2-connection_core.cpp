@@ -81,7 +81,7 @@ network_throttle::network_throttle(const std::string &name, int window_size)
 	set_name(name);
 	m_network_add_cost = 128;
 	m_network_minimal_segment = 256;
-	m_network_max_segment = 65535;
+	m_network_max_segment = 1024*1024;
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
 	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
