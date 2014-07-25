@@ -81,6 +81,7 @@ network_throttle::network_throttle(const std::string &name)
 	set_name(name);
 	m_network_add_cost = 128;
 	m_network_minimal_segment = 256;
+	m_network_max_segment = 65535;
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
 	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
@@ -130,9 +131,9 @@ void network_throttle::handle_trafic_exact(size_t packet_size)
 
 void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_size)
 {
-	double A,W,D;
+	double A=0, W=0, D=0, R=0;
 	tick();
-	calculate_times(packet_size, A,W,D, false);
+	calculate_times(packet_size, A,W,D,R, false);
 	m_history[0].m_size += packet_size;
 	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
 	//  (window="<<W<<" s)"); // XXX
@@ -156,12 +157,12 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 
 network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const 
 {
-	double A=0, W=0, D=0;
-	calculate_times(packet_size, A,W,D, true);
+	double A=0, W=0, D=0, R=0;
+	calculate_times(packet_size, A,W,D,R, true);
 	return D;
 }
 
-void network_throttle::calculate_times(size_t packet_size, double &A, double &W, double &D, bool dbg) const 
+void network_throttle::calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg) const 
 {
 	if (!m_any_packet_yet) {
 		W=0; A=0; D=0;
@@ -184,10 +185,20 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 	const double M = m_target_speed; // max
 	const double D1 = (Epast - M*W) / M; // delay - how long to sleep to get back to target speed
 	const double D2 = (Enow  - M*W) / M; // delay - how long to sleep to get back to target speed (including current packet)
-	
+
 	D = (D1*0.75 + D2*0.25); // finall sleep depends on both with/without current packet
 
 	A = Epast/W; // current avg. speed (for info)
+
+	{	// how much data we recommend now to download
+		double Wgood = m_window_size/2 + 1;
+		Wgood = std::min(3., std::max(1., std::min( m_window_size/2., Wgood)));
+		if (W > Wgood) {
+			R = M*W - E; 
+		} else { // now window to estimate, so let's request in this way:
+			R = M-E;
+		}
+	}
 
 	if (dbg) {
 		std::ostringstream oss; 
@@ -205,6 +216,7 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 //			<< "D2=" << std::setw(8) <<D2<<" "
 			<< "E="<< std::setw(8) << E << " "
 			<< "M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
+			<< "R=" << std::setw(8) << R << " "
 			<< "History: " << std::setw(8) << history_str << " "
 			<< "m_last_sample_time=" << std::setw(8) << m_last_sample_time
 		);
@@ -222,7 +234,11 @@ double network_throttle::my_time_seconds() {
 }
 
 size_t network_throttle::get_recommended_size_of_planned_transport() const {
-	return 65536; // TODO
+	double A=0,W=0,D=0,R=0;
+	network_throttle::calculate_times(0, A, W, D, R, true);
+	R = std::min( (double)m_network_max_segment, std::max( (double)m_network_minimal_segment , R + m_network_add_cost ) );
+	size_t RI = (size_t)R;
+	return RI;
 }
 
 //void network_throttle::add_planned_transport(size_t size) {

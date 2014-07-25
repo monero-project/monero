@@ -18,10 +18,10 @@ class network_throttle : public i_network_throttle {
 		};
 
 
-
 		network_speed_kbps m_target_speed;
 		size_t m_network_add_cost; // estimated add cost of headers 
 		size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
+		size_t m_network_max_segment; // recommended max size of 1 TCP transmission
 
 		const size_t m_window_size; // the number of samples to average over
 		network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
@@ -51,7 +51,7 @@ class network_throttle : public i_network_throttle {
 		virtual void tick(); // poke and update timers/history
 		
 		// time calculations:
-		virtual void calculate_times(size_t packet_size, double &A, double &W, double &D, bool dbg) const; // assuming sending new package (or 0), calculate Average, Window, Delay
+		virtual void calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg) const; // (see base class for info)
 		virtual network_time_seconds get_sleep_time(size_t packet_size) const; // gets the D (recommended Delay time) from calc
 		virtual network_time_seconds get_sleep_time_after_tick(size_t packet_size); // ditto, but first tick the timer
 

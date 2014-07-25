@@ -28,7 +28,7 @@ namespace cryptonote
 		public:
 			cryptonote_protocol_handler_base();
 			virtual ~cryptonote_protocol_handler_base();
-			void handler_request_blocks_now(size_t count_limit); // before asking for blocks, can adjust the limit of download
+			void handler_request_blocks_now(size_t & count_limit); // before asking for blocks, can adjust the limit of download
 			void handler_request_blocks_history(std::list<crypto::hash>& ids); // before asking for list of objects, we can change the list still
 	};
 

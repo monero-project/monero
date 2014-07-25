@@ -148,7 +148,7 @@ namespace cryptonote
     template<class t_core> 
     int t_cryptonote_protocol_handler<t_core>::handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_BLOCK (hop " << arg.hop << ")");
+    LOG_PRINT_CCONTEXT_L0("NOTIFY_NEW_BLOCK (hop " << arg.hop << ")");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
 
@@ -167,7 +167,7 @@ namespace cryptonote
 
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     m_core.pause_mine();
-    m_core.handle_incoming_block(arg.b.block, bvc);
+    m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block 
     m_core.resume_mine();
     if(bvc.m_verifivation_failed)
     {
@@ -223,6 +223,7 @@ namespace cryptonote
 
     return true;
   }
+
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core> 
   int t_cryptonote_protocol_handler<t_core>::handle_request_get_objects(int command, NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote_connection_context& context)
@@ -239,11 +240,12 @@ namespace cryptonote
     post_notify<NOTIFY_RESPONSE_GET_OBJECTS>(rsp, context);
     return 1;
   }
+
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_response_get_objects(int command, NOTIFY_RESPONSE_GET_OBJECTS::request& arg, cryptonote_connection_context& context)
   {
-    LOG_PRINT_CCONTEXT_L2("NOTIFY_RESPONSE_GET_OBJECTS");
+    LOG_PRINT_CCONTEXT_L0("NOTIFY_RESPONSE_GET_OBJECTS"); // ***
     if(context.m_last_response_height > arg.current_blockchain_height)
     {
       LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: arg.m_current_blockchain_height=" << arg.current_blockchain_height 
@@ -311,6 +313,7 @@ namespace cryptonote
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler(
         boost::bind(&t_core::resume_mine, &m_core));
 
+			LOG_PRINT_CCONTEXT_YELLOW( "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size() , LOG_LEVEL_0);
       BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
       {
         //process transactions
@@ -333,7 +336,8 @@ namespace cryptonote
         TIME_MEASURE_START(block_process_time);
         block_verification_context bvc = boost::value_initialized<block_verification_context>();
 
-        m_core.handle_incoming_block(block_entry.block, bvc, false);
+				LOG_PRINT_CCONTEXT_GREEN( "Got NEW BLOCKS inside of " << __FUNCTION__ << "." , LOG_LEVEL_2);
+        m_core.handle_incoming_block(block_entry.block, bvc, false); // handle_response_get_objects in handle_response_get_objects
 
         if(bvc.m_verifivation_failed)
         {
@@ -353,9 +357,10 @@ namespace cryptonote
       }
     }
 
-    request_missing_objects(context, true);
+    request_missing_objects(context, true); // handle_response_get_objects ***
     return 1;
   }
+
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core> 
   bool t_cryptonote_protocol_handler<t_core>::on_idle()
@@ -389,9 +394,10 @@ namespace cryptonote
       auto it = context.m_needed_objects.begin();
 
 			size_t count_limit = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
-		 	handler_request_blocks_now( count_limit ); // limit, sleep(?)
+		 	handler_request_blocks_now( count_limit ); // change the limit, sleep(?)
       while(it != context.m_needed_objects.end() && count < BLOCKS_SYNCHRONIZING_DEFAULT_COUNT)
       {
+				if (count > count_limit) break; // limit 
         if( !(check_having_blocks && m_core.have_block(*it)))
         {
           req.blocks.push_back(*it);
@@ -408,7 +414,7 @@ namespace cryptonote
      
       NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
       m_core.get_short_chain_history(r.block_ids);
-		 	handler_request_blocks_history( r.block_ids ); // limit(?), sleep(?)
+		 	handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
     }else
