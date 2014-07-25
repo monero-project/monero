@@ -5,6 +5,45 @@
 #ifndef INCLUDED_epee_network_throttle
 #define INCLUDED_epee_network_throttle
 
+#include <boost/asio.hpp>
+#include <string>
+#include <vector>
+#include <boost/noncopyable.hpp>
+#include <boost/shared_ptr.hpp>
+#include <atomic>
+
+#include <boost/asio.hpp>
+#include <boost/array.hpp>
+#include <boost/noncopyable.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/interprocess/detail/atomic.hpp>
+#include <boost/thread/thread.hpp>
+
+#include <memory>
+
+#include "syncobj.h"
+
+#include "../../contrib/epee/include/net/net_utils_base.h" 
+#include "../../contrib/epee/include/misc_log_ex.h" 
+#include <boost/lambda/bind.hpp>
+#include <boost/foreach.hpp>
+#include <boost/lambda/lambda.hpp>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/chrono.hpp>
+#include <boost/utility/value_init.hpp>
+#include <boost/asio/deadline_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/thread.hpp> 
+#include "misc_language.h"
+#include "pragma_comp_defs.h"
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
+
+#include <memory>
+#include <mutex>
+
 namespace epee
 {
 namespace net_utils
@@ -17,10 +56,21 @@ typedef double network_time_seconds;
 class i_network_throttle;
 
 class network_throttle_manager {
+	// [[note1]] see also http://www.nuonsoft.com/blog/2012/10/21/implementing-a-thread-safe-singleton-with-c11/
+
+	protected:
+		static std::once_flag m_once_get_global_throttle_in;
+//		static std::once_flag m_once_get_global_throttle_in_req;
+//		static std::once_flag m_once_get_global_throttle_out;
+
+		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_in;
+//		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_in_req;
+//		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_out;
+
 	public:
 		static i_network_throttle & get_global_throttle_in(); // singleton
-		static i_network_throttle & get_global_throttle_in_req(); // singleton
-		static i_network_throttle & get_global_throttle_out(); // singleton
+//		static i_network_throttle & get_global_throttle_in_req(); // singleton
+//		static i_network_throttle & get_global_throttle_out(); // singleton
 };
 
 class i_network_throttle {
