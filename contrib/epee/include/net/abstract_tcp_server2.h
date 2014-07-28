@@ -50,6 +50,7 @@
 #include "net_utils_base.h"
 #include "syncobj.h"
 
+#include "../../src/p2p/connection_basic.hpp"
 
 #define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 100
 
@@ -121,6 +122,8 @@ namespace net_utils
     boost::array<char, 8192> buffer_;
 
     t_connection_context context;
+
+		i_connection_filter* &m_pfilter;
 
     volatile uint32_t& m_ref_sockets_count; // for counting number of existing sockets
 

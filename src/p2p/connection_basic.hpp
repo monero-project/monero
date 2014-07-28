@@ -56,8 +56,8 @@
 
 #include <memory>
 
-#include "net_utils_base.h"
-#include "syncobj.h"
+#include "../../contrib/epee/include/net/net_utils_base.h"
+#include "../../contrib/epee/include/syncobj.h"
 
 
 namespace epee
@@ -81,7 +81,6 @@ class connection_basic { // not-templated base class for rapid developmet of som
     std::atomic<bool> m_was_shutdown;
     critical_section m_send_que_lock;
     std::list<std::string> m_send_que;
-    i_connection_filter* &m_pfilter;
     volatile bool m_is_multithreaded;
 
     /// Strand to ensure the connection's handlers are not called concurrently.
@@ -90,7 +89,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
     boost::asio::ip::tcp::socket socket_;
 
 	public:
-		connection_basic(boost::asio::io_service& io_service, i_connection_filter* &pfilter);
+		connection_basic(boost::asio::io_service& io_service);
 		virtual ~connection_basic();
 
 		// various handlers to be called from connection class:

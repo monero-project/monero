@@ -31,8 +31,8 @@
 /* rfree: throttle details, implementing rate limiting */
 
 
-#ifndef INCLUDED_epee_network_throttle_advanced_hpp
-#define INCLUDED_epee_network_throttle_advanced_hpp
+#ifndef INCLUDED_src_p2p_throttle_advanced_hpp
+#define INCLUDED_src_p2p_throttle_advanced_hpp
 
 #include "../../src/p2p/network_throttle.h"
 

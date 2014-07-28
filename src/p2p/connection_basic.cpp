@@ -321,7 +321,7 @@ size_t network_throttle::get_recommended_size_of_planned_transport() const {
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_service& io_service, i_connection_filter* &pfilter)
+connection_basic::connection_basic(boost::asio::io_service& io_service)
 	: 
 	mI(new connection_basic_pimpl("peer") ),
 	strand_(io_service),

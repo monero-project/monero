@@ -61,7 +61,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection(boost::asio::io_service& io_service,
     typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter* &pfilter)
-                          : connection_basic(io_service, pfilter), 
+                          : connection_basic(io_service), 
                             m_ref_sockets_count(sock_count), 
                             m_protocol_handler(this, config, context)
   {
