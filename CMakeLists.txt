@@ -12,6 +12,7 @@ option(BUILD_CONN_TOOL "Build connectivity tool" ON)
 option(BUILD_SIMPLE_MINER "Build simple miner" ON)
 option(BUILD_SIMPLE_WALLET "Build simple wallet" ON)
 option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" OFF)
+option(ENABLE_COTIRE "Enable cotire - CMake module to speed up builds" OFF)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
