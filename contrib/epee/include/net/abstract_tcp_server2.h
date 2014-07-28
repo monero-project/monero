@@ -71,48 +71,6 @@ namespace net_utils
   /************************************************************************/
   /// Represents a single connection from a client.
 
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  /// Represents a single connection from a client.
-
-class connection_basic_pimpl; // PIMPL for this class
-
-class connection_basic { // not-templated base class for rapid developmet of some code parts
-	public:
-		std::unique_ptr< connection_basic_pimpl > mI; // my Implementation
-
-		// moved here from orginal connecton<> - common member variables that do not depend on template in connection<>
-    volatile uint32_t m_want_close_connection;
-    std::atomic<bool> m_was_shutdown;
-    critical_section m_send_que_lock;
-    std::list<std::string> m_send_que;
-    i_connection_filter* &m_pfilter;
-    volatile bool m_is_multithreaded;
-
-    /// Strand to ensure the connection's handlers are not called concurrently.
-    boost::asio::io_service::strand strand_;
-    /// Socket for the connection.
-    boost::asio::ip::tcp::socket socket_;
-
-	public:
-		connection_basic(boost::asio::io_service& io_service, i_connection_filter* &pfilter);
-		virtual ~connection_basic();
-
-		void do_send_handler_start(const void * ptr , size_t cb);
-		void do_send_handler_delayed(const void * ptr , size_t cb);
-		void do_send_handler_write(const void * ptr , size_t cb);
-		void do_send_handler_stop(const void * ptr , size_t cb);
-		void do_send_handler_after_write( const boost::system::error_code& e, size_t cb ); // from handle_write
-		void do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb ); // from handle_write, sending next part
-  	void do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred); // from read, after read completion
-
-		static void set_rate_up_limit(uint64_t limit);
-		static void set_rate_down_limit(uint64_t limit);
-		static void set_rate_limit(uint64_t limit);
-		static void set_rate_autodetect(uint64_t limit);
-		static void set_tos_flag(int tos);
-};
 
   /************************************************************************/
   template<class t_protocol_handler>

@@ -2,6 +2,9 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+// (may contain code and/or modifications by other developers)
+// developer rfree: this code is caller of our new network code, and is modded; e.g. for rate limiting
+
 #include <boost/interprocess/detail/atomic.hpp>
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"

@@ -1,3 +1,35 @@
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+/*
+ * rfree: This is the place to implement our new handlers that will be called from son the full templates class.
+ * rfree: I use this in e.g. rate limiting code.
+ */
 
 #include <boost/asio.hpp>
 #include <string>
@@ -42,7 +74,6 @@
 #include "../../src/cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "../../src/epee/network_throttle.h"
 
-/* implementation for the non-template base, for the connection<> template class */
 
 
 // ################################################################################################
@@ -55,7 +86,7 @@
 
 namespace cryptonote {
 
-class cryptonote_protocol_handler_base_pimpl { 
+class cryptonote_protocol_handler_base_pimpl { // placeholer if needed
 	public:
 
 };
@@ -81,11 +112,6 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	size_t est_req_size=0; //  how much data are we now requesting (to be soon send to us)
 
 	const auto count_limit_default = count_limit;
-
-	//auto default_count_limit = count_limit;
-
-	network_throttle_manager::xxx = 3;
-
 
 	bool allowed_now = false; // are we now allowed to request or are we limited still
 
@@ -114,10 +140,15 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 			size_limit /= (estimated_peers / estimated_peers) * knob;
 			LOG_PRINT_RED("calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit , LOG_LEVEL_0);
 
-			count_limit = size_limit / one_block_estimated_size;
-			count_limit = std::min(count_limit_default, count_limit);
-			const size_t count_limit_my = 10; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
-			count_limit = std::min(count_limit_my, count_limit);
+			double L = L / one_block_estimated_size; // calculating item limit (some heuristics)
+			L = L/10. + std::log(L)*5;
+			L = std::min( (double)count_limit_default, (double)L);
+
+			const size_t hard_limit = 50; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
+
+			L = std::min(L, hard_limit);
+
+			count_limit = (int)L;
 
 			est_req_size = count_limit * one_block_estimated_size ; // how much data did we just requested?
 		}
@@ -133,6 +164,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 		network_throttle_manager::get_global_throttle_inreq().handle_trafic_tcp( est_req_size ); // increase countere of the global requested input
 	}
 
+	// TODO remove debug
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);	

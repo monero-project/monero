@@ -1,19 +1,79 @@
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-/* implementation for the non-template base, for the connection<> template class */
+/* rfree: implementation for the non-template base, can be used by connection<> template class in abstract_tcp_server2 file  */
 
-#include "abstract_tcp_server2-connection_core.precompile.hpp"
-// TODO precompile is not working well yet
+#include <boost/asio.hpp>
+#include <string>
+#include <vector>
+#include <boost/noncopyable.hpp>
+#include <boost/shared_ptr.hpp>
+#include <atomic>
+
+#include <boost/asio.hpp>
+#include <boost/array.hpp>
+#include <boost/noncopyable.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/interprocess/detail/atomic.hpp>
+#include <boost/thread/thread.hpp>
+
+#include <memory>
+
+#include "syncobj.h"
+
+#include "../../contrib/epee/include/net/net_utils_base.h" 
+#include "../../contrib/epee/include/misc_log_ex.h" 
+#include <boost/lambda/bind.hpp>
+#include <boost/foreach.hpp>
+#include <boost/lambda/lambda.hpp>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/chrono.hpp>
+#include <boost/utility/value_init.hpp>
+#include <boost/asio/deadline_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/thread.hpp> 
+#include "misc_language.h"
+#include "pragma_comp_defs.h"
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
 
 
+#include <boost/asio/basic_socket.hpp>
+#include <boost/asio/ip/unicast.hpp>
+#include "../../contrib/epee/include/net/abstract_tcp_server2.h"
+
+// TODO:
 #include "../../src/epee/network_throttle-advanced.h"
 
-
 // ################################################################################################
-// ################################################################################################
-// the "header part". Not separeted out for .hpp because point of this modification is 
-// to rebuild just 1 translation unit while working on this code.
-// (But maybe common parts will be separated out later though - if needed)
-// ################################################################################################
+// local (TU local) headers
 // ################################################################################################
 
 namespace epee
@@ -40,15 +100,8 @@ class connection_basic_pimpl {
 } // namespace
 } // namespace
 
-
-
-
-
-
-// ################################################################################################
 // ################################################################################################
 // The implementation part
-// ################################################################################################
 // ################################################################################################
 
 namespace epee
