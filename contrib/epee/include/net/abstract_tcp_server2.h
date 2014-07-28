@@ -26,8 +26,8 @@
 
 
 
-#ifndef  _ABSTRACT_TCP_SERVER2_H_ 
-#define _ABSTRACT_TCP_SERVER2_H_ 
+#ifndef _ABSTRACT_TCP_SERVER2_H_
+#define _ABSTRACT_TCP_SERVER2_H_
 
 
 #include <boost/asio.hpp>

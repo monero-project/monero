@@ -26,7 +26,7 @@
 
 
 
-#include "net_utils_base.h"
+// #include "net_utils_base.h"
 #include <boost/lambda/bind.hpp>
 #include <boost/foreach.hpp>
 #include <boost/lambda/lambda.hpp>
@@ -63,7 +63,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter* &pfilter)
                           : connection_basic(io_service), 
                             m_ref_sockets_count(sock_count), 
-                            m_protocol_handler(this, config, context)
+                            m_protocol_handler(this, config, context),
+														m_pfilter( pfilter )
   {
     boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count);
   }

@@ -72,7 +72,7 @@
 #include <boost/asio/ip/unicast.hpp>
 
 #include "../../src/cryptonote_protocol/cryptonote_protocol_handler.h"
-#include "../../src/epee/network_throttle.h"
+#include "../../src/p2p/network_throttle.hpp"
 
 
 
@@ -91,7 +91,7 @@ class cryptonote_protocol_handler_base_pimpl { // placeholer if needed
 
 };
 
-}
+} // namespace
 
 // ################################################################################################
 // ################################################################################################
@@ -146,7 +146,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 
 			const size_t hard_limit = 50; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
 
-			L = std::min(L, hard_limit);
+			L = std::min(L, (double) hard_limit);
 
 			count_limit = (int)L;
 
@@ -179,6 +179,6 @@ void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<
 	// TODO
 }
 
-}
+} // namespace
 
 

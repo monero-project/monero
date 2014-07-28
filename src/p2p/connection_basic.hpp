@@ -111,6 +111,8 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		static void set_tos_flag(int tos); // ToS / QoS flag
 };
 
+} // nameserver
+} // nameserver
 
 #endif
 

@@ -70,7 +70,7 @@
 #include "../../contrib/epee/include/net/abstract_tcp_server2.h"
 
 // TODO:
-#include "../../src/epee/network_throttle-advanced.h"
+#include "../../src/p2p/network_throttle-detail.hpp"
 
 // ################################################################################################
 // ################################################################################################
@@ -119,12 +119,6 @@ namespace epee
 {
 namespace net_utils
 {
-
-// ================================================================================================
-// connection_basic_pimpl
-// ================================================================================================
-	
-connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name) { }
 
 // ================================================================================================
 // network_throttle
@@ -323,125 +317,6 @@ size_t network_throttle::get_recommended_size_of_planned_transport() const {
 	return Rmin;
 }
 
-// ================================================================================================
-// connection_basic
-// ================================================================================================
-
-// static variables:
-int connection_basic_pimpl::m_default_tos;
-
-// methods:
-connection_basic::connection_basic(boost::asio::io_service& io_service, i_connection_filter* &pfilter)
-	: 
-	mI(new connection_basic_pimpl("peer") ),
-	strand_(io_service),
-	socket_(io_service),
-	m_want_close_connection(0), 
-	m_was_shutdown(0), 
-	m_pfilter(pfilter)
-{ 
-	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
-	option.level(IPPROTO_IP);
-	option.name(IP_TOS);
-	option.value(&tos);
-	option.size = sizeof(tos);
-	socket_.set_option(option);*/
-	// TODO socket options
-}
-
-connection_basic::~connection_basic() {
-}
-
-
-void connection_basic::set_rate_up_limit(uint64_t limit) {
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-		network_throttle_manager::get_global_throttle_out().set_target_speed(limit);
-	}
-	//	connection_basic_pimpl::m_throttle_global.m_out.set_target_speed(limit);
-}
-
-void connection_basic::set_rate_down_limit(uint64_t limit) {
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
-		network_throttle_manager::get_global_throttle_in().set_target_speed(limit);
-	}
-
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_inreq );
-		network_throttle_manager::get_global_throttle_inreq().set_target_speed(limit);
-	}
-}
-
-void connection_basic::set_rate_limit(uint64_t limit) {
-	// TODO
-}
-
-void connection_basic::set_rate_autodetect(uint64_t limit) {
-	// TODO
-	LOG_PRINT_L0("inside connection_basic we set autodetect (this is additional notification)..");
-}
- 
-void connection_basic::set_tos_flag(int tos) {
-	connection_basic_pimpl::m_default_tos = tos;
-}
-
-void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase) {
-// XXX LATER XXX
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-		network_throttle_manager::get_global_throttle_out().handle_trafic_tcp( packet_size ); // increase counter - global
-
-		//epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
-		//m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
-	}
-
-	double delay=0; // will be calculated
-	do
-	{ // rate limiting
-		{ 
-	  	CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-			delay = network_throttle_manager::get_global_throttle_out().get_sleep_time_after_tick( 0 ); // decission from global
-			// epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical ***
-			// delay = m_throttle_global.m_out.get_sleep_time_after_tick( 0 ); // decission from global
-		}
-
-		if (delay > 0) { boost::this_thread::sleep(boost::posix_time::milliseconds( (int)(delay * 1000) ));	}
-	} while(delay > 0);
-}
-
-void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
-	mI->sleep_before_packet(cb,1);
-}
-
-void connection_basic::do_send_handler_delayed(const void* ptr , size_t cb ) {
-}
-
-void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
-}
-
-void connection_basic::do_send_handler_stop(const void* ptr , size_t cb ) {
-}
-
-void connection_basic::do_send_handler_after_write( const boost::system::error_code& e, size_t cb ) {
-	// dela = end-start;
-
-}
-
-void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb ) {
-	// start_time = now();
-	mI->sleep_before_packet(cb,2);
-}
-
-void connection_basic::do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred) { // from read, after read completion
-	const size_t packet_size = bytes_transferred;
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
-		network_throttle_manager::get_global_throttle_in().handle_trafic_tcp( packet_size ); // increase counter - global
-		// epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
-		// mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
-	}
-}
 
 } // namespace
 } // namespace

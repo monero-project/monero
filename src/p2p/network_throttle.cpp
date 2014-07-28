@@ -29,7 +29,7 @@
 
 /* rfree: throttle basic interface and manager */
 
-#include "../../src/i2p/network_throttle-advanced.h"
+#include "../../src/p2p/network_throttle-detail.hpp"
 
 namespace epee
 {
