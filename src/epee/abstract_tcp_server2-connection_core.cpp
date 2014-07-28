@@ -99,7 +99,7 @@ void network_throttle::set_target_speed( network_speed_kbps target )
 			
 void network_throttle::tick()
 {
-	double time_now = my_time_seconds();
+	double time_now = get_time_seconds();
 	if (!m_any_packet_yet) m_start_time = time_now; // starting now
 
 	network_time_seconds current_sample_time_slot = time_to_slot( time_now ); // T=13.7 --> 13  (for 1-second smallwindow)
@@ -180,7 +180,7 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 	network_time_seconds window_len = (the_window_size-1) * m_slot_size ; // -1 since current slot is not finished
 	window_len += (m_last_sample_time - time_to_slot(m_last_sample_time));  // add the time for current slot e.g. 13.7-13 = 0.7
 
-	auto time_passed = my_time_seconds() - m_start_time;
+	auto time_passed = get_time_seconds() - m_start_time;
 	W = std::max( std::min( window_len , time_passed ) , m_slot_size )  ; // window length resulting from size of history but limited by how long ago history was started,
 	// also at least slot size (e.g. 1 second) to not be ridiculous
 	// window_len e.g. 5.7 because takes into account current slot time
@@ -233,7 +233,7 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 	}
 }
 
-double network_throttle::my_time_seconds() {
+double network_throttle::get_time_seconds() const {
 	using namespace boost::chrono;
 	auto point = steady_clock::now();
 	auto time_from_epoh = point.time_since_epoch();

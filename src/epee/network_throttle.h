@@ -112,6 +112,8 @@ class i_network_throttle {
 		virtual network_time_seconds get_sleep_time_after_tick(size_t packet_size) =0; // ditto, but first tick the timer
 
 		virtual size_t get_recommended_size_of_planned_transport() const =0; // what should be the recommended limit of data size that we can transport over current network_throttle in near future
+
+		virtual double get_time_seconds() const =0; // a timer
 };
 
 

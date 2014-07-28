@@ -50,12 +50,13 @@ class network_throttle : public i_network_throttle {
 		virtual void handle_congestion(double overheat); // call this when congestion is detected; see example use
 		virtual void tick(); // poke and update timers/history
 		
+
+		virtual double get_time_seconds() const ; // a timer
+
 		// time calculations:
 		virtual void calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const; // (see base class for info)
 		virtual network_time_seconds get_sleep_time(size_t packet_size) const; // gets the D (recommended Delay time) from calc
 		virtual network_time_seconds get_sleep_time_after_tick(size_t packet_size); // ditto, but first tick the timer
-
-		static double my_time_seconds(); // a timer
 
 		virtual size_t get_recommended_size_of_planned_transport() const; 
 		virtual size_t get_recommended_size_of_planned_transport_window(double force_window) const; 
