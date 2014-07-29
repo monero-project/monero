@@ -11,6 +11,12 @@
 namespace cryptonote
 {
 
+
+// static 
+// template<class t_core>	std::ofstream  t_cryptonote_protocol_handler<t_core>::m_logreq("logreq.txt"); // static
+
+
+
   //-----------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
     t_cryptonote_protocol_handler<t_core>::t_cryptonote_protocol_handler(t_core& rcore, nodetool::i_p2p_endpoint<connection_context>* p_net_layout):m_core(rcore), 
@@ -540,4 +546,17 @@ namespace cryptonote
   {
     return relay_post_notify<NOTIFY_NEW_TRANSACTIONS>(arg, exclude_context);
   }
-}
+
+  template<class t_core> std::ofstream& t_cryptonote_protocol_handler<t_core>::get_logreq() const { 
+		static std::ofstream * logreq=NULL;
+		if (!logreq) {
+			LOG_PRINT_RED("LOG OPENED",LOG_LEVEL_0);
+			logreq = new std::ofstream("logreq.txt"); // leak mem (singleton)
+			*logreq << "Opened log" << std::endl;
+		}
+		LOG_PRINT_YELLOW("LOG USED",LOG_LEVEL_0);
+		(*logreq) << "log used" << std::endl;
+		return *logreq;
+	}
+
+} // namespace

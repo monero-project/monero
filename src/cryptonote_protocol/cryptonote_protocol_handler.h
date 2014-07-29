@@ -32,7 +32,8 @@ namespace cryptonote
 			void handler_request_blocks_history(std::list<crypto::hash>& ids); // before asking for list of objects, we can change the list still
 			
 			virtual double get_avg_block_size(size_t from_height, size_t count) const = 0;
-			
+
+			virtual std::ofstream& get_logreq() const =0;
 	};
 
   template<class t_core>
@@ -92,6 +93,8 @@ namespace cryptonote
     nodetool::i_p2p_endpoint<connection_context>* m_p2p;
     std::atomic<uint32_t> m_syncronized_connections_count;
     std::atomic<bool> m_synchronized;
+
+		// static std::ofstream m_logreq;
     
     double get_avg_block_size(size_t from_height, size_t count) const;
 
@@ -112,8 +115,11 @@ namespace cryptonote
         epee::serialization::store_t_to_binary(arg, arg_buff);
         return m_p2p->relay_notify_to_all(t_parametr::ID, arg_buff, exlude_context);
       }
+
+			virtual std::ofstream& get_logreq() const ;
   };
-}
+
+} // namespace
 
 
 #include "cryptonote_protocol_handler.inl"

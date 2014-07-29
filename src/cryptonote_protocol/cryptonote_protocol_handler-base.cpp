@@ -120,7 +120,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	while (!allowed_now) {
 
 		{
-			size_t size_limit1=0, size_limit2=0;
+			long int size_limit1=0, size_limit2=0;
 			LOG_PRINT_RED("calculating REQUEST size:", LOG_LEVEL_0);
 			{
 				CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
@@ -132,21 +132,25 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 				network_throttle_manager::get_global_throttle_inreq().tick();
 				size_limit2 = network_throttle_manager::get_global_throttle_inreq().get_recommended_size_of_planned_transport();
 			}
-			size_t one_block_estimated_size = 8000; // TODO estimate better
+			long int one_block_estimated_size = 8000; // TODO estimate better
 
-			size_t limit_small = std::min( size_limit1 , size_limit2 );
-			size_t size_limit = limit_small/3 + size_limit1/3 + size_limit2/3;
+			long int limit_small = std::min( size_limit1 , size_limit2 );
+			long int size_limit = limit_small/3 + size_limit1/3 + size_limit2/3;
 			if (limit_small <= 0) size_limit = 0;
 			const double estimated_peers = 1.2; // how many peers/threads we want to talk to, in order to not grab entire b/w by 1 thread
 			const double knob = 1.000;
 			size_limit /= (estimated_peers / estimated_peers) * knob;
 			LOG_PRINT_RED("calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit , LOG_LEVEL_0);
 
-			double L = L / one_block_estimated_size; // calculating item limit (some heuristics)
-			L = L/10. + std::log(L)*5;
+			double L = size_limit / one_block_estimated_size; // calculating item limit (some heuristics)
+			LOG_PRINT_RED("L1 = " << L , LOG_LEVEL_0);
+			//double L2=0; if (L>1) L2=std::log(L);
+			//L = L/10. + L2*5;
+			LOG_PRINT_RED("L2 = " << L , LOG_LEVEL_0);
 			L = std::min( (double)count_limit_default, (double)L);
+			LOG_PRINT_RED("L3 = " << L , LOG_LEVEL_0);
 
-			const size_t hard_limit = 50; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
+			const long int hard_limit = 50; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
 
 			L = std::min(L, (double) hard_limit);
 
@@ -169,7 +173,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	// TODO remove debug
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
-	LOG_PRINT_RED("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);	
+	LOG_PRINT_RED("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);
+	get_logreq() << "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b " << std::endl;
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
 }
