@@ -30,6 +30,9 @@ namespace cryptonote
 			virtual ~cryptonote_protocol_handler_base();
 			void handler_request_blocks_now(size_t & count_limit); // before asking for blocks, can adjust the limit of download
 			void handler_request_blocks_history(std::list<crypto::hash>& ids); // before asking for list of objects, we can change the list still
+			
+			virtual double get_avg_block_size(size_t from_height, size_t count) const = 0;
+			
 	};
 
   template<class t_core>
@@ -89,6 +92,8 @@ namespace cryptonote
     nodetool::i_p2p_endpoint<connection_context>* m_p2p;
     std::atomic<uint32_t> m_syncronized_connections_count;
     std::atomic<bool> m_synchronized;
+    
+    double get_avg_block_size(size_t from_height, size_t count) const;
 
     template<class t_parametr>
       bool post_notify(typename t_parametr::request& arg, cryptonote_connection_context& context)

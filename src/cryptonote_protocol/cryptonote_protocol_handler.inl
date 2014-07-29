@@ -244,7 +244,26 @@ namespace cryptonote
     return 1;
   }
 
-  //------------------------------------------------------------------------------------------------------------------------
+  
+  template<class t_core>
+  double t_cryptonote_protocol_handler<t_core>::get_avg_block_size(size_t from_height, size_t count) const {
+
+	double average = 0;
+	std::vector<size_t> size_vector;	
+	m_core.get_backward_blocks_sizes(from_height, size_vector, count);
+	
+	std::vector<size_t>::iterator it;
+	it = size_vector.begin();
+	while(it != size_vector.end()) {
+		average += *it;
+		it++;
+	}	
+	average /= count;
+	
+	return average;
+  }
+
+  
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_response_get_objects(int command, NOTIFY_RESPONSE_GET_OBJECTS::request& arg, cryptonote_connection_context& context)
   {

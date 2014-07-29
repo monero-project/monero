@@ -115,6 +115,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 
 	bool allowed_now = false; // are we now allowed to request or are we limited still
 
+	//get_avg_block_size(10, 3);//test
+
 	while (!allowed_now) {
 
 		{
