@@ -145,7 +145,7 @@ class i_network_throttle {
 		virtual size_t get_recommended_size_of_planned_transport() const =0; // what should be the recommended limit of data size that we can transport over current network_throttle in near future
 
 		virtual double get_time_seconds() const =0; // a timer
-		virtual void update_overheat() =0;
+		virtual double get_current_overheat() const =0;
 		virtual void set_overheat(double lag) =0;
 };
 
