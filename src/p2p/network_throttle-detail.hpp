@@ -84,6 +84,8 @@ class network_throttle : public i_network_throttle {
 		
 
 		virtual double get_time_seconds() const ; // a timer
+		virtual void set_overheat();
+		virtual void update_overheat(double lag);
 
 		// time calculations:
 		virtual void calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const; // (see base class for info)

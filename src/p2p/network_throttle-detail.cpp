@@ -221,6 +221,21 @@ network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const
 	calculate_times(packet_size, A,W,D,R, true, 5);               Dmax=std::max(D,Dmax);
 	return D;
 }
+void network_throttle::update_overheat() {
+ 	auto now = get_time_seconds();
+ 	auto diff = now - m_overheat_time;
+ 	m_overheat -= diff;
+ 	m_overheat = std::max(m_overheat, 0.);
+ 	m_overheat_time = now;
+
+ 	LOG_PRINT_L0("No lag, actual overheat: " << m_overheat << ", diff: " << diff);
+}
+
+void network_throttle::set_overheat(double lag) {
+  	m_overheat += lag;
+  	m_overheat_time = get_time_seconds();
+  	LOG_PRINT_L0("Lag: " << lag << ", overheat: " << m_overheat );
+}
 
 void network_throttle::calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const 
 {
@@ -251,8 +266,8 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 	const double D1 = (Epast - M*W) / M; // delay - how long to sleep to get back to target speed
 	const double D2 = (Enow  - M*W) / M; // delay - how long to sleep to get back to target speed (including current packet)
 
-	D = (D1*0.75 + D2*0.25); // finall sleep depends on both with/without current packet
-
+	D = (D1*0.75 + D2*0.25) + m_overheat; // finall sleep depends on both with/without current packet
+	update_overheat();
 	A = Epast/W; // current avg. speed (for info)
 
 	double Wgood=-1;
@@ -278,6 +293,8 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 			<< "Max=" << std::setw(8) <<M<<" "
 			<< " so sleep: "
 			<< "D=" << std::setw(8) <<D<<" sec "
+			<< "Overheat=" << std::setw(8) <<m_overheat<<" sec "
+			<< "Overheat time=" << std::setw(8) <<m_overheat_time<<" sec "
 //			<< "D1=" << std::setw(8) <<D1<<" "
 //			<< "D2=" << std::setw(8) <<D2<<" "
 			<< "E="<< std::setw(8) << E << " "
