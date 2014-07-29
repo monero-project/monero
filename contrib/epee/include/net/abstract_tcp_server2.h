@@ -50,7 +50,7 @@
 #include "net_utils_base.h"
 #include "syncobj.h"
 
-#include "../../src/p2p/connection_basic.hpp"
+#include "../../../../src/p2p/connection_basic.hpp"
 
 #define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 100
 
