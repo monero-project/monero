@@ -177,6 +177,10 @@ void connection_basic::set_tos_flag(int tos) {
 	connection_basic_pimpl::m_default_tos = tos;
 }
 
+int connection_basic::get_tos_flag() {
+	return connection_basic_pimpl::m_default_tos;
+}
+
 void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase) {
 // XXX LATER XXX
 	{

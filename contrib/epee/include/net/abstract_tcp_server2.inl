@@ -145,6 +145,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred)));
 
+	//set ToS flag
+	int tos = get_tos_flag();
+	boost::asio::detail::socket_option::integer< IPPROTO_IP, IP_TOS >
+	optionTos( tos );
+	socket_.set_option( optionTos );
+	LOG_PRINT_L0("Set ToS flag to " << tos);
+
     return true;
 
     CATCH_ENTRY_L0("connection<t_protocol_handler>::start()", false);

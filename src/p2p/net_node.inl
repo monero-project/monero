@@ -42,6 +42,8 @@ namespace nodetool
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate", 128};
   	const command_line::arg_descriptor<uint64_t>    arg_limit_auto      	= {"limit-auto", "set auto limit-rate", 128};
   	const command_line::arg_descriptor<uint64_t>    arg_limit_peer      	= {"limit-peer", "set auto limit-peer", 10};
+  	
+  	const command_line::arg_descriptor<int>    arg_tos_flag      		= {"tos-flag", "set TOS flag", 0};
   }
 
   //-----------------------------------------------------------------------------------
@@ -61,7 +63,8 @@ namespace nodetool
   	command_line::add_arg(desc, arg_limit_rate_down);
   	command_line::add_arg(desc, arg_limit_rate);   
   	command_line::add_arg(desc, arg_limit_auto);
-  	command_line::add_arg(desc, arg_limit_peer);    }
+  	command_line::add_arg(desc, arg_limit_peer);
+  	command_line::add_arg(desc, arg_tos_flag);    }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -149,6 +152,9 @@ namespace nodetool
 			return false;
 			
 		if (!set_limit_peer(vm, command_line::get_arg(vm, arg_limit_peer) ) )
+			return false;
+			
+		if ( !set_tos_flag(vm, command_line::get_arg(vm, arg_tos_flag) ) )
 			return false;
 			
 			
@@ -1221,6 +1227,15 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
 		this->thrds_count=limit;
+		return true;
+	}
+	
+	  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_tos_flag(const boost::program_options::variables_map& vm, int flag)
+	{
+		/************************************************************/
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_tos_flag(flag);
+		LOG_PRINT_L0("Set ToS flag  " << flag);
 		return true;
 	}
   template<class t_payload_net_handler>int node_server<t_payload_net_handler>:: thrds_count= 0;

@@ -160,6 +160,7 @@ namespace nodetool
   	bool set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit);
 
+	bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
   	//debug functions
     std::string print_connections_container();
 
