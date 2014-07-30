@@ -31,9 +31,8 @@ namespace cryptonote
 			void handler_request_blocks_now(size_t & count_limit); // before asking for blocks, can adjust the limit of download
 			void handler_request_blocks_history(std::list<crypto::hash>& ids); // before asking for list of objects, we can change the list still
 			
+			virtual double get_avg_block_size( size_t count) const = 0;
 			virtual double estimate_one_block_size() noexcept; // for estimating size of blocks to download
-
-			virtual double get_avg_block_size(size_t count) const = 0;
 
 			virtual std::ofstream& get_logreq() const =0;
 	};

@@ -65,6 +65,8 @@
 #include <algorithm>
 #include "gnuplot_i.hpp"
 
+
+
 #include <boost/asio/basic_socket.hpp>
 #include <boost/asio/ip/unicast.hpp>
 #include "../../contrib/epee/include/net/abstract_tcp_server2.h"
@@ -124,8 +126,7 @@ namespace net_utils
 // network_throttle
 // ================================================================================================
 
-network_throttle::~network_throttle() {
-	save_history_to_graph(); }
+network_throttle::~network_throttle() { }
 
 network_throttle::packet_info::packet_info() 
 	: m_size(0)
@@ -144,7 +145,28 @@ network_throttle::network_throttle(const std::string &name, int window_size)
 	m_slot_size = 1.0; // hard coded in few places
 	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
 	m_target_MB = 0;
+
 }
+void network_throttle::save_history_to_graph() {
+       std::vector<int> x, y;
+       int counter=0;
+       for (std::vector<packet_info>::iterator it = m_history.begin() ; it !=m_history.end(); ++it) {
+               x.push_back(counter);
+               size_t i=it->m_size;
+               y.push_back((int)i);
+               counter++;
+       }
+       try {
+               Gnuplot g1("test");
+              g1.set_grid();
+               g1.savetops("history_graph");
+               g1.set_style("lines").plot_xy(x,y,"test1");
+       }
+       catch (GnuplotException ge) {
+      std::cout << ge.what() << std::endl;
+  }
+}
+
 
 void network_throttle::set_name(const std::string &name) 
 {
@@ -156,10 +178,11 @@ void network_throttle::set_target_speed( network_speed_kbps target )
 	m_target_speed = target;
 }
 
-void network_throttle::set_target_kill( network_MB target ) 
+void network_throttle::set_target_kill( network_MB target )
 {
-	m_target_MB = target;
+       m_target_MB = target;
 }
+
 			
 void network_throttle::tick()
 {
@@ -241,25 +264,6 @@ void network_throttle::set_overheat(double lag) {
   	m_overheat_time = get_time_seconds();
   	LOG_PRINT_L0("Lag: " << lag << ", overheat: " << m_overheat );
 }
-void network_throttle::save_history_to_graph() {
-	std::vector<int> x, y;
-	int counter=0;
-	for (std::vector<packet_info>::iterator it = m_history.begin() ; it !=m_history.end(); ++it) {
-		x.push_back(counter);
-		size_t i=it->m_size;
-		y.push_back((int)i);
-		counter++;
-	}
-	try {
-		Gnuplot g1("test");
-		g1.set_grid();
-		g1.savetops("history_graph");
-		g1.set_style("lines").plot_xy(x,y,"test1");
-	}
-	catch (GnuplotException ge) {
-      std::cout << ge.what() << std::endl;
-  }
-}
 
 void network_throttle::calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const 
 {
@@ -284,12 +288,13 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 	size_t Epast = 0; // summ of traffic till now
 	for (auto sample : m_history) Epast += sample.m_size; 
 	const double MB= m_target_MB;
-	if(Epast>MB && MB>0) {
-		Epast=MB;
-	}
+       if(Epast>MB && MB>0) {
+               Epast=MB;
+       }
+
 	const size_t E = Epast;
 	const size_t Enow = Epast + packet_size ; // including the data we're about to send now
-	
+
 	const double M = m_target_speed; // max
 	const double D1 = (Epast - M*W) / M; // delay - how long to sleep to get back to target speed
 	const double D2 = (Enow  - M*W) / M; // delay - how long to sleep to get back to target speed (including current packet)
@@ -359,7 +364,6 @@ size_t network_throttle::get_recommended_size_of_planned_transport() const {
 	Rmin = std::min( get_recommended_size_of_planned_transport_window( 8              ) , Rmin );
 	return Rmin;
 }
-
 
 
 } // namespace

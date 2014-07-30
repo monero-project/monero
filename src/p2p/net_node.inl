@@ -44,8 +44,8 @@ namespace nodetool
   	const command_line::arg_descriptor<uint64_t>    arg_limit_peer      	= {"limit-peer", "set auto limit-peer", 10};
   	
   	const command_line::arg_descriptor<int>    arg_tos_flag      		= {"tos-flag", "set TOS flag", 0};
-  	
-  	const command_line::arg_descriptor<uint64_t>    arg_total_limit      	= {"kill-net", "set sending and receiving MB limit", 0};
+	const command_line::arg_descriptor<uint64_t>    arg_total_limit         = {"kill-net", "set sending and receiving MB limit", 0};
+
   }
 
   //-----------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ namespace nodetool
   	command_line::add_arg(desc, arg_limit_auto);
   	command_line::add_arg(desc, arg_limit_peer);
   	command_line::add_arg(desc, arg_tos_flag);
-  	command_line::add_arg(desc, arg_total_limit);    }
+  	command_line::add_arg(desc, arg_total_limit);     }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -161,7 +161,8 @@ namespace nodetool
 			return false;
 			
 		if ( !set_kill_limit(vm, command_line::get_arg(vm, arg_total_limit) ) )
-			return false;
+                       return false;
+
 			
     if(command_line::has_arg(vm, arg_p2p_add_exclusive_node))
     {
@@ -624,10 +625,13 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::make_new_connection_from_peerlist(bool use_white_list)
   {
 	if(!limit_peer) limit_peer=3;
+
     size_t local_peers_count = use_white_list ? m_peerlist.get_white_peers_count():m_peerlist.get_gray_peers_count();
     if(!local_peers_count)
       return false;//no peers
+
     size_t max_random_index = std::min<uint64_t>(local_peers_count -1, limit_peer-1);
+
 
     std::set<size_t> tried_peers;
 
@@ -635,9 +639,10 @@ namespace nodetool
     size_t rand_count = 0;
     
     while(rand_count < (max_random_index) )
-    {
-     while(try_count < 10 && !m_net_server.is_stop_signal_sent())
      {
+	while(try_count < 10 && !m_net_server.is_stop_signal_sent())
+	  {
+
       ++rand_count;
       size_t random_index = get_random_index_with_fixed_probability(max_random_index);
       CHECK_AND_ASSERT_MES(random_index < local_peers_count, false, "random_starter_index < peers_local.size() failed!!");
@@ -664,7 +669,7 @@ namespace nodetool
         continue;
 
       return true;
-      }
+     }
     }
     return false;
   }
@@ -1203,53 +1208,32 @@ namespace nodetool
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit)
 	{
-	this->islimitup=true;
-	if(limit==-1) {
-	limit=128;
-	this->islimitup=false;
-	}
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
 		LOG_PRINT_L0("Set limit-up to " << limit << " B/s");
 		return true;
 	}
 	
   template<class t_payload_net_handler>
-	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit)
+	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-	this->islimitdown=true;
-	if(limit==-1) {
-	limit=128;
-	this->islimitdown=false;
-	}
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
-		LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
-		return true;
-	}
-	
- template<class t_payload_net_handler>
-	bool node_server<t_payload_net_handler>::set_kill_limit(const boost::program_options::variables_map& vm, int64_t limit)
-	{
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_kill_limit( limit );
 		LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
 		return true;
 	}
 
   template<class t_payload_net_handler>
-	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit)
+	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-		if(this->islimitdown==false && this->islimitup==false) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
-			LOG_PRINT_L0("Set limit to " << limit << " B/s");
-		}
-		else if(this->islimitup==false && this->islimitdown==true) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
-			LOG_PRINT_L0("Set limit-up to " << limit << " B/s");
-		}
-		else if(this->islimitdown==false && this->islimitup==true ) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
-			LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
-		}
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		LOG_PRINT_L0("Set limit to " << limit << " B/s");
+		return true;
+	}
+ template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_kill_limit(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_kill_limit( limit );
+		LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
 		return true;
 	}
 
@@ -1275,9 +1259,8 @@ namespace nodetool
 		LOG_PRINT_L0("Set ToS flag  " << flag);
 		return true;
 	}
-		
   template<class t_payload_net_handler>int node_server<t_payload_net_handler>:: thrds_count= 0;
-  	extern int limit_peer;
+   extern int limit_peer;
 }
 
 

@@ -252,13 +252,13 @@ namespace cryptonote
 
   
   template<class t_core>
-  double t_cryptonote_protocol_handler<t_core>::get_avg_block_size(size_t count) const {
+  double t_cryptonote_protocol_handler<t_core>::get_avg_block_size( size_t count) const {
 
 	double average = 0;
 	std::vector<size_t> size_vector;	
 	//m_core.get_backward_blocks_sizes(from_height, size_vector, count);
-	m_core.get_backward_blocks_sizes(m_core.get_current_blockchain_height(), size_vector, count);
-	
+    m_core.get_backward_blocks_sizes(m_core.get_current_blockchain_height(), size_vector, count);
+
 	std::vector<size_t>::iterator it;
 	it = size_vector.begin();
 	while(it != size_vector.end()) {
@@ -415,7 +415,6 @@ namespace cryptonote
   template<class t_core> 
   bool t_cryptonote_protocol_handler<t_core>::request_missing_objects(cryptonote_connection_context& context, bool check_having_blocks)
   {
-	
     if(context.m_needed_objects.size())
     {
       //we know objects that we need, request this objects

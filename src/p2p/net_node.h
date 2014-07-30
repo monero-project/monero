@@ -32,7 +32,6 @@ DISABLE_VS_WARNINGS(4355)
 namespace nodetool
 {
   int limit_peer=0;
-  
   template<class base_type>
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
@@ -160,15 +159,14 @@ namespace nodetool
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
-  	bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
-  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
-  	bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
+  	bool set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit);
-  	bool set_limit_thrds(const boost::program_options::variables_map& vm, uint64_t limit);
-  	bool set_kill_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
 	bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
+	bool set_kill_limit(const boost::program_options::variables_map& vm, uint64_t limit);
   	//debug functions
     std::string print_connections_container();
 
