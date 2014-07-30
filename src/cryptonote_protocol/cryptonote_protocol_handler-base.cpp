@@ -115,7 +115,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 
 	bool allowed_now = false; // are we now allowed to request or are we limited still
 
-	//get_avg_block_size(10, 3);//test
+	
+	//LOG_PRINT_RED("[DBG AVG BLOCK SIZE] " << get_avg_block_size(100), LOG_LEVEL_0);
 
 	while (!allowed_now) {
 
@@ -161,6 +162,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 
 		if (count_limit > 0) allowed_now = true;
 		if (!allowed_now) boost::this_thread::sleep(boost::posix_time::milliseconds( 2000 ) ); // TODO randomize sleeps
+		
+		LOG_PRINT_RED("[DBG AVG BLOCK SIZE] " << get_avg_block_size(100), LOG_LEVEL_0);
 	}
 	// done waiting&sleeping ^
 
