@@ -86,9 +86,8 @@
 
 namespace cryptonote {
 
-class cryptonote_protocol_handler_base_pimpl { // placeholer if needed
+class cryptonote_protocol_handler_base_pimpl { 
 	public:
-
 };
 
 } // namespace
@@ -100,6 +99,21 @@ class cryptonote_protocol_handler_base_pimpl { // placeholer if needed
 
 namespace cryptonote { 
 
+
+double cryptonote_protocol_handler_base::estimate_one_block_size() noexcept { // for estimating size of blocks to downloa
+	const double size_min = 500;
+	const int history_len = 20; // how many blocks to average over
+
+	double avg=0;
+	try {
+		avg = get_avg_block_size(history_len); 
+	} catch (...) { }
+	avg = std::max( size_min , avg);
+	return avg;
+}
+
+
+// ################################################################################################
 
 cryptonote_protocol_handler_base::cryptonote_protocol_handler_base() {
 }
@@ -133,7 +147,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 				network_throttle_manager::get_global_throttle_inreq().tick();
 				size_limit2 = network_throttle_manager::get_global_throttle_inreq().get_recommended_size_of_planned_transport();
 			}
-			long int one_block_estimated_size = 8000; // TODO estimate better
+
 
 			long int limit_small = std::min( size_limit1 , size_limit2 );
 			long int size_limit = limit_small/3 + size_limit1/3 + size_limit2/3;
@@ -141,8 +155,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 			const double estimated_peers = 1.2; // how many peers/threads we want to talk to, in order to not grab entire b/w by 1 thread
 			const double knob = 1.000;
 			size_limit /= (estimated_peers / estimated_peers) * knob;
-			LOG_PRINT_RED("calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit , LOG_LEVEL_0);
 
+			double one_block_estimated_size = estimate_one_block_size();
 			double L = size_limit / one_block_estimated_size; // calculating item limit (some heuristics)
 			LOG_PRINT_RED("L1 = " << L , LOG_LEVEL_0);
 			//double L2=0; if (L>1) L2=std::log(L);
@@ -158,10 +172,12 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 			count_limit = (int)L;
 
 			est_req_size = count_limit * one_block_estimated_size ; // how much data did we just requested?
+			LOG_PRINT_RED("calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit 
+				<< "L="<<L << " knob="<<knob<< " est.block="<<one_block_estimated_size  , LOG_LEVEL_0);
 		}
 
 		if (count_limit > 0) allowed_now = true;
-		if (!allowed_now) boost::this_thread::sleep(boost::posix_time::milliseconds( 2000 ) ); // TODO randomize sleeps
+		if (!allowed_now) boost::this_thread::sleep(boost::posix_time::milliseconds( 8000 ) ); // TODO randomize sleeps
 		
 		LOG_PRINT_RED("[DBG AVG BLOCK SIZE] " << get_avg_block_size(100), LOG_LEVEL_0);
 	}
