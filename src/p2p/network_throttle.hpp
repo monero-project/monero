@@ -82,6 +82,7 @@ namespace net_utils
 // just typedefs to in code define the units used. TODO later it will be enforced that casts to other numericals are only explicit to avoid mistakes? use boost::chrono?
 typedef double network_speed_kbps;
 typedef double network_time_seconds;
+typedef double network_MB;
 
 class i_network_throttle;
 

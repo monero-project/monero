@@ -150,7 +150,7 @@ network_throttle::network_throttle(const std::string &name, int window_size)
 void network_throttle::save_history_to_graph() {
        std::vector<int> x, y;
        int counter=0;
-       for (std::vector<packet_info>::iterator it = m_history.begin() ; it !=m_history.end(); ++it) {
+       for (std::vector<packet_info>::iterator it = this->m_history.begin() ; it !=this->m_history.end(); ++it) {
                x.push_back(counter);
                size_t i=it->m_size;
                y.push_back((int)i);
@@ -220,6 +220,7 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 {
 	double A=0, W=0, D=0, R=0;
 	tick();
+	save_history_to_graph() ;
 	calculate_times(packet_size, A,W,D,R, false,-1);
 	m_history[0].m_size += packet_size;
 	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
