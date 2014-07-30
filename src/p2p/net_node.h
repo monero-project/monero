@@ -31,6 +31,8 @@ DISABLE_VS_WARNINGS(4355)
 
 namespace nodetool
 {
+  int limit_peer=0;
+  
   template<class base_type>
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
@@ -79,8 +81,12 @@ namespace nodetool
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
   private:
-    typedef COMMAND_REQUEST_STAT_INFO_T<typename t_payload_net_handler::stat_info> COMMAND_REQUEST_STAT_INFO;
+	bool islimitup=false;
+    bool islimitdown=false;
 
+  
+    typedef COMMAND_REQUEST_STAT_INFO_T<typename t_payload_net_handler::stat_info> COMMAND_REQUEST_STAT_INFO;
+	
     CHAIN_LEVIN_INVOKE_MAP2(p2p_connection_context); //move levin_commands_handler interface invoke(...) callbacks into invoke map
     CHAIN_LEVIN_NOTIFY_MAP2(p2p_connection_context); //move levin_commands_handler interface notify(...) callbacks into nothing
 
@@ -154,11 +160,13 @@ namespace nodetool
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
-  	bool set_rate_up_limit(const boost::program_options::variables_map& vm, uint64_t limit);
-  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit);
-  	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
+  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
+  	bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
   	bool set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit);
   	bool set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_limit_thrds(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_kill_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
 	bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
   	//debug functions

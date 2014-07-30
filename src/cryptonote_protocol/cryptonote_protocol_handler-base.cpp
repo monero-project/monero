@@ -121,6 +121,7 @@ cryptonote_protocol_handler_base::cryptonote_protocol_handler_base() {
 cryptonote_protocol_handler_base::~cryptonote_protocol_handler_base() {
 }
 
+
 void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_limit) {
 	using namespace epee::net_utils;
 	size_t est_req_size=0; //  how much data are we now requesting (to be soon send to us)
@@ -190,13 +191,17 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	}
 
 	// TODO remove debug
+	
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);
 	get_logreq() << "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b " << std::endl;
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
+	
+
 }
+
 
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {
 	using namespace epee::net_utils;
@@ -204,7 +209,6 @@ void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<
 	LOG_PRINT_RED("RATE LIMIT NOT IMPLEMENTED HERE YET (download at unlimited speed?)" , LOG_LEVEL_0);
 	// TODO
 }
-
 } // namespace
 
 

@@ -98,7 +98,7 @@ namespace cryptonote
 
 		// static std::ofstream m_logreq;
     
-    double get_avg_block_size(size_t count) const;
+    double get_avg_block_size(size_t from_height, size_t count) const;
 
     template<class t_parametr>
       bool post_notify(typename t_parametr::request& arg, cryptonote_connection_context& context)

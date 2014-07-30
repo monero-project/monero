@@ -163,6 +163,22 @@ void connection_basic::set_rate_down_limit(uint64_t limit) {
 		network_throttle_manager::get_global_throttle_inreq().set_target_speed(limit);
 	}
 }
+void connection_basic::set_kill_limit (uint64_t limit) {
+	{
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
+		network_throttle_manager::get_global_throttle_in().set_target_kill(limit);
+	}
+	
+	{
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
+		network_throttle_manager::get_global_throttle_out().set_target_kill(limit);
+	}
+	
+	{
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_inreq );
+		network_throttle_manager::get_global_throttle_inreq().set_target_kill(limit);
+	}	
+}
 
 void connection_basic::set_rate_limit(uint64_t limit) {
 	// TODO

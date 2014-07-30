@@ -99,7 +99,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		void do_send_handler_stop(const void * ptr , size_t cb);
 		void do_send_handler_after_write( const boost::system::error_code& e, size_t cb ); // from handle_write
 		void do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb ); // from handle_write, sending next part
-  	void do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred); // from read, after read completion
+		void do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred); // from read, after read completion
 
   		void set_start_time();
 
@@ -108,6 +108,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		static void set_rate_down_limit(uint64_t limit);
 		static void set_rate_limit(uint64_t limit);
 		static void set_rate_autodetect(uint64_t limit);
+		static void set_kill_limit (uint64_t limit); 
 
 		// config misc
 		static void set_tos_flag(int tos); // ToS / QoS flag

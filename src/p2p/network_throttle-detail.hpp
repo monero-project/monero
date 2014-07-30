@@ -51,6 +51,7 @@ class network_throttle : public i_network_throttle {
 
 
 		network_speed_kbps m_target_speed;
+		network_MB m_target_MB;
 		size_t m_network_add_cost; // estimated add cost of headers 
 		size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
 		size_t m_network_max_segment; // recommended max size of 1 TCP transmission
@@ -75,6 +76,7 @@ class network_throttle : public i_network_throttle {
 		virtual ~network_throttle();
 		virtual void set_name(const std::string &name);
 		virtual void set_target_speed( network_speed_kbps target );
+		virtual void set_target_kill( network_MB target );
 		
 		// add information about events:
 		virtual void handle_trafic_exact(size_t packet_size); // count the new traffic/packet; the size is exact considering all network costs
@@ -86,6 +88,7 @@ class network_throttle : public i_network_throttle {
 		virtual double get_time_seconds() const ; // a timer
 		virtual void set_overheat(double lag);
 		virtual double get_current_overheat() const;
+		virtual void save_history_to_graph();
 
 		// time calculations:
 		virtual void calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const; // (see base class for info)
