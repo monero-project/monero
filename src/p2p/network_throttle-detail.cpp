@@ -163,7 +163,8 @@ void network_throttle::save_history_to_graph() {
                g1.set_style("lines").plot_xy(x,y,"test1");
        }
        catch (GnuplotException ge) {
-      std::cout << ge.what() << std::endl;
+      std::cout << "GNU PLOT PROBLEM: " << ge.what() << std::endl;
+			throw ge;
   }
 }
 
