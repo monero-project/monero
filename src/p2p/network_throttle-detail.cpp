@@ -164,7 +164,7 @@ void network_throttle::save_history_to_graph() {
        }
        catch (GnuplotException ge) {
       std::cout << "GNU PLOT PROBLEM: " << ge.what() << std::endl;
-			throw ge;
+			//throw ge;
   }
 }
 

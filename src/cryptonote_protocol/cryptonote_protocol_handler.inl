@@ -103,6 +103,9 @@ namespace cryptonote
   template<class t_core> 
   bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital)
   {
+	
+	LOG_PRINT_RED("[DBG]" << get_avg_block_size(1), LOG_LEVEL_0);
+  
     if(context.m_state == cryptonote_connection_context::state_befor_handshake && !is_inital)
       return true;
 
@@ -254,18 +257,27 @@ namespace cryptonote
   template<class t_core>
   double t_cryptonote_protocol_handler<t_core>::get_avg_block_size( size_t count) const {
 
+	if(count > m_core.get_current_blockchain_height())
+		return 0;
 	double average = 0;
+	LOG_PRINT_RED("[DBG] HEIGHT: " << m_core.get_current_blockchain_height(), LOG_LEVEL_0);
+	LOG_PRINT_RED("[DBG] BLOCK ID BY HEIGHT: " << m_core.get_block_id_by_height(m_core.get_current_blockchain_height()), LOG_LEVEL_0);
+	LOG_PRINT_RED("[DBG] BLOCK TAIL ID: " << m_core.get_tail_id(), LOG_LEVEL_0);
 	std::vector<size_t> size_vector;	
-	//m_core.get_backward_blocks_sizes(from_height, size_vector, count);
-    m_core.get_backward_blocks_sizes(m_core.get_current_blockchain_height(), size_vector, count);
+
+    m_core.get_backward_blocks_sizes(m_core.get_current_blockchain_height() - count, size_vector, count);
 
 	std::vector<size_t>::iterator it;
 	it = size_vector.begin();
 	while(it != size_vector.end()) {
 		average += *it;
+		LOG_PRINT_RED("[DBG] VECTOR ELEMENT: " << *it, LOG_LEVEL_0);
 		it++;
 	}	
-	average /= count;
+	
+	LOG_PRINT_RED("[DBG] VECTOR SIZE: " << size_vector.size(), LOG_LEVEL_0);
+	
+	average = average / count;
 	
 	return average;
   }

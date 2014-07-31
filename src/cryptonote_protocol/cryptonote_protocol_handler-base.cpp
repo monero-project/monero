@@ -126,10 +126,10 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 
 	bool allowed_now = false; // are we now allowed to request or are we limited still
 
-	//get_avg_block_size(10, 3);//test
 
 	while (!allowed_now) {
 
+			LOG_PRINT_RED("[DBG]" << get_avg_block_size(1), LOG_LEVEL_0);
 		{
 			long int size_limit1=0, size_limit2=0;
 			LOG_PRINT_RED("calculating REQUEST size:", LOG_LEVEL_0);
