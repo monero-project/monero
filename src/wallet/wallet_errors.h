@@ -1,6 +1,32 @@
-// Copyright (c) 2012-2013 The Cryptonote developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
@@ -203,7 +229,7 @@ namespace tools
     struct refresh_error : public wallet_logic_error
     {
     protected:
-      refresh_error(std::string&& loc, const std::string& message)
+      explicit refresh_error(std::string&& loc, const std::string& message)
         : wallet_logic_error(std::move(loc), message)
       {
       }
@@ -277,7 +303,7 @@ namespace tools
     struct transfer_error : public wallet_logic_error
     {
     protected:
-      transfer_error(std::string&& loc, const std::string& message)
+      explicit transfer_error(std::string&& loc, const std::string& message)
         : wallet_logic_error(std::move(loc), message)
       {
       }
@@ -287,7 +313,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct not_enough_money : public transfer_error
     {
-      not_enough_money(std::string&& loc, uint64_t availbable, uint64_t tx_amount, uint64_t fee)
+      explicit not_enough_money(std::string&& loc, uint64_t availbable, uint64_t tx_amount, uint64_t fee)
         : transfer_error(std::move(loc), "not enough money")
         , m_available(availbable)
         , m_tx_amount(tx_amount)
@@ -431,7 +457,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct tx_sum_overflow : public transfer_error
     {
-      tx_sum_overflow(std::string&& loc, const std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t fee)
+      explicit tx_sum_overflow(std::string&& loc, const std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t fee)
         : transfer_error(std::move(loc), "transaction sum + fee exceeds " + cryptonote::print_money(std::numeric_limits<uint64_t>::max()))
         , m_destinations(destinations)
         , m_fee(fee)
@@ -507,7 +533,7 @@ namespace tools
       }
 
     protected:
-      wallet_rpc_error(std::string&& loc, const std::string& message, const std::string& request)
+      explicit wallet_rpc_error(std::string&& loc, const std::string& message, const std::string& request)
         : wallet_logic_error(std::move(loc), message)
         , m_request(request)
       {

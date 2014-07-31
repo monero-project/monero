@@ -1,8 +1,36 @@
-// Copyright (c) 2012-2013 The Cryptonote developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <boost/interprocess/detail/atomic.hpp>
+#include <list>
+
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
 namespace cryptonote
@@ -89,6 +117,45 @@ namespace cryptonote
       return true;
     });
     LOG_PRINT_L0("Connections: " << ENDL << ss.str());
+  }
+  //------------------------------------------------------------------------------------------------------------------------   
+  // Returns a list of connection_info objects describing each open p2p connection
+  //------------------------------------------------------------------------------------------------------------------------   
+  template<class t_core>
+  std::list<connection_info> t_cryptonote_protocol_handler<t_core>::get_connections()
+  {
+    std::list<connection_info> connections;
+
+    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id)
+    {
+      connection_info cnx;
+      auto timestamp = time(NULL);
+
+      cnx.incoming = cntxt.m_is_income ? true : false;
+
+      cnx.ip = epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip);
+      cnx.port = std::to_string(cntxt.m_remote_port);
+
+      std::stringstream peer_id_str;
+      peer_id_str << std::hex << peer_id;
+      peer_id_str >> cnx.peer_id;
+
+      cnx.recv_count = cntxt.m_recv_cnt;
+      cnx.recv_idle_time = timestamp - cntxt.m_last_recv;
+
+      cnx.send_count = cntxt.m_send_cnt;
+      cnx.send_idle_time = timestamp;
+
+      cnx.state = get_protocol_state_string(cntxt.m_state);
+
+      cnx.live_time = timestamp - cntxt.m_started;
+      
+      connections.push_back(cnx);
+
+      return true;
+    });
+
+    return connections;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core> 
