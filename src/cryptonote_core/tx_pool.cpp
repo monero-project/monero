@@ -48,6 +48,11 @@ DISABLE_VS_WARNINGS(4244 4345 4503) //'boost::foreach_detail_::or_' : decorated 
 
 namespace cryptonote
 {
+  namespace
+  {
+    size_t const TRANSACTION_SIZE_LIMIT = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+  }
+
   //---------------------------------------------------------------------------------
   tx_memory_pool::tx_memory_pool(blockchain_storage& bchs): m_blockchain(bchs)
   {
@@ -75,7 +80,22 @@ namespace cryptonote
 
     if(outputs_amount >= inputs_amount)
     {
-      LOG_PRINT_L0("transaction use more money then it has: use " << outputs_amount << ", have " << inputs_amount);
+      LOG_PRINT_L0("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    uint64_t fee = inputs_amount - outputs_amount;
+    if (!kept_by_block && fee < DEFAULT_FEE)
+    {
+      LOG_ERROR("transaction fee is not enough: " << print_money(fee) << ", minumim fee: " << print_money(DEFAULT_FEE));
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    if (!kept_by_block && blob_size >= TRANSACTION_SIZE_LIMIT)
+    {
+      LOG_ERROR("transaction is too big: " << blob_size << " bytes, maximum size: " << TRANSACTION_SIZE_LIMIT);
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -230,22 +250,20 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  size_t tx_memory_pool::get_transactions_count()
+  size_t tx_memory_pool::get_transactions_count() const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     return m_transactions.size();
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions(std::list<transaction>& txs)
+  void tx_memory_pool::get_transactions(std::list<transaction>& txs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     BOOST_FOREACH(const auto& tx_vt, m_transactions)
       txs.push_back(tx_vt.second.tx);
-
-    return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transaction(const crypto::hash& id, transaction& tx)
+  bool tx_memory_pool::get_transaction(const crypto::hash& id, transaction& tx) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     auto it = m_transactions.find(id);
@@ -265,7 +283,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx(const crypto::hash &id)
+  bool tx_memory_pool::have_tx(const crypto::hash &id) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     if(m_transactions.count(id))
@@ -273,7 +291,7 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx)
+  bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     BOOST_FOREACH(const auto& in, tx.vin)
@@ -285,23 +303,23 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx_keyimg_as_spent(const crypto::key_image& key_im)
+  bool tx_memory_pool::have_tx_keyimg_as_spent(const crypto::key_image& key_im) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     return m_spent_key_images.end() != m_spent_key_images.find(key_im);
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::lock()
+  void tx_memory_pool::lock() const
   {
     m_transactions_lock.lock();
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::unlock()
+  void tx_memory_pool::unlock() const
   {
     m_transactions_lock.unlock();
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::is_transaction_ready_to_go(tx_details& txd)
+  bool tx_memory_pool::is_transaction_ready_to_go(tx_details& txd) const
   {
     //not the best implementation at this time, sorry :(
     //check is ring_signature already checked ?
@@ -365,38 +383,25 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  std::string tx_memory_pool::print_pool(bool short_format)
+  std::string tx_memory_pool::print_pool(bool short_format) const
   {
     std::stringstream ss;
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(transactions_container::value_type& txe,  m_transactions)
-    {
-      if(short_format)
-      {
-        tx_details& txd = txe.second;
-        ss << "id: " << txe.first << ENDL
-          << "blob_size: " << txd.blob_size << ENDL
-          << "fee: " << txd.fee << ENDL
-          << "kept_by_block: " << (txd.kept_by_block ? "true":"false") << ENDL
-          << "max_used_block_height: " << txd.max_used_block_height << ENDL
-          << "max_used_block_id: " << txd.max_used_block_id << ENDL
-          << "last_failed_height: " << txd.last_failed_height << ENDL
-          << "last_failed_id: " << txd.last_failed_id << ENDL;
-      }else
-      {
-        tx_details& txd = txe.second;
-        ss << "id: " << txe.first << ENDL
-          <<  obj_to_json_str(txd.tx) << ENDL
-          << "blob_size: " << txd.blob_size << ENDL
-          << "fee: " << txd.fee << ENDL
-          << "kept_by_block: " << (txd.kept_by_block ? "true":"false") << ENDL
-          << "max_used_block_height: " << txd.max_used_block_height << ENDL
-          << "max_used_block_id: " << txd.max_used_block_id << ENDL
-          << "last_failed_height: " << txd.last_failed_height << ENDL
-          << "last_failed_id: " << txd.last_failed_id << ENDL;
+    for (const transactions_container::value_type& txe : m_transactions) {
+      const tx_details& txd = txe.second;
+      ss << "id: " << txe.first << std::endl;
+      if (!short_format) {
+        ss << obj_to_json_str(*const_cast<transaction*>(&txd.tx)) << std::endl;
       }
-
+      ss << "blob_size: " << txd.blob_size << std::endl
+        << "fee: " << print_money(txd.fee) << std::endl
+        << "kept_by_block: " << (txd.kept_by_block ? 'T' : 'F') << std::endl
+        << "max_used_block_height: " << txd.max_used_block_height << std::endl
+        << "max_used_block_id: " << txd.max_used_block_id << std::endl
+        << "last_failed_height: " << txd.last_failed_height << std::endl
+        << "last_failed_id: " << txd.last_failed_id << std::endl;
     }
+
     return ss.str();
   }
   //---------------------------------------------------------------------------------
@@ -411,43 +416,15 @@ namespace cryptonote
     total_size = 0;
     fee = 0;
 
-    size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE; // Max block size
+    // Maximum block size is 130% of the median block size.  This gives a
+    // little extra headroom for the max size transaction.
+    size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
-
-    // Tx size limit as in wallet2.h
-    // tx_pool.cpp uses size_t for tx sizes, whereas
-    // wallet2.h uses uint64_t; just use size_t here 
-    // for now
-    size_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
-
-    // Calculate size limit based on median too; useful
-    // for when we actually fix wallet2.h's maximum
-    // allowable tx size
-    //
-    // Can be removed when wallet2.h calculates max
-    // tx size based on the median too; just use
-    // upper_transaction_size_limit_median in all cases
-    size_t upper_transaction_size_limit_median = ((median_size * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
-    if (upper_transaction_size_limit_median > upper_transaction_size_limit)
-      upper_transaction_size_limit = upper_transaction_size_limit_median;
 
     BOOST_FOREACH(transactions_container::value_type& tx, m_transactions)
     {
       // Can not exceed maximum block size
       if (max_total_size < total_size + tx.second.blob_size)
-        continue;
-
-      // Check to see if the minimum fee is included;
-      // exclude tx missing minimum fee
-      if (tx.second.fee < DEFAULT_FEE)
-        continue;
-
-      // Skip transactions that are too large
-      // TODO: Correct upper_transactions_size_limit
-      // such that it is based on median block size;
-      // We need to make a similar patch for
-      // wallet2.h
-      if (tx.second.blob_size > upper_transaction_size_limit)
         continue;
 
       // If adding this tx will make the block size
@@ -456,13 +433,6 @@ namespace cryptonote
       // keep block sizes from becoming too unwieldly
       // to propagate at 60s block times.
       if ( (total_size + tx.second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
-        continue;
-
-      // If adding this tx will make the block size
-      // greater than 130% of the median, reject the
-      // tx; this will keep down largely punitive tx
-      // from being included
-      if ( (total_size + tx.second.blob_size) > ((130 * median_size) / 100) )
         continue;
 
       // If we've exceeded the penalty free size,
@@ -487,6 +457,8 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::init(const std::string& config_folder)
   {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+
     m_config_folder = config_folder;
     std::string state_file_path = config_folder + "/" + CRYPTONOTE_POOLDATA_FILENAME;
     boost::system::error_code ec;
@@ -495,9 +467,23 @@ namespace cryptonote
     bool res = tools::unserialize_obj_from_file(*this, state_file_path);
     if(!res)
     {
-      LOG_PRINT_L0("Failed to load memory pool from file " << state_file_path);
+      LOG_ERROR("Failed to load memory pool from file " << state_file_path);
+
+      m_transactions.clear();
+      m_spent_key_images.clear();
     }
-    return res;
+
+    for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
+      auto it2 = it++;
+      if (it2->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
+        LOG_PRINT_L0("Transaction " << get_transaction_hash(it2->second.tx) << " is too big (" << it2->second.blob_size << " bytes), removing it from pool");
+        remove_transaction_keyimages(it2->second.tx);
+        m_transactions.erase(it2);
+      }
+    }
+
+    // Ignore deserialization error
+    return true;
   }
 
   //---------------------------------------------------------------------------------
