@@ -192,9 +192,7 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx)
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
 {
   //handle transactions from new block
-  THROW_WALLET_EXCEPTION_IF(height != m_blockchain.size(), error::wallet_internal_error,
-    "current_index=" + std::to_string(height) + ", m_blockchain.size()=" + std::to_string(m_blockchain.size()));
-
+    
   //optimization: seeking only for blocks that are not older then the wallet creation time plus 1 day. 1 day is for possible user incorrect time setup
   if(b.timestamp + 60*60*24 > m_account.get_createtime())
   {
@@ -300,16 +298,16 @@ void wallet2::pull_blocks(size_t& blocks_added)
 void wallet2::refresh()
 {
   size_t blocks_fetched = 0;
-  refresh(blocks_fetched);
+  refresh(0, blocks_fetched);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(size_t & blocks_fetched)
+void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched)
 {
   bool received_money = false;
-  refresh(blocks_fetched, received_money);
+  refresh(start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(size_t & blocks_fetched, bool& received_money)
+void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money)
 {
   received_money = false;
   blocks_fetched = 0;
@@ -321,7 +319,7 @@ void wallet2::refresh(size_t & blocks_fetched, bool& received_money)
   {
     try
     {
-      pull_blocks(added_blocks);
+      pull_blocks(start_height, added_blocks);
       blocks_fetched += added_blocks;
       if(!added_blocks)
         break;
@@ -351,7 +349,7 @@ bool wallet2::refresh(size_t & blocks_fetched, bool& received_money, bool& ok)
 {
   try
   {
-    refresh(blocks_fetched, received_money);
+    refresh(0, blocks_fetched, received_money);
     ok = true;
   }
   catch (...)
