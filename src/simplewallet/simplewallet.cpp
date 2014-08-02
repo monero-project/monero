@@ -622,12 +622,25 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
     return true;
 
   message_writer() << "Starting refresh...";
+
   size_t fetched_blocks = 0;
+  size_t start_height = 0;
+  if(!args.empty()){
+    try
+    {
+        start_height = boost::lexical_cast<int>( args[0] );
+    }
+    catch(const boost::bad_lexical_cast &)
+    {
+        start_height = 0;
+    }
+  }
+  
   bool ok = false;
   std::ostringstream ss;
   try
   {
-    m_wallet->refresh(fetched_blocks);
+    m_wallet->refresh(start_height, fetched_blocks);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";

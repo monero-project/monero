@@ -1149,11 +1149,15 @@ bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash
   return true;
 }
 //------------------------------------------------------------------
-bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count)
+bool blockchain_storage::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  if(!find_blockchain_supplement(qblock_ids, start_height))
-    return false;
+  if(req_start_block > 0) {
+     start_height = req_start_block; 
+  } else {
+    if(!find_blockchain_supplement(qblock_ids, start_height))
+      return false;
+  }
 
   total_height = get_current_blockchain_height();
   size_t count = 0;

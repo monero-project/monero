@@ -192,9 +192,7 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx)
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
 {
   //handle transactions from new block
-  THROW_WALLET_EXCEPTION_IF(height != m_blockchain.size(), error::wallet_internal_error,
-    "current_index=" + std::to_string(height) + ", m_blockchain.size()=" + std::to_string(m_blockchain.size()));
-
+    
   //optimization: seeking only for blocks that are not older then the wallet creation time plus 1 day. 1 day is for possible user incorrect time setup
   if(b.timestamp + 60*60*24 > m_account.get_createtime())
   {
@@ -250,19 +248,17 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids)
     ids.push_back(m_blockchain[0]);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(size_t& blocks_added)
+void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
 {
   blocks_added = 0;
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   get_short_chain_history(req.block_ids);
+  req.start_height = start_height;
   bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblocks.bin");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
-  THROW_WALLET_EXCEPTION_IF(m_blockchain.size() <= res.start_height, error::wallet_internal_error,
-    "wrong daemon response: m_start_height=" + std::to_string(res.start_height) +
-    " not less than local blockchain size=" + std::to_string(m_blockchain.size()));
 
   size_t current_index = res.start_height;
   BOOST_FOREACH(auto& bl_entry, res.blocks)
@@ -300,16 +296,16 @@ void wallet2::pull_blocks(size_t& blocks_added)
 void wallet2::refresh()
 {
   size_t blocks_fetched = 0;
-  refresh(blocks_fetched);
+  refresh(0, blocks_fetched);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(size_t & blocks_fetched)
+void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched)
 {
   bool received_money = false;
-  refresh(blocks_fetched, received_money);
+  refresh(start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(size_t & blocks_fetched, bool& received_money)
+void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money)
 {
   received_money = false;
   blocks_fetched = 0;
@@ -321,7 +317,7 @@ void wallet2::refresh(size_t & blocks_fetched, bool& received_money)
   {
     try
     {
-      pull_blocks(added_blocks);
+      pull_blocks(start_height, added_blocks);
       blocks_fetched += added_blocks;
       if(!added_blocks)
         break;
@@ -351,7 +347,7 @@ bool wallet2::refresh(size_t & blocks_fetched, bool& received_money, bool& ok)
 {
   try
   {
-    refresh(blocks_fetched, received_money);
+    refresh(0, blocks_fetched, received_money);
     ok = true;
   }
   catch (...)
