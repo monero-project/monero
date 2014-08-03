@@ -46,11 +46,7 @@
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "crypto/electrum-words.h"
-extern "C"
-{
-#include "crypto/keccak.h"
-#include "crypto/crypto-ops.h"
-}
+
 #if defined(WIN32)
 #include <crtdbg.h>
 #endif
@@ -195,14 +191,9 @@ std::string simple_wallet::get_commands_str()
 bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   std::string electrum_words;
-  crypto::ElectrumWords::bytes_to_words(m_wallet->get_account().get_keys().m_spend_secret_key, electrum_words);
-
-  crypto::secret_key second;
-  keccak((uint8_t *)&m_wallet->get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
-
-  sc_reduce32((uint8_t *)&second);
+  bool success = m_wallet->get_seed(electrum_words);
   
-  if (memcmp(second.data,m_wallet->get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key))==0) 
+  if (success) 
   {
     success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
     std::cout << electrum_words << std::endl;      
