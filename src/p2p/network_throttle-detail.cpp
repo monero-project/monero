@@ -137,9 +137,9 @@ network_throttle::packet_info::packet_info()
 { 
 }
 
-network_throttle::network_throttle(const std::string &name, int window_size)
+network_throttle::network_throttle(const std::string &nameshort, const std::string &name, int window_size)
 	: m_window_size( (window_size==-1) ? 10 : window_size  ),
-	  m_history( m_window_size )
+	  m_history( m_window_size ), m_nameshort(nameshort)
 {
 	set_name(name);
 	m_network_add_cost = 128;
@@ -229,7 +229,7 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	calculate_times(packet_size, A,W,D,R, false,-1);
 	m_history[0].m_size += packet_size;
 	//LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
-	_mark("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
+	_info_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
 	//  (window="<<W<<" s)"); // XXX
 }
 
@@ -328,7 +328,7 @@ void network_throttle::calculate_times(size_t packet_size, double &A, double &W,
 		for (auto sample: m_history) oss << sample.m_size << " ";
 		oss << "]" << std::ends;
 		std::string history_str = oss.str();
-		LOG_PRINT_L0(
+		_dbg1_c( "net/"+m_nameshort+"_c" ,
 			"dbg " << m_name << ": " 
 			<< "speed is A=" << std::setw(8) <<A<<" vs "
 			<< "Max=" << std::setw(8) <<M<<" "

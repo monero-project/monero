@@ -74,6 +74,8 @@
 #include "../../src/cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "../../src/p2p/network_throttle.hpp"
 
+#include "../../external/otshell_utils/utils.hpp"
+using namespace nOT::nUtils;
 
 
 // ################################################################################################
@@ -151,7 +153,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 			const double estimated_peers = 1.2; // how many peers/threads we want to talk to, in order to not grab entire b/w by 1 thread
 			const double knob = 1.000;
 			size_limit /= (estimated_peers / estimated_peers) * knob;
-			LOG_PRINT_RED("calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit , LOG_LEVEL_0);
+			_note_c("net/req-calc" , "calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit);
 
 			double L = size_limit / one_block_estimated_size; // calculating item limit (some heuristics)
 			LOG_PRINT_RED("L1 = " << L , LOG_LEVEL_0);
@@ -188,6 +190,8 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	get_logreq() << "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b " << std::endl;
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
+
+	_mark_c("net/req", "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b");
 }
 
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {
