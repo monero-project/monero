@@ -1,12 +1,18 @@
 
-This files does *** NOT *** describe the licence for other/most of files here in 
-the The Monero Project overall.
+This file does *** NOT *** necessarily describe the licence he The Monero Project overall.
 
-This text file describes ONLY the licence from OT-Shell code;
+This text file describes primarly ONLY the licence from OT-Shell code;
+
 It is here because parts or files from Ot-Shell might be used here in The Monero Project
 (and such fragments should be marked as such for non-trivial code).
 
-The OT-Shell code is licenced as:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Please share :-) This licence can be used e.g. for parts of code that are usable in both open-source FOSS project
+Monero and Open Transactions, to share and develop both faster.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+The OT-Shell code (again, applicable only to SOME PARTS of the code here!) is licenced as:
 
 /************************************************************
  *

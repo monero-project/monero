@@ -1,0 +1,15 @@
+
+This are some files also from OpenTransactions / otshell project.
+
+
+Files here (in external/otshell_utils) are under licence defined in
+src/doc/LICENCE-otshell.txt 
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Please share :-) This licence can be used e.g. for parts of code that are usable in both open-source FOSS project
+Monero and Open Transactions, to share and develop both faster.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
