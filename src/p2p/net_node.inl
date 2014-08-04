@@ -1236,10 +1236,15 @@ namespace nodetool
 	{
 		if(this->islimitdown==false && this->islimitup==false) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
 		}
 		else if(this->islimitdown==false && this->islimitup==true ) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
 		}
+		else if(this->islimitdown==true && this->islimitup==false ) {
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+		}
+		
 		return true;
 	}
 	
