@@ -145,7 +145,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 				network_throttle_manager::get_global_throttle_inreq().tick();
 				size_limit2 = network_throttle_manager::get_global_throttle_inreq().get_recommended_size_of_planned_transport();
 			}
-			long int one_block_estimated_size = 8000; // TODO estimate better
+			long int one_block_estimated_size = 500; // TODO estimate better
 
 			long int limit_small = std::min( size_limit1 , size_limit2 );
 			long int size_limit = limit_small/3 + size_limit1/3 + size_limit2/3;
@@ -184,20 +184,19 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	}
 
 	// TODO remove debug
-	LOG_PRINT_RED("\n", LOG_LEVEL_0);
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);
-	get_logreq() << "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b " << std::endl;
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
-
-	_mark_c("net/req", "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b");
+	_note_c("net/req", "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b");
+	get_logreq() << "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b " << std::endl;
 }
 
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {
 	using namespace epee::net_utils;
 	LOG_PRINT_L0("### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
 	LOG_PRINT_RED("RATE LIMIT NOT IMPLEMENTED HERE YET (download at unlimited speed?)" , LOG_LEVEL_0);
+	_note_c("### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
 	// TODO
 }
 
