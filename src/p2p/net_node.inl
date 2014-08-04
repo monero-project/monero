@@ -1236,17 +1236,11 @@ namespace nodetool
 	{
 		if(this->islimitdown==false && this->islimitup==false) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
-			LOG_PRINT_L0("Set limit to " << limit << " B/s");
-		}
-		else if(this->islimitup==false && this->islimitdown==true) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
-			LOG_PRINT_L0("Set limit-up to " << limit << " B/s");
 		}
 		else if(this->islimitdown==false && this->islimitup==true ) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
-			LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
-	}
-	return true;
+		}
+		return true;
 	}
 	
  template<class t_payload_net_handler>

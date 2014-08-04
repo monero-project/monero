@@ -181,11 +181,13 @@ void network_throttle::set_name(const std::string &name)
 void network_throttle::set_target_speed( network_speed_kbps target ) 
 {
 	m_target_speed = target;
+	_note_c("net/"+m_nameshort, "Setting LIMIT: " << target << " kbps");
 }
 
 void network_throttle::set_target_kill( network_MB target )
 {
-       m_target_MB = target;
+	_note_c("net/"+m_nameshort, "Setting KILL: " << target << " MB");
+	m_target_MB = target;
 }
 
 			
