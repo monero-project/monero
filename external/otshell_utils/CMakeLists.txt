@@ -1,14 +1,6 @@
 cmake_minimum_required (VERSION 2.6)
 project (otshell CXX)
 
-# Options
-
-option(WITH_TERMCOLORS "Build with support for unix terminal console colors VT100" ON)
-
-if (WITH_TERMCOLORS)
-	add_definitions( -DCFG_WITH_TERMCOLORS )
-endif ()
-
 # Add executable
 
 file(GLOB otshell_utils_sources # All files in directory:

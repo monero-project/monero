@@ -74,6 +74,8 @@
 // TODO:
 #include "../../src/p2p/network_throttle-detail.hpp"
 
+#include "../../external/otshell_utils/utils.hpp"
+
 // ################################################################################################
 // ################################################################################################
 // the "header part". Not separeted out for .hpp because point of this modification is 
@@ -81,6 +83,8 @@
 // (But maybe common parts will be separated out later though - if needed)
 // ################################################################################################
 // ################################################################################################
+
+using namespace nOT::nUtils;
 
 namespace epee
 {
@@ -224,7 +228,8 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	// save_history_to_graph() ;
 	calculate_times(packet_size, A,W,D,R, false,-1);
 	m_history[0].m_size += packet_size;
-	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
+	//LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
+	_mark("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
 	//  (window="<<W<<" s)"); // XXX
 }
 

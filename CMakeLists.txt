@@ -14,6 +14,12 @@ option(BUILD_SIMPLE_WALLET "Build simple wallet" ON)
 option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" OFF)
 option(ENABLE_COTIRE "Enable cotire - CMake module to speed up builds" OFF)
 
+# Options (for external/otshell_utils/)
+option(WITH_TERMCOLORS "Build with support for unix terminal console colors VT100" ON)
+if (WITH_TERMCOLORS)
+	add_definitions( -DCFG_WITH_TERMCOLORS )
+endif ()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
