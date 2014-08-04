@@ -1221,10 +1221,10 @@ namespace nodetool
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
-	this->islimitup=true;
+	this->islimitdown=true;
 	if(limit==-1) {
 		limit=128;
-		this->islimitup=false;
+		this->islimitdown=false;
 	}
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
 		LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
