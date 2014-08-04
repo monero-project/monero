@@ -274,7 +274,7 @@ void DisplayStringEndl(std::ostream & out, const std::string text) {
 
 std::string SpaceFromEscape(const std::string &s) {
 	std::ostringstream  newStr;
-		for(int i = 0; i < s.length();i++) {
+		for(unsigned int i = 0; i < s.length();i++) {
 			if(s[i] == '\\' && s[i+1] ==32)
 				newStr<<"";
 			else
@@ -285,7 +285,7 @@ std::string SpaceFromEscape(const std::string &s) {
 
 std::string EscapeFromSpace(const std::string &s) {
 	std::ostringstream  newStr;
-	for(int i = 0; i < s.length();i++) {
+	for(unsigned int i = 0; i < s.length();i++) {
 		if(s[i] == 32)
 			newStr << "\\" << " ";
 		else
@@ -297,7 +297,7 @@ std::string EscapeFromSpace(const std::string &s) {
 
 std::string EscapeString(const std::string &s) {
 	std::ostringstream  newStr;
-		for(int i = 0; i < s.length();i++) {
+		for(unsigned int i = 0; i < s.length();i++) {
 			if(s[i] >=32 && s[i] <= 126)
 				newStr<<s[i];
 			else
@@ -399,7 +399,7 @@ vector<string> SplitString(const string & str){
 		return vec;
 }
 
-const bool checkPrefix(const string & str, char prefix){
+bool checkPrefix(const string & str, char prefix){
 	if (str.at(0) == prefix)
 		return true;
 	return false;
@@ -551,9 +551,9 @@ void hintingToTxt(std::fstream & file, string command, vector<string> &commands)
 		file<<endl;
 	}
 }
-void generateQuestions (std::fstream & file, string command)  {	
+void generateQuestions (std::fstream & file, string command)  {
 	if(file.good()) {
-			file <<command<<endl;	
+			file <<command<<endl;
 			file.flush();
 	}
 }

@@ -59,7 +59,7 @@ if (BUILD_SIMPLE_MINER)
 	endif ()
 endif()
 
-target_link_libraries(daemon rpc cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${LEVELDB_LIBS})
+target_link_libraries(daemon rpc cryptonote_core crypto common upnpc-static otshell_utils ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${LEVELDB_LIBS})
 
 if (ENABLE_COTIRE)
 	cotire(daemon)

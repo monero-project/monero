@@ -33,11 +33,11 @@ class cRunOptions {
 		bool mDoRunDebugshow;
 
 	public:
-		const tRunMode getTRunMode() { return mRunMode; }
-		const bool getDebug() { return mDebug; }
-		const bool getDebugSendToFile() { return mDebugSendToFile; }
-		const bool getDebugSendToCerr() { return mDebugSendToCerr; }
-		const bool getDoRunDebugshow() { return mDoRunDebugshow; }
+		tRunMode getTRunMode() const { return mRunMode; }
+		bool getDebug() const { return mDebug; }
+		bool getDebugSendToFile() const { return mDebugSendToFile; }
+		bool getDebugSendToCerr() const { return mDebugSendToCerr; }
+		bool getDoRunDebugshow() const { return mDoRunDebugshow; }
 
 		cRunOptions();
 
