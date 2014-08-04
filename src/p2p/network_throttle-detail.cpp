@@ -221,7 +221,7 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 {
 	double A=0, W=0, D=0, R=0;
 	tick();
-	save_history_to_graph() ;
+	// save_history_to_graph() ;
 	calculate_times(packet_size, A,W,D,R, false,-1);
 	m_history[0].m_size += packet_size;
 	LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
