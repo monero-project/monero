@@ -231,7 +231,7 @@ int main(int argc, char const * argv[])
         );
     }
 
-    return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
+    return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm, false);
   }
   catch (std::exception const & ex)
   {

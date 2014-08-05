@@ -36,13 +36,27 @@ namespace daemonizer
       int argc, char const * argv[]
     , T_executor && executor // universal ref
     , boost::program_options::variables_map const & vm
+    , bool create_before_detach
     )
   {
     if (command_line::arg_present(vm, arg_detach))
     {
-      tools::success_msg_writer() << "Forking to background...";
-      posix::fork();
-      return executor.create_daemon(vm).run();
+      // Note that this distinction is necessary because there are currently
+      // issues creating the primary daemon before forking (most likely due to
+      // the size of the blockchain in memory)
+      if (create_before_detach)
+      {
+        auto daemon = executor.create_daemon(vm);
+        tools::success_msg_writer() << "Forking to background...";
+        posix::fork();
+        return daemon.run();
+      }
+      else
+      {
+        tools::success_msg_writer() << "Forking to background...";
+        posix::fork();
+        return executor.create_daemon(vm).run();
+      }
     }
     else
     {

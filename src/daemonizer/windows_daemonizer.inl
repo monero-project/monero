@@ -81,13 +81,14 @@ namespace daemonizer
       int argc, char const * argv[]
     , T_executor && executor // universal ref
     , boost::program_options::variables_map const & vm
+    , bool // unused
     )
   {
     std::string arguments = get_argument_string(argc, argv);
 
     if (command_line::arg_present(vm, arg_is_service))
     {
-      //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
+      // TODO - Set the service status here for return codes
       windows::t_service_runner<T_executor::t_daemon>::run(
         executor.name()
       , executor.create_daemon(vm)

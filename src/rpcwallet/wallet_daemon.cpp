@@ -53,21 +53,8 @@ bool t_wallet_daemon::run()
 
   tools::signal_handler::install(std::bind(&tools::t_wallet_daemon::stop, this));
 
-  try
-  {
-    mp_server->run();
-    return true;
-  }
-  catch (std::exception const & ex)
-  {
-    LOG_ERROR("Wallet daemon exception: " << ex.what());
-    return false;
-  }
-  catch (...)
-  {
-    LOG_ERROR("Unknown wallet daemon exception");
-    return false;
-  }
+  mp_server->run();
+  return true;
 }
 
 void t_wallet_daemon::stop()
