@@ -413,6 +413,10 @@ namespace tools
             return false;
         }
       }
+      else if(req.key_type.compare("view_key") == 0)
+      {
+          res.key = string_tools::pod_to_hex(m_wallet.get_account().get_keys().m_view_secret_key);
+      }
       else
       {
           er.message = "key_type " + req.key_type + " not found";
