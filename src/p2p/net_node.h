@@ -29,6 +29,8 @@
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
+
+
 namespace nodetool
 {
   int limit_peer=0;

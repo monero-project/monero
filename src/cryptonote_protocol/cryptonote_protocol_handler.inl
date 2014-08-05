@@ -8,6 +8,9 @@
 #include <boost/interprocess/detail/atomic.hpp>
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
+#include "../../external/otshell_utils/utils.hpp"
+
+using namespace nOT::nUtils;
 namespace cryptonote
 {
 

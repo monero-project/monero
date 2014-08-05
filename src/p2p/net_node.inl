@@ -1209,13 +1209,15 @@ namespace nodetool
 	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit)
 	{
 		this->islimitup=true;
-		// *1024
+
 		if (limit==-1) {
 			limit=128;
 			this->islimitup=false;
 		}
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
-		LOG_PRINT_L0("Set limit-up to " << limit << " B/s");
+		
+		limit *= 1024;
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+		LOG_PRINT_L0("Set limit-up to " << limit/1024 << " kB/s");
 		return true;
 	}
 	
@@ -1227,18 +1229,20 @@ namespace nodetool
 			limit=128;
 			this->islimitdown=false;
 		}
-  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
-		LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
+		limit *= 1024;
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		LOG_PRINT_L0("Set limit-down to " << limit/1024 << " kB/s");
 		return true;
 	}
 
   template<class t_payload_net_handler>
 	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
+		limit *= 1024;
 		if(this->islimitdown==false && this->islimitup==false) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
-			LOG_PRINT_L0("Set limit to " << limit << " B/s");
+			LOG_PRINT_L0("Set limit to " << limit/1024 << " kB/s");
 		}
 		else if(this->islimitdown==false && this->islimitup==true ) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
