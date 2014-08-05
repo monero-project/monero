@@ -666,7 +666,6 @@ namespace nodetool
         continue;
 
       return true;
-     }
     }
     return false;
   }
