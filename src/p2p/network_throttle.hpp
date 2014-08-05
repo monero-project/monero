@@ -86,6 +86,14 @@ typedef double network_MB;
 
 class i_network_throttle;
 
+struct calculate_times_struct {
+		double average;
+		double window;
+		double delay;
+		double recomendetDataSize;
+};
+typedef calculate_times_struct calculate_times_struct;
+
 
 namespace cryptonote { class cryptonote_protocol_handler_base; }; // a friend class // TODO friend not working
 
@@ -124,6 +132,7 @@ class network_throttle_manager {
 };
 
 
+
 class i_network_throttle {
 	public:
 		virtual void set_name(const std::string &name)=0;
@@ -136,7 +145,8 @@ class i_network_throttle {
 		virtual void tick() =0; // poke and update timers/history
 		
 		// time calculations:
-		virtual void calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const =0; // assuming sending new package (or 0), calculate:
+		
+		virtual void calculate_times(size_t packet_size, calculate_times_struct &cts, bool dbg, double force_window) const =0; // assuming sending new package (or 0), calculate:
 		// Average, Window, Delay, Recommended data size ; also gets dbg=debug flag, and forced widnow size if >0 or -1 for not forcing window size 
 
 		// Average speed, Window size, recommended Delay to sleep now, Recommended size of data to send now

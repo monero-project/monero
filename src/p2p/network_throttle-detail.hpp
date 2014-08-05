@@ -92,7 +92,7 @@ class network_throttle : public i_network_throttle {
 		virtual void save_history_to_graph();
 
 		// time calculations:
-		virtual void calculate_times(size_t packet_size, double &A, double &W, double &D, double &R, bool dbg, double force_window) const; // (see base class for info)
+		virtual void calculate_times(size_t packet_size, calculate_times_struct &cts, bool dbg, double force_window) const; // (see base class for info)
 		virtual network_time_seconds get_sleep_time(size_t packet_size) const; // gets the D (recommended Delay time) from calc
 		virtual network_time_seconds get_sleep_time_after_tick(size_t packet_size); // ditto, but first tick the timer
 
