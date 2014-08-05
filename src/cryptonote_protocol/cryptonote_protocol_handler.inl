@@ -256,30 +256,30 @@ namespace cryptonote
   
   template<class t_core>
   double t_cryptonote_protocol_handler<t_core>::get_avg_block_size( size_t count) const {
+		if(count > m_core.get_current_blockchain_height())
+			return 0;
 
-	if(count > m_core.get_current_blockchain_height())
-		return 0;
-	double average = 0;
-	LOG_PRINT_RED("[DBG] HEIGHT: " << m_core.get_current_blockchain_height(), LOG_LEVEL_0);
-	LOG_PRINT_RED("[DBG] BLOCK ID BY HEIGHT: " << m_core.get_block_id_by_height(m_core.get_current_blockchain_height()), LOG_LEVEL_0);
-	LOG_PRINT_RED("[DBG] BLOCK TAIL ID: " << m_core.get_tail_id(), LOG_LEVEL_0);
-	std::vector<size_t> size_vector;	
+		double average = 0;
+		_dbg1_c("net/blksize", "HEIGHT: " << m_core.get_current_blockchain_height());
+		_dbg1_c("net/blksize", "BLOCK ID BY HEIGHT: " << m_core.get_block_id_by_height(m_core.get_current_blockchain_height()) );
+		_dbg1_c("net/blksize", "BLOCK TAIL ID: " << m_core.get_tail_id() );
+		std::vector<size_t> size_vector;	
 
-    m_core.get_backward_blocks_sizes(m_core.get_current_blockchain_height() - count, size_vector, count);
+		m_core.get_backward_blocks_sizes(m_core.get_current_blockchain_height() - count, size_vector, count);
 
-	std::vector<size_t>::iterator it;
-	it = size_vector.begin();
-	while(it != size_vector.end()) {
-		average += *it;
-		LOG_PRINT_RED("[DBG] VECTOR ELEMENT: " << *it, LOG_LEVEL_0);
-		it++;
-	}	
-	
-	LOG_PRINT_RED("[DBG] VECTOR SIZE: " << size_vector.size(), LOG_LEVEL_0);
-	
-	average = average / count;
-	
-	return average;
+		std::vector<size_t>::iterator it;
+		it = size_vector.begin();
+		while(it != size_vector.end()) {
+			average += *it;
+			_dbg2_c("net/blksize", "VECTOR ELEMENT: " << (*it) );
+			it++;
+		}	
+		
+		_dbg1_c("net/blksize", "VECTOR SIZE: " << size_vector.size() );
+		
+		average = average / count;
+		
+		return average;
   }
 
   
