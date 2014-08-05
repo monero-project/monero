@@ -43,7 +43,7 @@ namespace nodetool
   	const command_line::arg_descriptor<uint64_t>    arg_limit_auto      	= {"limit-auto", "set auto limit-rate", 128};
   	const command_line::arg_descriptor<uint64_t>    arg_limit_peer      	= {"limit-peer", "set auto limit-peer", 10};
   	
-  	const command_line::arg_descriptor<int>    arg_tos_flag      		= {"tos-flag", "set TOS flag", 0};
+  	const command_line::arg_descriptor<int>    arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
 	const command_line::arg_descriptor<uint64_t>    arg_total_limit         = {"kill-net", "set sending and receiving MB limit", 0};
 
   }
@@ -1258,7 +1258,7 @@ namespace nodetool
 	bool node_server<t_payload_net_handler>::set_kill_limit(const boost::program_options::variables_map& vm, uint64_t limit)
 	{
   	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_kill_limit( limit );
-		LOG_PRINT_L0("Set limit-down to " << limit << " B/s");
+		LOG_PRINT_L0("Set sending and receiving MB limit to " << limit);
 		return true;
 	}
 
@@ -1279,11 +1279,14 @@ namespace nodetool
 	  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_tos_flag(const boost::program_options::variables_map& vm, int flag)
 	{
-		/************************************************************/
+		if(flag==-1){
+			return true;
+		}
 		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_tos_flag(flag);
 		LOG_PRINT_L0("Set ToS flag  " << flag);
 		return true;
 	}
+	
   template<class t_payload_net_handler>int node_server<t_payload_net_handler>:: thrds_count= 0;
    extern int limit_peer;
 }
