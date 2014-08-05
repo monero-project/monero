@@ -624,13 +624,12 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_new_connection_from_peerlist(bool use_white_list)
   {
-	if(!limit_peer) limit_peer=3;
 
     size_t local_peers_count = use_white_list ? m_peerlist.get_white_peers_count():m_peerlist.get_gray_peers_count();
     if(!local_peers_count)
       return false;//no peers
 
-    size_t max_random_index = std::min<uint64_t>(local_peers_count -1, limit_peer-1);
+    size_t max_random_index = std::min<uint64_t>(local_peers_count -1, 20);
 
 
     std::set<size_t> tried_peers;
@@ -638,9 +637,7 @@ namespace nodetool
     size_t try_count = 0;
     size_t rand_count = 0;
     
-    while(rand_count < (max_random_index) )
-     {
-	while(try_count < 10 && !m_net_server.is_stop_signal_sent())
+    while(rand_count < (max_random_index+1)*3 &&  try_count < 10 && !m_net_server.is_stop_signal_sent())
 	  {
 
       ++rand_count;
