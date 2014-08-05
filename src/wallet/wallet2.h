@@ -151,6 +151,8 @@ namespace tools
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
 
+    bool get_seed(std::string& electrum_words);
+    
     void refresh();
     void refresh(uint64_t start_height, size_t & blocks_fetched);
     void refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money);

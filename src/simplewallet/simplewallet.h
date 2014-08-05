@@ -70,6 +70,8 @@ namespace cryptonote
     bool open_wallet(const std::string &wallet_file, const std::string& password);
     bool close_wallet();
 
+    bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
+    bool seed(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);

@@ -188,6 +188,30 @@ std::string simple_wallet::get_commands_str()
   return ss.str();
 }
 
+bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  success_msg_writer() << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << std::endl;
+
+  return true;
+}
+
+bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  std::string electrum_words;
+  bool success = m_wallet->get_seed(electrum_words);
+  
+  if (success) 
+  {
+    success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
+    std::cout << electrum_words << std::endl;      
+  }
+  else
+  {
+      fail_msg_writer() << "The wallet is non-deterministic. Cannot display seed.";
+  }
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -210,6 +234,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
+  m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), "Get viewkey");
+  m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), "Get deterministic seed");
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), "Show this help");
 }
 //----------------------------------------------------------------------------------------------------
@@ -437,7 +463,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   if (!two_random)
   {
-    success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control. You will not be able to view these words again, so it is imperative to make note of them now.\n";
+    success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
     std::cout << electrum_words << std::endl;
   }
   success_msg_writer() << "**********************************************************************";

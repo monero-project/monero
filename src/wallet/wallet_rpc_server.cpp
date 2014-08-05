@@ -403,4 +403,26 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_query_key(const wallet_rpc::COMMAND_RPC_QUERY_KEY::request& req, wallet_rpc::COMMAND_RPC_QUERY_KEY::response& res, epee::json_rpc::error& er, connection_context& cntx)
+  {
+      if (req.key_type.compare("mnemonic") == 0)
+      {
+        if (!m_wallet.get_seed(res.key))
+        {
+            er.message = "The wallet is non-deterministic. Cannot display seed.";
+            return false;
+        }
+      }
+      else if(req.key_type.compare("view_key") == 0)
+      {
+          res.key = string_tools::pod_to_hex(m_wallet.get_account().get_keys().m_view_secret_key);
+      }
+      else
+      {
+          er.message = "key_type " + req.key_type + " not found";
+          return false;
+      }
+
+      return true;
+  }
 }
