@@ -230,8 +230,9 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	// save_history_to_graph() ;
 	calculate_times(packet_size, A,W,D,R, false,-1);
 	m_history[0].m_size += packet_size;
-	//LOG_PRINT_L0("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
-	_info_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" << " Speed AVG="<<A<<" / " << " Limit="<<m_target_speed<<" bit/sec " );
+	_info_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" 
+		<< " Speed AVG=" << std::setw(8) <<  ((long int)(A/1024)) <<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec " );
+
 	//  (window="<<W<<" s)"); // XXX
 }
 

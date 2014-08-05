@@ -196,7 +196,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<
 	using namespace epee::net_utils;
 	LOG_PRINT_L0("### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
 	LOG_PRINT_RED("RATE LIMIT NOT IMPLEMENTED HERE YET (download at unlimited speed?)" , LOG_LEVEL_0);
-	_note_c("### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
+	_note_c("net/req2", "### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
 	// TODO
 }
 
