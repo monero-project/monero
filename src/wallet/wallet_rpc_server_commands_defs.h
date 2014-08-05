@@ -257,6 +257,28 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  //JSON RPC V2
+  struct COMMAND_RPC_QUERY_KEY
+  {
+    struct request
+    {
+      std::string key_type;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_type)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string key;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 }
 
