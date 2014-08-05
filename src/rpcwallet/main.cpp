@@ -36,8 +36,10 @@
 #include "daemonizer/daemonizer.h"
 #include "misc_log_ex.h"
 #include "rpcwallet/wallet_executor.h"
+#include "rpcwallet/wallet_return_codes.h"
 #include "rpcwallet/wallet_rpc_server_commands_defs.h"
 #include "string_tools.h"
+#include "wallet/wallet_errors.h"
 #include "version.h"
 
 #include <boost/program_options.hpp>
@@ -99,12 +101,12 @@ int main(int argc, char const * argv[])
       std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG << std::endl << std::endl;
       std::cout << "Usage: rpcwallet --wallet-file=<file> --rpc-bind-port=<port> [--daemon-address=<host>:<port>] [--rpc-bind-address=127.0.0.1]" << std::endl;
       std::cout << visible_options << std::endl;
-      return 0;
+      return tools::WALLET_RETURN_SUCCESS;
     }
     else if (command_line::get_arg(vm, command_line::arg_version))
     {
       std::cout << CRYPTONOTE_NAME << " wallet v" << PROJECT_VERSION_LONG << std::endl;
-      return 0;
+      return tools::WALLET_RETURN_SUCCESS;
     }
 
     boost::filesystem::path relative_path_base = daemonizer::get_relative_path_base(vm);
@@ -138,12 +140,12 @@ int main(int argc, char const * argv[])
       if (!epee::string_tools::get_ip_int32_from_string(rpc_ip, rpc_ip_str))
       {
         std::cerr << "Invalid IP: " << rpc_ip_str << std::endl;
-        return 1;
+        return tools::WALLET_RETURN_INVALID_IP;
       }
       if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
       {
         std::cerr << "Invalid port: " << rpc_port_str << std::endl;
-        return 1;
+        return tools::WALLET_RETURN_INVALID_PORT;
       }
 
       tools::wallet_rpc::COMMAND_RPC_STOP::request req;
@@ -154,23 +156,40 @@ int main(int argc, char const * argv[])
       if (rpc_client.basic_json_rpc_request(req, res, "stop"))
       {
         tools::success_msg_writer() << "Stop message sent";
-        return 0;
+        return tools::WALLET_RETURN_SUCCESS;
       }
       else
       {
-        return 1;
+        return tools::WALLET_RETURN_FAILED_TO_SEND_STOP_REQUEST;
       }
     }
 
     return daemonizer::daemonize(argc, argv, tools::t_wallet_executor{vm}, vm);
   }
+  catch (tools::error::file_not_found const &)
+  {
+    return tools::WALLET_RETURN_MISSING_KEYS_FILE;
+  }
+  catch (tools::error::invalid_password const &)
+  {
+    return tools::WALLET_RETURN_INVALID_PASSPHRASE;
+  }
+  catch (tools::error::file_read_error const &)
+  {
+    return tools::WALLET_RETURN_COULD_NOT_READ_KEYS_FILE;
+  }
+  catch (tools::error::wallet_files_doesnt_correspond const &)
+  {
+    return tools::WALLET_RETURN_MISMATCHED_KEYS_FILE;
+  }
   catch (std::exception const & ex)
   {
     LOG_ERROR("Exception in main! " << ex.what());
+    return tools::WALLET_RETURN_UNKNOWN_ERROR;
   }
   catch (...)
   {
     LOG_ERROR("Exception in main!");
+    return tools::WALLET_RETURN_UNKNOWN_ERROR;
   }
-  return 1;
 }
