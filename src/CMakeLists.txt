@@ -61,4 +61,8 @@ add_dependencies(rpcwallet version)
 
 set_property(TARGET common crypto cryptonote_core rpc wallet PROPERTY FOLDER "libs")
 set_property(TARGET daemon simplewallet rpcwallet connectivity_tool simpleminer PROPERTY FOLDER "prog")
+if (STATIC)
+  set_property(TARGET daemon simplewallet rpcwallet connectivity_tool simpleminer PROPERTY LINK_SEARCH_START_STATIC 1)
+  set_property(TARGET daemon simplewallet rpcwallet connectivity_tool simpleminer PROPERTY LINK_SEARCH_END_STATIC 1)
+endif()
 set_property(TARGET daemon PROPERTY OUTPUT_NAME "bitmonerod")
