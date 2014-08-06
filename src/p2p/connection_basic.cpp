@@ -238,23 +238,27 @@ void connection_basic::set_start_time() {
 }
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
-	mI->sleep_before_packet(cb,1,-1);
-	set_start_time();
+	// mI->sleep_before_packet(cb,1,-1);
+	// set_start_time();
 }
 
 void connection_basic::do_send_handler_delayed(const void* ptr , size_t cb ) {
+	// CRITICAL_REGION_LOCAL(network_throttle_manager::m_lock_get_global_throttle_out);
+	// auto sending_time = network_throttle_manager::get_global_throttle_out().get_time_seconds() - m_start_time; // wrong? --r
 }
 
 void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
+	mI->sleep_before_packet(cb,1,-1);
+	_info_c("net/out/size", "handler_write (direct) - before ASIO write, for packet="<<cb<<" B (after sleep)");
+	set_start_time();
 }
 
 void connection_basic::do_send_handler_stop(const void* ptr , size_t cb ) {
 }
 
 void connection_basic::do_send_handler_after_write(const boost::system::error_code& e, size_t cb) {
-	CRITICAL_REGION_LOCAL(network_throttle_manager::m_lock_get_global_throttle_out);
-	auto sending_time = network_throttle_manager::get_global_throttle_out().get_time_seconds() - m_start_time;
-
+	// CRITICAL_REGION_LOCAL(network_throttle_manager::m_lock_get_global_throttle_out);
+	// auto sending_time = network_throttle_manager::get_global_throttle_out().get_time_seconds() - m_start_time;
 	// lag: if current sending time > max sending time
 	//if (sending_time > 0.1) network_throttle_manager::get_global_throttle_out().set_overheat(sending_time); // TODO
 
@@ -262,6 +266,8 @@ void connection_basic::do_send_handler_after_write(const boost::system::error_co
 
 void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
 	mI->sleep_before_packet(cb,2,q_len);
+	_info_c("net/out/size", "handler_write (after write, from queue="<<q_len<<") - before ASIO write, for packet="<<cb<<" B (after sleep)");
+
 	set_start_time();
 }
 

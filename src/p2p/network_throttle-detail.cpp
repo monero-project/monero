@@ -236,8 +236,8 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 		std::string history_str = oss.str();
 
 	_info_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" 
-        << " Speed AVG=" << std::setw(8) <<  ((long int)(cts.average/1024)) <<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
-		<< " " << history_str
+        << " Speed AVG=" << std::setw(8) <<  ((long int)(cts.average/1024)) <<"[w="<<cts.window<<"]"<<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
+				<< " " << history_str
 		);
 
 	//  (window="<<W<<" s)"); // XXX

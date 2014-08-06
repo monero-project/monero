@@ -320,7 +320,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //some data should be wrote to stream
     //request complete
     
-		do_send_handler_start( ptr , cb );
+		do_send_handler_start( ptr , cb ); // (((H)))
 
     epee::critical_region_t<decltype(m_send_que_lock)> send_guard(m_send_que_lock); // *** critical ***
     if(m_send_que.size() > ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
@@ -333,25 +333,29 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     m_send_que.resize(m_send_que.size()+1);
     m_send_que.back().assign((const char*)ptr, cb);
-
     
     if(m_send_que.size() > 1)
-    {
-			_mark_c("net/out/size", "do_send() has cb="<<cb<<" is added to queue with size="<<m_send_que.size());
-			do_send_handler_delayed( ptr , cb );
-      //active operation should be in progress, nothing to do, just wait last operation callback
-    }else
-    {
-      //no active operation
+    { // active operation should be in progress, nothing to do, just wait last operation callback
+			auto size_now = cb;
+			_info_c("net/out/size", "do_send() NOW just queues: packet="<<size_now<<" B, is added to queue-size="<<m_send_que.size());
+			do_send_handler_delayed( ptr , size_now ); // (((H)))
+
+    }
+		else
+		{ // no active operation
+
       if(m_send_que.size()!=1)
       {
         LOG_ERROR("Looks like no active operations, but send que size != 1!!");
         return false;
       }
 
-			_mark_c("net/out/size", "do_send() has cb="<<cb<<" is sent now (no queue)");
-			do_send_handler_write( ptr , cb );
-      boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), m_send_que.front().size()),
+			auto size_now = m_send_que.front().size();
+			_mark_c("net/out/size", "do_send() NOW SENSD: packet="<<size_now<<" B");
+			do_send_handler_write( ptr , size_now ); // (((H)))
+
+			ASRT( size_now == m_send_que.front().size() );
+      boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), size_now ) ,
         //strand_.wrap(
         boost::bind(&connection<t_protocol_handler>::handle_write, self, _1, _2)
         //)
@@ -401,7 +405,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   {
     TRY_ENTRY();
     LOG_PRINT_L4("[sock " << socket_.native_handle() << "] Async send calledback " << cb);
-		do_send_handler_after_write(e,cb);
+		do_send_handler_after_write(e,cb); // (((H)))
 
     if (e)
     {
@@ -429,9 +433,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     {
       //have more data to send
 
-			_mark_c("net/out/size", "handle_write() at cb="<<cb<<" will send object of size=" << m_send_que.size() <<", from  queue size="<<m_send_que.size());
-			do_send_handler_write_from_queue(e, m_send_que.front().size() ,m_send_que.size());
-      boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), m_send_que.front().size()),
+			auto size_now = m_send_que.front().size();
+			_mark_c("net/out/size", "handle_write() NOW SENDS: packet="<<size_now<<" B" <<", from  queue size="<<m_send_que.size());
+			do_send_handler_write_from_queue(e, m_send_que.front().size() , m_send_que.size()); // (((H)))
+			ASRT( size_now == m_send_que.front().size() );
+      boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data() , size_now) , 
         //strand_.wrap(
           boost::bind(&connection<t_protocol_handler>::handle_write, connection<t_protocol_handler>::shared_from_this(), _1, _2));
         //);
