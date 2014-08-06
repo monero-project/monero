@@ -69,6 +69,9 @@
 #include <boost/asio/ip/unicast.hpp>
 #include "../../contrib/epee/include/net/abstract_tcp_server2.h"
 
+#include "../../external/otshell_utils/utils.hpp"
+using namespace nOT::nUtils;
+
 // TODO:
 #include "../../src/p2p/network_throttle-detail.hpp"
 
@@ -218,7 +221,11 @@ void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase) 
 			// delay = m_throttle_global.m_out.get_sleep_time_after_tick( 0 ); // decission from global
 		}
 
-		if (delay > 0) { boost::this_thread::sleep(boost::posix_time::milliseconds( (int)(delay * 1000) ));	}
+		if (delay > 0) { 
+			long int ms = (long int)(delay * 1000);
+			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " fos " << ms << " ms"); // XXX debug sleep
+			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
+		}
 	} while(delay > 0);
 }
 void connection_basic::set_start_time() {

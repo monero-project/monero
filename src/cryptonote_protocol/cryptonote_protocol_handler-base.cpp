@@ -173,7 +173,11 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 		}
 
 		if (count_limit > 0) allowed_now = true;
-		if (!allowed_now) boost::this_thread::sleep(boost::posix_time::milliseconds( 2000 ) ); // TODO randomize sleeps
+		if (!allowed_now) {
+			long int ms = 2000;
+			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " fos " << ms << " ms"); // XXX debug sleep
+			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
+		}
 	}
 	// done waiting&sleeping ^
 
