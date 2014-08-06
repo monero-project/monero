@@ -236,7 +236,7 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 		std::string history_str = oss.str();
 
 	_info_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" 
-		<< " Speed AVG=" << std::setw(8) <<  ((long int)(A/1024)) <<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
+        << " Speed AVG=" << std::setw(8) <<  ((long int)(cts.average/1024)) <<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
 		<< " " << history_str
 		);
 
@@ -315,7 +315,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 
 	auto O = get_current_overheat();
 	auto Ouse = O * 0 ; // XXX
-	D = (D1*0.75 + D2*0.25) + Ouse; // finall sleep depends on both with/without current packet
+    cts.delay = (D1*0.75 + D2*0.25) + Ouse; // finall sleep depends on both with/without current packet
 	//				update_overheat();
 	cts.average = Epast/cts.window; // current avg. speed (for info)
 
@@ -341,8 +341,8 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 			<< "D=" << std::setw(8) <<cts.delay<<" sec "
 			<< "Overheat=" << std::setw(8) <<O<<" sec "
 			<< "E="<< std::setw(8) << E << " (Enow="<<std::setw(8)<<Enow<<") "
-			<< "M=" << std::setw(8) << M <<" W="<< std::setw(8) << W << " "
-			<< "R=" << std::setw(8) << R << " Wgood" << std::setw(8) << Wgood << " "
+            << "M=" << std::setw(8) << M <<" W="<< std::setw(8) << cts.window << " "
+            << "R=" << std::setw(8) << cts.recomendetDataSize << " Wgood" << std::setw(8) << Wgood << " "
 			<< "History: " << std::setw(8) << history_str << " "
 			<< "m_last_sample_time=" << std::setw(8) << m_last_sample_time
 		);
