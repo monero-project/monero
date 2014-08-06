@@ -88,7 +88,7 @@ namespace daemonizer
     if (command_line::arg_present(vm, arg_is_service))
     {
       // TODO - Set the service status here for return codes
-      windows::t_service_runner<T_executor::t_daemon>::run(
+      windows::t_service_runner<typename T_executor::t_daemon>::run(
         executor.name()
       , executor.create_daemon(vm)
       );
