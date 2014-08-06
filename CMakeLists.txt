@@ -7,12 +7,6 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
 
-function(set_static_flags)
-  if (NOT APPLE)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-  endif()
-endfunction(set_static_flags)
-
 include_directories(src contrib/epee/include external "${CMAKE_BINARY_DIR}/version")
 
 if(APPLE)
