@@ -262,12 +262,14 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const 
 {
 	//double A=0, W=0, D=0, R=0;
-	double Dmax;
+	double D1=0,D2=0,D3=0;
 	calculate_times_struct cts = { 0, 0, 0, 0};
-	calculate_times(packet_size, cts, true, -1);              Dmax=cts.delay;
-	calculate_times(packet_size, cts, true, m_window_size/2); Dmax=std::max(cts.delay,Dmax);
-	calculate_times(packet_size, cts, true, 5);               Dmax=std::max(cts.delay,Dmax);
-	return cts.delay;
+	calculate_times(packet_size, cts, true, -1);              D1=cts.delay;
+	calculate_times(packet_size, cts, true, m_window_size/2); D2=cts.delay;
+	calculate_times(packet_size, cts, true, 5);               D3=cts.delay;
+	const double a1=70, a2=10, a3=10, am=10; // weight of the various windows in decisssion
+	auto DM = std::max( D1, std::max(D2,D3));
+	return (D1*a1 + D2*a2 + D3*a3 +DM*am) / (a1+a2+a3+am);
 }
 double network_throttle::get_current_overheat() const {
  	auto now = get_time_seconds();
@@ -380,11 +382,14 @@ size_t network_throttle::get_recommended_size_of_planned_transport_window(double
 }
 
 size_t network_throttle::get_recommended_size_of_planned_transport() const {
-	size_t Rmin;
-	Rmin =           get_recommended_size_of_planned_transport_window( -1 );
-	Rmin = std::min( get_recommended_size_of_planned_transport_window( m_window_size/2) , Rmin );
-	Rmin = std::min( get_recommended_size_of_planned_transport_window( 8              ) , Rmin );
-	return Rmin;
+	size_t R1=0,R2=0,R3=0;
+	R1 = get_recommended_size_of_planned_transport_window( -1 );
+	R2 = get_recommended_size_of_planned_transport_window( m_window_size/2);
+	R3 = get_recommended_size_of_planned_transport_window( 8              );
+	auto RM = std::min(R1, std::min(R2,R3));
+
+	const double a1=70, a2=10, a3=10, am=10; // weight of the various windows in decisssion
+	return (R1*a1 + R2*a2 + R3*a3 + RM*am) / (a1+a2+a3+am);
 }
 
 
