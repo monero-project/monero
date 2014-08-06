@@ -47,6 +47,14 @@
 #if !defined(RDATA_ALIGN16)
 #define RDATA_ALIGN16 __declspec(align(16))
 #endif
+#elif defined(__MINGW32__)
+#include <intrin.h>
+#include <windows.h>
+#define STATIC static
+#define INLINE inline
+#if !defined(RDATA_ALIGN16)
+#define RDATA_ALIGN16 __attribute__ ((aligned(16)))
+#endif
 #else
 #include <wmmintrin.h>
 #include <sys/mman.h>
