@@ -63,7 +63,12 @@ if(APPLE)
   include_directories(SYSTEM /usr/include/malloc)
 endif()
 
-set(STATIC ${MSVC} CACHE BOOL "Link libraries statically")
+if(MSVC OR MINGW)
+  set(DEFAULT_STATIC true)
+else()
+  set(DEFAULT_STATIC false)
+endif()
+set(STATIC ${DEFAULT_STATIC} CACHE BOOL "Link libraries statically")
 
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
