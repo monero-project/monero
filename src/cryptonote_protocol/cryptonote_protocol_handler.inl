@@ -439,6 +439,9 @@ namespace cryptonote
 
 			size_t count_limit = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
 		 	handler_request_blocks_now( count_limit ); // change the limit, sleep(?)
+     		// XXX 
+     		count_limit=1000; 
+     		_note_c("net/req-calc" , "Setting count_limit: " << count_limit);
       while(it != context.m_needed_objects.end() && count < BLOCKS_SYNCHRONIZING_DEFAULT_COUNT)
       {
 				if (count > count_limit) break; // limit 

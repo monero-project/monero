@@ -163,7 +163,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 			L = std::min( (double)count_limit_default, (double)L);
 			LOG_PRINT_RED("L3 = " << L , LOG_LEVEL_0);
 
-			const long int hard_limit = 50; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
+			const long int hard_limit = 500; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
 
 			L = std::min(L, (double) hard_limit);
 
