@@ -705,21 +705,22 @@ namespace nodetool
     size_t conn_count = get_outgoing_connections_count();
     if(conn_count < m_config.m_net_config.connections_count)
     {
-      if(conn_count < expected_white_connections)
+			const int expected2 = 50; // TODO XXX make it configurable (2 options, for white and totall?)
+      if(conn_count < expected2) // expected_white_connections)
       {
         //start from white list
-        if(!make_expected_connections_count(true, expected_white_connections))
+        if(!make_expected_connections_count(true, expected2) // expected_white_connections))
           return false;
         //and then do grey list
-        if(!make_expected_connections_count(false, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(false, expected2) // m_config.m_net_config.connections_count))
           return false;
       }else
       {
         //start from grey list
-        if(!make_expected_connections_count(false, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(false, expected2) // m_config.m_net_config.connections_count))
           return false;
         //and then do white list
-        if(!make_expected_connections_count(true, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(true, expected2) // m_config.m_net_config.connections_count))
           return false;
       }
     }
