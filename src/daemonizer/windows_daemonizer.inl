@@ -81,7 +81,6 @@ namespace daemonizer
       int argc, char const * argv[]
     , T_executor && executor // universal ref
     , boost::program_options::variables_map const & vm
-    , bool // unused
     )
   {
     std::string arguments = get_argument_string(argc, argv);

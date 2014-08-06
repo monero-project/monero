@@ -49,11 +49,15 @@ public:
 private:
   typedef cryptonote::t_cryptonote_protocol_handler<cryptonote::core> t_protocol_raw;
   cryptonote::core m_core;
+  // TEMPORARY HACK - Yes, this creates a copy, but otherwise the original
+  // variable map could go out of scope before the run method is called
+  boost::program_options::variables_map const m_vm_HACK;
 public:
   t_core(
       boost::program_options::variables_map const & vm
     )
     : m_core{nullptr}
+    , m_vm_HACK{vm}
   {
     cryptonote::checkpoints checkpoints;
     if (!cryptonote::create_checkpoints(checkpoints))
@@ -61,20 +65,23 @@ public:
       throw std::runtime_error("Failed to initialize checkpoints");
     }
     m_core.set_checkpoints(std::move(checkpoints));
-
-    //initialize core here
-    LOG_PRINT_L0("Initializing core...");
-    if (!m_core.init(vm))
-    {
-      throw std::runtime_error("Failed to initialize core");
-    }
-    LOG_PRINT_L0("Core initialized OK");
   }
 
   // TODO - get rid of circular dependencies in internals
   void set_protocol(t_protocol_raw & protocol)
   {
     m_core.set_cryptonote_protocol(&protocol);
+  }
+
+  void run()
+  {
+    //initialize core here
+    LOG_PRINT_L0("Initializing core...");
+    if (!m_core.init(m_vm_HACK))
+    {
+      throw std::runtime_error("Failed to initialize core");
+    }
+    LOG_PRINT_L0("Core initialized OK");
   }
 
   cryptonote::core & get()

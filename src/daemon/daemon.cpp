@@ -46,8 +46,8 @@ namespace daemonize {
 struct t_internals {
 private:
   t_protocol protocol;
-  t_core core;
 public:
+  t_core core;
   t_p2p p2p;
   t_rpc rpc;
 
@@ -111,6 +111,7 @@ bool t_daemon::run()
 
   try
   {
+    mp_internals->core.run();
     mp_internals->rpc.run();
     mp_internals->p2p.run();
     mp_internals->rpc.stop();

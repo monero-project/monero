@@ -26,7 +26,6 @@ namespace daemonizer
       int argc, char const * argv[]
     , T_executor && executor // universal ref
     , boost::program_options::variables_map const & vm
-    , bool create_before_detach
     );
 }
 

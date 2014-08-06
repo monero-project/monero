@@ -164,7 +164,7 @@ int main(int argc, char const * argv[])
       }
     }
 
-    return daemonizer::daemonize(argc, argv, tools::t_wallet_executor{vm}, vm, true);
+    return daemonizer::daemonize(argc, argv, tools::t_wallet_executor{vm}, vm);
   }
   catch (tools::error::file_not_found const &)
   {
