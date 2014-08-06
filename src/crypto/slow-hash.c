@@ -41,7 +41,7 @@
 
 #if defined(_MSC_VER)
 #include <intrin.h>
-#include <Windows.h>
+#include <windows.h>
 #define STATIC
 #define INLINE __inline
 #if !defined(RDATA_ALIGN16)
