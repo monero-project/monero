@@ -45,7 +45,7 @@ namespace cryptonote {
   using std::uint64_t;
   using std::vector;
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
 #include <windows.h>
 #include <winnt.h>
 
