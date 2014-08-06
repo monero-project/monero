@@ -709,18 +709,18 @@ namespace nodetool
       if(conn_count < expected2) // expected_white_connections)
       {
         //start from white list
-        if(!make_expected_connections_count(true, expected2) // expected_white_connections))
+        if(!make_expected_connections_count(true, expected2)) // expected_white_connections))
           return false;
         //and then do grey list
-        if(!make_expected_connections_count(false, expected2) // m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(false, expected2)) // m_config.m_net_config.connections_count))
           return false;
       }else
       {
         //start from grey list
-        if(!make_expected_connections_count(false, expected2) // m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(false, expected2)) // m_config.m_net_config.connections_count))
           return false;
         //and then do white list
-        if(!make_expected_connections_count(true, expected2) // m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(true, expected2)) // m_config.m_net_config.connections_count))
           return false;
       }
     }
