@@ -62,7 +62,6 @@ namespace windows {
       return *this;
     }
 
-    template <typename T_handler>
     static void run(
         std::string name
       , T_handler handler
