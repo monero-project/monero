@@ -256,8 +256,7 @@ void connection_basic::do_send_handler_after_write(const boost::system::error_co
 	auto sending_time = network_throttle_manager::get_global_throttle_out().get_time_seconds() - m_start_time;
 
 	// lag: if current sending time > max sending time
-	//if (sending_time > 0.1)
-		network_throttle_manager::get_global_throttle_out().set_overheat(sending_time);
+	//if (sending_time > 0.1) network_throttle_manager::get_global_throttle_out().set_overheat(sending_time); // TODO
 
 }
 
