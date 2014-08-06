@@ -291,7 +291,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 
 	if (!m_any_packet_yet) {
 		cts.window=0; cts.average=0; cts.delay=0; 
-		cts.recomendetDataSize=0; // should be overrided by caller
+		cts.recomendetDataSize = m_network_minimal_segment; // should be overrided by caller anyway
 		return ; // no packet yet, I can not decide about sleep time
 	}
 
@@ -315,9 +315,13 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 
 	auto O = get_current_overheat();
 	auto Ouse = O * 0 ; // XXX
-    cts.delay = (D1*0.75 + D2*0.25) + Ouse; // finall sleep depends on both with/without current packet
+  cts.delay = (D1*0.80 + D2*0.20) + Ouse; // finall sleep depends on both with/without current packet
 	//				update_overheat();
 	cts.average = Epast/cts.window; // current avg. speed (for info)
+
+	if (Epast <= 0) {
+		if (cts.delay>=0) cts.delay = 0; // no traffic in history so we will not wait
+	}
 
 	double Wgood=-1;
 	{	// how much data we recommend now to download

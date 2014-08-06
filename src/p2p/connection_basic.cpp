@@ -216,14 +216,18 @@ void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase, 
 	{ // rate limiting
 		{ 
 	  	CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-			delay = network_throttle_manager::get_global_throttle_out().get_sleep_time_after_tick( 0 ); // decission from global
-			// epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical ***
-			// delay = m_throttle_global.m_out.get_sleep_time_after_tick( 0 ); // decission from global
+			delay = network_throttle_manager::get_global_throttle_out().get_sleep_time_after_tick( packet_size ); // decission from global
 		}
 
-		if (delay > 0) { 
+		auto rand1 = ((rand()%10000)/10000.) ;
+		auto rand2 = ((rand()%10000)/10000.) ;
+		delay = delay * ((1+rand1)/2);
+		delay *= 0.50;
+
+		if (delay > 0) {
+			delay += rand2*0.1;
 			long int ms = (long int)(delay * 1000);
-			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " fos " << ms << " ms"); // XXX debug sleep
+			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // XXX debug sleep
 			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
 		}
 	} while(delay > 0);
@@ -252,13 +256,13 @@ void connection_basic::do_send_handler_after_write(const boost::system::error_co
 	auto sending_time = network_throttle_manager::get_global_throttle_out().get_time_seconds() - m_start_time;
 
 	// lag: if current sending time > max sending time
-	if (sending_time > 0.1)
+	//if (sending_time > 0.1)
 		network_throttle_manager::get_global_throttle_out().set_overheat(sending_time);
 
 }
 
 void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
-    mI->sleep_before_packet(cb,2,q_len);
+	mI->sleep_before_packet(cb,2,q_len);
 	set_start_time();
 }
 
