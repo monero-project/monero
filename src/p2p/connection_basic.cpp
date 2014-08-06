@@ -96,7 +96,7 @@ class connection_basic_pimpl {
 		network_throttle_bw m_throttle; // per-perr
     critical_section m_throttle_lock;
 
-		void sleep_before_packet(size_t packet_size, int phase); // execute a sleep ; phase is not really used now(?) could be used for different kinds of sleep e.g. direct/queue write
+		void sleep_before_packet(size_t packet_size, int phase, int q_len); // execute a sleep ; phase is not really used now(?) could be used for different kinds of sleep e.g. direct/queue write
 };
 
 
@@ -201,7 +201,7 @@ int connection_basic::get_tos_flag() {
 	return connection_basic_pimpl::m_default_tos;
 }
 
-void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase) {
+void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase,  int q_len) {
 // XXX LATER XXX
 	{
 	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
@@ -234,7 +234,7 @@ void connection_basic::set_start_time() {
 }
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
-	mI->sleep_before_packet(cb,1);
+	mI->sleep_before_packet(cb,1,-1);
 	set_start_time();
 }
 
@@ -257,8 +257,8 @@ void connection_basic::do_send_handler_after_write(const boost::system::error_co
 
 }
 
-void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb ) {
-	mI->sleep_before_packet(cb,2);
+void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
+    mI->sleep_before_packet(cb,2,q_len);
 	set_start_time();
 }
 

@@ -423,7 +423,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }else
     {
       //have more data to send
-			do_send_handler_write_from_queue(e,cb);
+			do_send_handler_write_from_queue(e,cb,m_send_que.size());
       boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), m_send_que.front().size()),
         //strand_.wrap(
           boost::bind(&connection<t_protocol_handler>::handle_write, connection<t_protocol_handler>::shared_from_this(), _1, _2));
