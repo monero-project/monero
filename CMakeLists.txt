@@ -51,12 +51,6 @@ endif()
 # elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
 #   set(BSDI TRUE)
 
-function(set_static_flags)
-  if (NOT APPLE AND NOT FREEBSD)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-  endif()
-endfunction(set_static_flags)
-
 include_directories(src contrib/epee/include external "${CMAKE_BINARY_DIR}/version")
 
 if(APPLE)
