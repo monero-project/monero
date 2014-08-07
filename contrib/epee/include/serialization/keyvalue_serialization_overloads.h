@@ -148,9 +148,15 @@ namespace epee
       {
         size_t loaded_size = buff.size();
         typename stl_container::value_type* pelem =  (typename stl_container::value_type*)buff.data();
+			  LOG_PRINT_L0(
+					"in <" << (typeid(stl_container).name()) << ',' << (typeid(t_storage).name()) << "> " 
+          "size in of blob=" 
+					<< loaded_size << " and sizeof(value_type)=" << sizeof(typename stl_container::value_type)
+				);
         CHECK_AND_ASSERT_MES(!(loaded_size%sizeof(typename stl_container::value_type)), 
           false, 
-          "size in blob " << loaded_size << " not have not zero modulo for sizeof(value_type) = " << sizeof(typename stl_container::value_type));
+					"ERROR: in <" << (typeid(stl_container).name()) << ',' << (typeid(t_storage).name()) << "> "
+          << "size in blob " << loaded_size << " not have not zero modulo for sizeof(value_type) = " << sizeof(typename stl_container::value_type));
         size_t count = (loaded_size/sizeof(typename stl_container::value_type));
         for(size_t i = 0; i < count; i++)
           container.push_back(*(pelem++));
