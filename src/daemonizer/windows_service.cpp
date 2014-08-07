@@ -180,6 +180,8 @@ bool start_service(
     std::string const & service_name
   )
 {
+  tools::msg_writer() << "Starting service";
+
   SERVICE_STATUS_PROCESS service_status = {};
   DWORD unused = 0;
 
@@ -230,6 +232,8 @@ bool stop_service(
     std::string const & service_name
   )
 {
+  tools::msg_writer() << "Stopping service";
+
   service_handle p_manager{
     OpenSCManager(
         nullptr
