@@ -4,10 +4,12 @@
 #include "common/scoped_message_writer.h"
 #include "daemonizer/windows_service.h"
 #include "string_tools.h"
+#include <chrono>
 #include <iostream>
 #include <utility>
 #include <memory>
 #include <shellapi.h>
+#include <thread>
 #include <windows.h>
 
 namespace windows {
@@ -99,6 +101,14 @@ namespace {
       return true;
     }
   }
+
+  // When we relaunch as admin, Windows opens a new window.  This just pauses
+  // to allow the user to read any output.
+  void pause_to_display_admin_window_messages()
+  {
+    std::chrono::milliseconds how_long{1500};
+    std::this_thread::sleep_for(how_long);
+  }
 }
 
 bool ensure_admin(
@@ -173,6 +183,9 @@ bool install_service(
   }
 
   tools::success_msg_writer() << "Service installed";
+
+  pause_to_display_admin_window_messages();
+
   return true;
 }
 
@@ -225,6 +238,9 @@ bool start_service(
   }
 
   tools::success_msg_writer() << "Service started";
+
+  pause_to_display_admin_window_messages();
+
   return true;
 }
 
@@ -270,6 +286,9 @@ bool stop_service(
   }
 
   tools::success_msg_writer() << "Service stopped";
+
+  pause_to_display_admin_window_messages();
+
   return true;
 }
 
@@ -313,6 +332,8 @@ bool uninstall_service(
   }
 
   tools::success_msg_writer() << "Service uninstalled";
+
+  pause_to_display_admin_window_messages();
 
   return true;
 }
