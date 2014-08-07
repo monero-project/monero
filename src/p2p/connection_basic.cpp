@@ -238,6 +238,7 @@ void connection_basic::set_start_time() {
 }
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
+	_fact_c("net/out/size", "*** do_sen() called for packet="<<cb<<" B");
 	// mI->sleep_before_packet(cb,1,-1);
 	// set_start_time();
 }
