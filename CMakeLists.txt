@@ -119,7 +119,10 @@ else()
 
   set(RELEASE_FLAGS "-Ofast -DNDEBUG -Wno-unused-variable")
 
-  set(USE_LTO false CACHE BOOL "Use Link-Time Optimization (Release mode only)")
+  if(NOT DEFINED USE_LTO_DEFAULT)
+    set(USE_LTO_DEFAULT true)
+  endif()
+  set(USE_LTO ${USE_LTO_DEFAULT} CACHE BOOL "Use Link-Time Optimization (Release mode only)")
   if(USE_LTO)
     # There is a clang bug that does not allow to compile code that uses AES-NI intrinsics if -flto is enabled
     set(RELEASE_FLAGS "${RELEASE_FLAGS} -flto")
