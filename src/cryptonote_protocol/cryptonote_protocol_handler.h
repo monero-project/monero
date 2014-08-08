@@ -13,6 +13,7 @@
 #include "cryptonote_core/connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
 #include "cryptonote_core/verification_context.h"
+#include <netinet/in.h>
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)

@@ -90,14 +90,18 @@ namespace cryptonote
       << std::setw(25) << "State"
       << std::setw(20) << "Livetime(seconds)" << ENDL;
 
+	uint32_t ip;
     m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id)
     {
+	  ip = ntohl(cntxt.m_remote_ip);
       ss << std::setw(25) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") + 
         epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip) + ":" + std::to_string(cntxt.m_remote_port) 
         << std::setw(20) << std::hex << peer_id
         << std::setw(25) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
         << std::setw(25) << get_protocol_state_string(cntxt.m_state)
-        << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started) << ENDL;
+        << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started)
+        << std::setw(10) << (ip > 3232235520 && ip < 3232301055 ? " [LOC]" : "")		//TODO: local ip in calss A, B
+        << ENDL; 
       return true;
     });
     LOG_PRINT_L0("Connections: " << ENDL << ss.str());
