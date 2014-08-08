@@ -1,0 +1,31 @@
+
+Fast rebuilds with cmake (on example of linux, similar is for windows).
+All builds (after the 1st build especially) will be faster now:
+1. cotire (precompiled headers)
+2. modules (build just e.g. the wallet, configurable with command "ccmake .." in build/)
+
+
+*** SETUP ONCE ***
+We recommend to clean all previous builds first.
+In project top directory, execute:
+
+mkdir build && cd build &&  cmake -D CMAKE_BUILD_TYPE=Debug -D BOOST_IGNORE_SYSTEM_PATHS=ON -D BUILD_CONN_TOOL=OFF -D BUILD_SHARED_LIBS=ON -D BUILD_SIMPLE_MINER=OFF -D BUILD_SIMPLE_WALLET=OFF -D BUILD_TESTS=OFF -D ENABLE_COTIRE=ON -D COTIRE_MINIMUM_NUMBER_OF_TARGET_SOURCES=1 -D COTIRE_VERBOSE=ON ..
+
+
+*** REBUILD ***
+Now each time to re-build the project, while in build/ just do:
+  make 
+or
+  make -j 4 
+
+And run ./src/bitmonerod
+
+On windows this is the same, except for other mkdir commnad (just create directory build and run the cmake from inside it!)
+
+*** FAQ ***
+If sometihng fails, you must be in the new build/ directory that you created and call  ccmake ..  or ccmake .. with more options.
+
+Windows problems?
+It was tested primarly on linux, and a bit on windows, so far. Modules should be universal.
+You can disable cotire in ccmake ..
+
