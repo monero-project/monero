@@ -56,7 +56,7 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
     // Some code
-    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_hide_my_port(false)
+    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_no_igd(false), m_hide_my_port(false)
     {}
 
     static void init_options(boost::program_options::options_description& desc);
@@ -196,6 +196,7 @@ namespace nodetool
     uint32_t m_ip_address;
     bool m_allow_local_ip;
     bool m_hide_my_port;
+    bool m_no_igd;
 
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;
