@@ -13,6 +13,12 @@
 #include "crypto/hash.h"
 #include "version.h"
 
+//#include "net/net_helper.h"
+//#include "../p2p/p2p_protocol_defs.h"
+//#include "../p2p/net_peerlist_boost_serialization.h"
+//#include "net/local_ip.h"
+//#include "crypto/crypto.h"
+//#include "storages/levin_abstract_invoke2.h"
 
 class daemon_cmmands_handler
 {
@@ -37,6 +43,9 @@ public:
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
     m_cmd_binder.set_handler("set_log", boost::bind(&daemon_cmmands_handler::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
     m_cmd_binder.set_handler("diff", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Show difficulty");
+    m_cmd_binder.set_handler("limit-up", boost::bind(&daemon_cmmands_handler::limit_up, this, _1), "Set upload limit");
+    m_cmd_binder.set_handler("limit-down", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Set download limit");
+
   }
 
   bool start_handling()
@@ -52,6 +61,7 @@ public:
 
 private:
   epee::srv_console_handlers_binder<nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > > m_cmd_binder;
+
 
   //--------------------------------------------------------------------------------
   std::string get_commands_str()
@@ -84,6 +94,29 @@ private:
     return true;
   }
   //--------------------------------------------------------------------------------
+  bool limit_up(const std::vector<std::string>& args)
+  {
+
+      if(args.size()!=1) {
+          std::cout << "Usage: limit_up <speed>" << ENDL;
+      }
+
+      int limit = std::stoi(args[0]);
+
+      if (limit==-1) {
+          limit=128;
+          //this->islimitup=false;
+      }
+
+      limit *= 1024;
+
+
+      epee::net_utils::connection<epee::levin::async_protocol_handler<nodetool::p2p_connection_context> >::set_rate_up_limit( limit );
+      cout << "Set limit-up to " << limit/1024 << " kB/s" << ENDL;
+
+      return true;
+  }
+ //--------------------------------------------------------------------------------
   bool show_hr(const std::vector<std::string>& args)
   {
 	if(!m_srv.get_payload_object().get_core().get_miner().is_mining()) 
