@@ -226,17 +226,20 @@ void network_throttle::handle_trafic_exact(size_t packet_size)
 void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_size)
 {
 	//double A=0, W=0, D=0, R=0;
-	calculate_times_struct cts = { 0, 0, 0, 0};
 	tick();
 	// save_history_to_graph() ;
-	calculate_times(packet_size, cts, false,-1);
+
+	calculate_times_struct cts ;  calculate_times(packet_size, cts , false, -1);
+	calculate_times_struct cts2;  calculate_times(packet_size, cts2, false, 5);
 	m_history[0].m_size += packet_size;
 
-		std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
-		std::string history_str = oss.str();
+	std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
+	std::string history_str = oss.str();
 
 	_info_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" 
-        << " Speed AVG=" << std::setw(8) <<  ((long int)(cts.average/1024)) <<"[w="<<cts.window<<"]"<<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
+        << " Speed AVG=" << std::setw(4) <<  ((long int)(cts .average/1024)) <<"[w="<<cts .window<<"]"
+        <<           " " << std::setw(4) <<  ((long int)(cts2.average/1024)) <<"[w="<<cts2.window<<"]"
+				<<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
 				<< " " << history_str
 		);
 
@@ -259,6 +262,7 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 	return get_sleep_time(packet_size);
 }
 
+// fine tune this to decide about sending speed:
 network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const 
 {
 	//double A=0, W=0, D=0, R=0;
@@ -266,8 +270,8 @@ network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const
 	calculate_times_struct cts = { 0, 0, 0, 0};
 	calculate_times(packet_size, cts, true, -1);              D1=cts.delay;
 	calculate_times(packet_size, cts, true, m_window_size/2); D2=cts.delay;
-	calculate_times(packet_size, cts, true, 5);               D3=cts.delay;
-	const double a1=70, a2=10, a3=10, am=10; // weight of the various windows in decisssion
+	calculate_times(packet_size, cts, true, 3);               D3=cts.delay;
+	const double a1=10, a2=20, a3=50, am=50; // weight of the various windows in decisssion
 	auto DM = std::max( D1, std::max(D2,D3));
 	return (D1*a1 + D2*a2 + D3*a3 +DM*am) / (a1+a2+a3+am);
 }

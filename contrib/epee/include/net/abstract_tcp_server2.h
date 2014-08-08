@@ -52,7 +52,7 @@
 
 #include "../../../../src/p2p/connection_basic.hpp"
 
-#define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 100
+#define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 200
 
 namespace epee
 {
@@ -101,6 +101,7 @@ namespace net_utils
   private:
     //----------------- i_service_endpoint ---------------------
     virtual bool do_send(const void* ptr, size_t cb);
+    virtual bool do_send_chunk(const void* ptr, size_t cb);
     virtual bool close();
     virtual bool call_run_once_service_io();
     virtual bool request_callback();
@@ -132,6 +133,7 @@ namespace net_utils
     //typename t_protocol_handler::config_type m_dummy_config;
     std::list<boost::shared_ptr<connection<t_protocol_handler> > > m_self_refs; // add_ref/release support
     critical_section m_self_refs_lock;
+    critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
   };
 
   /************************************************************************/

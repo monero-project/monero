@@ -202,15 +202,6 @@ int connection_basic::get_tos_flag() {
 }
 
 void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase,  int q_len) {
-// XXX LATER XXX
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-		network_throttle_manager::get_global_throttle_out().handle_trafic_tcp( packet_size ); // increase counter - global
-
-		//epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
-		//m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
-	}
-
 	double delay=0; // will be calculated
 	do
 	{ // rate limiting
@@ -231,6 +222,15 @@ void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase, 
 			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
 		}
 	} while(delay > 0);
+
+// XXX LATER XXX
+	{
+	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
+		network_throttle_manager::get_global_throttle_out().handle_trafic_tcp( packet_size ); // increase counter - global
+		//epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
+		//m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
+	}
+
 }
 void connection_basic::set_start_time() {
 	CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
