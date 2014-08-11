@@ -9,7 +9,7 @@ All builds (after the 1st build especially) will be faster now:
 We recommend to clean all previous builds first.
 In project top directory, execute:
 
-mkdir build && cd build &&  cmake -D CMAKE_BUILD_TYPE=Debug -D BOOST_IGNORE_SYSTEM_PATHS=ON -D BUILD_CONN_TOOL=OFF -D BUILD_SHARED_LIBS=ON -D BUILD_SIMPLE_MINER=OFF -D BUILD_SIMPLE_WALLET=OFF -D BUILD_TESTS=OFF -D ENABLE_COTIRE=ON -D COTIRE_MINIMUM_NUMBER_OF_TARGET_SOURCES=1 -D COTIRE_VERBOSE=ON ..
+mkdir build ; cd build &&  cmake -D CMAKE_BUILD_TYPE=Debug -D BOOST_IGNORE_SYSTEM_PATHS=ON -D BUILD_CONN_TOOL=OFF -D BUILD_SHARED_LIBS=ON -D BUILD_SIMPLE_MINER=OFF -D BUILD_SIMPLE_WALLET=OFF -D BUILD_TESTS=OFF -D ENABLE_COTIRE=ON -D COTIRE_MINIMUM_NUMBER_OF_TARGET_SOURCES=1 -D COTIRE_VERBOSE=ON ..
 
 
 *** REBUILD ***
@@ -21,6 +21,11 @@ or
 And run ./src/bitmonerod
 
 On windows this is the same, except for other mkdir commnad (just create directory build and run the cmake from inside it!)
+
+
+*** TESTED ***
+
+
 
 *** FAQ ***
 If sometihng fails, you must be in the new build/ directory that you created and call  ccmake ..  or ccmake .. with more options.
