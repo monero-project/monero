@@ -21,7 +21,7 @@
 	#include <sys/stat.h>
 	#include <unistd.h>
 #elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
-	#include <Windows.h>
+	#include <windows.h>
 #else
 	#error "Do not know how to compile this for your platform."
 #endif
