@@ -47,12 +47,11 @@ std::string ToStr(const T & obj) {
 	oss << obj;
 	return oss.str();
 }
-
 struct cNullstream : std::ostream {
-		cNullstream();
+	cNullstream() : std::ios(0), std::ostream(0) {}
 };
-extern cNullstream g_nullstream; // a stream that does nothing (eats/discards data)
 
+extern cNullstream g_nullstream; // a stream that does nothing (eats/discards data)
 // ========== debug ==========
 
 // _dbg_ignore is moved to global namespace (on purpose)

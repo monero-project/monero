@@ -15,12 +15,11 @@
 
 #include "runoptions.hpp"
 
-#include <unistd.h>
-
 // TODO nicer os detection?
 #if defined(__unix__) || defined(__posix) || defined(__linux)
 	#include <sys/types.h>
 	#include <sys/stat.h>
+	#include <unistd.h>
 #elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
 	#include <Windows.h>
 #else
@@ -64,7 +63,6 @@ std::string & trim(std::string &s) {
 	return ltrim(rtrim(s));
 }
 
-cNullstream::cNullstream() { }
 
 cNullstream g_nullstream; // extern a stream that does nothing (eats/discards data)
 
@@ -82,13 +80,15 @@ const char* DbgShortenCodeFileName(const char *s) {
 	}
 	return a;
 }
-
+#ifndef _MSC_VER
 template<typename T, typename ...Args>
 std::unique_ptr<T> make_unique( Args&& ...args )
 {
     return std::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
 }
-
+#else
+	using std::make_unique;
+#endif
 // ====================================================================
 
 char cFilesystemUtils::GetDirSeparator() {
@@ -129,8 +129,8 @@ bool cFilesystemUtils::CreateDirTree(const std::string & dir, bool only_below) {
 				}
 			}
 		#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
-		  DWORD dwAttrib = GetFileAttributes(szPath);
-		  bool exists = (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+		DWORD dwAttrib = GetFileAttributesA(sofar.c_str());
+		bool exists = (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 		#else
 			#error "Do not know how to compile this for your platform."
 		#endif
@@ -140,7 +140,9 @@ bool cFilesystemUtils::CreateDirTree(const std::string & dir, bool only_below) {
 			#if defined(__unix__) || defined(__posix) || defined(__linux)
 				bool ok = 0==  mkdir(sofar.c_str(), 0700); // ***
 			#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
-				bool ok = 0==  _mkdir(sofar.c_str()); // *** http://msdn.microsoft.com/en-us/library/2fkk4dzw.aspx
+				bool ok;
+				ok = CreateDirectoryA(sofar.c_str(), NULL);	
+			//bool ok = 0==  _mkdir(sofar.c_str()); // *** http://msdn.microsoft.com/en-us/library/2fkk4dzw.aspx
 			#else
 				#error "Do not know how to compile this for your platform."
 			#endif
