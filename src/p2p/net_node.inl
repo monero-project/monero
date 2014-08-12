@@ -37,16 +37,17 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
     
-    const command_line::arg_descriptor<int64_t>    arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up", -1};
-    const command_line::arg_descriptor<int64_t>    arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down", -1};
+    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up", -1};
+    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down", -1};
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate", 128};
   	const command_line::arg_descriptor<uint64_t>    arg_limit_auto      	= {"limit-auto", "set auto limit-rate", 128};
   	const command_line::arg_descriptor<uint64_t>    arg_limit_peer      	= {"limit-peer", "set auto limit-peer", 10};
   	
-  	const command_line::arg_descriptor<int>    arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
+  	const command_line::arg_descriptor<int>    		arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
 	const command_line::arg_descriptor<uint64_t>    arg_total_limit         = {"kill-net", "set sending and receiving MB limit", 0};
 
 	const command_line::arg_descriptor<bool>        arg_no_igd = {"no-igd", "Disable UPnP port mapping"};
+	const command_line::arg_descriptor<int64_t>     arg_out_peers = {"out_peers", "set max limit of out peers", -1};
   }
 
   //-----------------------------------------------------------------------------------
@@ -69,7 +70,8 @@ namespace nodetool
   	command_line::add_arg(desc, arg_limit_peer);
   	command_line::add_arg(desc, arg_tos_flag);
   	command_line::add_arg(desc, arg_total_limit);
-  	command_line::add_arg(desc, arg_no_igd);     }
+  	command_line::add_arg(desc, arg_no_igd);
+  	command_line::add_arg(desc, arg_out_peers);    }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -90,7 +92,7 @@ namespace nodetool
 
     //at this moment we have hardcoded config
     m_config.m_net_config.handshake_interval = P2P_DEFAULT_HANDSHAKE_INTERVAL;
-    m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+    //m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
     m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE; //20 MB limit
     m_config.m_net_config.config_id = 0; // initial config
     m_config.m_net_config.connection_timeout = P2P_DEFAULT_CONNECTION_TIMEOUT;
@@ -164,9 +166,11 @@ namespace nodetool
 			return false;
 			
 		if ( !set_kill_limit(vm, command_line::get_arg(vm, arg_total_limit) ) )
-                       return false;
+            return false;
 
-			
+		if ( !set_max_out_peers(vm, command_line::get_arg(vm, arg_out_peers) ) )
+            return false;
+                       	
     if(command_line::has_arg(vm, arg_p2p_add_exclusive_node))
     {
 			if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
@@ -707,24 +711,25 @@ namespace nodetool
     size_t expected_white_connections = (m_config.m_net_config.connections_count*P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT)/100;
 
     size_t conn_count = get_outgoing_connections_count();
+    LOG_PRINT_RED_L0("Conn count: " << conn_count);
+    LOG_PRINT_RED_L0("m_config.m_net_config.connections_count = " << m_config.m_net_config.connections_count);
     if(conn_count < m_config.m_net_config.connections_count)
     {
-			const int expected2 = 50; // TODO XXX make it configurable (2 options, for white and totall?)
-      if(conn_count < expected2) // expected_white_connections)
+      if(conn_count < expected_white_connections)
       {
         //start from white list
-        if(!make_expected_connections_count(true, expected2)) // expected_white_connections))
+        if(!make_expected_connections_count(true, expected_white_connections))
           return false;
         //and then do grey list
-        if(!make_expected_connections_count(false, expected2)) // m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(false, m_config.m_net_config.connections_count))
           return false;
       }else
       {
         //start from grey list
-        if(!make_expected_connections_count(false, expected2)) // m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(false, m_config.m_net_config.connections_count))
           return false;
         //and then do white list
-        if(!make_expected_connections_count(true, expected2)) // m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(true, m_config.m_net_config.connections_count))
           return false;
       }
     }
@@ -1285,6 +1290,19 @@ namespace nodetool
 		}
 		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_tos_flag(flag);
 		LOG_PRINT_L0("Set ToS flag  " << flag);
+		return true;
+	}
+	
+	  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max)
+	{
+		if(max==-1) {
+			m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+			return true;
+		}
+		
+		LOG_PRINT_RED_L0("connections_count:  " << max);
+		m_config.m_net_config.connections_count = max;
 		return true;
 	}
 	

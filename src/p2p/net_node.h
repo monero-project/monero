@@ -169,6 +169,7 @@ namespace nodetool
 
 	bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
 	bool set_kill_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+	bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
   	//debug functions
     std::string print_connections_container();
 
