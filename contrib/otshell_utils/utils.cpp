@@ -15,17 +15,24 @@
 
 #include "runoptions.hpp"
 
-// TODO nicer os detection?
-#if defined(__unix__) || defined(__posix) || defined(__linux) || defined(__darwin) || defined(__APPLE__)
+#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
+	#define OS_TYPE_WINDOWS
+#elif defined(__unix__) || defined(__posix) || defined(__linux) || defined(__darwin) || defined(__APPLE__) || defined(__clang__)
+	#define OS_TYPE_POSIX
+#else
+	#warning "Compiler/OS platform is not recognized"
+	#warning "Just assuming it will work as POSIX then"
+	#define OS_TYPE_POSIX
+#endif
+
+#if defined(OS_TYPE_WINDOWS)
+	#include <windows.h>
+#elif defined(OS_TYPE_POSIX)
 	#include <sys/types.h>
 	#include <sys/stat.h>
 	#include <unistd.h>
-	#define OS_TYPE_POSIX
-#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
-	#include <windows.h>
-	#define OS_TYPE_WINDOWS
 #else
-	#error "Do not know how to compile this for your platform."
+	#error "Compiler/OS platform detection failed - not supported"
 #endif
 
 namespace nOT {
@@ -121,7 +128,7 @@ bool cFilesystemUtils::CreateDirTree(const std::string & dir, bool only_below) {
 
 		if (dbg) cout << "test ["<<sofar<<"]"<<endl;
 		// TODO nicer os detection?
-		#if defined(__unix__) || defined(__posix) || defined(__linux)
+		#if defined(OS_TYPE_POSIX)
 			struct stat st;
 			bool exists = stat(sofar.c_str() ,&st) == 0; // *
 			if (exists) {
@@ -130,21 +137,19 @@ bool cFilesystemUtils::CreateDirTree(const std::string & dir, bool only_below) {
 					return false; // exists but is a file nor dir
 				}
 			}
-		#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
-		DWORD dwAttrib = GetFileAttributesA(sofar.c_str());
-		bool exists = (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+		#elif defined(OS_TYPE_WINDOWS)
+			DWORD dwAttrib = GetFileAttributesA(sofar.c_str());
+			bool exists = (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 		#else
 			#error "Do not know how to compile this for your platform."
 		#endif
 
 		if (!exists) {
 			if (dbg) cout << "mkdir ["<<sofar<<"]"<<endl;
-			#if defined(__unix__) || defined(__posix) || defined(__linux)
+			#if defined(OS_TYPE_POSIX)
 				bool ok = 0==  mkdir(sofar.c_str(), 0700); // ***
-			#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
-				bool ok;
-				ok = CreateDirectoryA(sofar.c_str(), NULL);	
-			//bool ok = 0==  _mkdir(sofar.c_str()); // *** http://msdn.microsoft.com/en-us/library/2fkk4dzw.aspx
+			#elif defined(OS_TYPE_WINDOWS)
+				bool ok = (bool) CreateDirectoryA(sofar.c_str(), NULL); // TODO use -W() after conversion to unicode UTF16
 			#else
 				#error "Do not know how to compile this for your platform."
 			#endif
