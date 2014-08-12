@@ -16,12 +16,14 @@
 #include "runoptions.hpp"
 
 // TODO nicer os detection?
-#if defined(__unix__) || defined(__posix) || defined(__linux)
+#if defined(__unix__) || defined(__posix) || defined(__linux) || defined(__darwin) || defined(__APPLE__)
 	#include <sys/types.h>
 	#include <sys/stat.h>
 	#include <unistd.h>
+	#define OS_TYPE_POSIX
 #elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
 	#include <windows.h>
+	#define OS_TYPE_WINDOWS
 #else
 	#error "Do not know how to compile this for your platform."
 #endif
@@ -93,9 +95,9 @@ std::unique_ptr<T> make_unique( Args&& ...args )
 
 char cFilesystemUtils::GetDirSeparator() {
 	// TODO nicer os detection?
-	#if defined(__unix__) || defined(__posix) || defined(__linux)
+	#if defined(OS_TYPE_POSIX)
 		return '/';
-	#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined (WIN64)
+	#elif defined(OS_TYPE_WINDOWS)
 		return '\\';
 	#else
 		#error "Do not know how to compile this for your platform."
