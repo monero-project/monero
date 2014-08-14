@@ -1,10 +1,37 @@
-==== Hints for building ====
+===== Hints for building =====
 
+==== Local compiler ====
 
-In case of building on linux with local boost,
-especially tested on Debian 7 (64bit),
-for older sources (e.g. 2014-06 .. 2014-08),
-you have to apply modification to the sources to use local boost:
+Goal: how to have a local compiler (e.g. gcc, as well as boost library).
+This is needed e.g. on Debian Wheezy (it's stock compiler is too old).
+
+=== Local compiler soluion ===
+
+As of 2014-08-14 the best way to use your user-local compiler and boost in ~/.local/ 
+is to use ENV VARS (they will be picked up by ccmake).
+
+To do so, configure following env variables (for ~/.bashrc just append at end):
+
+export CC="ccache $HOME/.local/bin/gcc" ; export CXX="ccache $HOME/.local/bin/g++" ; export CPP="$HOME/.local/bin/cpp"
+export CCACHE_SLOPPINESS=time_macros
+export PKG_CONFIG_PATH=$HOME/.local/lib/pkgconfig:$PKG_CONFIG_PATH 
+export BOOST_ROOT=$HOME/.local
+export DEVELOPER_LOCAL_TOOLS=1
+export DEVELOPER_LD_LIBRARY_PATH="$HOME/.local/lib:$HOME/.local/lib64"
+if [ -z "$LC_ALL" ] ; then export LC_ALL=C ; fi
+
+The LC_ALL line is sometimes needed, use it only in bash (e.g. in bashrc).
+
+REMEMBER: You need to reload your envs, in bash you use  source ~/.bashrc  (or start new shell, e.g. new terminal)
+check the settings with bash commands like echo $DEVELOPER_LOCAL_TOOLS
+
+This version uses CCACHE for additional speedup, to not use it just remove ALL ccache" in CC= line:
+export CC="$HOME/.local/bin/gcc" ; export CXX="$HOME/.local/bin/g++" ; export CPP="$HOME/.local/bin/cpp"
+
+=== Older solution ===
+
+For older project versions that do not include CMake changes, you can manually force local compiler/boost,
+by setting same env vars as above, and changing the source - in top CMakeLists.txt add:
 
 set(Boost_NO_SYSTEM_PATHS TRUE)
 
