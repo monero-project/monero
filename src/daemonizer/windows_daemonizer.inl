@@ -4,6 +4,7 @@
 #include "daemonizer/windows_service.h"
 #include "daemonizer/windows_service_runner.h"
 
+#include <shlobj.h>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -53,6 +54,27 @@ namespace daemonizer
     command_line::add_arg(normal_options, arg_start_service);
     command_line::add_arg(normal_options, arg_stop_service);
     command_line::add_arg(hidden_options, arg_is_service);
+  }
+
+  inline boost::filesystem::path get_default_data_dir()
+  {
+    bool admin;
+    if (!windows::check_admin(admin))
+    {
+      admin = false;
+    }
+    if (admin)
+    {
+      return boost::filesystem::absolute(
+          tools::get_special_folder_path(CSIDL_COMMON_APPDATA, true) + "\\" + CRYPTONOTE_NAME
+        );
+    }
+    else
+    {
+      return boost::filesystem::absolute(
+          tools::get_special_folder_path(CSIDL_APPDATA, true) + "\\" + CRYPTONOTE_NAME
+        );
+    }
   }
 
   inline boost::filesystem::path get_relative_path_base(

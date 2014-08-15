@@ -41,6 +41,9 @@
 
 namespace tools
 {
+#ifdef WIN32
+  std::string get_special_folder_path(int nfolder, bool iscreate);
+#endif
   std::string get_default_data_dir();
   std::string get_os_version_string();
   bool create_directories_if_necessary(const std::string& path);

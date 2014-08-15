@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/scoped_message_writer.h"
+#include "common/util.h"
 #include "daemonizer/posix_fork.h"
 
 #include <boost/filesystem/operations.hpp>
@@ -22,6 +23,11 @@ namespace daemonizer
     )
   {
     command_line::add_arg(normal_options, arg_detach);
+  }
+
+  inline boost::filesystem::path get_default_data_dir()
+  {
+    return boost::filesystem::absolute(tools::get_default_data_dir());
   }
 
   inline boost::filesystem::path get_relative_path_base(

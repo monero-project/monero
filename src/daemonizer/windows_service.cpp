@@ -44,41 +44,6 @@ namespace {
     }
   }
 
-  bool check_admin(bool & result)
-  {
-    BOOL is_admin = FALSE;
-    PSID p_administrators_group = nullptr;
-
-    SID_IDENTIFIER_AUTHORITY nt_authority = SECURITY_NT_AUTHORITY;
-
-    if (!AllocateAndInitializeSid(
-          &nt_authority
-        , 2
-        , SECURITY_BUILTIN_DOMAIN_RID
-        , DOMAIN_ALIAS_RID_ADMINS
-        , 0, 0, 0, 0, 0, 0
-        , &p_administrators_group
-        ))
-    {
-      tools::fail_msg_writer() << "Security Identifier creation failed: " << get_last_error();
-      return false;
-    }
-
-    if (!CheckTokenMembership(
-          nullptr
-        , p_administrators_group
-        , &is_admin
-        ))
-    {
-      tools::fail_msg_writer() << "Permissions check failed: " << get_last_error();
-      return false;
-    }
-
-    result = is_admin ? true : false;
-
-    return true;
-  }
-
   bool relaunch_as_admin(
       std::string const & command
     , std::string const & arguments
@@ -111,18 +76,53 @@ namespace {
   }
 }
 
+bool check_admin(bool & result)
+{
+  BOOL is_admin = FALSE;
+  PSID p_administrators_group = nullptr;
+
+  SID_IDENTIFIER_AUTHORITY nt_authority = SECURITY_NT_AUTHORITY;
+
+  if (!AllocateAndInitializeSid(
+        &nt_authority
+      , 2
+      , SECURITY_BUILTIN_DOMAIN_RID
+      , DOMAIN_ALIAS_RID_ADMINS
+      , 0, 0, 0, 0, 0, 0
+      , &p_administrators_group
+      ))
+  {
+    tools::fail_msg_writer() << "Security Identifier creation failed: " << get_last_error();
+    return false;
+  }
+
+  if (!CheckTokenMembership(
+        nullptr
+      , p_administrators_group
+      , &is_admin
+      ))
+  {
+    tools::fail_msg_writer() << "Permissions check failed: " << get_last_error();
+    return false;
+  }
+
+  result = is_admin ? true : false;
+
+  return true;
+}
+
 bool ensure_admin(
     std::string const & arguments
   )
 {
-  bool is_admin;
+  bool admin;
 
-  if (!check_admin(is_admin))
+  if (!check_admin(admin))
   {
     return false;
   }
 
-  if (is_admin)
+  if (admin)
   {
     return true;
   }

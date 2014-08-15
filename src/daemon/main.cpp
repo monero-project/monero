@@ -85,7 +85,7 @@ int main(int argc, char const * argv[])
     po::options_description core_settings("Settings");
     po::positional_options_description positional_options;
     {
-      bf::path default_data_dir = bf::absolute(tools::get_default_data_dir());
+      bf::path default_data_dir = daemonizer::get_default_data_dir();
 
       // Misc Options
 
