@@ -1,4 +1,4 @@
-Bitmonero
+Monero
 
 Release notes 0.8.8
 

@@ -6,26 +6,7 @@
 *.swp
 *.swo
 
-
-
-# new cmake, cmake config, ccmake
-
-CMakeCache.txt
-CMakeFiles/
-*.cmake
-external/Makefile
-external/miniupnpc/libminiupnpc.a
-miniupnpcstrings.h
-src/Makefile
-version/
-
-# when building into src/
-src/*.a
-src/CMakeLists.txt
-src/Makefile
-src/bitmonerod
-src/bitmonerod.log
-
-# precompiled headers
-src/epee/*.gch
+# cmake cache (if run in old way in build/ - should be not used)
+src/CMakeCache.txt
+src/CMakeFiles/
 
