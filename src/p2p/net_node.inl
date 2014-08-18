@@ -713,6 +713,7 @@ namespace nodetool
     size_t conn_count = get_outgoing_connections_count();
     LOG_PRINT_RED_L0("Conn count: " << conn_count);
     LOG_PRINT_RED_L0("m_config.m_net_config.connections_count = " << m_config.m_net_config.connections_count);
+    LOG_PRINT_RED_L0("expected_white_connections: " << expected_white_connections);
     if(conn_count < m_config.m_net_config.connections_count)
     {
       if(conn_count < expected_white_connections)

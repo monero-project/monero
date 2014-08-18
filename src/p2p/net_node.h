@@ -186,8 +186,11 @@ namespace nodetool
         KV_SERIALIZE(m_peer_id)
       END_KV_SERIALIZE_MAP()
     };
-
-    config m_config;
+       
+  public:
+	config m_config;
+  private:
+    
     std::string m_config_folder;
 
     bool m_have_address;

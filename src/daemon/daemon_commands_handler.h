@@ -46,6 +46,7 @@ public:
     m_cmd_binder.set_handler("limit-up", boost::bind(&daemon_cmmands_handler::limit_up, this, _1), "Set upload limit");
     m_cmd_binder.set_handler("limit-down", boost::bind(&daemon_cmmands_handler::limit_down, this, _1), "Set download limit");
     m_cmd_binder.set_handler("limit", boost::bind(&daemon_cmmands_handler::limit, this, _1), "Set download and upload limit");
+    m_cmd_binder.set_handler("out_peers", boost::bind(&daemon_cmmands_handler::out_peers_limit, this, _1), "Set max limit of out peers");
   }
 
   bool start_handling()
@@ -160,7 +161,6 @@ private:
 //--------------------------------------------------------------------------------  
   bool limit(const std::vector<std::string>& args)
   {
-
       if(args.size()!=1) {
           std::cout << "Usage: limit_down <speed>" << ENDL;
           return true;
@@ -191,6 +191,26 @@ private:
 
       return true;
   }
+ //--------------------------------------------------------------------------------
+ bool out_peers_limit(const std::vector<std::string>& args) {
+	  if(args.size()!=1) {		
+		  std::cout << "Usage: limit_down <speed>" << ENDL;
+          return true;
+      }
+    
+      int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+    
+	  LOG_PRINT_RED_L0("connections_count:  " << limit);
+	  m_srv.m_config.m_net_config.connections_count = limit;
+	  return true;
+ }
  //--------------------------------------------------------------------------------
   bool show_hr(const std::vector<std::string>& args)
   {
