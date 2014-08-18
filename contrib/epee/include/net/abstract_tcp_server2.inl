@@ -306,26 +306,22 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   bool connection<t_protocol_handler>::do_send(const void* ptr, size_t cb) {
     TRY_ENTRY();
+
     // Use safe_shared_from_this, because of this is public method and it can be called on the object being deleted
     auto self = safe_shared_from_this();
-    if(!self)
-      return false;
-    if(m_was_shutdown)
-      return false;
+    if (!self) return false;
+    if (m_was_shutdown) return false;
+		// TODO avoid copy
 
+		const double factor = 2.0; // TODO config
 		typedef long long signed int t_safe; // my t_size to avoid any overunderflow in arithmetic
-		// TODO tripple check that arithetics can not ever over/underflow
-		const t_safe chunksize_good = 1024*8; // TODO config
-		const t_safe chunksize_max = chunksize_good * 2; // TODO config
-		const bool allow_split = true;
-
-    		epee::critical_region_t<decltype(m_chunking_lock)> send_guard(m_chunking_lock); // *** critical *** // MOVE BELOW XXX
+		const t_safe chunksize_good = (t_safe)( 1024 * std::max(1.0,factor) );
+		const t_safe chunksize_max = chunksize_good * 2;
+		const bool allow_split = true; // TODO config
 
 		if (allow_split && (cb > chunksize_max)) {
-
 			{ // LOCK: chunking
-
-				// XXX MOVE HERE
+    		epee::critical_region_t<decltype(m_chunking_lock)> send_guard(m_chunking_lock); // *** critical *** 
 
 				_mark_c("net/out/size", "do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
 				  _mark("do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
@@ -341,7 +337,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
 				bool all_ok = true;
 				while (pos < all) {
-					t_safe lenall = all-pos+1; // length from here to end
+					t_safe lenall = all-pos; // length from here to end
 					t_safe len = std::min( chunksize_good , lenall); // take a smaller part
 					ASRT(len<=chunksize_good);
 					// pos=8; len=4; all=10;	len=3;
@@ -370,12 +366,14 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				_mark_c("net/out/size", "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
 				_mark  (                "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
 
-			boost::this_thread::sleep(boost::posix_time::milliseconds( 20*1000 ) ); // XXX XXX TODO
+				boost::this_thread::sleep(boost::posix_time::milliseconds( 20*1000 ) ); // XXX XXX TODO
 
 				return all_ok; // done - e.g. queued - all the chunks of current do_send call
 			} // LOCK: chunking
-		} // big block
-		else return do_send_chunk(ptr,cb); // just send as 1 big chunk
+		} // a big block (to be chunked) - all chunks
+		else { // small block
+			return do_send_chunk(ptr,cb); // just send as 1 big chunk
+		}
 
     CATCH_ENTRY_L0("connection<t_protocol_handler>::do_send", false);
 	} // do_send()
@@ -457,7 +455,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		do_send_handler_stop( ptr , cb );
     return true;
 
-    CATCH_ENTRY_L0("connection<t_protocol_handler>::do_send", false);
+    CATCH_ENTRY_L0("connection<t_protocol_handler>::do_send_chunk", false);
   } // do_send_chunk
 
   //---------------------------------------------------------------------------------
