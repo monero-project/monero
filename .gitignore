@@ -5,3 +5,8 @@
 # vim swap files
 *.swp
 *.swo
+
+# cmake cache (if run in old way in build/ - should be not used)
+src/CMakeCache.txt
+src/CMakeFiles/
+
