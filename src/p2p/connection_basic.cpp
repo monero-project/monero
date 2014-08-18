@@ -69,7 +69,7 @@
 #include <boost/asio/ip/unicast.hpp>
 #include "../../contrib/epee/include/net/abstract_tcp_server2.h"
 
-#include "../../external/otshell_utils/utils.hpp"
+#include "../../contrib/otshell_utils/utils.hpp"
 using namespace nOT::nUtils;
 
 // TODO:

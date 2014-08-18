@@ -74,7 +74,8 @@
 // TODO:
 #include "../../src/p2p/network_throttle-detail.hpp"
 
-#include "../../external/otshell_utils/utils.hpp"
+#include "../../contrib/otshell_utils/utils.hpp"
+using namespace nOT::nUtils;
 
 // ################################################################################################
 // ################################################################################################

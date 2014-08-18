@@ -74,7 +74,7 @@
 #include "../../src/cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "../../src/p2p/network_throttle.hpp"
 
-#include "../../external/otshell_utils/utils.hpp"
+#include "../../contrib/otshell_utils/utils.hpp"
 using namespace nOT::nUtils;
 
 

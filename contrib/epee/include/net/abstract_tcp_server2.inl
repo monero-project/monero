@@ -41,7 +41,7 @@
 #include <iomanip>
 #include <algorithm>
 
-#include "../../external/otshell_utils/utils.hpp"
+#include "../../../../contrib/otshell_utils/utils.hpp"
 using namespace nOT::nUtils;
 
 PRAGMA_WARNING_PUSH
