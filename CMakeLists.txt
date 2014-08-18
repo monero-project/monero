@@ -13,7 +13,12 @@ option(BUILD_SIMPLE_MINER "Build simple miner" ON)
 option(BUILD_SIMPLE_WALLET "Build simple wallet" ON)
 option(ENABLE_COTIRE "Enable cotire - CMake module to speed up builds" ON)	
 
-if ($ENV{DEVELOPER_LOCAL_TOOLS} EQUAL 1)
+if (NOT EXISTS "$ENV{DEVELOPER_LOCAL_TOOLS}")
+	option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost ins	tallation" OFF)
+	message(STATUS "Could not find DEVELOPER_LOCAL_TOOLS ")
+	message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to OFF")
+
+elseif ($ENV{DEVELOPER_LOCAL_TOOLS} EQUAL 1)
 	option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" ON)
 	message(STATUS "env DEVELOPER_LOCAL_TOOLS = 1")
 	message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ON")
