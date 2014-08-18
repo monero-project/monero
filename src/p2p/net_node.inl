@@ -1289,7 +1289,7 @@ namespace nodetool
 	}
 	
   template<class t_payload_net_handler>int node_server<t_payload_net_handler>:: thrds_count= 0;
-   extern int limit_peer;
+
 }
 
 
