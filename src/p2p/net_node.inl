@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <ctime>
 
 #include "version.h"
 #include "string_tools.h"
@@ -18,6 +19,8 @@
 #include "storages/levin_abstract_invoke2.h"
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
+#include "../../external/otshell_utils/utils.hpp"
+
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
@@ -982,6 +985,7 @@ namespace nodetool
   template<class t_payload_net_handler> template<class t_callback>
   bool node_server<t_payload_net_handler>::try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb)
   {
+
     if(!node_data.my_port)
       return false;
 
@@ -990,11 +994,20 @@ namespace nodetool
       return false;
     std::string ip = epee::string_tools::get_ip_string_from_int32(actual_ip);
     std::string port = epee::string_tools::num_to_string_fast(node_data.my_port);
+
+
+	clock_t time1 = clock();
+    _dbg3_c("net/ping", "TRY PING to " << ip << ":" << port);
+    _dbg1_c("net/ping", "time1 = " << time1);
+
     peerid_type pr = node_data.peer_id;
-    bool r = m_net_server.connect_async(ip, port, m_config.m_net_config.ping_connection_timeout, [cb, /*context,*/ ip, port, pr, this](
+    bool r = m_net_server.connect_async(ip, port, m_config.m_net_config.ping_connection_timeout, [cb, /*context,*/ ip, port, pr, this, time1](
       const typename net_server::t_connection_context& ping_context,
       const boost::system::error_code& ec)->bool
     {
+     clock_t time_lambda_1 = clock();    
+     _dbg1_c("net/ping", "time_lambda_1 = " << time_lambda_1);
+     _dbg1_c("net/ping", "time_lambda_1 - time1 = " << (time_lambda_1 - time1) * 1000 / CLOCKS_PER_SEC);
       if(ec)
       {
         LOG_PRINT_CC_L2(ping_context, "back ping connect failed to " << ip << ":" << port);
@@ -1010,6 +1023,10 @@ namespace nodetool
       bool inv_call_res = epee::net_utils::async_invoke_remote_command2<COMMAND_PING::response>(ping_context.m_connection_id, COMMAND_PING::ID, req, m_net_server.get_config_object(),
         [=](int code, const COMMAND_PING::response& rsp, p2p_connection_context& context)
       {
+       _dbg2_c("net/ping", "lambda 2 start");
+       clock_t time2 = clock();
+       _dbg1_c("net/ping", "time2 - time1 = " << (time2 - time1) * 1000 / CLOCKS_PER_SEC);
+       _dbg3_c("net/ping", "Lambda 2 ip: " << ip );
         if(code <= 0)
         {
           LOG_PRINT_CC_L2(ping_context, "Failed to invoke COMMAND_PING to " << ip << ":" << port << "(" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
@@ -1023,7 +1040,8 @@ namespace nodetool
         }
         m_net_server.get_config_object().close(ping_context.m_connection_id);
         cb();
-      });
+        _dbg2_c("net/ping", "lambda 2 end");
+      }); // lambda
 
       if(!inv_call_res)
       {
@@ -1032,11 +1050,14 @@ namespace nodetool
         return false;
       }
       return true;
-    });
+    }); // lambda
+    
     if(!r)
     {
       LOG_ERROR("Failed to call connect_async, network error.");
     }
+    
+
     return r;
   }
   //-----------------------------------------------------------------------------------
@@ -1097,6 +1118,8 @@ namespace nodetool
       peerid_type peer_id_l = arg.node_data.peer_id;
       uint32_t port_l = arg.node_data.my_port;
       //try ping to be sure that we can add this peer to peer_list
+      _dbg2_c("net/ping", "TRY PING in handle handshake");
+      clock_t start = clock();
       try_ping(arg.node_data, context, [peer_id_l, port_l, context, this]()
       {
         //called only(!) if success pinged, update local peerlist
@@ -1108,6 +1131,7 @@ namespace nodetool
         this->m_peerlist.append_with_peer_white(pe);
         LOG_PRINT_CCONTEXT_L2("PING SUCCESS " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << ":" << port_l);
       });
+      //_dbg3_c("net/ping", "ping time: " << clock() - start);
     }
 
     //fill response
@@ -1121,9 +1145,12 @@ namespace nodetool
   template<class t_payload_net_handler>
   int node_server<t_payload_net_handler>::handle_ping(int command, COMMAND_PING::request& arg, COMMAND_PING::response& rsp, p2p_connection_context& context)
   {
+	_dbg1_c("net/ping", "handle_ping ()");
+	clock_t start = clock();
     LOG_PRINT_CCONTEXT_L2("COMMAND_PING");
     rsp.status = PING_OK_RESPONSE_STATUS_TEXT;
     rsp.peer_id = m_config.m_peer_id;
+    _dbg1_c("net/ping", "handle_ping time: " << clock() - start);
     return 1;
   }
   //-----------------------------------------------------------------------------------
