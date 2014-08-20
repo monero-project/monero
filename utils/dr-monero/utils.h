@@ -18,7 +18,6 @@ public:
 
     vector<double>  simpleSmooth(vector<double> data, double alpha);
     void display(vector <double> data);
-
     vector<double> prepareHistogramData(vector<double> t, vector<double> b, int frame);
 
 private:

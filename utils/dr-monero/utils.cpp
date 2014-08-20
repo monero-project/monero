@@ -1,20 +1,6 @@
 #include "utils.h"
 
-utils::utils()
-{
-//    vector <double> test;
-//    test.push_back(5.);
-//    test.push_back(10.);
-
-//    test.push_back(5.);
-//    test.push_back(20.);
-
-//    test.push_back(5.);
-//    test.push_back(10.);
-
-//    test.push_back(5.);
-
-//    display(simpleSmooth(test,0.1));
+utils::utils() {
 
 }
 
@@ -31,16 +17,24 @@ vector<double> utils::simpleSmooth(const vector<double> data, const double alpha
 }
 
 void utils::display(vector <double> data) {
-    cout << "=========";
     for(double tmp : data)
-        cout << "#" <<  tmp << "; ";
+        cout << tmp << "; ";
     cout << endl;
-
 }
 
 vector<double> utils::prepareHistogramData(vector<double> t, vector<double> b, int frame) {
+    // example:
+//    1	1.0 0.5
+//    2	1.3 4
+//    3	1.7 0.1
+//   ================== 4.6
+//    4	2.0 5
+//    5	2.1 2
+//   ==================
+//    6	3.5 4
+
     vector <double> h;
-    frame--;
+    frame--; //TODO frame!=1
 
     double value=0;
     for (int i=0; i<t.size()-1; i++) {
@@ -52,21 +46,5 @@ vector<double> utils::prepareHistogramData(vector<double> t, vector<double> b, i
         }
     }
     return h;
-
-
-    // example:
-//    1	1.0 0.5
-//    2	1.3 4
-//    3	1.7 0.1
-//   ================== 4.6
-//    4	2.0 5
-//    5	2.1 2
-//   ==================
-//    6	3.5 4
-
-
-
-
-
 }
 

@@ -23,7 +23,6 @@ MainWindow::MainWindow(QWidget *parent) :
     // slider and sliding
     connect(ui->Slider, SIGNAL(valueChanged(double)), this, SLOT(sliding()));
     ui->Slider->setRange(0,sum,10,interval);
-//    ui->Slider->setRange(0,ui->spinBox_2->value(),10,interval);
 
     connect(this, SIGNAL(replot()), ui->qwtPlot, SLOT(plotCurve()));
 
@@ -36,20 +35,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->startButton, SIGNAL(clicked()), timer, SLOT(start()));
     connect(ui->openButton, SIGNAL(clicked()), this, SLOT(openFile()));
 
-    utils test;
-
 }
 TEST void MainWindow::prepareTestData() {
     testFiles.push_back("../example.txt");
-//    testFiles.push_back("../example2.txt");
-//    testFiles.push_back("../example3.txt");
-//    testFiles.push_back("../example4.txt");
-//    testFiles.push_back("../example5.txt");
-
-//     HistogramItem *histogram = new HistogramItem();
-
-
-
 }
 
 void MainWindow::openFile() {
@@ -92,13 +80,10 @@ void MainWindow::refresh() {
         for(int i=0; i<fileNames.size(); i++)
             plot(fileNames.at(i).toStdString(),i);
     }
-
-    //else cout << DBG << "Nothing to do; " << endl;
 }
 
 
-MainWindow::~MainWindow()
-{
+MainWindow::~MainWindow() {
     delete ui;
 }
 
@@ -110,7 +95,6 @@ void MainWindow::sliding() {
     this->interval=ui->spinBox_2->value();
     ui->qwtPlot->setAxisScale( QwtPlot::xBottom, v, v+interval);
     sum+=interval;
-
 }
 
 void MainWindow::init(QwtPlot *&Plot) {
@@ -121,6 +105,7 @@ void MainWindow::init(QwtPlot *&Plot) {
 
 void MainWindow::prepareColors() {
 //    http://qt-project.org/doc/qt-4.8/qcolor.html#colorNames
+//    nice color to plots
     colors.push_back(QColor(Qt::red));
     colors.push_back(QColor(Qt::green));
     colors.push_back(QColor(Qt::blue));
@@ -130,26 +115,14 @@ void MainWindow::prepareColors() {
     colors.push_back(QColor(Qt::darkRed));
     colors.push_back(QColor(Qt::darkYellow));
 
-
-    ui->colorsLabel->setText("red \ngreen \nblue \nblack \ndarkBlue \ndarkGreen \ndarkRed \ndarkYellow");
-
+    if(dbg) ui->colorsLabel->setText("red \ngreen \nblue \nblack \ndarkBlue \ndarkGreen \ndarkRed \ndarkYellow");
 }
 
 
 
 void MainWindow::plot(const string &filename, const int col) {
-    // clear current plot
-//    int rtti; bool autoDelete;
-//    ui->qwtPlot->detachItems(rtti = QwtPlotItem::Rtti_PlotItem, autoDelete = true);
-
-
      // enable sliding
     sliding();
-
-
-
-
-
 
     // grid: connected with checkbox
     QwtPlotGrid *grid = new QwtPlotGrid();
@@ -165,14 +138,12 @@ void MainWindow::plot(const string &filename, const int col) {
         return;
     }
 
-
     static int si; // static - determinates position of slider (following right plot)
 
     int i=0;
 
     vector <double> xval;
     vector <double> yval;
-
 
     // getting data
     while(!file.eof()) {
@@ -203,19 +174,12 @@ void MainWindow::plot(const string &filename, const int col) {
 
     }
 
-    //ui->spinBox_2->setValue(xmax);
     ui->spinBox->setValue(ymax);
 
-   plotCurve(xval,yval,col,filename);
+    plotCurve(xval,yval,col,filename);
     plotHist(xval,yval,col,filename);
 
-
-
-
-
     file.close();
-
-    // TODO: some smooth
 }
 
 void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const int col, const string &filename) {
@@ -228,11 +192,12 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
     myData->setSamples(*samples);
     curve1->setData(myData);
     curve1->attach(ui->qwtPlot);
+
+    // points
     if(ui->pointsCheckBox->isChecked()) {
         QwtSymbol *symbol = new QwtSymbol( QwtSymbol::Ellipse, QBrush( Qt::yellow ), QPen( color, 2 ), QSize( 8, 8 ) );
         curve1->setSymbol( symbol );
     }
-
 
     ui->qwtPlot->insertLegend(new QwtLegend());
 
@@ -248,7 +213,7 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
                 cout << y.at(i) << " -> " << final_Y.at(i) << endl;
 
         }
-    } // end of smoothing
+    } // or no smoothing
     else {
         for(int i=0; i<x.size(); i++) samples->push_back(QPointF(x.at(i), y.at(i)));
     }
@@ -261,8 +226,7 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
 }
 
 void MainWindow::plotHist(const vector<double> t, const vector<double> b, const int col, const string &filename) {
-    const double frame=1.; // 1s
-
+    const double frame=1.; // TODO: frame value from spinbox
 
     QwtPlotHistogram *histogram = new QwtPlotHistogram(QString::fromStdString(splitString(filename,"/").back()));
     histogram->setStyle(QwtPlotHistogram::Columns);
@@ -273,30 +237,22 @@ void MainWindow::plotHist(const vector<double> t, const vector<double> b, const 
     double pos = 0.0;
     cout <<DBG << endl;
     utils test; vector <double> h = test.prepareHistogramData(t,b,frame);
-//    for (double tmp :b) cout << DBG << tmp << ";";
-//    for (double tmp :t) cout << DBG << tmp << ";";
-
 
     for ( int i=0; i<h.size(); i++ )    {
         const int width = frame;
-
         double value = h.at(i);
-
-
-
 
         samples2[i].interval = QwtInterval(pos, pos + double(width));
         samples2[i].value = value;
         pos += width;
-
     }
+
     ui->qwtPlot->insertLegend(new QwtLegend());
 
     histogram->setSamples(samples2);
     histogram->attach(ui->qwtPlot);
     ui->qwtPlot->replot();
 }
-
 
 vector<string> MainWindow::splitString(string toSplit, string delimiter) {
     toSplit+=delimiter;
@@ -309,5 +265,6 @@ vector<string> MainWindow::splitString(string toSplit, string delimiter) {
         toSplit.erase(0, pos + delimiter.length());
         data.push_back(token);
     }
+
     return data;
 }
