@@ -290,6 +290,7 @@ private:
 
 
 	void func_rfree_test();
+	void func_rfree_test2();
 
 };
 
