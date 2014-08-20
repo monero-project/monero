@@ -624,7 +624,9 @@ namespace nodetool
     peerlist_entry pe_local = AUTO_VAL_INIT(pe_local);
     pe_local.adr = na;
     pe_local.id = pi;
-    time(&pe_local.last_seen);
+    time_t last_seen;
+    time(&last_seen);
+    pe_local.last_seen = static_cast<int64_t>(last_seen);
     m_peerlist.append_with_peer_white(pe_local);
     //update last seen and push it to peerlist manager
 
@@ -1102,7 +1104,9 @@ namespace nodetool
         peerlist_entry pe;
         pe.adr.ip = context.m_remote_ip;
         pe.adr.port = port_l;
-        time(&pe.last_seen);
+        time_t last_seen;
+        time(&last_seen);
+        pe.last_seen = static_cast<int64_t>(last_seen);
         pe.id = peer_id_l;
         this->m_peerlist.append_with_peer_white(pe);
         LOG_PRINT_CCONTEXT_L2("PING SUCCESS " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << ":" << port_l);
