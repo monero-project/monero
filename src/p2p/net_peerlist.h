@@ -110,25 +110,13 @@ namespace nodetool
       const peerlist_entry& m_ple;
     };
 
-    struct modify_last_seen
-    {
-      modify_last_seen(time_t last_seen):m_last_seen(last_seen){}
-      void operator()(peerlist_entry& e)
-      {
-        e.last_seen = m_last_seen;
-      }
-    private:
-      time_t m_last_seen;
-    };
-
-
     typedef boost::multi_index_container<
       peerlist_entry,
       boost::multi_index::indexed_by<
       // access by peerlist_entry::net_adress
       boost::multi_index::ordered_unique<boost::multi_index::tag<by_addr>, boost::multi_index::member<peerlist_entry,net_address,&peerlist_entry::adr> >,
       // sort by peerlist_entry::last_seen<
-      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,time_t,&peerlist_entry::last_seen> >
+      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,int64_t,&peerlist_entry::last_seen> >
       > 
     > peers_indexed;
 
@@ -140,7 +128,7 @@ namespace nodetool
       // access by peerlist_entry::net_adress
       boost::multi_index::ordered_unique<boost::multi_index::tag<by_addr>, boost::multi_index::member<peerlist_entry,net_address,&peerlist_entry::adr> >,
       // sort by peerlist_entry::last_seen<
-      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,time_t,&peerlist_entry::last_seen> >
+      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,int64_t,&peerlist_entry::last_seen> >
       > 
     > peers_indexed_old;
   public:    
