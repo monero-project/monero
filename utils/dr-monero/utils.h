@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer in monero.cc project)
+/// @brief main network-throttle (count speed and decide on limit)
+
 #ifndef UTILS_H
 #define UTILS_H
 
@@ -15,15 +19,10 @@ class utils
 {
 public:
     utils();
-
     vector<double>  simpleSmooth(vector<double> data, double alpha);
-    void display(vector <double> data);
     vector<double> prepareHistogramData(vector<double> t, vector<double> b, int frame);
-
 private:
-
-    double calc(vector<double> t, vector<double> b, int i, int &jump) ;
-
+    void display(vector <double> data);
 };
 
 #endif // UTILS_H

@@ -64,7 +64,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-
+#include <mutex>
 
 #include <boost/asio/basic_socket.hpp>
 #include <boost/asio/ip/unicast.hpp>
@@ -299,17 +299,39 @@ void connection_basic::do_read_handler_start(const boost::system::error_code& e,
 	}
 }
 
-void connection_basic::logger_handle_net_write(size_t size) { // network data written
+/*void connection_basic::logger_handle_net_write(size_t size) { // network data written
  	// TODO OPTIMIZE! do NOT reopen idiotically :)
 	std::ostringstream oss;
 	oss << "log/net/in/peer" << (mI->m_peer_number) << ".dat" << std::ends;
 	string fname = oss.str();
 	std::ofstream ofs(fname.c_str(), std::ios::app);
-/*	double -m 
-	ofs << */
+    double -m
+    ofs <<
+}*/
+
+void connection_basic::logger_handle_net(const std::string &filename, double time, size_t size) {
+    std::mutex mutex;
+    mutex.lock(); {
+        std::fstream file;
+        file.open(filename.c_str(), std::ios::app | std::ios::out );
+        if(!file.is_open())
+            _warn("Can't open file " << filename);
+        file << time << " " << size << "\n";
+        file.close();
+    }  mutex.unlock();
 }
 
 void connection_basic::logger_handle_net_read(size_t size) { // network data read
+    std::string filename = "log/net/in/all-size.data";
+
+    double time = network_throttle_manager::get_global_throttle_in().get_time_seconds() ;
+    logger_handle_net(filename, time, size);
+}
+
+void connection_basic::logger_handle_net_write(size_t size) {
+    std::string filename = "log/net/out/all-size.data";
+    double time = network_throttle_manager::get_global_throttle_out().get_time_seconds() ;
+    logger_handle_net(filename, time, size);
 }
 
 } // namespace

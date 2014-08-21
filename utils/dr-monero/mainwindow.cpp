@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer in monero.cc project)
+/// @brief main network-throttle (count speed and decide on limit)
+
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
@@ -7,18 +11,17 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow),
     interval(100),
     sum(1000),
-    dbg(true),
+    dbg(false),
+    monero(true),
     xmax(10),
     ymax(10)
 {
+    srand(time(NULL));
     ui->setupUi(this);
 
     init(ui->qwtPlot);
 
     prepareColors();
-
-    if(dbg)
-        prepareTestData();
 
     // slider and sliding
     connect(ui->Slider, SIGNAL(valueChanged(double)), this, SLOT(sliding()));
@@ -34,11 +37,32 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->stopButton, SIGNAL(clicked()), timer, SLOT(stop()));
     connect(ui->startButton, SIGNAL(clicked()), timer, SLOT(start()));
     connect(ui->openButton, SIGNAL(clicked()), this, SLOT(openFile()));
+    connect(ui->rcolorsButton, SIGNAL(clicked()),this, SLOT(reloadColors()));
+    connect(ui->optionsButton, SIGNAL(clicked()), this, SLOT(optionWindow()));
 
+    ui->lockY->setChecked(true);
+    ui->pointsCheckBox->setChecked(true);
+    ui->gridCheckBox->setChecked(true);
 }
-TEST void MainWindow::prepareTestData() {
-    testFiles.push_back("../example.txt");
+
+void MainWindow::optionWindow() {
+    Dialog *option = new Dialog;
+    option->loadFiles(files);
+    int result = option->exec();
+
+    if(result == QDialog::Accepted) {
+        cout << DBG << "success" << endl;
+        option->save(files);
+    }
+    else if (result == QDialog::Rejected ) cout << DBG << "some errors" << endl;
+//    else if (result == QDialog::)
 }
+
+void MainWindow::addFile(const string &name, plotType type) {
+    plotFile pfile(name,type);
+    files.push_back(pfile);
+}
+
 
 void MainWindow::openFile() {
 
@@ -55,9 +79,6 @@ void MainWindow::openFile() {
                                          file.errorString());
                 return;
             }
-
-            // list opened files
-//            ui->filesLabel->setText(ui->filesLabel->text() + fileName + "\n");
         }
     }
 }
@@ -65,26 +86,29 @@ void MainWindow::openFile() {
 void MainWindow::refresh() {
     cout << DBG <<  "timer " << endl;
 
-    if(dbg) {
+    if(dbg || monero) {
         int rtti; bool autoDelete;
         ui->qwtPlot->detachItems(rtti = QwtPlotItem::Rtti_PlotItem, autoDelete = true);
-        for(int i=0; i<testFiles.size(); i++) plot(testFiles.at(i),i);
+        for(int i=0; i<files.size(); i++) plot(files.at(i).getName(), i, files.at(i).getType());
     }
+// TODO:
+//    if(!this->fileNames.empty()) {
+//        // clear plot
+//        int rtti; bool autoDelete;
+//        ui->qwtPlot->detachItems(rtti = QwtPlotItem::Rtti_PlotItem, autoDelete = true);
 
-    if(!this->fileNames.empty()) {
-        // clear plot
-        int rtti; bool autoDelete;
-        ui->qwtPlot->detachItems(rtti = QwtPlotItem::Rtti_PlotItem, autoDelete = true);
-
-        // call plot function for files
-        for(int i=0; i<fileNames.size(); i++)
-            plot(fileNames.at(i).toStdString(),i);
-    }
+//        // call plot function for files
+//        for(int i=0; i<fileNames.size(); i++)
+//            plot(fileNames.at(i).toStdString(),i);
+//    }
 }
 
 
 MainWindow::~MainWindow() {
     delete ui;
+}
+void MainWindow::reloadColors() {
+    prepareColors();
 }
 
 void MainWindow::sliding() {
@@ -106,21 +130,29 @@ void MainWindow::init(QwtPlot *&Plot) {
 void MainWindow::prepareColors() {
 //    http://qt-project.org/doc/qt-4.8/qcolor.html#colorNames
 //    nice color to plots
-    colors.push_back(QColor(Qt::red));
-    colors.push_back(QColor(Qt::green));
-    colors.push_back(QColor(Qt::blue));
-    colors.push_back(QColor(Qt::black));
-    colors.push_back(QColor(Qt::darkBlue));
-    colors.push_back(QColor(Qt::darkGreen));
-    colors.push_back(QColor(Qt::darkRed));
-    colors.push_back(QColor(Qt::darkYellow));
 
-    if(dbg) ui->colorsLabel->setText("red \ngreen \nblue \nblack \ndarkBlue \ndarkGreen \ndarkRed \ndarkYellow");
+    transparentColors.clear();
+    colors.clear();
+    cout << DBG << "Preparing colors" << endl;
+    for(int i=0; i<100; i++) { // TODO Better randomize...
+        QColor color(rand()%255,  rand()%255, rand()%255);
+        srand(time(NULL)*(i+1));
+        colors.push_back(color.darker(100));
+        srand(time(NULL)*(i+10));
+
+        QColor transparentColor(rand()%240,  rand()%240, rand()%240, 50);
+        transparentColors.push_back(transparentColor.darker(100));
+
+
+        cout << ".";
+    }
+    cout << endl;
+    cout << DBG << "Colors ready" << endl;
 }
 
 
 
-void MainWindow::plot(const string &filename, const int col) {
+void MainWindow::plot(const string &filename, const int col, const plotType type) {
      // enable sliding
     sliding();
 
@@ -130,7 +162,7 @@ void MainWindow::plot(const string &filename, const int col) {
     else grid->detach();
 
     fstream file;
-    cout << DBG << filename << endl;
+//    cout << DBG << filename << endl;
     file.open(filename.c_str(), ios::in | ios::out);
 
     if(!file.is_open())  {
@@ -152,9 +184,8 @@ void MainWindow::plot(const string &filename, const int col) {
         file >> x;
         file >> y;
 
-        if(x > xmax) xmax = x;
-        if(y > ymax) ymax = y;
-
+//        if(x > xmax) xmax = x;
+//        if(y > ymax) ymax = y;
 
         // saving this information to vectors
         xval.push_back(x);
@@ -164,20 +195,24 @@ void MainWindow::plot(const string &filename, const int col) {
         ui->qwtPlot->replot();
         i++;
 
-        if(si < i) { // moving slider
-            ui->Slider->setValue(i-interval);
-            si=i;
+//        if(si < i) { // moving slider
+//            ui->Slider->setValue(i-interval);
+//            si=i;
 
-            // slider configuration
-            ui->Slider->setRange(0,si+1000,(ui->spinBox_2->value())/10,  0);
-        }
-
+//            // slider configuration
+//            ui->Slider->setRange(0,si+1000,(ui->spinBox_2->value())/10,  0);
+//        }
     }
 
-    ui->spinBox->setValue(ymax);
+    if(type==curve) plotCurve(xval,yval,col,filename);
+    else if (type==histogram) plotHist(xval,yval,col,filename);
 
-    plotCurve(xval,yval,col,filename);
-    plotHist(xval,yval,col,filename);
+    if(ui->lockY->isChecked()) {
+        ui->spinBox->setValue(ymax);
+        ui->spinBox->setDisabled(true);
+    }
+    else ui->spinBox->setEnabled(true);
+    ui->qwtPlot->replot();
 
     file.close();
 }
@@ -195,7 +230,7 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
 
     // points
     if(ui->pointsCheckBox->isChecked()) {
-        QwtSymbol *symbol = new QwtSymbol( QwtSymbol::Ellipse, QBrush( Qt::yellow ), QPen( color, 2 ), QSize( 8, 8 ) );
+        QwtSymbol *symbol = new QwtSymbol( QwtSymbol::Ellipse, QBrush( color ), QPen( color, 2 ), QSize( 8, 8 ) );
         curve1->setSymbol( symbol );
     }
 
@@ -206,52 +241,77 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
         utils data;
         vector <double> final_Y = data.simpleSmooth(y,ui->smoothSpinBox->value());
 
-        for(int i=0; i<x.size(); i++) samples->push_back(QPointF(x.at(i), final_Y.at(i)));
+        for(int i=0; i<x.size(); i++) {
+            samples->push_back(QPointF(x.at(i), final_Y.at(i)));
+            if(final_Y.at(i)>ymax) ymax = final_Y.at(i)+1;
 
-        if(dbg) {
-            for (int i=0; i<final_Y.size(); i++)
-                cout << y.at(i) << " -> " << final_Y.at(i) << endl;
+            if(xmax < i) { // moving slider
+                ui->Slider->setValue(i-interval);
+                xmax=i;
+
+                // slider configuration
+                ui->Slider->setRange(0,xmax+1000,(ui->spinBox_2->value())/10,  0);
+            }
 
         }
     } // or no smoothing
     else {
-        for(int i=0; i<x.size(); i++) samples->push_back(QPointF(x.at(i), y.at(i)));
+        for(int i=0; i<x.size(); i++) {
+            samples->push_back(QPointF(x.at(i), y.at(i)));
+            if(y.at(i)>ymax) ymax = y.at(i)+1;
+
+            if(xmax < i) { // moving slider
+                ui->Slider->setValue(i-interval);
+                xmax=i;
+
+                // slider configuration
+                ui->Slider->setRange(0,xmax+1000,(ui->spinBox_2->value())/10,  0);
+            }
+        }
     }
 
     // plot
     myData->setSamples(*samples);
     curve1->setData(myData);
     curve1->attach(ui->qwtPlot);
-    ui->qwtPlot->replot();
 }
 
 void MainWindow::plotHist(const vector<double> t, const vector<double> b, const int col, const string &filename) {
     const double frame=1.; // TODO: frame value from spinbox
-
+    QColor color = transparentColors.at(col);
     QwtPlotHistogram *histogram = new QwtPlotHistogram(QString::fromStdString(splitString(filename,"/").back()));
     histogram->setStyle(QwtPlotHistogram::Columns);
-    histogram->setPen(QPen(Qt::black, 3));
-    histogram->setBrush(QBrush(QColor(17, 0, 255, 60)));
+    histogram->setPen(QPen(color, 5));
+    histogram->setBrush(QBrush(QColor(color)));
     QVector<QwtIntervalSample> samples2(t.size());
 
     double pos = 0.0;
-    cout <<DBG << endl;
     utils test; vector <double> h = test.prepareHistogramData(t,b,frame);
 
     for ( int i=0; i<h.size(); i++ )    {
         const int width = frame;
         double value = h.at(i);
+        if(h.at(i)>ymax) ymax = h.at(i)+1;
 
         samples2[i].interval = QwtInterval(pos, pos + double(width));
         samples2[i].value = value;
         pos += width;
+
+        if(xmax < i) { // moving slider
+            ui->Slider->setValue(i-interval+2);
+            xmax=i;
+
+            // slider configuration
+            ui->Slider->setRange(0,xmax+1000,(ui->spinBox_2->value())/10,  0);
+        }
+
+
     }
 
     ui->qwtPlot->insertLegend(new QwtLegend());
 
     histogram->setSamples(samples2);
     histogram->attach(ui->qwtPlot);
-    ui->qwtPlot->replot();
 }
 
 vector<string> MainWindow::splitString(string toSplit, string delimiter) {

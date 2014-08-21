@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer in monero.cc project)
+/// @brief main network-throttle (count speed and decide on limit)
+
 #include "utils.h"
 
 utils::utils() {
@@ -23,7 +27,7 @@ void utils::display(vector <double> data) {
 }
 
 vector<double> utils::prepareHistogramData(vector<double> t, vector<double> b, int frame) {
-    // example:
+//   example:
 //    1	1.0 0.5
 //    2	1.3 4
 //    3	1.7 0.1
@@ -40,7 +44,6 @@ vector<double> utils::prepareHistogramData(vector<double> t, vector<double> b, i
     for (int i=0; i<t.size()-1; i++) {
         value+=b.at(i);
         if( int(t.at(i)) != int(t.at(i+1))  )  { // eg. 1.2 => 1
-            cout << i << "  v " << value << endl;
             h.push_back(value);
             value=0;
         }

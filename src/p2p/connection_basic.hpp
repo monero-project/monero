@@ -104,6 +104,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		void do_send_handler_write_from_queue(const boost::system::error_code& e, size_t cb , int q_len); // from handle_write, sending next part
 		void do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred); // from read, after read completion
 
+        void logger_handle_net(const std::string &filename, double time, size_t size);
 		void logger_handle_net_write(size_t size); // network data written
 		void logger_handle_net_read(size_t size); // network data read
 

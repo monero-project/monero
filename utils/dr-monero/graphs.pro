@@ -14,12 +14,17 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    utils.cpp
+    utils.cpp \
+    plotfile.cpp \
+    dialog.cpp
 
 HEADERS  += mainwindow.h \
-    utils.h
+    utils.h \
+    plotfile.h \
+    dialog.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    dialog.ui
 
 QMAKE_CXXFLAGS += -std=c++11
 

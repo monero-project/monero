@@ -151,6 +151,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         boost::bind(&connection<t_protocol_handler>::handle_read, self,
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred)));
+    _dbg2("Logging in (read), size: " << buffer_.size());
+    logger_handle_net_read(buffer_.size());
+
 
 	//set ToS flag
 	int tos = get_tos_flag();
@@ -263,6 +266,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
             boost::bind(&connection<t_protocol_handler>::handle_read, connection<t_protocol_handler>::shared_from_this(),
               boost::asio::placeholders::error,
               boost::asio::placeholders::bytes_transferred)));
+        _dbg2("Logging in (read), size: " << buffer_.size());
+        logger_handle_net_read(buffer_.size());
         LOG_PRINT_L4("[sock " << socket_.native_handle() << "]Async read requested.");
       }
     }else
@@ -472,7 +477,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         boost::bind(&connection<t_protocol_handler>::handle_write, self, _1, _2)
         //)
         );
-      
+      _dbg3("(chunk): " << size_now);
+      logger_handle_net_write(size_now);
       LOG_PRINT_L4("[sock " << socket_.native_handle() << "] Async send requested " << m_send_que.front().size());
     }
 
@@ -555,6 +561,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
           boost::bind(&connection<t_protocol_handler>::handle_write, connection<t_protocol_handler>::shared_from_this(), _1, _2)
 				// )
         );
+      _dbg3("(normal)" << size_now);
+      logger_handle_net_write(size_now);
     }
     CRITICAL_REGION_END();
 
