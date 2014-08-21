@@ -1,0 +1,163 @@
+
+This file does *** NOT *** necessarily describe the licence he The Monero Project overall.
+
+This text file describes primarly ONLY the licence from OT-Shell code;
+
+It is here because parts or files from Ot-Shell might be used here in The Monero Project
+(and such fragments should be marked as such for non-trivial code).
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Please share :-) This licence can be used e.g. for parts of code that are usable in both open-source FOSS project
+Monero and Open Transactions, to share and develop both faster.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+The OT-Shell code (again, applicable only to SOME PARTS of the code here!) is licenced as:
+
+/************************************************************
+ *
+ *  OTNewcli  -- Open Transactions new command line interface
+ *  (including parts like: othint, otcli, some util libs, and more)
+ *
+ *      Written in 2013,2014 by <rfree> "Rafal Freeman" (rfree@gmx.us , rfree@i2pmail.org 
+ *  pgp 21A5 9D31 7421 F02E C3C3  81F3 4623 E8F7 4595 3F23, and jabber rfree@jit.si 
+ *  otr FA8A2DB5 35C2AB1D 0C9D501D F10B5F88 7A9D59ED)
+ *  and other members of open-source community.
+ *
+ *      To the extent possible under law, the author(s) have dedicated all
+ *      copyright and related and neighboring rights to this software to
+ *      the public domain worldwide. This software is distributed without
+ *      any warranty.
+ *
+ *      You should have received a copy of the CC0 legalcode along with this
+ *      work (COPYING file). If not, see:
+ *      http://creativecommons.org/publicdomain/zero/1.0/
+ *
+ *      OTNewcli is developed as a part of OPEN TRANSACTIONS project
+ *
+ *      Where applicable (under given jurisdiction's law system),
+ *      we want to give away our code as CC0 (Creative Commons 0);
+ *      However, some parts of code might be not fully ours to licence/decide
+ *      (from point of view of given law system),
+ *      because they are connecting to other work in some ways.
+ *
+ *      In any such unclear cases, the general Open Transaction licence as
+ *      published by FellowTraveller on GitHub should be applied if possible
+ *      (because it clarifies how to deal with linking to work like Lucre code,
+ *      OpenSSL code, and so on).
+ *
+ *      We also allow this code to be released to Public Domain, but again,
+ *      we do not verify how is that possible in given law system.
+ *
+ *      In ANY CASE, we take absolutely NO legal responsibility about
+ *      licensing, sharing, using this code (nor patent nor copyright nor
+ *      any other law related issues that it might have) e.g. in your   country.
+ *
+ *      We are not lawyers, and it is up to only You to find out what
+ *      laws apply for your case. Do not use any of this code if you don't
+ *      agree.
+ *
+ *      PROJECT GIT REPOSITORY:
+ *      https://github.com/rfree/Open-Transactions/
+ *
+ ***********************************************************************
+ *      OPEN TRANSACTION RELATED INFORMATIONS: (copy pasted for information)
+ ***********************************************************************
+ *                    OPEN TRANSACTIONS
+ *
+ *       Financial Cryptography and Digital Cash
+ *       Library, Protocol, API, Server, CLI, GUI
+ *
+ *       -- Anonymous Numbered Accounts.
+ *       -- Untraceable Digital Cash.
+ *       -- Triple-Signed Receipts.
+ *       -- Cheques, Vouchers, Transfers, Inboxes.
+ *       -- Basket Currencies, Markets, Payment Plans.
+ *       -- Signed, XML, Ricardian-style Contracts.
+ *       -- Scripted smart contracts.
+ *
+ *  Copyright (C) 2010-2013 by "Fellow Traveler" (A pseudonym)
+ *
+ *      BITCOIN:  1NtTPVVjDsUfDWybS4BwvHpG2pdS9RnYyQ
+ *
+ *  OFFICIAL OPEN TRANSACTIONS PROJECT WIKI(s):
+ *  https://github.com/FellowTraveler/Moneychanger
+ *  https://github.com/FellowTraveler/Open-Transactions/wiki
+ *
+ *  WEBSITE:
+ *  http://www.OpenTransactions.org/
+ *
+ *  Components and licensing:
+ *   -- Moneychanger..A Java client GUI.....LICENSE:.....GPLv3
+ *   -- otlib.........A class library.......LICENSE:...LAGPLv3
+ *   -- otapi.........A client API..........LICENSE:...LAGPLv3
+ *   -- opentxs/ot....Command-line client...LICENSE:...LAGPLv3
+ *   -- otserver......Server Application....LICENSE:....AGPLv3
+ *  Github.com/FellowTraveler/Open-Transactions/wiki/Components
+ *
+ *  All of the above OT components were designed and written by
+ *  Fellow Traveler, with the exception of Moneychanger, which
+ *  was contracted out to Vicky C (bitcointrader4@gmail.com).
+ *  The open-source community has since actively contributed.
+ *
+ *  -----------------------------------------------------
+ *
+ *   LICENSE:
+ *   This program is free software: you can redistribute it
+ *   and/or modify it under the terms of the GNU Affero
+ *   General Public License as published by the Free Software
+ *   Foundation, either version 3 of the License, or (at your
+ *   option) any later version.
+ *
+ *   ADDITIONAL PERMISSION under the GNU Affero GPL version 3
+ *   section 7: (This paragraph applies only to the LAGPLv3
+ *   components listed above.) If you modify this Program, or
+ *   any covered work, by linking or combining it with other
+ *   code, such other code is not for that reason alone subject
+ *   to any of the requirements of the GNU Affero GPL version 3.
+ *   (==> This means if you are only using the OT API, then you
+ *   don't have to open-source your code--only your changes to
+ *   Open-Transactions itself must be open source. Similar to
+ *   LGPLv3, except it applies to software-as-a-service, not
+ *   just to distributing binaries.)
+ *
+ *   Extra WAIVER for OpenSSL, Lucre, and all other libraries
+ *   used by Open Transactions: This program is released under
+ *   the AGPL with the additional exemption that compiling,
+ *   linking, and/or using OpenSSL is allowed. The same is true
+ *   for any other open source libraries included in this
+ *   project: complete waiver from the AGPL is hereby granted to
+ *   compile, link, and/or use them with Open-Transactions,
+ *   according to their own terms, as long as the rest of the
+ *   Open-Transactions terms remain respected, with regard to
+ *   the Open-Transactions code itself.
+ *
+ *   Lucre License:
+ *   This code is also "dual-license", meaning that Ben Lau-
+ *   rie's license must also be included and respected, since
+ *   the code for Lucre is also included with Open Transactions.
+ *   See Open-Transactions/src/otlib/lucre/LUCRE_LICENSE.txt
+ *   The Laurie requirements are light, but if there is any
+ *   problem with his license, simply remove the Lucre code.
+ *   Although there are no other blind token algorithms in Open
+ *   Transactions (yet. credlib is coming), the other functions
+ *   will continue to operate.
+ *   See Lucre on Github:  https://github.com/benlaurie/lucre
+ *   -----------------------------------------------------
+ *   You should have received a copy of the GNU Affero General
+ *   Public License along with this program.  If not, see:
+ *   http://www.gnu.org/licenses/
+ *
+ *   If you would like to use this software outside of the free
+ *   software license, please contact FellowTraveler.
+ *   (Unfortunately many will run anonymously and untraceably,
+ *   so who could really stop them?)
+ *
+ *   DISCLAIMER:
+ *   This program is distributed in the hope that it will be
+ *   useful, but WITHOUT ANY WARRANTY; without even the implied
+ *   warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ *   PURPOSE.  See the GNU Affero General Public License for
+ *   more details.
+ **************************************************************/
+

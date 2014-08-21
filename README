@@ -91,7 +91,9 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABI
 TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Parts of the project are originally copyright (c) 2012-2013 The Cryptonote developers
+Parts of the project are originally copyright (c) 2012-2013 The Cryptonote developers.
+Parts of the project might contain code from other sources under other licences,
+(e.g. otshell utils) see src/doc/ and other folders for licence files.
 
 ----------------
 Compiling Monero
@@ -101,14 +103,20 @@ On Unix and Linux:
 
 Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, and Boost 1.53 or later (except
 1.54, more details here: http://goo.gl/RrCFmA).
+Build using user-local compiler and boost is supported, see src/doc/build-help.txt
 
-- To build, change to the root of the source code directory, and run 'make'.
-
+- To build full project (not for developers) change to the root of the source code directory, 
+and run 'make all-release'
 - The resulting executables can be found in build/release/src.
+
+- To build developer's version (faster, skips some modules etc) run 'make fast'
+- The resulting executables can be found in build/fast/src.
+
+- The command 'make' defaults now to work as 'make fast'
 
 Advanced options:
 
-- Parallel build: run 'make -j<number of threads>' instead of 'make'.
+- Parallel build: append -j<number of threads> to the make, like this: make -j 4 fast
 
 - Debug build: run 'make build-debug'.
 

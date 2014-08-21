@@ -3,6 +3,36 @@ cmake_minimum_required(VERSION 2.8.6)
 set(VERSION "0.1")
 # $Format:Packaged from commit %H%nset(COMMIT %h)%nset(REFS "%d")$
 
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
+
+# Options
+
+option(BUILD_TESTS "Build tests" ON)
+option(BUILD_CONN_TOOL "Build connectivity tool" ON)
+option(BUILD_SIMPLE_MINER "Build simple miner" ON)
+option(BUILD_SIMPLE_WALLET "Build simple wallet" ON)
+option(ENABLE_COTIRE "Enable cotire - CMake module to speed up builds" ON)	
+
+if (NOT DEFINED ENV{DEVELOPER_LOCAL_TOOLS})
+	message(STATUS "Could not find DEVELOPER_LOCAL_TOOLS in env")
+	set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
+elseif ("$ENV{DEVELOPER_LOCAL_TOOLS}" EQUAL 1)
+	message(STATUS "found: env DEVELOPER_LOCAL_TOOLS = 1")
+	set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
+	option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" ON)
+else()
+	message(STATUS "found: env DEVELOPER_LOCAL_TOOLS = 0")
+	set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
+endif()
+message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT}")
+option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost ins	tallation" $BOOST_IGNORE_SYSTEM_PATHS_DEFAULT)
+
+# Options (for external/otshell_utils/)
+option(WITH_TERMCOLORS "Build with support for unix terminal console colors VT100" ON)
+if (WITH_TERMCOLORS)
+	add_definitions( -DCFG_WITH_TERMCOLORS )
+endif ()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
@@ -24,6 +54,11 @@ if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
   find_package(Threads)
 endif()
+
+#find_package(LevelDB REQUIRED) # TODO remove me completely later
+#if (LEVELDB_FOUND)
+#	include_directories(SYSTEM ${LEVELDB_INCLUDE})
+#endif ()
 
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
@@ -101,6 +136,10 @@ else()
   endif()
 endif()
 
+if (BOOST_IGNORE_SYSTEM_PATHS)
+	set(Boost_NO_SYSTEM_PATHS TRUE)
+endif()
+
 if(STATIC)
   set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_STATIC_RUNTIME ON)
@@ -144,6 +183,10 @@ else()
   endif()
 endif()
 
+add_subdirectory(contrib)
 add_subdirectory(external)
 add_subdirectory(src)
-add_subdirectory(tests)
+
+if (BUILD_TESTS)
+	add_subdirectory(tests)
+endif ()
