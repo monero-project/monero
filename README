@@ -174,21 +174,27 @@ configurations that I'm not yet aware of.
 
 - On 64-bit:
 
-    pacman -S mingw-w64-x86_64-cmake mingw-w64-x86_64-boost
+    pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake \
+          mingw-w64-x86_64-boost
     mkdir bitmonero/build
     cd bitmonero/build
     cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release \
-          -D CMAKE_TOOLCHAIN_FILE=../msys2/64-bit-toolchain.cmake ..
+          -D CMAKE_TOOLCHAIN_FILE=../msys2/64-bit-toolchain.cmake \
+          -D MSYS2_FOLDER=c:/msys64 ..
     make
 
 - On 32-bit:
 
-    pacman -S mingw-w64-i686-cmake mingw-w64-i686-boost
+    pacman -S mingw-w64-i686-gcc make mingw-w64-i686-cmake \
+          mingw-w64-i686-boost
     mkdir bitmonero/build
     cd bitmonero/build
     cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release \
-          -D CMAKE_TOOLCHAIN_FILE=../msys2/32-bit-toolchain.cmake ..
+          -D CMAKE_TOOLCHAIN_FILE=../msys2/32-bit-toolchain.cmake \
+          -D MSYS2_FOLDER=c:/msys64 ..
     make
+
+If you installed MSYS2 in a folder other than c:/msys64, make the appropriate substitution above.
 
 ----------------------
 Building Documentation
