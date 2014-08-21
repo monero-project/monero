@@ -17,10 +17,20 @@ using namespace epee;
 #include "cryptonote_format_utils.h"
 #include "misc_language.h"
 
+#include "../../../contrib/otshell_utils/utils.hpp"
+using namespace nOT::nUtils;
+
 DISABLE_VS_WARNINGS(4355)
 
 namespace cryptonote
 {
+
+std::atomic<bool> core::m_is_stopping(false);
+
+void core::send_stop_signal() { 
+	_dbg1("Sending stop signal (core)");
+	m_is_stopping=true; 
+}
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):

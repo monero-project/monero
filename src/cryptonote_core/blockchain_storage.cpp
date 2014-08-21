@@ -23,6 +23,9 @@
 #include "crypto/hash.h"
 //#include "serialization/json_archive.h"
 
+#include "../../contrib/otshell_utils/utils.hpp"
+using namespace nOT::nUtils;
+
 using namespace std;
 using namespace epee;
 using namespace cryptonote;
@@ -123,8 +126,19 @@ bool blockchain_storage::store_blockchain()
 //------------------------------------------------------------------
 bool blockchain_storage::deinit()
 {
-  return store_blockchain();
+	if (!m_fast_shutdown) { 
+		return store_blockchain();
+	} else {
+		_note("Skipping store of blockchain in deinit.");
+	}
+	return true;
 }
+
+//------------------------------------------------------------------
+void blockchain_storage::set_fast_shutdown(bool fast) {
+	m_fast_shutdown = fast;
+}
+
 //------------------------------------------------------------------
 bool blockchain_storage::pop_block_from_blockchain()
 {

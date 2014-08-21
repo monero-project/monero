@@ -282,7 +282,7 @@ private:
     int tmp;
     int tmp2;
 
-	int tmp2;
+	//int tmp2;
 
 	void AAA(); 
     void method();

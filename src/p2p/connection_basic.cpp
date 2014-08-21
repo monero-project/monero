@@ -74,6 +74,7 @@ using namespace nOT::nUtils;
 
 // TODO:
 #include "../../src/p2p/network_throttle-detail.hpp"
+#include "../../src/cryptonote_core/cryptonote_core.h"
 
 // ################################################################################################
 // local (TU local) headers
@@ -205,6 +206,11 @@ void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase, 
 	double delay=0; // will be calculated
 	do
 	{ // rate limiting
+		if (::cryptonote::core::get_is_stopping()) { 
+			_dbg2("We are stopping - so abort sleep");
+			return;
+		}
+
 		{ 
 	  	CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
 			delay = network_throttle_manager::get_global_throttle_out().get_sleep_time_after_tick( packet_size ); // decission from global

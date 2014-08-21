@@ -313,7 +313,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if (m_was_shutdown) return false;
 		// TODO avoid copy
 
-		const double factor = 2.0; // TODO config
+		const double factor = 0.25; // TODO config
 		typedef long long signed int t_safe; // my t_size to avoid any overunderflow in arithmetic
 		const t_safe chunksize_good = (t_safe)( 1024 * std::max(1.0,factor) );
 		const t_safe chunksize_max = chunksize_good * 2;
@@ -332,8 +332,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				//     ^^^^    (pos=4, len=4)     ;   pos:=pos+len, pos=8
 				//         ^^^ (pos=8, len=4)    ;   
 
-				const size_t bufsize = chunksize_good; // TODO safecast
-				char* buf = new char[ bufsize ];
+				// const size_t bufsize = chunksize_good; // TODO safecast
+				// char* buf = new char[ bufsize ];
 
 				bool all_ok = true;
 				while (pos < all) {
@@ -344,14 +344,15 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
 					ASRT(len>0); ASRT(len < std::numeric_limits<size_t>::max());   // yeap we want strong < then max size, to be sure
 					
-					void *dst = ((char*)ptr) + pos;
-					_fact_c("net/out/size","dst="<<dst<<" ptr="<<ptr<<" pos="<<pos);
-					_fact("dst="<<dst<<" ptr="<<ptr<<" pos="<<pos);
-					ASRT(dst >= ptr); // not wrapped around address?
-					std::memcpy( (void*)buf, dst, len);
+					void *chunk_start = ((char*)ptr) + pos;
+					_fact_c("net/out/size","chunk_start="<<chunk_start<<" ptr="<<ptr<<" pos="<<pos);
+					ASRT(chunk_start >= ptr); // not wrapped around address?
+					//std::memcpy( (void*)buf, chunk_start, len);
 
 					_dbg1_c("net/out/size", "part of " << lenall << ": pos="<<pos << " len="<<len);
-					bool ok = do_send_chunk( dst, len); // <====== ***
+
+					bool ok = do_send_chunk(chunk_start, len); // <====== ***
+
 					all_ok = all_ok && ok;
 					if (!all_ok) {
 						_mark_c("net/out/size", "do_send() DONE ***FAILED*** from packet="<<cb<<" B for ptr="<<ptr);
@@ -360,7 +361,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 							<< " (e.g. peer closed connection) but if it causes trouble tell us at #monero-dev. " << cb, LOG_LEVEL_0);
 						return false; // partial failure in sending
 					}
-					pos = pos+len; ASRT(pos>0);
+					pos = pos+len; ASRT(pos >0);
+
+					// (in catch block, or uniq pointer) delete buf;
 				} // each chunk
 
 				_mark_c("net/out/size", "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);

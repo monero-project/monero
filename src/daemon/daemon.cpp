@@ -30,12 +30,13 @@ using namespace epee;
 namespace po = boost::program_options;
 
 namespace
-{
+{ // TODO(style) should these options not be in command_line namespace like some of other options? --rfree
   const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", "Specify configuration file", std::string(CRYPTONOTE_NAME ".conf")};
   const command_line::arg_descriptor<bool>        arg_os_version  = {"os-version", ""};
   const command_line::arg_descriptor<std::string> arg_log_file    = {"log-file", "", ""};
   const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
+  const command_line::arg_descriptor<bool>        arg_force_fast_exit = {"force-fast-exit", "Disable some long exit operations, like saving blockchain etc; For developers, NOT recommended use in real use (data loss theoretically possible)"};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm);
@@ -66,6 +67,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_log_file);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_console);
+  command_line::add_arg(desc_cmd_sett, arg_force_fast_exit);
   
 
   cryptonote::core::init_options(desc_cmd_sett);
@@ -170,6 +172,8 @@ int main(int argc, char* argv[])
     dch.start_handling();
   }
 
+	const bool force_fast_exit = command_line::get_arg(vm, arg_force_fast_exit);
+
   LOG_PRINT_L0("Starting core rpc server...");
   res = rpc_server.run(2, false);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
@@ -180,16 +184,20 @@ int main(int argc, char* argv[])
     p2psrv.send_stop_signal();
   });
 
+	// *** main loop ***
   LOG_PRINT_L0("Starting p2p net loop...");
   p2psrv.run();
   LOG_PRINT_L0("p2p net loop stopped");
+	// *** after main loop ***
 
   //stop components
   LOG_PRINT_L0("Stopping core rpc server...");
   rpc_server.send_stop_signal();
-  rpc_server.timed_wait_server_stop(5000);
+	const int rpc_exit_timeout = force_fast_exit ? 1000 : 5000;
+  rpc_server.timed_wait_server_stop(rpc_exit_timeout);
 
   //deinitialize components
+  if (force_fast_exit) ccore.get_blockchain_storage().set_fast_shutdown(true);
   LOG_PRINT_L0("Deinitializing core...");
   ccore.deinit();
   LOG_PRINT_L0("Deinitializing rpc server ...");
@@ -198,7 +206,6 @@ int main(int argc, char* argv[])
   cprotocol.deinit();
   LOG_PRINT_L0("Deinitializing p2p...");
   p2psrv.deinit();
-
 
   ccore.set_cryptonote_protocol(NULL);
   cprotocol.set_p2p_endpoint(NULL);
