@@ -526,10 +526,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			_mark_c("net/out/size", "handle_write() NOW SENDS: packet="<<size_now<<" B" <<", from  queue size="<<m_send_que.size());
 			do_send_handler_write_from_queue(e, m_send_que.front().size() , m_send_que.size()); // (((H)))
 			ASRT( size_now == m_send_que.front().size() );
-      boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data() , size_now) , 
-        //strand_.wrap(
-          boost::bind(&connection<t_protocol_handler>::handle_write, connection<t_protocol_handler>::shared_from_this(), _1, _2));
-        //);
+      boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), size_now) , 
+        // strand_.wrap(
+          boost::bind(&connection<t_protocol_handler>::handle_write, connection<t_protocol_handler>::shared_from_this(), _1, _2)
+				// )
+        );
     }
     CRITICAL_REGION_END();
 
@@ -938,6 +939,9 @@ POP_WARNINGS
     return true;
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::connect_async", false);
   }
-}
-}
+
+} // namespace
+} // namespace
+
 PRAGMA_WARNING_POP
+

@@ -340,8 +340,10 @@ map<TK,TV> operator+(const map<TK,TV> &a, const map<TK,TV> &b) {
 
 // ====================================================================
 
-// algorthms
+// Algorithms
+
 /**
+Find position in range.
 returns 0 if R is empty; else, number of R[i] before which the position is
 */
 template <class T>
