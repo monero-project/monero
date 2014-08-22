@@ -41,6 +41,8 @@
 #include <iomanip>
 #include <algorithm>
 
+#include "../../../../src/cryptonote_core/cryptonote_core.h" // e.g. for the send_stop_signal()
+
 #include "../../../../contrib/otshell_utils/utils.hpp"
 using namespace nOT::nUtils;
 
@@ -372,7 +374,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			
 				long int sleep_step = 1000, sleep_goal = 10 * 1000;
 				for (long int sleep_i=0; sleep_i<sleep_goal;) {
-					if (m_was_shutdown) { _fact_c("net/fastexit","ABORT sleep due to m_was_shutdown"); }
+					if ( m_was_shutdown || ::cryptonote::core::get_is_stopping() ) { 
+						_fact("ABORT sleep due to stopping (or shutdown)"); 
+						break;
+					}
 					_dbg1("sleep");
 					boost::this_thread::sleep( boost::posix_time::milliseconds( sleep_step ) );
 					sleep_i += sleep_step;
@@ -416,11 +421,15 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     {
 			retry++;
 
+			if ( ::cryptonote::core::get_is_stopping() ) {
+				_fact("ABORT queue wait due to stopping"); 
+				return false; // aborted
+			}
+
 			long int ms = 250 + (rand()%50);
 			_info_c("net/sleep", "Sleeping because QUEUE is FULL, in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<cb); // XXX debug sleep
 			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
 			_dbg1("sleep for queue");
-			
 
 			if (retry > retry_limit) {
 	    	send_guard.unlock();
@@ -683,14 +692,19 @@ POP_WARNINGS
       }
       CRITICAL_REGION_END();
       // Wait for all threads in the pool to exit.
-      if(wait)
-      {
-        for (std::size_t i = 0; i < m_threads.size(); ++i)
-          m_threads[i]->join();
-        m_threads.clear();
 
-      }else
+      if (wait && ! ::cryptonote::core::get_is_stopping())
       {
+				_fact("JOINING all threads");
+        for (std::size_t i = 0; i < m_threads.size(); ++i) {
+          m_threads[i]->join();
+				}
+				_fact("JOINING all threads - almost");
+        m_threads.clear();
+				_fact("JOINING all threads - DONE");
+      } else
+      {
+				_fact("JOINING all threads - wait is disabled (or skipped)");
         return true;
       }
 

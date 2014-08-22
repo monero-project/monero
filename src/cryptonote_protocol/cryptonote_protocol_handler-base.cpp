@@ -77,6 +77,7 @@
 #include "../../contrib/otshell_utils/utils.hpp"
 using namespace nOT::nUtils;
 
+#include "../../../src/cryptonote_core/cryptonote_core.h" // e.g. for the send_stop_signal()
 
 // ################################################################################################
 // ################################################################################################
@@ -130,6 +131,10 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 
 
 	while (!allowed_now) {
+		if ( ::cryptonote::core::get_is_stopping() ) { 
+			_fact("ABORT sleep (before sending requeset) due to stopping"); 
+			break;
+		}
 
 			LOG_PRINT_RED("[DBG]" << get_avg_block_size(1), LOG_LEVEL_0);
 		{

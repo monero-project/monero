@@ -7,6 +7,11 @@ all: _warn_fast all-fast _warn_fast2
 run: build-fast
 	bash start-devel.sh "fast"
 
+# just runs OLD code without triggering any rebuild
+oldrun:
+	bash start-devel.sh "fast"
+
+
 # fast: the build that gives fast recompile for core developer (skips modules etc; includes debug still)
 cmake-fast:
 	mkdir -p build/fast

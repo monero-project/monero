@@ -95,7 +95,7 @@ namespace cryptonote
      void set_target_blockchain_height(uint64_t target_blockchain_height);
      uint64_t get_target_blockchain_height() const;
 
-		 static bool get_is_stopping() { return m_is_stopping; }
+		 static bool get_is_stopping() { return m_is_stopping; } // are we stopping (see variable m_is_stopping)
 		 static void send_stop_signal();
 
    private:
@@ -119,7 +119,7 @@ namespace cryptonote
      bool on_update_blocktemplate_interval();
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
 
-		 static std::atomic<bool> m_is_stopping;
+		 static std::atomic<bool> m_is_stopping; // are we stopping (globally used information)
 
      tx_memory_pool m_mempool;
      blockchain_storage m_blockchain_storage;

@@ -206,7 +206,7 @@ void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q
 	do
 	{ // rate limiting
 		if (::cryptonote::core::get_is_stopping()) { 
-			_dbg2("We are stopping - so abort sleep");
+			_dbg1("We are stopping - so abort sleep");
 			return;
 		}
 		if (m_was_shutdown) { 

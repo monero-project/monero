@@ -345,6 +345,7 @@ namespace nodetool
 
     //go to loop
     LOG_PRINT("Run net_service loop( " << thrds_count << " threads)...", LOG_LEVEL_0);
+		// this is the MAIN LOOP:
     if(!m_net_server.run_server(thrds_count, true, attrs))
     {
       LOG_ERROR("Failed to run net tcp server!");
@@ -400,9 +401,10 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+		_note("Sending stop signal");
+		::cryptonote::core::send_stop_signal(); // our global flag, e.g. used by networking
     m_net_server.send_stop_signal();
-		// ccore.send_stop_signal(); // TODO
-    LOG_PRINT_L0("[node] Stop signal sent");
+		_note("[node] Sending stop signal - sent");
     return true;
   }
   //-----------------------------------------------------------------------------------

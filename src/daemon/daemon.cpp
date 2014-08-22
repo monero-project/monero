@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
   //stop components
   LOG_PRINT_L0("Stopping core rpc server...");
   rpc_server.send_stop_signal();
-	const int rpc_exit_timeout = force_fast_exit ? 1000 : 5000;
+	const int rpc_exit_timeout = force_fast_exit ? 100 : 5000;
   rpc_server.timed_wait_server_stop(rpc_exit_timeout);
 
   //deinitialize components
