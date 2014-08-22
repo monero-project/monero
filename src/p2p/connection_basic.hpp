@@ -98,10 +98,13 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		void do_send_handler_write(const void * ptr , size_t cb);
 		void do_send_handler_stop(const void * ptr , size_t cb);
 		void do_send_handler_after_write( const boost::system::error_code& e, size_t cb ); // from handle_write
-        void do_send_handler_write_from_queue(const boost::system::error_code& e, size_t cb , int q_len); // from handle_write, sending next part
+		void do_send_handler_write_from_queue(const boost::system::error_code& e, size_t cb , int q_len); // from handle_write, sending next part
 		void do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred); // from read, after read completion
 
-  		void set_start_time();
+		void logger_handle_net_write(size_t size); // network data written
+		void logger_handle_net_read(size_t size); // network data read
+
+		void set_start_time();
 
 		// config for rate limit
 		static void set_rate_up_limit(uint64_t limit);
