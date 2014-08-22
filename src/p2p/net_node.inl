@@ -401,7 +401,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
     m_net_server.send_stop_signal();
-		ccore.send_stop_signal();
+		// ccore.send_stop_signal(); // TODO
     LOG_PRINT_L0("[node] Stop signal sent");
     return true;
   }
