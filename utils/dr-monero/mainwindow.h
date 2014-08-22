@@ -83,7 +83,7 @@ private:
     void prepareColors(); // creates vector of colors, TODO: more colors
     vector<string> splitString(string toSplit, string delimiter);
     void plotCurve(const vector<double> x, const vector<double> y, const int col, const string &filename);
-    void plotHist(const vector<double> t, const vector<double> b, const int col, const string &filename);
+    void plotHist(const vector<double> t, const vector<double> b, const int col, const string &filename, int &ymax);
     vector <plotFile> files;
     bool monero;
     int interval; // frequency of refreshing (?)
