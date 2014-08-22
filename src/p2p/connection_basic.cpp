@@ -97,7 +97,6 @@ class connection_basic_pimpl {
 		network_throttle_bw m_throttle; // per-perr
     critical_section m_throttle_lock;
 
-		void sleep_before_packet(size_t packet_size, int phase, int q_len); // execute a sleep ; phase is not really used now(?) could be used for different kinds of sleep e.g. direct/queue write
 };
 
 
@@ -132,8 +131,8 @@ connection_basic::connection_basic(boost::asio::io_service& io_service)
 	mI(new connection_basic_pimpl("peer") ),
 	strand_(io_service),
 	socket_(io_service),
-	m_want_close_connection(0), 
-	m_was_shutdown(0)
+	m_want_close_connection(false), 
+	m_was_shutdown(false)
 { 
 	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
 	option.level(IPPROTO_IP);
@@ -202,12 +201,16 @@ int connection_basic::get_tos_flag() {
 	return connection_basic_pimpl::m_default_tos;
 }
 
-void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase,  int q_len) {
+void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q_len) {
 	double delay=0; // will be calculated
 	do
 	{ // rate limiting
 		if (::cryptonote::core::get_is_stopping()) { 
 			_dbg2("We are stopping - so abort sleep");
+			return;
+		}
+		if (m_was_shutdown) { 
+			_dbg2("m_was_shutdown - so abort sleep");
 			return;
 		}
 
@@ -225,6 +228,7 @@ void connection_basic_pimpl::sleep_before_packet(size_t packet_size, int phase, 
 			delay += rand2*0.1;
 			long int ms = (long int)(delay * 1000);
 			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // XXX debug sleep
+			_dbg1("sleep in sleep_before_packet");
 			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
 		}
 	} while(delay > 0);
@@ -245,7 +249,7 @@ void connection_basic::set_start_time() {
 
 void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
 	_fact_c("net/out/size", "*** do_sen() called for packet="<<cb<<" B");
-	// mI->sleep_before_packet(cb,1,-1);
+	// sleep_before_packet(cb,1,-1);
 	// set_start_time();
 }
 
@@ -255,7 +259,7 @@ void connection_basic::do_send_handler_delayed(const void* ptr , size_t cb ) {
 }
 
 void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
-	mI->sleep_before_packet(cb,1,-1);
+	sleep_before_packet(cb,1,-1);
 	_info_c("net/out/size", "handler_write (direct) - before ASIO write, for packet="<<cb<<" B (after sleep)");
 	set_start_time();
 }
@@ -272,7 +276,7 @@ void connection_basic::do_send_handler_after_write(const boost::system::error_co
 }
 
 void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
-	mI->sleep_before_packet(cb,2,q_len);
+	sleep_before_packet(cb,2,q_len);
 	_info_c("net/out/size", "handler_write (after write, from queue="<<q_len<<") - before ASIO write, for packet="<<cb<<" B (after sleep)");
 
 	set_start_time();

@@ -110,10 +110,12 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		static void set_rate_autodetect(uint64_t limit);
 		static void set_kill_limit (uint64_t limit);
 
-
 		// config misc
 		static void set_tos_flag(int tos); // ToS / QoS flag
 		static int get_tos_flag();
+
+		// handlers and sleep
+		void sleep_before_packet(size_t packet_size, int phase, int q_len); // execute a sleep ; phase is not really used now(?)
 };
 
 } // nameserver

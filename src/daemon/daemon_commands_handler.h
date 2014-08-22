@@ -324,7 +324,11 @@ private:
       return true;
     }
 
+		// TODO what the hell causes compilation warning in following code line
+PUSH_WARNINGS
+DISABLE_GCC_WARNING(maybe-uninitialized)
     log_space::log_singletone::get_set_log_detalisation_level(true, l);
+POP_WARNINGS
 
     return true;
   }

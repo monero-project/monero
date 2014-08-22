@@ -369,7 +369,14 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				_mark_c("net/out/size", "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
 				_mark  (                "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
 
-				boost::this_thread::sleep(boost::posix_time::milliseconds( 20*1000 ) ); // XXX XXX TODO
+			
+				long int sleep_step = 1000, sleep_goal = 10 * 1000;
+				for (long int sleep_i=0; sleep_i<sleep_goal;) {
+					if (m_was_shutdown) { _fact_c("net/fastexit","ABORT sleep due to m_was_shutdown"); }
+					_dbg1("sleep");
+					boost::this_thread::sleep( boost::posix_time::milliseconds( sleep_step ) );
+					sleep_i += sleep_step;
+				}
 
 				return all_ok; // done - e.g. queued - all the chunks of current do_send call
 			} // LOCK: chunking
@@ -411,7 +418,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
 			long int ms = 250 + (rand()%50);
 			_info_c("net/sleep", "Sleeping because QUEUE is FULL, in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<cb); // XXX debug sleep
-			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
+			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
+			_dbg1("sleep for queue");
+			
 
 			if (retry > retry_limit) {
 	    	send_guard.unlock();

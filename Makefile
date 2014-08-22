@@ -3,6 +3,9 @@ all: _warn_fast all-fast _warn_fast2
 # WARNING: to really build "all" - the all modules in release version, use:
 # make all-release
 
+# this is the default thing to run for developers for now. added to be friendly for IDEs/setups that bind "make run"
+run: build-fast
+	bash start-devel.sh "fast"
 
 # fast: the build that gives fast recompile for core developer (skips modules etc; includes debug still)
 cmake-fast:
@@ -70,6 +73,6 @@ _warn_fast:
 _warn_fast2: _warn_fast
 
 
-.PHONY: all cmake-debug build-debug test-debug all-debug cmake-release build-release test-release all-release clean tags cmake-fast build-fast all-fast fast _warn_fast _warn_fast2
+.PHONY: run all cmake-debug build-debug test-debug all-debug cmake-release build-release test-release all-release clean tags cmake-fast build-fast all-fast fast _warn_fast _warn_fast2
 
 

@@ -1120,7 +1120,7 @@ namespace nodetool
       uint32_t port_l = arg.node_data.my_port;
       //try ping to be sure that we can add this peer to peer_list
       _dbg2_c("net/ping", "TRY PING in handle handshake");
-      clock_t start = clock();
+      // clock_t start = clock(); // unused TODO del?
       try_ping(arg.node_data, context, [peer_id_l, port_l, context, this]()
       {
         //called only(!) if success pinged, update local peerlist
