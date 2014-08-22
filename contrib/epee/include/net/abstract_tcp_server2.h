@@ -126,7 +126,7 @@ namespace net_utils
 
 		i_connection_filter* &m_pfilter;
 
-    volatile uint32_t& m_ref_sockets_count; // for counting number of existing sockets
+   //  volatile uint32_t& m_ref_sockets_count; // for counting number of existing sockets
 
     //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
     t_protocol_handler m_protocol_handler;

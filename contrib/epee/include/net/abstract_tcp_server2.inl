@@ -70,8 +70,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
                             m_protocol_handler(this, config, context),
 														m_pfilter( pfilter )
   {
-    boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count);
+    //  boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count); // moved to base class, we need that info there too
   }
+
 PRAGMA_WARNING_DISABLE_VS(4355)
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>

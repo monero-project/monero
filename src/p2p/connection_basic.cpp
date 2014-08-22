@@ -97,6 +97,7 @@ class connection_basic_pimpl {
 		network_throttle_bw m_throttle; // per-perr
     critical_section m_throttle_lock;
 
+		int m_peer_number; // e.g. for debug/stats
 };
 
 
@@ -134,6 +135,13 @@ connection_basic::connection_basic(boost::asio::io_service& io_service)
 	m_want_close_connection(false), 
 	m_was_shutdown(false)
 { 
+	{	
+		// TODO anyway we need a mutex here...:
+		mI->m_peer_number = m_ref_sockets_count; 
+		boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count);  // TODO copied from old code, move to std::atomic ?
+	}
+	_note("Spawned connection p2p#"<<mI->m_peer_number);
+
 	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
 	option.level(IPPROTO_IP);
 	option.name(IP_TOS);
@@ -144,8 +152,8 @@ connection_basic::connection_basic(boost::asio::io_service& io_service)
 }
 
 connection_basic::~connection_basic() {
+	_note("Destructing connection p2p#"<<mI->m_peer_number);
 }
-
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {
 	{
@@ -290,6 +298,19 @@ void connection_basic::do_read_handler_start(const boost::system::error_code& e,
 		// epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
 		// mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
 	}
+}
+
+void connection_basic::logger_handle_net_write(size_t size) { // network data written
+ 	// TODO OPTIMIZE! do NOT reopen idiotically :)
+	ostringstream oss;
+	oss << "log/net/in/peer" << (mI->m_peer_number) << ".dat" << std::ends;
+	string fname = oss.string();
+	ofstring ofs(fname.c_str(), std::ios::app);
+/*	double -m 
+	ofs << */
+}
+
+void connection_basic::logger_handle_net_read(size_t size) { // network data read
 }
 
 } // namespace

@@ -10,3 +10,5 @@
 src/CMakeCache.txt
 src/CMakeFiles/
 
+# logs
+log/
