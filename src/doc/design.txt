@@ -1,0 +1,25 @@
+
+
+=====================================================================
+[network] [exit] fast exit route: how to close network connections fastly on exit
+
+Problem: network threads ( connection<> abstract_tcp_server2.h ) might be sleeping (to rate limit) and 
+therefore program takes long to exit;
+
+Sleep in do_send, or rather do_send -> handlers ... -> throttle logic e.g. connection_basic has sleep_before_packet()
+and sleep() in abstract_tcp_server2.inl
+
+The top-level function that hangs is 
+net_node::run() - the main loop executed from daemon.cpp
+
+So we need to signal that we will not sleep; Signal flag:
+global flag via ::cryptonote::core::send_stop_signal()
+global flag via ::cryptonote::core::get_is_stopping()
+
+Ctrl-c abort pathway:
+daemon.cpp -> set ctrl-c handler tools::signal_handler::install([&dch, &p2psrv] 
+the handler will set (some) flag, that will stop .run of node_server::run() in net_node.h
+and right in then in run() , BEFORE threads join, we will set the global 
+
+
+
