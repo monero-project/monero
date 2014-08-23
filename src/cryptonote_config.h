@@ -54,7 +54,7 @@
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
 // COIN - number of smallest units in one coin
 #define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
-#define DEFAULT_FEE                                     ((uint64_t)5000000000) // 5 * pow(10, 9)
+#define DEFAULT_FEE                                     ((uint64_t)100000000000) // 5 * pow(10, 11)
 
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
@@ -96,7 +96,7 @@
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
 #define P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT            5000       //5 seconds
-#define P2P_STAT_TRUSTED_PUB_KEY                        "8f80f9a5a434a9f1510d13336228debfee9c918ce505efe225d8c94d045fa115"
+#define P2P_STAT_TRUSTED_PUB_KEY                        "0000000000000000000000000000000000000000000000000000000000000000"
 #define P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT       70
 
 #define ALLOW_DEBUG_COMMANDS
