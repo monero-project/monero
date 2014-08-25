@@ -9,5 +9,5 @@ else
 	echo "Not using local tools, will use global libraries"
 fi
 
-./build/$variant/src/bitmonerod --force-fast-exit --no-igd 
+./build/$variant/src/bitmonerod --force-fast-exit --no-igd $@
 

@@ -60,6 +60,7 @@
 #include <boost/thread/thread.hpp> 
 #include "misc_language.h"
 #include "pragma_comp_defs.h"
+#include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
@@ -127,20 +128,18 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_service& io_service)
+connection_basic::connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number)
 	: 
-	mI(new connection_basic_pimpl("peer") ),
+	mI( new connection_basic_pimpl("peer") ),
 	strand_(io_service),
 	socket_(io_service),
 	m_want_close_connection(false), 
-	m_was_shutdown(false)
+	m_was_shutdown(false),
+	m_ref_sock_count(ref_sock_count)
 { 
-	{	
-		// TODO anyway we need a mutex here...:
-		mI->m_peer_number = m_ref_sockets_count; 
-		boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count);  // TODO copied from old code, move to std::atomic ?
-	}
-	_note("Spawned connection p2p#"<<mI->m_peer_number);
+	++ref_sock_count; // increase the global counter
+	mI->m_peer_number = sock_number.fetch_add(1); // use, and increase the generated number
+	_note("Spawned connection p2p#"<<mI->m_peer_number<<" currently we have sockets count:" << m_ref_sock_count);
 
 	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
 	option.level(IPPROTO_IP);
@@ -302,10 +301,10 @@ void connection_basic::do_read_handler_start(const boost::system::error_code& e,
 
 void connection_basic::logger_handle_net_write(size_t size) { // network data written
  	// TODO OPTIMIZE! do NOT reopen idiotically :)
-	ostringstream oss;
+	std::ostringstream oss;
 	oss << "log/net/in/peer" << (mI->m_peer_number) << ".dat" << std::ends;
-	string fname = oss.string();
-	ofstring ofs(fname.c_str(), std::ios::app);
+	string fname = oss.str();
+	std::ofstream ofs(fname.c_str(), std::ios::app);
 /*	double -m 
 	ofs << */
 }

@@ -46,6 +46,7 @@
 #include <boost/thread/thread.hpp>
 
 #include <memory>
+#include <atomic>
 
 #include "net_utils_base.h"
 #include "syncobj.h"
@@ -83,9 +84,13 @@ namespace net_utils
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
+
     /// Construct a connection with the given io_service.
-    explicit connection(boost::asio::io_service& io_service,
-      typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter * &pfilter);
+    explicit connection( boost::asio::io_service& io_service,
+			typename t_protocol_handler::config_type& config, 
+			std::atomic<long> &ref_sock_count,  // the ++/-- counter 
+			std::atomic<long> &sock_number, // the only increasing ++ number generator
+			i_connection_filter * &pfilter);
 
     virtual ~connection();
     /// Get the socket associated with the connection.
@@ -94,7 +99,7 @@ namespace net_utils
     /// Start the first asynchronous operation for the connection.
     bool start(bool is_income, bool is_multithreaded);
 
-    void get_context(t_connection_context& context_){context_ = context;}
+    void get_context(t_connection_context& context_) { context_ = context; }
 
     void call_back_starter();
 
@@ -123,11 +128,9 @@ namespace net_utils
     boost::array<char, 8192> buffer_;
 
     t_connection_context context;
-
 		i_connection_filter* &m_pfilter;
 
-   //  volatile uint32_t& m_ref_sockets_count; // for counting number of existing sockets
-
+		// TODO what do they mean about wait on destructor?? --rfree :
     //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
     t_protocol_handler m_protocol_handler;
     //typename t_protocol_handler::config_type m_dummy_config;
@@ -136,9 +139,11 @@ namespace net_utils
     critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
   };
 
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
 
   template<class t_protocol_handler>
   class boosted_tcp_server
@@ -147,6 +152,7 @@ namespace net_utils
   public:
     typedef boost::shared_ptr<connection<t_protocol_handler> > connection_ptr;
     typedef typename t_protocol_handler::connection_context t_connection_context;
+
     /// Construct the server to listen on the specified TCP address and port, and
     /// serve up files from the given directory.
     boosted_tcp_server();
@@ -258,11 +264,11 @@ namespace net_utils
     /// Acceptor used to listen for incoming connections.
     boost::asio::ip::tcp::acceptor acceptor_;
 
-    /// The next connection to be accepted.
-    connection_ptr new_connection_;
+
     std::atomic<bool> m_stop_signal_sent;
     uint32_t m_port;
-    volatile uint32_t m_sockets_count;
+		std::atomic<long> m_sock_count;
+		std::atomic<long> m_sock_number;
     std::string m_address;
     std::string m_thread_name_prefix;
     size_t m_threads_count;
@@ -270,10 +276,15 @@ namespace net_utils
     std::vector<boost::shared_ptr<boost::thread> > m_threads;
     boost::thread::id m_main_thread_id;
     critical_section m_threads_lock;
-    volatile uint32_t m_thread_index;
-  };
-}
-}
+    volatile uint32_t m_thread_index; // TODO change to std::atomic
+
+    /// The next connection to be accepted
+    connection_ptr new_connection_;
+  }; // class <>boosted_tcp_server
+
+
+} // namespace
+} // namespace
 
 #include "abstract_tcp_server2.inl"
 

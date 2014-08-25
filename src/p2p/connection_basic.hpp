@@ -88,8 +88,11 @@ class connection_basic { // not-templated base class for rapid developmet of som
     /// Socket for the connection.
     boost::asio::ip::tcp::socket socket_;
 
+		std::atomic<long> &m_ref_sock_count; // reference to external counter of existing sockets that we will ++/--
 	public:
-		connection_basic(boost::asio::io_service& io_service);
+		// first counter is the ++/-- count of current sockets, the other socket_number is only-increasing ++ number generator
+		connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number);
+
 		virtual ~connection_basic();
 
 		// various handlers to be called from connection class:

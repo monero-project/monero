@@ -63,14 +63,17 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
 
   template<class t_protocol_handler>
-  connection<t_protocol_handler>::connection(boost::asio::io_service& io_service,
-    typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter* &pfilter)
-                          : connection_basic(io_service), 
-                            m_ref_sockets_count(sock_count), 
-                            m_protocol_handler(this, config, context),
-														m_pfilter( pfilter )
+  connection<t_protocol_handler>::connection( boost::asio::io_service& io_service,
+  	typename t_protocol_handler::config_type& config, 
+		std::atomic<long> &ref_sock_count,  // the ++/-- counter 
+		std::atomic<long> &sock_number, // the only increasing ++ number generator
+		i_connection_filter* &pfilter
+	)
+	: 
+		connection_basic(io_service, ref_sock_count, sock_number), 
+		m_protocol_handler(this, config, context),
+		m_pfilter( pfilter )
   {
-    //  boost::interprocess::ipcdetail::atomic_inc32(&m_ref_sockets_count); // moved to base class, we need that info there too
   }
 
 PRAGMA_WARNING_DISABLE_VS(4355)
@@ -85,7 +88,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }
 
     LOG_PRINT_L3("[sock " << socket_.native_handle() << "] Socket destroyed");
-    boost::interprocess::ipcdetail::atomic_dec32(&m_ref_sockets_count);
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -133,7 +135,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     context.set_details(boost::uuids::random_generator()(), ip_, remote_ep.port(), is_income);
     LOG_PRINT_L3("[sock " << socket_.native_handle() << "] new connection from " << print_connection_context_short(context) <<
       " to " << local_ep.address().to_string() << ':' << local_ep.port() <<
-      ", total sockets objects " << m_ref_sockets_count);
+      ", total sockets objects " << m_ref_sock_count);
 
     if(m_pfilter && !m_pfilter->is_remote_ip_allowed(context.m_remote_ip))
     {
@@ -566,12 +568,15 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   /*                                                                      */
   /************************************************************************/
   template<class t_protocol_handler>
-  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server():
+  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server()
+	:
     m_io_service_local_instance(new boost::asio::io_service()),
     io_service_(*m_io_service_local_instance.get()),
     acceptor_(io_service_),
-    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter)), 
-    m_stop_signal_sent(false), m_port(0), m_sockets_count(0), m_threads_count(0), m_pfilter(NULL), m_thread_index(0)
+    m_stop_signal_sent(false), m_port(0), 
+		m_sock_count(0), m_sock_number(0), m_threads_count(0), 
+		m_pfilter(NULL), m_thread_index(0),
+    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter))
   {
     m_thread_name_prefix = "NET";
   }
@@ -580,8 +585,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   boosted_tcp_server<t_protocol_handler>::boosted_tcp_server(boost::asio::io_service& extarnal_io_service):
     io_service_(extarnal_io_service),
     acceptor_(io_service_),
-    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter)), 
-    m_stop_signal_sent(false), m_port(0), m_sockets_count(0), m_threads_count(0), m_pfilter(NULL), m_thread_index(0)
+    m_stop_signal_sent(false), m_port(0), 
+		m_sock_count(0), m_sock_number(0), m_threads_count(0), 
+		m_pfilter(NULL), m_thread_index(0),
+    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter))
   {
     m_thread_name_prefix = "NET";
   }
@@ -783,17 +790,17 @@ POP_WARNINGS
     {
       connection_ptr conn(std::move(new_connection_));
 
-      new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter));
+      new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter));
       acceptor_.async_accept(new_connection_->socket(),
         boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
         boost::asio::placeholders::error));
 
       bool r = conn->start(true, 1 < m_threads_count);
       if (!r)
-        LOG_ERROR("[sock " << conn->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sockets_count);
+        LOG_ERROR("[sock " << conn->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
     }else
     {
-      LOG_ERROR("Some problems at accept: " << e.message() << ", connections_count = " << m_sockets_count);
+      LOG_ERROR("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
     }
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::handle_accept", void());
   }
@@ -803,11 +810,9 @@ POP_WARNINGS
   {
     TRY_ENTRY();
 
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter) );
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
-		// XXX XXX TMP
-		std::cout << "RESOLVER: " << adr << std::endl;
     //////////////////////////////////////////////////////////////////////////
     boost::asio::ip::tcp::resolver resolver(io_service_);
     boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), adr, port);
@@ -879,11 +884,11 @@ POP_WARNINGS
     if (r)
     {
       new_connection_l->get_context(conn_context);
-      //new_connection_l.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter));
+      //new_connection_l.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_pfilter));
     }
     else
     {
-      LOG_ERROR("[sock " << new_connection_->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sockets_count);
+      LOG_ERROR("[sock " << new_connection_->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
     }
 
     return r;
@@ -895,7 +900,7 @@ POP_WARNINGS
   bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_callback cb, const std::string& bind_ip)
   {
     TRY_ENTRY();    
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sockets_count, m_pfilter) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter) );
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
     //////////////////////////////////////////////////////////////////////////
