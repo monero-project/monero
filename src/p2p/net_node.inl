@@ -868,7 +868,7 @@ namespace nodetool
       node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
     else 
       node_data.my_port = 0;
-    node_data.network_id = BYTECOIN_NETWORK;
+    node_data.network_id = MONERO_NETWORK;
     return true;
   }
   //-----------------------------------------------------------------------------------
