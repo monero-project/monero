@@ -1,6 +1,32 @@
-// Copyright (c) 2012-2013 The Cryptonote developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 #include "include_base_utils.h"
@@ -8,6 +34,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 #include <boost/serialization/version.hpp>
 #include <boost/utility.hpp>
 
@@ -17,6 +44,7 @@
 #include "cryptonote_basic_impl.h"
 #include "verification_context.h"
 #include "crypto/hash.h"
+#include "rpc/tx_info.h"
 
 
 namespace cryptonote
@@ -30,33 +58,43 @@ namespace cryptonote
   {
   public:
     tx_memory_pool(blockchain_storage& bchs);
+
+    struct tx_details
+    {
+      transaction tx;
+      size_t blob_size;
+      uint64_t fee;
+      crypto::hash max_used_block_id;
+      uint64_t max_used_block_height;
+      bool kept_by_block;
+      //
+      uint64_t last_failed_height;
+      crypto::hash last_failed_id;
+      time_t receive_time;
+    };
+
     bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
     bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
     //gets tx and remove it from pool
     bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee);
 
-    bool have_tx(const crypto::hash &id);
-    bool have_tx_keyimg_as_spent(const crypto::key_image& key_im);
-    bool have_tx_keyimges_as_spent(const transaction& tx);
-
+    bool have_tx(const crypto::hash &id) const;
     bool on_blockchain_inc(uint64_t new_block_height, const crypto::hash& top_block_id);
     bool on_blockchain_dec(uint64_t new_block_height, const crypto::hash& top_block_id);
     void on_idle();
 
-    void lock();
-    void unlock();
+    void lock() const;
+    void unlock() const;
 
     // load/store operations
     bool init(const std::string& config_folder);
     bool deinit();
     bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee);
-    bool get_transactions(std::list<transaction>& txs);
-    bool get_transaction(const crypto::hash& h, transaction& tx);
-    size_t get_transactions_count();
-    bool remove_transaction_keyimages(const transaction& tx);
-    bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
-    bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
-    std::string print_pool(bool short_format);
+    void get_transactions(std::list<transaction>& txs) const;
+    bool get_transaction(const crypto::hash& h, transaction& tx) const;
+    size_t get_transactions_count() const;
+    std::string print_pool(bool short_format) const;
+    std::vector<tx_info> pool_info();
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
@@ -73,27 +111,19 @@ namespace cryptonote
       a & m_spent_key_images;
     }
 
-    struct tx_details
-    {
-      transaction tx;
-      size_t blob_size;
-      uint64_t fee;
-      crypto::hash max_used_block_id;
-      uint64_t max_used_block_height;
-      bool kept_by_block;
-      //
-      uint64_t last_failed_height;
-      crypto::hash last_failed_id;
-      time_t receive_time;
-    };
-
   private:
   	bool remove_stuck_transactions();
-    bool is_transaction_ready_to_go(tx_details& txd);
+    bool have_tx_keyimg_as_spent(const crypto::key_image& key_im) const;
+    bool have_tx_keyimges_as_spent(const transaction& tx) const;
+    bool remove_transaction_keyimages(const transaction& tx);
+    static bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
+    static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
+
+    bool is_transaction_ready_to_go(tx_details& txd) const;
     typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
     typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
 
-    epee::critical_section m_transactions_lock;
+    mutable epee::critical_section m_transactions_lock;
     transactions_container m_transactions;
     key_images_container m_spent_key_images;
     epee::math_helper::once_a_time_seconds<30> m_remove_stuck_tx_interval;

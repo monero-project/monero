@@ -1,6 +1,32 @@
-// Copyright (c) 2012-2013 The Cryptonote developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <assert.h>
 #include <stddef.h>
@@ -15,11 +41,19 @@
 
 #if defined(_MSC_VER)
 #include <intrin.h>
-#include <Windows.h>
+#include <windows.h>
 #define STATIC
 #define INLINE __inline
 #if !defined(RDATA_ALIGN16)
 #define RDATA_ALIGN16 __declspec(align(16))
+#endif
+#elif defined(__MINGW32__)
+#include <intrin.h>
+#include <windows.h>
+#define STATIC static
+#define INLINE inline
+#if !defined(RDATA_ALIGN16)
+#define RDATA_ALIGN16 __attribute__ ((aligned(16)))
 #endif
 #else
 #include <wmmintrin.h>
@@ -261,7 +295,7 @@ STATIC INLINE void aes_pseudo_round_xor(const uint8_t *in, uint8_t *out,
     }
 }
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
 BOOL SetLockPagesPrivilege(HANDLE hProcess, BOOL bEnable)
 {
     struct
@@ -299,7 +333,7 @@ void slow_hash_allocate_state(void)
     if(hp_state != NULL)
         return;
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
     SetLockPagesPrivilege(GetCurrentProcess(), TRUE);
     hp_state = (uint8_t *) VirtualAlloc(hp_state, MEMORY, MEM_LARGE_PAGES |
                                         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -331,7 +365,7 @@ void slow_hash_free_state(void)
         free(hp_state);
     else
     {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
         VirtualFree(hp_state, MEMORY, MEM_RELEASE);
 #else
         munmap(hp_state, MEMORY);
@@ -350,7 +384,6 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     RDATA_ALIGN16 uint64_t a[2];
     RDATA_ALIGN16 uint64_t b[2];
     RDATA_ALIGN16 uint64_t c[2];
-    RDATA_ALIGN16 uint8_t aes_key[AES_KEY_SIZE];
     union cn_slow_hash_state state;
     __m128i _a, _b, _c;
     uint64_t hi, lo;

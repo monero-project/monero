@@ -1,6 +1,32 @@
-// Copyright (c) 2012-2013 The Cryptonote developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
@@ -138,7 +164,7 @@ namespace nodetool
     m_no_igd = command_line::get_arg(vm, arg_no_igd);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
-    {
+    {       
       std::vector<std::string> perrs = command_line::get_arg(vm, arg_p2p_add_peer);
       for(const std::string& pr_str: perrs)
       {
@@ -268,7 +294,7 @@ namespace nodetool
 
     for(auto& p: m_command_line_peers)
       m_peerlist.append_with_peer_white(p);
-
+    
     //only in case if we really sure that we have external visible ip
     m_have_address = true;
     m_ip_address = 0;
@@ -432,7 +458,7 @@ namespace nodetool
         return;
       }
 
-      if(rsp.node_data.network_id != BYTECOIN_NETWORK)
+      if(rsp.node_data.network_id != MONERO_NETWORK)
       {
         LOG_ERROR_CCONTEXT("COMMAND_HANDSHAKE Failed, wrong network!  (" << epee::string_tools::get_str_from_guid_a(rsp.node_data.network_id) << "), closing connection.");
         return;
@@ -650,10 +676,8 @@ namespace nodetool
 
     size_t try_count = 0;
     size_t rand_count = 0;
-    
     while(rand_count < (max_random_index+1)*3 &&  try_count < 10 && !m_net_server.is_stop_signal_sent())
-	  {
-
+    {
       ++rand_count;
       size_t random_index = get_random_index_with_fixed_probability(max_random_index);
       CHECK_AND_ASSERT_MES(random_index < local_peers_count, false, "random_starter_index < peers_local.size() failed!!");
@@ -675,7 +699,7 @@ namespace nodetool
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
                     << "[white=" << use_white_list
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
-
+      
       if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list))
         continue;
 
@@ -696,7 +720,7 @@ namespace nodetool
       size_t try_count = 0;
       size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
       while(true)
-      {
+      {        
         if(m_net_server.is_stop_signal_sent())
           return false;
 
@@ -717,9 +741,6 @@ namespace nodetool
     size_t expected_white_connections = (m_config.m_net_config.connections_count*P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT)/100;
 
     size_t conn_count = get_outgoing_connections_count();
-    LOG_PRINT_RED_L0("Conn count: " << conn_count);
-    LOG_PRINT_RED_L0("m_config.m_net_config.connections_count = " << m_config.m_net_config.connections_count);
-    LOG_PRINT_RED_L0("expected_white_connections: " << expected_white_connections);
     if(conn_count < m_config.m_net_config.connections_count)
     {
       if(conn_count < expected_white_connections)
@@ -845,7 +866,7 @@ namespace nodetool
     node_data.peer_id = m_config.m_peer_id;
     if(!m_hide_my_port)
       node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
-    else
+    else 
       node_data.my_port = 0;
     node_data.network_id = BYTECOIN_NETWORK;
     return true;
@@ -1129,7 +1150,9 @@ namespace nodetool
         peerlist_entry pe;
         pe.adr.ip = context.m_remote_ip;
         pe.adr.port = port_l;
-        time(&pe.last_seen);
+        time_t last_seen;
+        time(&last_seen);
+        pe.last_seen = static_cast<int64_t>(last_seen);
         pe.id = peer_id_l;
         this->m_peerlist.append_with_peer_white(pe);
         LOG_PRINT_CCONTEXT_L2("PING SUCCESS " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << ":" << port_l);
@@ -1155,6 +1178,15 @@ namespace nodetool
     rsp.peer_id = m_config.m_peer_id;
     _dbg1_c("net/ping", "handle_ping time: " << clock() - start);
     return 1;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  void node_server<t_payload_net_handler>::get_peerlist(
+      std::list<peerlist_entry> & white_list
+    , std::list<peerlist_entry> & gray_list
+    )
+  {
+    m_peerlist.get_peerlist_full(gray_list, white_list);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -1189,6 +1221,19 @@ namespace nodetool
     });
     std::string s = ss.str();
     return s;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  std::vector<connection_info> node_server<t_payload_net_handler>::get_connection_info()
+  {
+    std::vector<connection_info> result;
+    m_net_server.get_config_object().foreach_connection([&result](const p2p_connection_context& cntxt)
+    {
+      std::string connection_id = boost::lexical_cast<std::string>(cntxt.m_connection_id);
+      result.emplace_back(std::move(connection_id), cntxt.m_is_income, cntxt.m_remote_ip, cntxt.m_remote_port, cntxt.peer_id);
+      return true;
+    });
+    return result;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>

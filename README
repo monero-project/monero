@@ -139,20 +139,66 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 - Build wallet: brew install --HEAD bitmonero
 
 On Windows:
+Dependencies: MSVC 2012 or later, CMake 2.8.6 or later, and Boost 1.53 or later. You may download them from:
+http://www.microsoft.com/
+http://www.cmake.org/
+http://www.boost.org/
 
-Dependencies: MSVC 2013 or later, CMake 2.8.6 or later, and Boost 1.53 or later.
+We are in the process of dropping support for MSVC in favor of the MSYS2
+environment, which includes an up-to-date MinGW-w64 toolchain (based on the gcc
+compiler).  You will either be provided with or need to install all necessary
+build dependencies (e.g., cmake, git) inside the MSYS2 environment, so it will
+not help you to install these tools separately.
 
-- To build, change to the root of the source code directory, and run these commands:
+This build is still experimental, so things may not work for you.  If you're
+having issues, please let us know.  My current test VM is 64-bit Windows 7 and
+I cannot afford multiple Windows licenses, so there may be problems with other
+configurations that I'm not yet aware of.
 
-   mkdir build
-   cd build
-   cmake -G "Visual Studio 12 Win64" -DBOOST_ROOT="c:\folder\to\boost_1_55_0"
-           -DBOOST_LIBRARYDIR="c:\folder\to\boost_1_55_0\lib64-msvc-12.0"
-   msbuild Project.sln /p:Configuration=Release
+- Download the MSYS2 installer from SourceForge and run it.
 
-- If you don't have your path environment variable configured with the VS paths, you may
-  may want to run 'C:\program files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat'
-  (or equivalent) to temporarily set the environment variables.
+- Use the shortcut associated with your architecture to launch the MSYS2
+  environment.  On my system, I run the MinGW-w64 Win64 Shell shortcut.  Note
+  that if you are running 64-bit Windows, you will have both 64-bit and 32-bit
+  environments.
+
+- Update the packages in your MSYS2 install:
+
+    pacman -Sy
+    pacman -Su --ignoregroup base
+    pacman -Su
+
+  For those of you already familiar with pacman, you can run the normal `pacman
+  -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's
+  dependencies are updated.
+
+- Clone the repo:
+
+    git clone http://github.com/monero/bitmonero.git
+
+- On 64-bit:
+
+    pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake \
+          mingw-w64-x86_64-boost
+    mkdir bitmonero/build
+    cd bitmonero/build
+    cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_TOOLCHAIN_FILE=../msys2/64-bit-toolchain.cmake \
+          -D MSYS2_FOLDER=c:/msys64 ..
+    make
+
+- On 32-bit:
+
+    pacman -S mingw-w64-i686-gcc make mingw-w64-i686-cmake \
+          mingw-w64-i686-boost
+    mkdir bitmonero/build
+    cd bitmonero/build
+    cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_TOOLCHAIN_FILE=../msys2/32-bit-toolchain.cmake \
+          -D MSYS2_FOLDER=c:/msys64 ..
+    make
+
+If you installed MSYS2 in a folder other than c:/msys64, make the appropriate substitution above.
 
 ----------------------
 Building Documentation

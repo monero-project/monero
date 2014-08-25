@@ -1,4 +1,4 @@
-all: _warn_fast all-fast _warn_fast2
+all: all-release
 
 # WARNING: to really build "all" - the all modules in release version, use:
 # make all-release

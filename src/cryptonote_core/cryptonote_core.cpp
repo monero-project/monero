@@ -1,7 +1,32 @@
-// Copyright (c) 2012-2013 The Cryptonote developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "include_base_utils.h"
 using namespace epee;
@@ -89,24 +114,6 @@ void core::send_stop_signal() {
   bool core::get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<transaction>& txs, std::list<crypto::hash>& missed_txs)
   {
     return m_blockchain_storage.get_transactions(txs_ids, txs, missed_txs);
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::get_transaction(const crypto::hash &h, transaction &tx)
-  {
-    std::vector<crypto::hash> ids;
-    ids.push_back(h);
-    std::list<transaction> ltx;
-    std::list<crypto::hash> missing;
-    if (m_blockchain_storage.get_transactions(ids, ltx, missing))
-    {
-      if (ltx.size() > 0)
-      {
-        tx = *ltx.begin();
-        return true;
-      }
-    }
-
-    return false;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_alternative_blocks(std::list<block>& blocks)
@@ -294,10 +301,10 @@ void core::send_stop_signal() {
     return m_blockchain_storage.get_total_transactions();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys)
-  {
-    return m_blockchain_storage.get_outs(amount, pkeys);
-  }
+  //bool core::get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys)
+  //{
+  //  return m_blockchain_storage.get_outs(amount, pkeys);
+  //}
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block)
   {
@@ -326,9 +333,9 @@ void core::send_stop_signal() {
     return m_blockchain_storage.find_blockchain_supplement(qblock_ids, resp);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count)
+  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count)
   {
-    return m_blockchain_storage.find_blockchain_supplement(qblock_ids, blocks, total_height, start_height, max_count);
+    return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, start_height, max_count);
   }
   //-----------------------------------------------------------------------------------------------
   void core::print_blockchain(uint64_t start_index, uint64_t end_index)
@@ -408,10 +415,10 @@ void core::send_stop_signal() {
   {
     m_miner.on_synchronized();
   }
-  bool core::get_backward_blocks_sizes(uint64_t from_height, std::vector<size_t>& sizes, size_t count)
-  {
-    return m_blockchain_storage.get_backward_blocks_sizes(from_height, sizes, count);
-  }
+  //bool core::get_backward_blocks_sizes(uint64_t from_height, std::vector<size_t>& sizes, size_t count)
+  //{
+  //  return m_blockchain_storage.get_backward_blocks_sizes(from_height, sizes, count);
+  //}
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_block(const block& b, block_verification_context& bvc)
   {
@@ -427,7 +434,6 @@ void core::send_stop_signal() {
       bvc.m_verifivation_failed = true;
       return false;
     }
-
 
     block b = AUTO_VAL_INIT(b);
     if(!parse_and_validate_block_from_blob(block_blob, b))
@@ -481,7 +487,8 @@ void core::send_stop_signal() {
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions(std::list<transaction>& txs)
   {
-    return m_mempool.get_transactions(txs);
+    m_mempool.get_transactions(txs);
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids)
@@ -503,13 +510,18 @@ void core::send_stop_signal() {
     return m_blockchain_storage.get_block_by_hash(h, blk);
   }
   //-----------------------------------------------------------------------------------------------
-  void core::get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid) {
-    m_blockchain_storage.get_all_known_block_ids(main, alt, invalid);
-  }
+  //void core::get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid) {
+  //  m_blockchain_storage.get_all_known_block_ids(main, alt, invalid);
+  //}
   //-----------------------------------------------------------------------------------------------
   std::string core::print_pool(bool short_format)
   {
     return m_mempool.print_pool(short_format);
+  }
+  //-----------------------------------------------------------------------------------------------
+  std::vector<tx_info> core::transaction_pool_info()
+  {
+    return m_mempool.pool_info();
   }
   //-----------------------------------------------------------------------------------------------
   bool core::update_miner_block_template()
@@ -527,9 +539,9 @@ void core::send_stop_signal() {
         << ENDL
         << "You can set the level of process detailization* through \"set_log <level>\" command*, where <level> is between 0 (no details) and 4 (very verbose)." << ENDL
         << ENDL
-        << "Use \"help\" command to see the list of available commands." << ENDL
+        << "Use \"bitmonerod help\" command to see the list of available commands." << ENDL
         << ENDL
-        << "Note: in case you need to interrupt the process, use \"exit\" command. Otherwise, the current progress won't be saved." << ENDL 
+        << "Note: in case you need to interrupt the process, use \"bitmonerod stop_daemon\" command. Otherwise, the current progress won't be saved." << ENDL
         << "**********************************************************************");
       m_starter_message_showed = true;
     }
