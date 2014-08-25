@@ -330,8 +330,10 @@ namespace cryptonote
   
   template<class t_core>
   double t_cryptonote_protocol_handler<t_core>::get_avg_block_size( size_t count) const {
-		if(count > m_core.get_current_blockchain_height())
-			return 0;
+		return 1024; // TODO code was moved away from here, need to have this function in store. Quick stub to merge it. --rfree
+
+		/*
+		if (count > m_core.get_current_blockchain_height()) return 0;
 
 		double average = 0;
 		_dbg1_c("net/blksize", "HEIGHT: " << m_core.get_current_blockchain_height());
@@ -343,17 +345,16 @@ namespace cryptonote
 
 		std::vector<size_t>::iterator it;
 		it = size_vector.begin();
-		while(it != size_vector.end()) {
+		while (it != size_vector.end()) {
 			average += *it;
 			_dbg2_c("net/blksize", "VECTOR ELEMENT: " << (*it) );
 			it++;
 		}	
-		
-		_dbg1_c("net/blksize", "VECTOR SIZE: " << size_vector.size() );
-		
 		average = average / count;
+		_dbg1_c("net/blksize", "VECTOR SIZE: " << size_vector.size() << " average=" << average);		
 		
 		return average;
+		*/
   }
 
   

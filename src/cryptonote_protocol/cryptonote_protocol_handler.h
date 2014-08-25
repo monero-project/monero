@@ -96,8 +96,8 @@ namespace cryptonote
     bool get_payload_sync_data(CORE_SYNC_DATA& hshd);
     bool get_stat_info(core_stat_info& stat_inf);
     bool on_callback(cryptonote_connection_context& context);
-    t_core& get_core(){return m_core;}
-    bool is_synchronized(){return m_synchronized;}
+    t_core& get_core() { return m_core; }
+    bool is_synchronized() { return m_synchronized; }
     void log_connections();
     std::list<connection_info> get_connections();
   private:
