@@ -36,6 +36,7 @@
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0
 #define CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX         18 // addresses start with "4"
+#define CRYPTONOTE_TESTNET_ADDRESS_BASE58_PREFIX        19 // addresses start with "5"
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            60
 #define CURRENT_TRANSACTION_VERSION                     1
 #define CURRENT_BLOCK_MAJOR_VERSION                     1
@@ -82,7 +83,9 @@
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
 
 #define P2P_DEFAULT_PORT                                18080
+#define TESTNET_P2P_DEFAULT_PORT                        28080
 #define RPC_DEFAULT_PORT                                18081
+#define TESTNET_RPC_DEFAULT_PORT                        28081
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT           1000
 
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
@@ -97,7 +100,20 @@
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
 #define P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT            5000       //5 seconds
 #define P2P_STAT_TRUSTED_PUB_KEY                        "0000000000000000000000000000000000000000000000000000000000000000"
+#define TESTNET_P2P_STAT_TRUSTED_PUB_KEY                "0000000000000000000000000000000000000000000000000000000000000000"
 #define P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT       70
+
+// reference these in src/p2p/p2p_networks.h
+#define MAINNET_NETWORK_ID                              { 0x12 ,0x30, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x10 }
+#define TESTNET_NETWORK_ID                              { 0x12 ,0x30, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x11 }
+
+// reference these in src/cryptonote_core/cryptonote_format_utils.cpp
+#define MAINNET_GENESIS_HASH                            "010a01ff0001ffffffffffff0f029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121013c086a48c15fb637a96991bc6d53caf77068b5ba6eeb3c82357228c49790584a"
+#define MAINNET_GENESIS_NONCE                           10000
+#define TESTNET_GENESIS_HASH                             "CHANGEME"
+#define TESTNET_GENESIS_NONCE                           CHANGEME
+
+// remember also to add seed nodes to src/p2p/net_node.inl for the testnet
 
 #define ALLOW_DEBUG_COMMANDS
 
