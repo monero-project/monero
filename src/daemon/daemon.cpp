@@ -141,4 +141,4 @@ void t_daemon::stop()
   mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
 }
 
-// namespace daemonize
+} // namespace daemonize
