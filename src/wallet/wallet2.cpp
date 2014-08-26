@@ -767,14 +767,16 @@ namespace {
 // split amount for each dst in dsts into num_splits parts
 // and make num_splits new vector<crypt...> instances to hold these new amounts
 std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
-    std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
+    std::vector<cryptonote::tx_destination_entry> existing_destinations
+  , size_t num_splits
+  )
 {
-  std::vector<std::vector<cryptonote::tx_destination_entry>> retVal;
+  std::vector<std::vector<cryptonote::tx_destination_entry>> destinations;
 
   if (num_splits <= 1)
   {
-    retVal.push_back(dsts);
-    return retVal;
+    destinations.push_back(existing_destinations);
+    return destinations;
   }
 
   // for each split required
@@ -783,30 +785,30 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
     std::vector<cryptonote::tx_destination_entry> new_dsts;
 
     // for each destination
-    for (size_t j=0; j < dsts.size(); j++)
+    for (size_t j=0; j < existing_destinations.size(); j++)
     {
       cryptonote::tx_destination_entry de;
       uint64_t amount;
 
-      amount = dsts[j].amount;
+      amount = existing_destinations[j].amount;
       amount = amount / num_splits;
 
       // if last split, add remainder
       if (i + 1 == num_splits)
       {
-        amount += dsts[j].amount % num_splits;
+        amount += existing_destinations[j].amount % num_splits;
       }
-      
-      de.addr = dsts[j].addr;
+
+      de.addr = existing_destinations[j].addr;
       de.amount = amount;
 
       new_dsts.push_back(de);
     }
 
-    retVal.push_back(new_dsts);
+    destinations.push_back(new_dsts);
   }
 
-  return retVal;
+  return destinations;
 }
 } // anonymous namespace
 
@@ -850,20 +852,28 @@ void wallet2::commit_tx(std::vector<pending_tx>& ptx_vector)
 //
 // this function will make multiple calls to wallet2::transfer if multiple
 // transactions will be required
-std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions(
+    std::vector<cryptonote::tx_destination_entry> dsts
+  , const size_t fake_outs_count
+  , const uint64_t unlock_time
+  , const uint64_t fee
+  , const std::vector<uint8_t> extra
+  )
 {
-
   // failsafe split attempt counter
   size_t attempt_count = 0;
 
-  for(attempt_count = 1; ;attempt_count++)
+  for(attempt_count = 1; ; attempt_count++)
   {
     auto split_values = split_amounts(dsts, attempt_count);
 
-    // Throw if split_amounts comes back with a vector of size different than it should
+    // Throw if split_amounts comes back with a vector of size different than
+    // it should
     if (split_values.size() != attempt_count)
     {
-      throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
+      throw std::runtime_error(
+          "Splitting transactions returned a number of potential tx not equal to what was requested"
+        );
     }
 
     std::vector<pending_tx> ptx_vector;
@@ -878,36 +888,39 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
         ptx_vector.push_back(ptx);
 
         // mark transfers to be used as "spent"
-        BOOST_FOREACH(transfer_container::iterator it, ptx.selected_transfers)
+        for (transfer_container::iterator it : ptx.selected_transfers)
+        {
           it->m_spent = true;
+        }
       }
 
-      // if we made it this far, we've selected our transactions.  committing them will mark them spent,
-      // so this is a failsafe in case they don't go through
-      // unmark pending tx transfers as spent
+      // if we made it this far, we've selected our transactions.  committing
+      // them will mark them spent, so this is a failsafe in case they don't go
+      // through unmark pending tx transfers as spent
       for (auto & ptx : ptx_vector)
       {
         // mark transfers to be used as not spent
-        BOOST_FOREACH(transfer_container::iterator it2, ptx.selected_transfers)
+        for (transfer_container::iterator it2 : ptx.selected_transfers)
+        {
           it2->m_spent = false;
-
+        }
       }
 
       // if we made it this far, we're OK to actually send the transactions
       return ptx_vector;
-
     }
-    // only catch this here, other exceptions need to pass through to the calling function
+    // only catch this here, other exceptions need to pass through to the
+    // calling function
     catch (const tools::error::tx_too_big& e)
     {
-
       // unmark pending tx transfers as spent
       for (auto & ptx : ptx_vector)
       {
         // mark transfers to be used as not spent
-        BOOST_FOREACH(transfer_container::iterator it2, ptx.selected_transfers)
+        for (transfer_container::iterator it2 : ptx.selected_transfers)
+        {
           it2->m_spent = false;
-
+        }
       }
 
       if (attempt_count >= MAX_SPLIT_ATTEMPTS)
@@ -923,9 +936,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
       for (auto & ptx : ptx_vector)
       {
         // mark transfers to be used as not spent
-        BOOST_FOREACH(transfer_container::iterator it2, ptx.selected_transfers)
+        for (transfer_container::iterator it2 : ptx.selected_transfers)
+        {
           it2->m_spent = false;
-
+        }
       }
 
       throw;
