@@ -55,7 +55,7 @@ endif ()
 add_library(common ${COMMON})
 add_library(crypto ${CRYPTO})
 add_library(cryptonote_core ${CRYPTONOTE_CORE})
-add_executable(daemon ${DAEMON} ${P2P} ${EPEE} ${CRYPTONOTE_PROTOCOL})
+add_executable(daemon ${DAEMON} ${DAEMONIZER} ${P2P} ${EPEE} ${CRYPTONOTE_PROTOCOL})
 
 if (BUILD_CONN_TOOL)
 	add_executable(connectivity_tool ${CONN_TOOL})
