@@ -175,7 +175,12 @@ namespace cryptonote
   //---------------------------------------------------------------
   // 62387455827 -> 455827 + 7000000 + 80000000 + 300000000 + 2000000000 + 60000000000, where 455827 <= dust_threshold
   template<typename chunk_handler_t, typename dust_handler_t>
-  void decompose_amount_into_digits(uint64_t amount, uint64_t dust_threshold, const chunk_handler_t& chunk_handler, const dust_handler_t& dust_handler)
+  void decompose_amount_into_digits(
+      uint64_t amount
+    , uint64_t dust_threshold
+    , const chunk_handler_t& chunk_handler
+    , const dust_handler_t& dust_handler
+    )
   {
     if (0 == amount)
     {

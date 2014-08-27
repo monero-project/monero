@@ -697,7 +697,12 @@ namespace
 // returns:
 //    direct return: amount of money found
 //    modified reference: selected_transfers, a list of iterators/indices of input sources
-uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers)
+uint64_t wallet2::select_transfers(
+    uint64_t needed_money
+  , bool add_dust
+  , uint64_t dust_threshold
+  , std::list<transfer_container::iterator>& selected_transfers
+  )
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -709,10 +714,14 @@ uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_
     const transfer_details& td = m_transfers[i];
     if (!td.m_spent && is_transfer_unlocked(td))
     {
-      if (dust < td.amount())
+      if (dust_threshold < td.amount())
+      {
         unused_transfers_indices.push_back(i);
+      }
       else
+      {
         unused_dust_indices.push_back(i);
+      }
     }
   }
 

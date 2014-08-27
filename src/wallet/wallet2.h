@@ -275,23 +275,44 @@ namespace tools
   namespace detail
   {
     //----------------------------------------------------------------------------------------------------
-    inline void digit_split_strategy(const std::vector<cryptonote::tx_destination_entry>& dsts,
-      const cryptonote::tx_destination_entry& change_dst, uint64_t dust_threshold,
-      std::vector<cryptonote::tx_destination_entry>& splitted_dsts, uint64_t& dust)
+    inline void digit_split_strategy(
+        const std::vector<cryptonote::tx_destination_entry>& addressed_payments
+      , const cryptonote::tx_destination_entry& change_payment
+      , uint64_t dust_threshold
+      , std::vector<cryptonote::tx_destination_entry>& splitted_dsts
+      , uint64_t& dust
+      )
     {
       splitted_dsts.clear();
       dust = 0;
 
-      BOOST_FOREACH(auto& de, dsts)
+      for (auto& payment : addressed_payments)
       {
-        cryptonote::decompose_amount_into_digits(de.amount, dust_threshold,
-          [&](uint64_t chunk) { splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, de.addr)); },
-          [&](uint64_t a_dust) { splitted_dsts.push_back(cryptonote::tx_destination_entry(a_dust, de.addr)); } );
+        cryptonote::decompose_amount_into_digits(
+            payment.amount
+          , dust_threshold
+          , [&](uint64_t chunk)
+            {
+              splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, payment.addr));
+            }
+          , [&](uint64_t a_dust)
+            {
+              splitted_dsts.push_back(cryptonote::tx_destination_entry(a_dust, payment.addr));
+            }
+          );
       }
 
-      cryptonote::decompose_amount_into_digits(change_dst.amount, dust_threshold,
-        [&](uint64_t chunk) { splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, change_dst.addr)); },
-        [&](uint64_t a_dust) { dust = a_dust; } );
+      cryptonote::decompose_amount_into_digits(
+          change_payment.amount
+        , dust_threshold
+        , [&](uint64_t chunk)
+          {
+            splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, change_payment.addr));
+          }
+        , [&](uint64_t a_dust) {
+            dust = a_dust;
+          }
+        );
     }
     //----------------------------------------------------------------------------------------------------
     inline void null_split_strategy(const std::vector<cryptonote::tx_destination_entry>& dsts,
@@ -346,7 +367,7 @@ namespace tools
 
   template<typename T>
   void wallet2::transfer(
-      const std::vector<cryptonote::tx_destination_entry>& dsts
+      const std::vector<cryptonote::tx_destination_entry>& addressed_payments
     , size_t fake_outputs_count
     , uint64_t unlock_time
     , uint64_t fee
@@ -359,7 +380,7 @@ namespace tools
   {
     using namespace cryptonote;
     // throw if attempting a transaction with no destinations
-    if (dsts.empty())
+    if (addressed_payments.empty())
     {
       THROW_WALLET_EXCEPTION(error::zero_destination);
     }
@@ -368,21 +389,21 @@ namespace tools
 
     // calculate total amount being sent to all destinations
     // throw if total amount overflows uint64_t
-    for (auto& dt : dsts)
+    for (auto& dt : addressed_payments)
     {
       if (0 == dt.amount)
       {
         THROW_WALLET_EXCEPTION(error::zero_destination);
       }
+
       needed_money += dt.amount;
       if (needed_money < dt.amount)
       {
-        THROW_WALLET_EXCEPTION(error::tx_sum_overflow, dsts, fee);
+        THROW_WALLET_EXCEPTION(error::tx_sum_overflow, addressed_payments, fee);
       }
     }
 
     // randomly select inputs for transaction
-    // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
     uint64_t found_money = select_transfers(
         needed_money
@@ -391,6 +412,7 @@ namespace tools
       , selected_transfers
       );
 
+    // throw if requested send amount is greater than amount available to send
     if (found_money < needed_money)
     {
       THROW_WALLET_EXCEPTION(error::not_enough_money, found_money, needed_money - fee, fee);
@@ -400,7 +422,7 @@ namespace tools
     typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
 
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp {};
-    if(fake_outputs_count)
+    if (fake_outputs_count)
     {
       COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req {};
       req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
@@ -409,11 +431,11 @@ namespace tools
       {
         if (it->m_tx.vout.size() <= it->m_internal_output_index)
         {
-        THROW_WALLET_EXCEPTION(
-            error::wallet_internal_error
-          , "m_internal_output_index = " + std::to_string(it->m_internal_output_index) +
-            " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size())
-          );
+          THROW_WALLET_EXCEPTION(
+              error::wallet_internal_error
+            , "m_internal_output_index = " + std::to_string(it->m_internal_output_index) +
+              " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size())
+            );
         }
 
         req.amounts.push_back(it->amount());
@@ -447,7 +469,7 @@ namespace tools
         THROW_WALLET_EXCEPTION(
             error::wallet_internal_error
           , "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
-            std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size())
+            std::to_string(daemon_resp.outs.size()) + ", expected " + std::to_string(selected_transfers.size())
           );
       }
 
@@ -527,7 +549,7 @@ namespace tools
       ++i;
     }
 
-    cryptonote::tx_destination_entry change_dts = AUTO_VAL_INIT(change_dts);
+    cryptonote::tx_destination_entry change_dts {};
     if (needed_money < found_money)
     {
       change_dts.addr = m_account.get_keys().m_account_address;
@@ -537,7 +559,7 @@ namespace tools
     uint64_t dust = 0;
     std::vector<cryptonote::tx_destination_entry> splitted_dsts;
     destination_split_strategy(
-        dsts
+        addressed_payments
       , change_dts
       , dust_policy.dust_threshold
       , splitted_dsts
@@ -583,7 +605,13 @@ namespace tools
       , tx.vin.end()
       , [&](const txin_v& s_e) -> bool
         {
-          CHECKED_GET_SPECIFIC_VARIANT(s_e, const txin_to_key, in, false);
+          if(s_e.type() != typeid(txin_to_key))
+          {
+            LOG_PRINT_L0("wrong variant type: " << s_e.type().name() << ", expected " << typeid(txin_to_key).name());
+            return false;
+          }
+          txin_to_key in = boost::get<txin_to_key>(s_e);
+
           key_images += boost::to_string(in.k_image) + " ";
           return true;
         }
