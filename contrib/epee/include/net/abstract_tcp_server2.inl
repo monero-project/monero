@@ -334,7 +334,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     		epee::critical_region_t<decltype(m_chunking_lock)> send_guard(m_chunking_lock); // *** critical *** 
 
 				_mark_c("net/out/size", "do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
-				  _mark("do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
+				_mark("do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
 				t_safe all = cb; // all bytes to send 
 				t_safe pos = 0; // current sending position
 				// 01234567890 

@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer in monero.cc project)
+/// @brief This is the place to implement our handlers for protocol network actions, e.g. for ratelimit for download-requests
+
 // Copyright (c) 2014, The Monero Project
 // 
 // All rights reserved.
@@ -25,11 +29,6 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-/*
- * rfree: This is the place to implement our new handlers that will be called from son the full templates class.
- * rfree: I use this in e.g. rate limiting code.
- */
 
 #include <boost/asio.hpp>
 #include <string>

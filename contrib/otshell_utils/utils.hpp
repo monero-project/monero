@@ -1,8 +1,9 @@
+/// @file
+/// @author rfree (current maintainer in monero.cc project)
+/// @brief various general utils taken from (and relate to) otshell project, including loggiang/debug
+
 /* See other files here for the LICENCE that applies here. */
-/*
-Utils provides various utilities and general-purpose functions that
-we find helpful in coding this project.
-*/
+
 #include "ccolor.hpp"
 #ifndef INCLUDE_OT_NEWCLI_UTILS
 #define INCLUDE_OT_NEWCLI_UTILS
@@ -23,6 +24,7 @@ namespace nOT {
 
 namespace nUtils {
 
+/// @brief general based for my runtime errors
 class myexception : public std::runtime_error {
 	public:
 		myexception(const char * what);
@@ -89,7 +91,8 @@ std::string cSpaceFromEscape(const std::string &s);
 
 // ========== logger ==========
 
-// Class to write debug into. Used by all the debug macros _dbg1 _info _erro etc.
+/// @brief Class to write debug into. Used it by calling the debug macros _dbg1(...) _info(...) _erro(...) etc.
+/// @author rfree (maintainer)
 class cLogger {
 	public:
 		cLogger();
@@ -255,6 +258,8 @@ eSubjectType String2SubjectType(const string & type);
 // ====================================================================
 // operation on files
 
+/// @brief tools related to filesystem
+/// @author rfree (maintainer)
 class cFilesystemUtils { // if we do not want to use boost in given project (or we could optionally write boost here later)
 	public:
 		static bool CreateDirTree(const std::string & dir, bool only_below=false);
@@ -264,6 +269,8 @@ class cFilesystemUtils { // if we do not want to use boost in given project (or 
 // ====================================================================
 // operation on files 2
 
+/// @brief simple configuration
+/// @author rfree (maintainer)
 class cConfigManager {
 public:
 	bool Load(const string & fileName, map<eSubjectType, string> & configMap);
@@ -272,6 +279,8 @@ public:
 
 extern cConfigManager configManager;
 
+/// @brief utils to e.g. edit a file from console
+/// @author rfree (maintainer)
 class cEnvUtils {
 	int fd;
 	string mFilename;

@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer in monero.cc project)
+/// @brief various general utils taken from (and relate to) otshell project, including loggiang/debug
+
 /* See other files here for the LICENCE that applies here. */
 /* See header file .hpp for info */
 
