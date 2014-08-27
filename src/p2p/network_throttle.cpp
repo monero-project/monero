@@ -1,6 +1,22 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief interface for throttling of connection (count and rate-limit speed etc)
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief interface for throttling of connection (count and rate-limit speed etc) 
+@details <PRE>
+
+Throttling work by:
+1) taking note of all traffic (hooks added e.g. to connection class) and measuring speed
+2) depending on that information we sleep before sending out data (or send smaller portions of data)
+3) depending on the information we can also sleep before sending requests or ask for smaller sets of data to download
+
+</PRE> 
+
+@image html net/rate1-down-1k.png  
+@image html net/rate1-down-full.png  
+@image html net/rate1-up-10k.png  
+@image html net/rate1-up-full.png
+
+*/
 
 // Copyright (c) 2014, The Monero Project
 // 
@@ -31,9 +47,11 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-/* rfree: throttle basic interface and manager */
-
 #include "../../src/p2p/network_throttle-detail.hpp"
+
+class aaaaa{};
+
+class bbb{};
 
 namespace epee
 {
