@@ -206,6 +206,8 @@ Building Documentation
 
 Monero developer documentation uses Doxygen, and is currently a work-in-progress.
 
+Maintainers (from monero project) of some files are marked in them as @author on top.
+
 Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional)
 
 - To build, change to the root of the source code directory, and run 'doxygen Doxyfile'
