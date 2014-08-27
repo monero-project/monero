@@ -75,6 +75,13 @@ public:
   bool stop_daemon(const std::vector<std::string>& args);
 
   bool print_status(const std::vector<std::string>& args);
+
+  bool set_limit(const std::vector<std::string>& args);
+
+  bool set_limit_up(const std::vector<std::string>& args);
+
+  bool set_limit_down(const std::vector<std::string>& args);
+
 };
 
 } // namespace daemonize

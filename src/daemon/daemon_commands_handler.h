@@ -170,7 +170,6 @@ private:
 	  try {
 		  limit = std::stoi(args[0]);
 	  }
-	  
 	  catch(std::invalid_argument& ex) {
 		  return false;
 	  }
