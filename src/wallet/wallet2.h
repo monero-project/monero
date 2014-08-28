@@ -286,6 +286,10 @@ namespace tools
       splitted_dsts.clear();
       dust = 0;
 
+      // Split each outgoing payment up into one dust transaction and multiple
+      // transactions with amount n * 10^x, where 1 <= n <= 9.  The dust
+      // transaction is the only transaction with amount below the dust
+      // threshold.
       for (auto& payment : addressed_payments)
       {
         cryptonote::decompose_amount_into_digits(
@@ -302,6 +306,9 @@ namespace tools
           );
       }
 
+      // Split the change transaction into multiple transactions with amount
+      // n * 10^x, where 1 <= n <= 9.  The unhandled remainder is returned by
+      // reference as the variable dust.
       cryptonote::decompose_amount_into_digits(
           change_payment.amount
         , dust_threshold
@@ -365,6 +372,9 @@ namespace tools
     transfer(dsts, fake_outputs_count, unlock_time, fee, extra, destination_split_strategy, dust_policy, tx, ptx);
   }
 
+  // Create a pending transaction that transforms unspent, unlocked input
+  // transfers owned by this account into output transfers that will be owned
+  // by the destination accounts.
   template<typename T>
   void wallet2::transfer(
       const std::vector<cryptonote::tx_destination_entry>& addressed_payments
@@ -379,7 +389,8 @@ namespace tools
     )
   {
     using namespace cryptonote;
-    // throw if attempting a transaction with no destinations
+
+    // Throw an exception if no payments were requested
     if (addressed_payments.empty())
     {
       THROW_WALLET_EXCEPTION(error::zero_destination);
@@ -387,8 +398,8 @@ namespace tools
 
     uint64_t needed_money = fee;
 
-    // calculate total amount being sent to all destinations
-    // throw if total amount overflows uint64_t
+    // Calculate total amount being sent to all destinations and throw if total
+    // amount overflows uint64_t
     for (auto& dt : addressed_payments)
     {
       if (0 == dt.amount)
@@ -403,30 +414,33 @@ namespace tools
       }
     }
 
-    // randomly select inputs for transaction
+    // Store unspent, unlocked transfers owned by this account in
+    // selected_transfers
     std::list<transfer_container::iterator> selected_transfers;
     uint64_t found_money = select_transfers(
         needed_money
-      , 0 == fake_outputs_count
+      , 0 == fake_outputs_count // ask for dust if there are no mixins
       , dust_policy.dust_threshold
       , selected_transfers
       );
 
-    // throw if requested send amount is greater than amount available to send
+    // Throw exception if requested send amount is greater than amount
+    // available to send
     if (found_money < needed_money)
     {
       THROW_WALLET_EXCEPTION(error::not_enough_money, found_money, needed_money - fee, fee);
     }
 
-    typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
-    typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
-
+    // If mixins (fake input transfers) were requested, fetch them from the
+    // daemon via RPC.  For each real input transfer, the daemon returns
+    // fake_outputs_count mixin payments.
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp {};
     if (fake_outputs_count)
     {
       COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req {};
       req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
 
+      // Inform the daemon of the amount for each of the real inputs.
       for (transfer_container::iterator it : selected_transfers)
       {
         if (it->m_tx.vout.size() <= it->m_internal_output_index)
@@ -441,29 +455,33 @@ namespace tools
         req.amounts.push_back(it->amount());
       }
 
-      bool r = epee::net_utils::invoke_http_bin_remote_command2(
-          m_daemon_address + "/getrandom_outs.bin"
-        , req
-        , daemon_resp
-        , m_http_client
-        , 200000
-        );
-
-      if (!r)
+      // Query the daemon via RPC
       {
-        THROW_WALLET_EXCEPTION(error::no_connection_to_daemon, "getrandom_outs.bin");
+        bool r = epee::net_utils::invoke_http_bin_remote_command2(
+            m_daemon_address + "/getrandom_outs.bin"
+          , req
+          , daemon_resp
+          , m_http_client
+          , 200000
+          );
+
+        if (!r)
+        {
+          THROW_WALLET_EXCEPTION(error::no_connection_to_daemon, "getrandom_outs.bin");
+        }
+
+        if (daemon_resp.status == CORE_RPC_STATUS_BUSY)
+        {
+          THROW_WALLET_EXCEPTION(error::daemon_busy, "getrandom_outs.bin");
+        }
+
+        if (daemon_resp.status != CORE_RPC_STATUS_OK)
+        {
+          THROW_WALLET_EXCEPTION(error::get_random_outs_error, daemon_resp.status);
+        }
       }
 
-      if (daemon_resp.status == CORE_RPC_STATUS_BUSY)
-      {
-        THROW_WALLET_EXCEPTION(error::daemon_busy, "getrandom_outs.bin");
-      }
-
-      if (daemon_resp.status != CORE_RPC_STATUS_OK)
-      {
-        THROW_WALLET_EXCEPTION(error::get_random_outs_error, daemon_resp.status);
-      }
-
+      // Ensure that there is a group of mixins for every real input transaction
       if (daemon_resp.outs.size() != selected_transfers.size())
       {
         THROW_WALLET_EXCEPTION(
@@ -473,34 +491,45 @@ namespace tools
           );
       }
 
-      std::vector<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount> scanty_outs;
-      for (COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs : daemon_resp.outs)
+      // Ensure that we received the right number of mixins for each real input
+      // transaction.
       {
-        if (amount_outs.outs.size() < fake_outputs_count)
+        std::vector<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount> scanty_outs;
+        for (COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs : daemon_resp.outs)
         {
-          scanty_outs.push_back(amount_outs);
+          if (amount_outs.outs.size() < fake_outputs_count)
+          {
+            scanty_outs.push_back(amount_outs);
+          }
         }
-      }
 
-      if (!scanty_outs.empty())
-      {
-        THROW_WALLET_EXCEPTION(error::not_enough_outs_to_mix, scanty_outs, fake_outputs_count);
+        if (!scanty_outs.empty())
+        {
+          THROW_WALLET_EXCEPTION(error::not_enough_outs_to_mix, scanty_outs, fake_outputs_count);
+        }
       }
     }
 
-    //prepare inputs
+    // Iterate through the selected real input transfers, and combine them with
+    // any fake mixin transfers returned by the daemon to create the sources
+    // vector.
     size_t i = 0;
     std::vector<cryptonote::tx_source_entry> sources;
     for (transfer_container::iterator it : selected_transfers)
     {
+      typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
+
       sources.resize(sources.size()+1);
       cryptonote::tx_source_entry& src = sources.back();
       transfer_details& td = *it;
       src.amount = td.amount();
 
-      //paste mixin transaction
+      // Add the mixin input transfers associated with the current real input
+      // transfer to the sources vector
       if (daemon_resp.outs.size())
       {
+        typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
+
         daemon_resp.outs[i].outs.sort(
             [](const out_entry& a, const out_entry& b)
             {
@@ -510,16 +539,20 @@ namespace tools
 
         for (out_entry& daemon_oe : daemon_resp.outs[i].outs)
         {
+          // Don't use this mixin transaction if it's the same transaction as
+          // the real one
           if (td.m_global_output_index == daemon_oe.global_amount_index)
           {
             continue;
           }
 
+          // Add the mixin to the sources vector
           tx_output_entry oe;
           oe.first = daemon_oe.global_amount_index;
           oe.second = daemon_oe.out_key;
           src.outputs.push_back(oe);
 
+          // We're done if we have the requested number of mixins
           if (src.outputs.size() >= fake_outputs_count)
           {
             break;
@@ -527,7 +560,8 @@ namespace tools
         }
       }
 
-      //paste real transaction to the random index
+      // Get an iterator referencing the position that the real input transfer
+      // will be inserted to
       auto it_to_insert = std::find_if(
           src.outputs.begin()
         , src.outputs.end()
@@ -537,7 +571,7 @@ namespace tools
           }
         );
 
-      //size_t real_index = src.outputs.size() ? (rand() % src.outputs.size() ):0;
+      // Add the real transaction to the sources vector
       tx_output_entry real_oe;
       real_oe.first = td.m_global_output_index;
       real_oe.second = boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key;
@@ -549,6 +583,9 @@ namespace tools
       ++i;
     }
 
+    // The input transaction amounts likely sum to more than the output amounts
+    // (plus the fee). Set up a change output transfer for the remainder which
+    // is addressed to this account.
     cryptonote::tx_destination_entry change_dts {};
     if (needed_money < found_money)
     {
@@ -556,6 +593,9 @@ namespace tools
       change_dts.amount = found_money - needed_money;
     }
 
+    // Split up the output transactions to obfuscate their amounts.  The dust
+    // variable will contain an amount below the dust threshold that is not
+    // represented in any outgoing transaction.
     uint64_t dust = 0;
     std::vector<cryptonote::tx_destination_entry> splitted_dsts;
     destination_split_strategy(
@@ -566,6 +606,7 @@ namespace tools
       , dust
       );
 
+    // Throw an exception if the dust amount is more than the dust threshold
     if (dust_policy.dust_threshold < dust)
     {
       THROW_WALLET_EXCEPTION(
@@ -575,11 +616,15 @@ namespace tools
         );
     }
 
+    // The dust policy can specify an address to which dust should be sent.  If
+    // this is the case, we create the appropriate output transfer here.
     if (0 != dust && !dust_policy.add_to_fee)
     {
       splitted_dsts.push_back(cryptonote::tx_destination_entry(dust, dust_policy.addr_for_dust));
     }
 
+    // Construct the actual transaction using sources for the input transfers
+    // and splitted_dsts for the output transfers.
     bool r = cryptonote::construct_tx(
         m_account.get_keys()
       , sources
@@ -594,11 +639,13 @@ namespace tools
       THROW_WALLET_EXCEPTION(error::tx_not_constructed, sources, splitted_dsts, unlock_time);
     }
 
+    // Throw an exception if the transaction is too large
     if (m_upper_transaction_size_limit <= get_object_blobsize(tx))
     {
       THROW_WALLET_EXCEPTION(error::tx_too_big, tx, m_upper_transaction_size_limit);
     }
 
+    // Create a key image string from the transaction inputs
     std::string key_images;
     bool all_are_txin_to_key = std::all_of(
         tx.vin.begin()
@@ -622,6 +669,7 @@ namespace tools
       THROW_WALLET_EXCEPTION(error::unexpected_txin_type, tx);
     }
 
+    // Inintialize the pending transaction
     ptx.key_images = key_images;
     ptx.fee = fee;
     ptx.dust = dust;

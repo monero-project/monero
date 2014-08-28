@@ -149,16 +149,41 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper(const account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
+  bool generate_key_image_helper(
+      const account_keys& ack
+    , const crypto::public_key & tx_public_key
+    , size_t real_output_index
+    , keypair & in_ephemeral
+    , crypto::key_image & ki
+    )
   {
-    crypto::key_derivation recv_derivation = AUTO_VAL_INIT(recv_derivation);
-    bool r = crypto::generate_key_derivation(tx_public_key, ack.m_view_secret_key, recv_derivation);
-    CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")");
+    crypto::key_derivation recv_derivation {};
+    bool r = crypto::generate_key_derivation(
+        tx_public_key
+      , ack.m_view_secret_key
+      , recv_derivation
+      );
+    CHECK_AND_ASSERT_MES(r, false
+      , "key image helper: failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")"
+      );
 
-    r = crypto::derive_public_key(recv_derivation, real_output_index, ack.m_account_address.m_spend_public_key, in_ephemeral.pub);
-    CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to derive_public_key(" << recv_derivation << ", " << real_output_index <<  ", " << ack.m_account_address.m_spend_public_key << ")");
+    r = crypto::derive_public_key(
+        recv_derivation
+      , real_output_index
+      , ack.m_account_address.m_spend_public_key
+      , in_ephemeral.pub
+      );
+    CHECK_AND_ASSERT_MES(r, false
+      , "key image helper: failed to derive_public_key("
+        << recv_derivation << ", " << real_output_index << ", " << ack.m_account_address.m_spend_public_key << ")"
+      );
 
-    crypto::derive_secret_key(recv_derivation, real_output_index, ack.m_spend_secret_key, in_ephemeral.sec);
+    crypto::derive_secret_key(
+        recv_derivation
+      , real_output_index
+      , ack.m_spend_secret_key
+      , in_ephemeral.sec
+      );
 
     crypto::generate_key_image(in_ephemeral.pub, in_ephemeral.sec, ki);
     return true;
@@ -322,11 +347,11 @@ namespace cryptonote
   }
   //---------------------------------------------------------------
   bool construct_tx(
-      const account_keys& sender_account_keys
-    , const std::vector<tx_source_entry>& sources
-    , const std::vector<tx_destination_entry>& destinations
+      const account_keys & sender_account_keys
+    , const std::vector<tx_source_entry> & sources
+    , const std::vector<tx_destination_entry> & destinations
     , std::vector<uint8_t> extra
-    , transaction& tx
+    , transaction & tx
     , uint64_t unlock_time
     )
   {
@@ -347,24 +372,32 @@ namespace cryptonote
     };
     std::vector<input_generation_context_data> in_contexts;
 
-
-    uint64_t summary_inputs_money = 0;
+    uint64_t total_money_from_inputs = 0;
     //fill inputs
-    BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
+    for (const tx_source_entry& src_entr : sources)
     {
-      if(src_entr.real_output >= src_entr.outputs.size())
+      if (src_entr.real_output >= src_entr.outputs.size())
       {
-        LOG_ERROR("real_output index (" << src_entr.real_output << ")bigger than output_keys.size()=" << src_entr.outputs.size());
+        LOG_ERROR("real_output index (" << src_entr.real_output
+          << ")bigger than output_keys.size()=" << src_entr.outputs.size());
         return false;
       }
-      summary_inputs_money += src_entr.amount;
+      total_money_from_inputs += src_entr.amount;
 
       //key_derivation recv_derivation;
       in_contexts.push_back(input_generation_context_data());
-      keypair& in_ephemeral = in_contexts.back().in_ephemeral;
+      keypair & in_ephemeral = in_contexts.back().in_ephemeral;
       crypto::key_image img;
-      if(!generate_key_image_helper(sender_account_keys, src_entr.real_out_tx_key, src_entr.real_output_in_tx_index, in_ephemeral, img))
+      if (!generate_key_image_helper(
+          sender_account_keys
+        , src_entr.real_out_tx_key
+        , src_entr.real_output_in_tx_index
+        , in_ephemeral
+        , img
+        ))
+      {
         return false;
+      }
 
       //check that derivated key is equal with real output key
       if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second) )
@@ -381,8 +414,10 @@ namespace cryptonote
       input_to_key.k_image = img;
 
       //fill outputs array and use relative offsets
-      BOOST_FOREACH(const tx_source_entry::output_entry& out_entry, src_entr.outputs)
+      for (const tx_source_entry::output_entry& out_entry : src_entr.outputs)
+      {
         input_to_key.key_offsets.push_back(out_entry.first);
+      }
 
       input_to_key.key_offsets = absolute_output_offsets_to_relative(input_to_key.key_offsets);
       tx.vin.push_back(input_to_key);
@@ -390,21 +425,44 @@ namespace cryptonote
 
     // "Shuffle" outs
     std::vector<tx_destination_entry> shuffled_dsts(destinations);
-    std::sort(shuffled_dsts.begin(), shuffled_dsts.end(), [](const tx_destination_entry& de1, const tx_destination_entry& de2) { return de1.amount < de2.amount; } );
+    std::sort(
+        shuffled_dsts.begin()
+      , shuffled_dsts.end()
+      , [](const tx_destination_entry & de1, const tx_destination_entry & de2)
+        {
+          return de1.amount < de2.amount;
+        }
+      );
 
-    uint64_t summary_outs_money = 0;
+    uint64_t total_money_from_outputs = 0;
     //fill outputs
     size_t output_index = 0;
-    BOOST_FOREACH(const tx_destination_entry& dst_entr,  shuffled_dsts)
+    for (const tx_destination_entry & dst_entr : shuffled_dsts)
     {
       CHECK_AND_ASSERT_MES(dst_entr.amount > 0, false, "Destination with wrong amount: " << dst_entr.amount);
+
       crypto::key_derivation derivation;
       crypto::public_key out_eph_public_key;
-      bool r = crypto::generate_key_derivation(dst_entr.addr.m_view_public_key, txkey.sec, derivation);
-      CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << dst_entr.addr.m_view_public_key << ", " << txkey.sec << ")");
+      bool r = crypto::generate_key_derivation(
+          dst_entr.addr.m_view_public_key
+        , txkey.sec
+        , derivation
+        );
+      CHECK_AND_ASSERT_MES(r, false
+        , "at creation outs: failed to generate_key_derivation("
+          << dst_entr.addr.m_view_public_key << ", " << txkey.sec << ")"
+        );
 
-      r = crypto::derive_public_key(derivation, output_index, dst_entr.addr.m_spend_public_key, out_eph_public_key);
-      CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to derive_public_key(" << derivation << ", " << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")");
+      r = crypto::derive_public_key(
+          derivation
+        , output_index
+        , dst_entr.addr.m_spend_public_key
+        , out_eph_public_key
+        );
+      CHECK_AND_ASSERT_MES(r, false
+        , "at creation outs: failed to derive_public_key(" << derivation << ", "
+          << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")"
+        );
 
       tx_out out;
       out.amount = dst_entr.amount;
@@ -413,16 +471,16 @@ namespace cryptonote
       out.target = tk;
       tx.vout.push_back(out);
       output_index++;
-      summary_outs_money += dst_entr.amount;
+      total_money_from_outputs += dst_entr.amount;
     }
 
     //check money
-    if(summary_outs_money > summary_inputs_money )
+    if (total_money_from_outputs > total_money_from_inputs)
     {
-      LOG_ERROR("Transaction inputs money ("<< summary_inputs_money << ") less than outputs money (" << summary_outs_money << ")");
+      LOG_ERROR("Transaction inputs money ("<< total_money_from_inputs
+        << ") less than outputs money (" << total_money_from_outputs << ")");
       return false;
     }
-
 
     //generate ring signatures
     crypto::hash tx_prefix_hash;
@@ -430,27 +488,54 @@ namespace cryptonote
 
     std::stringstream ss_ring_s;
     size_t i = 0;
-    BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
+    for (const tx_source_entry & src_entr : sources)
     {
       ss_ring_s << "pub_keys:" << ENDL;
-      std::vector<const crypto::public_key*> keys_ptrs;
-      BOOST_FOREACH(const tx_source_entry::output_entry& o, src_entr.outputs)
+
+      std::vector<const crypto::public_key *> keys_ptrs;
+
+      for (const tx_source_entry::output_entry & o : src_entr.outputs)
       {
         keys_ptrs.push_back(&o.second);
         ss_ring_s << o.second << ENDL;
       }
 
       tx.signatures.push_back(std::vector<crypto::signature>());
-      std::vector<crypto::signature>& sigs = tx.signatures.back();
+      std::vector<crypto::signature> & sigs = tx.signatures.back();
       sigs.resize(src_entr.outputs.size());
-      crypto::generate_ring_signature(tx_prefix_hash, boost::get<txin_to_key>(tx.vin[i]).k_image, keys_ptrs, in_contexts[i].in_ephemeral.sec, src_entr.real_output, sigs.data());
+
+      crypto::generate_ring_signature(
+          tx_prefix_hash
+        , boost::get<txin_to_key>(tx.vin[i]).k_image
+        , keys_ptrs
+        , in_contexts[i].in_ephemeral.sec
+        , src_entr.real_output
+        , sigs.data()
+        );
+
       ss_ring_s << "signatures:" << ENDL;
-      std::for_each(sigs.begin(), sigs.end(), [&](const crypto::signature& s){ss_ring_s << s << ENDL;});
-      ss_ring_s << "prefix_hash:" << tx_prefix_hash << ENDL << "in_ephemeral_key: " << in_contexts[i].in_ephemeral.sec << ENDL << "real_output: " << src_entr.real_output;
+
+      std::for_each(
+          sigs.begin()
+        , sigs.end()
+        , [&](const crypto::signature& s) {ss_ring_s << s << ENDL;}
+        );
+
+      ss_ring_s
+        << "prefix_hash:" << tx_prefix_hash << ENDL
+        << "in_ephemeral_key: " << in_contexts[i].in_ephemeral.sec << ENDL
+        << "real_output: " << src_entr.real_output;
+
       i++;
     }
 
-    LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL << ss_ring_s.str() , LOG_LEVEL_3);
+    LOG_PRINT2(
+        "construct_tx.log"
+      , "transaction_created: " << get_transaction_hash(tx) << ENDL
+        << obj_to_json_str(tx) << ENDL
+        << ss_ring_s.str()
+      , LOG_LEVEL_3
+      );
 
     return true;
   }
