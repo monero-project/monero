@@ -413,6 +413,33 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
+    // Create a view on m_transactions sorted by rato of fee to transaction
+    // size
+    std::vector<transactions_chain_entry &> sorted_transactions {};
+    {
+      std::transform(
+          m_transactions.begin()
+        , m_transactions.end()
+        , txs.begin()
+        , [](transaction_chain_entry & a) -> transaction_chain_entry & { return a; }
+        );
+
+      std::sort(
+          sorted_transactions.begin()
+        , sorted_transactions.end()
+        , [](transaction_chain_entry & a, transaction_chain_entry & b) -> bool
+          {
+            uint64_t a_high;
+            uint64_t a_low = mul128(a.second.fee, b.second.blob_size, &a_high);
+
+            uint64_t b_high;
+            uint64_t b_low = mul128(b.second.fee, a.second.blob_size, &b_high);
+
+            return a_high > b_high || (a_high == b_high && a_low > b_low);
+          }
+        );
+    }
+
     total_size = 0;
     fee = 0;
 
@@ -421,7 +448,7 @@ namespace cryptonote
     size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
 
-    BOOST_FOREACH(transactions_container::value_type& tx, m_transactions)
+    for (auto & tx : sorted_transactions)
     {
       // Can not exceed maximum block size
       if (max_total_size < total_size + tx.second.blob_size)
