@@ -16,3 +16,7 @@ log/
 # dr-monero 
 utils/dr-monero/*.o
 utils/dr-monero/*.pro.user
+
+# doxygen
+doc/html/
+
