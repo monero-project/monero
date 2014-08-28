@@ -381,4 +381,30 @@ bool t_rpc_command_executor::print_status()
   return true;
 }
 
-} // namespace daemonize
+bool t_rpc_command_executor::set_limit(int limit)
+{
+    epee::net_utils::connection_basic::set_rate_down_limit( limit );
+    epee::net_utils::connection_basic::set_rate_up_limit( limit );
+    std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
+    std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
+
+    return true;
+}
+
+bool t_rpc_command_executor::set_limit_up(int limit)
+{
+    epee::net_utils::connection_basic::set_rate_up_limit( limit );
+    std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
+
+    return true;
+}
+
+bool t_rpc_command_executor::set_limit_down(int limit)
+{
+    epee::net_utils::connection_basic::set_rate_down_limit( limit );
+    std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
+
+    return true;
+}
+
+}// namespace daemonize

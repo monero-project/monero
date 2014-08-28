@@ -78,12 +78,19 @@ namespace cryptonote
       uint64_t already_generated_coins;
     };
 
-    blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false)
-    {};
+    blockchain_storage(tx_memory_pool& tx_pool) : 
+			m_tx_pool(tx_pool), 
+			m_current_block_cumul_sz_limit(0), 
+			m_is_in_checkpoint_zone(false), 
+			m_is_blockchain_storing(false),
+			m_fast_shutdown(false)
+    { };
 
     bool init() { return init(tools::get_default_data_dir()); }
     bool init(const std::string& config_folder);
     bool deinit();
+
+		void set_fast_shutdown(bool fast);
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
 
@@ -216,6 +223,8 @@ namespace cryptonote
     checkpoints m_checkpoints;
     std::atomic<bool> m_is_in_checkpoint_zone;
     std::atomic<bool> m_is_blockchain_storing;
+
+		bool m_fast_shutdown;
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     bool pop_block_from_blockchain();

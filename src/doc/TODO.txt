@@ -1,0 +1,50 @@
+
+This is an unofficiall tiny additional TODO maintained by some of the developer(s).
+If other developers find it usefull, why not add things here, I always like it how
+that shows up in git along with the code change; plus any new devel has it right
+at hands to review/add.
+
+===============================================================================
+rfree
+
+rfree:
+[security] Build with --param allow-store-data-races=1 because some gcc compilers produce insecure code
+as inspired by reading about this problem in http://grsecurity.net/changelog-stable2.txt in linux kernel:
+commit afbffd51fcf50a750cd3907b2daa6c77d26fce69
+Author: Jiri Kosina <jkosina@suse.cz>
+Date:   Wed Aug 6 16:08:43 2014 -0700
+    Upstream commit: 69102311a57d1fd65cdc4002c55c5d551c799044
+
+
+rfree:
+[security]
+verify operations are secure (mutex) e.g. the new net settings while changed by set in runtime
+
+
+rfree:
+[security]
+verify if old code's volatile+mutex used in few places (network code) is actually guaranteed to be correct
+
+
+rfree:
+[security]
+new logging code must use mutex
+
+
+rfree:
+[security]
+verify all my new code/math for overflows
+
+
+rfree:
+[TASK][style]
+change old logging to new one
+
+
+rfree:
+[style]
+change singletons to the std once
+
+===============================================================================
+
+

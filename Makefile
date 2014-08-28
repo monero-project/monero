@@ -1,7 +1,15 @@
-all: _warn_fast all-fast _warn_fast2
+all: build-fast
 
 # WARNING: to really build "all" - the all modules in release version, use:
 # make all-release
+
+# this is the default thing to run for developers for now. added to be friendly for IDEs/setups that bind "make run"
+run: build-fast
+	bash start-devel.sh "fast"
+
+# just runs OLD code without triggering any rebuild
+oldrun:
+	bash start-devel.sh "fast"
 
 
 # fast: the build that gives fast recompile for core developer (skips modules etc; includes debug still)
@@ -9,7 +17,7 @@ cmake-fast:
 	mkdir -p build/fast
 	( cd build/fast && cmake -D CMAKE_BUILD_TYPE=Debug  -D BUILD_CONN_TOOL=OFF  -D BUILD_SIMPLE_MINER=OFF  -D BUILD_SIMPLE_WALLET=OFF  -D BUILD_TESTS=OFF   -D ENABLE_COTIRE=ON  -D COTIRE_MINIMUM_NUMBER_OF_TARGET_SOURCES=1  -D COTIRE_VERBOSE=ON  ../.. )
 
-build-fast: cmake-fast
+build-fast: _warn_fast cmake-fast _warn_fast2
 	( cd build/fast && $(MAKE) )
 
 all-fast: build-fast
@@ -44,10 +52,15 @@ test-release: build-release
 all-release: build-release
 
 
+clear: clean
 clean:
 	@echo "WARNING: Back-up your wallet if it exists within ./build!" ; \
         read -r -p "This will destroy the build directory, continue (y/N)?: " CONTINUE; \
 	[ $$CONTINUE = "y" ] || [ $$CONTINUE = "Y" ] || (echo "Exiting."; exit 1;)
+	rm -rf build
+
+clear-force: clean-force
+clean-force:
 	rm -rf build
 
 tags:
@@ -70,6 +83,6 @@ _warn_fast:
 _warn_fast2: _warn_fast
 
 
-.PHONY: all cmake-debug build-debug test-debug all-debug cmake-release build-release test-release all-release clean tags cmake-fast build-fast all-fast fast _warn_fast _warn_fast2
+.PHONY: run all cmake-debug build-debug test-debug all-debug cmake-release build-release test-release all-release clean clear clean-force clear-force tags cmake-fast build-fast all-fast fast _warn_fast _warn_fast2 
 
 

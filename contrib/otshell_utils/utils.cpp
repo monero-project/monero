@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer in monero.cc project)
+/// @brief various general utils taken from (and relate to) otshell project, including loggiang/debug
+
 /* See other files here for the LICENCE that applies here. */
 /* See header file .hpp for info */
 
@@ -272,8 +276,29 @@ std::string cLogger::endline() const {
 }
 
 // ====================================================================
-
 // object gCurrentLogger is defined later - in global namespace below
+
+// ====================================================================
+// debug - counters, graphs
+
+class cCounter {
+private:
+    int tmp;
+    int tmp2;
+
+	//int tmp2;
+
+	void AAA(); 
+    void method();
+    void BBBBBB();
+
+
+	void func_rfree_test();
+	void func_rfree_test2();
+
+};
+
+// _data("net/peers/count", 3.14);
 
 // ====================================================================
 // vector debug
@@ -634,6 +659,7 @@ string FindMapValue(const map<string, string> & map, const string value) {
 
 // ====================================================================
 // algorthms
+
 
 
 }; // namespace nUtil

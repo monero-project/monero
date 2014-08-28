@@ -50,6 +50,11 @@
 #include "crypto/hash.h"
 //#include "serialization/json_archive.h"
 
+#include "../../contrib/otshell_utils/utils.hpp"
+using namespace nOT::nUtils;
+
+using namespace std;
+using namespace epee;
 using namespace cryptonote;
 
 DISABLE_VS_WARNINGS(4267)
@@ -110,14 +115,14 @@ bool blockchain_storage::init(const std::string& config_folder)
   uint64_t timestamp_diff = time(NULL) - m_blocks.back().bl.timestamp;
   if(!m_blocks.back().bl.timestamp)
     timestamp_diff = time(NULL) - 1341378000;
-  LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_blocks.size() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
+  LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_blocks.size()-1 << ", " << misc_utils::get_time_interval_string(timestamp_diff) <<  " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
   return true;
 }
 //------------------------------------------------------------------
 bool blockchain_storage::store_blockchain()
 {
   m_is_blockchain_storing = true;
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_is_blockchain_storing=false;});
+  misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler([&](){m_is_blockchain_storing=false;});
 
   LOG_PRINT_L0("Storing blockchain...");
   if (!tools::create_directories_if_necessary(m_config_folder))
@@ -150,6 +155,12 @@ bool blockchain_storage::deinit()
 {
   return store_blockchain();
 }
+
+//------------------------------------------------------------------
+void blockchain_storage::set_fast_shutdown(bool fast) {
+	m_fast_shutdown = fast;
+}
+
 //------------------------------------------------------------------
 bool blockchain_storage::pop_block_from_blockchain()
 {
@@ -1425,7 +1436,7 @@ bool blockchain_storage::check_tx_inputs(const transaction& tx, const crypto::ha
 
     if(have_tx_keyimg_as_spent(in_to_key.k_image))
     {
-      LOG_PRINT_L1("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
+      LOG_PRINT_L1("Key image already spent in blockchain: " << string_tools::pod_to_hex(in_to_key.k_image));
       return false;
     }
 

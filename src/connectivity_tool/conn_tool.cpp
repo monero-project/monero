@@ -79,13 +79,13 @@ struct response_schema
     KV_SERIALIZE(COMMAND_REQUEST_NETWORK_STATE_status)
     KV_SERIALIZE(si_rsp)
     KV_SERIALIZE(ns_rsp)
-  END_KV_SERIALIZE_MAP() 
+  END_KV_SERIALIZE_MAP()
 };
 
   std::string get_response_schema_as_json(response_schema& rs)
   {
     std::stringstream ss;
-    ss << "{" << ENDL 
+    ss << "{" << ENDL
        << "  \"status\": \"" << rs.status << "\"," << ENDL
        << "  \"COMMAND_REQUEST_NETWORK_STATE_status\": \"" << rs.COMMAND_REQUEST_NETWORK_STATE_status << "\"," << ENDL
        << "  \"COMMAND_REQUEST_STAT_INFO_status\": \"" << rs.COMMAND_REQUEST_STAT_INFO_status <<  "\"";
@@ -95,8 +95,8 @@ struct response_schema
     }
     if(rs.ns_rsp.enabled)
     {
-      ss << "," << ENDL << "  \"ns_rsp\": {" << ENDL 
-        << "    \"local_time\": " <<  rs.ns_rsp.v.local_time << "," << ENDL 
+      ss << "," << ENDL << "  \"ns_rsp\": {" << ENDL
+        << "    \"local_time\": " <<  rs.ns_rsp.v.local_time << "," << ENDL
         << "    \"my_id\": \"" <<  rs.ns_rsp.v.my_id << "\"," << ENDL
         << "    \"connections_list\": [" << ENDL;
 
@@ -106,30 +106,30 @@ struct response_schema
         ss <<  "      {\"peer_id\": \"" << ce.id << "\", \"ip\": \"" << string_tools::get_ip_string_from_int32(ce.adr.ip) << "\", \"port\": " << ce.adr.port << ", \"is_income\": "<< ce.is_income << "}";
         if(rs.ns_rsp.v.connections_list.size()-1 != i)
           ss << ",";
-        ss << ENDL; 
+        ss << ENDL;
         i++;
       }
       ss << "    ]," << ENDL;
-      ss << "    \"local_peerlist_white\": [" << ENDL;      
+      ss << "    \"local_peerlist_white\": [" << ENDL;
       i = 0;
       BOOST_FOREACH(const peerlist_entry& pe, rs.ns_rsp.v.local_peerlist_white)
       {
         ss <<  "      {\"peer_id\": \"" << pe.id << "\", \"ip\": \"" << string_tools::get_ip_string_from_int32(pe.adr.ip) << "\", \"port\": " << pe.adr.port << ", \"last_seen\": "<< rs.ns_rsp.v.local_time - pe.last_seen << "}";
         if(rs.ns_rsp.v.local_peerlist_white.size()-1 != i)
           ss << ",";
-        ss << ENDL; 
+        ss << ENDL;
         i++;
       }
       ss << "    ]," << ENDL;
 
-      ss << "    \"local_peerlist_gray\": [" << ENDL;      
+      ss << "    \"local_peerlist_gray\": [" << ENDL;
       i = 0;
       BOOST_FOREACH(const peerlist_entry& pe, rs.ns_rsp.v.local_peerlist_gray)
       {
         ss <<  "      {\"peer_id\": \"" << pe.id << "\", \"ip\": \"" << string_tools::get_ip_string_from_int32(pe.adr.ip) << "\", \"port\": " << pe.adr.port << ", \"last_seen\": "<< rs.ns_rsp.v.local_time - pe.last_seen << "}";
         if(rs.ns_rsp.v.local_peerlist_gray.size()-1 != i)
           ss << ",";
-        ss << ENDL; 
+        ss << ENDL;
         i++;
       }
       ss << "    ]" << ENDL << "  }" << ENDL;
@@ -162,19 +162,19 @@ bool print_COMMAND_REQUEST_NETWORK_STATE(const COMMAND_REQUEST_NETWORK_STATE::re
   std::cout << "Active connections:"  << ENDL;
   BOOST_FOREACH(const connection_entry& ce, ns.connections_list)
   {
-    std::cout <<  ce.id << "\t" << string_tools::get_ip_string_from_int32(ce.adr.ip) << ":" << ce.adr.port << (ce.is_income ? "(INC)":"(OUT)") << ENDL; 
+    std::cout <<  ce.id << "\t" << string_tools::get_ip_string_from_int32(ce.adr.ip) << ":" << ce.adr.port << (ce.is_income ? "(INC)":"(OUT)") << ENDL;
   }
-  
+
   std::cout << "Peer list white:" << ns.my_id << ENDL;
   BOOST_FOREACH(const peerlist_entry& pe, ns.local_peerlist_white)
   {
-    std::cout <<  pe.id << "\t" << string_tools::get_ip_string_from_int32(pe.adr.ip) << ":" << pe.adr.port <<  "\t" << misc_utils::get_time_interval_string(ns.local_time - pe.last_seen) << ENDL; 
+    std::cout <<  pe.id << "\t" << string_tools::get_ip_string_from_int32(pe.adr.ip) << ":" << pe.adr.port <<  "\t" << misc_utils::get_time_interval_string(ns.local_time - pe.last_seen) << ENDL;
   }
 
   std::cout << "Peer list gray:" << ns.my_id << ENDL;
   BOOST_FOREACH(const peerlist_entry& pe, ns.local_peerlist_gray)
   {
-    std::cout <<  pe.id << "\t" << string_tools::get_ip_string_from_int32(pe.adr.ip) << ":" << pe.adr.port <<  "\t" << misc_utils::get_time_interval_string(ns.local_time - pe.last_seen) << ENDL; 
+    std::cout <<  pe.id << "\t" << string_tools::get_ip_string_from_int32(pe.adr.ip) << ":" << pe.adr.port <<  "\t" << misc_utils::get_time_interval_string(ns.local_time - pe.last_seen) << ENDL;
   }
 
 
@@ -285,7 +285,7 @@ bool handle_request_stat(po::variables_map& vm, peerid_type peer_id)
     ++pot.time;
     h = tools::get_proof_of_trust_hash(pot);
     crypto::generate_signature(h, pubk, prvk, pot.sign);
-    COMMAND_REQUEST_NETWORK_STATE::request req = AUTO_VAL_INIT(req);    
+    COMMAND_REQUEST_NETWORK_STATE::request req = AUTO_VAL_INIT(req);
     req.tr = pot;
     if(!net_utils::invoke_remote_command2(COMMAND_REQUEST_NETWORK_STATE::ID, req, rs.ns_rsp.v, transport))
     {
@@ -301,13 +301,14 @@ bool handle_request_stat(po::variables_map& vm, peerid_type peer_id)
   std::cout << get_response_schema_as_json(rs);
   return true;
 }
+
 //---------------------------------------------------------------------------------------------------------------
 bool generate_and_print_keys()
 {
   crypto::public_key pk = AUTO_VAL_INIT(pk);
   crypto::secret_key sk = AUTO_VAL_INIT(sk);
   generate_keys(pk, sk);
-  std::cout << "PUBLIC KEY: " << epee::string_tools::pod_to_hex(pk) << ENDL 
+  std::cout << "PUBLIC KEY: " << epee::string_tools::pod_to_hex(pk) << ENDL
     << "PRIVATE KEY: " << epee::string_tools::pod_to_hex(sk);
   return true;
 }
@@ -331,7 +332,6 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_peer_id);
   command_line::add_arg(desc_params, arg_priv_key);
   command_line::add_arg(desc_params, arg_get_daemon_info);
-
 
   po::options_description desc_all;
   desc_all.add(desc_general).add(desc_params);

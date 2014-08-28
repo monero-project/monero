@@ -10,3 +10,13 @@
 src/CMakeCache.txt
 src/CMakeFiles/
 
+# logs
+log/
+
+# dr-monero 
+utils/dr-monero/*.o
+utils/dr-monero/*.pro.user
+
+# doxygen
+doc/html/
+

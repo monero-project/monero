@@ -31,6 +31,7 @@
 #pragma once
 
 #include <algorithm>
+#include <ctime>
 
 #include "version.h"
 #include "string_tools.h"
@@ -44,6 +45,8 @@
 #include "storages/levin_abstract_invoke2.h"
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
+#include "../../external/otshell_utils/utils.hpp"
+
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
@@ -62,6 +65,18 @@ namespace nodetool
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
+    
+    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up", -1};
+    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down", -1};
+    const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate", 128};
+  	const command_line::arg_descriptor<uint64_t>    arg_limit_auto      	= {"limit-auto", "set auto limit-rate", 128};
+  	const command_line::arg_descriptor<uint64_t>    arg_limit_peer      	= {"limit-peer", "set auto limit-peer", 10};
+  	
+  	const command_line::arg_descriptor<int>    		arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
+	const command_line::arg_descriptor<uint64_t>    arg_total_limit         = {"kill-net", "set sending and receiving MB limit", 0};
+
+	const command_line::arg_descriptor<bool>        arg_no_igd = {"no-igd", "Disable UPnP port mapping"};
+	const command_line::arg_descriptor<int64_t>     arg_out_peers = {"out_peers", "set max limit of out peers", -1};
   }
 
   //-----------------------------------------------------------------------------------
@@ -75,8 +90,17 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_peer);
     command_line::add_arg(desc, arg_p2p_add_priority_node);
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
-    command_line::add_arg(desc, arg_p2p_seed_node);    
-    command_line::add_arg(desc, arg_p2p_hide_my_port);   }
+    command_line::add_arg(desc, arg_p2p_seed_node);
+    command_line::add_arg(desc, arg_p2p_hide_my_port);
+  	command_line::add_arg(desc, arg_limit_rate_up);
+  	command_line::add_arg(desc, arg_limit_rate_down);
+  	command_line::add_arg(desc, arg_limit_rate);   
+  	command_line::add_arg(desc, arg_limit_auto);
+  	command_line::add_arg(desc, arg_limit_peer);
+  	command_line::add_arg(desc, arg_tos_flag);
+  	command_line::add_arg(desc, arg_total_limit);
+  	command_line::add_arg(desc, arg_no_igd);
+  	command_line::add_arg(desc, arg_out_peers);    }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -97,7 +121,7 @@ namespace nodetool
 
     //at this moment we have hardcoded config
     m_config.m_net_config.handshake_interval = P2P_DEFAULT_HANDSHAKE_INTERVAL;
-    m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+    //m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
     m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE; //20 MB limit
     m_config.m_net_config.config_id = 0; // initial config
     m_config.m_net_config.connection_timeout = P2P_DEFAULT_CONNECTION_TIMEOUT;
@@ -137,6 +161,7 @@ namespace nodetool
     m_port = command_line::get_arg(vm, arg_p2p_bind_port);
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
+    m_no_igd = command_line::get_arg(vm, arg_no_igd);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {       
@@ -151,12 +176,37 @@ namespace nodetool
       }
     }
 
-    if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
+		if ( !set_rate_up_limit(vm, command_line::get_arg(vm, arg_limit_rate_up) ) )
+			return false;
+
+		if ( !set_rate_down_limit(vm, command_line::get_arg(vm, arg_limit_rate_down) ) )
+			return false;
+
+		if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
+			return false; 
+			
+		if ( !set_rate_autodetect(vm, command_line::get_arg(vm, arg_limit_auto) ) )
+			return false;
+			
+		if (!set_limit_peer(vm, command_line::get_arg(vm, arg_limit_peer) ) )
+			return false;
+			
+		if ( !set_tos_flag(vm, command_line::get_arg(vm, arg_tos_flag) ) )
+			return false;
+			
+		if ( !set_kill_limit(vm, command_line::get_arg(vm, arg_total_limit) ) )
+            return false;
+
+		if ( !set_max_out_peers(vm, command_line::get_arg(vm, arg_out_peers) ) )
+            return false;
+                       	
+    if(command_line::has_arg(vm, arg_p2p_add_exclusive_node))
     {
-      if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
-        return false;
+			if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
+				return false;
     }
-    if (command_line::has_arg(vm, arg_p2p_add_priority_node))
+
+    else if (command_line::has_arg(vm, arg_p2p_add_priority_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_priority_node, m_priority_peers))
         return false;
@@ -266,36 +316,37 @@ namespace nodetool
       LOG_PRINT_L0("External port defined as " << m_external_port);
 
     // Add UPnP port mapping
-    LOG_PRINT_L0("Attempting to add IGD port mapping.");
-    int result;
-    UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
-    UPNPUrls urls;
-    IGDdatas igdData;
-    char lanAddress[64];
-    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
-    freeUPNPDevlist(deviceList);
-    if (result != 0) {
-      if (result == 1) {
-        std::ostringstream portString;
-        portString << m_listenning_port;
-        if (UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0") != 0) {
-          LOG_ERROR("UPNP_AddPortMapping failed.");
-        } else {
-          LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
-        }
-      } else if (result == 2) {
-        LOG_PRINT_L0("IGD was found but reported as not connected.");
-      } else if (result == 3) {
-        LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
-      } else {
-        LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
-      }
+    if(m_no_igd == false) {
+		LOG_PRINT_L0("Attempting to add IGD port mapping.");
+		int result;
+		UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
+		UPNPUrls urls;
+		IGDdatas igdData;
+		char lanAddress[64];
+		result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+		freeUPNPDevlist(deviceList);
+		if (result != 0) {
+		  if (result == 1) {
+			std::ostringstream portString;
+			portString << m_listenning_port;
+			if (UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0") != 0) {
+			  LOG_ERROR("UPNP_AddPortMapping failed.");
+			} else {
+			  LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
+			}
+		  } else if (result == 2) {
+			LOG_PRINT_L0("IGD was found but reported as not connected.");
+		  } else if (result == 3) {
+			LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
+		  } else {
+			LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
+		  }
 
-      FreeUPNPUrls(&urls);
-    } else {
-      LOG_PRINT_L0("No IGD was found.");
-    }
-
+		  FreeUPNPUrls(&urls);
+		} else {
+		  LOG_PRINT_L0("No IGD was found.");
+		}
+	}
     return res;
   }
   //-----------------------------------------------------------------------------------
@@ -305,11 +356,12 @@ namespace nodetool
     return m_payload_handler;
   }
   //-----------------------------------------------------------------------------------
+
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::run()
   {
     //here you can set worker threads count
-    int thrds_count = 10;
+    if(!thrds_count){ this->thrds_count=10;}
 
     m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), 1000);
     m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), 1000);
@@ -319,6 +371,7 @@ namespace nodetool
 
     //go to loop
     LOG_PRINT("Run net_service loop( " << thrds_count << " threads)...", LOG_LEVEL_0);
+		// this is the MAIN LOOP:
     if(!m_net_server.run_server(thrds_count, true, attrs))
     {
       LOG_ERROR("Failed to run net tcp server!");
@@ -374,12 +427,14 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+		_note("Sending stop signal");
+		::cryptonote::core::send_stop_signal(); // our global flag, e.g. used by networking
     m_net_server.send_stop_signal();
-    LOG_PRINT_L0("[node] Stop signal sent");
+		_note("[node] Sending stop signal - sent");
     return true;
   }
   //-----------------------------------------------------------------------------------
- 
+
 
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context_, bool just_take_peerlist)
@@ -388,11 +443,11 @@ namespace nodetool
     typename COMMAND_HANDSHAKE::response rsp;
     get_local_node_data(arg.node_data);
     m_payload_handler.get_payload_sync_data(arg.payload_data);
-    
+
     epee::simple_event ev;
     std::atomic<bool> hsh_result(false);
-    
-    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(), 
+
+    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(),
       [this, &pi, &ev, &hsh_result, &just_take_peerlist](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
     {
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ev.raise();});
@@ -460,7 +515,7 @@ namespace nodetool
     typename COMMAND_TIMED_SYNC::request arg = AUTO_VAL_INIT(arg);
     m_payload_handler.get_payload_sync_data(arg.payload_data);
 
-    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_TIMED_SYNC::response>(context_.m_connection_id, COMMAND_TIMED_SYNC::ID, arg, m_net_server.get_config_object(), 
+    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_TIMED_SYNC::response>(context_.m_connection_id, COMMAND_TIMED_SYNC::ID, arg, m_net_server.get_config_object(),
       [this](int code, const typename COMMAND_TIMED_SYNC::response& rsp, p2p_connection_context& context)
     {
       if(code < 0)
@@ -595,9 +650,7 @@ namespace nodetool
     peerlist_entry pe_local = AUTO_VAL_INIT(pe_local);
     pe_local.adr = na;
     pe_local.id = pi;
-    time_t last_seen;
-    time(&last_seen);
-    pe_local.last_seen = static_cast<int64_t>(last_seen);
+    time(&pe_local.last_seen);
     m_peerlist.append_with_peer_white(pe_local);
     //update last seen and push it to peerlist manager
 
@@ -611,11 +664,13 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_new_connection_from_peerlist(bool use_white_list)
   {
+
     size_t local_peers_count = use_white_list ? m_peerlist.get_white_peers_count():m_peerlist.get_gray_peers_count();
     if(!local_peers_count)
       return false;//no peers
 
     size_t max_random_index = std::min<uint64_t>(local_peers_count -1, 20);
+
 
     std::set<size_t> tried_peers;
 
@@ -954,6 +1009,7 @@ namespace nodetool
   template<class t_payload_net_handler> template<class t_callback>
   bool node_server<t_payload_net_handler>::try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb)
   {
+
     if(!node_data.my_port)
       return false;
 
@@ -962,11 +1018,20 @@ namespace nodetool
       return false;
     std::string ip = epee::string_tools::get_ip_string_from_int32(actual_ip);
     std::string port = epee::string_tools::num_to_string_fast(node_data.my_port);
+
+
+	clock_t time1 = clock();
+    _dbg3_c("net/ping", "TRY PING to " << ip << ":" << port);
+    _dbg1_c("net/ping", "time1 = " << time1);
+
     peerid_type pr = node_data.peer_id;
-    bool r = m_net_server.connect_async(ip, port, m_config.m_net_config.ping_connection_timeout, [cb, /*context,*/ ip, port, pr, this](
+    bool r = m_net_server.connect_async(ip, port, m_config.m_net_config.ping_connection_timeout, [cb, /*context,*/ ip, port, pr, this, time1](
       const typename net_server::t_connection_context& ping_context,
       const boost::system::error_code& ec)->bool
     {
+     clock_t time_lambda_1 = clock();    
+     _dbg1_c("net/ping", "time_lambda_1 = " << time_lambda_1);
+     _dbg1_c("net/ping", "time_lambda_1 - time1 = " << (time_lambda_1 - time1) * 1000 / CLOCKS_PER_SEC);
       if(ec)
       {
         LOG_PRINT_CC_L2(ping_context, "back ping connect failed to " << ip << ":" << port);
@@ -982,6 +1047,10 @@ namespace nodetool
       bool inv_call_res = epee::net_utils::async_invoke_remote_command2<COMMAND_PING::response>(ping_context.m_connection_id, COMMAND_PING::ID, req, m_net_server.get_config_object(),
         [=](int code, const COMMAND_PING::response& rsp, p2p_connection_context& context)
       {
+       _dbg2_c("net/ping", "lambda 2 start");
+       clock_t time2 = clock();
+       _dbg1_c("net/ping", "time2 - time1 = " << (time2 - time1) * 1000 / CLOCKS_PER_SEC);
+       _dbg3_c("net/ping", "Lambda 2 ip: " << ip );
         if(code <= 0)
         {
           LOG_PRINT_CC_L2(ping_context, "Failed to invoke COMMAND_PING to " << ip << ":" << port << "(" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
@@ -995,7 +1064,8 @@ namespace nodetool
         }
         m_net_server.get_config_object().close(ping_context.m_connection_id);
         cb();
-      });
+        _dbg2_c("net/ping", "lambda 2 end");
+      }); // lambda
 
       if(!inv_call_res)
       {
@@ -1004,11 +1074,14 @@ namespace nodetool
         return false;
       }
       return true;
-    });
+    }); // lambda
+    
     if(!r)
     {
       LOG_ERROR("Failed to call connect_async, network error.");
     }
+    
+
     return r;
   }
   //-----------------------------------------------------------------------------------
@@ -1069,6 +1142,8 @@ namespace nodetool
       peerid_type peer_id_l = arg.node_data.peer_id;
       uint32_t port_l = arg.node_data.my_port;
       //try ping to be sure that we can add this peer to peer_list
+      _dbg2_c("net/ping", "TRY PING in handle handshake");
+      // clock_t start = clock(); // unused TODO del?
       try_ping(arg.node_data, context, [peer_id_l, port_l, context, this]()
       {
         //called only(!) if success pinged, update local peerlist
@@ -1082,6 +1157,7 @@ namespace nodetool
         this->m_peerlist.append_with_peer_white(pe);
         LOG_PRINT_CCONTEXT_L2("PING SUCCESS " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << ":" << port_l);
       });
+      //_dbg3_c("net/ping", "ping time: " << clock() - start);
     }
 
     //fill response
@@ -1095,9 +1171,12 @@ namespace nodetool
   template<class t_payload_net_handler>
   int node_server<t_payload_net_handler>::handle_ping(int command, COMMAND_PING::request& arg, COMMAND_PING::response& rsp, p2p_connection_context& context)
   {
+	_dbg1_c("net/ping", "handle_ping ()");
+	clock_t start = clock();
     LOG_PRINT_CCONTEXT_L2("COMMAND_PING");
     rsp.status = PING_OK_RESPONSE_STATUS_TEXT;
     rsp.peer_id = m_config.m_peer_id;
+    _dbg1_c("net/ping", "handle_ping time: " << clock() - start);
     return 1;
   }
   //-----------------------------------------------------------------------------------
@@ -1207,4 +1286,105 @@ namespace nodetool
 
     return true;
   }
+
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit)
+	{
+		this->islimitup=true;
+
+		if (limit==-1) {
+			limit=128;
+			this->islimitup=false;
+		}
+		
+		limit *= 1024;
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+		LOG_PRINT_L0("Set limit-up to " << limit/1024 << " kB/s");
+		return true;
+	}
+	
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit)
+	{
+		this->islimitdown=true;
+		if(limit==-1) {
+			limit=128;
+			this->islimitdown=false;
+		}
+		limit *= 1024;
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		LOG_PRINT_L0("Set limit-down to " << limit/1024 << " kB/s");
+		return true;
+	}
+
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+		limit *= 1024;
+		if(this->islimitdown==false && this->islimitup==false) {
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+			LOG_PRINT_L0("Set limit to " << limit/1024 << " kB/s");
+		}
+		else if(this->islimitdown==false && this->islimitup==true ) {
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		}
+		else if(this->islimitdown==true && this->islimitup==false ) {
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+		}
+		
+		return true;
+	}
+	
+ template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_kill_limit(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_kill_limit( limit );
+		LOG_PRINT_L0("Set sending and receiving MB limit to " << limit);
+		return true;
+	}
+
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+  	epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_autodetect( limit );
+		LOG_PRINT_L0("Set autodetect to " << limit << "");
+		return true;
+	}
+	  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+		this->thrds_count=limit;
+		return true;
+	}
+	
+	  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_tos_flag(const boost::program_options::variables_map& vm, int flag)
+	{
+		if(flag==-1){
+			return true;
+		}
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_tos_flag(flag);
+		LOG_PRINT_L0("Set ToS flag  " << flag);
+		return true;
+	}
+	
+	  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max)
+	{
+		if(max==-1) {
+			m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+			return true;
+		}
+		
+		LOG_PRINT_RED_L0("connections_count:  " << max);
+		m_config.m_net_config.connections_count = max;
+		return true;
+	}
+	
+  template<class t_payload_net_handler>int node_server<t_payload_net_handler>:: thrds_count= 0;
+
 }
+
+
+

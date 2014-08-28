@@ -82,6 +82,14 @@ public:
   bool stop_daemon();
 
   bool print_status();
+
+  bool set_limit(int limit);
+
+  bool set_limit_up(int limit);
+
+  bool set_limit_down(int limit);
+
+
 };
 
 } // namespace daemonize

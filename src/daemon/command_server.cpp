@@ -131,6 +131,21 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::print_status, &m_parser, p::_1)
     , "Prints daemon status"
     );
+  m_command_lookup.set_handler(
+      "limit"
+    , std::bind(&t_command_parser_executor::set_limit, &m_parser, p::_1)
+    , "limit <kB/s> - Set download and upload limit"
+    );
+  m_command_lookup.set_handler(
+      "limit-up"
+    , std::bind(&t_command_parser_executor::set_limit_up, &m_parser, p::_1)
+    , "limit <kB/s> - Set upload limit"
+    );
+  m_command_lookup.set_handler(
+      "limit-down"
+    , std::bind(&t_command_parser_executor::set_limit_down, &m_parser, p::_1)
+    , "limit <kB/s> - Set download limit"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

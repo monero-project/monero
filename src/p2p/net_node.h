@@ -56,8 +56,11 @@
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
+
+
 namespace nodetool
 {
+
   template<class base_type>
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
@@ -80,10 +83,11 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
     // Some code
-    node_server(t_payload_net_handler& payload_handler):m_allow_local_ip(false), m_hide_my_port(false), m_payload_handler(payload_handler)
+    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_no_igd(false), m_hide_my_port(false)
     {}
 
     static void init_options(boost::program_options::options_description& desc);
+    static int thrds_count;
 
     bool run();
     bool init(const boost::program_options::variables_map& vm);
@@ -109,7 +113,12 @@ namespace nodetool
     virtual uint64_t get_connections_count();
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
+
   private:
+	bool islimitup=false;
+    bool islimitdown=false;
+
+  
     typedef COMMAND_REQUEST_STAT_INFO_T<typename t_payload_net_handler::stat_info> COMMAND_REQUEST_STAT_INFO;
 
     CHAIN_LEVIN_INVOKE_MAP2(p2p_connection_context); //move levin_commands_handler interface invoke(...) callbacks into invoke map
@@ -185,8 +194,18 @@ namespace nodetool
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
-    //debug functions
+  	bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
+  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
+  	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_autodetect(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_limit_peer(const boost::program_options::variables_map& vm, uint64_t limit);
+
+		bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
+		bool set_kill_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+		bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
+  	//debug functions
     std::string print_connections_container();
+
 
     typedef epee::net_utils::boosted_tcp_server<epee::levin::async_protocol_handler<p2p_connection_context> > net_server;
 
@@ -200,8 +219,11 @@ namespace nodetool
         KV_SERIALIZE(m_peer_id)
       END_KV_SERIALIZE_MAP()
     };
+       
+  public:
+		config m_config;
 
-    config m_config;
+  private:
     std::string m_config_folder;
 
     bool m_have_address;
@@ -211,6 +233,7 @@ namespace nodetool
     uint32_t m_ip_address;
     bool m_allow_local_ip;
     bool m_hide_my_port;
+    bool m_no_igd;
 
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;

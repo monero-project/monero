@@ -1,0 +1,10 @@
+
+For Licence, attribution or "copyrights" if applicable in your juristictions please read:
+
+the doc/LICENCE-monero.txt,
+as well as doc/LICEN* files where applicable,
+as well as external/miniupnpc/LICENSE , contrib/epee/LICENSE.txt
+and other LICENCE* / LICENSE* files
+and comments in individual files.
+
+

@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer/user in monero.cc project - most of code is from CryptoNote)
+/// @brief This is the orginal cryptonote protocol network-events handler, modified by us
+
 // Copyright (c) 2014, The Monero Project
 // 
 // All rights reserved.
@@ -41,6 +45,7 @@
 #include "cryptonote_core/connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
 #include "cryptonote_core/verification_context.h"
+#include <netinet/in.h>
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -48,8 +53,25 @@ DISABLE_VS_WARNINGS(4355)
 namespace cryptonote
 {
 
+	class cryptonote_protocol_handler_base_pimpl;
+	class cryptonote_protocol_handler_base {
+		private:
+			std::unique_ptr<cryptonote_protocol_handler_base_pimpl> mI;
+
+		public:
+			cryptonote_protocol_handler_base();
+			virtual ~cryptonote_protocol_handler_base();
+			void handler_request_blocks_now(size_t & count_limit); // before asking for blocks, can adjust the limit of download
+			void handler_request_blocks_history(std::list<crypto::hash>& ids); // before asking for list of objects, we can change the list still
+			
+			virtual double get_avg_block_size( size_t count) const = 0;
+			virtual double estimate_one_block_size() noexcept; // for estimating size of blocks to download
+
+			virtual std::ofstream& get_logreq() const =0;
+	};
+
   template<class t_core>
-  class t_cryptonote_protocol_handler:  public i_cryptonote_protocol
+  class t_cryptonote_protocol_handler:  public i_cryptonote_protocol, cryptonote_protocol_handler_base
   { 
   public:
     typedef cryptonote_connection_context connection_context;
@@ -78,8 +100,8 @@ namespace cryptonote
     bool get_payload_sync_data(CORE_SYNC_DATA& hshd);
     bool get_stat_info(core_stat_info& stat_inf);
     bool on_callback(cryptonote_connection_context& context);
-    t_core& get_core(){return m_core;}
-    bool is_synchronized(){return m_synchronized;}
+    t_core& get_core() { return m_core; }
+    bool is_synchronized() { return m_synchronized; }
     void log_connections();
     std::list<connection_info> get_connections();
   private:
@@ -107,6 +129,10 @@ namespace cryptonote
     std::atomic<uint32_t> m_syncronized_connections_count;
     std::atomic<bool> m_synchronized;
 
+		// static std::ofstream m_logreq;
+    
+    double get_avg_block_size(size_t count) const;
+
     template<class t_parametr>
       bool post_notify(typename t_parametr::request& arg, cryptonote_connection_context& context)
       {
@@ -124,8 +150,11 @@ namespace cryptonote
         epee::serialization::store_t_to_binary(arg, arg_buff);
         return m_p2p->relay_notify_to_all(t_parametr::ID, arg_buff, exlude_context);
       }
+
+			virtual std::ofstream& get_logreq() const ;
   };
-}
+
+} // namespace
 
 
 #include "cryptonote_protocol_handler.inl"

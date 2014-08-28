@@ -243,4 +243,51 @@ bool t_command_parser_executor::print_status(const std::vector<std::string>& arg
   return m_executor.print_status();
 }
 
+bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
+{
+  if(args.size()!=1) return false;
+  int limit;
+  try {
+      limit = std::stoi(args[0]);
+  }
+  catch(std::invalid_argument& ex) {
+      return false;
+  }
+  if (limit==-1)  limit=128;
+  limit *= 1024;
+
+  return m_executor.set_limit(limit);
+}
+
+bool t_command_parser_executor::set_limit_up(const std::vector<std::string>& args)
+{
+  if(args.size()!=1) return false;
+  int limit;
+  try {
+      limit = std::stoi(args[0]);
+  }
+  catch(std::invalid_argument& ex) {
+      return false;
+  }
+  if (limit==-1)  limit=128;
+  limit *= 1024;
+
+  return m_executor.set_limit_up(limit);
+}
+
+bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& args)
+{
+  if(args.size()!=1) return false;
+  int limit;
+  try {
+      limit = std::stoi(args[0]);
+  }
+  catch(std::invalid_argument& ex) {
+      return false;
+  }
+  if (limit==-1)  limit=128;
+  limit *= 1024;
+
+  return m_executor.set_limit_down(limit);
+}
 } // namespace daemonize

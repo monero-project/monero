@@ -1,3 +1,7 @@
+/// @file
+/// @author rfree (current maintainer/user in monero.cc project - most of code is from CryptoNote)
+/// @brief This is the orginal cryptonote protocol network-events handler, modified by us
+
 // Copyright (c) 2014, The Monero Project
 // 
 // All rights reserved.
@@ -28,13 +32,25 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+// (may contain code and/or modifications by other developers)
+// developer rfree: this code is caller of our new network code, and is modded; e.g. for rate limiting
+
 #include <boost/interprocess/detail/atomic.hpp>
 #include <list>
 
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
+#include "../../contrib/otshell_utils/utils.hpp"
+using namespace nOT::nUtils;
+
 namespace cryptonote
 {
+
+
+// static 
+// template<class t_core>	std::ofstream  t_cryptonote_protocol_handler<t_core>::m_logreq("logreq.txt"); // static
+
+
 
   //-----------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
@@ -106,14 +122,18 @@ namespace cryptonote
       << std::setw(25) << "State"
       << std::setw(20) << "Livetime(seconds)" << ENDL;
 
+	uint32_t ip;
     m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id)
     {
+	  ip = ntohl(cntxt.m_remote_ip);
       ss << std::setw(25) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") + 
         epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip) + ":" + std::to_string(cntxt.m_remote_port) 
         << std::setw(20) << std::hex << peer_id
         << std::setw(25) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
         << std::setw(25) << get_protocol_state_string(cntxt.m_state)
-        << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started) << ENDL;
+        << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started)
+        << std::setw(10) << (ip > 3232235520 && ip < 3232301055 ? " [LOC]" : "")		//TODO: local ip in calss A, B
+        << ENDL; 
       return true;
     });
     LOG_PRINT_L0("Connections: " << ENDL << ss.str());
@@ -161,6 +181,9 @@ namespace cryptonote
   template<class t_core> 
   bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital)
   {
+	
+	LOG_PRINT_RED("[DBG]" << get_avg_block_size(1), LOG_LEVEL_0);
+  
     if(context.m_state == cryptonote_connection_context::state_befor_handshake && !is_inital)
       return true;
 
@@ -215,7 +238,7 @@ namespace cryptonote
     template<class t_core> 
     int t_cryptonote_protocol_handler<t_core>::handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_BLOCK (hop " << arg.hop << ")");
+    LOG_PRINT_CCONTEXT_L0("NOTIFY_NEW_BLOCK (hop " << arg.hop << ")");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
 
@@ -234,7 +257,7 @@ namespace cryptonote
 
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     m_core.pause_mine();
-    m_core.handle_incoming_block(arg.b.block, bvc);
+    m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block 
     m_core.resume_mine();
     if(bvc.m_verifivation_failed)
     {
@@ -290,6 +313,7 @@ namespace cryptonote
 
     return true;
   }
+
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core> 
   int t_cryptonote_protocol_handler<t_core>::handle_request_get_objects(int command, NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote_connection_context& context)
@@ -306,11 +330,42 @@ namespace cryptonote
     post_notify<NOTIFY_RESPONSE_GET_OBJECTS>(rsp, context);
     return 1;
   }
-  //------------------------------------------------------------------------------------------------------------------------
+
+  
+  template<class t_core>
+  double t_cryptonote_protocol_handler<t_core>::get_avg_block_size( size_t count) const {
+		return 1024; // TODO code was moved away from here, need to have this function in store. Quick stub to merge it. --rfree
+
+		/*
+		if (count > m_core.get_current_blockchain_height()) return 0;
+
+		double average = 0;
+		_dbg1_c("net/blksize", "HEIGHT: " << m_core.get_current_blockchain_height());
+		_dbg1_c("net/blksize", "BLOCK ID BY HEIGHT: " << m_core.get_block_id_by_height(m_core.get_current_blockchain_height()) );
+		_dbg1_c("net/blksize", "BLOCK TAIL ID: " << m_core.get_tail_id() );
+		std::vector<size_t> size_vector;	
+
+		m_core.get_backward_blocks_sizes(m_core.get_current_blockchain_height() - count, size_vector, count);
+
+		std::vector<size_t>::iterator it;
+		it = size_vector.begin();
+		while (it != size_vector.end()) {
+			average += *it;
+			_dbg2_c("net/blksize", "VECTOR ELEMENT: " << (*it) );
+			it++;
+		}	
+		average = average / count;
+		_dbg1_c("net/blksize", "VECTOR SIZE: " << size_vector.size() << " average=" << average);		
+		
+		return average;
+		*/
+  }
+
+  
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_response_get_objects(int command, NOTIFY_RESPONSE_GET_OBJECTS::request& arg, cryptonote_connection_context& context)
   {
-    LOG_PRINT_CCONTEXT_L2("NOTIFY_RESPONSE_GET_OBJECTS");
+    LOG_PRINT_CCONTEXT_L0("NOTIFY_RESPONSE_GET_OBJECTS"); // ***
     if(context.m_last_response_height > arg.current_blockchain_height)
     {
       LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: arg.m_current_blockchain_height=" << arg.current_blockchain_height 
@@ -378,6 +433,7 @@ namespace cryptonote
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler(
         boost::bind(&t_core::resume_mine, &m_core));
 
+			LOG_PRINT_CCONTEXT_YELLOW( "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size() , LOG_LEVEL_0);
       BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
       {
         //process transactions
@@ -400,7 +456,8 @@ namespace cryptonote
         TIME_MEASURE_START(block_process_time);
         block_verification_context bvc = boost::value_initialized<block_verification_context>();
 
-        m_core.handle_incoming_block(block_entry.block, bvc, false);
+				LOG_PRINT_CCONTEXT_GREEN( "Got NEW BLOCKS inside of " << __FUNCTION__ << "." , LOG_LEVEL_2);
+        m_core.handle_incoming_block(block_entry.block, bvc, false); // handle_response_get_objects in handle_response_get_objects
 
         if(bvc.m_verifivation_failed)
         {
@@ -420,9 +477,10 @@ namespace cryptonote
       }
     }
 
-    request_missing_objects(context, true);
+    request_missing_objects(context, true); // handle_response_get_objects ***
     return 1;
   }
+
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core> 
   bool t_cryptonote_protocol_handler<t_core>::on_idle()
@@ -455,8 +513,14 @@ namespace cryptonote
       size_t count = 0;
       auto it = context.m_needed_objects.begin();
 
+			size_t count_limit = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
+		 	handler_request_blocks_now( count_limit ); // change the limit, sleep(?)
+     		// XXX 
+     		count_limit=1000; 
+     		_note_c("net/req-calc" , "Setting count_limit: " << count_limit);
       while(it != context.m_needed_objects.end() && count < BLOCKS_SYNCHRONIZING_DEFAULT_COUNT)
       {
+				if (count > count_limit) break; // limit 
         if( !(check_having_blocks && m_core.have_block(*it)))
         {
           req.blocks.push_back(*it);
@@ -465,14 +529,16 @@ namespace cryptonote
         }
         context.m_needed_objects.erase(it++);
       }
-      LOG_PRINT_CCONTEXT_L2("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size() << ", txs.size()=" << req.txs.size());
+      LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size() << ", txs.size()=" << req.txs.size()
+				<< "requested blocks count=" << count << " / " << count_limit);
       post_notify<NOTIFY_REQUEST_GET_OBJECTS>(req, context);    
     }else if(context.m_last_response_height < context.m_remote_blockchain_height-1)
     {//we have to fetch more objects ids, request blockchain entry
      
       NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
       m_core.get_short_chain_history(r.block_ids);
-      LOG_PRINT_CCONTEXT_L2("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
+		 	handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
+      LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
     }else
     { 
@@ -575,4 +641,18 @@ namespace cryptonote
   {
     return relay_post_notify<NOTIFY_NEW_TRANSACTIONS>(arg, exclude_context);
   }
-}
+
+	/// @deprecated
+  template<class t_core> std::ofstream& t_cryptonote_protocol_handler<t_core>::get_logreq() const { 
+		static std::ofstream * logreq=NULL;
+		if (!logreq) {
+			LOG_PRINT_RED("LOG OPENED",LOG_LEVEL_0);
+			logreq = new std::ofstream("logreq.txt"); // leak mem (singleton)
+			*logreq << "Opened log" << std::endl;
+		}
+		LOG_PRINT_YELLOW("LOG USED",LOG_LEVEL_0);
+		(*logreq) << "log used" << std::endl;
+		return *logreq;
+	}
+
+} // namespace

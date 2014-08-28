@@ -139,6 +139,10 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 - Build wallet: brew install --HEAD bitmonero
 
 On Windows:
+Dependencies: MSVC 2012 or later, CMake 2.8.6 or later, and Boost 1.53 or later. You may download them from:
+http://www.microsoft.com/
+http://www.cmake.org/
+http://www.boost.org/
 
 We are in the process of dropping support for MSVC in favor of the MSYS2
 environment, which includes an up-to-date MinGW-w64 toolchain (based on the gcc
@@ -201,6 +205,8 @@ Building Documentation
 ----------------------
 
 Monero developer documentation uses Doxygen, and is currently a work-in-progress.
+
+Maintainers (from monero project) of some files are marked in them as @author on top.
 
 Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional)
 
