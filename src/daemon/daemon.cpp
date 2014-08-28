@@ -1,24 +1,3 @@
-/**
-
-@mainpage
-<PRE>
-
-MONERO PROJECT
-
-Documentation is being written now (there was not too much in orginal CryptoNote code).
-
-Documentation for networking and throttle code:
-
-@link p2p/network_throttle.cpp
-@endlink
-
-Documentation for ... : 
-put your links here, developers :)
- 
-
-</PRE>
-*/
-
 // Copyright (c) 2014, The Monero Project
 //
 // All rights reserved.

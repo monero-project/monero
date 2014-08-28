@@ -642,6 +642,7 @@ namespace cryptonote
     return relay_post_notify<NOTIFY_NEW_TRANSACTIONS>(arg, exclude_context);
   }
 
+	/// @deprecated
   template<class t_core> std::ofstream& t_cryptonote_protocol_handler<t_core>::get_logreq() const { 
 		static std::ofstream * logreq=NULL;
 		if (!logreq) {

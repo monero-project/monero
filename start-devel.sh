@@ -1,3 +1,4 @@
+#!/bin/bash
 project=Monero
 variant=$1
 echo "Starting developer version of $project, variant=$variant"
@@ -9,5 +10,10 @@ else
 	echo "Not using local tools, will use global libraries"
 fi
 
-./build/$variant/src/bitmonerod --force-fast-exit --no-igd $@
+echo
+echo "-------------------------------------"
+echo
+echo "TODO: re-add option --force-fast-exit"
+set -x
+./build/$variant/src/bitmonerod  --no-igd 
 

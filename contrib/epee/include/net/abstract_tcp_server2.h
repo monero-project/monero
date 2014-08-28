@@ -1,3 +1,10 @@
+/**
+@file
+@author from CrypoNote
+@monero rfree
+@brief the connection templated-class for one peer connection
+*/
+
 // Copyright (c) 2006-2013, Andrey N. Sabelnikov, www.sabelnikov.net
 // All rights reserved.
 // 

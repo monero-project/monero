@@ -1,0 +1,25 @@
+/**
+
+@mainpage
+<PRE>
+
+MONERO PROJECT
+
+http://monero.cc
+
+Documentation is being written now (there was not too much in orginal CryptoNote code).
+
+Documentation for networking and throttle code:
+
+@link p2p/network_throttle.cpp
+@endlink
+@link contrib/epee/include/net/abstract_tcp_server2.h 
+@endlink
+
+Documentation for ... : 
+put your links here, developers :)
+ 
+
+</PRE>
+*/
+

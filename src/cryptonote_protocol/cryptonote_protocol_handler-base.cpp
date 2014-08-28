@@ -197,7 +197,6 @@ void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_
 	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
 	LOG_PRINT_RED("\n", LOG_LEVEL_0);
 	_note_c("net/req", "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b");
-	get_logreq() << "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b " << std::endl;
 }
 
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {
