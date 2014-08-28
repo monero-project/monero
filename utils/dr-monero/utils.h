@@ -1,6 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief utils smoothing and converting data to histogram
+*/
 
 #ifndef UTILS_H
 #define UTILS_H

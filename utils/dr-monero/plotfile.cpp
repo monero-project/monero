@@ -1,6 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief plotfile information about files
+*/
 
 #include "plotfile.h"
 
@@ -28,3 +30,20 @@ void plotFile::changeType(plotType _type) {
     this->type = _type;
 }
 
+void plotFile::clearVectors() {
+    this->Xval.clear();
+    this->Yval.clear();
+}
+
+void plotFile::calculateAvg(int window, vector <double> h) {
+    double sum=0.;
+    for(int i=0; i<h.size(); i+=window) {
+        if(i+window > h.size()) return;
+        sum=0.;
+        for(int j=i; j<window+i; j++) sum += h.at(j);
+        sum /=double(window);
+        avgX.push_back(i+window/2);
+        avgY.push_back(sum);
+        cout << DBG << i << " - " << sum << endl;
+    }
+}

@@ -1,6 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief main dr.monero creating windows and adding files to plot
+*/
 
 #include <QApplication>
 #include "mainwindow.h"
@@ -11,8 +13,9 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 
     MainWindow w;
-//    w.addFile("../../log/net/in/all-size.data", histogram);
-    w.addFile("../../log/net/out/all-size.data", histogram);
+    w.move(0,0);
+    w.addFile("../../log/net/in/all-size.data", histogram_avg);
+//    w.addFile("../../log/net/out/all-size.data", histogram_avg);
     w.addFile("../../log/net/inreq/all-size.data", histogram);
 
 
@@ -24,9 +27,10 @@ int main(int argc, char *argv[])
     w.addFile("../../log/net/ping-p4.var",curve);
     w.addFile("../../log/net/ping-p5.var",curve);
 
-/*
 
-    w.addFile("example.txt",histogram);
+/*
+    w.addFile("example.txt",histogram_avg);
+
     w.addFile("example2.txt",histogram);
     w.addFile("example3.txt",histogram);
 

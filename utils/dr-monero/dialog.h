@@ -1,6 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief dialog window with options, not used for now
+*/
 
 #ifndef DIALOG_H
 #define DIALOG_H
@@ -32,8 +34,7 @@ public:
 
 public slots:
     void settings(int i);
-//     save();
-    
+
 private:
     Ui::Dialog *ui;
     void loadFiles(vector<plotFile> &files);

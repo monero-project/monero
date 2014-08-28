@@ -1,7 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
-
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief dialog window with options, not used for now
+*/
 #include "dialog.h"
 #include "ui_dialog.h"
 
@@ -21,8 +22,6 @@ Dialog::Dialog(QWidget *parent) :
         ui->CurveRadioButton->setEnabled(true);
         ui->HistogramRadioButton->setEnabled(true);
     }
-
-
 //   connect(ui->okButton, SIGNAL(clicked()), this, SLOT(done();
 
 }
@@ -42,10 +41,6 @@ void Dialog::loadFiles(vector<plotFile> &files) {
 
 
 }
-
-// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
 
 void Dialog::settings(int i) {
     int index = ui->FileListComboBox->currentIndex();

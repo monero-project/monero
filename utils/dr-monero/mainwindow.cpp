@@ -1,7 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
-
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief mainwindow handling GUI, ploting mechanism
+*/
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
@@ -68,11 +69,9 @@ void MainWindow::openFile() {
 
     this->fileNames = QFileDialog::getOpenFileNames(this, tr("Choose file with data to plot"),"",tr("Text File (*.txt);;All Files (*)"));
 
-    //                         |
-    // is this really needed?  v
     if (this->fileNames.empty()) return; // if filename is empty
     else { // not empty
-        for(QString fileName : fileNames) { // con open files?
+        for(QString fileName : fileNames) { // can open files?
             QFile file(fileName);
             if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 QMessageBox::information(this, tr("Unable to open file"),
@@ -89,7 +88,9 @@ void MainWindow::refresh() {
     if(dbg || monero) {
         int rtti; bool autoDelete;
         ui->qwtPlot->detachItems(rtti = QwtPlotItem::Rtti_PlotItem, autoDelete = true);
-        for(int i=0; i<files.size(); i++) plot(files.at(i).getName(), i, files.at(i).getType());
+
+        for(int i=0; i<files.size(); i++)
+            plot(files.at(i), i);
     }
 // TODO:
 //    if(!this->fileNames.empty()) {
@@ -142,9 +143,6 @@ void MainWindow::prepareColors() {
 
         QColor transparentColor(rand()%240,  rand()%240, rand()%240, 50);
         transparentColors.push_back(transparentColor.darker(100));
-
-
-        cout << ".";
     }
     cout << endl;
     cout << DBG << "Colors ready" << endl;
@@ -152,9 +150,10 @@ void MainWindow::prepareColors() {
 
 
 
-void MainWindow::plot(const string &filename, const int col, const plotType type) {
+void MainWindow::plot(plotFile pfile, const int col) {
      // enable sliding
     sliding();
+    const string filename = pfile.getName();
 
     // grid: connected with checkbox
     QwtPlotGrid *grid = new QwtPlotGrid();
@@ -162,20 +161,16 @@ void MainWindow::plot(const string &filename, const int col, const plotType type
     else grid->detach();
 
     fstream file;
-//    cout << DBG << filename << endl;
-    file.open(filename.c_str(), ios::in | ios::out);
+    file.open(filename.c_str(), ios::in);
 
     if(!file.is_open())  {
         cout << DBG << "Can't open file " << filename << endl;
         return;
     }
-
-    static int si; // static - determinates position of slider (following right plot)
-
+    cout << DBG << filename << " is open" << endl;
     int i=0;
 
-    vector <double> xval;
-    vector <double> yval;
+    pfile.clearVectors();
 
     // getting data
     while(!file.eof()) {
@@ -184,37 +179,35 @@ void MainWindow::plot(const string &filename, const int col, const plotType type
         file >> x;
         file >> y;
 
-//        if(x > xmax) xmax = x;
-//        if(y > ymax) ymax = y;
-
         // saving this information to vectors
-        xval.push_back(x);
-        yval.push_back(y);
+        pfile.addX(x);
+        pfile.addY(y);
 
-        // samples->push_back(QPointF(x, y));
         ui->qwtPlot->replot();
         i++;
-
-//        if(si < i) { // moving slider
-//            ui->Slider->setValue(i-interval);
-//            si=i;
-
-//            // slider configuration
-//            ui->Slider->setRange(0,si+1000,(ui->spinBox_2->value())/10,  0);
-//        }
     }
+    file.close();
 
-    if(type==curve) plotCurve(xval,yval,col,filename);
-    else if (type==histogram) plotHist(xval,yval,col,filename);
+    // curve or histogram
+    if(pfile.getType()==curve) plotCurve(pfile.Xs(), pfile.Ys(), col, filename);
+    else if (pfile.getType()==histogram || pfile.getType()==histogram_avg)  {
+        utils test; vector <double> h = test.prepareHistogramData(pfile.Xs(), pfile.Ys(), 1);
+        plotHist(pfile.Xs(), h, col, filename);
 
+        // histogram with avg
+        if(pfile.getType()==histogram_avg && ui->avgSpinBox->value()) {
+            pfile.calculateAvg(ui->avgSpinBox->value(),h);
+            plotCurve(pfile.avgXs(),pfile.avgYs(),col,pfile.getName());
+        }
+    }
+    // auto adjustment y axis
     if(ui->lockY->isChecked()) {
         ui->spinBox->setValue(ymax);
         ui->spinBox->setDisabled(true);
     }
     else ui->spinBox->setEnabled(true);
-    ui->qwtPlot->replot();
 
-    file.close();
+    ui->qwtPlot->replot();
 }
 
 void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const int col, const string &filename) {
@@ -252,7 +245,6 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
                 // slider configuration
                 ui->Slider->setRange(0,xmax+1000,(ui->spinBox_2->value())/10,  0);
             }
-
         }
     } // or no smoothing
     else {
@@ -276,7 +268,7 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
     curve1->attach(ui->qwtPlot);
 }
 
-void MainWindow::plotHist(const vector<double> t, const vector<double> b, const int col, const string &filename) {
+void MainWindow::plotHist(const vector<double> t, const vector<double> h, const int col, const string &filename) {
     const double frame=1.; // TODO: frame value from spinbox
     QColor color = transparentColors.at(col);
     QwtPlotHistogram *histogram = new QwtPlotHistogram(QString::fromStdString(splitString(filename,"/").back()));
@@ -286,7 +278,6 @@ void MainWindow::plotHist(const vector<double> t, const vector<double> b, const 
     QVector<QwtIntervalSample> samples2(t.size());
 
     double pos = 0.0;
-    utils test; vector <double> h = test.prepareHistogramData(t,b,frame);
 
     for ( int i=0; i<h.size(); i++ )    {
         const int width = frame;
@@ -304,8 +295,6 @@ void MainWindow::plotHist(const vector<double> t, const vector<double> b, const 
             // slider configuration
             ui->Slider->setRange(0,xmax+1000,(ui->spinBox_2->value())/10,  0);
         }
-
-
     }
 
     ui->qwtPlot->insertLegend(new QwtLegend());

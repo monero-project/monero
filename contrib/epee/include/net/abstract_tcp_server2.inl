@@ -152,15 +152,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         boost::bind(&connection<t_protocol_handler>::handle_read, self,
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred)));
-    _dbg2("Logging in (read), size: " << buffer_.size());
-    logger_handle_net_read(buffer_.size());
-
 
 	//set ToS flag
 	int tos = get_tos_flag();
 	boost::asio::detail::socket_option::integer< IPPROTO_IP, IP_TOS >
 	optionTos( tos );
-	socket_.set_option( optionTos );
+    socket_.set_option( optionTos );
 	LOG_PRINT_L0("Set ToS flag to " << tos);
 
     return true;
@@ -243,7 +240,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     
     if (!e)
     {
-      LOG_PRINT("[sock " << socket_.native_handle() << "] RECV " << bytes_transferred, LOG_LEVEL_4);
+      logger_handle_net_read(bytes_transferred);
+        LOG_PRINT("[sock " << socket_.native_handle() << "] RECV " << bytes_transferred, LOG_LEVEL_4);
       context.m_last_recv = time(NULL);
       context.m_recv_cnt += bytes_transferred;
       bool recv_res = m_protocol_handler.handle_recv(buffer_.data(), bytes_transferred);
@@ -268,7 +266,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
               boost::asio::placeholders::error,
               boost::asio::placeholders::bytes_transferred)));
         _dbg2("Logging in (read), size: " << buffer_.size());
-        logger_handle_net_read(buffer_.size());
+
         LOG_PRINT_L4("[sock " << socket_.native_handle() << "]Async read requested.");
       }
     }else

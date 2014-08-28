@@ -1,7 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
-
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief mainwindow handling GUI, ploting mechanism
+*/
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -67,7 +68,7 @@ public:
 
 public slots:
     void sliding(); // enable sliding
-    void plot(const string &filename, const int col, const plotType type); // plots from file
+    void plot(plotFile pfile, const int col); // plots from file
     void init(QwtPlot *&Plot); // prepares plot field
     void refresh(); // called by timer
     void openFile(); // getting files (dialog window)

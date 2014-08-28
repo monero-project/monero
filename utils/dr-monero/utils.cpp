@@ -1,7 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
-
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief utils smoothing and converting data to histogram
+*/
 #include "utils.h"
 
 utils::utils() {
@@ -39,15 +40,30 @@ vector<double> utils::prepareHistogramData(vector<double> t, vector<double> b, i
 
     vector <double> h;
     frame--; //TODO frame!=1
-
     double value=0;
-    for (int i=0; i<t.size()-1; i++) {
+
+    int size = t.size()-1;
+
+    for (int i=0; i<size; i++) {
         value+=b.at(i);
-        if( int(t.at(i)) != int(t.at(i+1))  )  { // eg. 1.2 => 1
+
+        if( int(t.at(i+1)) - int(t.at(i))  == 1  )  {
             h.push_back(value);
             value=0;
         }
+        else if( int(t.at(i+1)) - int(t.at(i)) >= 2) {
+            int control=int(t.at(i));
+            h.push_back(value);
+            value=0;
+            while(t.at(i+1) - control >= 2) {
+                h.push_back(0);
+                control++;
+            }
+        }
     }
+//    cout << DBG << endl; for (int i=0; i<h.size(); i++) cout << i+1 << "; " << h.at(i) << endl;
+//    cout << DBG << endl; for (int i=0; i<t.size(); i++) cout << t.at(i) << "; " << b.at(i) << endl;
+
     return h;
 }
 
