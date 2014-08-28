@@ -11,10 +11,10 @@ Throttling work by:
 
 </PRE> 
 
-@image html net/rate1-down-1k.png  
-@image html net/rate1-down-full.png  
-@image html net/rate1-up-10k.png  
-@image html net/rate1-up-full.png
+@image html images/net/rate1-down-1k.png  
+@image html images/net/rate1-down-full.png  
+@image html images/net/rate1-up-10k.png  
+@image html images/net/rate1-up-full.png
 
 */
 
