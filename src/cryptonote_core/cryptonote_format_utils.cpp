@@ -349,7 +349,7 @@ namespace cryptonote
   bool construct_tx(
       const account_keys & sender_account_keys
     , const std::vector<tx_source_entry> & sources
-    , const std::vector<tx_destination_entry> & destinations
+    , std::vector<tx_destination_entry> destinations
     , std::vector<uint8_t> extra
     , transaction & tx
     , uint64_t unlock_time
@@ -424,10 +424,9 @@ namespace cryptonote
     }
 
     // "Shuffle" outs
-    std::vector<tx_destination_entry> shuffled_dsts(destinations);
     std::sort(
-        shuffled_dsts.begin()
-      , shuffled_dsts.end()
+        destinations.begin()
+      , destinations.end()
       , [](const tx_destination_entry & de1, const tx_destination_entry & de2)
         {
           return de1.amount < de2.amount;
@@ -437,7 +436,7 @@ namespace cryptonote
     uint64_t total_money_from_outputs = 0;
     //fill outputs
     size_t output_index = 0;
-    for (const tx_destination_entry & dst_entr : shuffled_dsts)
+    for (const tx_destination_entry & dst_entr : destinations)
     {
       CHECK_AND_ASSERT_MES(dst_entr.amount > 0, false, "Destination with wrong amount: " << dst_entr.amount);
 
