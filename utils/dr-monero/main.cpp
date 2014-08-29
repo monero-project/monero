@@ -14,8 +14,8 @@ int main(int argc, char *argv[])
 
     MainWindow w;
     w.move(0,0);
-//    w.addFile("../../log/net/in/all-size.data", histogram_avg);
-    w.addFile("../../log/net/out/all-size.data", histogram_avg);
+    w.addFile("../../log/net/in/all-size.data", histogram_avg);
+//    w.addFile("../../log/net/out/all-size.data", histogram_avg);
     w.addFile("../../log/net/inreq/all-size.data", histogram);
 
 
