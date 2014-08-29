@@ -348,8 +348,8 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool construct_tx(
       const account_keys & sender_account_keys
-    , const std::vector<tx_source_entry> & sources
-    , std::vector<tx_destination_entry> destinations
+    , const std::vector<tx_source_entry> & input_transfers
+    , std::vector<tx_destination_entry> output_transfers
     , std::vector<uint8_t> extra
     , transaction & tx
     , uint64_t unlock_time
@@ -362,118 +362,143 @@ namespace cryptonote
     tx.version = CURRENT_TRANSACTION_VERSION;
     tx.unlock_time = unlock_time;
 
-    tx.extra = extra;
+    // Add a random public key to identify this transaction
+    tx.extra = std::move(extra);
     keypair txkey = keypair::generate();
     add_tx_pub_key_to_extra(tx, txkey.pub);
 
-    struct input_generation_context_data
-    {
-      keypair in_ephemeral;
-    };
-    std::vector<input_generation_context_data> in_contexts;
+    std::vector<keypair> one_time_key_pairs;
 
+    // Create and add the txin_to_key inputs to the transaction.
     uint64_t total_money_from_inputs = 0;
-    //fill inputs
-    for (const tx_source_entry& src_entr : sources)
+    for (const tx_source_entry & input_transfer : input_transfers)
     {
-      if (src_entr.real_output >= src_entr.outputs.size())
+      // The input transfer contains a field denoting which of its outputs is
+      // the real one.  (The real one should correspond with this account.)
+      // Check that it points to a valid output.
+      if (input_transfer.real_output >= input_transfer.outputs.size())
       {
-        LOG_ERROR("real_output index (" << src_entr.real_output
-          << ")bigger than output_keys.size()=" << src_entr.outputs.size());
+        LOG_ERROR("real_output index (" << input_transfer.real_output
+          << ")bigger than output_keys.size()=" << input_transfer.outputs.size());
         return false;
       }
-      total_money_from_inputs += src_entr.amount;
 
-      //key_derivation recv_derivation;
-      in_contexts.push_back(input_generation_context_data());
-      keypair & in_ephemeral = in_contexts.back().in_ephemeral;
+      total_money_from_inputs += input_transfer.amount;
+
+      // Generate the key image and derive the one-time key
+      one_time_key_pairs.push_back(keypair {});
+      keypair & one_time_key = one_time_key_pairs.back();
       crypto::key_image img;
       if (!generate_key_image_helper(
           sender_account_keys
-        , src_entr.real_out_tx_key
-        , src_entr.real_output_in_tx_index
-        , in_ephemeral
+        , input_transfer.real_out_tx_key
+        , input_transfer.real_output_in_tx_index
+        , one_time_key
         , img
         ))
       {
         return false;
       }
 
-      //check that derivated key is equal with real output key
-      if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second) )
+      // Check that the one-time key we've derived has the same public key as
+      // the real output of the input transfer (the one corresponding with this
+      // account)
+      if( !(one_time_key.pub == input_transfer.outputs[input_transfer.real_output].second) )
       {
         LOG_ERROR("derived public key missmatch with output public key! "<< ENDL << "derived_key:"
-          << string_tools::pod_to_hex(in_ephemeral.pub) << ENDL << "real output_public_key:"
-          << string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second) );
+          << string_tools::pod_to_hex(one_time_key.pub) << ENDL << "real output_public_key:"
+          << string_tools::pod_to_hex(input_transfer.outputs[input_transfer.real_output].second) );
         return false;
       }
 
-      //put key image into tx input
-      txin_to_key input_to_key;
-      input_to_key.amount = src_entr.amount;
-      input_to_key.k_image = img;
+      // Construct the transaction input
+      txin_to_key transaction_input;
+      transaction_input.amount = input_transfer.amount;
+      transaction_input.k_image = img;
 
-      //fill outputs array and use relative offsets
-      for (const tx_source_entry::output_entry& out_entry : src_entr.outputs)
+      // Store the global index of each output
+      for (auto const & out_entry : input_transfer.outputs)
       {
-        input_to_key.key_offsets.push_back(out_entry.first);
+        transaction_input.key_offsets.push_back(out_entry.first);
       }
 
-      input_to_key.key_offsets = absolute_output_offsets_to_relative(input_to_key.key_offsets);
-      tx.vin.push_back(input_to_key);
+      // Convert the global indices to relative indices
+      transaction_input.key_offsets = absolute_output_offsets_to_relative(transaction_input.key_offsets);
+
+      // Add the input to the transaction
+      tx.vin.push_back(transaction_input);
     }
 
-    // "Shuffle" outs
+    // Sort the output transfers by amount
     std::sort(
-        destinations.begin()
-      , destinations.end()
+        output_transfers.begin()
+      , output_transfers.end()
       , [](const tx_destination_entry & de1, const tx_destination_entry & de2)
         {
           return de1.amount < de2.amount;
         }
       );
 
+    // Create and add the tx_out outputs to the transaction.
     uint64_t total_money_from_outputs = 0;
-    //fill outputs
     size_t output_index = 0;
-    for (const tx_destination_entry & dst_entr : destinations)
+    for (const tx_destination_entry & output_transfer : output_transfers)
     {
-      CHECK_AND_ASSERT_MES(dst_entr.amount > 0, false, "Destination with wrong amount: " << dst_entr.amount);
+      if (output_transfer.amount <= 0)
+      {
+        LOG_ERROR("Destination with wrong amount: " << output_transfer.amount);
+        return false;
+      }
 
-      crypto::key_derivation derivation;
-      crypto::public_key out_eph_public_key;
-      bool r = crypto::generate_key_derivation(
-          dst_entr.addr.m_view_public_key
-        , txkey.sec
-        , derivation
-        );
-      CHECK_AND_ASSERT_MES(r, false
-        , "at creation outs: failed to generate_key_derivation("
-          << dst_entr.addr.m_view_public_key << ", " << txkey.sec << ")"
-        );
+      // Generate the one-time public key for this output
+      crypto::public_key one_time_public_key;
+      {
+        crypto::key_derivation derivation;
+        if (!crypto::generate_key_derivation(
+            output_transfer.addr.m_view_public_key
+          , txkey.sec
+          , derivation
+          ))
+        {
+          LOG_ERROR(
+            "at creation outs: failed to generate_key_derivation("
+            << output_transfer.addr.m_view_public_key << ", " << txkey.sec << ")"
+          );
+          return false;
+        }
 
-      r = crypto::derive_public_key(
-          derivation
-        , output_index
-        , dst_entr.addr.m_spend_public_key
-        , out_eph_public_key
-        );
-      CHECK_AND_ASSERT_MES(r, false
-        , "at creation outs: failed to derive_public_key(" << derivation << ", "
-          << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")"
-        );
+        if (!crypto::derive_public_key(
+            derivation
+          , output_index
+          , output_transfer.addr.m_spend_public_key
+          , one_time_public_key
+          ))
+        {
+          LOG_ERROR(
+            "at creation outs: failed to derive_public_key(" << derivation << ", "
+            << output_index << ", "<< output_transfer.addr.m_spend_public_key << ")"
+          );
+          return false;
+        }
+      }
 
+      // Construct the tx_out output and add it to the transaction
       tx_out out;
-      out.amount = dst_entr.amount;
-      txout_to_key tk;
-      tk.key = out_eph_public_key;
-      out.target = tk;
+      {
+        out.amount = output_transfer.amount;
+        txout_to_key tk;
+        tk.key = one_time_public_key;
+        out.target = tk;
+      }
       tx.vout.push_back(out);
+
       output_index++;
-      total_money_from_outputs += dst_entr.amount;
+
+      total_money_from_outputs += output_transfer.amount;
     }
 
-    //check money
+    // Make sure the output amounts don't sum to more than the input amounts.
+    // (Otherwise the transaction would be creating money.)
     if (total_money_from_outputs > total_money_from_inputs)
     {
       LOG_ERROR("Transaction inputs money ("<< total_money_from_inputs
@@ -481,58 +506,65 @@ namespace cryptonote
       return false;
     }
 
-    //generate ring signatures
-    crypto::hash tx_prefix_hash;
-    get_transaction_prefix_hash(tx, tx_prefix_hash);
+    // Create a hash of the internal structure of the transaction.  (This is
+    // everything but the signatures.)
+    crypto::hash transaction_hash;
+    get_transaction_prefix_hash(tx, transaction_hash);
 
-    std::stringstream ss_ring_s;
+    // Append a ring signature to the transaction for each input transfer
+    std::stringstream ring_signatures_log;
     size_t i = 0;
-    for (const tx_source_entry & src_entr : sources)
+    for (const tx_source_entry & input_transfer : input_transfers)
     {
-      ss_ring_s << "pub_keys:" << ENDL;
+      ring_signatures_log << "public keys:" << ENDL;
 
-      std::vector<const crypto::public_key *> keys_ptrs;
-
-      for (const tx_source_entry::output_entry & o : src_entr.outputs)
+      // Create a view containing the public keys in this input transfer
+      std::vector<const crypto::public_key *> public_keys;
+      for (const tx_source_entry::output_entry & o : input_transfer.outputs)
       {
-        keys_ptrs.push_back(&o.second);
-        ss_ring_s << o.second << ENDL;
+        public_keys.push_back(&o.second);
+        ring_signatures_log << o.second << ENDL;
       }
 
-      tx.signatures.push_back(std::vector<crypto::signature>());
-      std::vector<crypto::signature> & sigs = tx.signatures.back();
-      sigs.resize(src_entr.outputs.size());
+      // Add an empty ring signature to the transaction suffix whose size is
+      // equal to the number of outputs for this input transfer
+      tx.signatures.push_back(std::vector<crypto::signature> {});
+      std::vector<crypto::signature> & ring_signature = tx.signatures.back();
+      ring_signature.resize(input_transfer.outputs.size());
 
+      // Populate the ring signature
       crypto::generate_ring_signature(
-          tx_prefix_hash
+          transaction_hash
         , boost::get<txin_to_key>(tx.vin[i]).k_image
-        , keys_ptrs
-        , in_contexts[i].in_ephemeral.sec
-        , src_entr.real_output
-        , sigs.data()
+        , public_keys
+        , one_time_key_pairs[i].sec
+        , input_transfer.real_output
+        , ring_signature.data()
         );
 
-      ss_ring_s << "signatures:" << ENDL;
+      ring_signatures_log << "signatures:" << ENDL;
 
+      // Log the ring signature
       std::for_each(
-          sigs.begin()
-        , sigs.end()
-        , [&](const crypto::signature& s) {ss_ring_s << s << ENDL;}
+          ring_signature.begin()
+        , ring_signature.end()
+        , [&](const crypto::signature & s) {ring_signatures_log << s << ENDL;}
         );
 
-      ss_ring_s
-        << "prefix_hash:" << tx_prefix_hash << ENDL
-        << "in_ephemeral_key: " << in_contexts[i].in_ephemeral.sec << ENDL
-        << "real_output: " << src_entr.real_output;
+      // Log the other pertinent details
+      ring_signatures_log
+        << "transaction hash:" << transaction_hash << ENDL
+        << "one-time key: " << one_time_key_pairs[i].sec << ENDL
+        << "real output index: " << input_transfer.real_output;
 
       i++;
     }
 
     LOG_PRINT2(
         "construct_tx.log"
-      , "transaction_created: " << get_transaction_hash(tx) << ENDL
+      , "transaction created: " << get_transaction_hash(tx) << ENDL
         << obj_to_json_str(tx) << ENDL
-        << ss_ring_s.str()
+        << ring_signatures_log.str()
       , LOG_LEVEL_3
       );
 
