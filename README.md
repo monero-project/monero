@@ -76,6 +76,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
+<<<<<<< HEAD
 Dependencies: [MSYS2](http://sourceforge.net/projects/msys2/) or later, CMake 2.8.6 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
 
 We are in the process of dropping support for MSVC in favor of the MSYS2 environment, which includes an up-to-date MinGW-w64 toolchain (based on the gcc compiler).
@@ -116,6 +117,18 @@ make
 ```
 
 If you installed MSYS2 in a folder other than C:/msys64, make the appropriate substitution above.
+=======
+Dependencies: MSVC 2013 or later, CMake 2.8.6 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+
+* To build, change to the root of the source code directory, and run these commands:
+```
+mkdir build
+cd build
+cmake -G "Visual Studio 12 Win64" -DBOOST_ROOT="c:\folder\to\boost_1_55_0" -DBOOST_LIBRARYDIR="c:\folder\to\boost_1_55_0\lib64-msvc-12.0"
+msbuild Project.sln /p:Configuration=Release
+```
+* If you don't have your path environment variable configured with the VS paths, you may may want to run `C:\program files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat` (or equivalent) to temporarily set the environment variables.
+>>>>>>> f57d99d795eef7e5c9bde7f4d6bfdc6385c1231f
 
 ## Building Documentation
 
