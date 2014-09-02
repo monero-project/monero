@@ -28,9 +28,9 @@ int main(int argc, char *argv[])
     w.addFile("../../log/net/ping-p5.var",curve);
 
 
-/*
-    w.addFile("example.txt",histogram_avg);
 
+    w.addFile("example.txt",histogram_avg);
+/*
     w.addFile("example2.txt",histogram);
     w.addFile("example3.txt",histogram);
 

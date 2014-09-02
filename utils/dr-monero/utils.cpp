@@ -42,9 +42,9 @@ vector<long double> utils::prepareHistogramData(vector<long double> t, vector<lo
     frame--; //TODO frame!=1
     double value=0;
 
-    int size = t.size()-1;
+    size_t size = t.size()-1;
 
-    for (int i=0; i<size; i++) {
+    for (size_t i=0; i<size; i++) {
         value+=b.at(i);
 
         if( int(t.at(i+1)) - int(t.at(i))  == 1  )  {

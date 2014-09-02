@@ -23,6 +23,20 @@ Please note the use of <B>\@monero</B> doxygen command for the developer/maintai
 @brief the connection templated-class for one peer connection
 @endcode
 
+<H1>Other documentation here</H1>
+
+@link doc/LICENCE-monero.txt @endlink 
+
+@link src/doc/LICENCE-otshell.txt @endlink
+
+@link src/doc/TODO.txt @endlink
+
+@link src/doc/build-fast.txt @endlink
+
+@link src/doc/build.txt @endlink
+
+@link src/doc/design.txt @endlink
+
 <H1>Documentation for networking and throttle code</H1>
 
 @link p2p/network_throttle.cpp @endlink
@@ -34,7 +48,6 @@ Please note the use of <B>\@monero</B> doxygen command for the developer/maintai
 @link src/daemon/command_server.h @endlink
 
 <H1>Documentation for Dr-Monero tool</H1>
-
 
 <H1>Documentation for ... </H1>
 put your links here, developers :)

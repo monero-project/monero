@@ -68,7 +68,7 @@ public:
 
 public slots:
     void sliding(); // enable sliding
-    void plot(plotFile pfile, const int col); // plots from file
+    void plot(plotFile &pfile, const int col); // plots from file
     void init(QwtPlot *&Plot); // prepares plot field
     void refresh(); // called by timer
     void openFile(); // getting files (dialog window)

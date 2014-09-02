@@ -164,7 +164,7 @@ void MainWindow::updateStatusLabel(const int ctl, plotFile &pfile) {
     ui->statusLabel->setText(currMess+mess);
 }
 
-void MainWindow::plot(plotFile pfile, const int col) {
+void MainWindow::plot(plotFile &pfile, const int col) {
      // enable sliding
     sliding();
     const string filename = pfile.getName();
@@ -174,38 +174,13 @@ void MainWindow::plot(plotFile pfile, const int col) {
     if(ui->gridCheckBox->isChecked()) grid->attach(ui->qwtPlot);
     else grid->detach();
 
-    fstream file;
-    file.open(filename.c_str(), ios::in);
-
-    if(!file.is_open())  {
-        cout << DBG << "Can't open file " << filename << endl;
-        return;
-    }
-    cout << DBG << filename << " is open" << endl;
-    int i=0;
-
-    pfile.clearVectors();
-
-    // getting data
-    while(!file.eof()) {
-        // geting x and y values from file, format: "x y" per line
-        double x,y;
-        file >> x;
-        file >> y;
-
-        // saving this information to vectors
-        pfile.addX(x);
-        pfile.addY(y);
-
-        ui->qwtPlot->replot();
-        i++;
-    }
-    file.close();
+    if(!pfile.getDataFromFile()) return; // if can't get data
+    updateStatusLabel(col,pfile);
 
     // curve or histogram
     if(pfile.getType()==curve) plotCurve(pfile.Xs(), pfile.Ys(), col, filename);
     else if (pfile.getType()==histogram || pfile.getType()==histogram_avg)  {
-        utils test; vector <double> h = test.prepareHistogramData(pfile.Xs(), pfile.Ys(), 1);
+        utils test; vector <long double> h = test.prepareHistogramData(pfile.Xs(), pfile.Ys(), 1);
         plotHist(pfile.Xs(), h, col, filename);
 
         // histogram with avg
@@ -282,7 +257,7 @@ void MainWindow::plotCurve(const vector<long double> x, const vector<long double
     curve1->attach(ui->qwtPlot);
 }
 
-void MainWindow::plotHist(const vector<double> t, const vector<double> h, const int col, const string &filename) {
+void MainWindow::plotHist(const vector<long double> t, const vector<long double> h, const int col, const string &filename) {
     const double frame=1.; // TODO: frame value from spinbox
     QColor color = transparentColors.at(col);
     QwtPlotHistogram *histogram = new QwtPlotHistogram(QString::fromStdString(splitString(filename,"/").back()));
