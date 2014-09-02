@@ -86,7 +86,8 @@ bool do_send_money(tools::wallet2& w1, tools::wallet2& w2, size_t mix_in_factor,
       , DEFAULT_FEE
       , std::vector<uint8_t>()
       , tools::detail::null_split_strategy
-      , tools::tx_dust_policy(DEFAULT_FEE), tx, ptx
+      , tools::tx_dust_policy(DEFAULT_FEE)
+      , ptx
       );
     w1.commit_tx(ptx);
     return true;
