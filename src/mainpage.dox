@@ -1,25 +1,43 @@
 /**
 
 @mainpage
+
+<H1>The Moner Project</H1>
+
 <PRE>
+http://monero.cc
 
-The Moner Project
+Documentation for <B>Developers of Monero Project</B> (but users can find useful details here as well).
 
-http://monero.cc @endlink
+Documentation is <B>work in progress</B> (there was not too much in orginal CryptoNote code) we add it as we refactor, extend existing, and write new code.
 
-Documentation is being written now (there was not too much in orginal CryptoNote code).
+To write documentation, look at example of brand new file: @link p2p/network_throttle.cpp @endlink and a modified file from orginal CryptoNote implementation: @link contrib/epee/include/net/abstract_tcp_server2.h @endlink 
 
-Documentation for networking and throttle code:
+Please note the use of <B>\@monero</B> doxygen command for the developer/maintainer in Monero project, place it on top of file.
+</PRE>
 
-@link p2p/network_throttle.cpp
-@endlink
-@link contrib/epee/include/net/abstract_tcp_server2.h 
-@endlink
+@code{.dox}
+@file
+@author from CrypoNote
+@monero rfree
+@brief the connection templated-class for one peer connection
+@endcode
 
-Documentation for ... : 
+<H1>Documentation for networking and throttle code</H1>
+
+@link p2p/network_throttle.cpp @endlink
+
+@link contrib/epee/include/net/abstract_tcp_server2.h @endlink
+
+<H1>RPC commands processing</H1>
+
+@link src/daemon/command_server.h @endlink
+
+<H1>Documentation for Dr-Monero tool</H1>
+
+
+<H1>Documentation for ... </H1>
 put your links here, developers :)
  
-
-</PRE>
 */
 

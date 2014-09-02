@@ -57,10 +57,6 @@ Throttling work by:
 
 #include "../../src/p2p/network_throttle-detail.hpp"
 
-class aaaaa{};
-
-class bbb{};
-
 namespace epee
 {
 namespace net_utils

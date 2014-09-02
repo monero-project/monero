@@ -32,18 +32,16 @@ Dialog::~Dialog()
 }
 
 void Dialog::loadFiles(vector<plotFile> &files) {
-    for (int i=0; i<files.size(); i++) {
+    for (unsigned int i=0; i<files.size(); i++) {
         ui->FileListComboBox->insertItem(i,files.at(i).getQName());
         copyOfFiles.push_back(files.at(i));
     }
     set(files.at(0));
     connect(ui->FileListComboBox, SIGNAL(currentIndexChanged(int)) ,this, SLOT(settings(int)));
-
-
 }
 
 void Dialog::settings(int i) {
-    int index = ui->FileListComboBox->currentIndex();
+    //int index = ui->FileListComboBox->currentIndex();
     plotFile checked =  copyOfFiles.at(i);
     set(checked);
 }
@@ -57,7 +55,7 @@ void Dialog::set(plotFile pfile) {
 
 void Dialog::save(vector<plotFile> &files) {
     files.clear();
-    for (int i=0; i<copyOfFiles.size(); i++)  {
+    for (unsigned int i=0; i<copyOfFiles.size(); i++)  {
         plotFile tmp(copyOfFiles.at(i));
         files.push_back(tmp);
     }

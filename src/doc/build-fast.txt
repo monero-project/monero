@@ -25,12 +25,3 @@ On windows this is the same, except for other mkdir commnad (just create directo
 
 *** TESTED ***
 
-
-
-*** FAQ ***
-If sometihng fails, you must be in the new build/ directory that you created and call  ccmake ..  or ccmake .. with more options.
-
-Windows problems?
-It was tested primarly on linux, and a bit on windows, so far. Modules should be universal.
-You can disable cotire in ccmake ..
-

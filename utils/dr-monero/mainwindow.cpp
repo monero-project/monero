@@ -64,6 +64,10 @@ void MainWindow::addFile(const string &name, plotType type) {
     files.push_back(pfile);
 }
 
+void MainWindow::addFile(const string &name1, const string &name2, plotType type) {
+
+
+}
 
 void MainWindow::openFile() {
 
@@ -148,9 +152,19 @@ void MainWindow::prepareColors() {
     cout << DBG << "Colors ready" << endl;
 }
 
+void MainWindow::updateStatusLabel(const int ctl, plotFile &pfile) {
+    if(!ctl) { // first file
+       ui->statusLabel->clear();
+    }
 
+    ostringstream oss;
+    oss << "[" << ctl+1 << "] " << pfile.getSum() << " | ";
+    QString mess = QString::fromStdString(oss.str());
+    QString currMess = ui->statusLabel->text();
+    ui->statusLabel->setText(currMess+mess);
+}
 
-void MainWindow::plot(plotFile pfile, const int col) {
+void MainWindow::plot(plotFile &pfile, const int col) {
      // enable sliding
     sliding();
     const string filename = pfile.getName();
@@ -160,38 +174,13 @@ void MainWindow::plot(plotFile pfile, const int col) {
     if(ui->gridCheckBox->isChecked()) grid->attach(ui->qwtPlot);
     else grid->detach();
 
-    fstream file;
-    file.open(filename.c_str(), ios::in);
-
-    if(!file.is_open())  {
-        cout << DBG << "Can't open file " << filename << endl;
-        return;
-    }
-    cout << DBG << filename << " is open" << endl;
-    int i=0;
-
-    pfile.clearVectors();
-
-    // getting data
-    while(!file.eof()) {
-        // geting x and y values from file, format: "x y" per line
-        double x,y;
-        file >> x;
-        file >> y;
-
-        // saving this information to vectors
-        pfile.addX(x);
-        pfile.addY(y);
-
-        ui->qwtPlot->replot();
-        i++;
-    }
-    file.close();
+    if(!pfile.getDataFromFile()) return; // if can't get data
+    updateStatusLabel(col,pfile);
 
     // curve or histogram
     if(pfile.getType()==curve) plotCurve(pfile.Xs(), pfile.Ys(), col, filename);
     else if (pfile.getType()==histogram || pfile.getType()==histogram_avg)  {
-        utils test; vector <double> h = test.prepareHistogramData(pfile.Xs(), pfile.Ys(), 1);
+        utils test; vector <long double> h = test.prepareHistogramData(pfile.Xs(), pfile.Ys(), 1);
         plotHist(pfile.Xs(), h, col, filename);
 
         // histogram with avg
@@ -210,7 +199,7 @@ void MainWindow::plot(plotFile pfile, const int col) {
     ui->qwtPlot->replot();
 }
 
-void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const int col, const string &filename) {
+void MainWindow::plotCurve(const vector<long double> x, const vector<long double> y, const int col, const string &filename) {
     // preparing curve
     QColor color = colors.at(col);
     QwtPlotCurve *curve1 = new QwtPlotCurve(QString::fromStdString(splitString(filename,"/").back()));
@@ -232,9 +221,9 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
     // smoothing here
     if(ui->smoothSpinBox->value() != 0.) {
         utils data;
-        vector <double> final_Y = data.simpleSmooth(y,ui->smoothSpinBox->value());
+        vector <long double> final_Y = data.simpleSmooth(y,ui->smoothSpinBox->value());
 
-        for(int i=0; i<x.size(); i++) {
+        for(size_t i=0; i<x.size(); i++) {
             samples->push_back(QPointF(x.at(i), final_Y.at(i)));
             if(final_Y.at(i)>ymax) ymax = final_Y.at(i)+1;
 
@@ -248,7 +237,7 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
         }
     } // or no smoothing
     else {
-        for(int i=0; i<x.size(); i++) {
+        for(size_t i=0; i<x.size(); i++) {
             samples->push_back(QPointF(x.at(i), y.at(i)));
             if(y.at(i)>ymax) ymax = y.at(i)+1;
 
@@ -268,7 +257,7 @@ void MainWindow::plotCurve(const vector<double> x, const vector<double> y, const
     curve1->attach(ui->qwtPlot);
 }
 
-void MainWindow::plotHist(const vector<double> t, const vector<double> h, const int col, const string &filename) {
+void MainWindow::plotHist(const vector<long double> t, const vector<long double> h, const int col, const string &filename) {
     const double frame=1.; // TODO: frame value from spinbox
     QColor color = transparentColors.at(col);
     QwtPlotHistogram *histogram = new QwtPlotHistogram(QString::fromStdString(splitString(filename,"/").back()));
@@ -279,7 +268,7 @@ void MainWindow::plotHist(const vector<double> t, const vector<double> h, const 
 
     double pos = 0.0;
 
-    for ( int i=0; i<h.size(); i++ )    {
+    for ( size_t i=0; i<h.size(); i++ )    {
         const int width = frame;
         double value = h.at(i);
         if(h.at(i)>ymax) ymax = h.at(i)+1;
@@ -289,7 +278,7 @@ void MainWindow::plotHist(const vector<double> t, const vector<double> h, const 
         pos += width;
 
         if(xmax < i) { // moving slider
-            ui->Slider->setValue(i-interval+2);
+            ui->Slider->setValue(i-interval/2);
             xmax=i;
 
             // slider configuration

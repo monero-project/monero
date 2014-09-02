@@ -1,3 +1,14 @@
+/**
+@file
+@details
+
+
+Passing RPC commands:
+
+@image html images/other/runtime-commands.png
+
+*/
+
 // Copyright (c) 2014, The Monero Project
 //
 // All rights reserved.
