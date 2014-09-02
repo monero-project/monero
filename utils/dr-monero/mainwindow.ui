@@ -35,7 +35,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Monero Graphs</string>
+   <string>Dr. Monero</string>
   </property>
   <property name="autoFillBackground">
    <bool>true</bool>
