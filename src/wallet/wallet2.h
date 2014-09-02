@@ -161,11 +161,26 @@ namespace tools
     uint64_t balance();
     uint64_t unlocked_balance();
     template<typename T>
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy);
-    template<typename T>
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx& ptx);
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra);
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx);
+    void create_pending_transaction(
+        const std::vector<cryptonote::tx_destination_entry>& dsts
+      , size_t fake_outputs_count
+      , uint64_t unlock_time
+      , uint64_t fee
+      , const std::vector<uint8_t>& extra
+      , T destination_split_strategy
+      , const tx_dust_policy& dust_policy
+      , cryptonote::transaction& tx
+      , pending_tx& ptx
+      );
+    void create_pending_transaction(
+        const std::vector<cryptonote::tx_destination_entry>& dsts
+      , size_t fake_outputs_count
+      , uint64_t unlock_time
+      , uint64_t fee
+      , const std::vector<uint8_t>& extra
+      , cryptonote::transaction& tx
+      , pending_tx& ptx
+      );
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra);
@@ -363,21 +378,12 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
   }
   //----------------------------------------------------------------------------------------------------
-  template<typename T>
-  void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy)
-  {
-    pending_tx ptx;
-    cryptonote::transaction tx;
-    transfer(dsts, fake_outputs_count, unlock_time, fee, extra, destination_split_strategy, dust_policy, tx, ptx);
-  }
-
   // Create a pending transaction that transforms unspent, unlocked input
   // transfers owned by this account into output transfers that will be owned
   // by the destination accounts.
   template<typename T>
-  void wallet2::transfer(
-      const std::vector<cryptonote::tx_destination_entry> & output_transfers
+  void wallet2::create_pending_transaction(
+      const std::vector<cryptonote::tx_destination_entry>& output_transfers
     , size_t fake_inputs_per_real_input
     , uint64_t unlock_time
     , uint64_t fee
