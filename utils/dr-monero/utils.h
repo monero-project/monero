@@ -1,6 +1,8 @@
-/// @file
-/// @author rfree (current maintainer in monero.cc project)
-/// @brief main network-throttle (count speed and decide on limit)
+/**
+@file
+@author rfree (current maintainer in monero.cc project)
+@brief utils smoothing and converting data to histogram
+*/
 
 #ifndef UTILS_H
 #define UTILS_H
@@ -19,8 +21,8 @@ class utils
 {
 public:
     utils();
-    vector<double>  simpleSmooth(vector<double> data, double alpha);
-    vector<double> prepareHistogramData(vector<double> t, vector<double> b, int frame);
+    vector<long double>  simpleSmooth(vector<long double> data, double alpha);
+    vector<long double> prepareHistogramData(vector<long double> t, vector<long double> b, int frame);
 private:
     void display(vector <double> data);
 };

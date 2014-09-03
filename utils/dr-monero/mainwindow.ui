@@ -35,7 +35,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Monero Graphs</string>
+   <string>Dr. Monero</string>
   </property>
   <property name="autoFillBackground">
    <bool>true</bool>
@@ -227,6 +227,29 @@
       </widget>
      </item>
      <item>
+      <spacer name="verticalSpacer_7">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="avgSpinBox"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="avgLabel">
+       <property name="text">
+        <string>Avg [s]</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <spacer name="verticalSpacer_3">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
@@ -255,19 +278,6 @@
         <string>Start</string>
        </property>
       </widget>
-     </item>
-     <item>
-      <spacer name="verticalSpacer_7">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
      </item>
      <item>
       <widget class="QPushButton" name="openButton">
@@ -753,6 +763,19 @@ colors</string>
      <enum>Qt::Vertical</enum>
     </property>
    </widget>
+   <widget class="QLabel" name="statusLabel">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>560</y>
+      <width>1021</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -772,7 +795,6 @@ colors</string>
     <bool>false</bool>
    </attribute>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>

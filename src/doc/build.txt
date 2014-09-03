@@ -7,7 +7,7 @@ This is needed e.g. on Debian Wheezy (it's stock compiler is too old).
 
 === Local compiler soluion ===
 
-As of 2014-08-14 the best way to use your user-local compiler and boost in ~/.local/ 
+As of 2014-09-02 the best way to use your user-local compiler and boost in ~/.local/ 
 is to use ENV VARS (they will be picked up by ccmake).
 
 To do so, configure following env variables (for ~/.bashrc just append at end):
@@ -30,7 +30,7 @@ export CC="$HOME/.local/bin/gcc" ; export CXX="$HOME/.local/bin/g++" ; export CP
 
 === Older solution ===
 
-For older project versions that do not include CMake changes, you can manually force local compiler/boost,
+For older project (before around 2014.08.15) versions that do not include CMake changes, you can manually force local compiler/boost,
 by setting same env vars as above, and changing the source - in top CMakeLists.txt add:
 
 set(Boost_NO_SYSTEM_PATHS TRUE)
@@ -39,4 +39,12 @@ right above this lines (number around 100) :
 
 if(STATIC)
   set(Boost_USE_STATIC_LIBS ON)
+
+
+=== FAQ ===
+If sometihng fails, you must be in the new build/ directory that you created and call  ccmake ..  or ccmake .. with more options.
+
+Windows problems?
+It was tested primarly on linux, and a bit on windows, so far. Modules should be universal.
+You can disable cotire in ccmake ..
 

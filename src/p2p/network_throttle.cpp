@@ -11,10 +11,18 @@ Throttling work by:
 
 </PRE> 
 
-@image html images/net/rate1-down-1k.png  
-@image html images/net/rate1-down-full.png  
-@image html images/net/rate1-up-10k.png  
+@image html images/net/rate1-down-1k.png
+@image html images/net/rate1-down-full.png
+@image html images/net/rate1-up-10k.png
 @image html images/net/rate1-up-full.png
+@image html images/net/rate2-down-100k.png
+@image html images/net/rate2-down-10k.png
+@image html images/net/rate2-down-50k.png
+@image html images/net/rate2-down-full.png
+@image html images/net/rate2-up-100k.png
+@image html images/net/rate2-up-10k.png
+@image html images/net/rate3-up-10k.png
+
 
 */
 
@@ -48,10 +56,6 @@ Throttling work by:
 // 
 
 #include "../../src/p2p/network_throttle-detail.hpp"
-
-class aaaaa{};
-
-class bbb{};
 
 namespace epee
 {

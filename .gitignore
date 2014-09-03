@@ -19,4 +19,5 @@ utils/dr-monero/*.pro.user
 
 # doxygen
 doc/html/
+doc/latex/
 
