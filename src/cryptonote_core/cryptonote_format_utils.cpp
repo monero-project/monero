@@ -635,7 +635,7 @@ namespace cryptonote
 
     if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612)
     {
-      res = string_tools::hex_to_pod(existing_block_id_202612);
+      string_tools::hex_to_pod(existing_block_id_202612, res);
       return true;
     }
     return get_object_hash(get_block_hashing_blob(b), res);
