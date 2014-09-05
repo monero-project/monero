@@ -638,7 +638,19 @@ namespace cryptonote
       string_tools::hex_to_pod(existing_block_id_202612, res);
       return true;
     }
-    return get_object_hash(get_block_hashing_blob(b), res);
+    bool hash_result = get_object_hash(get_block_hashing_blob(b), res);
+
+    if (hash_result)
+    {
+      // make sure that we aren't looking at a block with the 202612 block id but not the correct blobdata
+      if (string_tools::pod_to_hex(res) == existing_block_id_202612)
+      {
+        LOG_ERROR("Block with block id for 202612 but incorrect block blob hash found!");
+        res = null_hash;
+        return false;
+      }
+    }
+    return hash_result;
   }
   //---------------------------------------------------------------
   crypto::hash get_block_hash(const block& b)
