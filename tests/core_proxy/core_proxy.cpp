@@ -104,7 +104,10 @@ int main(int argc, char* argv[])
   //create objects and link them
   tests::proxy_core pr_core;
   cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> cprotocol(pr_core, NULL);
-  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> > p2psrv(cprotocol);
+  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> > p2psrv {
+      cprotocol
+    , std::move(config::NETWORK_ID)
+    };
   cprotocol.set_p2p_endpoint(&p2psrv);
   //pr_core.set_cryptonote_protocol(&cprotocol);
   //daemon_cmmands_handler dch(p2psrv);

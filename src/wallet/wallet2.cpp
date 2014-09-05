@@ -543,7 +543,7 @@ bool wallet2::check_connection()
   net_utils::http::url_content u;
   net_utils::parse_url(m_daemon_address, u);
   if(!u.port)
-    u.port = RPC_DEFAULT_PORT;
+    u.port = config::RPC_DEFAULT_PORT;
   return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
 }
 //----------------------------------------------------------------------------------------------------

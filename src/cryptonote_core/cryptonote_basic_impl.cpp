@@ -105,7 +105,7 @@ namespace cryptonote {
   //-----------------------------------------------------------------------
   std::string get_account_address_as_str(const account_public_address& adr)
   {
-    return tools::base58::encode_addr(CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX, t_serializable_object_to_blob(adr));
+    return tools::base58::encode_addr(config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX, t_serializable_object_to_blob(adr));
   }
   //-----------------------------------------------------------------------
   bool is_coinbase(const transaction& tx)
@@ -131,9 +131,9 @@ namespace cryptonote {
         return false;
       }
 
-      if (CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX != prefix)
+      if (config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX != prefix)
       {
-        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX);
+        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX);
         return false;
       }
 

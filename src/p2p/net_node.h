@@ -42,12 +42,12 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/version.hpp>
 
+#include "cryptonote_config.h"
 #include "warnings.h"
 #include "net/levin_server_cp2.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "net_peerlist.h"
-#include "p2p_networks.h"
 #include "math_helper.h"
 #include "net_node_common.h"
 #include "common/command_line.h"

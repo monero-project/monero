@@ -46,7 +46,7 @@ namespace cryptonote
   namespace
   {
     const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {"rpc-bind-ip", "", "127.0.0.1"};
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {"rpc-bind-port", "", std::to_string(RPC_DEFAULT_PORT)};
+    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {"rpc-bind-port", "", std::to_string(config::RPC_DEFAULT_PORT)};
   }
 
   //-----------------------------------------------------------------------------------
