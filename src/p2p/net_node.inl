@@ -60,7 +60,7 @@ namespace nodetool
   namespace
   {
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol", "0.0.0.0"};
-    const command_line::arg_descriptor<std::string> arg_p2p_bind_port      = {"p2p-bind-port", "Port for p2p network protocol", boost::to_string(P2P_DEFAULT_PORT)};
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_port      = {"p2p-bind-port", "Port for p2p network protocol", boost::to_string(config::P2P_DEFAULT_PORT)};
     const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port  = {"p2p-external-port", "External port for p2p network protocol (if port forwarding used with NAT)", 0};
     const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip = {"allow-local-ip", "Allow local ip add to peer list, mostly in debug purposes"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer   = {"add-peer", "Manually add peer to local peerlist"};
@@ -848,7 +848,7 @@ namespace nodetool
       return false;
     }
     crypto::public_key pk = AUTO_VAL_INIT(pk);
-    epee::string_tools::hex_to_pod(P2P_STAT_TRUSTED_PUB_KEY, pk);
+    epee::string_tools::hex_to_pod(::config::P2P_REMOTE_DEBUG_TRUSTED_PUB_KEY, pk);
     crypto::hash h = tools::get_proof_of_trust_hash(tr);
     if(!crypto::check_signature(h, pk, tr.sign))
     {

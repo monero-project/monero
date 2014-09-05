@@ -30,13 +30,14 @@
 
 #pragma once
 
+#include <string>
+#include <boost/uuid/uuid.hpp>
+
 #define CRYPTONOTE_MAX_BLOCK_NUMBER                     500000000
 #define CRYPTONOTE_MAX_BLOCK_SIZE                       500000000  // block header blob limit, never used!
 #define CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE	196608 //size of block (bytes) that is the maximum that miners will produce
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0
-#define CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX         18 // addresses start with "4"
-#define CRYPTONOTE_TESTNET_ADDRESS_BASE58_PREFIX        19 // addresses start with "5"
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            60
 #define CURRENT_TRANSACTION_VERSION                     1
 #define CURRENT_BLOCK_MAJOR_VERSION                     1
@@ -82,10 +83,6 @@
 #define CRYPTONOTE_MEMPOOL_TX_LIVETIME                    86400 //seconds, one day
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
 
-#define P2P_DEFAULT_PORT                                18080
-#define TESTNET_P2P_DEFAULT_PORT                        28080
-#define RPC_DEFAULT_PORT                                18081
-#define TESTNET_RPC_DEFAULT_PORT                        28081
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT           1000
 
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
@@ -99,21 +96,7 @@
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
 #define P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT            5000       //5 seconds
-#define P2P_STAT_TRUSTED_PUB_KEY                        "0000000000000000000000000000000000000000000000000000000000000000"
-#define TESTNET_P2P_STAT_TRUSTED_PUB_KEY                "0000000000000000000000000000000000000000000000000000000000000000"
 #define P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT       70
-
-// reference these in src/p2p/p2p_networks.h
-#define MAINNET_NETWORK_ID                              { 0x12 ,0x30, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x10 }
-#define TESTNET_NETWORK_ID                              { 0x12 ,0x30, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x11 }
-
-// reference these in src/cryptonote_core/cryptonote_format_utils.cpp
-#define MAINNET_GENESIS_HASH                            "010a01ff0001ffffffffffff0f029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121013c086a48c15fb637a96991bc6d53caf77068b5ba6eeb3c82357228c49790584a"
-#define MAINNET_GENESIS_NONCE                           10000
-#define TESTNET_GENESIS_HASH                             "CHANGEME"
-#define TESTNET_GENESIS_NONCE                           CHANGEME
-
-// remember also to add seed nodes to src/p2p/net_node.inl for the testnet
 
 #define ALLOW_DEBUG_COMMANDS
 
@@ -126,3 +109,32 @@
 
 #define THREAD_STACK_SIZE                       5 * 1024 * 1024
 
+// New constants are intended to go here
+namespace config
+{
+  uint64_t const DEFAULT_FEE_ATOMIC_XMR_PER_KB = 500; // Just a placeholder!  Change me!
+  uint8_t const FEE_CALCULATION_MAX_RETRIES = 10;
+  uint64_t const DEFAULT_DUST_THRESHOLD = 5000000000; // 5 * 10^9
+  std::string const P2P_REMOTE_DEBUG_TRUSTED_PUB_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
+
+  uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 18; // addresses start with "4"
+  uint16_t const P2P_DEFAULT_PORT = 18080;
+  uint16_t const RPC_DEFAULT_PORT = 18081;
+  boost::uuids::uuid const NETWORK_ID = { {
+      0x12 ,0x30, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x10
+    } }; // Bender's nightmare
+  std::string const GENESIS_TX = "013c01ff0001ffffffffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1";
+  uint32_t const GENESIS_NONCE = 10000;
+
+  namespace testnet
+  {
+    uint64_t const CRYPTONOTE_ADDRESS_BASE58_PREFIX = 19; // addresses start with "5"
+    uint16_t const P2P_DEFAULT_PORT = 28080;
+    uint16_t const RPC_DEFAULT_PORT = 28081;
+    boost::uuids::uuid const NETWORK_ID = { {
+        0x12 ,0x30, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x11
+      } }; // Bender's daydream
+    std::string const GENESIS_TX = "CHANGEME";
+    uint32_t const GENESIS_NONCE = 10001;
+  }
+}

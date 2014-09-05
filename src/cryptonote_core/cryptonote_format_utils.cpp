@@ -672,8 +672,7 @@ namespace cryptonote
     blobdata txb = tx_to_blob(bl.miner_tx);
     std::string hex_tx_represent = string_tools::buff_to_hex_nodelimer(txb);
 
-    //hard code coinbase tx in genesis block, because "tru" generating tx use random, but genesis should be always the same
-    std::string genesis_coinbase_tx_hex = "013c01ff0001ffffffffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1";
+    std::string genesis_coinbase_tx_hex = config::GENESIS_TX;
 
     blobdata tx_bl;
     string_tools::parse_hexstr_to_binbuff(genesis_coinbase_tx_hex, tx_bl);
@@ -682,7 +681,7 @@ namespace cryptonote
     bl.major_version = CURRENT_BLOCK_MAJOR_VERSION;
     bl.minor_version = CURRENT_BLOCK_MINOR_VERSION;
     bl.timestamp = 0;
-    bl.nonce = 10000;
+    bl.nonce = config::GENESIS_NONCE;
     miner::find_nonce_for_given_block(bl, 1, 0);
     return true;
   }

@@ -42,12 +42,12 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/version.hpp>
 
+#include "cryptonote_config.h"
 #include "warnings.h"
 #include "net/levin_server_cp2.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "net_peerlist.h"
-#include "p2p_networks.h"
 #include "math_helper.h"
 #include "net_node_common.h"
 #include "common/command_line.h"
@@ -79,7 +79,7 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
     // Some code
-    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_hide_my_port(false), m_network_id(MONERO_NETWORK)
+    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_hide_my_port(false), m_network_id(::config::NETWORK_ID)
     {}
 
     static void init_options(boost::program_options::options_description& desc);

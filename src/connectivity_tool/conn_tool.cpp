@@ -259,7 +259,7 @@ bool handle_request_stat(po::variables_map& vm, peerid_type peer_id)
   pot.peer_id = peer_id;
   pot.time = time(NULL);
   crypto::public_key pubk = AUTO_VAL_INIT(pubk);
-  string_tools::hex_to_pod(P2P_STAT_TRUSTED_PUB_KEY, pubk);
+  string_tools::hex_to_pod(::config::P2P_REMOTE_DEBUG_TRUSTED_PUB_KEY, pubk);
   crypto::hash h = tools::get_proof_of_trust_hash(pot);
   crypto::generate_signature(h, pubk, prvk, pot.sign);
 
