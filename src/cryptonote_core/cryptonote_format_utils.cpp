@@ -689,6 +689,13 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
   {
+    // block 202612 bug workaround
+    const std::string longhash_202612 = "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000";
+    if (height == 202612)
+    {
+      string_tools::hex_to_pod(longhash_202612, res);
+      return true;
+    }
     block b_local = b; //workaround to avoid const errors with do_serialize
     blobdata bd = get_block_hashing_blob(b);
     crypto::cn_slow_hash(bd.data(), bd.size(), res);
