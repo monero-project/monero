@@ -96,7 +96,7 @@ bool blockchain_storage::init(const std::string& config_folder)
       // mainchain
       for (size_t height=0; height < m_blocks.size(); ++height) 
       {
-          CHECK_AND_ASSERT_MES(m_checkpoints.is_in_checkpoint_zone(height) && m_checkpoints.check_block(height,get_block_hash(m_blocks[height].bl)),false,"checkpoint fail, blockchain.bin invalid");
+	CHECK_AND_ASSERT_MES((!m_checkpoints.is_in_checkpoint_zone(height)) || m_checkpoints.check_block(height,get_block_hash(m_blocks[height].bl)),false,"checkpoint fail, blockchain.bin invalid");
       }
 
       // check alt chains
