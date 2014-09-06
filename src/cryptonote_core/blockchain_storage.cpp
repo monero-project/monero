@@ -100,11 +100,14 @@ bool blockchain_storage::init(const std::string& config_folder)
       }
 
       // check alt chains
+      #if 0
+      // doesn't work when a checkpoint is added and there are already alt chains. However, the rest of the blockchain code suffers from the same issue, so ignore for now
+      // see issue #118
       BOOST_FOREACH(blocks_ext_by_hash::value_type& alt_block, m_alternative_chains)
       {
 	CHECK_AND_ASSERT_MES(m_checkpoints.is_alternative_block_allowed(m_blocks.size()-1,alt_block.second.height),false,"stored alternative block not allowed, blockchain.bin invalid");
       }
-
+      #endif
   }
   else
   {
