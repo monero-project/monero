@@ -46,7 +46,16 @@ namespace cryptonote
   namespace
   {
     const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {"rpc-bind-ip", "", "127.0.0.1"};
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {"rpc-bind-port", "", std::to_string(config::RPC_DEFAULT_PORT)};
+    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {
+        "rpc-bind-port"
+      , ""
+      , std::to_string(config::RPC_DEFAULT_PORT)
+      };
+    const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port = {
+        "testnet-rpc-bind-port"
+      , ""
+      , std::to_string(config::testnet::RPC_DEFAULT_PORT)
+      };
   }
 
   //-----------------------------------------------------------------------------------
@@ -54,22 +63,31 @@ namespace cryptonote
   {
     command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
+    command_line::add_arg(desc, arg_testnet_rpc_bind_port);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(core& cr, nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p):m_core(cr), m_p2p(p2p)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::handle_command_line(const boost::program_options::variables_map& vm)
+  bool core_rpc_server::handle_command_line(
+      const boost::program_options::variables_map& vm
+    , bool testnet
+    )
   {
+    auto p2p_bind_arg = testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
+
     m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
-    m_port = command_line::get_arg(vm, arg_rpc_bind_port);
+    m_port = command_line::get_arg(vm, p2p_bind_arg);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::init(const boost::program_options::variables_map& vm)
+  bool core_rpc_server::init(
+      const boost::program_options::variables_map& vm
+    , bool testnet
+    )
   {
     m_net_server.set_threads_prefix("RPC");
-    bool r = handle_command_line(vm);
+    bool r = handle_command_line(vm, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
     return epee::http_server_impl_base<core_rpc_server, connection_context>::init(m_port, m_bind_ip);
   }
