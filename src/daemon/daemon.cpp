@@ -166,6 +166,7 @@ int main(int argc, char* argv[])
   auto data_dir_arg = testnet_mode ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
 
   std::string data_dir = command_line::get_arg(vm, data_dir_arg);
+  tools::create_directories_if_necessary(data_dir);
   std::string config = command_line::get_arg(vm, arg_config_file);
 
   boost::filesystem::path data_dir_path(data_dir);
