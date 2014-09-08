@@ -328,14 +328,18 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     if(!ask_wallet_create_if_needed()) return false;
   }
 
+  bool testnet = command_line::get_arg(vm, arg_testnet);
+
   if (m_daemon_host.empty())
     m_daemon_host = "localhost";
+
   if (!m_daemon_port)
-    m_daemon_port = config::RPC_DEFAULT_PORT;
+  {
+    m_daemon_port = testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+  }
+
   if (m_daemon_address.empty())
     m_daemon_address = std::string("http://") + m_daemon_host + ":" + std::to_string(m_daemon_port);
-
-  bool testnet = command_line::get_arg(vm, arg_testnet);
 
   tools::password_container pwd_container;
   if (command_line::has_arg(vm, arg_password))
