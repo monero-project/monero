@@ -42,6 +42,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "console_handler.h"
 #include "p2p/net_node.h"
+#include "cryptonote_config.h"
 #include "cryptonote_core/checkpoints_create.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "rpc/core_rpc_server.h"
@@ -202,7 +203,10 @@ int main(int argc, char* argv[])
   }
 
   cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);
-  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > p2psrv(cprotocol);
+  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > p2psrv {
+      cprotocol
+    , testnet_mode ? std::move(config::testnet::NETWORK_ID) : std::move(config::NETWORK_ID)
+    };
   cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
   cprotocol.set_p2p_endpoint(&p2psrv);
   ccore.set_cryptonote_protocol(&cprotocol);
