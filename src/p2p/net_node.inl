@@ -60,7 +60,16 @@ namespace nodetool
   namespace
   {
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol", "0.0.0.0"};
-    const command_line::arg_descriptor<std::string> arg_p2p_bind_port      = {"p2p-bind-port", "Port for p2p network protocol", boost::to_string(config::P2P_DEFAULT_PORT)};
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_port = {
+        "p2p-bind-port"
+      , "Port for p2p network protocol"
+      , std::to_string(config::P2P_DEFAULT_PORT)
+      };
+    const command_line::arg_descriptor<std::string> arg_testnet_p2p_bind_port = {
+        "testnet-p2p-bind-port"
+      , "Port for testnet p2p network protocol"
+      , std::to_string(config::testnet::P2P_DEFAULT_PORT)
+      };
     const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port  = {"p2p-external-port", "External port for p2p network protocol (if port forwarding used with NAT)", 0};
     const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip = {"allow-local-ip", "Allow local ip add to peer list, mostly in debug purposes"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer   = {"add-peer", "Manually add peer to local peerlist"};
@@ -77,6 +86,7 @@ namespace nodetool
   {
     command_line::add_arg(desc, arg_p2p_bind_ip);
     command_line::add_arg(desc, arg_p2p_bind_port);
+    command_line::add_arg(desc, arg_testnet_p2p_bind_port);
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
@@ -138,10 +148,15 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::handle_command_line(const boost::program_options::variables_map& vm)
+  bool node_server<t_payload_net_handler>::handle_command_line(
+      const boost::program_options::variables_map& vm
+    , bool testnet
+    )
   {
+    auto p2p_bind_arg = testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
+
     m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
-    m_port = command_line::get_arg(vm, arg_p2p_bind_port);
+    m_port = command_line::get_arg(vm, p2p_bind_arg);
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
 
@@ -242,7 +257,7 @@ namespace nodetool
       m_network_id.data[0] += 1;
     }
 
-    bool res = handle_command_line(vm);
+    bool res = handle_command_line(vm, testnet);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
     m_config_folder = command_line::get_arg(vm, command_line::arg_data_dir);
 
