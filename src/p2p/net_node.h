@@ -41,6 +41,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/version.hpp>
+#include <boost/uuid/uuid.hpp>
 
 #include "cryptonote_config.h"
 #include "warnings.h"
@@ -78,8 +79,15 @@ namespace nodetool
 
   public:
     typedef t_payload_net_handler payload_net_handler;
-    // Some code
-    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_hide_my_port(false), m_network_id(::config::NETWORK_ID)
+
+    node_server(
+        t_payload_net_handler& payload_handler
+      , boost::uuids::uuid network_id
+      )
+      : m_payload_handler(payload_handler)
+      , m_allow_local_ip(false)
+      , m_hide_my_port(false)
+      , m_network_id(std::move(network_id))
     {}
 
     static void init_options(boost::program_options::options_description& desc);
