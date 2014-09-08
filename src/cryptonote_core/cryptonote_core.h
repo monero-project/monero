@@ -136,7 +136,7 @@ namespace cryptonote
      bool check_tx_ring_signature(const txin_to_key& tx, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig);
      bool is_tx_spendtime_unlocked(uint64_t unlock_time);
      bool update_miner_block_template();
-     bool handle_command_line(const boost::program_options::variables_map& vm);
+     bool handle_command_line(const boost::program_options::variables_map& vm, bool testnet);
      bool on_update_blocktemplate_interval();
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
 

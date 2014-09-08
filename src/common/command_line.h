@@ -203,4 +203,5 @@ namespace command_line
   extern const arg_descriptor<bool> arg_help;
   extern const arg_descriptor<bool> arg_version;
   extern const arg_descriptor<std::string> arg_data_dir;
+  extern const arg_descriptor<std::string> arg_testnet_data_dir;
 }
