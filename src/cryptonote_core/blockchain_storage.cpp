@@ -114,7 +114,14 @@ bool blockchain_storage::init(const std::string& config_folder, bool testnet)
       LOG_PRINT_L0("Can't load blockchain storage from file, generating genesis block.");
       block bl = boost::value_initialized<block>();
       block_verification_context bvc = boost::value_initialized<block_verification_context>();
-      generate_genesis_block(bl);
+      if (testnet)
+      {
+        generate_genesis_block(bl, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+      }
+      else
+      {
+        generate_genesis_block(bl, config::GENESIS_TX, config::GENESIS_NONCE);
+      }
       add_new_block(bl, bvc);
       CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed && bvc.m_added_to_main_chain, false, "Failed to add genesis block to blockchain");
   }
@@ -127,10 +134,14 @@ bool blockchain_storage::init(const std::string& config_folder, bool testnet)
     }
   } else {
     cryptonote::block b;
-    if (testnet) {
-      generate_testnet_genesis_block(b);
-    } else {
-      generate_genesis_block(b);
+
+    if (testnet)
+    {
+      generate_genesis_block(b, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+    }
+    else
+    {
+      generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
     }
 
     crypto::hash genesis_hash = get_block_hash(m_blocks[0].bl);
@@ -151,10 +162,13 @@ bool blockchain_storage::store_genesis_block(bool testnet) {
   block bl = ::boost::value_initialized<block>();
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
 
-  if (testnet) {
-    generate_testnet_genesis_block(bl);
-  } else {
-    generate_genesis_block(bl);
+  if (testnet)
+  {
+    generate_genesis_block(bl, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+  }
+  else
+  {
+    generate_genesis_block(bl, config::GENESIS_TX, config::GENESIS_NONCE);
   }
 
   add_new_block(bl, bvc);

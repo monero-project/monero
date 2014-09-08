@@ -35,6 +35,7 @@
 #include "include_base_utils.h"
 using namespace epee;
 
+#include "cryptonote_config.h"
 #include "wallet2.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "rpc/core_rpc_server_commands_defs.h"
@@ -939,10 +940,13 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
-  if (m_testnet) {
-    cryptonote::generate_testnet_genesis_block(b);
-  } else {
-    cryptonote::generate_genesis_block(b);
+  if (m_testnet)
+  {
+    cryptonote::generate_genesis_block(b, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+  }
+  else
+  {
+    cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
   }
 }
 }
