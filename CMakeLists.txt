@@ -7,6 +7,23 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
 
+# Check if we're on FreeBSD so we can exclude the local miniupnpc (it should be installed from ports instead)
+# CMAKE_SYSTEM_NAME checks are commonly known, but specifically taken from libsdl's CMakeLists
+if(CMAKE_SYSTEM_NAME MATCHES "kFreeBSD.*")
+  set(FREEBSD TRUE)
+elseif(CMAKE_SYSTEM_NAME MATCHES "DragonFly.*|FreeBSD")
+  set(FREEBSD TRUE)
+endif()
+
+# TODO: check bsdi, NetBSD, OpenBSD, to see if they need the same FreeBSD changes
+# 
+# elseif(CMAKE_SYSTEM_NAME MATCHES "kNetBSD.*|NetBSD.*")
+#   set(NETBSD TRUE)
+# elseif(CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*")
+#   set(OPENBSD TRUE)
+# elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
+#   set(BSDI TRUE)
+
 function(set_static_flags)
   if (NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
