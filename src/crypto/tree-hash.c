@@ -28,12 +28,17 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <alloca.h>
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
 
 #include "hash-ops.h"
+
+#ifndef __FreeBSD__
+ #include <alloca.h>
+#else
+ #include <stdlib.h>
+#endif
 
 /// Quick check if this is power of two (use on unsigned types; in this case for size_t only)
 bool ispowerof2_size_t(size_t x) {

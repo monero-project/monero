@@ -28,7 +28,6 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <alloca.h>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -41,6 +40,12 @@
 #include "warnings.h"
 #include "crypto.h"
 #include "hash.h"
+
+#ifndef __FreeBSD__
+ #include <alloca.h>
+#else
+ #include <stdlib.h>
+#endif
 
 namespace crypto {
 
