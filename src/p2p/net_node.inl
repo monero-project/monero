@@ -195,71 +195,67 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
-  namespace
+  inline void add_hardcoded_seed_node(
+      std::vector<net_address> & seed_nodes
+    , std::string const & addr
+    )
   {
-    template<typename T>
-    bool append_net_address(T& nodes, const std::string& addr)
+    using namespace boost::asio;
+
+    size_t pos = addr.find_last_of(':');
+    CHECK_AND_ASSERT_MES_NO_RET(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, "Failed to parse seed address from string: '" << addr << '\'');
+    std::string host = addr.substr(0, pos);
+    std::string port = addr.substr(pos + 1);
+
+    io_service io_srv;
+    ip::tcp::resolver resolver(io_srv);
+    ip::tcp::resolver::query query(host, port);
+    boost::system::error_code ec;
+    ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
+    CHECK_AND_ASSERT_MES_NO_RET(!ec, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
+
+    ip::tcp::resolver::iterator iend;
+    for (; i != iend; ++i)
     {
-      using namespace boost::asio;
-
-      size_t pos = addr.find_last_of(':');
-      CHECK_AND_ASSERT_MES(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, false, "Failed to parse seed address from string: '" << addr << '\'');
-      std::string host = addr.substr(0, pos);
-      std::string port = addr.substr(pos + 1);
-
-      io_service io_srv;
-      ip::tcp::resolver resolver(io_srv);
-      ip::tcp::resolver::query query(host, port);
-      boost::system::error_code ec;
-      ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
-      CHECK_AND_NO_ASSERT_MES(!ec, false, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
-
-      ip::tcp::resolver::iterator iend;
-      for (; i != iend; ++i)
+      ip::tcp::endpoint endpoint = *i;
+      if (endpoint.address().is_v4())
       {
-        ip::tcp::endpoint endpoint = *i;
-        if (endpoint.address().is_v4())
-        {
-          nodetool::net_address na;
-          na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
-          na.port = endpoint.port();
-          nodes.push_back(na);
-          LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
-        }
-        else
-        {
-          LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
-        }
+        nodetool::net_address na;
+        na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
+        na.port = endpoint.port();
+        seed_nodes.push_back(na);
+        LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
       }
-
-      return true;
+      else
+      {
+        LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
+      }
     }
   }
 
-  #define ADD_HARDCODED_SEED_NODE(addr) append_net_address(m_seed_nodes, addr);
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, bool testnet)
   {
     if (testnet)
     {
-      ADD_HARDCODED_SEED_NODE("107.152.187.202:28080");
-      ADD_HARDCODED_SEED_NODE("197.242.158.240:28080");
-      ADD_HARDCODED_SEED_NODE("107.152.130.98:28080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.152.187.202:28080");
+      add_hardcoded_seed_node(m_seed_nodes, "197.242.158.240:28080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.152.130.98:28080");
     }
     else
     {
-      ADD_HARDCODED_SEED_NODE("62.210.78.186:18080");
-      ADD_HARDCODED_SEED_NODE("195.12.60.154:18080");
-      ADD_HARDCODED_SEED_NODE("54.241.246.125:18080");
-      ADD_HARDCODED_SEED_NODE("107.170.157.169:18080");
-      ADD_HARDCODED_SEED_NODE("54.207.112.216:18080");
-      ADD_HARDCODED_SEED_NODE("78.27.112.54:18080");
-      ADD_HARDCODED_SEED_NODE("209.222.30.57:18080");
-      ADD_HARDCODED_SEED_NODE("80.71.13.55:18080");
-      ADD_HARDCODED_SEED_NODE("107.178.112.126:18080");
-      ADD_HARDCODED_SEED_NODE("107.158.233.98:18080");
-      ADD_HARDCODED_SEED_NODE("64.22.111.2:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "62.210.78.186:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "195.12.60.154:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "54.241.246.125:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.170.157.169:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "54.207.112.216:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "78.27.112.54:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "209.222.30.57:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "80.71.13.55:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.178.112.126:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.158.233.98:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "64.22.111.2:18080");
     }
 
     bool res = handle_command_line(vm, testnet);
