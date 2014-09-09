@@ -77,8 +77,8 @@ namespace cryptonote
     , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
     , bool testnet
     )
-    : m_core {cr}
-    , m_p2p {p2p}
+    : m_core(cr)
+    , m_p2p(p2p)
     , m_testnet {testnet}
   {}
   //------------------------------------------------------------------------------------------------------------------------------
