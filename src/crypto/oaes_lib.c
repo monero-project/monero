@@ -33,13 +33,18 @@ static const char _NR[] = {
 
 #include <stddef.h>
 #include <time.h> 
-#include <sys/timeb.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifndef __APPLE__ || __FREEBSD__
+// Both OS X and FreeBSD don't need malloc.h
+#if !defined(__APPLE__) && !defined(__FreeBSD__)
  #include <malloc.h>
+#endif
+
+// FreeBSD also doesn't need timeb.h
+#ifndef __FreeBSD__
+ #include <sys/timeb.h>
 #endif
 
 #ifdef WIN32
