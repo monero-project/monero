@@ -54,7 +54,7 @@ public:
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& srv
     , bool testnet
     )
-    : m_srv {srv}
+    : m_srv(srv)
     , m_testnet {testnet}
   {
     m_cmd_binder.set_handler("help", boost::bind(&daemon_cmmands_handler::help, this, _1), "Show this help");
