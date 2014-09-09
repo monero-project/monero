@@ -49,12 +49,15 @@ namespace cryptonote
   public:
     typedef epee::net_utils::connection_context_base connection_context;
 
-    core_rpc_server(core& cr, nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p);
+    core_rpc_server(
+        core& cr
+      , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
+      , bool testnet
+      );
 
     static void init_options(boost::program_options::options_description& desc);
     bool init(
         const boost::program_options::variables_map& vm
-      , bool testnet
       );
   private:
 
@@ -110,7 +113,6 @@ namespace cryptonote
     //-----------------------
     bool handle_command_line(
         const boost::program_options::variables_map& vm
-      , bool testnet
       );
     bool check_core_busy();
     bool check_core_ready();
@@ -123,5 +125,6 @@ namespace cryptonote
     nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_p2p;
     std::string m_port;
     std::string m_bind_ip;
+    bool m_testnet;
   };
 }

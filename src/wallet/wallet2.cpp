@@ -496,7 +496,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   bool r = store_keys(m_keys_file, password);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str());
+  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
   if(!r) LOG_PRINT_RED_L0("String with address text not saved");
 
   cryptonote::block b;
@@ -562,7 +562,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   THROW_WALLET_EXCEPTION_IF(e || !exists, error::file_not_found, m_keys_file);
 
   load_keys(m_keys_file, password);
-  LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str());
+  LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_testnet));
 
   //keys loaded ok!
   //try to load wallet file. but even if we failed, it is not big problem

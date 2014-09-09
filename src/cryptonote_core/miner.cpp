@@ -171,7 +171,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_mining_threads);
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::init(const boost::program_options::variables_map& vm)
+  bool miner::init(const boost::program_options::variables_map& vm, bool testnet)
   {
     if(command_line::has_arg(vm, arg_extra_messages))
     {
@@ -198,7 +198,7 @@ namespace cryptonote
 
     if(command_line::has_arg(vm, arg_start_mining))
     {
-      if(!cryptonote::get_account_address_from_str(m_mine_address, command_line::get_arg(vm, arg_start_mining)))
+      if(!cryptonote::get_account_address_from_str(m_mine_address, testnet, command_line::get_arg(vm, arg_start_mining)))
       {
         LOG_ERROR("Target account address " << command_line::get_arg(vm, arg_start_mining) << " has wrong format, starting daemon canceled");
         return false;

@@ -218,10 +218,10 @@ int main(int argc, char* argv[])
       cprotocol
     , testnet_mode ? std::move(config::testnet::NETWORK_ID) : std::move(config::NETWORK_ID)
     };
-  cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
+  cryptonote::core_rpc_server rpc_server {ccore, p2psrv, testnet_mode};
   cprotocol.set_p2p_endpoint(&p2psrv);
   ccore.set_cryptonote_protocol(&cprotocol);
-  daemon_cmmands_handler dch(p2psrv);
+  daemon_cmmands_handler dch(p2psrv, testnet_mode);
 
   //initialize objects
   LOG_PRINT_L0("Initializing P2P server...");
@@ -235,7 +235,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Protocol initialized OK");
 
   LOG_PRINT_L0("Initializing core RPC server...");
-  res = rpc_server.init(vm, testnet_mode);
+  res = rpc_server.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core RPC server.");
   LOG_PRINT_GREEN("Core RPC server initialized OK on port: " << rpc_server.get_binded_port(), LOG_LEVEL_0);
 

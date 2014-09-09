@@ -158,6 +158,8 @@ namespace tools
     void refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money);
     bool refresh(size_t & blocks_fetched, bool& received_money, bool& ok);
 
+    bool testnet() { return m_testnet; }
+
     uint64_t balance();
     uint64_t unlocked_balance();
     template<typename T>
@@ -360,7 +362,7 @@ namespace tools
     {
       THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
       needed_money += dt.amount;
-      THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee);
+      THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_testnet);
     }
 
     // randomly select inputs for transaction
@@ -465,7 +467,7 @@ namespace tools
     }
 
     bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
-    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time);
+    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
     THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
 
     std::string key_images;

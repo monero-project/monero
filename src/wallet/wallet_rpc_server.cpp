@@ -101,7 +101,7 @@ namespace tools
   {
     try
     {
-      res.address = m_wallet.get_account().get_public_address_str();
+      res.address = m_wallet.get_account().get_public_address_str(m_wallet.testnet());
     }
     catch (std::exception& e)
     {
@@ -118,7 +118,7 @@ namespace tools
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
       cryptonote::tx_destination_entry de;
-      if(!get_account_address_from_str(de.addr, it->address))
+      if(!get_account_address_from_str(de.addr, m_wallet.testnet(), it->address))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;

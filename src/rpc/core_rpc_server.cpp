@@ -72,15 +72,21 @@ namespace cryptonote
     command_line::add_arg(desc, arg_testnet_rpc_bind_port);
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  core_rpc_server::core_rpc_server(core& cr, nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p):m_core(cr), m_p2p(p2p)
+  core_rpc_server::core_rpc_server(
+      core& cr
+    , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
+    , bool testnet
+    )
+    : m_core(cr)
+    , m_p2p(p2p)
+    , m_testnet {testnet}
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::handle_command_line(
       const boost::program_options::variables_map& vm
-    , bool testnet
     )
   {
-    auto p2p_bind_arg = testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
+    auto p2p_bind_arg = m_testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
 
     m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
     m_port = command_line::get_arg(vm, p2p_bind_arg);
@@ -89,11 +95,10 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::init(
       const boost::program_options::variables_map& vm
-    , bool testnet
     )
   {
     m_net_server.set_threads_prefix("RPC");
-    bool r = handle_command_line(vm, testnet);
+    bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
     return epee::http_server_impl_base<core_rpc_server, connection_context>::init(m_port, m_bind_ip);
   }
@@ -302,7 +307,7 @@ namespace cryptonote
   {
     CHECK_CORE_READY();
     account_public_address adr;
-    if(!get_account_address_from_str(adr, req.miner_address))
+    if(!get_account_address_from_str(adr, m_testnet, req.miner_address))
     {
       res.status = "Failed, wrong address";
       return true;
@@ -342,7 +347,7 @@ namespace cryptonote
       res.speed = lMiner.get_speed();
       res.threads_count = lMiner.get_threads_count();
       const account_public_address& lMiningAdr = lMiner.get_mining_address();
-      res.address = get_account_address_as_str(lMiningAdr);
+      res.address = get_account_address_as_str(m_testnet, lMiningAdr);
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -426,7 +431,7 @@ namespace cryptonote
 
     cryptonote::account_public_address acc = AUTO_VAL_INIT(acc);
 
-    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(acc, req.wallet_address))
+    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(acc, m_testnet, req.wallet_address))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS;
       error_resp.message = "Failed to parse wallet address";

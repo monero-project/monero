@@ -151,8 +151,8 @@ bool transactions_flow_test(std::string& working_folder,
   w2.init(daemon_addr_b);
 
   LOG_PRINT_GREEN("Using wallets: " << ENDL
-    << "Source:  " << w1.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
-    << "Target:  " << w2.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_terget_wallet, LOG_LEVEL_1);
+    << "Source:  " << w1.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
+    << "Target:  " << w2.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_terget_wallet, LOG_LEVEL_1);
 
   //lets do some money
   epee::net_utils::http::http_simple_client http_client;
@@ -163,7 +163,7 @@ bool transactions_flow_test(std::string& working_folder,
 
   COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req);
   COMMAND_RPC_START_MINING::response daemon_rsp = AUTO_VAL_INIT(daemon_rsp);
-  daemon_req.miner_address = w1.get_account().get_public_address_str();
+  daemon_req.miner_address = w1.get_account().get_public_address_str(false);
   daemon_req.threads_count = 9;
   r = net_utils::invoke_http_json_remote_command2(daemon_addr_a + "/start_mining", daemon_req, daemon_rsp, http_client, 10000);
   CHECK_AND_ASSERT_MES(r, false, "failed to get getrandom_outs");

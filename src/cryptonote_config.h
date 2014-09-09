@@ -128,7 +128,7 @@ namespace config
 
   namespace testnet
   {
-    uint64_t const CRYPTONOTE_ADDRESS_BASE58_PREFIX = 19; // addresses start with "5"
+    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 19; // addresses start with "5"
     uint16_t const P2P_DEFAULT_PORT = 28080;
     uint16_t const RPC_DEFAULT_PORT = 28081;
     boost::uuids::uuid const NETWORK_ID = { {
