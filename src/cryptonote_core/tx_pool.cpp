@@ -88,14 +88,14 @@ namespace cryptonote
     uint64_t fee = inputs_amount - outputs_amount;
     if (!kept_by_block && fee < DEFAULT_FEE)
     {
-      LOG_ERROR("transaction fee is not enough: " << print_money(fee) << ", minumim fee: " << print_money(DEFAULT_FEE));
+      LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minumim fee: " << print_money(DEFAULT_FEE));
       tvc.m_verifivation_failed = true;
       return false;
     }
 
     if (!kept_by_block && blob_size >= TRANSACTION_SIZE_LIMIT)
     {
-      LOG_ERROR("transaction is too big: " << blob_size << " bytes, maximum size: " << TRANSACTION_SIZE_LIMIT);
+      LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << TRANSACTION_SIZE_LIMIT);
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -105,7 +105,7 @@ namespace cryptonote
     {
       if(have_tx_keyimges_as_spent(tx))
       {
-        LOG_ERROR("Transaction with id= "<< id << " used already spent key images");
+        LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
         tvc.m_verifivation_failed = true;
         return false;
       }
@@ -467,7 +467,7 @@ namespace cryptonote
     bool res = tools::unserialize_obj_from_file(*this, state_file_path);
     if(!res)
     {
-      LOG_ERROR("Failed to load memory pool from file " << state_file_path);
+      LOG_PRINT_L1("Failed to load memory pool from file " << state_file_path);
 
       m_transactions.clear();
       m_spent_key_images.clear();

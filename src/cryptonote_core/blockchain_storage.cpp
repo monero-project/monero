@@ -468,7 +468,7 @@ bool blockchain_storage::switch_to_alternative_blockchain(std::list<blocks_ext_b
       bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc);
       if(!r)
       {
-        LOG_ERROR("Failed to push ex-main chain blocks to alternative chain ");
+        LOG_PRINT_L1("Failed to push ex-main chain blocks to alternative chain ");
         rollback_blockchain_switching(disconnected_chain, split_height);
         return false;
       }
@@ -568,12 +568,12 @@ bool blockchain_storage::validate_miner_transaction(const block& b, size_t cumul
   }
   if(base_reward + fee < money_in_use)
   {
-    LOG_ERROR("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
+    LOG_PRINT_L1("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
     return false;
   }
   if(base_reward + fee != money_in_use)
   {
-    LOG_ERROR("coinbase transaction doesn't use full amount of block reward:  spent: "
+    LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: "
                             << print_money(money_in_use) << ",  block reward " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
     return false;
   }
@@ -751,7 +751,7 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
   uint64_t block_height = get_block_height(b);
   if(0 == block_height)
   {
-    LOG_ERROR("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative) has wrong miner transaction");
+    LOG_PRINT_L1("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative) has wrong miner transaction");
     bvc.m_verifivation_failed = true;
     return false;
   }
@@ -1015,7 +1015,7 @@ bool blockchain_storage::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDO
     auto it = m_outputs.find(amount);
     if(it == m_outputs.end())
     {
-      LOG_ERROR("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: not outs for amount " << amount << ", wallet should use some real outs when it lookup for some mix, so, at least one out for this amount should exist");
+      LOG_PRINT_L1("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: not outs for amount " << amount << ", wallet should use some real outs when it lookup for some mix, so, at least one out for this amount should exist");
       continue;//actually this is strange situation, wallet should use some real outs when it lookup for some mix, so, at least one out for this amount should exist
     }
     std::vector<std::pair<crypto::hash, size_t> >& amount_outs  = it->second;
@@ -1053,13 +1053,13 @@ bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash
 
   if(!qblock_ids.size() /*|| !req.m_total_height*/)
   {
-    LOG_ERROR("Client sent wrong NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << qblock_ids.size() << /*", m_height=" << req.m_total_height <<*/ ", dropping connection");
+    LOG_PRINT_L1("Client sent wrong NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << qblock_ids.size() << /*", m_height=" << req.m_total_height <<*/ ", dropping connection");
     return false;
   }
   //check genesis match
   if(qblock_ids.back() != get_block_hash(m_blocks[0].bl))
   {
-    LOG_ERROR("Client sent wrong NOTIFY_REQUEST_CHAIN: genesis block missmatch: " << ENDL << "id: "
+    LOG_PRINT_L1("Client sent wrong NOTIFY_REQUEST_CHAIN: genesis block missmatch: " << ENDL << "id: "
       << qblock_ids.back() << ", " << ENDL << "expected: " << get_block_hash(m_blocks[0].bl)
       << "," << ENDL << " dropping connection");
     return false;
@@ -1078,14 +1078,14 @@ bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash
 
   if(bl_it == qblock_ids.end())
   {
-    LOG_ERROR("Internal error handling connection, can't find split point");
+    LOG_PRINT_L1("Internal error handling connection, can't find split point");
     return false;
   }
 
   if(block_index_it == m_blocks_index.end())
   {
     //this should NEVER happen, but, dose of paranoia in such cases is not too bad
-    LOG_ERROR("Internal error handling connection, can't find split point");
+    LOG_PRINT_L1("Internal error handling connection, can't find split point");
     return false;
   }
 
@@ -1321,7 +1321,7 @@ bool blockchain_storage::add_transaction_from_block(const transaction& tx, const
   {
     if(!boost::apply_visitor(add_transaction_input_visitor(m_spent_keys, tx_id, bl_id), in))
     {
-      LOG_ERROR("critical internal error: add_transaction_input_visitor failed. but here key_images should be shecked");
+      LOG_PRINT_L1("critical internal error: add_transaction_input_visitor failed. but here key_images should be checked");
       purge_transaction_keyimages_from_blockchain(tx, false);
       return false;
     }
@@ -1669,7 +1669,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   auto ind_res = m_blocks_index.insert(std::pair<crypto::hash, size_t>(id, bei.height));
   if(!ind_res.second)
   {
-    LOG_ERROR("block with id: " << id << " already in block indexes");
+    LOG_PRINT_L1("block with id: " << id << " already in block indexes");
     purge_block_data_from_blockchain(bl, tx_processed_count);
     bvc.m_verifivation_failed = true;
     return false;
