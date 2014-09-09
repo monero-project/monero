@@ -241,7 +241,14 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, bool testnet)
   {
-    if (!testnet) {
+    if (testnet)
+    {
+      ADD_HARDCODED_SEED_NODE("107.152.187.202:28080");
+      ADD_HARDCODED_SEED_NODE("197.242.158.240:28080");
+      ADD_HARDCODED_SEED_NODE("107.152.130.98:28080");
+    }
+    else
+    {
       ADD_HARDCODED_SEED_NODE("62.210.78.186:18080");
       ADD_HARDCODED_SEED_NODE("195.12.60.154:18080");
       ADD_HARDCODED_SEED_NODE("54.241.246.125:18080");
@@ -253,8 +260,6 @@ namespace nodetool
       ADD_HARDCODED_SEED_NODE("107.178.112.126:18080");
       ADD_HARDCODED_SEED_NODE("107.158.233.98:18080");
       ADD_HARDCODED_SEED_NODE("64.22.111.2:18080");
-    } else {
-      m_network_id.data[0] += 1;
     }
 
     bool res = handle_command_line(vm, testnet);
