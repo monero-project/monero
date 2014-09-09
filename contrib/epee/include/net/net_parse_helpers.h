@@ -103,7 +103,7 @@ namespace net_utils
     boost::smatch result;	
     if(!boost::regex_search(uri, result, rexp_match_uri, boost::match_default) && result[0].matched)
     {
-      LOG_PRINT_L0("[PARSE URI] regex not matched for uri: " << uri);
+      LOG_PRINT_L1("[PARSE URI] regex not matched for uri: " << uri);
       content.m_path = uri;
       return true;
     }
@@ -139,7 +139,7 @@ namespace net_utils
     boost::smatch result;	
     if(!boost::regex_search(url_str, result, rexp_match_uri, boost::match_default) && result[0].matched)
     {
-      LOG_PRINT_L0("[PARSE URI] regex not matched for uri: " << rexp_match_uri);
+      LOG_PRINT_L1("[PARSE URI] regex not matched for uri: " << rexp_match_uri);
       //content.m_path = uri;
       return true;
     }

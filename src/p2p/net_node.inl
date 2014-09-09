@@ -261,7 +261,7 @@ namespace nodetool
     CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
 
     m_listenning_port = m_net_server.get_binded_port();
-    LOG_PRINT_GREEN("Net service binded on " << m_bind_ip << ":" << m_listenning_port, LOG_LEVEL_0);
+    LOG_PRINT_GREEN("Net service bound to " << m_bind_ip << ":" << m_listenning_port, LOG_LEVEL_0);
     if(m_external_port)
       LOG_PRINT_L0("External port defined as " << m_external_port);
 
@@ -541,7 +541,7 @@ namespace nodetool
 #define LOG_PRINT_CC_PRIORITY_NODE(priority, con, msg) \
   do { \
     if (priority) {\
-      LOG_PRINT_CC_L0(con, msg); \
+      LOG_PRINT_CC_L1(con, msg); \
     } else {\
       LOG_PRINT_CC_L1(con, msg); \
     } \
@@ -780,7 +780,7 @@ namespace nodetool
     {
       if(be.last_seen > local_time)
       {
-        LOG_PRINT_RED_L0("FOUND FUTURE peerlist for entry " << epee::string_tools::get_ip_string_from_int32(be.adr.ip) << ":" << be.adr.port << " last_seen: " << be.last_seen << ", local_time(on remote node):" << local_time);
+        LOG_PRINT_RED_L1("FOUND FUTURE peerlist for entry " << epee::string_tools::get_ip_string_from_int32(be.adr.ip) << ":" << be.adr.port << " last_seen: " << be.last_seen << ", local_time(on remote node):" << local_time);
         return false;
       }
       be.last_seen += delta;
@@ -1034,7 +1034,7 @@ namespace nodetool
     if(arg.node_data.network_id != MONERO_NETWORK)
     {
 
-      LOG_PRINT_CCONTEXT_L0("WRONG NETWORK AGENT CONNECTED! id=" << epee::string_tools::get_str_from_guid_a(arg.node_data.network_id));
+      LOG_PRINT_CCONTEXT_L1("WRONG NETWORK AGENT CONNECTED! id=" << epee::string_tools::get_str_from_guid_a(arg.node_data.network_id));
       drop_connection(context);
       return 1;
     }

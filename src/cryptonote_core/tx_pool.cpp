@@ -80,7 +80,7 @@ namespace cryptonote
 
     if(outputs_amount >= inputs_amount)
     {
-      LOG_PRINT_L0("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
+      LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -134,7 +134,7 @@ namespace cryptonote
         tvc.m_added_to_pool = true;
       }else
       {
-        LOG_PRINT_L0("tx used wrong inputs, rejected");
+        LOG_PRINT_L1("tx used wrong inputs, rejected");
         tvc.m_verifivation_failed = true;
         return false;
       }
@@ -242,7 +242,7 @@ namespace cryptonote
       if((tx_age > CRYPTONOTE_MEMPOOL_TX_LIVETIME && !it->second.kept_by_block) || 
          (tx_age > CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && it->second.kept_by_block) )
       {
-        LOG_PRINT_L0("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
+        LOG_PRINT_L1("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
         m_transactions.erase(it++);
       }else
         ++it;
@@ -476,7 +476,7 @@ namespace cryptonote
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
       auto it2 = it++;
       if (it2->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
-        LOG_PRINT_L0("Transaction " << get_transaction_hash(it2->second.tx) << " is too big (" << it2->second.blob_size << " bytes), removing it from pool");
+        LOG_PRINT_L1("Transaction " << get_transaction_hash(it2->second.tx) << " is too big (" << it2->second.blob_size << " bytes), removing it from pool");
         remove_transaction_keyimages(it2->second.tx);
         m_transactions.erase(it2);
       }
@@ -491,7 +491,7 @@ namespace cryptonote
   {
     if (!tools::create_directories_if_necessary(m_config_folder))
     {
-      LOG_PRINT_L0("Failed to create data directory: " << m_config_folder);
+      LOG_PRINT_L1("Failed to create data directory: " << m_config_folder);
       return false;
     }
 
@@ -499,7 +499,7 @@ namespace cryptonote
     bool res = tools::serialize_obj_to_file(*this, state_file_path);
     if(!res)
     {
-      LOG_PRINT_L0("Failed to serialize memory pool to file " << state_file_path);
+      LOG_PRINT_L1("Failed to serialize memory pool to file " << state_file_path);
     }
     return true;
   }
