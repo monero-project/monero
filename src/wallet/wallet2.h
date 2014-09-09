@@ -158,6 +158,8 @@ namespace tools
     void refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money);
     bool refresh(size_t & blocks_fetched, bool& received_money, bool& ok);
 
+    bool testnet() { return m_testnet; }
+
     uint64_t balance();
     uint64_t unlocked_balance();
     template<typename T>
@@ -413,7 +415,7 @@ namespace tools
       needed_money += dt.amount;
       if (needed_money < dt.amount)
       {
-        THROW_WALLET_EXCEPTION(error::tx_sum_overflow, output_transfers, fee);
+        THROW_WALLET_EXCEPTION(error::tx_sum_overflow, output_transfers, fee, m_testnet);
       }
     }
 
@@ -640,7 +642,7 @@ namespace tools
     if (!r)
     {
       THROW_WALLET_EXCEPTION(error::tx_not_constructed
-        , obfuscated_input_transfers, split_output_transfers, unlock_time);
+        , obfuscated_input_transfers, split_output_transfers, unlock_time, m_testnet);
     }
 
     // Throw an exception if the transaction is too large

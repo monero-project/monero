@@ -93,10 +93,10 @@ DISABLE_VS_WARNINGS(4244 4345)
     return m_keys;
   }
   //-----------------------------------------------------------------
-  std::string account_base::get_public_address_str()
+  std::string account_base::get_public_address_str(bool testnet)
   {
     //TODO: change this code into base 58
-    return get_account_address_as_str(m_keys.m_account_address);
+    return get_account_address_as_str(testnet, m_keys.m_account_address);
   }
   //-----------------------------------------------------------------
 }

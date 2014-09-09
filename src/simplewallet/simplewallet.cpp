@@ -441,7 +441,9 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   try
   {
     recovery_val = m_wallet->generate(wallet_file, password, recovery_key, recover, two_random);
-    message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: " << m_wallet->get_account().get_public_address_str() << std::endl << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+    message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: "
+      << m_wallet->get_account().get_public_address_str(m_wallet->testnet()) << std::endl << "view key: "
+      << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   }
   catch (const std::exception& e)
   {
@@ -487,7 +489,8 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
   try
   {
     m_wallet->load(m_wallet_file, password);
-    message_writer(epee::log_space::console_color_white, true) << "Opened wallet: " << m_wallet->get_account().get_public_address_str();
+    message_writer(epee::log_space::console_color_white, true) << "Opened wallet: "
+      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   }
   catch (const std::exception& e)
   {
@@ -548,7 +551,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
     return true;
 
   COMMAND_RPC_START_MINING::request req;
-  req.miner_address = m_wallet->get_account().get_public_address_str();
+  req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 
   bool ok = true;
   size_t max_mining_threads_count = (std::max)(std::thread::hardware_concurrency(), static_cast<unsigned>(2));
@@ -905,7 +908,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
     cryptonote::tx_destination_entry de;
-    if(!get_account_address_from_str(de.addr, local_args[i]))
+    if(!get_account_address_from_str(de.addr, m_wallet->testnet(), local_args[i]))
     {
       fail_msg_writer() << "wrong address: " << local_args[i];
       return true;
@@ -1035,7 +1038,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
-  std::string addr_start = m_wallet->get_account().get_public_address_str().substr(0, 6);
+  std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
   return m_cmd_binder.run_handling("[wallet " + addr_start + "]: ", "");
 }
 //----------------------------------------------------------------------------------------------------
@@ -1047,7 +1050,7 @@ void simple_wallet::stop()
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  success_msg_writer() << m_wallet->get_account().get_public_address_str();
+  success_msg_writer() << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   return true;
 }
 //----------------------------------------------------------------------------------------------------

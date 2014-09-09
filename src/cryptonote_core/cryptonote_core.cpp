@@ -127,7 +127,7 @@ namespace cryptonote
     r = m_blockchain_storage.init(m_config_folder, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
-    r = m_miner.init(vm);
+    r = m_miner.init(vm, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     return load_state_data();
