@@ -195,43 +195,40 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
-  namespace
+  inline void add_hardcoded_seed_node(
+      std::vector<net_address> & seed_nodes
+    , std::string const & addr
+    )
   {
-    void add_hardcoded_seed_node(
-        std::vector<net_address> & seed_nodes
-      , std::string const & addr
-      )
+    using namespace boost::asio;
+
+    size_t pos = addr.find_last_of(':');
+    CHECK_AND_ASSERT_MES_NO_RET(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, "Failed to parse seed address from string: '" << addr << '\'');
+    std::string host = addr.substr(0, pos);
+    std::string port = addr.substr(pos + 1);
+
+    io_service io_srv;
+    ip::tcp::resolver resolver(io_srv);
+    ip::tcp::resolver::query query(host, port);
+    boost::system::error_code ec;
+    ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
+    CHECK_AND_ASSERT_MES_NO_RET(!ec, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
+
+    ip::tcp::resolver::iterator iend;
+    for (; i != iend; ++i)
     {
-      using namespace boost::asio;
-
-      size_t pos = addr.find_last_of(':');
-      CHECK_AND_ASSERT_MES_NO_RET(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, "Failed to parse seed address from string: '" << addr << '\'');
-      std::string host = addr.substr(0, pos);
-      std::string port = addr.substr(pos + 1);
-
-      io_service io_srv;
-      ip::tcp::resolver resolver(io_srv);
-      ip::tcp::resolver::query query(host, port);
-      boost::system::error_code ec;
-      ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
-      CHECK_AND_ASSERT_MES_NO_RET(!ec, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
-
-      ip::tcp::resolver::iterator iend;
-      for (; i != iend; ++i)
+      ip::tcp::endpoint endpoint = *i;
+      if (endpoint.address().is_v4())
       {
-        ip::tcp::endpoint endpoint = *i;
-        if (endpoint.address().is_v4())
-        {
-          nodetool::net_address na;
-          na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
-          na.port = endpoint.port();
-          seed_nodes.push_back(na);
-          LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
-        }
-        else
-        {
-          LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
-        }
+        nodetool::net_address na;
+        na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
+        na.port = endpoint.port();
+        seed_nodes.push_back(na);
+        LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
+      }
+      else
+      {
+        LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
       }
     }
   }
