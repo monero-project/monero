@@ -39,11 +39,41 @@
 #include "misc_language.h"
 #include "p2p/p2p_protocol_defs.h"
 
+/*! \brief Various Tools
+ *
+ *  
+ * 
+ */
 namespace tools
 {
+  /*! \brief Returns the default data directory.
+   *
+   * \details Windows < Vista: C:\\Documents and Settings\\Username\\Application Data\\CRYPTONOTE_NAME
+   *
+   * Windows >= Vista: C:\\Users\\Username\\AppData\\Roaming\\CRYPTONOTE_NAME
+   *
+   * Mac: ~/Library/Application Support/CRYPTONOTE_NAME
+   *
+   * Unix: ~/.CRYPTONOTE_NAME
+   */
   std::string get_default_data_dir();
+
+  /*! \breif Returns the OS version string
+   *
+   * \details This is a wrapper around the primitives
+   * get_windows_version_display_string() and
+   * get_nix_version_display_string()
+   */
   std::string get_os_version_string();
+
+  /*! \breif creates directories for a path
+   *
+   *  wrapper around boost::filesyste::create_directories.  
+   *  (ensure-directory-exists): greenspun's tenth rule in action!
+   */
   bool create_directories_if_necessary(const std::string& path);
+  /*! \brief std::rename wrapper for nix and something strange for windows.
+   */
   std::error_code replace_file(const std::string& replacement_name, const std::string& replaced_name);
 
   inline crypto::hash get_proof_of_trust_hash(const nodetool::proof_of_trust& pot)
@@ -54,10 +84,12 @@ namespace tools
     return crypto::cn_fast_hash(s.data(), s.size());
   }
 
-
+  /*! \breif Defines a signal handler for win32 and *nix
+   */
   class signal_handler
   {
   public:
+    /*! \brief installs a signal handler  */
     template<typename T>
     static bool install(T t)
     {
@@ -69,6 +101,7 @@ namespace tools
       }
       return r;
 #else
+      /* Only blocks SIGINT and SIGTERM */
       signal(SIGINT, posix_handler);
       signal(SIGTERM, posix_handler);
       m_handler = t;
@@ -78,12 +111,12 @@ namespace tools
 
   private:
 #if defined(WIN32)
+    /*! \breif Handler for win */
     static BOOL WINAPI win_handler(DWORD type)
     {
       if (CTRL_C_EVENT == type || CTRL_BREAK_EVENT == type)
       {
         handle_signal();
-        return TRUE;
       }
       else
       {
@@ -93,20 +126,22 @@ namespace tools
       return TRUE;
     }
 #else
+    /*! \breif handler for NIX */
     static void posix_handler(int /*type*/)
     {
       handle_signal();
     }
 #endif
 
+    /*! \breif calles m_handler */
     static void handle_signal()
     {
-      static std::mutex m_mutex;
-      std::unique_lock<std::mutex> lock(m_mutex);
+      /* static std::mutex m_mutex; */
+      /* std::unique_lock<std::mutex> lock(m_mutex); */
       m_handler();
     }
 
-  private:
+    /*! \breif where the installed handler is stored */
     static std::function<void(void)> m_handler;
   };
 }
