@@ -113,10 +113,6 @@ else()
   endif()
 endif()
 
-if(NOT FREEBSD)
-  set(UPNP_LIBRARIES "upnpc-static")
-endif()
-
 if(STATIC)
   set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_STATIC_RUNTIME ON)
