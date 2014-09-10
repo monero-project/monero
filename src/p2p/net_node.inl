@@ -42,8 +42,15 @@
 #include "net/local_ip.h"
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
-#include "miniupnpc.h"
-#include "upnpcommands.h"
+
+// We have to look for miniupnpc headers in different places, dependent on if its compiled or external
+#ifdef UPNP_STATIC
+ #include <miniupnpc/miniupnpc.h>
+ #include <miniupnpc/upnpcommands.h>
+#else
+ #include "miniupnpc.h"
+ #include "upnpcommands.h"
+#endif
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
