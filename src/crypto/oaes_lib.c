@@ -45,6 +45,8 @@ static const char _NR[] = {
 // FreeBSD also doesn't need timeb.h
 #ifndef __FreeBSD__
  #include <sys/timeb.h>
+#else
+ #include <sys/time.h>
 #endif
 
 #ifdef WIN32
