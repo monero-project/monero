@@ -52,16 +52,16 @@
 
 namespace tools {
 
-  /*! \breif Error codes for varint
+  /*! \brief Error codes for varint
    */
   enum {
-    /* \breif Represents the overflow error */
+    /* \brief Represents the overflow error */
     EVARINT_OVERFLOW = -1,
-    /* \breif Represents a non conical represnetation */
+    /* \brief Represents a non conical represnetation */
     EVARINT_REPRESENT = -2,
   };
 
-  /*! \breif writes a varint to a stream.
+  /*! \brief writes a varint to a stream.
    */
   template<typename OutputIt, typename T>
   /* Requires T to be both an integral type and unsigned, should be a compile error if it is not */
@@ -78,7 +78,7 @@ namespace tools {
     dest++;			/* Seems kinda pointless... */
   }
 
-  /*! \breif Returns the string that represents the varint
+  /*! \brief Returns the string that represents the varint
    */
   template<typename T>
     std::string get_varint_data(const T& v)
@@ -87,7 +87,7 @@ namespace tools {
       write_varint(std::ostreambuf_iterator<char>(ss), v);
       return ss.str();
     }
-  /*! \breif reads in the varint as pointer to by InputIt into i
+  /*! \brief reads in the varint as pointer to by InputIt into i
    */ 
   template<int bits, typename InputIt, typename T>
     typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value && 0 <= bits && bits <= std::numeric_limits<T>::digits, int>::type
@@ -118,7 +118,7 @@ namespace tools {
     return read;
   }
 
-  /*! \breif Wrapper around the other read_varint,
+  /*! \brief Wrapper around the other read_varint,
    *  Sets template parameters for you.
    */
   template<typename InputIt, typename T>

@@ -58,7 +58,7 @@ namespace tools
    */
   std::string get_default_data_dir();
 
-  /*! \breif Returns the OS version string
+  /*! \brief Returns the OS version string
    *
    * \details This is a wrapper around the primitives
    * get_windows_version_display_string() and
@@ -66,7 +66,7 @@ namespace tools
    */
   std::string get_os_version_string();
 
-  /*! \breif creates directories for a path
+  /*! \brief creates directories for a path
    *
    *  wrapper around boost::filesyste::create_directories.  
    *  (ensure-directory-exists): greenspun's tenth rule in action!
@@ -84,7 +84,7 @@ namespace tools
     return crypto::cn_fast_hash(s.data(), s.size());
   }
 
-  /*! \breif Defines a signal handler for win32 and *nix
+  /*! \brief Defines a signal handler for win32 and *nix
    */
   class signal_handler
   {
@@ -111,7 +111,7 @@ namespace tools
 
   private:
 #if defined(WIN32)
-    /*! \breif Handler for win */
+    /*! \brief Handler for win */
     static BOOL WINAPI win_handler(DWORD type)
     {
       if (CTRL_C_EVENT == type || CTRL_BREAK_EVENT == type)
@@ -126,14 +126,14 @@ namespace tools
       return TRUE;
     }
 #else
-    /*! \breif handler for NIX */
+    /*! \brief handler for NIX */
     static void posix_handler(int /*type*/)
     {
       handle_signal();
     }
 #endif
 
-    /*! \breif calles m_handler */
+    /*! \brief calles m_handler */
     static void handle_signal()
     {
       static std::mutex m_mutex;
@@ -141,7 +141,7 @@ namespace tools
       m_handler();
     }
 
-    /*! \breif where the installed handler is stored */
+    /*! \brief where the installed handler is stored */
     static std::function<void(void)> m_handler;
   };
 }
