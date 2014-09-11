@@ -376,7 +376,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     if (e)
     {
-      LOG_PRINT_L0("[sock " << socket_.native_handle() << "] Some problems at write: " << e.message() << ':' << e.value());
+      LOG_PRINT_L1("[sock " << socket_.native_handle() << "] Some problems at write: " << e.message() << ':' << e.value());
       shutdown();
       return;
     }

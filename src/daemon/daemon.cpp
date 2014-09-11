@@ -200,20 +200,20 @@ int main(int argc, char* argv[])
   daemon_cmmands_handler dch(p2psrv);
 
   //initialize objects
-  LOG_PRINT_L0("Initializing p2p server...");
+  LOG_PRINT_L0("Initializing P2P server...");
   res = p2psrv.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize p2p server.");
-  LOG_PRINT_L0("P2p server initialized OK");
+  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize P2P server.");
+  LOG_PRINT_L0("P2P server initialized OK");
 
-  LOG_PRINT_L0("Initializing cryptonote protocol...");
+  LOG_PRINT_L0("Initializing protocol...");
   res = cprotocol.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize cryptonote protocol.");
-  LOG_PRINT_L0("Cryptonote protocol initialized OK");
+  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize protocol.");
+  LOG_PRINT_L0("Protocol initialized OK");
 
-  LOG_PRINT_L0("Initializing core rpc server...");
+  LOG_PRINT_L0("Initializing core RPC server...");
   res = rpc_server.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
-  LOG_PRINT_GREEN("Core rpc server initialized OK on port: " << rpc_server.get_binded_port(), LOG_LEVEL_0);
+  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core RPC server.");
+  LOG_PRINT_GREEN("Core RPC server initialized OK on port: " << rpc_server.get_binded_port(), LOG_LEVEL_0);
 
   //initialize core here
   LOG_PRINT_L0("Initializing core...");
@@ -227,19 +227,19 @@ int main(int argc, char* argv[])
     dch.start_handling();
   }
 
-  LOG_PRINT_L0("Starting core rpc server...");
+  LOG_PRINT_L0("Starting core RPC server...");
   res = rpc_server.run(2, false);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core rpc server.");
-  LOG_PRINT_L0("Core rpc server started ok");
+  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core RPC server.");
+  LOG_PRINT_L0("Core RPC server started ok");
 
   tools::signal_handler::install([&dch, &p2psrv] {
     dch.stop_handling();
     p2psrv.send_stop_signal();
   });
 
-  LOG_PRINT_L0("Starting p2p net loop...");
+  LOG_PRINT_L0("Starting P2P net loop...");
   p2psrv.run();
-  LOG_PRINT_L0("p2p net loop stopped");
+  LOG_PRINT_L0("P2P net loop stopped");
 
   //stop components
   LOG_PRINT_L0("Stopping core rpc server...");
@@ -249,11 +249,11 @@ int main(int argc, char* argv[])
   //deinitialize components
   LOG_PRINT_L0("Deinitializing core...");
   ccore.deinit();
-  LOG_PRINT_L0("Deinitializing rpc server ...");
+  LOG_PRINT_L0("Deinitializing RPC server ...");
   rpc_server.deinit();
-  LOG_PRINT_L0("Deinitializing cryptonote_protocol...");
+  LOG_PRINT_L0("Deinitializing protocol...");
   cprotocol.deinit();
-  LOG_PRINT_L0("Deinitializing p2p...");
+  LOG_PRINT_L0("Deinitializing P2P...");
   p2psrv.deinit();
 
 

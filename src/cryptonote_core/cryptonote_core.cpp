@@ -159,7 +159,7 @@ namespace cryptonote
 
     if(tx_blob.size() > get_max_tx_size())
     {
-      LOG_PRINT_L0("WRONG TRANSACTION BLOB, too big size " << tx_blob.size() << ", rejected");
+      LOG_PRINT_L1("WRONG TRANSACTION BLOB, too big size " << tx_blob.size() << ", rejected");
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -170,7 +170,7 @@ namespace cryptonote
 
     if(!parse_tx_from_blob(tx, tx_hash, tx_prefixt_hash, tx_blob))
     {
-      LOG_PRINT_L0("WRONG TRANSACTION BLOB, Failed to parse, rejected");
+      LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to parse, rejected");
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -178,23 +178,23 @@ namespace cryptonote
 
     if(!check_tx_syntax(tx))
     {
-      LOG_PRINT_L0("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " syntax, rejected");
+      LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " syntax, rejected");
       tvc.m_verifivation_failed = true;
       return false;
     }
 
     if(!check_tx_semantic(tx, keeped_by_block))
     {
-      LOG_PRINT_L0("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " semantic, rejected");
+      LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " semantic, rejected");
       tvc.m_verifivation_failed = true;
       return false;
     }
 
     bool r = add_new_tx(tx, tx_hash, tx_prefixt_hash, tx_blob.size(), tvc, keeped_by_block);
     if(tvc.m_verifivation_failed)
-    {LOG_PRINT_RED_L0("Transaction verification failed: " << tx_hash);}
+    {LOG_PRINT_RED_L1("Transaction verification failed: " << tx_hash);}
     else if(tvc.m_verifivation_impossible)
-    {LOG_PRINT_RED_L0("Transaction verification impossible: " << tx_hash);}
+    {LOG_PRINT_RED_L1("Transaction verification impossible: " << tx_hash);}
 
     if(tvc.m_added_to_pool)
       LOG_PRINT_L1("tx added: " << tx_hash);
@@ -216,25 +216,25 @@ namespace cryptonote
   {
     if(!tx.vin.size())
     {
-      LOG_PRINT_RED_L0("tx with empty inputs, rejected for tx id= " << get_transaction_hash(tx));
+      LOG_PRINT_RED_L1("tx with empty inputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
 
     if(!check_inputs_types_supported(tx))
     {
-      LOG_PRINT_RED_L0("unsupported input types for tx id= " << get_transaction_hash(tx));
+      LOG_PRINT_RED_L1("unsupported input types for tx id= " << get_transaction_hash(tx));
       return false;
     }
 
     if(!check_outs_valid(tx))
     {
-      LOG_PRINT_RED_L0("tx with invalid outputs, rejected for tx id= " << get_transaction_hash(tx));
+      LOG_PRINT_RED_L1("tx with invalid outputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
 
     if(!check_money_overflow(tx))
     {
-      LOG_PRINT_RED_L0("tx have money overflow, rejected for tx id= " << get_transaction_hash(tx));
+      LOG_PRINT_RED_L1("tx has money overflow, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
 
@@ -244,20 +244,20 @@ namespace cryptonote
 
     if(amount_in <= amount_out)
     {
-      LOG_PRINT_RED_L0("tx with wrong amounts: ins " << amount_in << ", outs " << amount_out << ", rejected for tx id= " << get_transaction_hash(tx));
+      LOG_PRINT_RED_L1("tx with wrong amounts: ins " << amount_in << ", outs " << amount_out << ", rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
 
     if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
     {
-      LOG_PRINT_RED_L0("tx have to big size " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+      LOG_PRINT_RED_L1("tx is too large " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
       return false;
     }
 
     //check if tx use different key images
     if(!check_tx_inputs_keyimages_diff(tx))
     {
-      LOG_PRINT_RED_L0("tx have to big size " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+      LOG_PRINT_RED_L1("tx is too large " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
       return false;
     }
 
@@ -385,7 +385,7 @@ namespace cryptonote
       m_blockchain_storage.get_transactions(b.tx_hashes, txs, missed_txs);
       if(missed_txs.size() &&  m_blockchain_storage.get_block_id_by_height(get_block_height(b)) != get_block_hash(b))
       {
-        LOG_PRINT_L0("Block found but, seems that reorganize just happened after that, do not relay this block");
+        LOG_PRINT_L1("Block found but, seems that reorganize just happened after that, do not relay this block");
         return true;
       }
       CHECK_AND_ASSERT_MES(txs.size() == b.tx_hashes.size() && !missed_txs.size(), false, "cant find some transactions in found block:" << get_block_hash(b) << " txs.size()=" << txs.size()
@@ -420,7 +420,7 @@ namespace cryptonote
     bvc = boost::value_initialized<block_verification_context>();
     if(block_blob.size() > get_max_block_size())
     {
-      LOG_PRINT_L0("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
+      LOG_PRINT_L1("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
       bvc.m_verifivation_failed = true;
       return false;
     }
@@ -428,7 +428,7 @@ namespace cryptonote
     block b = AUTO_VAL_INIT(b);
     if(!parse_and_validate_block_from_blob(block_blob, b))
     {
-      LOG_PRINT_L0("Failed to parse and validate new block");
+      LOG_PRINT_L1("Failed to parse and validate new block");
       bvc.m_verifivation_failed = true;
       return false;
     }
@@ -444,7 +444,7 @@ namespace cryptonote
   {
     if(block_blob.size() > get_max_block_size())
     {
-      LOG_PRINT_L0("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
+      LOG_PRINT_L1("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
       return false;
     }
     return true;

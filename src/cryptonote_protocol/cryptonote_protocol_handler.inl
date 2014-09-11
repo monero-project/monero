@@ -225,7 +225,7 @@ namespace cryptonote
       m_core.handle_incoming_tx(*tx_blob_it, tvc, true);
       if(tvc.m_verifivation_failed)
       {
-        LOG_PRINT_CCONTEXT_L0("Block verification failed: transaction verification failed, dropping connection");
+        LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
         m_p2p->drop_connection(context);
         return 1;
       }
@@ -238,7 +238,7 @@ namespace cryptonote
     m_core.resume_mine();
     if(bvc.m_verifivation_failed)
     {
-      LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
+      LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
       m_p2p->drop_connection(context);
       return 1;
     }
@@ -272,7 +272,7 @@ namespace cryptonote
       m_core.handle_incoming_tx(*tx_blob_it, tvc, false);
       if(tvc.m_verifivation_failed)
       {
-        LOG_PRINT_CCONTEXT_L0("Tx verification failed, dropping connection");
+        LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
         m_p2p->drop_connection(context);
         return 1;
       }
@@ -404,13 +404,13 @@ namespace cryptonote
 
         if(bvc.m_verifivation_failed)
         {
-          LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
+          LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
           m_p2p->drop_connection(context);
           return 1;
         }
         if(bvc.m_marked_as_orphaned)
         {
-          LOG_PRINT_CCONTEXT_L0("Block received at sync phase was marked as orphaned, dropping connection");
+          LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
           m_p2p->drop_connection(context);
           return 1;
         }
