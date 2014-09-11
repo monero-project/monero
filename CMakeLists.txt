@@ -43,14 +43,6 @@ if (UNIX AND NOT APPLE)
   find_package(Threads)
 endif()
 
-if(MINIUPNP_FOUND AND MINIUPNPC_VERSION_1_7_OR_HIGHER)
-  add_definitions("-DUPNP_DYNAMIC")
-  set(UPNP_LIBRARIES "miniupnpc")
-else()
-  add_definitions("-DUPNP_STATIC")
-  set(UPNP_LIBRARIES "upnpc-static")
-endif()
-
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
   # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Dinline=__inline")
@@ -165,5 +157,14 @@ else()
 endif()
 
 add_subdirectory(external)
+
+# Final setup for miniupnpc
+if(UPNP_STATIC)
+  add_definitions("-DUPNP_STATIC")
+else()
+  add_definitions("-DUPNP_DYNAMIC")
+  include_directories(${UPNP_INCLUDE})
+endif()
+
 add_subdirectory(src)
 add_subdirectory(tests)
