@@ -136,8 +136,8 @@ namespace tools
     /*! \breif calles m_handler */
     static void handle_signal()
     {
-      /* static std::mutex m_mutex; */
-      /* std::unique_lock<std::mutex> lock(m_mutex); */
+      static std::mutex m_mutex;
+      std::unique_lock<std::mutex> lock(m_mutex);
       m_handler();
     }
 
