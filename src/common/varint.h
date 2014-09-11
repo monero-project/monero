@@ -87,7 +87,7 @@ namespace tools {
       write_varint(std::ostreambuf_iterator<char>(ss), v);
       return ss.str();
     }
-  /*! \brief reads in the varint as pointer to by InputIt into i
+  /*! \brief reads in the varint that is pointed to by InputIt into write
    */ 
   template<int bits, typename InputIt, typename T>
     typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value && 0 <= bits && bits <= std::numeric_limits<T>::digits, int>::type
