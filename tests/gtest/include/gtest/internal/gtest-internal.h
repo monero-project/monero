@@ -44,7 +44,11 @@
 # include <sys/types.h>
 # include <sys/wait.h>
 # include <unistd.h>
+# include <signal.h>
 #endif  // GTEST_OS_LINUX
+#if GTEST_CAN_STREAM_RESULTS_
+# include <sys/socket.h>
+#endif  // GTEST_CAN_STREAM_RESULTS_
 
 #include <ctype.h>
 #include <string.h>

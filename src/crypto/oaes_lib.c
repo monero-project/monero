@@ -33,13 +33,20 @@ static const char _NR[] = {
 
 #include <stddef.h>
 #include <time.h> 
-#include <sys/timeb.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifndef __APPLE__
-#include <malloc.h>
+// Both OS X and FreeBSD don't need malloc.h
+#if !defined(__APPLE__) && !defined(__FreeBSD__)
+ #include <malloc.h>
+#endif
+
+// FreeBSD also doesn't need timeb.h
+#ifndef __FreeBSD__
+ #include <sys/timeb.h>
+#else
+ #include <sys/time.h>
 #endif
 
 #ifdef WIN32
@@ -463,6 +470,7 @@ OAES_RET oaes_sprintf(
 #ifdef OAES_HAVE_ISAAC
 static void oaes_get_seed( char buf[RANDSIZ + 1] )
 {
+	#ifndef __FreeBSD__
 	struct timeb timer;
 	struct tm *gmTimer;
 	char * _test = NULL;
@@ -474,13 +482,27 @@ static void oaes_get_seed( char buf[RANDSIZ + 1] )
 		gmTimer->tm_year + 1900, gmTimer->tm_mon + 1, gmTimer->tm_mday,
 		gmTimer->tm_hour, gmTimer->tm_min, gmTimer->tm_sec, timer.millitm,
 		_test + timer.millitm, getpid() );
+	#else
+	struct timeval timer;
+	struct tm *gmTimer;
+	char * _test = NULL;
 	
+	gettimeofday(&timer, NULL);
+	gmTimer = gmtime( &timer.tv_sec );
+	_test = (char *) calloc( sizeof( char ), timer.tv_usec/1000 );
+	sprintf( buf, "%04d%02d%02d%02d%02d%02d%03d%p%d",
+		gmTimer->tm_year + 1900, gmTimer->tm_mon + 1, gmTimer->tm_mday,
+		gmTimer->tm_hour, gmTimer->tm_min, gmTimer->tm_sec, timer.tv_usec/1000,
+		_test + timer.tv_usec/1000, getpid() );
+	#endif
+		
 	if( _test )
 		free( _test );
 }
 #else
 static uint32_t oaes_get_seed(void)
 {
+	#ifndef __FreeBSD__
 	struct timeb timer;
 	struct tm *gmTimer;
 	char * _test = NULL;
@@ -492,6 +514,19 @@ static uint32_t oaes_get_seed(void)
 	_ret = gmTimer->tm_year + 1900 + gmTimer->tm_mon + 1 + gmTimer->tm_mday +
 			gmTimer->tm_hour + gmTimer->tm_min + gmTimer->tm_sec + timer.millitm +
 			(uintptr_t) ( _test + timer.millitm ) + getpid();
+	#else
+	struct timeval timer;
+	struct tm *gmTimer;
+	char * _test = NULL;
+	uint32_t _ret = 0;
+	
+	gettimeofday(&timer, NULL);
+	gmTimer = gmtime( &timer.tv_sec );
+	_test = (char *) calloc( sizeof( char ), timer.tv_usec/1000 );
+	_ret = gmTimer->tm_year + 1900 + gmTimer->tm_mon + 1 + gmTimer->tm_mday +
+			gmTimer->tm_hour + gmTimer->tm_min + gmTimer->tm_sec + timer.tv_usec/1000 +
+			(uintptr_t) ( _test + timer.tv_usec/1000 ) + getpid();
+	#endif
 
 	if( _test )
 		free( _test );

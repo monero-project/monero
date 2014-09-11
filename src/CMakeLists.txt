@@ -1,3 +1,33 @@
+# Copyright (c) 2014, The Monero Project
+# 
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without modification, are
+# permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list
+#    of conditions and the following disclaimer in the documentation and/or other
+#    materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its contributors may be
+#    used to endorse or promote products derived from this software without specific
+#    prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+# THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+# THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# 
+# Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+
 add_definitions(-DSTATICLIB)
 
 file(GLOB_RECURSE COMMON common/*)
@@ -30,13 +60,13 @@ add_library(cryptonote_core ${CRYPTONOTE_CORE})
 add_executable(daemon ${DAEMON} ${P2P} ${CRYPTONOTE_PROTOCOL})
 add_executable(connectivity_tool ${CONN_TOOL})
 add_executable(simpleminer ${MINER})
-target_link_libraries(daemon rpc cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(daemon rpc cryptonote_core crypto common ${UPNP_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 target_link_libraries(connectivity_tool cryptonote_core crypto common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 target_link_libraries(simpleminer cryptonote_core crypto common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 add_library(rpc ${RPC})
 add_library(wallet ${WALLET})
 add_executable(simplewallet ${SIMPLEWALLET} )
-target_link_libraries(simplewallet wallet rpc cryptonote_core crypto common upnpc-static ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(simplewallet wallet rpc cryptonote_core crypto common ${UPNP_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 add_dependencies(daemon version)
 add_dependencies(rpc version)
 add_dependencies(simplewallet version)

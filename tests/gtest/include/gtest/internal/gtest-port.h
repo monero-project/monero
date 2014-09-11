@@ -188,6 +188,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #ifndef _WIN32_WCE
 # include <sys/types.h>
 # include <sys/stat.h>
@@ -232,6 +233,9 @@
 # ifdef ANDROID
 #  define GTEST_OS_LINUX_ANDROID 1
 # endif  // ANDROID
+#elif defined __FreeBSD__
+# define GTEST_OS_LINUX 1
+# define GTEST_HAS_CLONE 0
 #elif defined __MVS__
 # define GTEST_OS_ZOS 1
 #elif defined(__sun) && defined(__SVR4)
@@ -449,7 +453,7 @@
 // defining __GNUC__ and friends, but cannot compile GCC's tuple
 // implementation.  MSVC 2008 (9.0) provides TR1 tuple in a 323 MB
 // Feature Pack download, which we cannot assume the user has.
-# if (defined(__GNUC__) && !defined(__CUDACC__) && (GTEST_GCC_VER_ >= 40000)) \
+# if (defined(__GNUC__) && !defined(__CUDACC__) && !defined(_LIBCPP_VERSION) && (GTEST_GCC_VER_ >= 40000)) \
     || _MSC_VER >= 1600
 #  define GTEST_USE_OWN_TR1_TUPLE 0
 # else
