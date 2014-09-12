@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      std::cout << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL << ENDL;
+      std::cout << CRYPTONOTE_NAME << " v" << MONERO_VERSION_FULL << ENDL << ENDL;
       std::cout << desc_options << std::endl;
       return false;
     }
@@ -144,7 +144,7 @@ int main(int argc, char* argv[])
   log_dir = log_file_path.has_parent_path() ? log_file_path.parent_path().string() : log_space::log_singletone::get_default_log_folder();
 
   log_space::log_singletone::add_logger(LOGGER_FILE, log_file_path.filename().string().c_str(), log_dir.c_str());
-  LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG);
+  LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << MONERO_VERSION_FULL);
 
   if (command_line_preprocessor(vm))
   {
@@ -240,7 +240,7 @@ bool command_line_preprocessor(const boost::program_options::variables_map& vm)
   bool exit = false;
   if (command_line::get_arg(vm, command_line::arg_version))
   {
-    std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
+    std::cout << CRYPTONOTE_NAME  << " v" << MONERO_VERSION_FULL << ENDL;
     exit = true;
   }
   if (command_line::get_arg(vm, arg_os_version))

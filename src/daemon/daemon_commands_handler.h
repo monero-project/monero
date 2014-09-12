@@ -83,7 +83,7 @@ private:
   std::string get_commands_str()
   {
     std::stringstream ss;
-    ss << CRYPTONOTE_NAME << " v" << PROJECT_VERSION_LONG << ENDL;
+    ss << CRYPTONOTE_NAME << " v" << MONERO_VERSION_FULL << ENDL;
     ss << "Commands: " << ENDL;
     std::string usage = m_cmd_binder.get_usage();
     boost::replace_all(usage, "\n", "\n  ");
