@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+
+/* This isn't a header file, may want to refactor this... */
 #pragma once
 
 #include <boost/lexical_cast.hpp>
@@ -39,7 +41,11 @@
 #include "crypto/hash.h"
 #include "version.h"
 
-
+/*!
+ * \brief I don't really know right now
+ *  
+ * 
+ */
 class daemon_cmmands_handler
 {
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_srv;

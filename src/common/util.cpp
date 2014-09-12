@@ -47,7 +47,7 @@ using namespace epee;
 
 namespace tools
 {
-  std::function<void(void)> signal_handler::m_handler;
+  std::function<void(void)> signal_handler::m_handler; 
 
 #ifdef WIN32
   std::string get_windows_version_display_string()
@@ -313,17 +313,19 @@ std::string get_nix_version_display_string()
     return "";
   }
 #endif
-
+  
   std::string get_default_data_dir()
   {
-    //namespace fs = boost::filesystem;
+    /* Please for the love of god refactor  the ifdefs out of this */
+
+    // namespace fs = boost::filesystem;
     // Windows < Vista: C:\Documents and Settings\Username\Application Data\CRYPTONOTE_NAME
     // Windows >= Vista: C:\Users\Username\AppData\Roaming\CRYPTONOTE_NAME
     // Mac: ~/Library/Application Support/CRYPTONOTE_NAME
     // Unix: ~/.CRYPTONOTE_NAME
     std::string config_folder;
+
 #ifdef WIN32
-    // Windows
     config_folder = get_special_folder_path(CSIDL_APPDATA, true) + "/" + CRYPTONOTE_NAME;
 #else
     std::string pathRet;

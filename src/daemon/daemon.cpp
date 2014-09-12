@@ -29,7 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 // node.cpp : Defines the entry point for the console application.
-//
+// Does this file exist?
 
 
 #include "include_base_utils.h"
@@ -64,11 +64,42 @@ namespace
   const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
 }
 
-bool command_line_preprocessor(const boost::program_options::variables_map& vm);
+bool command_line_preprocessor(const boost::program_options::variables_map& vm)
+{
+  bool exit = false;
+  if (command_line::get_arg(vm, command_line::arg_version))
+  {
+    std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
+    exit = true;
+  }
+  if (command_line::get_arg(vm, arg_os_version))
+  {
+    std::cout << "OS: " << tools::get_os_version_string() << ENDL;
+    exit = true;
+  }
+
+  if (exit)
+  {
+    return true;
+  }
+
+  int new_log_level = command_line::get_arg(vm, arg_log_level);
+  if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
+  {
+    LOG_PRINT_L0("Wrong log level value: ");
+  }
+  else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
+  {
+    log_space::get_set_log_detalisation_level(true, new_log_level);
+    LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
+  }
+
+  return false;
+}
 
 int main(int argc, char* argv[])
 {
-
+  
   string_tools::set_module_name_and_folder(argv[0]);
 #ifdef WIN32
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
@@ -235,35 +266,3 @@ int main(int argc, char* argv[])
   CATCH_ENTRY_L0("main", 1);
 }
 
-bool command_line_preprocessor(const boost::program_options::variables_map& vm)
-{
-  bool exit = false;
-  if (command_line::get_arg(vm, command_line::arg_version))
-  {
-    std::cout << CRYPTONOTE_NAME  << " v" << PROJECT_VERSION_LONG << ENDL;
-    exit = true;
-  }
-  if (command_line::get_arg(vm, arg_os_version))
-  {
-    std::cout << "OS: " << tools::get_os_version_string() << ENDL;
-    exit = true;
-  }
-
-  if (exit)
-  {
-    return true;
-  }
-
-  int new_log_level = command_line::get_arg(vm, arg_log_level);
-  if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
-  {
-    LOG_PRINT_L0("Wrong log level value: ");
-  }
-  else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
-  {
-    log_space::get_set_log_detalisation_level(true, new_log_level);
-    LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
-  }
-
-  return false;
-}
