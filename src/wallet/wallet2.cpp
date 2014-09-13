@@ -109,55 +109,59 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     LOG_PRINT_L0("Transaction extra has unsupported format: " << get_transaction_hash(tx));
   }
 
-  tx_extra_pub_key pub_key_field;
-  if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field))
+  // Don't try to extract tx public key if tx has no ouputs
+  if (!tx.vout.empty()) 
   {
-    LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << get_transaction_hash(tx));
-    if(0 != m_callback)
-      m_callback->on_skip_transaction(height, tx);
-    return;
-  }
-
-  crypto::public_key tx_pub_key = pub_key_field.pub_key;
-  bool r = lookup_acc_outs(m_account.get_keys(), tx, tx_pub_key, outs, tx_money_got_in_outs);
-  THROW_WALLET_EXCEPTION_IF(!r, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
-
-  if(!outs.empty() && tx_money_got_in_outs)
-  {
-    //good news - got money! take care about it
-    //usually we have only one transfer for user in transaction
-    cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
-    cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
-    req.txid = get_transaction_hash(tx);
-    bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
-    THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
-    THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
-    THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
-      "transactions outputs size=" + std::to_string(tx.vout.size()) +
-      " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));
-
-    BOOST_FOREACH(size_t o, outs)
+    tx_extra_pub_key pub_key_field;
+    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field))
     {
-      THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
-        std::to_string(o) + ", total_outs=" + std::to_string(tx.vout.size()));
+      LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << get_transaction_hash(tx));
+      if(0 != m_callback)
+	m_callback->on_skip_transaction(height, tx);
+      return;
+    }
 
-      m_transfers.push_back(boost::value_initialized<transfer_details>());
-      transfer_details& td = m_transfers.back();
-      td.m_block_height = height;
-      td.m_internal_output_index = o;
-      td.m_global_output_index = res.o_indexes[o];
-      td.m_tx = tx;
-      td.m_spent = false;
-      cryptonote::keypair in_ephemeral;
-      cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, o, in_ephemeral, td.m_key_image);
-      THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(tx.vout[o].target).key,
-        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
+    crypto::public_key tx_pub_key = pub_key_field.pub_key;
+    bool r = lookup_acc_outs(m_account.get_keys(), tx, tx_pub_key, outs, tx_money_got_in_outs);
+    THROW_WALLET_EXCEPTION_IF(!r, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
 
-      m_key_images[td.m_key_image] = m_transfers.size()-1;
-      LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
-      if (0 != m_callback)
-        m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
+    if(!outs.empty() && tx_money_got_in_outs)
+    {
+      //good news - got money! take care about it
+      //usually we have only one transfer for user in transaction
+      cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
+      req.txid = get_transaction_hash(tx);
+      bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
+      THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
+      THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
+      THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
+				"transactions outputs size=" + std::to_string(tx.vout.size()) +
+				" not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));
+
+      BOOST_FOREACH(size_t o, outs)
+      {
+	THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
+				  std::to_string(o) + ", total_outs=" + std::to_string(tx.vout.size()));
+
+	m_transfers.push_back(boost::value_initialized<transfer_details>());
+	transfer_details& td = m_transfers.back();
+	td.m_block_height = height;
+	td.m_internal_output_index = o;
+	td.m_global_output_index = res.o_indexes[o];
+	td.m_tx = tx;
+	td.m_spent = false;
+	cryptonote::keypair in_ephemeral;
+	cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, o, in_ephemeral, td.m_key_image);
+	THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(tx.vout[o].target).key,
+				  error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
+
+	m_key_images[td.m_key_image] = m_transfers.size()-1;
+	LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
+	if (0 != m_callback)
+	  m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
+      }
     }
   }
 
