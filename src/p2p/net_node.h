@@ -41,6 +41,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/version.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "warnings.h"
 #include "net/levin_server_cp2.h"
@@ -103,6 +104,7 @@ namespace nodetool
     virtual uint64_t get_connections_count();
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
+    boost::posix_time::time_duration time_elapsed();
   private:
     typedef COMMAND_REQUEST_STAT_INFO_T<typename t_payload_net_handler::stat_info> COMMAND_REQUEST_STAT_INFO;
 
@@ -206,6 +208,7 @@ namespace nodetool
     uint32_t m_ip_address;
     bool m_allow_local_ip;
     bool m_hide_my_port;
+    boost::posix_time::ptime start_time;
 
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;

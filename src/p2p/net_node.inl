@@ -303,6 +303,7 @@ namespace nodetool
       LOG_PRINT_L0("No IGD was found.");
     }
 
+    start_time = boost::posix_time::microsec_clock::local_time();
     return res;
   }
   //-----------------------------------------------------------------------------------
@@ -1187,5 +1188,12 @@ namespace nodetool
     }
 
     return true;
+  }
+
+  template<class t_payload_net_handler>
+  boost::posix_time::time_duration node_server<t_payload_net_handler>::time_elapsed()
+  {
+    boost::posix_time::ptime time_now = boost::posix_time::microsec_clock::local_time();
+    return time_now - start_time;
   }
 }

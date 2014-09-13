@@ -69,6 +69,7 @@ public:
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
     m_cmd_binder.set_handler("set_log", boost::bind(&daemon_cmmands_handler::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
     m_cmd_binder.set_handler("diff", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Show difficulty");
+    m_cmd_binder.set_handler("show_stats", boost::bind(&daemon_cmmands_handler::show_stats, this, _1), "Show daemon stats");
   }
 
   bool start_handling()
@@ -144,6 +145,13 @@ private:
 
 	  return true;
   } 
+  //--------------------------------------------------------------------------------
+  bool show_stats(const std::vector<std::string>& args)
+  {
+    std::string time_elapsed = boost::posix_time::to_simple_string(m_srv.time_elapsed());
+    std::cout << "Time elapsed: " << time_elapsed << ENDL;
+    return true;
+  }
   //--------------------------------------------------------------------------------
   bool print_bc_outs(const std::vector<std::string>& args)
   {
