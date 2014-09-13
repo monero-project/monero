@@ -31,11 +31,33 @@
 #ifndef SYSTEM_STATS
 #define SYSTEM_STATS
 
+#include <exception>
+
 namespace system_stats
 {
   long long get_total_system_memory();
   long long get_used_system_memory();
   double get_cpu_usage();
+
+  /* An exception class for integer overflows in CPU time holding variables */
+  class cpu_time_integer_overflow_exception: public std::exception
+  {
+  public:
+    virtual const char* what()
+    {
+      return "CPU time integer overflow occured. Try again.";
+    }
+  };
+
+  /* An exception class for file reading errors */
+  class proc_file_error: public std::exception
+  {
+  public:
+    virtual const char* what()
+    {
+      return "Couldn't read /proc/stat";
+    }
+  };
 };
 
 #endif

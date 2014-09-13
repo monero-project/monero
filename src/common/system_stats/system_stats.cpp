@@ -34,14 +34,13 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
 #include <unistd.h>
 
 const int CPU_USAGE_WAIT_DURATION = 1000000;
 
 namespace system_stats
 {
-  /* Returns the total amount of main memory in the system */
+  /* Returns the total amount of main memory in the system (in Bytes) */
   long long get_total_system_memory()
   {
     struct sysinfo mem_info;
@@ -51,7 +50,7 @@ namespace system_stats
     return total_mem;
   }
 
-  /* Returns the total amount of the memory that is currently being used */
+  /* Returns the total amount of the memory that is currently being used (in Bytes) */
   long long get_used_system_memory()
   {
     struct sysinfo mem_info;
@@ -74,23 +73,29 @@ namespace system_stats
 
     // Get a snapshot of the how much CPU time has been spent for each type.
     file = fopen("/proc/stat", "r");
-    fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_before, &total_cpu_user_low_before,
-      &total_cpu_sys_before, &total_cpu_idle_before);
+    if (!fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_before, &total_cpu_user_low_before,
+      &total_cpu_sys_before, &total_cpu_idle_before))
+    {
+      throw proc_file_error();
+    }
     fclose(file);
 
     // Wait for sometime and get another snapshot to compare against.
     usleep(CPU_USAGE_WAIT_DURATION);
 
     file = fopen("/proc/stat", "r");
-    fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_after, &total_cpu_user_low_after,
-      &total_cpu_sys_after, &total_cpu_idle_after);
+    if (!fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_after, &total_cpu_user_low_after,
+      &total_cpu_sys_after, &total_cpu_idle_after))
+    {
+      throw proc_file_error();
+    }
     fclose(file);
 
     if (total_cpu_user_after < total_cpu_user_before || total_cpu_user_low_after < total_cpu_user_low_before ||
       total_cpu_sys_after < total_cpu_sys_before || total_cpu_idle_after < total_cpu_idle_before)
     {
       // Overflow detected.
-      percent = -1.0;
+      throw cpu_time_integer_overflow_exception();
     }
     else
     {
