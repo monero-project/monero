@@ -1006,7 +1006,6 @@ size_t blockchain_storage::find_end_of_allowed_index(const std::vector<std::pair
 //------------------------------------------------------------------
 bool blockchain_storage::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res)
 {
-  srand(static_cast<unsigned int>(time(NULL)));
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   BOOST_FOREACH(uint64_t amount, req.amounts)
   {
@@ -1029,7 +1028,7 @@ bool blockchain_storage::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDO
       size_t try_count = 0;
       for(uint64_t j = 0; j != req.outs_count && try_count < up_index_limit;)
       {
-        size_t i = rand()%up_index_limit;
+        size_t i = crypto::rand<size_t>()%up_index_limit;
         if(used.count(i))
           continue;
         bool added = add_out_to_get_random_outs(amount_outs, result_outs, amount, i);
