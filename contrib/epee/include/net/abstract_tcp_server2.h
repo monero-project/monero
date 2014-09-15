@@ -48,7 +48,7 @@
 #include "syncobj.h"
 
 
-#define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 100
+#define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 1000
 
 namespace epee
 {
