@@ -40,13 +40,15 @@ if(RET)
 else()
 	message(STATUS "You are currently on commit ${COMMIT}")
 	
-	# Give our output variable a default value, because CMake likes to choke on empty variables
-	set(TAGGEDCOMMITOUT "a")
 	# Get all the tags
 	execute_process(COMMAND "${GIT}" show-ref --tags -d --abbrev RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMITOUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 	
 	# Make sure we actually got some tags
-	string(LENGTH ${TAGGEDCOMMITOUT} TLEN)
+	if(TAGGEDCOMMITOUT)
+		string(LENGTH ${TAGGEDCOMMITOUT} TLEN)
+	else()
+		set(TLEN 1)
+	endif()
 	
 	if(RET OR TLEN LESS 5)
 	    message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
