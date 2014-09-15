@@ -123,8 +123,12 @@ else()
     set(USE_LTO_DEFAULT true)
   endif()
   set(USE_LTO ${USE_LTO_DEFAULT} CACHE BOOL "Use Link-Time Optimization (Release mode only)")
+
+  # There is a clang bug that does not allow to compile code that uses AES-NI intrinsics if -flto is enabled, so explicitly disable
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  	set(USE_LTO false)
+  endif()
   if(USE_LTO)
-    # There is a clang bug that does not allow to compile code that uses AES-NI intrinsics if -flto is enabled
     set(RELEASE_FLAGS "${RELEASE_FLAGS} -flto")
     if(STATIC)
       set(RELEASE_FLAGS "${RELEASE_FLAGS} -ffat-lto-objects")
