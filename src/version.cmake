@@ -40,6 +40,8 @@ if(RET)
 else()
 	message(STATUS "You are currently on commit ${COMMIT}")
 	
+	# Give our output variable a default value, because CMake likes to choke on empty variables
+	set(TAGGEDCOMMITOUT "a")
 	# Get all the tags
 	execute_process(COMMAND "${GIT}" show-ref --tags -d --abbrev RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMITOUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 	
