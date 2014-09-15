@@ -6,7 +6,12 @@ if(RET)
     configure_file("src/version.h.in" "${TO}")
 else()
 	message(STATUS "You are currently on commit ${COMMIT}")
-	execute_process(COMMAND "${GIT}" show-ref --tags -d --abbrev COMMAND awk "END{print $1}" RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
+	execute_process(COMMAND "${GIT}" show-ref --tags -d --abbrev RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMITOUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+	
+	string(REPLACE " refs/" "\n" TAGGEDCOMMITOUT2 ${TAGGEDCOMMITOUT})
+	string(REPLACE "\n" ";" TAGGEDCOMMITLIST ${TAGGEDCOMMITOUT2})
+	list(GET TAGGEDCOMMITLIST -2 TAGGEDCOMMIT)
+	
 	if(RET OR NOT TAGGEDCOMMIT)
 	    message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
 	    set(VERSIONTAG "${COMMIT}")
