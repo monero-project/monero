@@ -41,13 +41,14 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/version.hpp>
+#include <boost/uuid/uuid.hpp>
 
+#include "cryptonote_config.h"
 #include "warnings.h"
 #include "net/levin_server_cp2.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "net_peerlist.h"
-#include "p2p_networks.h"
 #include "math_helper.h"
 #include "net_node_common.h"
 #include "common/command_line.h"
@@ -78,14 +79,21 @@ namespace nodetool
 
   public:
     typedef t_payload_net_handler payload_net_handler;
-    // Some code
-    node_server(t_payload_net_handler& payload_handler):m_payload_handler(payload_handler), m_allow_local_ip(false), m_hide_my_port(false)
+
+    node_server(
+        t_payload_net_handler& payload_handler
+      , boost::uuids::uuid network_id
+      )
+      : m_payload_handler(payload_handler)
+      , m_allow_local_ip(false)
+      , m_hide_my_port(false)
+      , m_network_id(std::move(network_id))
     {}
 
     static void init_options(boost::program_options::options_description& desc);
 
     bool run();
-    bool init(const boost::program_options::variables_map& vm);
+    bool init(const boost::program_options::variables_map& vm, bool testnet);
     bool deinit();
     bool send_stop_signal();
     uint32_t get_this_peer_port(){return m_listenning_port;}
@@ -149,7 +157,10 @@ namespace nodetool
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type)> f);
     //-----------------------------------------------------------------------------------------------
     bool parse_peer_from_string(nodetool::net_address& pe, const std::string& node_addr);
-    bool handle_command_line(const boost::program_options::variables_map& vm);
+    bool handle_command_line(
+        const boost::program_options::variables_map& vm
+      , bool testnet
+      );
     bool idle_worker();
     bool handle_remote_peerlist(const std::list<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
     bool get_local_node_data(basic_node_data& node_data);
@@ -229,6 +240,7 @@ namespace nodetool
     uint64_t m_peer_livetime;
     //keep connections to initiate some interactions
     net_server m_net_server;
+    boost::uuids::uuid m_network_id;
   };
 }
 

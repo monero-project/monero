@@ -104,7 +104,10 @@ int main(int argc, char* argv[])
   //create objects and link them
   tests::proxy_core pr_core;
   cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> cprotocol(pr_core, NULL);
-  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> > p2psrv(cprotocol);
+  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> > p2psrv {
+      cprotocol
+    , std::move(config::NETWORK_ID)
+    };
   cprotocol.set_p2p_endpoint(&p2psrv);
   //pr_core.set_cryptonote_protocol(&cprotocol);
   //daemon_cmmands_handler dch(p2psrv);
@@ -112,7 +115,7 @@ int main(int argc, char* argv[])
   //initialize objects
 
   LOG_PRINT_L0("Initializing p2p server...");
-  bool res = p2psrv.init(vm);
+  bool res = p2psrv.init(vm, false);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize p2p server.");
   LOG_PRINT_L0("P2p server initialized OK");
 
@@ -224,7 +227,7 @@ bool tests::proxy_core::get_blockchain_top(uint64_t& height, crypto::hash& top_i
 }
 
 bool tests::proxy_core::init(const boost::program_options::variables_map& /*vm*/) {
-    generate_genesis_block(m_genesis);
+    generate_genesis_block(m_genesis, config::GENESIS_TX, config::GENESIS_NONCE);
     crypto::hash h = get_block_hash(m_genesis);
     add_block(h, get_block_longhash(m_genesis, 0), m_genesis, block_to_blob(m_genesis));
     return true;

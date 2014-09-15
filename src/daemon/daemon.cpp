@@ -42,6 +42,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "console_handler.h"
 #include "p2p/net_node.h"
+#include "cryptonote_config.h"
 #include "cryptonote_core/checkpoints_create.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "rpc/core_rpc_server.h"
@@ -62,6 +63,11 @@ namespace
   const command_line::arg_descriptor<std::string> arg_log_file    = {"log-file", "", ""};
   const command_line::arg_descriptor<int>         arg_log_level   = {"log-level", "", LOG_LEVEL_0};
   const command_line::arg_descriptor<bool>        arg_console     = {"no-console", "Disable daemon console commands"};
+  const command_line::arg_descriptor<bool>        arg_testnet_on  = {
+      "testnet"
+    , "Run on testnet. The wallet must be launched with --testnet flag."
+    , false
+    };
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm)
@@ -110,6 +116,9 @@ int main(int argc, char* argv[])
 
   TRY_ENTRY();  
 
+  boost::filesystem::path default_data_path {tools::get_default_data_dir()};
+  boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
+
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
 
@@ -117,13 +126,14 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_only, command_line::arg_version);
   command_line::add_arg(desc_cmd_only, arg_os_version);
   // tools::get_default_data_dir() can't be called during static initialization
-  command_line::add_arg(desc_cmd_only, command_line::arg_data_dir, tools::get_default_data_dir());
+  command_line::add_arg(desc_cmd_only, command_line::arg_data_dir, default_data_path.string());
+  command_line::add_arg(desc_cmd_only, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
   command_line::add_arg(desc_cmd_only, arg_config_file);
 
   command_line::add_arg(desc_cmd_sett, arg_log_file);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_console);
-  
+  command_line::add_arg(desc_cmd_sett, arg_testnet_on);
 
   cryptonote::core::init_options(desc_cmd_sett);
   cryptonote::core_rpc_server::init_options(desc_cmd_sett);
@@ -137,35 +147,40 @@ int main(int argc, char* argv[])
   bool r = command_line::handle_error_helper(desc_options, [&]()
   {
     po::store(po::parse_command_line(argc, argv, desc_options), vm);
-
-    if (command_line::get_arg(vm, command_line::arg_help))
-    {
-      std::cout << CRYPTONOTE_NAME << " v" << MONERO_VERSION_FULL << ENDL << ENDL;
-      std::cout << desc_options << std::endl;
-      return false;
-    }
-
-    std::string data_dir = command_line::get_arg(vm, command_line::arg_data_dir);
-    std::string config = command_line::get_arg(vm, arg_config_file);
-
-    boost::filesystem::path data_dir_path(data_dir);
-    boost::filesystem::path config_path(config);
-    if (!config_path.has_parent_path())
-    {
-      config_path = data_dir_path / config_path;
-    }
-
-    boost::system::error_code ec;
-    if (boost::filesystem::exists(config_path, ec))
-    {
-      po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), desc_cmd_sett), vm);
-    }
     po::notify(vm);
 
     return true;
   });
   if (!r)
     return 1;
+
+  if (command_line::get_arg(vm, command_line::arg_help))
+  {
+    std::cout << CRYPTONOTE_NAME << " v" << MONERO_VERSION_FULL << ENDL << ENDL;
+    std::cout << desc_options << std::endl;
+    return false;
+  }
+
+  bool testnet_mode = command_line::get_arg(vm, arg_testnet_on);
+
+  auto data_dir_arg = testnet_mode ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+
+  std::string data_dir = command_line::get_arg(vm, data_dir_arg);
+  tools::create_directories_if_necessary(data_dir);
+  std::string config = command_line::get_arg(vm, arg_config_file);
+
+  boost::filesystem::path data_dir_path(data_dir);
+  boost::filesystem::path config_path(config);
+  if (!config_path.has_parent_path())
+  {
+    config_path = data_dir_path / config_path;
+  }
+
+  boost::system::error_code ec;
+  if (boost::filesystem::exists(config_path, ec))
+  {
+    po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), desc_cmd_sett), vm);
+  }
 
   //set up logging options
   boost::filesystem::path log_file_path(command_line::get_arg(vm, arg_log_file));
@@ -191,17 +206,26 @@ int main(int argc, char* argv[])
 
   //create objects and link them
   cryptonote::core ccore(NULL);
-  ccore.set_checkpoints(std::move(checkpoints));  
+
+  if (testnet_mode) {
+    LOG_PRINT_L0("Starting in testnet mode!");
+  } else {
+    ccore.set_checkpoints(std::move(checkpoints));
+  }
+
   cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);
-  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > p2psrv(cprotocol);
-  cryptonote::core_rpc_server rpc_server(ccore, p2psrv);
+  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > p2psrv {
+      cprotocol
+    , testnet_mode ? std::move(config::testnet::NETWORK_ID) : std::move(config::NETWORK_ID)
+    };
+  cryptonote::core_rpc_server rpc_server {ccore, p2psrv, testnet_mode};
   cprotocol.set_p2p_endpoint(&p2psrv);
   ccore.set_cryptonote_protocol(&cprotocol);
-  daemon_cmmands_handler dch(p2psrv);
+  daemon_cmmands_handler dch(p2psrv, testnet_mode);
 
   //initialize objects
   LOG_PRINT_L0("Initializing P2P server...");
-  res = p2psrv.init(vm);
+  res = p2psrv.init(vm, testnet_mode);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize P2P server.");
   LOG_PRINT_L0("P2P server initialized OK");
 
@@ -217,7 +241,7 @@ int main(int argc, char* argv[])
 
   //initialize core here
   LOG_PRINT_L0("Initializing core...");
-  res = ccore.init(vm);
+  res = ccore.init(vm, testnet_mode);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
   LOG_PRINT_L0("Core initialized OK");
   

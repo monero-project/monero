@@ -487,7 +487,7 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
 
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core c(&pr);
-  if (!c.init(vm))
+  if (!c.init(vm, false))
   {
     std::cout << concolor::magenta << "Failed to init core" << concolor::normal << std::endl;
     return false;

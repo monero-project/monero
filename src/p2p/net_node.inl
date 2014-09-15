@@ -60,7 +60,16 @@ namespace nodetool
   namespace
   {
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol", "0.0.0.0"};
-    const command_line::arg_descriptor<std::string> arg_p2p_bind_port      = {"p2p-bind-port", "Port for p2p network protocol", boost::to_string(P2P_DEFAULT_PORT)};
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_port = {
+        "p2p-bind-port"
+      , "Port for p2p network protocol"
+      , std::to_string(config::P2P_DEFAULT_PORT)
+      };
+    const command_line::arg_descriptor<std::string> arg_testnet_p2p_bind_port = {
+        "testnet-p2p-bind-port"
+      , "Port for testnet p2p network protocol"
+      , std::to_string(config::testnet::P2P_DEFAULT_PORT)
+      };
     const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port  = {"p2p-external-port", "External port for p2p network protocol (if port forwarding used with NAT)", 0};
     const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip = {"allow-local-ip", "Allow local ip add to peer list, mostly in debug purposes"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer   = {"add-peer", "Manually add peer to local peerlist"};
@@ -77,6 +86,7 @@ namespace nodetool
   {
     command_line::add_arg(desc, arg_p2p_bind_ip);
     command_line::add_arg(desc, arg_p2p_bind_port);
+    command_line::add_arg(desc, arg_testnet_p2p_bind_port);
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
@@ -138,10 +148,15 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::handle_command_line(const boost::program_options::variables_map& vm)
+  bool node_server<t_payload_net_handler>::handle_command_line(
+      const boost::program_options::variables_map& vm
+    , bool testnet
+    )
   {
+    auto p2p_bind_arg = testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
+
     m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
-    m_port = command_line::get_arg(vm, arg_p2p_bind_port);
+    m_port = command_line::get_arg(vm, p2p_bind_arg);
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
 
@@ -180,67 +195,74 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
-  namespace
+  inline void add_hardcoded_seed_node(
+      std::vector<net_address> & seed_nodes
+    , std::string const & addr
+    )
   {
-    template<typename T>
-    bool append_net_address(T& nodes, const std::string& addr)
+    using namespace boost::asio;
+
+    size_t pos = addr.find_last_of(':');
+    CHECK_AND_ASSERT_MES_NO_RET(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, "Failed to parse seed address from string: '" << addr << '\'');
+    std::string host = addr.substr(0, pos);
+    std::string port = addr.substr(pos + 1);
+
+    io_service io_srv;
+    ip::tcp::resolver resolver(io_srv);
+    ip::tcp::resolver::query query(host, port);
+    boost::system::error_code ec;
+    ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
+    CHECK_AND_ASSERT_MES_NO_RET(!ec, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
+
+    ip::tcp::resolver::iterator iend;
+    for (; i != iend; ++i)
     {
-      using namespace boost::asio;
-
-      size_t pos = addr.find_last_of(':');
-      CHECK_AND_ASSERT_MES(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, false, "Failed to parse seed address from string: '" << addr << '\'');
-      std::string host = addr.substr(0, pos);
-      std::string port = addr.substr(pos + 1);
-
-      io_service io_srv;
-      ip::tcp::resolver resolver(io_srv);
-      ip::tcp::resolver::query query(host, port);
-      boost::system::error_code ec;
-      ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
-      CHECK_AND_NO_ASSERT_MES(!ec, false, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
-
-      ip::tcp::resolver::iterator iend;
-      for (; i != iend; ++i)
+      ip::tcp::endpoint endpoint = *i;
+      if (endpoint.address().is_v4())
       {
-        ip::tcp::endpoint endpoint = *i;
-        if (endpoint.address().is_v4())
-        {
-          nodetool::net_address na;
-          na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
-          na.port = endpoint.port();
-          nodes.push_back(na);
-          LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
-        }
-        else
-        {
-          LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
-        }
+        nodetool::net_address na;
+        na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
+        na.port = endpoint.port();
+        seed_nodes.push_back(na);
+        LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
       }
-
-      return true;
+      else
+      {
+        LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
+      }
     }
   }
 
-  #define ADD_HARDCODED_SEED_NODE(addr) append_net_address(m_seed_nodes, addr);
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
+  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, bool testnet)
   {
-    ADD_HARDCODED_SEED_NODE("62.210.78.186:18080");
-    ADD_HARDCODED_SEED_NODE("195.12.60.154:18080");
-    ADD_HARDCODED_SEED_NODE("54.241.246.125:18080");
-    ADD_HARDCODED_SEED_NODE("107.170.157.169:18080");
-    ADD_HARDCODED_SEED_NODE("54.207.112.216:18080");
-    ADD_HARDCODED_SEED_NODE("78.27.112.54:18080");
-    ADD_HARDCODED_SEED_NODE("209.222.30.57:18080");
-    ADD_HARDCODED_SEED_NODE("80.71.13.55:18080");
-    ADD_HARDCODED_SEED_NODE("107.178.112.126:18080");
-    ADD_HARDCODED_SEED_NODE("107.158.233.98:18080");
-    ADD_HARDCODED_SEED_NODE("64.22.111.2:18080");
+    if (testnet)
+    {
+      add_hardcoded_seed_node(m_seed_nodes, "107.152.187.202:28080");
+      add_hardcoded_seed_node(m_seed_nodes, "197.242.158.240:28080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.152.130.98:28080");
+    }
+    else
+    {
+      add_hardcoded_seed_node(m_seed_nodes, "62.210.78.186:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "195.12.60.154:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "54.241.246.125:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.170.157.169:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "54.207.112.216:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "78.27.112.54:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "209.222.30.57:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "80.71.13.55:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.178.112.126:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "107.158.233.98:18080");
+      add_hardcoded_seed_node(m_seed_nodes, "64.22.111.2:18080");
+    }
 
-    bool res = handle_command_line(vm);
+    bool res = handle_command_line(vm, testnet);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
-    m_config_folder = command_line::get_arg(vm, command_line::arg_data_dir);
+
+    auto config_arg = testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+    m_config_folder = command_line::get_arg(vm, config_arg);
 
     res = init_config();
     CHECK_AND_ASSERT_MES(res, false, "Failed to init config.");
@@ -410,7 +432,7 @@ namespace nodetool
         return;
       }
 
-      if(rsp.node_data.network_id != MONERO_NETWORK)
+      if(rsp.node_data.network_id != m_network_id)
       {
         LOG_ERROR_CCONTEXT("COMMAND_HANDSHAKE Failed, wrong network!  (" << epee::string_tools::get_str_from_guid_a(rsp.node_data.network_id) << "), closing connection.");
         return;
@@ -818,7 +840,7 @@ namespace nodetool
       node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
     else 
       node_data.my_port = 0;
-    node_data.network_id = MONERO_NETWORK;
+    node_data.network_id = m_network_id;
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -844,7 +866,7 @@ namespace nodetool
       return false;
     }
     crypto::public_key pk = AUTO_VAL_INIT(pk);
-    epee::string_tools::hex_to_pod(P2P_STAT_TRUSTED_PUB_KEY, pk);
+    epee::string_tools::hex_to_pod(::config::P2P_REMOTE_DEBUG_TRUSTED_PUB_KEY, pk);
     crypto::hash h = tools::get_proof_of_trust_hash(tr);
     if(!crypto::check_signature(h, pk, tr.sign))
     {
@@ -1038,7 +1060,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   int node_server<t_payload_net_handler>::handle_handshake(int command, typename COMMAND_HANDSHAKE::request& arg, typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
   {
-    if(arg.node_data.network_id != MONERO_NETWORK)
+    if(arg.node_data.network_id != m_network_id)
     {
 
       LOG_PRINT_CCONTEXT_L1("WRONG NETWORK AGENT CONNECTED! id=" << epee::string_tools::get_str_from_guid_a(arg.node_data.network_id));

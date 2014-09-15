@@ -49,10 +49,16 @@ namespace cryptonote
   public:
     typedef epee::net_utils::connection_context_base connection_context;
 
-    core_rpc_server(core& cr, nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p);
+    core_rpc_server(
+        core& cr
+      , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
+      , bool testnet
+      );
 
     static void init_options(boost::program_options::options_description& desc);
-    bool init(const boost::program_options::variables_map& vm);
+    bool init(
+        const boost::program_options::variables_map& vm
+      );
   private:
 
     CHAIN_HTTP_TO_MAP2(connection_context); //forward http requests to uri map
@@ -105,7 +111,9 @@ namespace cryptonote
     bool on_get_connections(const COMMAND_RPC_GET_CONNECTIONS::request& req, COMMAND_RPC_GET_CONNECTIONS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx);
     bool on_get_info_json(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, epee::json_rpc::error& error_resp, connection_context& cntx);
     //-----------------------
-    bool handle_command_line(const boost::program_options::variables_map& vm);
+    bool handle_command_line(
+        const boost::program_options::variables_map& vm
+      );
     bool check_core_busy();
     bool check_core_ready();
     
@@ -117,5 +125,6 @@ namespace cryptonote
     nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_p2p;
     std::string m_port;
     std::string m_bind_ip;
+    bool m_testnet;
   };
 }

@@ -103,9 +103,15 @@ namespace cryptonote {
     return summ;
   }
   //-----------------------------------------------------------------------
-  std::string get_account_address_as_str(const account_public_address& adr)
+  std::string get_account_address_as_str(
+      bool testnet
+    , account_public_address const & adr
+    )
   {
-    return tools::base58::encode_addr(CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX, t_serializable_object_to_blob(adr));
+    uint64_t address_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
+
+    return tools::base58::encode_addr(address_prefix, t_serializable_object_to_blob(adr));
   }
   //-----------------------------------------------------------------------
   bool is_coinbase(const transaction& tx)
@@ -119,8 +125,15 @@ namespace cryptonote {
     return true;
   }
   //-----------------------------------------------------------------------
-  bool get_account_address_from_str(account_public_address& adr, const std::string& str)
+  bool get_account_address_from_str(
+      account_public_address& adr
+    , bool testnet
+    , std::string const & str
+    )
   {
+    uint64_t address_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
+
     if (2 * sizeof(public_address_outer_blob) != str.size())
     {
       blobdata data;
@@ -131,9 +144,9 @@ namespace cryptonote {
         return false;
       }
 
-      if (CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX != prefix)
+      if (address_prefix != prefix)
       {
-        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX);
+        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << address_prefix);
         return false;
       }
 

@@ -66,8 +66,18 @@ namespace cryptonote {
   size_t get_max_tx_size();
   bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t &reward);
   uint8_t get_account_address_checksum(const public_address_outer_blob& bl);
-  std::string get_account_address_as_str(const account_public_address& adr);
-  bool get_account_address_from_str(account_public_address& adr, const std::string& str);
+
+  std::string get_account_address_as_str(
+      bool testnet
+    , const account_public_address& adr
+    );
+
+  bool get_account_address_from_str(
+      account_public_address& adr
+    , bool testnet
+    , const std::string& str
+    );
+
   bool is_coinbase(const transaction& tx);
 
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);

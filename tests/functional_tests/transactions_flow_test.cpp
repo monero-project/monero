@@ -37,6 +37,12 @@ using namespace epee;
 #include "wallet/wallet2.h"
 using namespace cryptonote;
 
+namespace
+{
+  uint64_t const TEST_FEE = 5000000000; // 5 * 10^9
+  uint64_t const TEST_DUST_THRESHOLD = 5000000000; // 5 * 10^9
+}
+
 std::string generate_random_wallet_name()
 {
   std::stringstream ss;
@@ -79,7 +85,7 @@ bool do_send_money(tools::wallet2& w1, tools::wallet2& w2, size_t mix_in_factor,
   try
   {
     tools::wallet2::pending_tx ptx;
-    w1.transfer(dsts, mix_in_factor, 0, DEFAULT_FEE, std::vector<uint8_t>(), tools::detail::null_split_strategy, tools::tx_dust_policy(DEFAULT_FEE), tx, ptx);
+    w1.transfer(dsts, mix_in_factor, 0, TEST_FEE, std::vector<uint8_t>(), tools::detail::null_split_strategy, tools::tx_dust_policy(TEST_DUST_THRESHOLD), tx, ptx);
     w1.commit_tx(ptx);
     return true;
   }
@@ -145,8 +151,8 @@ bool transactions_flow_test(std::string& working_folder,
   w2.init(daemon_addr_b);
 
   LOG_PRINT_GREEN("Using wallets: " << ENDL
-    << "Source:  " << w1.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
-    << "Target:  " << w2.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_terget_wallet, LOG_LEVEL_1);
+    << "Source:  " << w1.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
+    << "Target:  " << w2.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_terget_wallet, LOG_LEVEL_1);
 
   //lets do some money
   epee::net_utils::http::http_simple_client http_client;
@@ -157,7 +163,7 @@ bool transactions_flow_test(std::string& working_folder,
 
   COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req);
   COMMAND_RPC_START_MINING::response daemon_rsp = AUTO_VAL_INIT(daemon_rsp);
-  daemon_req.miner_address = w1.get_account().get_public_address_str();
+  daemon_req.miner_address = w1.get_account().get_public_address_str(false);
   daemon_req.threads_count = 9;
   r = net_utils::invoke_http_json_remote_command2(daemon_addr_a + "/start_mining", daemon_req, daemon_rsp, http_client, 10000);
   CHECK_AND_ASSERT_MES(r, false, "failed to get getrandom_outs");
@@ -185,7 +191,7 @@ bool transactions_flow_test(std::string& working_folder,
       BOOST_FOREACH(tools::wallet2::transfer_details& td, incoming_transfers)
       {
         cryptonote::transaction tx_s;
-        bool r = do_send_money(w1, w1, 0, td.m_tx.vout[td.m_internal_output_index].amount - DEFAULT_FEE, tx_s, 50);
+        bool r = do_send_money(w1, w1, 0, td.m_tx.vout[td.m_internal_output_index].amount - TEST_FEE, tx_s, 50);
         CHECK_AND_ASSERT_MES(r, false, "Failed to send starter tx " << get_transaction_hash(tx_s));
         LOG_PRINT_GREEN("Starter transaction sent " << get_transaction_hash(tx_s), LOG_LEVEL_0);
         if(++count >= FIRST_N_TRANSFERS)
@@ -213,7 +219,7 @@ bool transactions_flow_test(std::string& working_folder,
   for(i = 0; i != transactions_count; i++)
   {
     uint64_t amount_to_tx = (amount_to_transfer - transfered_money) > transfer_size ? transfer_size: (amount_to_transfer - transfered_money);
-    while(w1.unlocked_balance() < amount_to_tx + DEFAULT_FEE)
+    while(w1.unlocked_balance() < amount_to_tx + TEST_FEE)
     {
       misc_utils::sleep_no_w(1000);
       LOG_PRINT_L0("not enough money, waiting for cashback or mining");

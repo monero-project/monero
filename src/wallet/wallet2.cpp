@@ -35,6 +35,7 @@
 #include "include_base_utils.h"
 using namespace epee;
 
+#include "cryptonote_config.h"
 #include "wallet2.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "rpc/core_rpc_server_commands_defs.h"
@@ -420,9 +421,6 @@ bool wallet2::clear()
 {
   m_blockchain.clear();
   m_transfers.clear();
-  cryptonote::block b;
-  cryptonote::generate_genesis_block(b);
-  m_blockchain.push_back(get_block_hash(b));
   m_local_bc_height = 1;
   return true;
 }
@@ -498,8 +496,12 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   bool r = store_keys(m_keys_file, password);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str());
+  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
   if(!r) LOG_PRINT_RED_L0("String with address text not saved");
+
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
 
   store();
   return retval;
@@ -541,8 +543,12 @@ bool wallet2::check_connection()
 
   net_utils::http::url_content u;
   net_utils::parse_url(m_daemon_address, u);
+
   if(!u.port)
-    u.port = RPC_DEFAULT_PORT;
+  {
+    u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+  }
+
   return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
 }
 //----------------------------------------------------------------------------------------------------
@@ -556,7 +562,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   THROW_WALLET_EXCEPTION_IF(e || !exists, error::file_not_found, m_keys_file);
 
   load_keys(m_keys_file, password);
-  LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str());
+  LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_testnet));
 
   //keys loaded ok!
   //try to load wallet file. but even if we failed, it is not big problem
@@ -573,13 +579,26 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
     m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
     error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
 
-  if(m_blockchain.empty())
+  cryptonote::block genesis;
+  generate_genesis(genesis);
+  crypto::hash genesis_hash = get_block_hash(genesis);
+
+  if (m_blockchain.empty())
   {
-    cryptonote::block b;
-    cryptonote::generate_genesis_block(b);
-    m_blockchain.push_back(get_block_hash(b));
+    m_blockchain.push_back(genesis_hash);
   }
+  else
+  {
+    check_genesis(genesis_hash);
+  }
+
   m_local_bc_height = m_blockchain.size();
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::check_genesis(const crypto::hash& genesis_hash) {
+  std::string what("Genesis block missmatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
+
+  THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::store()
@@ -916,6 +935,18 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 
       throw;
     }
+  }
+}
+
+//----------------------------------------------------------------------------------------------------
+void wallet2::generate_genesis(cryptonote::block& b) {
+  if (m_testnet)
+  {
+    cryptonote::generate_genesis_block(b, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+  }
+  else
+  {
+    cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
   }
 }
 }
