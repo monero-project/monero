@@ -24,6 +24,10 @@ test-release: build-release
 
 all-release: build-release
 
+release-static:
+	mkdir -p build/release
+	cd build/release && cmake -D STATIC=ON -D ARCH="x86-64" -D CMAKE_BUILD_TYPE=Release ../.. && $(MAKE)
+
 clean:
 	@echo "WARNING: Back-up your wallet if it exists within ./build!" ; \
         read -r -p "This will destroy the build directory, continue (y/N)?: " CONTINUE; \
