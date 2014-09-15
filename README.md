@@ -60,6 +60,7 @@ Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, and Boost 1.53 or later 
 **Advanced options:**
 
 * Parallel build: run `make -j<number of threads>` instead of `make`.
+* Statically linked release build: run `make release-static`.
 * Debug build: run `make build-debug`.
 * Test suite: run `make test-release` to run tests in addition to building. Running `make test-debug` will do the same to the debug version.
 * Building with Clang: it may be possible to use Clang instead of GCC, but this may not work everywhere. To build, run `export CC=clang CXX=clang++` before running `make`.
@@ -86,6 +87,12 @@ cmake -G "Visual Studio 12 Win64" -DBOOST_ROOT="c:\folder\to\boost_1_55_0" -DBOO
 msbuild Project.sln /p:Configuration=Release
 ```
 * If you don't have your path environment variable configured with the VS paths, you may may want to run `C:\program files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat` (or equivalent) to temporarily set the environment variables.
+
+### On FreeBSD:
+
+The project can be built from scratch by following instructions for Unix and Linux above.
+
+We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
 ## Building Documentation
 
