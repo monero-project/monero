@@ -35,10 +35,53 @@
 #include "sys/sysinfo.h"
 #include <cstdlib>
 #include <cstdio>
-#include <cstring>
 #include <unistd.h>
+#include <stdexcept>
 
 const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
+
+namespace
+{
+  /* Gets a snapshot of CPU times till this point */
+  void get_cpu_snapshot(unsigned long long &total_cpu_user_before, unsigned long long &total_cpu_user_low_before,
+    unsigned long long &total_cpu_sys_before, unsigned long long &total_cpu_idle_before)
+  {
+    // Get a snapshot of the how much CPU time has been spent for each type.
+    FILE *file = fopen("/proc/stat", "r");
+    if (!fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_before, &total_cpu_user_low_before,
+      &total_cpu_sys_before, &total_cpu_idle_before))
+    {
+      throw std::runtime_error("Couldn't read /proc/stat");
+    }
+    fclose(file);
+  }
+
+  /* Find CPU usage given two snapshots */
+  double calculate_cpu_load(unsigned long long total_cpu_user_before, unsigned long long total_cpu_user_low_before,
+    unsigned long long total_cpu_sys_before, unsigned long long total_cpu_idle_before,
+    unsigned long long total_cpu_user_after, unsigned long long total_cpu_user_low_after,
+    unsigned long long total_cpu_sys_after, unsigned long long total_cpu_idle_after)
+  {
+    unsigned long long total;
+    double percent;
+    if (total_cpu_user_after < total_cpu_user_before || total_cpu_user_low_after < total_cpu_user_low_before ||
+      total_cpu_sys_after < total_cpu_sys_before || total_cpu_idle_after < total_cpu_idle_before)
+    {
+      // Overflow detected.
+      throw std::runtime_error("Rare CPU time integer overflow occured. Try again.");
+    }
+    else
+    {
+      total = (total_cpu_user_after - total_cpu_user_before) + (total_cpu_user_low_after - total_cpu_user_low_before) +
+        (total_cpu_sys_after - total_cpu_sys_before);
+      percent = total;
+      total += (total_cpu_idle_after - total_cpu_idle_before);
+      percent /= total;
+      percent *= 100;
+    }
+    return percent;
+  }
+};
 
 namespace system_stats
 {
@@ -66,47 +109,36 @@ namespace system_stats
   double get_cpu_usage()
   {
     double percent;
-    FILE* file;
     unsigned long long total_cpu_user_before, total_cpu_user_low_before, total_cpu_sys_before,
       total_cpu_idle_before;
-    unsigned long long total;
     unsigned long long total_cpu_user_after, total_cpu_user_low_after, total_cpu_sys_after,
       total_cpu_idle_after;
 
-    // Get a snapshot of the how much CPU time has been spent for each type.
-    file = fopen("/proc/stat", "r");
-    if (!fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_before, &total_cpu_user_low_before,
-      &total_cpu_sys_before, &total_cpu_idle_before))
+    try
     {
-      throw proc_file_error();
-    }
-    fclose(file);
+      // Get a CPU usage snapshot
+      get_cpu_snapshot(total_cpu_user_before, total_cpu_user_low_before, total_cpu_sys_before,
+        total_cpu_idle_before);
 
-    // Wait for sometime and get another snapshot to compare against.
-    usleep(CPU_USAGE_CHECK_WAIT_DURATION);
+      // Wait for sometime and get another snapshot to compare against.
+      usleep(CPU_USAGE_CHECK_WAIT_DURATION);
 
-    file = fopen("/proc/stat", "r");
-    if (!fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_after, &total_cpu_user_low_after,
-      &total_cpu_sys_after, &total_cpu_idle_after))
-    {
-      throw proc_file_error();
+      get_cpu_snapshot(total_cpu_user_after, total_cpu_user_low_after, total_cpu_sys_after,
+        total_cpu_idle_after);
     }
-    fclose(file);
-
-    if (total_cpu_user_after < total_cpu_user_before || total_cpu_user_low_after < total_cpu_user_low_before ||
-      total_cpu_sys_after < total_cpu_sys_before || total_cpu_idle_after < total_cpu_idle_before)
+    catch (std::runtime_error &e)
     {
-      // Overflow detected.
-      throw cpu_time_integer_overflow_exception();
+      throw e;
     }
-    else
+    try
     {
-      total = (total_cpu_user_after - total_cpu_user_before) + (total_cpu_user_low_after - total_cpu_user_low_before) +
-        (total_cpu_sys_after - total_cpu_sys_before);
-      percent = total;
-      total += (total_cpu_idle_after - total_cpu_idle_before);
-      percent /= total;
-      percent *= 100;
+      percent = calculate_cpu_load(total_cpu_user_before, total_cpu_user_low_before, total_cpu_sys_before,
+        total_cpu_idle_before, total_cpu_user_after, total_cpu_user_low_after, total_cpu_sys_after,
+        total_cpu_idle_after);
+    }
+    catch (std::runtime_error &e)
+    {
+      throw e;
     }
     return percent;
   }
@@ -117,6 +149,8 @@ namespace system_stats
 #include "windows.h"
 #include <pdh.h>
 #include <pdhmsg.h>
+#include <stdexcept>
+#include <string>
 
 CONST PWSTR COUNTER_PATH    = L"\\Processor(0)\\% Processor Time";
 
@@ -148,24 +182,160 @@ namespace system_stats
     PDH_FMT_COUNTERVALUE item_buffer;
     if (status != ERROR_SUCCESS)
     {
-      throw win_cpu_usage_error("PdhOpenQuery", status);
+      std::string msg = "Failure while getting CPU usage. `PdhOpenQuery` \
+        failed with error code: " + std::to_string(status);
+      throw std::runtime_error(msg);
     }
     status = PdhAddCounter(h_query, COUNTER_PATH, 0, &h_counter);
     if (status != ERROR_SUCCESS)
     {
-      throw win_cpu_usage_error("PdhAddCounter", status);
+      std::string msg = "Failure while getting CPU usage. `PdhAddCounter` \
+        failed with error code: " + std::to_string(status);
+      throw std::runtime_error(msg);
     }
     status = PdhCollectQueryData(h_query);
     if (status != ERROR_SUCCESS)
     {
-      throw win_cpu_usage_error("PdhCollectQueryData", status);
+      std::string msg = "Failure while getting CPU usage. `PdhCollectQueryData` \
+        failed with error code: " + std::to_string(status);
+      throw std::runtime_error(msg);
     }
     status = PdhGetFormattedCounterValue(h_counter, dw_format, (LPDWORD)NULL, &item_buffer);
     if (status != ERROR_SUCCESS)
     {
-      throw win_cpu_usage_error("PdhGetFormattedCounterValue", status);
+      std::string msg = "Failure while getting CPU usage. `PdhGetFormattedCounterValue` \
+        failed with error code: " + std::to_string(status);
+      throw std::runtime_error(msg);
     }
     return item_buffer.doubleValue;
+  }
+};
+
+#elif __APPLE__
+
+#include <mach/mach_init.h>
+#include <mach/mach_error.h>
+#include <mach/mach_host.h>
+#include <mach/vm_map.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <mach/vm_statistics.h>
+#include <mach/mach_types.h>
+#include <stdexcept>
+#include <string>
+#include <unistd.h>
+
+const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
+
+namespace
+{
+  /* Gets a snapshot of the number of CPU ticks (idle and total) at this point */
+  void get_cpu_snapshot(unsigned long long &idle_ticks, unsigned long long &total_ticks)
+  {
+    mach_port_t mach_port;
+    mach_msg_type_number_t count;
+    host_cpu_load_info_data_t cpu_stats;
+
+    mach_port = mach_host_self();
+    int status = host_statistics(mach_port, HOST_CPU_LOAD_INFO, (host_info_t)&cpu_stats, &count);
+    if (status != KERN_SUCCESS)
+    {
+      std::string msg = "Failure while getting CPU usage. `host_statistics` \
+        failed with error code: " + std::to_string(status);
+      throw std::runtime_error(msg);
+    }
+    for (int i = 0; i < CPU_STATE_MAX; i++)
+    {
+      total_ticks += cpu_stats.cpu_ticks[i];
+    }
+    idle_ticks = cpu_stats.cpu_ticks[CPU_STATE_IDLE];
+  }
+
+  /* Find CPU usage given two snapshots */
+  double calculate_cpu_load(unsigned long long idle_ticks_1, unsigned long long total_ticks_1,
+    unsigned long long idle_ticks_2, unsigned long long total_ticks_2)
+  {
+    long long total_ticks_diff = total_ticks_2 - total_ticks_1;
+    long long idle_ticks_diff  = idle_ticks_2 -idle_ticks_1;
+    if (total_ticks_diff < 0 ||idle_ticks_diff < 0)
+    {
+      // Overflow detected.
+      throw std::runtime_error("Rare CPU time integer overflow occured. Try again.");
+    }
+    return 100 * (1.0 - ((total_ticks_diff > 0) ? (static_cast<double>(idle_ticks_diff)) / total_ticks_diff : 0));
+  }
+};
+
+namespace system_stats
+{
+  /* Returns the total amount of main memory in the system (in Bytes) */
+  long long get_total_system_memory()
+  {
+    int mib[] = {CTL_HW, HW_MEMSIZE};
+    int64_t physical_memory;
+    size_t length = sizeof(int64_t);
+    sysctl(mib, 2, &physical_memory, &length, NULL, 0);
+    return static_cast<long long>(physical_memory);
+  }
+
+  /* Returns the total amount of the memory that is currently being used (in Bytes) */
+  long long get_used_system_memory()
+  {
+    vm_size_t page_size;
+    mach_port_t mach_port;
+    mach_msg_type_number_t count;
+    vm_statistics_data_t vm_stats;
+
+    mach_port = mach_host_self();
+    count = sizeof(vm_stats) / sizeof(natural_t);
+    int status = host_page_size(mach_port, &page_size);
+    if (status != KERN_SUCCESS)
+    {
+      std::string msg = "Failure while getting used system memory. `host_page_size` \
+        failed with error code: " + std::to_string(status);
+      throw std::runtime_error(msg);
+    }
+    status = host_statistics(mach_port, HOST_VM_INFO, (host_info_t)&vm_stats, &count);
+    if (status != KERN_SUCCESS)
+    {
+      std::string msg = "Failure while getting used system memory. `host_statistics` \
+        failed with error code: " + std::to_string(status);
+      throw std::runtime_error(msg);
+    }
+    long long used_mem = (static_cast<long long>(vm_stats.active_count) + 
+                 static_cast<long long>(vm_stats.inactive_count) + 
+                 static_cast<long long>(vm_stats.wire_count)) * page_size;
+    return used_mem;
+  }
+
+  double get_cpu_usage()
+  {
+    unsigned long long total_ticks_1 = 0;
+    unsigned long long total_ticks_2 = 0;
+    unsigned long long idle_ticks_1 = 0;
+    unsigned long long idle_ticks_2 = 0;
+    double percent;
+    try
+    {
+      // Get two CPU snapshots separated by some time.
+      get_cpu_snapshot(idle_ticks_1, total_ticks_1);
+      usleep(CPU_USAGE_CHECK_WAIT_DURATION);
+      get_cpu_snapshot(idle_ticks_2, total_ticks_2);
+    }
+    catch (std::runtime_error &e)
+    {
+      throw e;
+    }
+    try
+    {
+      // Calculate CPU usage based on the two snapshots.
+      percent = calculate_cpu_load(idle_ticks_1, total_ticks_1, idle_ticks_2, total_ticks_2);
+    }
+    catch (std::runtime_error &e)
+    {
+      throw e;
+    }
+    return percent;
   }
 };
 

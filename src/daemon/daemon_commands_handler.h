@@ -41,6 +41,7 @@
 #include "crypto/hash.h"
 #include "version.h"
 #include "common/system_stats/system_stats.h"
+#include <stdexcept>
 
 /*!
  * \brief I don't really know right now
@@ -149,15 +150,42 @@ private:
   //--------------------------------------------------------------------------------
   bool show_stats(const std::vector<std::string>& args)
   {
-    std::string time_elapsed = boost::posix_time::to_simple_string(m_srv.time_elapsed());
-    long long total_system_memory = system_stats::get_total_system_memory();
-    long long used_system_memory = system_stats::get_used_system_memory();
-    double cpu_usage = system_stats::get_cpu_usage();
-    std::cout << "Time elapsed: " << time_elapsed << ENDL;
-
-    std::cout << "Total system memory: " << total_system_memory << " bytes" << ENDL;
-    std::cout << "Total system memory used: " << used_system_memory << " bytes" << ENDL;
-    std::cout << "Total CPU Usage: " << cpu_usage << "%" << ENDL;
+    try
+    {
+      std::string time_elapsed = boost::posix_time::to_simple_string(m_srv.time_elapsed());
+      std::cout << "Time elapsed: " << time_elapsed << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
+    try
+    {
+      long long total_system_memory = system_stats::get_total_system_memory();
+      std::cout << "Total system memory: " << total_system_memory << " bytes" << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
+    try
+    {
+      long long used_system_memory = system_stats::get_used_system_memory();
+      std::cout << "Total system memory used: " << used_system_memory << " bytes" << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
+    try
+    {
+      double cpu_usage = system_stats::get_cpu_usage();
+      std::cout << "Total CPU Usage: " << cpu_usage << "%" << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
     return true;
   }
   //--------------------------------------------------------------------------------
