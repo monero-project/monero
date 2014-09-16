@@ -32,6 +32,7 @@
 #define SYSTEM_STATS
 
 #include <exception>
+#include <string>
 
 namespace system_stats
 {
@@ -45,7 +46,7 @@ namespace system_stats
   public:
     virtual const char* what()
     {
-      return "CPU time integer overflow occured. Try again.";
+      return "Unlikely CPU time integer overflow occured. Try again.";
     }
   };
 
@@ -56,6 +57,23 @@ namespace system_stats
     virtual const char* what()
     {
       return "Couldn't read /proc/stat";
+    }
+  };
+
+  /* An exception class for file reading errors */
+  class win_cpu_usage_error: public std::exception
+  {
+  public:
+    long error_code;
+    std::string method_name;
+    win_cpu_usage_error(std::string p_method_name, long p_error_code)
+    {
+      error_code = p_error_code;
+      method_name = p_method_name;
+    }
+    virtual const char* what()
+    {
+      return "Error while reading CPU usage.";
     }
   };
 };

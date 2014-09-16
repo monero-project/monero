@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#ifdef __linux__
+
 #include "system_stats.h"
 #include "sys/types.h"
 #include "sys/sysinfo.h"
@@ -36,7 +38,7 @@
 #include <cstring>
 #include <unistd.h>
 
-const int CPU_USAGE_WAIT_DURATION = 1000000;
+const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
 
 namespace system_stats
 {
@@ -81,7 +83,7 @@ namespace system_stats
     fclose(file);
 
     // Wait for sometime and get another snapshot to compare against.
-    usleep(CPU_USAGE_WAIT_DURATION);
+    usleep(CPU_USAGE_CHECK_WAIT_DURATION);
 
     file = fopen("/proc/stat", "r");
     if (!fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_after, &total_cpu_user_low_after,
@@ -109,3 +111,62 @@ namespace system_stats
     return percent;
   }
 };
+
+#elif _WIN32
+
+#include "windows.h"
+#include <pdh.h>
+#include <pdhmsg.h>
+
+CONST PWSTR COUNTER_PATH    = L"\\Processor(0)\\% Processor Time";
+
+namespace system_stats
+{
+  /* Returns the total amount of main memory in the system (in Bytes) */
+  long long get_total_system_memory()
+  {
+    DWORDLONG w_total_mem = memInfo.ullTotalPhys;
+    long long total_mem = static_cast<long long>(w_total_mem);
+    return total_mem;
+  }
+
+  /* Returns the total amount of the memory that is currently being used (in Bytes) */
+  long long get_used_system_memory()
+  {
+    DWORDLONG w_used_mem = memInfo.ullTotalPhys - memInfo.ullAvailPhys;
+    long long used_mem = static_cast<long long>(w_used_mem);
+    return used_mem;
+  }
+
+  /* Returns CPU usage percentage */
+  double get_cpu_usage()
+  {
+    HQUERY h_query = NULL;
+    HCOUNTER h_counter = NULL;
+    DWORD dw_format = PDH_FMT_DOUBLE;
+    PDH_STATUS status = PdhOpenQuery(NULL, NULL, &h_query);
+    PDH_FMT_COUNTERVALUE item_buffer;
+    if (status != ERROR_SUCCESS)
+    {
+      throw win_cpu_usage_error("PdhOpenQuery", status);
+    }
+    status = PdhAddCounter(h_query, COUNTER_PATH, 0, &h_counter);
+    if (status != ERROR_SUCCESS)
+    {
+      throw win_cpu_usage_error("PdhAddCounter", status);
+    }
+    status = PdhCollectQueryData(h_query);
+    if (status != ERROR_SUCCESS)
+    {
+      throw win_cpu_usage_error("PdhCollectQueryData", status);
+    }
+    status = PdhGetFormattedCounterValue(h_counter, dw_format, (LPDWORD)NULL, &item_buffer);
+    if (status != ERROR_SUCCESS)
+    {
+      throw win_cpu_usage_error("PdhGetFormattedCounterValue", status);
+    }
+    return item_buffer.doubleValue;
+  }
+};
+
+#endif
