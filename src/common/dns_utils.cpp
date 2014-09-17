@@ -89,7 +89,7 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
   {
     if (result.ptr->havedata)
     {
-      for (int i=0; result.ptr->data[i] != NULL; i++)
+      for (size_t i=0; result.ptr->data[i] != NULL; i++)
       {
         char as_str[INET_ADDRSTRLEN];
 
@@ -115,7 +115,7 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
   {
     if (result.ptr->havedata)
     {
-      for (int i=0; result.ptr->data[i] != NULL; i++)
+      for (size_t i=0; result.ptr->data[i] != NULL; i++)
       {
         char as_str[INET6_ADDRSTRLEN];
 
@@ -131,19 +131,24 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
   return retval;
 }
 
-std::string DNSResolver::get_txt_record(const std::string& url)
+std::vector<std::string> DNSResolver::get_txt_record(const std::string& url)
 {
   ub_result_ptr result;
+  std::vector<std::string> records;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
   if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_TXT, LDNS_RR_CLASS_IN, &(result.ptr)))
   {
     if (result.ptr->havedata)
     {
-      return std::string(result.ptr->data[0]);
+      for (size_t i=0; result.ptr->data[i] != NULL; i++)
+      {
+        records.push_back(result.ptr->data[i]);
+      }
     }
   }
-  return std::string();
+
+  return records;
 }
 
 DNSResolver& DNSResolver::instance()

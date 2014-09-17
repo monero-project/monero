@@ -913,16 +913,15 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     {
       // if treating as an address fails, try as url
       bool dnssec_ok = false;
-      std::string addr_from_dns;
       std::string url = local_args[i];
 
       // attempt to get address from dns query
-      addr_from_dns = tools::wallet2::address_from_url(url, dnssec_ok);
+      auto addresses_from_dns = tools::wallet2::addresses_from_url(url, dnssec_ok);
 
-      // if string not empty, see if it's an address
-      if (addr_from_dns.size())
+      // for now, move on only if one address found
+      if (addresses_from_dns.size() == 1)
       {
-        if (get_account_address_from_str(de.addr, addr_from_dns))
+        if (get_account_address_from_str(de.addr, addresses_from_dns[0]))
         {
           // if it was an address, prompt user for confirmation.
           // inform user of DNSSEC validation status as well.
@@ -938,8 +937,8 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
           }
           std::stringstream prompt;
           prompt << "For URL: " << url
-                 << "," << dnssec_str
-                 << " Monero Address = " << addr_from_dns
+                 << "," << dnssec_str << std::endl
+                 << " Monero Address = " << addresses_from_dns[0]
                  << std::endl
                  << "Is this OK? (Y/n) "
           ;
@@ -957,6 +956,10 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
           fail_msg_writer() << "Failed to get a monero address from: " << local_args[i];
           return true;
         }
+      }
+      else if (addresses_from_dns.size() > 1)
+      {
+        tools::fail_msg_writer() << "Multiple Monero addresses found for given URL: " << url << ", this is not yet supported.";
       }
       else
       {

@@ -85,18 +85,23 @@ TEST(AddressFromURL, Success)
   std::string addr = "46BeWrHpwXmHDpDEUmZBWZfoQpdc6HaERCNmx1pEYL2rAcuwufPN9rXHHtyUA4QVy66qeFQkn6sfK8aHYjA3jk3o1Bv16em";
   
   bool dnssec_result = false;
-  std::string res = tools::wallet2::address_from_url("donate.monero.cc", dnssec_result);
 
-  EXPECT_STREQ(addr.c_str(), res.c_str());
+  std::vector<std::string> addresses = tools::wallet2::addresses_from_url("donate.monero.cc", dnssec_result);
+
+  EXPECT_EQ(1, addresses.size());
+  if (addresses.size() == 1)
+  {
+    EXPECT_STREQ(addr.c_str(), addresses[0].c_str());
+  }
 }
 
 TEST(AddressFromURL, Failure)
 {
   bool dnssec_result = false;
 
-  std::string res = tools::wallet2::address_from_url("example.invalid", dnssec_result);
+  std::vector<std::string> addresses = tools::wallet2::addresses_from_url("example.invalid", dnssec_result);
 
   ASSERT_FALSE(dnssec_result);
 
-  ASSERT_STREQ("", res.c_str());
+  ASSERT_EQ(0, addresses.size());
 }
