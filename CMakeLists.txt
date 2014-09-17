@@ -84,6 +84,8 @@ if (UNIX AND NOT APPLE)
   find_package(Threads)
 endif()
 
+find_package(Unbound REQUIRED)
+
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
   # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Dinline=__inline")
@@ -196,11 +198,6 @@ else()
   configure_file("src/version.h.in" "version/version.h")
   add_custom_target(version ALL)
 endif()
-
-# <expletive deleted> CMake bug making this not work.
-#find_package(Unbound REQUIRED)
-# Won't make sure this works, because that's broken.
-set(CMAKE_UNBOUND_LIB "-lunbound")
 
 add_subdirectory(external)
 
