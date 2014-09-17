@@ -123,7 +123,7 @@ struct serialized_object
   cryptonote::blobdata data;
   BEGIN_SERIALIZE_OBJECT()
     FIELD(data)
-    END_SERIALIZE()
+  END_SERIALIZE()
 
 private:
   friend class boost::serialization::access;
