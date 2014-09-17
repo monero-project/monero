@@ -196,6 +196,9 @@ namespace tools
 
     static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
 
+    static std::string address_from_url(const std::string& url, bool& dnssec_valid);
+
+    static std::string address_from_txt_record(const std::string& s);
   private:
     bool store_keys(const std::string& keys_file_name, const std::string& password);
     void load_keys(const std::string& keys_file_name, const std::string& password);

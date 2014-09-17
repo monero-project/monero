@@ -47,6 +47,7 @@ using namespace epee;
 #include "serialization/binary_utils.h"
 #include "cryptonote_protocol/blobdatatype.h"
 #include "crypto/electrum-words.h"
+#include "common/dns_utils.h"
 
 extern "C"
 {
@@ -751,6 +752,7 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t cha
   utd.m_sent_time = time(NULL);
   utd.m_tx = tx;
 }
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
                        uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx)
@@ -814,6 +816,58 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
   return retVal;
 }
 } // anonymous namespace
+
+/**
+ * @brief gets a monero address from the TXT record of a DNS entry
+ *
+ * gets the monero address from the TXT record of the DNS entry associated
+ * with <url>.  If this lookup fails, or the TXT record does not contain an
+ * XMR address in the correct format, returns an empty string.  <dnssec_valid>
+ * will be set true or false according to whether or not the DNS query passes
+ * DNSSEC validation.
+ *
+ * @param url the url to look up
+ * @param dnssec_valid return-by-reference for DNSSEC status of query
+ *
+ * @return a monero address (as a string) or an empty string
+ */
+std::string wallet2::address_from_url(const std::string& url, bool& dnssec_valid)
+{
+  // TODO: update this correctly once DNSResolver::get_txt_record() supports it.
+  dnssec_valid = false;
+  // get txt record
+  std::string txt = tools::DNSResolver::instance().get_txt_record(url);
+
+  if (txt.size())
+  {
+    return address_from_txt_record(txt);
+  }
+  return std::string();
+}
+
+//----------------------------------------------------------------------------------------------------
+std::string wallet2::address_from_txt_record(const std::string& s)
+{
+  // make sure the txt record has "oa1:xmr" and find it
+  auto pos = s.find("oa1:xmr");
+
+  // search from there to find "recipient_address="
+  pos = s.find("recipient_address=", pos);
+
+  pos += 18; // move past "recipient_address="
+
+  // find the next semicolon
+  auto pos2 = s.find(";", pos);
+  if (pos2 != std::string::npos)
+  {
+    // length of address == 95, we can at least validate that much here
+    if (pos2 - pos == 95)
+    {
+      return s.substr(pos, 95);
+    }
+  }
+  return std::string();
+}
 
 //----------------------------------------------------------------------------------------------------
 // take a pending tx and actually send it to the daemon

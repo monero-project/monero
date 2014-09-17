@@ -34,6 +34,22 @@
 namespace tools
 {
 
+// custom smart pointer.
+// TODO: see if std::auto_ptr and the like support custom destructors
+class ub_result_ptr
+{
+public:
+  ub_result_ptr()
+  {
+    ptr = nullptr;
+  }
+  ~ub_result_ptr()
+  {
+    ub_resolve_free(ptr);
+  }
+  ub_result* ptr;
+};
+
 struct DNSResolverData
 {
   ub_ctx* m_ub_context;
@@ -63,20 +79,22 @@ DNSResolver::~DNSResolver()
 
 std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
 {
-  ub_result* result = NULL;
+  // destructor takes care of cleanup
+  ub_result_ptr result;
+
   std::vector<std::string> retval;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_A, LDNS_RR_CLASS_IN, &result))
+  if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_A, LDNS_RR_CLASS_IN, &(result.ptr)))
   {
-    if (result->havedata)
+    if (result.ptr->havedata)
     {
-      for (int i=0; result->data[i] != NULL; i++)
+      for (int i=0; result.ptr->data[i] != NULL; i++)
       {
         char as_str[INET_ADDRSTRLEN];
 
         // convert bytes to string, append if no error
-        if (inet_ntop(AF_INET, result->data[i], as_str, sizeof(as_str)))
+        if (inet_ntop(AF_INET, result.ptr->data[i], as_str, sizeof(as_str)))
         {
           retval.push_back(as_str);
         }
@@ -84,27 +102,25 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
     }
   }
 
-  // cleanup
-  ub_resolve_free(result);
   return retval;
 }
 
 std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
 {
-  ub_result* result = NULL;
+  ub_result_ptr result;
   std::vector<std::string> retval;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_AAAA, LDNS_RR_CLASS_IN, &result))
+  if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_AAAA, LDNS_RR_CLASS_IN, &(result.ptr)))
   {
-    if (result->havedata)
+    if (result.ptr->havedata)
     {
-      for (int i=0; result->data[i] != NULL; i++)
+      for (int i=0; result.ptr->data[i] != NULL; i++)
       {
         char as_str[INET6_ADDRSTRLEN];
 
         // convert bytes to string, append if no error
-        if (inet_ntop(AF_INET6, result->data[i], as_str, sizeof(as_str)))
+        if (inet_ntop(AF_INET6, result.ptr->data[i], as_str, sizeof(as_str)))
         {
           retval.push_back(as_str);
         }
@@ -112,15 +128,22 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
     }
   }
 
-  // cleanup
-  ub_resolve_free(result);
   return retval;
 }
 
-std::string DNSResolver::get_payment_address(const std::string& url)
+std::string DNSResolver::get_txt_record(const std::string& url)
 {
-  std::string retval;
-  return retval;
+  ub_result_ptr result;
+
+  // call DNS resolver, blocking.  if return value not zero, something went wrong
+  if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_TXT, LDNS_RR_CLASS_IN, &(result.ptr)))
+  {
+    if (result.ptr->havedata)
+    {
+      return std::string(result.ptr->data[0]);
+    }
+  }
+  return std::string();
 }
 
 DNSResolver& DNSResolver::instance()
