@@ -82,15 +82,15 @@ public:
    std::vector<std::string> get_ipv6(const std::string& url);
 
   /**
-   * @brief gets a TXT record from a DNS query for the supplied URL;
-   * if no TXT record present returns an empty string.
+   * @brief gets all TXT records from a DNS query for the supplied URL;
+   * if no TXT record present returns an empty vector.
    *
    * @param url A string containing a URL to query for
    *
-   * @return A string containing a TXT record; or an empty string
+   * @return A vector of strings containing a TXT record; or an empty vector
    */
   // TODO: modify this to accomodate DNSSEC
-  std::string get_txt_record(const std::string& url);
+   std::vector<std::string> get_txt_record(const std::string& url);
 
   /**
    * @brief Gets the singleton instance of DNSResolver

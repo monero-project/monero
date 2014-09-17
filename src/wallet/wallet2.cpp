@@ -831,21 +831,30 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
  *
  * @return a monero address (as a string) or an empty string
  */
-std::string wallet2::address_from_url(const std::string& url, bool& dnssec_valid)
+std::vector<std::string> wallet2::addresses_from_url(const std::string& url, bool& dnssec_valid)
 {
   // TODO: update this correctly once DNSResolver::get_txt_record() supports it.
   dnssec_valid = false;
-  // get txt record
-  std::string txt = tools::DNSResolver::instance().get_txt_record(url);
 
-  if (txt.size())
+  std::vector<std::string> addresses;
+  // get txt records
+  auto records = tools::DNSResolver::instance().get_txt_record(url);
+
+  // for each txt record, try to find a monero address in it.
+  for (auto& rec : records)
   {
-    return address_from_txt_record(txt);
+    std::string addr = address_from_txt_record(rec);
+    if (addr.size())
+    {
+      addresses.push_back(addr);
+    }
   }
-  return std::string();
+
+  return addresses;
 }
 
 //----------------------------------------------------------------------------------------------------
+// TODO: parse the string in a less stupid way, probably with regex
 std::string wallet2::address_from_txt_record(const std::string& s)
 {
   // make sure the txt record has "oa1:xmr" and find it

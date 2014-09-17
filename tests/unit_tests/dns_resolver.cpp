@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <iostream>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -97,8 +98,12 @@ TEST(DNSResolver, IPv6Failure)
 TEST(DNSResolver, GetTXTRecord)
 {
 
-  std::string txt = tools::DNSResolver::instance().get_txt_record("donate.monero.cc");
-  std::cout << "TXT record for donate.monero.cc: " << txt << std::endl;
+  std::vector<std::string> records = tools::DNSResolver::instance().get_txt_record("donate.monero.cc");
 
-  EXPECT_STRNE("", txt.c_str());
+  EXPECT_NE(0, records.size());
+
+  for (auto& rec : records)
+  {
+    std::cout << "TXT record for donate.monero.cc: " << rec << std::endl;
+  }
 }

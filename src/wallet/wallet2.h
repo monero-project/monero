@@ -196,7 +196,7 @@ namespace tools
 
     static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
 
-    static std::string address_from_url(const std::string& url, bool& dnssec_valid);
+    static std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
 
     static std::string address_from_txt_record(const std::string& s);
   private:
