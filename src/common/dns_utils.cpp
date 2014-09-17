@@ -27,29 +27,110 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "common/dns_utils.h"
+#include <ldns/rr.h> // for RR type and class defs
+#include <unbound.h>
+#include <arpa/inet.h> // for inet_ntoa (bytes to text for IPs)
 
 namespace tools
 {
-namespace dns
+
+struct DNSResolverData
 {
+  ub_ctx* m_ub_context;
+};
 
-  std::vector<std::string> get_ipv4(const std::string& uri)
+DNSResolver::DNSResolver() : m_data(new DNSResolverData())
+{
+  // init libunbound context
+  m_data->m_ub_context = ub_ctx_create();
+
+  // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
+  ub_ctx_resolvconf(m_data->m_ub_context, "");
+  ub_ctx_hosts(m_data->m_ub_context, "");
+}
+
+DNSResolver::~DNSResolver()
+{
+  if (m_data)
   {
-    std::vector<std::string retval;
-    return retval;
+    if (m_data->m_ub_context != NULL)
+    {
+      ub_ctx_delete(m_data->m_ub_context);
+    }
+    delete m_data;
+  }
+}
+
+std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
+{
+  ub_result* result = NULL;
+  std::vector<std::string> retval;
+
+  // call DNS resolver, blocking.  if return value not zero, something went wrong
+  if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_A, LDNS_RR_CLASS_IN, &result))
+  {
+    if (result->havedata)
+    {
+      for (int i=0; result->data[i] != NULL; i++)
+      {
+        char as_str[INET_ADDRSTRLEN];
+
+        // convert bytes to string, append if no error
+        if (inet_ntop(AF_INET, result->data[0], as_str, sizeof(as_str)))
+        {
+          retval.push_back(as_str);
+        }
+      }
+    }
   }
 
-  std::vector<std::string> get_ipv6(const std::string& uri)
+  // cleanup
+  ub_resolve_free(result);
+  return retval;
+}
+
+std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
+{
+  ub_result* result = NULL;
+  std::vector<std::string> retval;
+
+  // call DNS resolver, blocking.  if return value not zero, something went wrong
+  if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_AAAA, LDNS_RR_CLASS_IN, &result))
   {
-    std::vector<std::string retval;
-    return retval;
+    if (result->havedata)
+    {
+      for (int i=0; result->data[i] != NULL; i++)
+      {
+        char as_str[INET6_ADDRSTRLEN];
+
+        // convert bytes to string, append if no error
+        if (inet_ntop(AF_INET6, result->data[0], as_str, sizeof(as_str)))
+        {
+          retval.push_back(as_str);
+        }
+      }
+    }
   }
 
-  std::string get_payment_address(const std::string& uri)
-  {
-    std::string retval;
-    return retval;
-  }
+  // cleanup
+  ub_resolve_free(result);
+  return retval;
+}
 
-}  // namespace dns
+std::string DNSResolver::get_payment_address(const std::string& url)
+{
+  std::string retval;
+  return retval;
+}
+
+DNSResolver& DNSResolver::instance()
+{
+  static DNSResolver* staticInstance = NULL;
+  if (staticInstance == NULL)
+  {
+    staticInstance = new DNSResolver();
+  }
+  return *staticInstance;
+}
+
 }  // namespace tools
