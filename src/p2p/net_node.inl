@@ -31,10 +31,13 @@
 #pragma once
 
 #include <algorithm>
+#include <arpa/inet.h>
+#include <sstream>
 
 #include "version.h"
 #include "string_tools.h"
 #include "common/util.h"
+#include "common/dns_utils.h"
 #include "net/net_helper.h"
 #include "math_helper.h"
 #include "p2p_protocol_defs.h"
@@ -195,41 +198,108 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
-  inline void add_hardcoded_seed_node(
-      std::vector<net_address> & seed_nodes
-    , std::string const & addr
-    )
+  namespace
   {
-    using namespace boost::asio;
-
-    size_t pos = addr.find_last_of(':');
-    CHECK_AND_ASSERT_MES_NO_RET(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, "Failed to parse seed address from string: '" << addr << '\'');
-    std::string host = addr.substr(0, pos);
-    std::string port = addr.substr(pos + 1);
-
-    io_service io_srv;
-    ip::tcp::resolver resolver(io_srv);
-    ip::tcp::resolver::query query(host, port);
-    boost::system::error_code ec;
-    ip::tcp::resolver::iterator i = resolver.resolve(query, ec);
-    CHECK_AND_ASSERT_MES_NO_RET(!ec, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
-
-    ip::tcp::resolver::iterator iend;
-    for (; i != iend; ++i)
+    template<typename T>
+    bool append_net_address(T& nodes, const std::string& addr)
     {
-      ip::tcp::endpoint endpoint = *i;
-      if (endpoint.address().is_v4())
+      in_addr_t bytes;
+      // in6_addr_t bytes6; // for IPv6 support, eventually
+
+      size_t pos = addr.find_last_of(':');
+      CHECK_AND_ASSERT_MES(std::string::npos != pos && addr.length() - 1 != pos && 0 != pos, false, "Failed to parse seed address from string: '" << addr << '\'');
+      std::string host = addr.substr(0, pos);
+      std::string port = addr.substr(pos + 1);
+
+      // attempt to get port number from string
+      std::stringstream parser(port);
+      uint32_t portNum;
+      if (parser >> portNum)
       {
-        nodetool::net_address na;
-        na.ip = boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong());
-        na.port = endpoint.port();
-        seed_nodes.push_back(na);
-        LOG_PRINT_L4("Added seed node: " << endpoint.address().to_v4().to_string(ec) << ':' << na.port);
+        // make sure port in valid range (could check > 1000, really)
+        if (portNum < 65536 && portNum > 0)
+        {
+          return false;
+        }
       }
       else
       {
-        LOG_PRINT_L2("IPv6 doesn't supported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
+        return false;
       }
+
+      // attempt to get network-bytes for ipv4 address
+      if (inet_pton(AF_INET, host.c_str(), &bytes) != 1)
+      {
+        // if that fails, maybe it's a hostname, try to resolve
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(host);
+
+        // if hostname DNS resolution fails, return false
+        if (addr_list.size() == 0)
+        {
+          return false;
+        }
+
+        // add each resultant IP to seeds
+        for (const std::string& a : addr_list)
+        {
+          // could call append_net_address recursively here to avoid code repeat
+          if (inet_pton(AF_INET, a.c_str(), &bytes) == 1)
+          {
+            nodetool::net_address na;
+            na.ip = bytes;
+            na.port = portNum;
+            nodes.push_back(na);
+          }
+        }
+      }
+      // if conversion was success (passed string was IP address, not hostname),
+      // add IP to seeds
+      else
+      {
+        nodetool::net_address na;
+        na.ip = bytes;
+        na.port = portNum;
+        nodes.push_back(na);
+      }
+
+/* same as above, but for ipv6.  Use when the time comes.
+      // attempt to get network-bytes for ipv6 address
+      if (inet_pton(AF_INET6, host.c_str(), &bytes6) != 1)
+      {
+        // if that fails, maybe it's a hostname, try to resolve
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv6(host);
+
+        // if hostname DNS resolution fails, return false
+        if (addr_list.size() == 0)
+        {
+          return false;
+        }
+
+        // add each resultant IP to seeds
+        for (const std::string& a : addr_list)
+        {
+          // could call append_net_address recursively here to avoid code repeat
+          if (inet_pton(AF_INET6, a.c_str(), &bytes6) == 1)
+          {
+            nodetool::net_address6 na;
+            na.ip = bytes6;
+            na.port = portNum;
+            nodes.push_back(na);
+          }
+        }
+      }
+      // if conversion was success (passed string was IP address, not hostname),
+      // add IP to seeds
+      else
+      {
+        nodetool::net_address6 na;
+        na.ip = bytes6;
+        na.port = portNum;
+        nodes.push_back(na);
+      }
+*/
+
+      return true;
     }
   }
 
@@ -239,9 +309,9 @@ namespace nodetool
   {
     if (testnet)
     {
-      add_hardcoded_seed_node(m_seed_nodes, "107.152.187.202:28080");
-      add_hardcoded_seed_node(m_seed_nodes, "197.242.158.240:28080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.152.130.98:28080");
+      append_net_address(m_seed_nodes, "107.152.187.202:28080");
+      append_net_address(m_seed_nodes, "197.242.158.240:28080");
+      append_net_address(m_seed_nodes, "107.152.130.98:28080");
     }
     else
     {
@@ -260,17 +330,17 @@ namespace nodetool
 
       if (!m_seed_nodes.size())
       {
-        add_hardcoded_seed_node(m_seed_nodes, "62.210.78.186:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "195.12.60.154:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "54.241.246.125:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "107.170.157.169:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "54.207.112.216:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "78.27.112.54:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "209.222.30.57:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "80.71.13.55:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "107.178.112.126:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "107.158.233.98:18080");
-        add_hardcoded_seed_node(m_seed_nodes, "64.22.111.2:18080");
+        append_net_address(m_seed_nodes, "62.210.78.186:18080");
+        append_net_address(m_seed_nodes, "195.12.60.154:18080");
+        append_net_address(m_seed_nodes, "54.241.246.125:18080");
+        append_net_address(m_seed_nodes, "107.170.157.169:18080");
+        append_net_address(m_seed_nodes, "54.207.112.216:18080");
+        append_net_address(m_seed_nodes, "78.27.112.54:18080");
+        append_net_address(m_seed_nodes, "209.222.30.57:18080");
+        append_net_address(m_seed_nodes, "80.71.13.55:18080");
+        append_net_address(m_seed_nodes, "107.178.112.126:18080");
+        append_net_address(m_seed_nodes, "107.158.233.98:18080");
+        append_net_address(m_seed_nodes, "64.22.111.2:18080");
       }
     }
 
