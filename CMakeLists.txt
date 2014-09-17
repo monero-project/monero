@@ -197,6 +197,11 @@ else()
   add_custom_target(version ALL)
 endif()
 
+# <expletive deleted> CMake bug making this not work.
+#find_package(Unbound REQUIRED)
+# Won't make sure this works, because that's broken.
+set(CMAKE_UNBOUND_LIB "-lunbound")
+
 add_subdirectory(external)
 
 # Final setup for miniupnpc
