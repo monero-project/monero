@@ -82,17 +82,15 @@ public:
    std::vector<std::string> get_ipv6(const std::string& url);
 
   /**
-   * @brief gets a monero address from the TXT record of the DNS query response
-   *
-   * returns a monero address string from the TXT record associated with URL
-   * if no TXT record present, or no valid monero address in TXT,
-   * returns an empty string.
+   * @brief gets a TXT record from a DNS query for the supplied URL;
+   * if no TXT record present returns an empty string.
    *
    * @param url A string containing a URL to query for
    *
-   * @return 
+   * @return A string containing a TXT record; or an empty string
    */
-  std::string get_payment_address(const std::string& url);
+  // TODO: modify this to accomodate DNSSEC
+  std::string get_txt_record(const std::string& url);
 
   /**
    * @brief Gets the singleton instance of DNSResolver
