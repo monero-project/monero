@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.8.6)
 
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 if (NOT DEFINED ENV{DEVELOPER_LOCAL_TOOLS})
 	message(STATUS "Could not find DEVELOPER_LOCAL_TOOLS in env")
 	set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
@@ -43,7 +45,6 @@ else()
 endif()
 message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT}")
 option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost ins	tallation" $BOOST_IGNORE_SYSTEM_PATHS_DEFAULT)
-
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")

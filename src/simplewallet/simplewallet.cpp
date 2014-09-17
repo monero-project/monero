@@ -921,7 +921,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
       // for now, move on only if one address found
       if (addresses_from_dns.size() == 1)
       {
-        if (get_account_address_from_str(de.addr, addresses_from_dns[0]))
+        if (get_account_address_from_str(de.addr, m_wallet->testnet(), addresses_from_dns[0]))
         {
           // if it was an address, prompt user for confirmation.
           // inform user of DNSSEC validation status as well.
@@ -959,7 +959,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
       }
       else if (addresses_from_dns.size() > 1)
       {
-        tools::fail_msg_writer() << "Multiple Monero addresses found for given URL: " << url << ", this is not yet supported.";
+        fail_msg_writer() << "Multiple Monero addresses found for given URL: " << url << ", this is not yet supported.";
       }
       else
       {
