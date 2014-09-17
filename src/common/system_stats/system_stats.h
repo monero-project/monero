@@ -35,8 +35,8 @@
 
 namespace system_stats
 {
-  long long get_total_system_memory();
-  long long get_used_system_memory();
+  unsigned long long get_total_system_memory();
+  unsigned long long get_used_system_memory();
   double get_cpu_usage();
 };
 

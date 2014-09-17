@@ -86,21 +86,21 @@ namespace
 namespace system_stats
 {
   /* Returns the total amount of main memory in the system (in Bytes) */
-  long long get_total_system_memory()
+  unsigned long long get_total_system_memory()
   {
     struct sysinfo mem_info;
     sysinfo(&mem_info);
-    long long total_mem = mem_info.totalram;
+    unsigned long long total_mem = mem_info.totalram;
     total_mem *= mem_info.mem_unit;
     return total_mem;
   }
 
   /* Returns the total amount of the memory that is currently being used (in Bytes) */
-  long long get_used_system_memory()
+  unsigned long long get_used_system_memory()
   {
     struct sysinfo mem_info;
     sysinfo(&mem_info);
-    long long used_mem = mem_info.totalram - mem_info.freeram;
+    unsigned long long used_mem = mem_info.totalram - mem_info.freeram;
     used_mem *= mem_info.mem_unit;
     return used_mem;
   }
@@ -157,18 +157,18 @@ CONST PWSTR COUNTER_PATH    = L"\\Processor(0)\\% Processor Time";
 namespace system_stats
 {
   /* Returns the total amount of main memory in the system (in Bytes) */
-  long long get_total_system_memory()
+  unsigned long long get_total_system_memory()
   {
     DWORDLONG w_total_mem = memInfo.ullTotalPhys;
-    long long total_mem = static_cast<long long>(w_total_mem);
+    unsigned long long total_mem = static_cast<unsigned long long>(w_total_mem);
     return total_mem;
   }
 
   /* Returns the total amount of the memory that is currently being used (in Bytes) */
-  long long get_used_system_memory()
+  unsigned long long get_used_system_memory()
   {
     DWORDLONG w_used_mem = memInfo.ullTotalPhys - memInfo.ullAvailPhys;
-    long long used_mem = static_cast<long long>(w_used_mem);
+    unsigned long long used_mem = static_cast<unsigned long long>(w_used_mem);
     return used_mem;
   }
 
@@ -268,17 +268,17 @@ namespace
 namespace system_stats
 {
   /* Returns the total amount of main memory in the system (in Bytes) */
-  long long get_total_system_memory()
+  unsigned long long get_total_system_memory()
   {
     int mib[] = {CTL_HW, HW_MEMSIZE};
     int64_t physical_memory;
     size_t length = sizeof(int64_t);
     sysctl(mib, 2, &physical_memory, &length, NULL, 0);
-    return static_cast<long long>(physical_memory);
+    return static_cast<unsigned long long>(physical_memory);
   }
 
   /* Returns the total amount of the memory that is currently being used (in Bytes) */
-  long long get_used_system_memory()
+  unsigned long long get_used_system_memory()
   {
     vm_size_t page_size;
     mach_port_t mach_port;
@@ -301,9 +301,9 @@ namespace system_stats
         failed with error code: " + std::to_string(status);
       throw std::runtime_error(msg);
     }
-    long long used_mem = (static_cast<long long>(vm_stats.active_count) + 
-                 static_cast<long long>(vm_stats.inactive_count) + 
-                 static_cast<long long>(vm_stats.wire_count)) * page_size;
+    unsigned long long used_mem = (static_cast<unsigned long long>(vm_stats.active_count) + 
+      static_cast<unsigned long long>(vm_stats.inactive_count) + 
+      static_cast<unsigned long long>(vm_stats.wire_count)) * page_size;
     return used_mem;
   }
 
