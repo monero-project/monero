@@ -245,17 +245,33 @@ namespace nodetool
     }
     else
     {
-      add_hardcoded_seed_node(m_seed_nodes, "62.210.78.186:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "195.12.60.154:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "54.241.246.125:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.170.157.169:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "54.207.112.216:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "78.27.112.54:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "209.222.30.57:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "80.71.13.55:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.178.112.126:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.158.233.98:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "64.22.111.2:18080");
+      // for each hostname in the seed nodes list, attempt to DNS resolve and
+      // add the result addresses as seed nodes
+      // TODO: at some point add IPv6 support, but that won't be relevant
+      // for some time yet.
+      for (const std::string& addr_str : m_seed_nodes_list)
+      {
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str);
+        for (const std::string& a : addr_list)
+        {
+          append_net_address(m_seed_nodes, a + ":18080");
+        }
+      }
+
+      if (!m_seed_nodes.size())
+      {
+        add_hardcoded_seed_node(m_seed_nodes, "62.210.78.186:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "195.12.60.154:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "54.241.246.125:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "107.170.157.169:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "54.207.112.216:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "78.27.112.54:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "209.222.30.57:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "80.71.13.55:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "107.178.112.126:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "107.158.233.98:18080");
+        add_hardcoded_seed_node(m_seed_nodes, "64.22.111.2:18080");
+      }
     }
 
     bool res = handle_command_line(vm, testnet);

@@ -32,6 +32,8 @@
 namespace tools
 {
 
+struct DNSResolverData;
+
 /**
  * @brief Provides high-level access to DNS resolution
  *
@@ -44,43 +46,64 @@ class DNSResolver
 public:
 
   /**
-   * @brief Constructs and sets the URI to be resolved
+   * @brief Constructs an instance of DNSResolver
    *
-   * @param uri the URI to be resolved
+   * Constructs a class instance and does setup stuff for the backend resolver.
    */
-  DNSResolver(const std::string& uri);
+  DNSResolver();
 
   /**
-   * @brief gets ipv4 addresses from DNS query
+   * @brief takes care of freeing C pointers and such
+   */
+  ~DNSResolver();
+
+  /**
+   * @brief gets ipv4 addresses from DNS query of a URL
    *
-   * returns a vector of all IPv4 "A" records for given URI.
+   * returns a vector of all IPv4 "A" records for given URL.
    * If no "A" records found, returns an empty vector.
+   *
+   * @param url A string containing a URL to query for
    *
    * @return vector of strings containing ipv4 addresses
    */
-  std::vector<std::string> get_ipv4();
+  std::vector<std::string> get_ipv4(const std::string& url);
 
   /**
    * @brief gets ipv6 addresses from DNS query
    *
-   * returns a vector of all IPv6 "A" records for given URI.
+   * returns a vector of all IPv6 "A" records for given URL.
    * If no "A" records found, returns an empty vector.
+   *
+   * @param url A string containing a URL to query for
    *
    * @return vector of strings containing ipv6 addresses
    */
-  std::vector<std::string> get_ipv6();
+   std::vector<std::string> get_ipv6(const std::string& url);
 
   /**
    * @brief gets a monero address from the TXT record of the DNS query response
    *
-   * returns a monero address string from the TXT record associated with URI
+   * returns a monero address string from the TXT record associated with URL
    * if no TXT record present, or no valid monero address in TXT,
    * returns an empty string.
    *
+   * @param url A string containing a URL to query for
+   *
    * @return 
    */
-  std::string get_payment_address();
+  std::string get_payment_address(const std::string& url);
 
+  /**
+   * @brief Gets the singleton instance of DNSResolver
+   *
+   * @return returns a pointer to the singleton
+   */
+  static DNSResolver& instance();
+
+private:
+
+  DNSResolverData *m_data;
 }; // class DNSResolver
 
 }  // namespace tools
