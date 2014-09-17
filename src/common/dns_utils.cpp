@@ -76,7 +76,7 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
         char as_str[INET_ADDRSTRLEN];
 
         // convert bytes to string, append if no error
-        if (inet_ntop(AF_INET, result->data[0], as_str, sizeof(as_str)))
+        if (inet_ntop(AF_INET, result->data[i], as_str, sizeof(as_str)))
         {
           retval.push_back(as_str);
         }
@@ -104,7 +104,7 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
         char as_str[INET6_ADDRSTRLEN];
 
         // convert bytes to string, append if no error
-        if (inet_ntop(AF_INET6, result->data[0], as_str, sizeof(as_str)))
+        if (inet_ntop(AF_INET6, result->data[i], as_str, sizeof(as_str)))
         {
           retval.push_back(as_str);
         }
