@@ -232,11 +232,10 @@ namespace
   /* Gets a snapshot of the number of CPU ticks (idle and total) at this point */
   void get_cpu_snapshot(unsigned long long &idle_ticks, unsigned long long &total_ticks)
   {
-    mach_port_t mach_port;
-    mach_msg_type_number_t count;
+    mach_port_t mach_port = mach_host_self();
+    mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
     host_cpu_load_info_data_t cpu_stats;
 
-    mach_port = mach_host_self();
     int status = host_statistics(mach_port, HOST_CPU_LOAD_INFO, (host_info_t)&cpu_stats, &count);
     if (status != KERN_SUCCESS)
     {
@@ -262,7 +261,7 @@ namespace
       // Overflow detected.
       throw std::runtime_error("Rare CPU time integer overflow occured. Try again.");
     }
-    return 100 * (1.0 - ((total_ticks_diff > 0) ? (static_cast<double>(idle_ticks_diff)) / total_ticks_diff : 0));
+    return 100 * (1.0 - (static_cast<double>(idle_ticks_diff) / total_ticks_diff));
   }
 };
 
@@ -308,6 +307,7 @@ namespace system_stats
     return used_mem;
   }
 
+  /* Returns CPU usage percentage */
   double get_cpu_usage()
   {
     unsigned long long total_ticks_1 = 0;
@@ -315,6 +315,7 @@ namespace system_stats
     unsigned long long idle_ticks_1 = 0;
     unsigned long long idle_ticks_2 = 0;
     double percent;
+
     try
     {
       // Get two CPU snapshots separated by some time.
