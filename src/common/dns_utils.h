@@ -101,6 +101,15 @@ public:
 
 private:
 
+  /**
+   * @brief Checks a string to see if it looks like a URL
+   *
+   * @param addr the string to be checked
+   *
+   * @return true if it looks enough like a URL, false if not
+   */
+  bool check_address_syntax(const std::string& addr);
+
   DNSResolverData *m_data;
 }; // class DNSResolver
 
