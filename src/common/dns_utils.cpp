@@ -79,10 +79,15 @@ DNSResolver::~DNSResolver()
 
 std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
 {
+  std::vector<std::string> addresses;
+
+  if (!check_address_syntax(url))
+  {
+    return addresses;
+  }
+
   // destructor takes care of cleanup
   ub_result_ptr result;
-
-  std::vector<std::string> retval;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
   if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_A, LDNS_RR_CLASS_IN, &(result.ptr)))
@@ -96,19 +101,25 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
         // convert bytes to string, append if no error
         if (inet_ntop(AF_INET, result.ptr->data[i], as_str, sizeof(as_str)))
         {
-          retval.push_back(as_str);
+          addresses.push_back(as_str);
         }
       }
     }
   }
 
-  return retval;
+  return addresses;
 }
 
 std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
 {
+  std::vector<std::string> addresses;
+
+  if (!check_address_syntax(url))
+  {
+    return addresses;
+  }
+
   ub_result_ptr result;
-  std::vector<std::string> retval;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
   if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_AAAA, LDNS_RR_CLASS_IN, &(result.ptr)))
@@ -122,19 +133,25 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
         // convert bytes to string, append if no error
         if (inet_ntop(AF_INET6, result.ptr->data[i], as_str, sizeof(as_str)))
         {
-          retval.push_back(as_str);
+          addresses.push_back(as_str);
         }
       }
     }
   }
 
-  return retval;
+  return addresses;
 }
 
 std::vector<std::string> DNSResolver::get_txt_record(const std::string& url)
 {
-  ub_result_ptr result;
   std::vector<std::string> records;
+
+  if (!check_address_syntax(url))
+  {
+    return records;
+  }
+
+  ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
   if (!ub_resolve(m_data->m_ub_context, url.c_str(), LDNS_RR_TYPE_TXT, LDNS_RR_CLASS_IN, &(result.ptr)))
@@ -159,6 +176,16 @@ DNSResolver& DNSResolver::instance()
     staticInstance = new DNSResolver();
   }
   return *staticInstance;
+}
+
+bool DNSResolver::check_address_syntax(const std::string& addr)
+{
+  // if string doesn't contain a dot, we won't consider it a url for now.
+  if (addr.find(".") == std::string::npos)
+  {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace tools
