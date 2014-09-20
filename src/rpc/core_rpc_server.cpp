@@ -680,6 +680,11 @@ namespace cryptonote
       error_resp.message = "Core is busy.";
       return false;
     }
+
+    res.hours = res.minutes = res.seconds = 0;
+    res.total_memory = system_stats::get_total_system_memory();
+    res.used_memory = system_stats::get_used_system_memory();
+    res.cpu_usage_percent = system_stats::get_cpu_usage();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

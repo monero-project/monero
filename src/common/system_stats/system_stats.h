@@ -31,12 +31,12 @@
 #ifndef SYSTEM_STATS
 #define SYSTEM_STATS
 
-#include <string>
+#include <cstdint>
 
 namespace system_stats
 {
-  unsigned long long get_total_system_memory();
-  unsigned long long get_used_system_memory();
+  uint64_t get_total_system_memory();
+  uint64_t get_used_system_memory();
   double get_cpu_usage();
 };
 

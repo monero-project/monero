@@ -37,18 +37,19 @@
 #include <cstdio>
 #include <unistd.h>
 #include <stdexcept>
+#include <cinttypes>
 
 const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
 
 namespace
 {
   /* Gets a snapshot of CPU times till this point */
-  void get_cpu_snapshot(unsigned long long &total_cpu_user_before, unsigned long long &total_cpu_user_low_before,
-    unsigned long long &total_cpu_sys_before, unsigned long long &total_cpu_idle_before)
+  void get_cpu_snapshot(uint64_t &total_cpu_user_before, uint64_t &total_cpu_user_low_before,
+    uint64_t &total_cpu_sys_before, uint64_t &total_cpu_idle_before)
   {
     // Get a snapshot of the how much CPU time has been spent for each type.
     FILE *file = fopen("/proc/stat", "r");
-    if (!fscanf(file, "cpu %Ld %Ld %Ld %Ld", &total_cpu_user_before, &total_cpu_user_low_before,
+    if (!fscanf(file, "cpu %" SCNu64 "%" SCNu64 "%" SCNu64 "%" SCNu64, &total_cpu_user_before, &total_cpu_user_low_before,
       &total_cpu_sys_before, &total_cpu_idle_before))
     {
       throw std::runtime_error("Couldn't read /proc/stat");
@@ -57,12 +58,12 @@ namespace
   }
 
   /* Find CPU usage given two snapshots */
-  double calculate_cpu_load(unsigned long long total_cpu_user_before, unsigned long long total_cpu_user_low_before,
-    unsigned long long total_cpu_sys_before, unsigned long long total_cpu_idle_before,
-    unsigned long long total_cpu_user_after, unsigned long long total_cpu_user_low_after,
-    unsigned long long total_cpu_sys_after, unsigned long long total_cpu_idle_after)
+  double calculate_cpu_load(uint64_t total_cpu_user_before, uint64_t total_cpu_user_low_before,
+    uint64_t total_cpu_sys_before, uint64_t total_cpu_idle_before,
+    uint64_t total_cpu_user_after, uint64_t total_cpu_user_low_after,
+    uint64_t total_cpu_sys_after, uint64_t total_cpu_idle_after)
   {
-    unsigned long long total;
+    uint64_t total;
     double percent;
     if (total_cpu_user_after < total_cpu_user_before || total_cpu_user_low_after < total_cpu_user_low_before ||
       total_cpu_sys_after < total_cpu_sys_before || total_cpu_idle_after < total_cpu_idle_before)
@@ -86,21 +87,21 @@ namespace
 namespace system_stats
 {
   /* Returns the total amount of main memory in the system (in Bytes) */
-  unsigned long long get_total_system_memory()
+  uint64_t get_total_system_memory()
   {
     struct sysinfo mem_info;
     sysinfo(&mem_info);
-    unsigned long long total_mem = mem_info.totalram;
+    uint64_t total_mem = mem_info.totalram;
     total_mem *= mem_info.mem_unit;
     return total_mem;
   }
 
   /* Returns the total amount of the memory that is currently being used (in Bytes) */
-  unsigned long long get_used_system_memory()
+  uint64_t get_used_system_memory()
   {
     struct sysinfo mem_info;
     sysinfo(&mem_info);
-    unsigned long long used_mem = mem_info.totalram - mem_info.freeram;
+    uint64_t used_mem = mem_info.totalram - mem_info.freeram;
     used_mem *= mem_info.mem_unit;
     return used_mem;
   }
@@ -109,9 +110,9 @@ namespace system_stats
   double get_cpu_usage()
   {
     double percent;
-    unsigned long long total_cpu_user_before, total_cpu_user_low_before, total_cpu_sys_before,
+    uint64_t total_cpu_user_before, total_cpu_user_low_before, total_cpu_sys_before,
       total_cpu_idle_before;
-    unsigned long long total_cpu_user_after, total_cpu_user_low_after, total_cpu_sys_after,
+    uint64_t total_cpu_user_after, total_cpu_user_low_after, total_cpu_sys_after,
       total_cpu_idle_after;
 
     try
@@ -157,18 +158,18 @@ CONST PWSTR COUNTER_PATH    = L"\\Processor(0)\\% Processor Time";
 namespace system_stats
 {
   /* Returns the total amount of main memory in the system (in Bytes) */
-  unsigned long long get_total_system_memory()
+  uint64_t get_total_system_memory()
   {
     DWORDLONG w_total_mem = memInfo.ullTotalPhys;
-    unsigned long long total_mem = static_cast<unsigned long long>(w_total_mem);
+    uint64_t total_mem = static_cast<uint64_t>(w_total_mem);
     return total_mem;
   }
 
   /* Returns the total amount of the memory that is currently being used (in Bytes) */
-  unsigned long long get_used_system_memory()
+  uint64_t get_used_system_memory()
   {
     DWORDLONG w_used_mem = memInfo.ullTotalPhys - memInfo.ullAvailPhys;
-    unsigned long long used_mem = static_cast<unsigned long long>(w_used_mem);
+    uint64_t used_mem = static_cast<uint64_t>(w_used_mem);
     return used_mem;
   }
 
@@ -230,7 +231,7 @@ const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
 namespace
 {
   /* Gets a snapshot of the number of CPU ticks (idle and total) at this point */
-  void get_cpu_snapshot(unsigned long long &idle_ticks, unsigned long long &total_ticks)
+  void get_cpu_snapshot(uint64_t &idle_ticks, uint64_t &total_ticks)
   {
     mach_port_t mach_port = mach_host_self();
     mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
@@ -251,8 +252,8 @@ namespace
   }
 
   /* Find CPU usage given two snapshots */
-  double calculate_cpu_load(unsigned long long idle_ticks_1, unsigned long long total_ticks_1,
-    unsigned long long idle_ticks_2, unsigned long long total_ticks_2)
+  double calculate_cpu_load(uint64_t idle_ticks_1, uint64_t total_ticks_1,
+    uint64_t idle_ticks_2, uint64_t total_ticks_2)
   {
     long long total_ticks_diff = total_ticks_2 - total_ticks_1;
     long long idle_ticks_diff  = idle_ticks_2 -idle_ticks_1;
@@ -268,17 +269,17 @@ namespace
 namespace system_stats
 {
   /* Returns the total amount of main memory in the system (in Bytes) */
-  unsigned long long get_total_system_memory()
+  uint64_t get_total_system_memory()
   {
     int mib[] = {CTL_HW, HW_MEMSIZE};
     int64_t physical_memory;
     size_t length = sizeof(int64_t);
     sysctl(mib, 2, &physical_memory, &length, NULL, 0);
-    return static_cast<unsigned long long>(physical_memory);
+    return static_cast<uint64_t>(physical_memory);
   }
 
   /* Returns the total amount of the memory that is currently being used (in Bytes) */
-  unsigned long long get_used_system_memory()
+  uint64_t get_used_system_memory()
   {
     vm_size_t page_size;
     mach_port_t mach_port;
@@ -301,19 +302,19 @@ namespace system_stats
         failed with error code: " + std::to_string(status);
       throw std::runtime_error(msg);
     }
-    unsigned long long used_mem = (static_cast<unsigned long long>(vm_stats.active_count) + 
-      static_cast<unsigned long long>(vm_stats.inactive_count) + 
-      static_cast<unsigned long long>(vm_stats.wire_count)) * page_size;
+    uint64_t used_mem = (static_cast<uint64_t>(vm_stats.active_count) + 
+      static_cast<uint64_t>(vm_stats.inactive_count) + 
+      static_cast<uint64_t>(vm_stats.wire_count)) * page_size;
     return used_mem;
   }
 
   /* Returns CPU usage percentage */
   double get_cpu_usage()
   {
-    unsigned long long total_ticks_1 = 0;
-    unsigned long long total_ticks_2 = 0;
-    unsigned long long idle_ticks_1 = 0;
-    unsigned long long idle_ticks_2 = 0;
+    uint64_t total_ticks_1 = 0;
+    uint64_t total_ticks_2 = 0;
+    uint64_t idle_ticks_1 = 0;
+    uint64_t idle_ticks_2 = 0;
     double percent;
 
     try

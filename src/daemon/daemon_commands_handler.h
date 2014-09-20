@@ -161,7 +161,7 @@ private:
     }
     try
     {
-      long long total_system_memory = system_stats::get_total_system_memory();
+      uint64_t total_system_memory = system_stats::get_total_system_memory();
       std::cout << "Total system memory: " << total_system_memory << " bytes" << ENDL;
     }
     catch (std::runtime_error &e)
@@ -170,7 +170,7 @@ private:
     }
     try
     {
-      long long used_system_memory = system_stats::get_used_system_memory();
+      uint64_t used_system_memory = system_stats::get_used_system_memory();
       std::cout << "Total system memory used: " << used_system_memory << " bytes" << ENDL;
     }
     catch (std::runtime_error &e)

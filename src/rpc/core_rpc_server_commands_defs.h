@@ -278,12 +278,21 @@ namespace cryptonote
 
     struct response
     {
-      unsigned int hours;
-      unsigned int minutes;
-      unsigned int seconds;
-      unsigned long long total_memory;
-      unsigned long long used_memory;
+      uint32_t hours;
+      uint32_t minutes;
+      uint32_t seconds;
+      uint64_t total_memory;
+      uint64_t used_memory;
       double cpu_usage_percent;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(hours);
+        KV_SERIALIZE(minutes);
+        KV_SERIALIZE(seconds);
+        KV_SERIALIZE(total_memory);
+        KV_SERIALIZE(used_memory);
+        KV_SERIALIZE(cpu_usage_percent);
+      END_KV_SERIALIZE_MAP()
     };
   };
   //-----------------------------------------------
