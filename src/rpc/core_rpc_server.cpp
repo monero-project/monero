@@ -686,9 +686,30 @@ namespace cryptonote
     res.hours = time_elapsed.hours();
     res.minutes = time_elapsed.minutes();
     res.seconds = time_elapsed.seconds();
-    res.total_memory = system_stats::get_total_system_memory();
-    res.used_memory = system_stats::get_used_system_memory();
-    res.cpu_usage_percent = system_stats::get_cpu_usage();
+    try
+    {
+      res.total_memory = system_stats::get_total_system_memory();
+    }
+    catch (std::runtime_error &e)
+    {
+      res.total_memory = -1;
+    }
+    try
+    {
+      res.used_memory = system_stats::get_used_system_memory();
+    }
+    catch (std::runtime_error &e)
+    {
+      res.used_memory = -1;
+    }
+    try
+    {
+      res.cpu_usage_percent = system_stats::get_cpu_usage();
+    }
+    catch (std::runtime_error &e)
+    {
+      res.cpu_usage_percent = -1.0;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
