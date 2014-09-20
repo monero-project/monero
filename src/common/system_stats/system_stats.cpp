@@ -152,6 +152,7 @@ namespace system_stats
 #include <pdhmsg.h>
 #include <stdexcept>
 #include <string>
+#include <cinttypes>
 
 CONST PWSTR COUNTER_PATH    = L"\\Processor(0)\\% Processor Time";
 
@@ -225,6 +226,7 @@ namespace system_stats
 #include <stdexcept>
 #include <string>
 #include <unistd.h>
+#include <cinttypes>
 
 const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
 
