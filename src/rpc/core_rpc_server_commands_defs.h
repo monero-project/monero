@@ -266,8 +266,26 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_STATS
+  {
+    struct request
+    {
 
-    
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      unsigned int hours;
+      unsigned int minutes;
+      unsigned int seconds;
+      unsigned long long total_memory;
+      unsigned long long used_memory;
+      double cpu_usage_percent;
+    };
+  };
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING
   {
