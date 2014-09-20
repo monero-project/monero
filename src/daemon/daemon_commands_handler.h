@@ -152,7 +152,7 @@ private:
   {
     try
     {
-      std::string time_elapsed = boost::posix_time::to_simple_string(m_srv.time_elapsed());
+      std::string time_elapsed = boost::posix_time::to_simple_string(m_srv.get_payload_object().get_core().time_elapsed());
       std::cout << "Time elapsed: " << time_elapsed << ENDL;
     }
     catch (std::runtime_error &e)

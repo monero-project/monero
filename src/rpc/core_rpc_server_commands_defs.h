@@ -278,9 +278,9 @@ namespace cryptonote
 
     struct response
     {
-      uint32_t hours;
-      uint32_t minutes;
-      uint32_t seconds;
+      uint64_t hours;
+      uint64_t minutes;
+      uint64_t seconds;
       uint64_t total_memory;
       uint64_t used_memory;
       double cpu_usage_percent;

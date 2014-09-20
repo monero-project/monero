@@ -129,6 +129,7 @@ namespace cryptonote
     r = m_miner.init(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
+    start_time = boost::posix_time::microsec_clock::local_time();
     return load_state_data();
   }
   //-----------------------------------------------------------------------------------------------
@@ -543,5 +544,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   uint64_t core::get_target_blockchain_height() const {
     return m_target_blockchain_height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  boost::posix_time::time_duration core::time_elapsed() const {
+    boost::posix_time::ptime time_now = boost::posix_time::microsec_clock::local_time();
+    return time_now - start_time;
   }
 }

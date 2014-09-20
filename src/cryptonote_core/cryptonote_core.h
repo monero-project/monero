@@ -43,6 +43,7 @@
 #include "cryptonote_core/cryptonote_stat_info.h"
 #include "warnings.h"
 #include "crypto/hash.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -118,6 +119,7 @@ namespace cryptonote
 
      void set_target_blockchain_height(uint64_t target_blockchain_height);
      uint64_t get_target_blockchain_height() const;
+     boost::posix_time::time_duration time_elapsed() const;
 
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
@@ -155,6 +157,7 @@ namespace cryptonote
      std::atomic<bool> m_starter_message_showed;
 
      uint64_t m_target_blockchain_height;
+     boost::posix_time::ptime start_time;
    };
 }
 

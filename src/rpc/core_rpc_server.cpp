@@ -41,6 +41,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
 #include "common/system_stats/system_stats.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 namespace cryptonote
 {
@@ -674,14 +675,17 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_stats(const COMMAND_RPC_GET_STATS::request& req, COMMAND_RPC_GET_STATS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
   {
-    if(!check_core_busy())
+    if (!check_core_busy())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
       error_resp.message = "Core is busy.";
       return false;
     }
 
-    res.hours = res.minutes = res.seconds = 0;
+    boost::posix_time::time_duration time_elapsed = m_core.time_elapsed();
+    res.hours = time_elapsed.hours();
+    res.minutes = time_elapsed.minutes();
+    res.seconds = time_elapsed.seconds();
     res.total_memory = system_stats::get_total_system_memory();
     res.used_memory = system_stats::get_used_system_memory();
     res.cpu_usage_percent = system_stats::get_cpu_usage();
