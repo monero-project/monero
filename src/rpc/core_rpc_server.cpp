@@ -28,6 +28,10 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file core_rpc_server.cpp
+ * \brief Source file for managing RPC server for daemon.
+ */
 #include <boost/foreach.hpp>
 #include "include_base_utils.h"
 using namespace epee;
@@ -43,6 +47,10 @@ using namespace epee;
 #include "common/system_stats/system_stats.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
 
+/*!
+ * \namespace cryptonote
+ * \brief Holds cryptonote related classes and helpers.
+ */
 namespace cryptonote
 {
   namespace
@@ -672,7 +680,15 @@ namespace cryptonote
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
-  //------------------------------------------------------------------------------------------------------------------------------
+  
+  /*!
+   * \brief Called when 'get_stats' RPC is made.
+   * \param  req        Request object
+   * \param  res        Respose object
+   * \param  error_resp Error response object
+   * \param  cntx       Connection context
+   * \return            Whether the RPC was successful or not.
+   */
   bool core_rpc_server::on_get_stats(const COMMAND_RPC_GET_STATS::request& req, COMMAND_RPC_GET_STATS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
   {
     if (!check_core_busy())

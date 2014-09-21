@@ -1188,5 +1188,4 @@ namespace nodetool
 
     return true;
   }
-
 }

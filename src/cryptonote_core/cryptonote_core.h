@@ -28,6 +28,10 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file cryptonote_core.h
+ * \brief Contains core class under cryptonote namespace.
+ */
 #pragma once
 
 #include <boost/program_options/options_description.hpp>
@@ -48,11 +52,16 @@
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
+/*!
+ * \namespace cryptonote
+ * \brief Holds cryptonote related classes and helpers.
+ */
 namespace cryptonote
 {
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
+   /*!
+    * \class core
+    * \brief The class that manages the cryptonote algorithm.
+    */
    class core: public i_miner_handler
    {
    public:
@@ -119,6 +128,11 @@ namespace cryptonote
 
      void set_target_blockchain_height(uint64_t target_blockchain_height);
      uint64_t get_target_blockchain_height() const;
+     /*!
+      * \brief Returns the time duration for which the core has been running.
+      * 
+      * It returns the difference between the start_time and the current time.
+      */
      boost::posix_time::time_duration time_elapsed() const;
 
    private:
@@ -157,7 +171,7 @@ namespace cryptonote
      std::atomic<bool> m_starter_message_showed;
 
      uint64_t m_target_blockchain_height;
-     boost::posix_time::ptime start_time;
+     boost::posix_time::ptime start_time; //!< The start time of the core, set during init.
    };
 }
 

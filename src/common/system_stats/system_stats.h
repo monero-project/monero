@@ -28,15 +28,35 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*! 
+ * \file system_stats.h
+ * \brief Contains system stats fetching utilities' declarations.
+ *
+ * Under the namespace `system_stats` it offers functions to fetch:
+ * - Total system memory
+ * - Used system memory
+ * - CPU usage
+ * It works on Linux, Windows and Mac OS.
+ */
+
 #ifndef SYSTEM_STATS
 #define SYSTEM_STATS
 
 #include <cstdint>
 
+/*! 
+ * \namespace system_stats
+ * \brief Namespace to hold system stats fetching functions.
+ */
 namespace system_stats
 {
+	/*! \brief Returns total system memory (RAM) in bytes. */
   uint64_t get_total_system_memory();
+
+  /*! \brief Returns currently used system memory (used RAM) in bytes. */
   uint64_t get_used_system_memory();
+
+  /*! \brief Returns current CPU usage as a percentage. */
   double get_cpu_usage();
 };
 

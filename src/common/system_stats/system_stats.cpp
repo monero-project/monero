@@ -28,6 +28,17 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file system_stats.cpp
+ * \brief Contains system stats fetching utilities' implementations.
+ *
+ * Under the namespace `system_stats` it offers functions to fetch:
+ * - Total system memory
+ * - Used system memory
+ * - CPU usage
+ * It works on Linux, Windows and Mac OS.
+ */
+
 #ifdef __linux__
 
 #include "system_stats.h"
@@ -39,6 +50,10 @@
 #include <stdexcept>
 #include <cinttypes>
 
+/*!
+ * \var const int CPU_USAGE_CHECK_WAIT_DURATION
+ * \brief A (static) constant that tells the wait duration between two CPU snapshots for measuring CPU usage.
+ */
 const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
 
 namespace
@@ -84,9 +99,13 @@ namespace
   }
 };
 
+/*!
+ * \namespace system_stats
+ * \brief Namespace to hold system stats fetching functions.
+ */
 namespace system_stats
 {
-  /* Returns the total amount of main memory in the system (in Bytes) */
+  /*! \brief Returns total system memory (RAM) in bytes. */
   uint64_t get_total_system_memory()
   {
     struct sysinfo mem_info;
@@ -96,7 +115,7 @@ namespace system_stats
     return total_mem;
   }
 
-  /* Returns the total amount of the memory that is currently being used (in Bytes) */
+  /*! \brief Returns currently used system memory (used RAM) in bytes. */
   uint64_t get_used_system_memory()
   {
     struct sysinfo mem_info;
@@ -106,7 +125,7 @@ namespace system_stats
     return used_mem;
   }
 
-  /* Returns CPU usage percentage */
+  /*! \brief Returns current CPU usage as a percentage. */
   double get_cpu_usage()
   {
     double percent;
@@ -156,9 +175,13 @@ namespace system_stats
 
 CONST PWSTR COUNTER_PATH    = L"\\Processor(0)\\% Processor Time";
 
+/*!
+ * \namespace system_stats
+ * \brief Namespace to hold system stats fetching functions.
+ */
 namespace system_stats
 {
-  /* Returns the total amount of main memory in the system (in Bytes) */
+  /*! \brief Returns total system memory (RAM) in bytes. */
   uint64_t get_total_system_memory()
   {
     DWORDLONG w_total_mem = memInfo.ullTotalPhys;
@@ -166,7 +189,7 @@ namespace system_stats
     return total_mem;
   }
 
-  /* Returns the total amount of the memory that is currently being used (in Bytes) */
+  /*! \brief Returns currently used system memory (used RAM) in bytes. */
   uint64_t get_used_system_memory()
   {
     DWORDLONG w_used_mem = memInfo.ullTotalPhys - memInfo.ullAvailPhys;
@@ -174,7 +197,7 @@ namespace system_stats
     return used_mem;
   }
 
-  /* Returns CPU usage percentage */
+  /*! \brief Returns current CPU usage as a percentage. */
   double get_cpu_usage()
   {
     HQUERY h_query = NULL;
@@ -228,6 +251,10 @@ namespace system_stats
 #include <unistd.h>
 #include <cinttypes>
 
+/*!
+ * \var const int CPU_USAGE_CHECK_WAIT_DURATION
+ * \brief A (static) constant that tells the wait duration between two CPU snapshots for measuring CPU usage.
+ */
 const int CPU_USAGE_CHECK_WAIT_DURATION = 1000000;
 
 namespace
@@ -268,9 +295,13 @@ namespace
   }
 };
 
+/*!
+ * \namespace system_stats
+ * \brief Namespace to hold system stats fetching functions.
+ */
 namespace system_stats
 {
-  /* Returns the total amount of main memory in the system (in Bytes) */
+  /*! \brief Returns total system memory (RAM) in bytes. */
   uint64_t get_total_system_memory()
   {
     int mib[] = {CTL_HW, HW_MEMSIZE};
@@ -280,7 +311,7 @@ namespace system_stats
     return static_cast<uint64_t>(physical_memory);
   }
 
-  /* Returns the total amount of the memory that is currently being used (in Bytes) */
+  /*! \brief Returns currently used system memory (used RAM) in bytes. */
   uint64_t get_used_system_memory()
   {
     vm_size_t page_size;
@@ -310,7 +341,7 @@ namespace system_stats
     return used_mem;
   }
 
-  /* Returns CPU usage percentage */
+  /*! \brief Returns current CPU usage as a percentage. */
   double get_cpu_usage()
   {
     uint64_t total_ticks_1 = 0;
