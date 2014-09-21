@@ -28,9 +28,15 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-/* serialization.h
+/*! \file serialization.h
  *
- * Simple templated serialization API */
+ * \brief ``Simple'' templated serialization API 
+ *
+ * Provides the same DSL for the creation of predefined archives (the
+ * Archive part of the template), or the transformation of data into
+ * an archival format
+ * 
+ */
 
 #pragma once
 #include <vector>
@@ -38,25 +44,50 @@
 #include <boost/type_traits/is_integral.hpp>
 #include <boost/type_traits/integral_constant.hpp>
 
+/*! \brief compile time database of blob types
+ */
 template <class T>
-struct is_blob_type { typedef boost::false_type type; };
-template <class T>
-struct has_free_serializer { typedef boost::true_type type; };
+struct is_blob_type
+{
+  typedef boost::false_type type;
+};
 
+/*! \brief compile time database of types with a free serializer
+ */
+template <class T>
+struct has_free_serializer
+{
+  typedef boost::true_type type;
+};
+
+// May want to refactor->could easily be done to avoid overloading and
+// template abuse
+/*! \brief contains the overloaded functions for the serialize
+    operation
+ */
 template <class Archive, class T>
 struct serializer
 {
+  /*! \brief the main call to serialize---decides which overloaded
+   *  function to call via a query to is_blob_type and is_integral
+   */
   static bool serialize(Archive &ar, T &v) {
     return serialize(ar, v, typename boost::is_integral<T>::type(), typename is_blob_type<T>::type());
   }
+  /*! is not an integral but is in the blob_type database
+   */
   static bool serialize(Archive &ar, T &v, boost::false_type, boost::true_type) {
     ar.serialize_blob(&v, sizeof(v));
     return true;
   }
+  /*! is integral but not in the blob type database 
+   */
   static bool serialize(Archive &ar, T &v, boost::true_type, boost::false_type) {
     ar.serialize_int(v);
     return true;
   }
+  /*! is neither
+   */
   static bool serialize(Archive &ar, T &v, boost::false_type, boost::false_type) {
     //serialize_custom(ar, v, typename has_free_serializer<T>::type());
     return v.do_serialize(ar);
@@ -77,56 +108,116 @@ inline bool do_serialize(Archive &ar, T &v)
 #endif
 #endif
 
-#define BLOB_SERIALIZER(T) \
-  template<> struct is_blob_type<T> { typedef boost::true_type type; }
-#define FREE_SERIALIZER(T) \
-  template<> struct has_free_serializer<T> { typedef boost::true_type type; }
-#define VARIANT_TAG(A, T, Tg) \
-  template <bool W> struct variant_serialization_traits<A<W>, T> { static inline typename A<W>::variant_tag_type get_tag() { return Tg; } }
-#define BEGIN_SERIALIZE() \
-  template <bool W, template <bool> class Archive> bool do_serialize(Archive<W> &ar) {
-#define BEGIN_SERIALIZE_OBJECT() \
-  template <bool W, template <bool> class Archive> bool do_serialize(Archive<W> &ar) { ar.begin_object(); bool r = do_serialize_object(ar); ar.end_object(); return r; } \
-  template <bool W, template <bool> class Archive> bool do_serialize_object(Archive<W> &ar){
-#define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec) ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
+/*!
+  The following define the DSL for the transformation of data into archival formats 
+ */
 
-#define END_SERIALIZE() return true;}
+/*! \breif adds an entry to the blob_serializer database
+ */
+#define BLOB_SERIALIZER(T)			\
+  template<> struct is_blob_type<T> {		\
+    typedef boost::true_type type;		\
+  }
 
+/*! \breif adds an entry to free_serializer database
+ *
+ * this shouldn't exist, has_free_serializer defaults to true...
+ */
+#define FREE_SERIALIZER(T)			\
+  template<> struct has_free_serializer<T> {	\
+    typedef boost::true_type type;		\
+  }
 
-#define VALUE(f) \
-  do { \
-    ar.tag(#f); \
-    bool r = ::do_serialize(ar, f); \
-    if (!r || !ar.stream().good()) return false; \
+#define VARIANT_TAG(A, T, Tg)					\
+  template <bool W>						\
+  struct variant_serialization_traits<A<W>, T> {		\
+    static inline typename A<W>::variant_tag_type get_tag() {	\
+      return Tg;						\
+    }								\
+  }
+
+/*! \breif defines a do_serialize method, for types that are neither
+ * blob nor integral
+ */
+#define BEGIN_SERIALIZE()				\
+  template <bool W, template <bool> class Archive>	\
+  bool do_serialize(Archive<W> &ar) {            
+
+/*! \breif defines do_serialize when there is pre and post processing
+ */
+#define BEGIN_SERIALIZE_OBJECT()			\
+  template <bool W, template <bool> class Archive>	\
+  bool do_serialize(Archive<W> &ar) {			\
+    ar.begin_object();					\
+    bool r = do_serialize_object(ar);			\
+    ar.end_object();					\
+    return r;						\
+  }							\
+  template <bool W, template <bool> class Archive>	\
+  bool do_serialize_object(Archive<W> &ar){
+/*! \breif appears to just resize the vector
+ */
+#define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec)			\
+  ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
+
+/*! \breif ends a serialization operation
+ */
+#define END_SERIALIZE()				\
+  return true;					\
+  }
+/*! \brief Literally never used throughout the entire code base
+ */
+#define VALUE(f)					\
+  do {							\
+    ar.tag(#f);						\
+    bool r = ::do_serialize(ar, f);			\
+    if (!r || !ar.stream().good())			\
+      return false;					\
+  } while(0); 
+/*! \brief serializes a given field t from f
+ */
+#define FIELD_N(t, f)					\
+  do {							\
+    ar.tag(t);						\
+    bool r = ::do_serialize(ar, f);			\
+    if (!r || !ar.stream().good())			\
+      return false;					\
   } while(0);
-#define FIELD_N(t, f) \
-  do { \
-    ar.tag(t); \
-    bool r = ::do_serialize(ar, f); \
-    if (!r || !ar.stream().good()) return false; \
+/*! \breif  simply serializes f
+ */
+#define FIELDS(f)					\
+  do {							\
+    bool r = ::do_serialize(ar, f);			\
+    if (!r || !ar.stream().good())			\
+      return false;					\
   } while(0);
-#define FIELDS(f) \
-  do { \
-    bool r = ::do_serialize(ar, f); \
-    if (!r || !ar.stream().good()) return false; \
+
+/*! serializes and adds a tag
+ */
+#define FIELD(f)					\
+  do {							\
+    ar.tag(#f);						\
+    bool r = ::do_serialize(ar, f);			\
+    if (!r || !ar.stream().good())			\
+      return false;					\
   } while(0);
-#define FIELD(f) \
-  do { \
-    ar.tag(#f); \
-    bool r = ::do_serialize(ar, f); \
-    if (!r || !ar.stream().good()) return false; \
+
+/*! refer to the n and n_N distinction above */
+#define VARINT_FIELD(f)				\
+  do {						\
+    ar.tag(#f);					\
+    ar.serialize_varint(f);			\
+    if (!ar.stream().good())			\
+      return false;				\
   } while(0);
-#define VARINT_FIELD(f) \
-  do { \
-    ar.tag(#f); \
-    ar.serialize_varint(f); \
-    if (!ar.stream().good()) return false; \
-  } while(0);
-#define VARINT_FIELD_N(t, f) \
-  do { \
-    ar.tag(t); \
-    ar.serialize_varint(f); \
-    if (!ar.stream().good()) return false; \
+
+/*! refer to the n and n_N distinction above */
+#define VARINT_FIELD_N(t, f)			\
+  do {						\
+    ar.tag(t);					\
+    ar.serialize_varint(f);			\
+    if (!ar.stream().good())			\
+      return false;				\
   } while(0);
 
 namespace serialization {
@@ -154,11 +245,11 @@ namespace serialization {
     {
       bool result = false;
       if (s.good())
-      {
-        std::ios_base::iostate state = s.rdstate();
-        result = EOF == s.peek();
-        s.clear(state);
-      }
+	{
+	  std::ios_base::iostate state = s.rdstate();
+	  result = EOF == s.peek();
+	  s.clear(state);
+	}
       return result;
     }
   }
@@ -179,3 +270,4 @@ namespace serialization {
 
 #include "string.h"
 #include "vector.h"
+
