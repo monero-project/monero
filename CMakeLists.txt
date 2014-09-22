@@ -164,6 +164,10 @@ else()
   endif()
 endif()
 
+if (BOOST_IGNORE_SYSTEM_PATHS)
+	set(Boost_NO_SYSTEM_PATHS TRUE)
+endif()
+
 if(STATIC)
   set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_STATIC_RUNTIME ON)
