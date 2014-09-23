@@ -39,13 +39,54 @@
 #include <vector>
 #include <boost/algorithm/string.hpp>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
-
+#include <fstream>
 #include "mnemonics/electrum-words.h"
+
+
+namespace
+{
+  int num_words = 0; 
+  std::map<std::string,uint32_t> words_map;
+  vector<std::string> words_array;
+
+  const std::string OLD_WORD_FILE = "old-word-list";
+  const std::string WORD_LIST_DIRECTORY = "wordlists";
+  bool is_first_use()
+  {
+    return num_words == 0 ? true : false;
+  }
+
+  void create_data_structures(const std::string &word_file)
+  {
+    ifstream input_stream;
+    input_stream.open(word_file, std::ifstream::in);
+    std::string word;
+    while (input_stream >> word)
+    {
+      words_array.push(word);
+      words_map[word] = num_words;
+      num_words++;
+    }
+    input_stream.close();
+  }
+}
 
 namespace crypto
 {
   namespace ElectrumWords
   {
+
+    void init(const std::string &language, bool old_word_list = false)
+    {
+      if (old_word_list)
+      {
+        create_data_structures(OLD_WORD_FILE);
+      }
+      else
+      {
+        create_data_structures(WORD_LIST_DIRECTORY + '/' + language);
+      }
+    }
 
     /* convert words to bytes, 3 words -> 4 bytes
      * returns:
@@ -56,7 +97,11 @@ namespace crypto
      */
     bool words_to_bytes(const std::string& words, crypto::secret_key& dst)
     {
-      int n = NUMWORDS; // hardcoded because this is what electrum uses
+      if (is_first_use())
+      {
+        init("", true);
+      }
+      int n = num_words;
 
       std::vector<std::string> wlist;
 
@@ -71,16 +116,16 @@ namespace crypto
         uint32_t w1, w2, w3;
 
         // verify all three words exist in the word list
-        if (wordsMap.count(wlist[i*3]) == 0 ||
-            wordsMap.count(wlist[i*3 + 1]) == 0 ||
-            wordsMap.count(wlist[i*3 + 2]) == 0)
+        if (words_map.count(wlist[i*3]) == 0 ||
+            words_map.count(wlist[i*3 + 1]) == 0 ||
+            words_map.count(wlist[i*3 + 2]) == 0)
         {
           return false;
         }
 
-        w1 = wordsMap.at(wlist[i*3]);
-        w2 = wordsMap.at(wlist[i*3 + 1]);
-        w3 = wordsMap.at(wlist[i*3 + 2]);
+        w1 = words_map.at(wlist[i*3]);
+        w2 = words_map.at(wlist[i*3 + 1]);
+        w3 = words_map.at(wlist[i*3 + 2]);
 
         val = w1 + n * (((n - w1) + w2) % n) + n * n * (((n - w2) + w3) % n);
 
@@ -107,7 +152,11 @@ namespace crypto
      */
     bool bytes_to_words(const crypto::secret_key& src, std::string& words)
     {
-      int n = NUMWORDS; // hardcoded because this is what electrum uses
+      if (is_first_use())
+      {
+        init();
+      }
+      int n = num_words;
 
       if (sizeof(src.data) % 4 != 0) return false;
 
@@ -124,11 +173,11 @@ namespace crypto
         w2 = ((val / n) + w1) % n;
         w3 = (((val / n) / n) + w2) % n;
 
-        words += wordsArray[w1];
+        words += words_array[w1];
         words += ' ';
-        words += wordsArray[w2];
+        words += words_array[w2];
         words += ' ';
-        words += wordsArray[w3];
+        words += words_array[w3];
       }
       return false;
     }
