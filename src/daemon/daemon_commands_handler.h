@@ -55,7 +55,7 @@ public:
     , bool testnet
     )
     : m_srv(srv)
-    , m_testnet {testnet}
+    , m_testnet(testnet)
   {
     m_cmd_binder.set_handler("help", boost::bind(&daemon_cmmands_handler::help, this, _1), "Show this help");
     m_cmd_binder.set_handler("print_pl", boost::bind(&daemon_cmmands_handler::print_pl, this, _1), "Print peer list");

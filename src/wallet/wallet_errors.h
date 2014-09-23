@@ -383,11 +383,11 @@ namespace tools
         , uint64_t unlock_time
         , bool testnet
         )
-        : transfer_error {std::move(loc), "transaction was not constructed"}
-        , m_sources {sources}
-        , m_destinations {destinations}
-        , m_unlock_time {unlock_time}
-        , m_testnet {testnet}
+        : transfer_error(std::move(loc), "transaction was not constructed")
+        , m_sources(sources)
+        , m_destinations(destinations)
+        , m_unlock_time(unlock_time)
+        , m_testnet(testnet)
       {
       }
 
@@ -471,10 +471,10 @@ namespace tools
         , uint64_t fee
         , bool testnet
         )
-        : transfer_error {std::move(loc), "transaction sum + fee exceeds " + cryptonote::print_money(std::numeric_limits<uint64_t>::max())}
-        , m_destinations {destinations}
-        , m_fee {fee}
-        , m_testnet {testnet}
+        : transfer_error(std::move(loc), "transaction sum + fee exceeds " + cryptonote::print_money(std::numeric_limits<uint64_t>::max()))
+        , m_destinations(destinations)
+        , m_fee(fee)
+        , m_testnet(testnet)
       {
       }
 
