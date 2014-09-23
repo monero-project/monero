@@ -93,7 +93,7 @@ pacman -Su
 * Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake` (note: in future, once the boost 1.56 mingw-w64 issues are fixed, you can add `mingw-w64-x86_64-boost` to that list to have it installed as well)
 * Download the [boost 1.55 msys2 package](http://downloads.sourceforge.net/project/msys2/REPOS/MINGW/x86_64/mingw-w64-x86_64-boost-1.55.0-7-any.pkg.tar.xz), and install it by running `pacman -U mingw-w64-x86_64-boost-1.55.0-7-any.pkg.tar.xz`
 
-**Building*
+**Building**
 
 * From the root of the source code directory run:
 ```
