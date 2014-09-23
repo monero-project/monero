@@ -40,7 +40,7 @@
 #include <boost/algorithm/string.hpp>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
 
-#include "crypto/electrum-words.h"
+#include "mnemonics/electrum-words.h"
 
 namespace crypto
 {

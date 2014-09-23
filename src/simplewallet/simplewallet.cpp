@@ -45,7 +45,7 @@
 #include "wallet/wallet_rpc_server.h"
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
-#include "crypto/electrum-words.h"
+#include "mnemonics/electrum-words.h"
 
 #if defined(WIN32)
 #include <crtdbg.h>

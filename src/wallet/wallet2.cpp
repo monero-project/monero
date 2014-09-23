@@ -46,7 +46,7 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "serialization/binary_utils.h"
 #include "cryptonote_protocol/blobdatatype.h"
-#include "crypto/electrum-words.h"
+#include "mnemonics/electrum-words.h"
 
 extern "C"
 {
