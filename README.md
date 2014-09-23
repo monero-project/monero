@@ -50,7 +50,7 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 
 ### On Unix and Linux:
 
-Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, Unbound 1.4.16 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
 
 **Basic Process:**
 
@@ -77,7 +77,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA), and 1.56 as it causes an internal compiler error on mingw-w64).
+Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, Unbound 1.4.16 or later, and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA), and 1.56 as it causes an internal compiler error on mingw-w64).
 
 **Preparing the Build Environment**
 
@@ -90,7 +90,7 @@ pacman -Su --ignoregroup base
 pacman -Su
 ```
 * For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
-* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake` (note: in future, once the boost 1.56 mingw-w64 issues are fixed, you can add `mingw-w64-x86_64-boost` to that list to have it installed as well)
+* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-unbound` (note: in future, once the boost 1.56 mingw-w64 issues are fixed, you can add `mingw-w64-x86_64-boost` to that list to have it installed as well)
 * Download the [boost 1.55 msys2 package](http://downloads.sourceforge.net/project/msys2/REPOS/MINGW/x86_64/mingw-w64-x86_64-boost-1.55.0-7-any.pkg.tar.xz), and install it by running `pacman -U mingw-w64-x86_64-boost-1.55.0-7-any.pkg.tar.xz`
 
 **Building**
