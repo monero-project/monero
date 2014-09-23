@@ -27,12 +27,51 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "common/dns_utils.h"
+#include <sstream>
 #include <ldns/rr.h> // for RR type and class defs
 #include <unbound.h>
-#include <arpa/inet.h> // for inet_ntoa (bytes to text for IPs)
 
 namespace tools
 {
+
+// fuck it, I'm tired of dealing with getnameinfo()/inet_ntop/etc
+std::string ipv4_to_string(const char* src)
+{
+  std::stringstream ss;
+  unsigned int bytes[4];
+  for (int i = 0; i < 4; i++)
+  {
+    unsigned char a = src[i];
+    bytes[i] = a;
+  }
+  ss << bytes[0] << "."
+     << bytes[1] << "."
+     << bytes[2] << "."
+     << bytes[3];
+  return ss.str();
+}
+
+// this obviously will need to change, but is here to reflect the above
+// stop-gap measure and to make the tests pass at least...
+std::string ipv6_to_string(const char* src)
+{
+  std::stringstream ss;
+  unsigned int bytes[8];
+  for (int i = 0; i < 8; i++)
+  {
+    unsigned char a = src[i];
+    bytes[i] = a;
+  }
+  ss << bytes[0] << ":"
+     << bytes[1] << ":"
+     << bytes[2] << ":"
+     << bytes[3] << ":"
+     << bytes[4] << ":"
+     << bytes[5] << ":"
+     << bytes[6] << ":"
+     << bytes[7];
+  return ss.str();
+}
 
 // custom smart pointer.
 // TODO: see if std::auto_ptr and the like support custom destructors
@@ -96,13 +135,7 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
     {
       for (size_t i=0; result.ptr->data[i] != NULL; i++)
       {
-        char as_str[INET_ADDRSTRLEN];
-
-        // convert bytes to string, append if no error
-        if (inet_ntop(AF_INET, result.ptr->data[i], as_str, sizeof(as_str)))
-        {
-          addresses.push_back(as_str);
-        }
+        addresses.push_back(ipv4_to_string(result.ptr->data[i]));
       }
     }
   }
@@ -128,13 +161,7 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
     {
       for (size_t i=0; result.ptr->data[i] != NULL; i++)
       {
-        char as_str[INET6_ADDRSTRLEN];
-
-        // convert bytes to string, append if no error
-        if (inet_ntop(AF_INET6, result.ptr->data[i], as_str, sizeof(as_str)))
-        {
-          addresses.push_back(as_str);
-        }
+        addresses.push_back(ipv6_to_string(result.ptr->data[i]));
       }
     }
   }
