@@ -41,16 +41,17 @@
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
 #include <fstream>
 #include "mnemonics/electrum-words.h"
-
+#include <stdexcept>
 
 namespace
 {
   int num_words = 0; 
   std::map<std::string,uint32_t> words_map;
-  vector<std::string> words_array;
+  std::vector<std::string> words_array;
 
   const std::string OLD_WORD_FILE = "old-word-list";
   const std::string WORD_LIST_DIRECTORY = "wordlists";
+
   bool is_first_use()
   {
     return num_words == 0 ? true : false;
@@ -58,12 +59,16 @@ namespace
 
   void create_data_structures(const std::string &word_file)
   {
-    ifstream input_stream;
-    input_stream.open(word_file, std::ifstream::in);
+    std::ifstream input_stream;
+    input_stream.open(word_file.c_str(), std::ifstream::in);
+
+    if (!input_stream)
+      throw std::runtime_error(std::string("Word list file couldn't be opened."));
+
     std::string word;
     while (input_stream >> word)
     {
-      words_array.push(word);
+      words_array.push_back(word);
       words_map[word] = num_words;
       num_words++;
     }
@@ -154,7 +159,7 @@ namespace crypto
     {
       if (is_first_use())
       {
-        init();
+        init("", true);
       }
       int n = num_words;
 
