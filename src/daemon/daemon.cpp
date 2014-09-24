@@ -44,6 +44,7 @@ using namespace epee;
 #include "p2p/net_node.h"
 #include "cryptonote_config.h"
 #include "cryptonote_core/checkpoints_create.h"
+#include "cryptonote_core/checkpoints.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "rpc/core_rpc_server.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
@@ -203,6 +204,10 @@ int main(int argc, char* argv[])
   cryptonote::checkpoints checkpoints;
   res = cryptonote::create_checkpoints(checkpoints);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize checkpoints");
+  boost::filesystem::path json(JSON_HASH_FILE_NAME);
+  boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
+  res = cryptonote::load_checkpoins_from_json(checkpoints, checkpoint_json_hashfile_fullpath.string().c_str());
+  CHECK_AND_ASSERT_MES(res, 1, "Failed to load initial checkpoints");
 
   //create objects and link them
   cryptonote::core ccore(NULL);
