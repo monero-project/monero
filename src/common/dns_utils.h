@@ -32,6 +32,12 @@
 namespace tools
 {
 
+// RFC defines for record types and classes for DNS, gleaned from ldns source
+const static int DNS_CLASS_IN  = 1;
+const static int DNS_TYPE_A    = 1;
+const static int DNS_TYPE_TXT  = 6;
+const static int DNS_TYPE_AAAA = 8;
+
 struct DNSResolverData;
 
 /**
