@@ -212,7 +212,5 @@ else()
   include_directories(${UPNP_INCLUDE})
 endif()
 
-
-
 add_subdirectory(src)
 add_subdirectory(tests)
