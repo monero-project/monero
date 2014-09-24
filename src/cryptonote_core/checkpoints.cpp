@@ -44,8 +44,13 @@ namespace cryptonote
   {
     crypto::hash h = null_hash;
     bool r = epee::string_tools::parse_tpod_from_hex_string(hash_str, h);
-    CHECK_AND_ASSERT_MES(r, false, "WRONG HASH IN CHECKPOINTS!!!");
-    CHECK_AND_ASSERT_MES(0 == m_points.count(height), false, "WRONG HASH IN CHECKPOINTS!!!");
+    CHECK_AND_ASSERT_MES(r, false, "Failed to parse checkpoint hash string into binary representation!");
+
+    // return false if adding at a height we already have AND the hash is different
+    if (m_points.count(height))
+    {
+      CHECK_AND_ASSERT_MES(h == m_points[height], false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
+    }
     m_points[height] = h;
     return true;
   }
