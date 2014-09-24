@@ -47,6 +47,7 @@
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "mnemonics/electrum-words.h"
 
+
 #if defined(WIN32)
 #include <crtdbg.h>
 #endif

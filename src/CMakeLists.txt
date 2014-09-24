@@ -41,7 +41,12 @@ file(GLOB_RECURSE SIMPLEWALLET simplewallet/*)
 file(GLOB_RECURSE CONN_TOOL connectivity_tool/*)
 file(GLOB_RECURSE WALLET wallet/*)
 file(GLOB_RECURSE MINER miner/*)
-file(GLOB_RECURSE MNEMONICS mnemonics/*)
+file(GLOB MNEMONICS mnemonics/*)
+
+file(GLOB NEW_WORD_LISTS mnemonics/wordlists/languages/*)
+file(GLOB OLD_WORD_LIST mnemonics/wordlists/*)
+file(COPY ${NEW_WORD_LISTS} DESTINATION "${CMAKE_SOURCE_DIR}/build/release/src/wordlists/languages")
+file(COPY ${OLD_WORD_LIST} DESTINATION "${CMAKE_SOURCE_DIR}/build/release/src/wordlists")
 
 source_group(common FILES ${COMMON})
 source_group(crypto FILES ${CRYPTO})

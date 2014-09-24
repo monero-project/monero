@@ -49,8 +49,9 @@ namespace
   std::map<std::string,uint32_t> words_map;
   std::vector<std::string> words_array;
 
+  const std::string WORD_LISTS_DIRECTORY = "wordlists";
+  const std::string LANGUAGES_DIRECTORY = "languages";
   const std::string OLD_WORD_FILE = "old-word-list";
-  const std::string WORD_LIST_DIRECTORY = "wordlists";
 
   bool is_first_use()
   {
@@ -85,11 +86,11 @@ namespace crypto
     {
       if (old_word_list)
       {
-        create_data_structures(OLD_WORD_FILE);
+        create_data_structures(WORD_LISTS_DIRECTORY + '/' + OLD_WORD_FILE);
       }
       else
       {
-        create_data_structures(WORD_LIST_DIRECTORY + '/' + language);
+        create_data_structures(WORD_LISTS_DIRECTORY + '/' + LANGUAGES_DIRECTORY + '/' + language);
       }
     }
 
