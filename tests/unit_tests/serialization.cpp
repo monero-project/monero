@@ -299,6 +299,37 @@ namespace
   }
 }
 
+bool test_get_varint_packed_size_for_num(uint64_t n)
+{
+std::stringstream ss;
+typedef std::ostreambuf_iterator<char> it;
+tools::write_varint(it(ss), n);
+uint64_t sz = ss.str().size();
+if(sz != tools::get_varint_packed_size(n))
+return false;
+else 
+return true;
+}
+TEST(Serialization, validate_get_varint_packed_size)
+{
+ASSERT_TRUE(test_get_varint_packed_size_for_num(127));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(128));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(16383));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(16383+1));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(2097151));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(2097151+1));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(268435455));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(268435455+1));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(34359738367));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(34359738367+1));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(4398046511103));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(4398046511103+1));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(4398046511103));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(4398046511103+1));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(562949953421311));
+ASSERT_TRUE(test_get_varint_packed_size_for_num(562949953421311+1));
+}
+
 TEST(Serialization, serializes_transacion_signatures_correctly)
 {
   using namespace cryptonote;

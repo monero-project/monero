@@ -157,6 +157,8 @@ namespace cryptonote
     return b.size();
   }
   //---------------------------------------------------------------
+  size_t get_object_blobsize(const transaction& t);
+  //---------------------------------------------------------------
   template<class t_object>
   bool get_object_hash(const t_object& o, crypto::hash& res, size_t& blob_size)
   {
