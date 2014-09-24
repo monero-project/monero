@@ -25,31 +25,29 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-include (CheckIncludeFiles)
-include (CheckLibraryExists)
-include (CheckSymbolExists)
+MESSAGE("Looking for libunbound")
 
-set (Unbound_FOUND FALSE)
-MESSAGE("Attempting to find libunbound")
+FIND_PATH(UNBOUND_INCLUDE_DIR
+  NAMES unbound.h
+  PATH_SUFFIXES include/ include/unbound/
+  PATHS "${PROJECT_SOURCE_DIR}"
+  ${UNBOUND_ROOT}
+  $ENV{UNBOUND_ROOT}
+  /usr/local/
+  /usr/
+)
 
-#FIND_PATH("unbound.h" CMAKE_HAVE_UNBOUND_H)
-MESSAGE("CMAKE_INCLUDE_PATH: ${CMAKE_INCLUDE_PATH}")
-MESSAGE("CMAKE_SYSTEM_INCLUDE_PATH: ${CMAKE_SYSTEM_INCLUDE_PATH}")
-CHECK_INCLUDE_FILES("unbound.h" CMAKE_HAVE_UNBOUND_H)
-MESSAGE("CMAKE_HAVE_UNBOUND_H: ${CMAKE_HAVE_UNBOUND_H}")
+find_library(UNBOUND_LIBRARIES unbound)
 
-if(CMAKE_HAVE_UNBOUND_H)
-
-  MESSAGE("unbound.h found")
-
-  CHECK_LIBRARY_EXISTS(unbound ub_ctx_create "" CMAKE_HAVE_UNBOUND)
-
-  if(CMAKE_HAVE_UNBOUND)
-    MESSAGE("-lunbound works?")
-    set(CMAKE_UNBOUND_LIB "-lunbound")
-    set(Unbound_FOUND TRUE)
-  endif()
-endif()
-
-include(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(Unbound DEFAULT_MSG Unbound_FOUND)
+IF(UNBOUND_INCLUDE_DIR)
+  MESSAGE(STATUS "Found unbound include in ${UNBOUND_INCLUDE_DIR}")
+  IF(UNBOUND_LIBRARIES)
+    MESSAGE(STATUS "Found unbound library")
+    set(UNBOUND_INCLUDE ${UNBOUND_INCLUDE_DIR})
+    set(UNBOUND_LIBRARY ${UNBOUND_LIBRARIES})
+  ELSE()
+    MESSAGE(FATAL_ERROR "Could not find unbound library")
+  ENDIF()
+ELSE()
+  MESSAGE(FATAL_ERROR "Could not find unbound library")
+ENDIF()
