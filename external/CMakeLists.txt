@@ -216,7 +216,20 @@ MARK_AS_ADVANCED(MINIUPNP_INCLUDE_DIR MINIUPNP_LIBRARY)
 
 # And now on to the Monero part of things
 
-if(MINIUPNP_FOUND AND MINIUPNPC_VERSION_1_7_OR_HIGHER AND !STATIC AND !FREEBSD)
+# FreeBSD doesn't play well with the local copy
+SET(USE_SHARED false)
+
+# If we have the correct shared version and we're not building static, use it
+IF(MINIUPNP_FOUND AND MINIUPNPC_VERSION_1_7_OR_HIGHER AND !STATIC)
+ SET(USE_SHARED true)
+ENDIF()
+
+# If we're on FreeBSD
+IF(FREEBSD)
+ SET(USE_SHARED true)
+ENDIF()
+
+if(USE_SHARED)
   message(STATUS "Using shared miniupnpc found at ${MINIUPNP_INCLUDE_DIR}")
 
   set(UPNP_STATIC false PARENT_SCOPE)
