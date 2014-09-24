@@ -34,6 +34,24 @@
 #include "misc_log_ex.h"
 
 #define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(checkpoints.add_checkpoint(h,  hash), false);
+#define JSON_HASH_FILE_NAME "checkpoints.json"
+
+struct t_hashline 
+{
+	uint64_t height;
+	std::string hash;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(hash)
+      END_KV_SERIALIZE_MAP()
+};
+
+struct t_hash_json {
+ 	std::vector<t_hashline> hashlines;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(hashlines)
+      END_KV_SERIALIZE_MAP()
+};
 
 namespace cryptonote {
   inline bool create_checkpoints(cryptonote::checkpoints& checkpoints)
@@ -55,6 +73,38 @@ namespace cryptonote {
     ADD_CHECKPOINT(230300, "bae7a80c46859db355556e3a9204a337ae8f24309926a1312323fdecf1920e61");
     ADD_CHECKPOINT(230700, "93e631240ceac831da1aebfc5dac8f722c430463024763ebafa888796ceaeedf");
     ADD_CHECKPOINT(231350, "b5add137199b820e1ea26640e5c3e121fd85faa86a1e39cf7e6cc097bdeb1131");
+
+    return true;
+  }
+
+  inline bool load_checkpoins_from_json(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath)
+  {
+    boost::system::error_code errcode;
+    if (! (boost::filesystem::exists(json_hashfile_fullpath, errcode)))
+    {
+      LOG_PRINT_L0("Blockchain checkpoints file not found");
+      return true;
+    }
+
+    LOG_PRINT_L0("Adding checkpoints from blockchain hashfile");
+
+    uint64_t prev_max_height = checkpoints.get_max_height();
+    LOG_PRINT_L0("Hard-coded max checkpoint height is " << prev_max_height);
+    t_hash_json hashes;
+    epee::serialization::load_t_from_json_file(hashes, json_hashfile_fullpath);
+    for (std::vector<t_hashline>::const_iterator it = hashes.hashlines.begin(); it != hashes.hashlines.end(); )
+    {
+	uint64_t height;
+	height = it->height;
+        if (height <= prev_max_height) {
+          LOG_PRINT_L0("ignoring checkpoint height " << height);
+        } else {
+          std::string blockhash = it->hash;
+          LOG_PRINT_L0("Adding checkpoint height " << height << ", hash=" << blockhash);
+	  ADD_CHECKPOINT(height, blockhash);
+        }
+	++it;
+    }
 
     return true;
   }

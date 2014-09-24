@@ -44,6 +44,7 @@ namespace cryptonote
     bool check_block(uint64_t height, const crypto::hash& h) const;
     bool check_block(uint64_t height, const crypto::hash& h, bool& is_a_checkpoint) const;
     bool is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const;
+    uint64_t get_max_height();
 
   private:
     std::map<uint64_t, crypto::hash> m_points;
