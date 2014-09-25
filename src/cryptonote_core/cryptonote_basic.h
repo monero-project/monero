@@ -226,6 +226,7 @@ namespace cryptonote
       ar.end_array();
     END_SERIALIZE()
 
+  private:
     static size_t get_signature_size(const txin_v& tx_in);
   };
 

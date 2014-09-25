@@ -36,7 +36,7 @@
 #include <sstream>
 #include <string>
 /*! \file varint.h
- * \brief provides the implementation of varint's
+ * \breif provides the implementation of varint's
  * 
  * The representation of varints is rather odd. The first bit of each
  * octet is significant, it represents wheter there is another part
@@ -51,29 +51,6 @@
  */
 
 namespace tools {
-
-  template<typename T>
-  size_t get_varint_packed_size(T v)
-  {
-    if(v <= 127)
-      return 1;
-    else if(v <= 16383)
-      return 2;
-    else if(v <= 2097151)
-      return 3;
-    else if(v <= 268435455)
-      return 4;
-    else if(v <= 34359738367)
-      return 5;
-    else if(v <= 4398046511103)
-      return 6;
-    else if(v <= 4398046511103)
-      return 6;
-    else if(v <= 562949953421311)
-      return 7;
-    else 
-      return 8;
-  }
 
   /*! \brief Error codes for varint
    */

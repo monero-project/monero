@@ -56,7 +56,7 @@ namespace cryptonote
   {
   public:
     tx_memory_pool(blockchain_storage& bchs);
-    bool add_tx(const transaction &tx, const crypto::hash &id, tx_verification_context& tvc, bool keeped_by_block);
+    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
     bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
     //gets tx and remove it from pool
     bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee);
@@ -81,7 +81,7 @@ namespace cryptonote
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
 
-#define CURRENT_MEMPOOL_ARCHIVE_VER    9
+#define CURRENT_MEMPOOL_ARCHIVE_VER    8
 
     template<class archive_t>
     void serialize(archive_t & a, const unsigned int version)
