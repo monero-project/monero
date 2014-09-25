@@ -29,7 +29,6 @@
 #include "common/dns_utils.h"
 #include <cstring>
 #include <sstream>
-#include <ldns/rr.h> // for RR type and class defs
 #include <unbound.h>
 
 namespace tools
@@ -126,7 +125,7 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
 
   strncpy(urlC, url.c_str(), 999);
   urlC[999] = '\0';
-  if (!check_address_syntax(url))
+  if (!check_address_syntax(urlC))
   {
     return addresses;
   }
@@ -135,7 +134,7 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, urlC, LDNS_RR_TYPE_A, LDNS_RR_CLASS_IN, &(result.ptr)))
+  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_A, DNS_CLASS_IN, &(result.ptr)))
   {
     if (result.ptr->havedata)
     {
@@ -157,7 +156,7 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
   strncpy(urlC, url.c_str(), 999);
   urlC[999] = '\0';
 
-  if (!check_address_syntax(url))
+  if (!check_address_syntax(urlC))
   {
     return addresses;
   }
@@ -165,7 +164,7 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, urlC, LDNS_RR_TYPE_AAAA, LDNS_RR_CLASS_IN, &(result.ptr)))
+  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_AAAA, DNS_CLASS_IN, &(result.ptr)))
   {
     if (result.ptr->havedata)
     {
@@ -187,7 +186,7 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url)
   strncpy(urlC, url.c_str(), 999);
   urlC[999] = '\0';
 
-  if (!check_address_syntax(url))
+  if (!check_address_syntax(urlC))
   {
     return records;
   }
@@ -195,7 +194,7 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url)
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, urlC, LDNS_RR_TYPE_TXT, LDNS_RR_CLASS_IN, &(result.ptr)))
+  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_TXT, DNS_CLASS_IN, &(result.ptr)))
   {
     if (result.ptr->havedata)
     {
