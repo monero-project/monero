@@ -92,6 +92,7 @@ namespace cryptonote
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
     bool ask_wallet_create_if_needed();
+    std::string get_mnemonic_language();
 
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);

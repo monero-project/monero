@@ -430,6 +430,39 @@ bool simple_wallet::try_connect_to_daemon()
   return true;
 }
 
+std::string simple_wallet::get_mnemonic_language()
+{
+  std::vector<std::string> language_list;
+  std::string language_choice;
+  int language_number = -1;
+  crypto::ElectrumWords::get_language_list(language_list);
+  std::cout << "List of available languages for your wallet's seed:" << std::endl;
+  int ii;
+  std::vector<std::string>::iterator it;
+  for (it = language_list.begin(), ii = 0; it != language_list.end(); it++, ii++)
+  {
+    std::cout << ii << " : " << *it << std::endl;
+  }
+  while (language_number < 0)
+  {
+    language_choice = command_line::input_line("Enter the number corresponding to the language of your choice: ");
+    try
+    {
+      language_number = std::stoi(language_choice);
+      if (!((language_number >= 0) && (static_cast<uint>(language_number) < language_list.size())))
+      {
+        language_number = -1;
+        fail_msg_writer() << "Invalid language choice passed. Please try again.\n";
+      }
+    }
+    catch (std::exception &e)
+    {
+      fail_msg_writer() << "Invalid language choice passed. Please try again.\n";
+    }
+  }
+  return language_list[language_number];
+}
+
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::new_wallet(const string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key, bool recover, bool two_random, bool testnet)
 {
@@ -456,6 +489,11 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   // convert rng value to electrum-style word list
   std::string electrum_words;
+  std::string mnemonic_language = get_mnemonic_language();
+
+  std::cout << "(" << (mnemonic_language) << ")" << std::endl;
+
+  crypto::ElectrumWords::init(mnemonic_language);
   crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
 
   std::string print_electrum = "";

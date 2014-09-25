@@ -41,8 +41,9 @@ namespace crypto
 {
   namespace ElectrumWords
   {
-    void init(const std::string &language, bool old_word_list);
+    void init(const std::string &language, bool old_word_list=false);
     bool words_to_bytes(const std::string& words, crypto::secret_key& dst);
     bool bytes_to_words(const crypto::secret_key& src, std::string& words);
+    void get_language_list(std::vector<std::string> &languages);
   }
 }

@@ -42,6 +42,7 @@
 #include <fstream>
 #include "mnemonics/electrum-words.h"
 #include <stdexcept>
+#include <boost/filesystem.hpp>
 
 namespace
 {
@@ -82,7 +83,7 @@ namespace crypto
   namespace ElectrumWords
   {
 
-    void init(const std::string &language, bool old_word_list = false)
+    void init(const std::string &language, bool old_word_list)
     {
       if (old_word_list)
       {
@@ -186,6 +187,22 @@ namespace crypto
         words += words_array[w3];
       }
       return false;
+    }
+
+    void get_language_list(std::vector<std::string> &languages)
+    {
+      languages.clear();
+      boost::filesystem::path languages_directory("wordlists/languages");
+      if (!boost::filesystem::exists(languages_directory) ||
+        !boost::filesystem::is_directory(languages_directory))
+      {
+        throw std::runtime_error("Word list languages directory is missing.");
+      }
+      boost::filesystem::directory_iterator end;
+      for (boost::filesystem::directory_iterator it(languages_directory); it != end; it++)
+      {
+        languages.push_back(it->path().filename().string());
+      }
     }
 
   }  // namespace ElectrumWords
