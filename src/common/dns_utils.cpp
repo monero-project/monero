@@ -125,7 +125,7 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
 
   strncpy(urlC, url.c_str(), 999);
   urlC[999] = '\0';
-  if (!check_address_syntax(url))
+  if (!check_address_syntax(urlC))
   {
     return addresses;
   }
@@ -156,7 +156,7 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
   strncpy(urlC, url.c_str(), 999);
   urlC[999] = '\0';
 
-  if (!check_address_syntax(url))
+  if (!check_address_syntax(urlC))
   {
     return addresses;
   }
@@ -186,7 +186,7 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url)
   strncpy(urlC, url.c_str(), 999);
   urlC[999] = '\0';
 
-  if (!check_address_syntax(url))
+  if (!check_address_syntax(urlC))
   {
     return records;
   }
