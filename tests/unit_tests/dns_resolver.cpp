@@ -105,6 +105,7 @@ TEST(DNSResolver, IPv6Failure)
 
 TEST(DNSResolver, GetTXTRecord)
 {
+  bool avail, valid;
 
   std::vector<std::string> records = tools::DNSResolver::instance().get_txt_record("donate.monero.cc", avail, valid);
 

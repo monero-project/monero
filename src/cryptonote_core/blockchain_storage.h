@@ -180,6 +180,7 @@ namespace cryptonote
     void print_blockchain(uint64_t start_index, uint64_t end_index);
     void print_blockchain_index();
     void print_blockchain_outs(const std::string& file);
+    void update_checkpoints(const std::string& file_path);
 
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;

@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize checkpoints");
   boost::filesystem::path json(JSON_HASH_FILE_NAME);
   boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
-  res = cryptonote::load_checkpoins_from_json(checkpoints, checkpoint_json_hashfile_fullpath.string().c_str());
+  res = cryptonote::load_checkpoints_from_json(checkpoints, checkpoint_json_hashfile_fullpath.string().c_str());
   CHECK_AND_ASSERT_MES(res, 1, "Failed to load initial checkpoints");
 
   //create objects and link them
@@ -216,6 +216,7 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("Starting in testnet mode!");
   } else {
     ccore.set_checkpoints(std::move(checkpoints));
+    ccore.set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
   }
 
   cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);

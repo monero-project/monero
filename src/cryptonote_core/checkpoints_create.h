@@ -36,77 +36,11 @@
 #define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(checkpoints.add_checkpoint(h,  hash), false);
 #define JSON_HASH_FILE_NAME "checkpoints.json"
 
-struct t_hashline 
+namespace cryptonote
 {
-	uint64_t height;
-	std::string hash;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(height)
-        KV_SERIALIZE(hash)
-      END_KV_SERIALIZE_MAP()
-};
 
-struct t_hash_json {
- 	std::vector<t_hashline> hashlines;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(hashlines)
-      END_KV_SERIALIZE_MAP()
-};
+  bool create_checkpoints(cryptonote::checkpoints& checkpoints);
 
-namespace cryptonote {
-  inline bool create_checkpoints(cryptonote::checkpoints& checkpoints)
-  {      
-    ADD_CHECKPOINT(1,     "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148");
-    ADD_CHECKPOINT(10,    "c0e3b387e47042f72d8ccdca88071ff96bff1ac7cde09ae113dbb7ad3fe92381");
-    ADD_CHECKPOINT(100,   "ac3e11ca545e57c49fca2b4e8c48c03c23be047c43e471e1394528b1f9f80b2d");
-    ADD_CHECKPOINT(1000,  "5acfc45acffd2b2e7345caf42fa02308c5793f15ec33946e969e829f40b03876");
-    ADD_CHECKPOINT(10000, "c758b7c81f928be3295d45e230646de8b852ec96a821eac3fea4daf3fcac0ca2");
-    ADD_CHECKPOINT(22231, "7cb10e29d67e1c069e6e11b17d30b809724255fee2f6868dc14cfc6ed44dfb25");
-    ADD_CHECKPOINT(29556, "53c484a8ed91e4da621bb2fa88106dbde426fe90d7ef07b9c1e5127fb6f3a7f6");
-    ADD_CHECKPOINT(50000, "0fe8758ab06a8b9cb35b7328fd4f757af530a5d37759f9d3e421023231f7b31c");
-    ADD_CHECKPOINT(80000, "a62dcd7b536f22e003ebae8726e9e7276f63d594e264b6f0cd7aab27b66e75e3");
-    ADD_CHECKPOINT(202612, "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698");
-    ADD_CHECKPOINT(202613, "e2aa337e78df1f98f462b3b1e560c6b914dec47b610698b7b7d1e3e86b6197c2");
-    ADD_CHECKPOINT(202614, "c29e3dc37d8da3e72e506e31a213a58771b24450144305bcba9e70fa4d6ea6fb");
-    ADD_CHECKPOINT(205000, "5d3d7a26e6dc7535e34f03def711daa8c263785f73ec1fadef8a45880fde8063");
-    ADD_CHECKPOINT(220000, "9613f455933c00e3e33ac315cc6b455ee8aa0c567163836858c2d9caff111553");
-    ADD_CHECKPOINT(230300, "bae7a80c46859db355556e3a9204a337ae8f24309926a1312323fdecf1920e61");
-    ADD_CHECKPOINT(230700, "93e631240ceac831da1aebfc5dac8f722c430463024763ebafa888796ceaeedf");
-    ADD_CHECKPOINT(231350, "b5add137199b820e1ea26640e5c3e121fd85faa86a1e39cf7e6cc097bdeb1131");
-    ADD_CHECKPOINT(232150, "955de8e6b6508af2c24f7334f97beeea651d78e9ade3ab18fec3763be3201aa8");
+  bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath);
 
-    return true;
-  }
-
-  inline bool load_checkpoins_from_json(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath)
-  {
-    boost::system::error_code errcode;
-    if (! (boost::filesystem::exists(json_hashfile_fullpath, errcode)))
-    {
-      LOG_PRINT_L0("Blockchain checkpoints file not found");
-      return true;
-    }
-
-    LOG_PRINT_L0("Adding checkpoints from blockchain hashfile");
-
-    uint64_t prev_max_height = checkpoints.get_max_height();
-    LOG_PRINT_L0("Hard-coded max checkpoint height is " << prev_max_height);
-    t_hash_json hashes;
-    epee::serialization::load_t_from_json_file(hashes, json_hashfile_fullpath);
-    for (std::vector<t_hashline>::const_iterator it = hashes.hashlines.begin(); it != hashes.hashlines.end(); )
-    {
-	uint64_t height;
-	height = it->height;
-        if (height <= prev_max_height) {
-          LOG_PRINT_L0("ignoring checkpoint height " << height);
-        } else {
-          std::string blockhash = it->hash;
-          LOG_PRINT_L0("Adding checkpoint height " << height << ", hash=" << blockhash);
-	  ADD_CHECKPOINT(height, blockhash);
-        }
-	++it;
-    }
-
-    return true;
-  }
-}
+}  // namespace cryptonote

@@ -69,6 +69,21 @@ namespace cryptonote
   void core::set_checkpoints(checkpoints&& chk_pts)
   {
     m_blockchain_storage.set_checkpoints(std::move(chk_pts));
+    m_last_checkpoints_update = time(NULL);
+  }
+  //-----------------------------------------------------------------------------------
+  void core::set_checkpoints_file_path(const std::string& path)
+  {
+    m_checkpoints_path = path;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::update_checkpoints()
+  {
+    if (time(NULL) - m_last_checkpoints_update >= 3600)
+    {
+      m_blockchain_storage.update_checkpoints(m_checkpoints_path);
+      m_last_checkpoints_update = time(NULL);
+    }
   }
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& /*desc*/)
@@ -418,6 +433,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate)
   {
+    update_checkpoints();
     bvc = boost::value_initialized<block_verification_context>();
     if(block_blob.size() > get_max_block_size())
     {

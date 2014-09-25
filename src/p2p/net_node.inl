@@ -252,7 +252,9 @@ namespace nodetool
       // for some time yet.
       for (const std::string& addr_str : m_seed_nodes_list)
       {
-        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str);
+        // TODO: care about dnssec avail/valid
+        bool avail, valid;
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
         for (const std::string& a : addr_list)
         {
           append_net_address(m_seed_nodes, a + ":18080");

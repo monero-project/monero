@@ -47,6 +47,7 @@
 #include "common/boost_serialization_helper.h"
 #include "warnings.h"
 #include "crypto/hash.h"
+#include "cryptonote_core/checkpoints_create.h"
 //#include "serialization/json_archive.h"
 
 using namespace cryptonote;
@@ -1772,4 +1773,24 @@ bool blockchain_storage::add_new_block(const block& bl_, block_verification_cont
   }
 
   return handle_block_to_main_chain(bl, id, bvc);
+}
+//------------------------------------------------------------------
+void blockchain_storage::update_checkpoints(const std::string& file_path)
+{
+  // if a path is supplied, updated checkpoints from json.
+  // if not, probably fetch from DNS TXT Records.
+  if (file_path.size() > 0)
+  {
+    cryptonote::load_checkpoints_from_json(m_checkpoints, file_path);
+  }
+
+  const auto& points = m_checkpoints.get_points();
+
+  for (const auto& pt : points)
+  {
+    if (!m_checkpoints.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
+    {
+      LOG_ERROR("Checkpoint failed when adding new checkpoints from json file, this could be very bad.");
+    }
+  }
 }
