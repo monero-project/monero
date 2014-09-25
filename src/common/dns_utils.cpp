@@ -118,9 +118,11 @@ DNSResolver::~DNSResolver()
   }
 }
 
-std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
+std::vector<std::string> DNSResolver::get_ipv4(const std::string& url, bool& dnssec_available, bool& dnssec_valid)
 {
   std::vector<std::string> addresses;
+  dnssec_available = false;
+  dnssec_valid = false;
   char urlC[1000];  // waaaay too big, but just in case...
 
   strncpy(urlC, url.c_str(), 999);
@@ -148,9 +150,11 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url)
   return addresses;
 }
 
-std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
+std::vector<std::string> DNSResolver::get_ipv6(const std::string& url, bool& dnssec_available, bool& dnssec_valid)
 {
   std::vector<std::string> addresses;
+  dnssec_available = false;
+  dnssec_valid = false;
   char urlC[1000];  // waaaay too big, but just in case...
 
   strncpy(urlC, url.c_str(), 999);
@@ -178,9 +182,11 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url)
   return addresses;
 }
 
-std::vector<std::string> DNSResolver::get_txt_record(const std::string& url)
+std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, bool& dnssec_available, bool& dnssec_valid)
 {
   std::vector<std::string> records;
+  dnssec_available = false;
+  dnssec_valid = false;
   char urlC[1000];  // waaaay too big, but just in case...
 
   strncpy(urlC, url.c_str(), 999);

@@ -833,12 +833,17 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
  */
 std::vector<std::string> wallet2::addresses_from_url(const std::string& url, bool& dnssec_valid)
 {
-  // TODO: update this correctly once DNSResolver::get_txt_record() supports it.
-  dnssec_valid = false;
-
   std::vector<std::string> addresses;
   // get txt records
-  auto records = tools::DNSResolver::instance().get_txt_record(url);
+  bool dnssec_available, dnssec_isvalid;
+  auto records = tools::DNSResolver::instance().get_txt_record(url, dnssec_available, dnssec_isvalid);
+
+  // TODO: update this to allow for conveying that dnssec was not available
+  if (dnssec_available && dnssec_isvalid)
+  {
+    dnssec_valid = true;
+  }
+  else dnssec_valid = false;
 
   // for each txt record, try to find a monero address in it.
   for (auto& rec : records)
