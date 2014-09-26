@@ -78,7 +78,7 @@ namespace cryptonote
       uint64_t already_generated_coins;
     };
 
-    blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false)
+    blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false)
     {};
 
     bool init() { return init(tools::get_default_data_dir(), true); }
@@ -180,7 +180,8 @@ namespace cryptonote
     void print_blockchain(uint64_t start_index, uint64_t end_index);
     void print_blockchain_index();
     void print_blockchain_outs(const std::string& file);
-    void update_checkpoints(const std::string& file_path);
+    bool update_checkpoints(const std::string& file_path);
+    void set_enforce_dns_checkpoints(bool enforce_checkpoints);
 
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
@@ -214,6 +215,8 @@ namespace cryptonote
     checkpoints m_checkpoints;
     std::atomic<bool> m_is_in_checkpoint_zone;
     std::atomic<bool> m_is_blockchain_storing;
+
+    bool m_enforce_dns_checkpoints;
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     bool pop_block_from_blockchain();

@@ -54,7 +54,9 @@ namespace cryptonote
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()), 
               m_starter_message_showed(false),
-              m_target_blockchain_height(0)
+              m_target_blockchain_height(0),
+              m_checkpoints_path(""),
+              m_last_checkpoints_update(0)
   {
     set_cryptonote_protocol(pprotocol);
   }
@@ -69,21 +71,27 @@ namespace cryptonote
   void core::set_checkpoints(checkpoints&& chk_pts)
   {
     m_blockchain_storage.set_checkpoints(std::move(chk_pts));
-    m_last_checkpoints_update = time(NULL);
   }
   //-----------------------------------------------------------------------------------
   void core::set_checkpoints_file_path(const std::string& path)
   {
     m_checkpoints_path = path;
   }
-  //-----------------------------------------------------------------------------------------------
-  void core::update_checkpoints()
+  //-----------------------------------------------------------------------------------
+  void core::set_enforce_dns_checkpoints(bool enforce_dns)
   {
+    m_blockchain_storage.set_enforce_dns_checkpoints(enforce_dns);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::update_checkpoints()
+  {
+    bool res = true;
     if (time(NULL) - m_last_checkpoints_update >= 3600)
     {
-      m_blockchain_storage.update_checkpoints(m_checkpoints_path);
+      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path);
       m_last_checkpoints_update = time(NULL);
     }
+    return res;
   }
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& /*desc*/)

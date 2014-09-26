@@ -95,6 +95,7 @@ namespace cryptonote
      void set_cryptonote_protocol(i_cryptonote_protocol* pprotocol);
      void set_checkpoints(checkpoints&& chk_pts);
      void set_checkpoints_file_path(const std::string& path);
+     void set_enforce_dns_checkpoints(bool enforce_dns);
 
      bool get_pool_transactions(std::list<transaction>& txs);
      size_t get_pool_transactions_count();
@@ -122,9 +123,9 @@ namespace cryptonote
      void set_target_blockchain_height(uint64_t target_blockchain_height);
      uint64_t get_target_blockchain_height() const;
 
-   private:
-     void update_checkpoints();
+     bool update_checkpoints();
 
+   private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_block(const block& b, block_verification_context& bvc);

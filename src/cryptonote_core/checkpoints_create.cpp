@@ -29,6 +29,9 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "checkpoints_create.h"
+#include "common/dns_utils.h"
+#include "include_base_utils.h"
+#include <sstream>
 #include "storages/portable_storage_template_helper.h" // epee json include
 
 namespace cryptonote
@@ -105,6 +108,53 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
   }
 
   return true;
+}
+
+bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, const std::string& url)
+{
+  bool avail, valid;
+  auto records = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
+
+  if (avail && !valid)
+  {
+    LOG_ERROR("DNSSEC present and failed validation for query to" << url);
+    return false;
+  }
+
+  for (auto& record : records)
+  {
+    auto pos = record.find(":");
+    if (pos != std::string::npos)
+    {
+      uint64_t height;
+      crypto::hash hash;
+
+      // parse the first part as uint64_t,
+      // if this fails move on to the next record
+      std::stringstream ss(record.substr(0, pos));
+      if (!(ss >> height))
+      {
+	continue;
+      }
+
+      // parse the second part as crypto::hash,
+      // if this fails move on to the next record
+      std::string hashStr = record.substr(pos + 1);
+      if (!epee::string_tools::parse_tpod_from_hex_string(hashStr, hash))
+      {
+	continue;
+      }
+
+      ADD_CHECKPOINT(height, hashStr);
+    }
+  }
+  return true;
+}
+
+bool load_new_checkpoints(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath)
+{
+  // TODO: replace hard-coded url with const string or #define
+  return (load_checkpoints_from_json(checkpoints, json_hashfile_fullpath) && load_checkpoints_from_dns(checkpoints, "checkpoints.moneropulse.org"));
 }
 
 }  // namespace cryptonote

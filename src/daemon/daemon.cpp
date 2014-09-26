@@ -69,6 +69,7 @@ namespace
     , "Run on testnet. The wallet must be launched with --testnet flag."
     , false
     };
+  const command_line::arg_descriptor<bool>        arg_dns_checkpoints  = {"enforce-dns-checkpointing", "checkpoints from DNS server will be enforced", false};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm)
@@ -135,6 +136,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_console);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
+  command_line::add_arg(desc_cmd_sett, arg_dns_checkpoints);
 
   cryptonote::core::init_options(desc_cmd_sett);
   cryptonote::core_rpc_server::init_options(desc_cmd_sett);
@@ -206,17 +208,21 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize checkpoints");
   boost::filesystem::path json(JSON_HASH_FILE_NAME);
   boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
-  res = cryptonote::load_checkpoints_from_json(checkpoints, checkpoint_json_hashfile_fullpath.string().c_str());
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to load initial checkpoints");
 
   //create objects and link them
   cryptonote::core ccore(NULL);
+
+  // tell core if we're enforcing dns checkpoints
+  bool enforce_dns = command_line::get_arg(vm, arg_dns_checkpoints);
+  ccore.set_enforce_dns_checkpoints(enforce_dns);
 
   if (testnet_mode) {
     LOG_PRINT_L0("Starting in testnet mode!");
   } else {
     ccore.set_checkpoints(std::move(checkpoints));
     ccore.set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
+    res = ccore.update_checkpoints();
+    CHECK_AND_ASSERT_MES(res, 1, "Failed to load initial checkpoints");
   }
 
   cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);

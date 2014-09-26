@@ -442,6 +442,13 @@ difficulty_type blockchain_storage::get_difficulty_for_next_block()
 bool blockchain_storage::rollback_blockchain_switching(std::list<block>& original_chain, size_t rollback_height)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  // fail if rollback_height passed is too high
+  if (rollback_height > m_blocks.size())
+  {
+    return true;
+  }
+
   //remove failed subchain
   for(size_t i = m_blocks.size()-1; i >=rollback_height; i--)
   {
@@ -1775,13 +1782,11 @@ bool blockchain_storage::add_new_block(const block& bl_, block_verification_cont
   return handle_block_to_main_chain(bl, id, bvc);
 }
 //------------------------------------------------------------------
-void blockchain_storage::update_checkpoints(const std::string& file_path)
+bool blockchain_storage::update_checkpoints(const std::string& file_path)
 {
-  // if a path is supplied, updated checkpoints from json.
-  // if not, probably fetch from DNS TXT Records.
-  if (file_path.size() > 0)
+  if (!cryptonote::load_new_checkpoints(m_checkpoints, file_path))
   {
-    cryptonote::load_checkpoints_from_json(m_checkpoints, file_path);
+    return false;
   }
 
   const auto& points = m_checkpoints.get_points();
@@ -1790,7 +1795,22 @@ void blockchain_storage::update_checkpoints(const std::string& file_path)
   {
     if (!m_checkpoints.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
     {
-      LOG_ERROR("Checkpoint failed when adding new checkpoints from json file, this could be very bad.");
+      // if we're enforcing dns checkpoints, roll back to a couple of blocks before the checkpoint
+      if (m_enforce_dns_checkpoints)
+      {
+	LOG_ERROR("Checkpoint failed when adding new checkpoints, rolling back!");
+	std::list<block> empty;
+	rollback_blockchain_switching(empty, pt.first - 2);
+      }
+      else
+      {
+	LOG_ERROR("Checkpoint failed when adding new checkpoints, this could be very bad.");
+      }
     }
   }
+  return true;
+}
+void blockchain_storage::set_enforce_dns_checkpoints(bool enforce_checkpoints)
+{
+  m_enforce_dns_checkpoints = enforce_checkpoints;
 }
