@@ -54,13 +54,15 @@ namespace
   const std::string LANGUAGES_DIRECTORY = "languages";
   const std::string OLD_WORD_FILE = "old-word-list";
 
-  bool is_first_use()
+  bool is_uninitialized()
   {
     return num_words == 0 ? true : false;
   }
 
   void create_data_structures(const std::string &word_file)
   {
+    words_array.clear();
+    words_map.clear();
     std::ifstream input_stream;
     input_stream.open(word_file.c_str(), std::ifstream::in);
 
@@ -75,6 +77,18 @@ namespace
       num_words++;
     }
     input_stream.close();
+  }
+
+  bool word_list_file_match(const std::vector<std::string> &wlist)
+  {
+    for (std::vector<std::string>::const_iterator it = wlist.begin(); it != wlist.end(); it++)
+    {
+      if (words_map.count(*it) == 0)
+      {
+        return false;
+      }
+    }
+    return true;
   }
 }
 
@@ -93,6 +107,11 @@ namespace crypto
       {
         create_data_structures(WORD_LISTS_DIRECTORY + '/' + LANGUAGES_DIRECTORY + '/' + language);
       }
+      if (num_words == 0)
+      {
+        throw std::runtime_error(std::string("Word list file is corrupt: ") +
+          old_word_list ? OLD_WORD_FILE : (LANGUAGES_DIRECTORY + '/' + language));
+      }
     }
 
     /* convert words to bytes, 3 words -> 4 bytes
@@ -104,15 +123,28 @@ namespace crypto
      */
     bool words_to_bytes(const std::string& words, crypto::secret_key& dst)
     {
-      if (is_first_use())
-      {
-        init("", true);
-      }
-      int n = num_words;
-
       std::vector<std::string> wlist;
 
       boost::split(wlist, words, boost::is_any_of(" "));
+
+      std::vector<std::string> languages;
+
+      std::vector<std::string>::iterator it;
+      get_language_list(languages);
+      for (it = languages.begin(); it != languages.end() &&
+        !word_list_file_match(wlist); it++)
+      {
+        init(*it);
+      }
+      if (it == languages.end())
+      {
+        init("", true);
+        if (!word_list_file_match(wlist))
+        {
+          return false;
+        }
+      }
+      int n = num_words;
 
       // error on non-compliant word list
       if (wlist.size() != 12 && wlist.size() != 24) return false;
@@ -121,14 +153,6 @@ namespace crypto
       {
         uint32_t val;
         uint32_t w1, w2, w3;
-
-        // verify all three words exist in the word list
-        if (words_map.count(wlist[i*3]) == 0 ||
-            words_map.count(wlist[i*3 + 1]) == 0 ||
-            words_map.count(wlist[i*3 + 2]) == 0)
-        {
-          return false;
-        }
 
         w1 = words_map.at(wlist[i*3]);
         w2 = words_map.at(wlist[i*3 + 1]);
@@ -159,7 +183,7 @@ namespace crypto
      */
     bool bytes_to_words(const crypto::secret_key& src, std::string& words)
     {
-      if (is_first_use())
+      if (is_uninitialized())
       {
         init("", true);
       }

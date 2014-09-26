@@ -489,11 +489,13 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   // convert rng value to electrum-style word list
   std::string electrum_words;
-  std::string mnemonic_language = get_mnemonic_language();
 
-  std::cout << "(" << (mnemonic_language) << ")" << std::endl;
-
-  crypto::ElectrumWords::init(mnemonic_language);
+  if (m_restore_deterministic_wallet)
+  {
+    // Ask for language only if it not a wallet restore.
+    std::string mnemonic_language = get_mnemonic_language();
+    crypto::ElectrumWords::init(mnemonic_language);
+  }
   crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
 
   std::string print_electrum = "";
