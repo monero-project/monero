@@ -46,7 +46,7 @@
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "mnemonics/electrum-words.h"
-
+#include <stdexcept>
 
 #if defined(WIN32)
 #include <crtdbg.h>
@@ -380,10 +380,18 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         }
       }
 
-      if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key))
+      try
       {
-          fail_msg_writer() << "electrum-style word list failed verification";
-          return false;
+        if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key))
+        {
+            fail_msg_writer() << "electrum-style word list failed verification";
+            return false;
+        }
+      }
+      catch (std::runtime_error &e)
+      {
+        fail_msg_writer() << e.what() << std::endl;
+        return false;
       }
     }
     bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, testnet);
@@ -490,13 +498,29 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   // convert rng value to electrum-style word list
   std::string electrum_words;
 
-  if (m_restore_deterministic_wallet)
+  if (!m_restore_deterministic_wallet)
   {
     // Ask for language only if it not a wallet restore.
     std::string mnemonic_language = get_mnemonic_language();
-    crypto::ElectrumWords::init(mnemonic_language);
+    try
+    {
+      crypto::ElectrumWords::init(mnemonic_language);
+    }
+    catch (std::runtime_error &e)
+    {
+      fail_msg_writer() << e.what() << std::endl;
+      return false;
+    }
   }
-  crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
+  try
+  {
+    crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
+  }
+  catch (std::runtime_error &e)
+  {
+    fail_msg_writer() << e.what() << std::endl;
+    return false;
+  }
 
   std::string print_electrum = "";
 

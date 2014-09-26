@@ -63,6 +63,7 @@ namespace
   {
     words_array.clear();
     words_map.clear();
+    num_words = 0;
     std::ifstream input_stream;
     input_stream.open(word_file.c_str(), std::ifstream::in);
 
@@ -109,8 +110,8 @@ namespace crypto
       }
       if (num_words == 0)
       {
-        throw std::runtime_error(std::string("Word list file is corrupt: ") +
-          old_word_list ? OLD_WORD_FILE : (LANGUAGES_DIRECTORY + '/' + language));
+        throw std::runtime_error(std::string("Word list file is empty: ") +
+          (old_word_list ? OLD_WORD_FILE : (LANGUAGES_DIRECTORY + '/' + language)));
       }
     }
 
@@ -128,13 +129,16 @@ namespace crypto
       boost::split(wlist, words, boost::is_any_of(" "));
 
       std::vector<std::string> languages;
+      get_language_list(languages);
 
       std::vector<std::string>::iterator it;
-      get_language_list(languages);
-      for (it = languages.begin(); it != languages.end() &&
-        !word_list_file_match(wlist); it++)
+      for (it = languages.begin(); it != languages.end(); it++)
       {
         init(*it);
+        if (word_list_file_match(wlist))
+        {
+          break;
+        }
       }
       if (it == languages.end())
       {
