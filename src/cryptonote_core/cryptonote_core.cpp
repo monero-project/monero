@@ -150,6 +150,10 @@ namespace cryptonote
     r = m_blockchain_storage.init(m_config_folder, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
+    // load json & DNS checkpoints, and verify them
+    // with respect to what blocks we already have
+    update_checkpoints();
+
     r = m_miner.init(vm, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 

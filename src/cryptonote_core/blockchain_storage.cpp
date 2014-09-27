@@ -1793,6 +1793,12 @@ bool blockchain_storage::update_checkpoints(const std::string& file_path)
 
   for (const auto& pt : points)
   {
+    // if the checkpoint is for a block we don't have yet, move on
+    if (pt.first >= m_blocks.size())
+    {
+      continue;
+    }
+
     if (!m_checkpoints.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
     {
       // if we're enforcing dns checkpoints, roll back to a couple of blocks before the checkpoint

@@ -221,8 +221,6 @@ int main(int argc, char* argv[])
   } else {
     ccore.set_checkpoints(std::move(checkpoints));
     ccore.set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
-    res = ccore.update_checkpoints();
-    CHECK_AND_ASSERT_MES(res, 1, "Failed to load initial checkpoints");
   }
 
   cryptonote::t_cryptonote_protocol_handler<cryptonote::core> cprotocol(ccore, NULL);
