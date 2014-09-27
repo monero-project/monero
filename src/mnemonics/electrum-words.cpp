@@ -50,6 +50,8 @@ namespace
   std::map<std::string,uint32_t> words_map;
   std::vector<std::string> words_array;
 
+  bool is_old_style_mnemonics = false;
+
   const std::string WORD_LISTS_DIRECTORY = "wordlists";
   const std::string LANGUAGES_DIRECTORY = "languages";
   const std::string OLD_WORD_FILE = "old-word-list";
@@ -103,10 +105,12 @@ namespace crypto
       if (old_word_list)
       {
         create_data_structures(WORD_LISTS_DIRECTORY + '/' + OLD_WORD_FILE);
+        is_old_style_mnemonics = true;
       }
       else
       {
         create_data_structures(WORD_LISTS_DIRECTORY + '/' + LANGUAGES_DIRECTORY + '/' + language);
+        is_old_style_mnemonics = false;
       }
       if (num_words == 0)
       {
@@ -115,6 +119,14 @@ namespace crypto
       }
     }
 
+    bool get_is_old_style_mnemonics()
+    {
+      if (is_uninitialized())
+      {
+        throw std::runtime_error("ElectrumWords hasn't been initialized with a word list yet.");
+      }
+      return is_old_style_mnemonics;
+    }
     /* convert words to bytes, 3 words -> 4 bytes
      * returns:
      *    false if not a multiple of 3 words, or if a words is not in the

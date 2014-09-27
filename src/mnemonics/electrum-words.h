@@ -45,5 +45,6 @@ namespace crypto
     bool words_to_bytes(const std::string& words, crypto::secret_key& dst);
     bool bytes_to_words(const crypto::secret_key& src, std::string& words);
     void get_language_list(std::vector<std::string> &languages);
+    bool get_is_old_style_mnemonics();
   }
 }

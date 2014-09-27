@@ -498,9 +498,15 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   // convert rng value to electrum-style word list
   std::string electrum_words;
 
-  if (!m_restore_deterministic_wallet)
+  if (!m_restore_deterministic_wallet || crypto::ElectrumWords::get_is_old_style_mnemonics())
   {
-    // Ask for language only if it not a wallet restore.
+    if (crypto::ElectrumWords::get_is_old_style_mnemonics())
+    {
+      message_writer(epee::log_space::console_color_green, false) << "\nYou have been using " <<
+        "a deprecated word list file. Please use the new seed that we provide.\n";
+    }
+    // Ask for language if it is not a wallet restore or if the old version of the wallet
+    // had given the user an old style word list.
     std::string mnemonic_language = get_mnemonic_language();
     try
     {
