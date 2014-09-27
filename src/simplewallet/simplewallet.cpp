@@ -28,6 +28,12 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file simplewallet.cpp
+ * 
+ * \brief Source file that defines simple_wallet class.
+ */
+
 #include <thread>
 #include <iostream>
 #include <boost/lexical_cast.hpp>
@@ -438,6 +444,13 @@ bool simple_wallet::try_connect_to_daemon()
   return true;
 }
 
+/*!
+ * \brief Gets the word seed language from the user.
+ * 
+ * User is asked to choose from a list of supported languages.
+ * 
+ * \return The chosen language.
+ */
 std::string simple_wallet::get_mnemonic_language()
 {
   std::vector<std::string> language_list;
@@ -498,15 +511,16 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   // convert rng value to electrum-style word list
   std::string electrum_words;
 
+  // Ask for language if it is not a wallet restore or if the old version of the wallet
+  // had given the user an old style word list.
   if (!m_restore_deterministic_wallet || crypto::ElectrumWords::get_is_old_style_mnemonics())
   {
     if (crypto::ElectrumWords::get_is_old_style_mnemonics())
     {
+      // The user had used an older version of the wallet with old style mnemonics.
       message_writer(epee::log_space::console_color_green, false) << "\nYou have been using " <<
         "a deprecated word list file. Please use the new seed that we provide.\n";
     }
-    // Ask for language if it is not a wallet restore or if the old version of the wallet
-    // had given the user an old style word list.
     std::string mnemonic_language = get_mnemonic_language();
     try
     {

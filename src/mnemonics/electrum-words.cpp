@@ -26,7 +26,11 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-/*
+/*!
+ * \file electrum-words.cpp
+ * 
+ * \brief Mnemonic seed generation and wallet restoration from them.
+ * 
  * This file and its header file are for translating Electrum-style word lists
  * into their equivalent byte representations for cross-compatibility with
  * that method of "backing up" one's wallet keys.
@@ -56,11 +60,20 @@ namespace
   const std::string LANGUAGES_DIRECTORY = "languages";
   const std::string OLD_WORD_FILE = "old-word-list";
 
+  /*!
+   * Tells if the module hasn't been initialized with a word list file.
+   * \return Whether the module hasn't been initialized with a word list file.
+   */
   bool is_uninitialized()
   {
     return num_words == 0 ? true : false;
   }
 
+  /*!
+   * Create word list map and array data structres for use during inter-conversion between
+   * words and secret key.
+   * \param word_file Path to the word list file from pwd.
+   */
   void create_data_structures(const std::string &word_file)
   {
     words_array.clear();
@@ -82,6 +95,11 @@ namespace
     input_stream.close();
   }
 
+  /*!
+   * Tells if all the words passed in wlist was present in current word list file.
+   * \param  wlist List of words to match.
+   * \return       Whether they were all present or not.
+   */
   bool word_list_file_match(const std::vector<std::string> &wlist)
   {
     for (std::vector<std::string>::const_iterator it = wlist.begin(); it != wlist.end(); it++)
@@ -95,15 +113,28 @@ namespace
   }
 }
 
+/*!
+ * \namespace crypto
+ */
 namespace crypto
 {
+  /*!
+   * \namespace ElectrumWords
+   * 
+   * \brief Mnemonic seed word generation and wallet restoration.
+   */
   namespace ElectrumWords
   {
-
+    /*!
+     * \brief Called to initialize it work with a word list file.
+     * \param language      Language of the word list file.
+     * \param old_word_list Whether it is to use the old style word list file.
+     */
     void init(const std::string &language, bool old_word_list)
     {
       if (old_word_list)
       {
+        // Use the old word list file if told to.
         create_data_structures(WORD_LISTS_DIRECTORY + '/' + OLD_WORD_FILE);
         is_old_style_mnemonics = true;
       }
@@ -119,6 +150,10 @@ namespace crypto
       }
     }
 
+    /*!
+     * \brief If the module is currenly using an old style word list.
+     * \return Whether it is currenly using an old style word list.
+     */
     bool get_is_old_style_mnemonics()
     {
       if (is_uninitialized())
@@ -127,12 +162,12 @@ namespace crypto
       }
       return is_old_style_mnemonics;
     }
-    /* convert words to bytes, 3 words -> 4 bytes
-     * returns:
-     *    false if not a multiple of 3 words, or if a words is not in the
-     *    words list
-     *
-     *    true otherwise
+
+    /*!
+     * \brief Converts seed words to bytes (secret key).
+     * \param  words String containing the words separated by spaces.
+     * \param  dst   To put the secret key restored from the words.
+     * \return       false if not a multiple of 3 words, or if word is not in the words list
      */
     bool words_to_bytes(const std::string& words, crypto::secret_key& dst)
     {
@@ -143,6 +178,7 @@ namespace crypto
       std::vector<std::string> languages;
       get_language_list(languages);
 
+      // Try to find a word list file that contains all the words in the word list.
       std::vector<std::string>::iterator it;
       for (it = languages.begin(); it != languages.end(); it++)
       {
@@ -152,6 +188,7 @@ namespace crypto
           break;
         }
       }
+      // If no such file was found, see if the old style word list file has them all.
       if (it == languages.end())
       {
         init("", true);
@@ -192,10 +229,11 @@ namespace crypto
       return true;
     }
 
-    /* convert bytes to words, 4 bytes-> 3 words
-     * returns:
-     *    false if wrong number of bytes (shouldn't be possible)
-     *    true otherwise
+    /*!
+     * \brief Converts bytes (secret key) to seed words.
+     * \param  src   Secret key
+     * \param  words Space separated words get copied here.
+     * \return       Whether it was successful or not. Unsuccessful if wrong key size.
      */
     bool bytes_to_words(const crypto::secret_key& src, std::string& words)
     {
@@ -229,6 +267,10 @@ namespace crypto
       return false;
     }
 
+    /*!
+     * \brief Gets a list of seed languages that are supported.
+     * \param languages The list gets added to this.
+     */
     void get_language_list(std::vector<std::string> &languages)
     {
       languages.clear();
@@ -245,6 +287,6 @@ namespace crypto
       }
     }
 
-  }  // namespace ElectrumWords
+  }
 
-}  // namespace crypto
+}
