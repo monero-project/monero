@@ -47,21 +47,25 @@
 #include "mnemonics/electrum-words.h"
 #include <stdexcept>
 #include <boost/filesystem.hpp>
+#include <boost/crc.hpp>
+#include <boost/algorithm/string/join.hpp>
 
 namespace
 {
-  int num_words = 0; 
+  int num_words = 0;
+  const int seed_length = 24;
+
   std::map<std::string,uint32_t> words_map;
   std::vector<std::string> words_array;
 
-  bool is_old_style_mnemonics = false;
+  bool is_old_style_word_list = false;
 
   const std::string WORD_LISTS_DIRECTORY = "wordlists";
   const std::string LANGUAGES_DIRECTORY = "languages";
   const std::string OLD_WORD_FILE = "old-word-list";
 
   /*!
-   * Tells if the module hasn't been initialized with a word list file.
+   * \brief Tells if the module hasn't been initialized with a word list file.
    * \return Whether the module hasn't been initialized with a word list file.
    */
   bool is_uninitialized()
@@ -70,7 +74,7 @@ namespace
   }
 
   /*!
-   * Create word list map and array data structres for use during inter-conversion between
+   * \brief Create word list map and array data structres for use during inter-conversion between
    * words and secret key.
    * \param word_file Path to the word list file from pwd.
    */
@@ -96,7 +100,7 @@ namespace
   }
 
   /*!
-   * Tells if all the words passed in wlist was present in current word list file.
+   * \brief Tells if all the words passed in wlist was present in current word list file.
    * \param  wlist List of words to match.
    * \return       Whether they were all present or not.
    */
@@ -111,17 +115,31 @@ namespace
     }
     return true;
   }
+
+  /*!
+   * \brief Creates a checksum index in the word list array on the list of words.
+   * \param  words Space separated list of words
+   * \return       Checksum index
+   */
+  uint32_t create_checksum_index(const std::string &words)
+  {
+    boost::crc_32_type result;
+    result.process_bytes(words.data(), words.length());
+    return result.checksum() % seed_length;
+  }
 }
 
 /*!
  * \namespace crypto
+ * 
+ * \brief crypto namespace.
  */
 namespace crypto
 {
   /*!
-   * \namespace ElectrumWords
+   * \namespace crypto::ElectrumWords
    * 
-   * \brief Mnemonic seed word generation and wallet restoration.
+   * \brief Mnemonic seed word generation and wallet restoration helper functions.
    */
   namespace ElectrumWords
   {
@@ -136,31 +154,18 @@ namespace crypto
       {
         // Use the old word list file if told to.
         create_data_structures(WORD_LISTS_DIRECTORY + '/' + OLD_WORD_FILE);
-        is_old_style_mnemonics = true;
+        is_old_style_word_list = true;
       }
       else
       {
         create_data_structures(WORD_LISTS_DIRECTORY + '/' + LANGUAGES_DIRECTORY + '/' + language);
-        is_old_style_mnemonics = false;
+        is_old_style_word_list = false;
       }
       if (num_words == 0)
       {
         throw std::runtime_error(std::string("Word list file is empty: ") +
           (old_word_list ? OLD_WORD_FILE : (LANGUAGES_DIRECTORY + '/' + language)));
       }
-    }
-
-    /*!
-     * \brief If the module is currenly using an old style word list.
-     * \return Whether it is currenly using an old style word list.
-     */
-    bool get_is_old_style_mnemonics()
-    {
-      if (is_uninitialized())
-      {
-        throw std::runtime_error("ElectrumWords hasn't been initialized with a word list yet.");
-      }
-      return is_old_style_mnemonics;
     }
 
     /*!
@@ -175,10 +180,25 @@ namespace crypto
 
       boost::split(wlist, words, boost::is_any_of(" "));
 
+      // If it is seed with a checksum.
+      if (wlist.size() == seed_length + 1)
+      {
+        // The last word is the checksum.
+        std::string last_word = wlist.back();
+        wlist.pop_back();
+
+        std::string checksum = wlist[create_checksum_index(boost::algorithm::join(wlist, " "))];
+
+        if (checksum != last_word)
+        {
+          // Checksum fail
+          return false;
+        }
+      }
+      // Try to find a word list file that contains all the words in the word list.
       std::vector<std::string> languages;
       get_language_list(languages);
 
-      // Try to find a word list file that contains all the words in the word list.
       std::vector<std::string>::iterator it;
       for (it = languages.begin(); it != languages.end(); it++)
       {
@@ -232,8 +252,8 @@ namespace crypto
     /*!
      * \brief Converts bytes (secret key) to seed words.
      * \param  src   Secret key
-     * \param  words Space separated words get copied here.
-     * \return       Whether it was successful or not. Unsuccessful if wrong key size.
+     * \param  words Space delimited concatenated words get written here.
+     * \return       true if successful false if not. Unsuccessful if wrong key size.
      */
     bool bytes_to_words(const crypto::secret_key& src, std::string& words)
     {
@@ -241,9 +261,12 @@ namespace crypto
       {
         init("", true);
       }
+
+      // To store the words for random access to add the checksum word later.
+      std::vector<std::string> words_store;
       int n = num_words;
 
-      if (sizeof(src.data) % 4 != 0) return false;
+      if (sizeof(src.data) % 4 != 0 || sizeof(src.data) == 0) return false;
 
       // 8 bytes -> 3 words.  8 digits base 16 -> 3 digits base 1626
       for (unsigned int i=0; i < sizeof(src.data)/4; i++, words += ' ')
@@ -263,13 +286,20 @@ namespace crypto
         words += words_array[w2];
         words += ' ';
         words += words_array[w3];
+
+        words_store.push_back(words_array[w1]);
+        words_store.push_back(words_array[w2]);
+        words_store.push_back(words_array[w3]);
       }
+
+      words.pop_back();
+      words += (' ' + words_store[create_checksum_index(words)]);
       return false;
     }
 
     /*!
      * \brief Gets a list of seed languages that are supported.
-     * \param languages The list gets added to this.
+     * \param languages The list of languages gets added to this vector.
      */
     void get_language_list(std::vector<std::string> &languages)
     {
@@ -285,6 +315,31 @@ namespace crypto
       {
         languages.push_back(it->path().filename().string());
       }
+    }
+
+    /*!
+     * \brief Tells if the module is currenly using an old style word list.
+     * \return true if it is currenly using an old style word list false if not.
+     */
+    bool get_is_old_style_word_list()
+    {
+      if (is_uninitialized())
+      {
+        throw std::runtime_error("ElectrumWords hasn't been initialized with a word list yet.");
+      }
+      return is_old_style_word_list;
+    }
+
+    /*!
+     * \brief Tells if the seed passed is an old style seed or not.
+     * \param  seed The seed to check (a space delimited concatenated word list)
+     * \return      true if the seed passed is a old style seed false if not.
+     */
+    bool get_is_old_style_seed(const std::string &seed)
+    {
+      std::vector<std::string> wlist;
+      boost::split(wlist, seed, boost::is_any_of(" "));
+      return wlist.size() != (seed_length + 1);
     }
 
   }

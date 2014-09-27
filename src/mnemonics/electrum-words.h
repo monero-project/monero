@@ -43,18 +43,20 @@
 
 /*!
  * \namespace crypto
+ * 
+ * \brief crypto namespace.
  */
 namespace crypto
 {
   /*!
-   * \namespace ElectrumWords
+   * \namespace crypto::ElectrumWords
    * 
-   * \brief Mnemonic seed word generation and wallet restoration.
+   * \brief Mnemonic seed word generation and wallet restoration helper functions.
    */
   namespace ElectrumWords
   {
     /*!
-     * \brief Called to initialize it work with a word list file.
+     * \brief Called to initialize it to work with a word list file.
      * \param language      Language of the word list file.
      * \param old_word_list Whether it is to use the old style word list file.
      */
@@ -71,21 +73,28 @@ namespace crypto
     /*!
      * \brief Converts bytes (secret key) to seed words.
      * \param  src   Secret key
-     * \param  words Space separated words get copied here.
-     * \return       Whether it was successful or not. Unsuccessful if wrong key size.
+     * \param  words Space delimited concatenated words get written here.
+     * \return       true if successful false if not. Unsuccessful if wrong key size.
      */
     bool bytes_to_words(const crypto::secret_key& src, std::string& words);
 
     /*!
      * \brief Gets a list of seed languages that are supported.
-     * \param languages The list gets added to this.
+     * \param languages The list of languages gets added to this vector.
      */
     void get_language_list(std::vector<std::string> &languages);
 
     /*!
      * \brief If the module is currenly using an old style word list.
-     * \return Whether it is currenly using an old style word list.
+     * \return true if it is currenly using an old style word list false if not.
      */
-    bool get_is_old_style_mnemonics();
+    bool get_is_old_style_word_list();
+
+    /*!
+     * \brief Tells if the seed passed is an old style seed or not.
+     * \param  seed The seed to check (a space delimited concatenated word list)
+     * \return      true if the seed passed is a old style seed false if not.
+     */
+    bool get_is_old_style_seed(const std::string &seed);
   }
 }
