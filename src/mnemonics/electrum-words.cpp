@@ -259,7 +259,7 @@ namespace crypto
     {
       if (is_uninitialized())
       {
-        init("", true);
+        init("english", true);
       }
 
       // To store the words for random access to add the checksum word later.
