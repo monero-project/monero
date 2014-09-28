@@ -79,7 +79,7 @@ namespace cryptonote
     )
     : m_core(cr)
     , m_p2p(p2p)
-    , m_testnet {testnet}
+    , m_testnet(testnet)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::handle_command_line(

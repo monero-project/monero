@@ -41,11 +41,19 @@
 
 #if defined(_MSC_VER)
 #include <intrin.h>
-#include <Windows.h>
+#include <windows.h>
 #define STATIC
 #define INLINE __inline
 #if !defined(RDATA_ALIGN16)
 #define RDATA_ALIGN16 __declspec(align(16))
+#endif
+#elif defined(__MINGW32__)
+#include <intrin.h>
+#include <windows.h>
+#define STATIC static
+#define INLINE inline
+#if !defined(RDATA_ALIGN16)
+#define RDATA_ALIGN16 __attribute__ ((aligned(16)))
 #endif
 #else
 #include <wmmintrin.h>
@@ -287,7 +295,7 @@ STATIC INLINE void aes_pseudo_round_xor(const uint8_t *in, uint8_t *out,
     }
 }
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
 BOOL SetLockPagesPrivilege(HANDLE hProcess, BOOL bEnable)
 {
     struct
@@ -325,7 +333,7 @@ void slow_hash_allocate_state(void)
     if(hp_state != NULL)
         return;
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
     SetLockPagesPrivilege(GetCurrentProcess(), TRUE);
     hp_state = (uint8_t *) VirtualAlloc(hp_state, MEMORY, MEM_LARGE_PAGES |
                                         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -357,7 +365,7 @@ void slow_hash_free_state(void)
         free(hp_state);
     else
     {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
         VirtualFree(hp_state, MEMORY, MEM_RELEASE);
 #else
         munmap(hp_state, MEMORY);

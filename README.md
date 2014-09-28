@@ -50,7 +50,7 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 
 ### On Unix and Linux:
 
-Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, Unbound 1.4.16 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
 
 **Basic Process:**
 
@@ -77,16 +77,40 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: MSVC 2013 or later, CMake 2.8.6 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, Unbound 1.4.16 or later, and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA), and 1.56 as it causes an internal compiler error on mingw-w64).
 
-* To build, change to the root of the source code directory, and run these commands:
+**Preparing the Build Environment**
+
+* Download the [MSYS2 installer](http://msys2.github.io), 64-bit or 32-bit as needed, and run it.
+* Use the shortcut associated with your architecture to launch the MSYS2 environment. On 64-bit systems that would be the MinGW-w64 Win64 Shell shortcut. Note that if you are running 64-bit Windows, you will have both 64-bit and 32-bit environments.
+* Update the packages in your MSYS2 install:
+```
+pacman -Sy
+pacman -Su --ignoregroup base
+pacman -Su
+```
+* For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
+* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-unbound` (note: in future, once the boost 1.56 mingw-w64 issues are fixed, you can add `mingw-w64-x86_64-boost` to that list to have it installed as well)
+* Download the [boost 1.55 msys2 package](http://downloads.sourceforge.net/project/msys2/REPOS/MINGW/x86_64/mingw-w64-x86_64-boost-1.55.0-7-any.pkg.tar.xz), and install it by running `pacman -U mingw-w64-x86_64-boost-1.55.0-7-any.pkg.tar.xz`
+
+**Building**
+
+* From the root of the source code directory run:
 ```
 mkdir build
 cd build
-cmake -G "Visual Studio 12 Win64" -DBOOST_ROOT="c:\folder\to\boost_1_55_0" -DBOOST_LIBRARYDIR="c:\folder\to\boost_1_55_0\lib64-msvc-12.0"
-msbuild Project.sln /p:Configuration=Release
 ```
-* If you don't have your path environment variable configured with the VS paths, you may may want to run `C:\program files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat` (or equivalent) to temporarily set the environment variables.
+* If you are on a 64-bit system, run:
+```
+cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=../cmake/64-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys64 ..
+```
+* If you are on a 32-bit system, run:
+```
+cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ..
+```
+* You can now run `make` to have it build
+
+If you installed MSYS2 in a folder other than c:/msys64, make the appropriate substitution above.
 
 ### On FreeBSD:
 

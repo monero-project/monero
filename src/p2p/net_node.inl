@@ -35,6 +35,7 @@
 #include "version.h"
 #include "string_tools.h"
 #include "common/util.h"
+#include "common/dns_utils.h"
 #include "net/net_helper.h"
 #include "math_helper.h"
 #include "p2p_protocol_defs.h"
@@ -195,7 +196,7 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
-  inline void add_hardcoded_seed_node(
+  inline void append_net_address(
       std::vector<net_address> & seed_nodes
     , std::string const & addr
     )
@@ -239,23 +240,39 @@ namespace nodetool
   {
     if (testnet)
     {
-      add_hardcoded_seed_node(m_seed_nodes, "107.152.187.202:28080");
-      add_hardcoded_seed_node(m_seed_nodes, "197.242.158.240:28080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.152.130.98:28080");
+      append_net_address(m_seed_nodes, "107.152.187.202:28080");
+      append_net_address(m_seed_nodes, "197.242.158.240:28080");
+      append_net_address(m_seed_nodes, "107.152.130.98:28080");
     }
     else
     {
-      add_hardcoded_seed_node(m_seed_nodes, "62.210.78.186:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "195.12.60.154:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "54.241.246.125:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.170.157.169:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "54.207.112.216:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "78.27.112.54:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "209.222.30.57:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "80.71.13.55:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.178.112.126:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "107.158.233.98:18080");
-      add_hardcoded_seed_node(m_seed_nodes, "64.22.111.2:18080");
+      // for each hostname in the seed nodes list, attempt to DNS resolve and
+      // add the result addresses as seed nodes
+      // TODO: at some point add IPv6 support, but that won't be relevant
+      // for some time yet.
+      for (const std::string& addr_str : m_seed_nodes_list)
+      {
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str);
+        for (const std::string& a : addr_list)
+        {
+          append_net_address(m_seed_nodes, a + ":18080");
+        }
+      }
+
+      if (!m_seed_nodes.size())
+      {
+        append_net_address(m_seed_nodes, "62.210.78.186:18080");
+        append_net_address(m_seed_nodes, "195.12.60.154:18080");
+        append_net_address(m_seed_nodes, "54.241.246.125:18080");
+        append_net_address(m_seed_nodes, "107.170.157.169:18080");
+        append_net_address(m_seed_nodes, "54.207.112.216:18080");
+        append_net_address(m_seed_nodes, "78.27.112.54:18080");
+        append_net_address(m_seed_nodes, "209.222.30.57:18080");
+        append_net_address(m_seed_nodes, "80.71.13.55:18080");
+        append_net_address(m_seed_nodes, "107.178.112.126:18080");
+        append_net_address(m_seed_nodes, "107.158.233.98:18080");
+        append_net_address(m_seed_nodes, "64.22.111.2:18080");
+      }
     }
 
     bool res = handle_command_line(vm, testnet);
@@ -624,7 +641,9 @@ namespace nodetool
     peerlist_entry pe_local = AUTO_VAL_INIT(pe_local);
     pe_local.adr = na;
     pe_local.id = pi;
-    time(&pe_local.last_seen);
+    time_t last_seen;
+    time(&last_seen);
+    pe_local.last_seen = static_cast<int64_t>(last_seen);
     m_peerlist.append_with_peer_white(pe_local);
     //update last seen and push it to peerlist manager
 
@@ -1102,7 +1121,9 @@ namespace nodetool
         peerlist_entry pe;
         pe.adr.ip = context.m_remote_ip;
         pe.adr.port = port_l;
-        time(&pe.last_seen);
+        time_t last_seen;
+        time(&last_seen);
+        pe.last_seen = static_cast<int64_t>(last_seen);
         pe.id = peer_id_l;
         this->m_peerlist.append_with_peer_white(pe);
         LOG_PRINT_CCONTEXT_L2("PING SUCCESS " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << ":" << port_l);

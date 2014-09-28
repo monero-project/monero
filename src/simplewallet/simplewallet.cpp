@@ -36,6 +36,7 @@
 
 #include <thread>
 #include <iostream>
+#include <sstream>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
@@ -999,8 +1000,61 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     cryptonote::tx_destination_entry de;
     if(!get_account_address_from_str(de.addr, m_wallet->testnet(), local_args[i]))
     {
-      fail_msg_writer() << "wrong address: " << local_args[i];
-      return true;
+      // if treating as an address fails, try as url
+      bool dnssec_ok = false;
+      std::string url = local_args[i];
+
+      // attempt to get address from dns query
+      auto addresses_from_dns = tools::wallet2::addresses_from_url(url, dnssec_ok);
+
+      // for now, move on only if one address found
+      if (addresses_from_dns.size() == 1)
+      {
+        if (get_account_address_from_str(de.addr, m_wallet->testnet(), addresses_from_dns[0]))
+        {
+          // if it was an address, prompt user for confirmation.
+          // inform user of DNSSEC validation status as well.
+
+          std::string dnssec_str;
+          if (dnssec_ok)
+          {
+            dnssec_str = "DNSSEC validation PASSED!";
+          }
+          else
+          {
+            dnssec_str = "DNSSEC validation FAILED!";
+          }
+          std::stringstream prompt;
+          prompt << "For URL: " << url
+                 << "," << dnssec_str << std::endl
+                 << " Monero Address = " << addresses_from_dns[0]
+                 << std::endl
+                 << "Is this OK? (Y/n) "
+          ;
+
+          // prompt the user for confirmation given the dns query and dnssec status
+          std::string confirm_dns_ok = command_line::input_line(prompt.str());
+          if (confirm_dns_ok != "Y" && confirm_dns_ok != "y" && confirm_dns_ok != "Yes" && confirm_dns_ok != "yes")
+          {
+            fail_msg_writer() << "User terminated transfer request, disagreed with dns result from url: " << url;
+            return true;
+          }
+        }
+        else
+        {
+          fail_msg_writer() << "Failed to get a monero address from: " << local_args[i];
+          return true;
+        }
+      }
+      else if (addresses_from_dns.size() > 1)
+      {
+        fail_msg_writer() << "Multiple Monero addresses found for given URL: " << url << ", this is not yet supported.";
+      }
+      else
+      {
+        fail_msg_writer() << "wrong address: " << local_args[i];
+        return true;
+      }
     }
 
     bool ok = cryptonote::parse_amount(de.amount, local_args[i + 1]);

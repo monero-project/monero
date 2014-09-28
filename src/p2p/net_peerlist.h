@@ -128,7 +128,7 @@ namespace nodetool
       // access by peerlist_entry::net_adress
       boost::multi_index::ordered_unique<boost::multi_index::tag<by_addr>, boost::multi_index::member<peerlist_entry,net_address,&peerlist_entry::adr> >,
       // sort by peerlist_entry::last_seen<
-      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,time_t,&peerlist_entry::last_seen> >
+      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,int64_t,&peerlist_entry::last_seen> >
       > 
     > peers_indexed;
 
@@ -140,7 +140,7 @@ namespace nodetool
       // access by peerlist_entry::net_adress
       boost::multi_index::ordered_unique<boost::multi_index::tag<by_addr>, boost::multi_index::member<peerlist_entry,net_address,&peerlist_entry::adr> >,
       // sort by peerlist_entry::last_seen<
-      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,time_t,&peerlist_entry::last_seen> >
+      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,int64_t,&peerlist_entry::last_seen> >
       > 
     > peers_indexed_old;
   public:    
