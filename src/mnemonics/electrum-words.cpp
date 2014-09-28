@@ -66,7 +66,7 @@ namespace
 
   /*!
    * \brief Tells if the module hasn't been initialized with a word list file.
-   * \return Whether the module hasn't been initialized with a word list file.
+   * \return true if the module hasn't been initialized with a word list file false otherwise.
    */
   bool is_uninitialized()
   {
@@ -87,7 +87,7 @@ namespace
     input_stream.open(word_file.c_str(), std::ifstream::in);
 
     if (!input_stream)
-      throw std::runtime_error(std::string("Word list file couldn't be opened."));
+      throw std::runtime_error("Word list file couldn't be opened.");
 
     std::string word;
     while (input_stream >> word)
@@ -102,7 +102,7 @@ namespace
   /*!
    * \brief Tells if all the words passed in wlist was present in current word list file.
    * \param  wlist List of words to match.
-   * \return       Whether they were all present or not.
+   * \return       true if all the words were present false if not.
    */
   bool word_list_file_match(const std::vector<std::string> &wlist)
   {
@@ -146,7 +146,7 @@ namespace crypto
     /*!
      * \brief Called to initialize it work with a word list file.
      * \param language      Language of the word list file.
-     * \param old_word_list Whether it is to use the old style word list file.
+     * \param old_word_list true it is to use the old style word list file false if not.
      */
     void init(const std::string &language, bool old_word_list)
     {
