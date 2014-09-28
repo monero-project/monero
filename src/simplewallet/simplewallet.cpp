@@ -511,15 +511,15 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   // convert rng value to electrum-style word list
   std::string electrum_words;
 
-  bool is_deprecated_wallet = m_restore_deterministic_wallet && 
+  bool was_deprecated_wallet = m_restore_deterministic_wallet && 
     (crypto::ElectrumWords::get_is_old_style_word_list() ||
     crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
 
   // Ask for seed language if it is not a wallet restore or if it was a deprecated wallet
   // that was earlier used before this restore.
-  if (!m_restore_deterministic_wallet || is_deprecated_wallet)
+  if (!m_restore_deterministic_wallet || was_deprecated_wallet)
   {
-    if (is_deprecated_wallet)
+    if (was_deprecated_wallet)
     {
       // The user had used an older version of the wallet with old style mnemonics.
       message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
