@@ -50,7 +50,7 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 
 ### On Unix and Linux:
 
-Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, Unbound 1.4.16 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
 
 **Basic Process:**
 
@@ -77,7 +77,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, Unbound 1.4.16 or later, and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA), and 1.56 as it causes an internal compiler error on mingw-w64).
+Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA), and 1.56 as it causes an internal compiler error on mingw-w64).
 
 **Preparing the Build Environment**
 
