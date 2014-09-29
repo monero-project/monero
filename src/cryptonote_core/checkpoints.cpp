@@ -113,4 +113,15 @@ namespace cryptonote
     return m_points;
   }
 
+  bool checkpoints::check_for_conflicts(checkpoints& other)
+  {
+    for (auto& pt : other.get_points())
+    {
+      if (m_points.count(pt.first))
+      {
+        CHECK_AND_ASSERT_MES(pt.second == m_points[pt.first], false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
+      }
+    }
+    return true;
+  }
 }

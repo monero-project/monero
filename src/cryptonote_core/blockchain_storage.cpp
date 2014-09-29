@@ -1782,16 +1782,11 @@ bool blockchain_storage::add_new_block(const block& bl_, block_verification_cont
   return handle_block_to_main_chain(bl, id, bvc);
 }
 //------------------------------------------------------------------
-bool blockchain_storage::update_checkpoints(const std::string& file_path)
+void blockchain_storage::check_against_checkpoints(checkpoints& points, bool enforce)
 {
-  if (!cryptonote::load_new_checkpoints(m_checkpoints, file_path))
-  {
-    return false;
-  }
+  const auto& pts = points.get_points();
 
-  const auto& points = m_checkpoints.get_points();
-
-  for (const auto& pt : points)
+  for (const auto& pt : pts)
   {
     // if the checkpoint is for a block we don't have yet, move on
     if (pt.first >= m_blocks.size())
@@ -1801,8 +1796,8 @@ bool blockchain_storage::update_checkpoints(const std::string& file_path)
 
     if (!m_checkpoints.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
     {
-      // if we're enforcing dns checkpoints, roll back to a couple of blocks before the checkpoint
-      if (m_enforce_dns_checkpoints)
+      // if asked to enforce checkpoints, roll back to a couple of blocks before the checkpoint
+      if (enforce)
       {
 	LOG_ERROR("Checkpoint failed when adding new checkpoints, rolling back!");
 	std::list<block> empty;
@@ -1814,8 +1809,46 @@ bool blockchain_storage::update_checkpoints(const std::string& file_path)
       }
     }
   }
+}
+//------------------------------------------------------------------
+// returns false if any of the checkpoints loading returns false.
+// That should happen only if a checkpoint is added that conflicts
+// with an existing checkpoint.
+bool blockchain_storage::update_checkpoints(const std::string& file_path, bool check_dns)
+{
+  if (!cryptonote::load_checkpoints_from_json(m_checkpoints, file_path))
+  {
+    return false;
+  }
+
+  // if we're checking both dns and json, load checkpoints from dns.
+  // if we're not hard-enforcing dns checkpoints, handle accordingly
+  if (m_enforce_dns_checkpoints && check_dns)
+  {
+    if (!cryptonote::load_checkpoints_from_dns(m_checkpoints))
+    {
+      return false;
+    }
+  }
+  else if (check_dns)
+  {
+    checkpoints dns_points;
+    cryptonote::load_checkpoints_from_dns(dns_points);
+    if (m_checkpoints.check_for_conflicts(dns_points))
+    {
+      check_against_checkpoints(dns_points, false);
+    }
+    else
+    {
+      LOG_PRINT_L0("One or more checkpoints fetched from DNS conflicted with existing checkpoints!");
+    }
+  }
+
+  check_against_checkpoints(m_checkpoints, true);
+
   return true;
 }
+//------------------------------------------------------------------
 void blockchain_storage::set_enforce_dns_checkpoints(bool enforce_checkpoints)
 {
   m_enforce_dns_checkpoints = enforce_checkpoints;

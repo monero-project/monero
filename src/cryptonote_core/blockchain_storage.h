@@ -180,7 +180,8 @@ namespace cryptonote
     void print_blockchain(uint64_t start_index, uint64_t end_index);
     void print_blockchain_index();
     void print_blockchain_outs(const std::string& file);
-    bool update_checkpoints(const std::string& file_path);
+    void check_against_checkpoints(checkpoints& points, bool enforce);
+    bool update_checkpoints(const std::string& file_path, bool check_dns);
     void set_enforce_dns_checkpoints(bool enforce_checkpoints);
 
   private:

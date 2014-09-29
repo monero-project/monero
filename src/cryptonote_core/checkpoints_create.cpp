@@ -32,6 +32,7 @@
 #include "common/dns_utils.h"
 #include "include_base_utils.h"
 #include <sstream>
+#include <random>
 #include "storages/portable_storage_template_helper.h" // epee json include
 
 namespace cryptonote
@@ -110,15 +111,47 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
   return true;
 }
 
-bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, const std::string& url)
+bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
 {
+  static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
+						   , "checkpoints.moneropulse.org"
+						   , "checkpoints.moneropulse.net"
+						   , "checkpoints.moneropulse.co"
+  };
   bool avail, valid;
-  auto records = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
+  std::vector<std::string> records;
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> dis(0, dns_urls.size() - 1);
+  int first_index = dis(gen);
+
+  int cur_index = first_index;
+  do
+  {
+    records = tools::DNSResolver::instance().get_txt_record(dns_urls[cur_index], avail, valid);
+    if (records.size() == 0 || (avail && !valid))
+    {
+      cur_index++;
+      if (cur_index == dns_urls.size())
+      {
+	cur_index = 0;
+      }
+      continue;
+    }
+    break;
+  } while (cur_index != first_index);
+
+  if (records.size() == 0)
+  {
+    LOG_PRINT_L1("Fetching checkpoints from DNS TXT records failed, no TXT records available.");
+    return true;
+  }
 
   if (avail && !valid)
   {
-    LOG_ERROR("DNSSEC present and failed validation for query to" << url);
-    return false;
+    LOG_PRINT_L0("DNSSEC present and failed validation for query last url, and all other urls either failed validation or returned no records");
+    return true;
   }
 
   for (auto& record : records)
@@ -154,7 +187,7 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, const std::
 bool load_new_checkpoints(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath)
 {
   // TODO: replace hard-coded url with const string or #define
-  return (load_checkpoints_from_json(checkpoints, json_hashfile_fullpath) && load_checkpoints_from_dns(checkpoints, "checkpoints.moneropulse.org"));
+  return (load_checkpoints_from_json(checkpoints, json_hashfile_fullpath) && load_checkpoints_from_dns(checkpoints));
 }
 
 }  // namespace cryptonote

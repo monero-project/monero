@@ -56,7 +56,8 @@ namespace cryptonote
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
-              m_last_checkpoints_update(0)
+              m_last_dns_checkpoints_update(0),
+              m_last_json_checkpoints_update(0)
   {
     set_cryptonote_protocol(pprotocol);
   }
@@ -86,10 +87,16 @@ namespace cryptonote
   bool core::update_checkpoints()
   {
     bool res = true;
-    if (time(NULL) - m_last_checkpoints_update >= 3600)
+    if (time(NULL) - m_last_dns_checkpoints_update >= 3600)
     {
-      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path);
-      m_last_checkpoints_update = time(NULL);
+      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, true);
+      m_last_dns_checkpoints_update = time(NULL);
+      m_last_json_checkpoints_update = time(NULL);
+    }
+    else if (time(NULL) - m_last_json_checkpoints_update >= 600)
+    {
+      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, false);
+      m_last_json_checkpoints_update = time(NULL);
     }
     return res;
   }
@@ -152,7 +159,7 @@ namespace cryptonote
 
     // load json & DNS checkpoints, and verify them
     // with respect to what blocks we already have
-    update_checkpoints();
+    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
     r = m_miner.init(vm, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
@@ -445,7 +452,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate)
   {
-    update_checkpoints();
+    // load json & DNS checkpoints every 10min/hour respectively,
+    // and verify them with respect to what blocks we already have
+    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+
     bvc = boost::value_initialized<block_verification_context>();
     if(block_blob.size() > get_max_block_size())
     {
