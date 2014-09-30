@@ -64,6 +64,7 @@ namespace
   const std::string LANGUAGES_DIRECTORY = "languages";
   const std::string OLD_WORD_FILE = "old-word-list";
 
+  const int unique_prefix_length = 4;
   /*!
    * \brief Tells if the module hasn't been initialized with a word list file.
    * \return true if the module hasn't been initialized with a word list file false otherwise.
@@ -76,9 +77,10 @@ namespace
   /*!
    * \brief Create word list map and array data structres for use during inter-conversion between
    * words and secret key.
-   * \param word_file Path to the word list file from pwd.
+   * \param word_file     Path to the word list file from pwd.
+   * \param has_checksum  True if checksum was supplied false if not.
    */
-  void create_data_structures(const std::string &word_file)
+  void create_data_structures(const std::string &word_file, bool has_checksum)
   {
     words_array.clear();
     words_map.clear();
@@ -93,7 +95,15 @@ namespace
     while (input_stream >> word)
     {
       words_array.push_back(word);
-      words_map[word] = num_words;
+      if (has_checksum)
+      {
+        // Only if checksum was passed should we stick to just 4 char checks to be lenient about typos.
+        words_map[word.substr(0, unique_prefix_length)] = num_words;
+      }
+      else
+      {
+        words_map[word] = num_words;
+      }
       num_words++;
     }
     input_stream.close();
@@ -101,16 +111,27 @@ namespace
 
   /*!
    * \brief Tells if all the words passed in wlist was present in current word list file.
-   * \param  wlist List of words to match.
-   * \return       true if all the words were present false if not.
+   * \param  wlist        List of words to match.
+   * \param  has_checksum If word list passed checksum test, we need to only do a 4 char check.
+   * \return              true if all the words were present false if not.
    */
-  bool word_list_file_match(const std::vector<std::string> &wlist)
+  bool word_list_file_match(const std::vector<std::string> &wlist, bool has_checksum)
   {
     for (std::vector<std::string>::const_iterator it = wlist.begin(); it != wlist.end(); it++)
     {
-      if (words_map.count(*it) == 0)
+      if (has_checksum)
       {
-        return false;
+        if (words_map.count(it->substr(0, unique_prefix_length)) == 0)
+        {
+          return false;
+        }
+      }
+      else
+      {
+        if (words_map.count(*it) == 0)
+        {
+          return false;
+        }
       }
     }
     return true;
@@ -118,13 +139,19 @@ namespace
 
   /*!
    * \brief Creates a checksum index in the word list array on the list of words.
-   * \param  words Space separated list of words
-   * \return       Checksum index
+   * \param  word_list Vector of words
+   * \return           Checksum index
    */
-  uint32_t create_checksum_index(const std::string &words)
+  uint32_t create_checksum_index(const std::vector<std::string> &word_list)
   {
+    std::string four_char_words = "";
+
+    for (std::vector<std::string>::const_iterator it = word_list.begin(); it != word_list.end(); it++)
+    {
+      four_char_words += it->substr(0, unique_prefix_length);
+    }
     boost::crc_32_type result;
-    result.process_bytes(words.data(), words.length());
+    result.process_bytes(four_char_words.data(), four_char_words.length());
     return result.checksum() % seed_length;
   }
 }
@@ -144,21 +171,22 @@ namespace crypto
   namespace ElectrumWords
   {
     /*!
-     * \brief Called to initialize it work with a word list file.
-     * \param language      Language of the word list file.
-     * \param old_word_list true it is to use the old style word list file false if not.
+     * \brief Called to initialize it to work with a word list file.
+     * \param language          Language of the word list file.
+     * \param has_checksum      True if the checksum was passed false if not.
+     * \param old_word_list     true it is to use the old style word list file false if not.
      */
-    void init(const std::string &language, bool old_word_list)
+    void init(const std::string &language, bool has_checksum, bool old_word_list)
     {
       if (old_word_list)
       {
         // Use the old word list file if told to.
-        create_data_structures(WORD_LISTS_DIRECTORY + '/' + OLD_WORD_FILE);
+        create_data_structures(WORD_LISTS_DIRECTORY + '/' + OLD_WORD_FILE, has_checksum);
         is_old_style_word_list = true;
       }
       else
       {
-        create_data_structures(WORD_LISTS_DIRECTORY + '/' + LANGUAGES_DIRECTORY + '/' + language);
+        create_data_structures(WORD_LISTS_DIRECTORY + '/' + LANGUAGES_DIRECTORY + '/' + language, has_checksum);
         is_old_style_word_list = false;
       }
       if (num_words == 0)
@@ -181,15 +209,17 @@ namespace crypto
       boost::split(wlist, words, boost::is_any_of(" "));
 
       // If it is seed with a checksum.
-      if (wlist.size() == seed_length + 1)
+      bool has_checksum = (wlist.size() == seed_length + 1);
+
+      if (has_checksum)
       {
         // The last word is the checksum.
         std::string last_word = wlist.back();
         wlist.pop_back();
 
-        std::string checksum = wlist[create_checksum_index(boost::algorithm::join(wlist, " "))];
+        std::string checksum = wlist[create_checksum_index(wlist)];
 
-        if (checksum != last_word)
+        if (checksum.substr(0, unique_prefix_length) != last_word.substr(0, unique_prefix_length))
         {
           // Checksum fail
           return false;
@@ -202,8 +232,8 @@ namespace crypto
       std::vector<std::string>::iterator it;
       for (it = languages.begin(); it != languages.end(); it++)
       {
-        init(*it);
-        if (word_list_file_match(wlist))
+        init(*it, has_checksum);
+        if (word_list_file_match(wlist, has_checksum))
         {
           break;
         }
@@ -211,8 +241,8 @@ namespace crypto
       // If no such file was found, see if the old style word list file has them all.
       if (it == languages.end())
       {
-        init("", true);
-        if (!word_list_file_match(wlist))
+        init("", has_checksum, true);
+        if (!word_list_file_match(wlist, has_checksum))
         {
           return false;
         }
@@ -227,9 +257,18 @@ namespace crypto
         uint32_t val;
         uint32_t w1, w2, w3;
 
-        w1 = words_map.at(wlist[i*3]);
-        w2 = words_map.at(wlist[i*3 + 1]);
-        w3 = words_map.at(wlist[i*3 + 2]);
+        if (has_checksum)
+        {
+          w1 = words_map.at(wlist[i*3].substr(0, unique_prefix_length));
+          w2 = words_map.at(wlist[i*3 + 1].substr(0, unique_prefix_length));
+          w3 = words_map.at(wlist[i*3 + 2].substr(0, unique_prefix_length));
+        }
+        else
+        {
+          w1 = words_map.at(wlist[i*3]);
+          w2 = words_map.at(wlist[i*3 + 1]);
+          w3 = words_map.at(wlist[i*3 + 2]);
+        }
 
         val = w1 + n * (((n - w1) + w2) % n) + n * n * (((n - w2) + w3) % n);
 
@@ -293,7 +332,7 @@ namespace crypto
       }
 
       words.pop_back();
-      words += (' ' + words_store[create_checksum_index(words)]);
+      words += (' ' + words_store[create_checksum_index(words_store)]);
       return false;
     }
 

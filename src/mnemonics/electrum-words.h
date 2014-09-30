@@ -57,10 +57,11 @@ namespace crypto
   {
     /*!
      * \brief Called to initialize it to work with a word list file.
-     * \param language      Language of the word list file.
-     * \param old_word_list Whether it is to use the old style word list file.
+     * \param language          Language of the word list file.
+     * \param has_checksum      True if the checksum was passed false if not.
+     * \param old_word_list     true it is to use the old style word list file false if not.
      */
-    void init(const std::string &language, bool old_word_list=false);
+    void init(const std::string &language, bool has_checksum=true, bool old_word_list=false);
     
     /*!
      * \brief Converts seed words to bytes (secret key).
