@@ -30,19 +30,26 @@
 
 cmake_minimum_required(VERSION 2.8.6)
 
+if(NOT WIN32)
+  string(ASCII 27 Esc)
+  set(ColourReset "${Esc}[m")
+  set(BoldRed     "${Esc}[1;31m")
+endif()
+
 set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 if (NOT DEFINED ENV{DEVELOPER_LOCAL_TOOLS})
-	message(STATUS "Could not find DEVELOPER_LOCAL_TOOLS in env")
+	message(STATUS "Could not find DEVELOPER_LOCAL_TOOLS in env (not required)")
 	set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
 elseif ("$ENV{DEVELOPER_LOCAL_TOOLS}" EQUAL 1)
-	message(STATUS "found: env DEVELOPER_LOCAL_TOOLS = 1")
+	message(STATUS "Found: env DEVELOPER_LOCAL_TOOLS = 1")
 	set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
 	option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" ON)
 else()
 	message(STATUS "found: env DEVELOPER_LOCAL_TOOLS = 0")
 	set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
 endif()
+
 message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT}")
 option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost ins	tallation" $BOOST_IGNORE_SYSTEM_PATHS_DEFAULT)
 
@@ -178,9 +185,15 @@ if(STATIC)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 find_package(Boost 1.53 REQUIRED COMPONENTS system filesystem thread date_time chrono regex serialization program_options)
-if((${Boost_MAJOR_VERSION} EQUAL 1) AND (${Boost_MINOR_VERSION} EQUAL 54))
-  message(SEND_ERROR "Boost version 1.54 is unsupported, more details are available here http://goo.gl/RrCFmA")
+
+if(NOT Boost_FOUND)
+   MESSAGE(FATAL_ERROR "${BoldRed}Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (1.53 or 1.55+) or the equivalent${ColourReset}")
 endif()
+
+if((${Boost_MAJOR_VERSION} EQUAL 1) AND (${Boost_MINOR_VERSION} EQUAL 54))
+  message(FATAL_ERROR "${BoldRed}Boost version 1.54 is unsupported due to a bug (see: http://goo.gl/RrCFmA), please install Boost 1.53 or 1.55 and above${ColourReset}")
+endif()
+
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(Boost_LIBRARIES "${Boost_LIBRARIES};pthread;mswsock;ws2_32")

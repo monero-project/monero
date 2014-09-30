@@ -25,7 +25,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-MESSAGE("Looking for libunbound")
+MESSAGE(STATUS "Looking for libunbound")
 
 FIND_PATH(UNBOUND_INCLUDE_DIR
   NAMES unbound.h
@@ -40,14 +40,14 @@ FIND_PATH(UNBOUND_INCLUDE_DIR
 find_library(UNBOUND_LIBRARIES unbound)
 
 IF(UNBOUND_INCLUDE_DIR)
-  MESSAGE(STATUS "Found unbound include in ${UNBOUND_INCLUDE_DIR}")
+  MESSAGE(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
   IF(UNBOUND_LIBRARIES)
-    MESSAGE(STATUS "Found unbound library")
+    MESSAGE(STATUS "Found libunbound library")
     set(UNBOUND_INCLUDE ${UNBOUND_INCLUDE_DIR})
     set(UNBOUND_LIBRARY ${UNBOUND_LIBRARIES})
   ELSE()
-    MESSAGE(FATAL_ERROR "Could not find unbound library")
+    MESSAGE(FATAL_ERROR "${BoldRed}Could not find libunbound library, please make sure you have installed libunbound or libunbound-dev or the equivalent${ColourReset}")
   ENDIF()
 ELSE()
-  MESSAGE(FATAL_ERROR "Could not find unbound library")
+  MESSAGE(FATAL_ERROR "${BoldRed}Could not find libunbound library, please make sure you have installed libunbound or libunbound-dev or the equivalent${ColourReset}")
 ENDIF()
