@@ -41,6 +41,7 @@ using namespace epee;
 #include "cryptonote_config.h"
 #include "cryptonote_format_utils.h"
 #include "misc_language.h"
+#include <csignal>
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -54,7 +55,10 @@ namespace cryptonote
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()), 
               m_starter_message_showed(false),
-              m_target_blockchain_height(0)
+              m_target_blockchain_height(0),
+              m_checkpoints_path(""),
+              m_last_dns_checkpoints_update(0),
+              m_last_json_checkpoints_update(0)
   {
     set_cryptonote_protocol(pprotocol);
   }
@@ -69,6 +73,39 @@ namespace cryptonote
   void core::set_checkpoints(checkpoints&& chk_pts)
   {
     m_blockchain_storage.set_checkpoints(std::move(chk_pts));
+  }
+  //-----------------------------------------------------------------------------------
+  void core::set_checkpoints_file_path(const std::string& path)
+  {
+    m_checkpoints_path = path;
+  }
+  //-----------------------------------------------------------------------------------
+  void core::set_enforce_dns_checkpoints(bool enforce_dns)
+  {
+    m_blockchain_storage.set_enforce_dns_checkpoints(enforce_dns);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::update_checkpoints()
+  {
+    bool res = true;
+    if (time(NULL) - m_last_dns_checkpoints_update >= 3600)
+    {
+      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, true);
+      m_last_dns_checkpoints_update = time(NULL);
+      m_last_json_checkpoints_update = time(NULL);
+    }
+    else if (time(NULL) - m_last_json_checkpoints_update >= 600)
+    {
+      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, false);
+      m_last_json_checkpoints_update = time(NULL);
+    }
+
+    // if anything fishy happened getting new checkpoints, bring down the house
+    if (!res)
+    {
+      graceful_exit();
+    }
+    return res;
   }
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& /*desc*/)
@@ -126,6 +163,10 @@ namespace cryptonote
 
     r = m_blockchain_storage.init(m_config_folder, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
+
+    // load json & DNS checkpoints, and verify them
+    // with respect to what blocks we already have
+    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
     r = m_miner.init(vm, testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
@@ -418,6 +459,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate)
   {
+    // load json & DNS checkpoints every 10min/hour respectively,
+    // and verify them with respect to what blocks we already have
+    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+
     bvc = boost::value_initialized<block_verification_context>();
     if(block_blob.size() > get_max_block_size())
     {
@@ -544,5 +589,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   uint64_t core::get_target_blockchain_height() const {
     return m_target_blockchain_height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::graceful_exit()
+  {
+    raise(SIGTERM);
   }
 }

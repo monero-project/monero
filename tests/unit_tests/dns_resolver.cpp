@@ -37,13 +37,15 @@ TEST(DNSResolver, IPv4Success)
 {
   tools::DNSResolver resolver;
 
-  auto ips = resolver.get_ipv4("example.com");
+  bool avail, valid;
+
+  auto ips = resolver.get_ipv4("example.com", avail, valid);
 
   ASSERT_EQ(1, ips.size());
 
   ASSERT_STREQ("93.184.216.119", ips[0].c_str());
 
-  ips = tools::DNSResolver::instance().get_ipv4("example.com");
+  ips = tools::DNSResolver::instance().get_ipv4("example.com", avail, valid);
 
   ASSERT_EQ(1, ips.size());
 
@@ -55,11 +57,13 @@ TEST(DNSResolver, IPv4Failure)
   // guaranteed by IANA/ICANN/RFC to be invalid
   tools::DNSResolver resolver;
 
-  auto ips = resolver.get_ipv4("example.invalid");
+  bool avail, valid;
+
+  auto ips = resolver.get_ipv4("example.invalid", avail, valid);
 
   ASSERT_EQ(0, ips.size());
 
-  ips = tools::DNSResolver::instance().get_ipv4("example.invalid");
+  ips = tools::DNSResolver::instance().get_ipv4("example.invalid", avail, valid);
 
   ASSERT_EQ(0, ips.size());
 }
@@ -68,13 +72,15 @@ TEST(DNSResolver, IPv6Success)
 {
   tools::DNSResolver resolver;
 
-  auto ips = resolver.get_ipv6("example.com");
+  bool avail, valid;
+
+  auto ips = resolver.get_ipv6("example.com", avail, valid);
 
   ASSERT_EQ(1, ips.size());
 
   ASSERT_STREQ("2606:2800:220:6d:26bf:1447:1097:aa7", ips[0].c_str());
 
-  ips = tools::DNSResolver::instance().get_ipv6("example.com");
+  ips = tools::DNSResolver::instance().get_ipv6("example.com", avail, valid);
 
   ASSERT_EQ(1, ips.size());
 
@@ -86,19 +92,22 @@ TEST(DNSResolver, IPv6Failure)
   // guaranteed by IANA/ICANN/RFC to be invalid
   tools::DNSResolver resolver;
 
-  auto ips = resolver.get_ipv6("example.invalid");
+  bool avail, valid;
+
+  auto ips = resolver.get_ipv6("example.invalid", avail, valid);
 
   ASSERT_EQ(0, ips.size());
 
-  ips = tools::DNSResolver::instance().get_ipv6("example.invalid");
+  ips = tools::DNSResolver::instance().get_ipv6("example.invalid", avail, valid);
 
   ASSERT_EQ(0, ips.size());
 }
 
 TEST(DNSResolver, GetTXTRecord)
 {
+  bool avail, valid;
 
-  std::vector<std::string> records = tools::DNSResolver::instance().get_txt_record("donate.monero.cc");
+  std::vector<std::string> records = tools::DNSResolver::instance().get_txt_record("donate.monero.cc", avail, valid);
 
   EXPECT_NE(0, records.size());
 
