@@ -41,6 +41,7 @@ using namespace epee;
 #include "cryptonote_config.h"
 #include "cryptonote_format_utils.h"
 #include "misc_language.h"
+#include <csignal>
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -97,6 +98,12 @@ namespace cryptonote
     {
       res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, false);
       m_last_json_checkpoints_update = time(NULL);
+    }
+
+    // if anything fishy happened getting new checkpoints, bring down the house
+    if (!res)
+    {
+      graceful_exit();
     }
     return res;
   }
@@ -582,5 +589,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   uint64_t core::get_target_blockchain_height() const {
     return m_target_blockchain_height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::graceful_exit()
+  {
+    raise(SIGTERM);
   }
 }

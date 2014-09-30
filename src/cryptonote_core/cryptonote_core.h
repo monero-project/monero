@@ -145,6 +145,7 @@ namespace cryptonote
      bool handle_command_line(const boost::program_options::variables_map& vm, bool testnet);
      bool on_update_blocktemplate_interval();
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
+     void graceful_exit();
 
 
      tx_memory_pool m_mempool;
