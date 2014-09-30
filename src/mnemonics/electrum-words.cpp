@@ -94,6 +94,11 @@ namespace
     std::string word;
     while (input_stream >> word)
     {
+      if (word.length() == 0 || word[0] == '#')
+      {
+        // Skip empty and comment lines
+        continue;
+      }
       words_array.push_back(word);
       if (has_checksum)
       {
