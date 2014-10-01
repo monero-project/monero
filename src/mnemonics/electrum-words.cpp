@@ -50,6 +50,12 @@
 #include <boost/crc.hpp>
 #include <boost/algorithm/string/join.hpp>
 
+#include "english.h"
+#include "spanish.h"
+#include "portuguese.h"
+#include "japanese.h"
+#include "old_english.h"
+
 namespace
 {
   int num_words = 0;
