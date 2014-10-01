@@ -28,12 +28,20 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file core_rpc_server_commands_defs.h
+ * \brief Contains request response formats for RPCs that the daemon supports.
+ */
 #pragma once
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/difficulty.h"
 #include "crypto/hash.h"
 
+/*!
+ * \namespace cryptonote
+ * \brief Holds cryptonote related classes and helpers.
+ */
 namespace cryptonote
 {
   //-----------------------------------------------
@@ -266,8 +274,39 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+  
+  /*!
+   * \struct COMMAND_RPC_GET_STATS
+   * \brief Format for request and response of `get_stats` RPC.
+   */
+  struct COMMAND_RPC_GET_STATS
+  {
+    struct request
+    {
 
-    
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t hours;
+      uint64_t minutes;
+      uint64_t seconds;
+      uint64_t total_memory;
+      uint64_t used_memory;
+      double cpu_usage_percent;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(hours);
+        KV_SERIALIZE(minutes);
+        KV_SERIALIZE(seconds);
+        KV_SERIALIZE(total_memory);
+        KV_SERIALIZE(used_memory);
+        KV_SERIALIZE(cpu_usage_percent);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING
   {

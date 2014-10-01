@@ -28,6 +28,10 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file core_rpc_server.h
+ * \brief Header file for managing RPC server for daemon.
+ */
 #pragma  once 
 
 #include <boost/program_options/options_description.hpp>
@@ -39,11 +43,16 @@
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
+/*!
+ * \namespace cryptonote
+ * \brief Holds cryptonote related classes and helpers.
+ */
 namespace cryptonote
 {
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
+  /*!
+   * \class core_rpc_server
+   * \brief Manages the RPC API and handlers that the daemon supports.
+   */
   class core_rpc_server: public epee::http_server_impl_base<core_rpc_server>
   {
   public:
@@ -85,6 +94,7 @@ namespace cryptonote
         MAP_JON_RPC_WE("getblockheaderbyheight", on_get_block_header_by_height, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT)
         MAP_JON_RPC_WE("get_connections",        on_get_connections,            COMMAND_RPC_GET_CONNECTIONS)
         MAP_JON_RPC_WE("get_info",               on_get_info_json,              COMMAND_RPC_GET_INFO)
+        MAP_JON_RPC_WE("get_stats",              on_get_stats,                  COMMAND_RPC_GET_STATS)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -110,6 +120,15 @@ namespace cryptonote
     bool on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res, epee::json_rpc::error& error_resp, connection_context& cntx);
     bool on_get_connections(const COMMAND_RPC_GET_CONNECTIONS::request& req, COMMAND_RPC_GET_CONNECTIONS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx);
     bool on_get_info_json(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, epee::json_rpc::error& error_resp, connection_context& cntx);
+    /*!
+     * \brief Called when 'get_stats' RPC is made.
+     * \param  req        Request object
+     * \param  res        Respose object
+     * \param  error_resp Error response object
+     * \param  cntx       Connection context
+     * \return            Whether the RPC was successful or not.
+     */
+    bool on_get_stats(const COMMAND_RPC_GET_STATS::request& req, COMMAND_RPC_GET_STATS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx);
     //-----------------------
     bool handle_command_line(
         const boost::program_options::variables_map& vm

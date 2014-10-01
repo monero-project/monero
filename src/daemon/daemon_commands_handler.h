@@ -40,6 +40,8 @@
 #include "common/util.h"
 #include "crypto/hash.h"
 #include "version.h"
+#include "common/system_stats/system_stats.h"
+#include <stdexcept>
 
 /*!
  * \brief I don't really know right now
@@ -74,6 +76,7 @@ public:
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
     m_cmd_binder.set_handler("set_log", boost::bind(&daemon_cmmands_handler::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
     m_cmd_binder.set_handler("diff", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Show difficulty");
+    m_cmd_binder.set_handler("stats", boost::bind(&daemon_cmmands_handler::show_stats, this, _1), "Show system stats");
   }
 
   bool start_handling()
@@ -150,6 +153,47 @@ private:
 
 	  return true;
   } 
+  //--------------------------------------------------------------------------------
+  bool show_stats(const std::vector<std::string>& args)
+  {
+    try
+    {
+      std::string time_elapsed = boost::posix_time::to_simple_string(m_srv.get_payload_object().get_core().time_elapsed());
+      std::cout << "Time elapsed: " << time_elapsed << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
+    try
+    {
+      uint64_t total_system_memory = system_stats::get_total_system_memory();
+      std::cout << "Total system memory: " << total_system_memory << " bytes" << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
+    try
+    {
+      uint64_t used_system_memory = system_stats::get_used_system_memory();
+      std::cout << "Total system memory used: " << used_system_memory << " bytes" << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
+    try
+    {
+      double cpu_usage = system_stats::get_cpu_usage();
+      std::cout << "Total CPU Usage: " << cpu_usage << "%" << ENDL;
+    }
+    catch (std::runtime_error &e)
+    {
+      LOG_ERROR(std::string("Error encountered: ") + e.what());
+    }
+    return true;
+  }
   //--------------------------------------------------------------------------------
   bool print_bc_outs(const std::vector<std::string>& args)
   {

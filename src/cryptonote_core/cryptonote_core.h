@@ -28,6 +28,10 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file cryptonote_core.h
+ * \brief Contains core class under cryptonote namespace.
+ */
 #pragma once
 
 #include <boost/program_options/options_description.hpp>
@@ -43,15 +47,21 @@
 #include "cryptonote_core/cryptonote_stat_info.h"
 #include "warnings.h"
 #include "crypto/hash.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
+/*!
+ * \namespace cryptonote
+ * \brief Holds cryptonote related classes and helpers.
+ */
 namespace cryptonote
 {
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
+   /*!
+    * \class core
+    * \brief The class that manages the cryptonote algorithm.
+    */
    class core: public i_miner_handler
    {
    public:
@@ -118,6 +128,12 @@ namespace cryptonote
 
      void set_target_blockchain_height(uint64_t target_blockchain_height);
      uint64_t get_target_blockchain_height() const;
+     /*!
+      * \brief Returns the time duration for which the core has been running.
+      * 
+      * It returns the difference between the start_time and the current time.
+      */
+     boost::posix_time::time_duration time_elapsed() const;
 
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
@@ -155,6 +171,7 @@ namespace cryptonote
      std::atomic<bool> m_starter_message_showed;
 
      uint64_t m_target_blockchain_height;
+     boost::posix_time::ptime start_time; //!< The start time of the core, set during init.
    };
 }
 

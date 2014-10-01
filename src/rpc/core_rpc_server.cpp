@@ -28,6 +28,10 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file core_rpc_server.cpp
+ * \brief Source file for managing RPC server for daemon.
+ */
 #include <boost/foreach.hpp>
 #include "include_base_utils.h"
 using namespace epee;
@@ -40,7 +44,13 @@ using namespace epee;
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
+#include "common/system_stats/system_stats.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
 
+/*!
+ * \namespace cryptonote
+ * \brief Holds cryptonote related classes and helpers.
+ */
 namespace cryptonote
 {
   namespace
@@ -697,6 +707,54 @@ namespace cryptonote
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
     res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  
+  /*!
+   * \brief Called when 'get_stats' RPC is made.
+   * \param  req        Request object
+   * \param  res        Respose object
+   * \param  error_resp Error response object
+   * \param  cntx       Connection context
+   * \return            Whether the RPC was successful or not.
+   */
+  bool core_rpc_server::on_get_stats(const COMMAND_RPC_GET_STATS::request& req, COMMAND_RPC_GET_STATS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  {
+    if (!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    boost::posix_time::time_duration time_elapsed = m_core.time_elapsed();
+    res.hours = time_elapsed.hours();
+    res.minutes = time_elapsed.minutes();
+    res.seconds = time_elapsed.seconds();
+    try
+    {
+      res.total_memory = system_stats::get_total_system_memory();
+    }
+    catch (std::runtime_error &e)
+    {
+      res.total_memory = -1;
+    }
+    try
+    {
+      res.used_memory = system_stats::get_used_system_memory();
+    }
+    catch (std::runtime_error &e)
+    {
+      res.used_memory = -1;
+    }
+    try
+    {
+      res.cpu_usage_percent = system_stats::get_cpu_usage();
+    }
+    catch (std::runtime_error &e)
+    {
+      res.cpu_usage_percent = -1.0;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
