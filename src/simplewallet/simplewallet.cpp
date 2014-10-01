@@ -1218,7 +1218,7 @@ int main(int argc, char* argv[])
     if (daemon_host.empty())
       daemon_host = "localhost";
     if (!daemon_port)
-      daemon_port = config::RPC_DEFAULT_PORT;
+      daemon_port = testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
     if (daemon_address.empty())
       daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
