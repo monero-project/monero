@@ -641,7 +641,7 @@ public:
 
     if(!m_pservice_endpoint->do_send(in_buff.data(), (int)in_buff.size()))
     {
-      LOG_ERROR_CC("Failed to do_send()");
+      LOG_ERROR_CC(m_connection_context, "Failed to do_send()");
       return -1;
     }
     CRITICAL_REGION_END();
