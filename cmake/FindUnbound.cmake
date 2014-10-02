@@ -38,7 +38,11 @@ FIND_PATH(UNBOUND_INCLUDE_DIR
 )
 
 if(STATIC)
-  find_library(UNBOUND_LIBRARIES libunbound.a)
+  if(MINGW)
+    find_library(UNBOUND_LIBRARIES libunbound.dll.a)
+  else()
+    find_library(UNBOUND_LIBRARIES libunbound.a)
+  endif()
 else()
   find_library(UNBOUND_LIBRARIES unbound)
 endif()
