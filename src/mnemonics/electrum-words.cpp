@@ -111,7 +111,7 @@ namespace
 
       // Iterate through all the words and see if they're all present
       for (it2 = seed.begin(), it3 = trimmed_seed.begin();
-        it2 != seed.end() && it3 != trimmed_seed.end(); it2++, it3++)
+        it2 != seed.end(); it2++, it3++)
       {
         if (has_checksum)
         {
@@ -235,10 +235,11 @@ namespace crypto
           // Checksum fail
           return false;
         }
+        seed.pop_back();
       }
       
       std::vector<uint32_t> matched_indices;
-      uint32_t word_list_length;
+      uint32_t word_list_length = 0;
       if (!find_seed_language(seed, has_checksum, matched_indices, word_list_length, language_name))
       {
         return false;
