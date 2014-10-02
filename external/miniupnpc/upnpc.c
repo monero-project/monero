@@ -1,4 +1,4 @@
-/* $Id: upnpc.c,v 1.102 2014/02/05 17:27:14 nanard Exp $ */
+/* $Id: upnpc.c,v 1.104 2014/09/11 14:13:30 nanard Exp $ */
 /* Project : miniupnp
  * Author : Thomas Bernard
  * Copyright (c) 2005-2014 Thomas Bernard
@@ -223,17 +223,19 @@ static void NewListRedirections(struct UPNPUrls * urls,
  * 3 - Add port mapping
  * 4 - get this port mapping from the IGD */
 static void SetRedirectAndTest(struct UPNPUrls * urls,
-                               struct IGDdatas * data,
-							   const char * iaddr,
-							   const char * iport,
-							   const char * eport,
-                               const char * proto,
-                               const char * leaseDuration,
-                               const char * description)
+			       struct IGDdatas * data,
+			       const char * iaddr,
+			       const char * iport,
+			       const char * eport,
+			       const char * proto,
+			       const char * leaseDuration,
+			       const char * description,
+			       int addAny)
 {
 	char externalIPAddress[40];
 	char intClient[40];
 	char intPort[6];
+	char reservedPort[6];
 	char duration[16];
 	int r;
 
@@ -249,31 +251,41 @@ static void SetRedirectAndTest(struct UPNPUrls * urls,
 		return;
 	}
 
-	UPNP_GetExternalIPAddress(urls->controlURL,
-	                          data->first.servicetype,
-							  externalIPAddress);
-	if(externalIPAddress[0])
-		printf("ExternalIPAddress = %s\n", externalIPAddress);
-	else
-		printf("GetExternalIPAddress failed.\n");
-
-	r = UPNP_AddPortMapping(urls->controlURL, data->first.servicetype,
-	                        eport, iport, iaddr, description,
-	                        proto, 0, leaseDuration);
+	r = UPNP_GetExternalIPAddress(urls->controlURL,
+				      data->first.servicetype,
+				      externalIPAddress);
 	if(r!=UPNPCOMMAND_SUCCESS)
-		printf("AddPortMapping(%s, %s, %s) failed with code %d (%s)\n",
-		       eport, iport, iaddr, r, strupnperror(r));
+		printf("GetExternalIPAddress failed.\n");
+	else
+		printf("ExternalIPAddress = %s\n", externalIPAddress);
+
+	if (addAny) {
+		r = UPNP_AddAnyPortMapping(urls->controlURL, data->first.servicetype,
+					   eport, iport, iaddr, description,
+					   proto, 0, leaseDuration, reservedPort);
+		if(r==UPNPCOMMAND_SUCCESS)
+			eport = reservedPort;
+		else
+			printf("AddAnyPortMapping(%s, %s, %s) failed with code %d (%s)\n",
+			       eport, iport, iaddr, r, strupnperror(r));
+	} else {
+		r = UPNP_AddPortMapping(urls->controlURL, data->first.servicetype,
+					eport, iport, iaddr, description,
+					proto, 0, leaseDuration);
+		if(r!=UPNPCOMMAND_SUCCESS)
+			printf("AddPortMapping(%s, %s, %s) failed with code %d (%s)\n",
+			       eport, iport, iaddr, r, strupnperror(r));
+	}
 
 	r = UPNP_GetSpecificPortMappingEntry(urls->controlURL,
-	                                 data->first.servicetype,
-    	                             eport, proto, NULL/*remoteHost*/,
-									 intClient, intPort, NULL/*desc*/,
-	                                 NULL/*enabled*/, duration);
+					     data->first.servicetype,
+					     eport, proto, NULL/*remoteHost*/,
+					     intClient, intPort, NULL/*desc*/,
+					     NULL/*enabled*/, duration);
 	if(r!=UPNPCOMMAND_SUCCESS)
 		printf("GetSpecificPortMappingEntry() failed with code %d (%s)\n",
 		       r, strupnperror(r));
-
-	if(intClient[0]) {
+	else {
 		printf("InternalIP:Port = %s:%s\n", intClient, intPort);
 		printf("external %s:%s %s is redirected to internal %s:%s (duration=%s)\n",
 		       externalIPAddress, eport, proto, intClient, intPort, duration);
@@ -283,8 +295,9 @@ static void SetRedirectAndTest(struct UPNPUrls * urls,
 static void
 RemoveRedirect(struct UPNPUrls * urls,
                struct IGDdatas * data,
-			   const char * eport,
-			   const char * proto)
+               const char * eport,
+               const char * proto,
+               const char * remoteHost)
 {
 	int r;
 	if(!proto || !eport)
@@ -298,8 +311,34 @@ RemoveRedirect(struct UPNPUrls * urls,
 		fprintf(stderr, "protocol invalid\n");
 		return;
 	}
-	r = UPNP_DeletePortMapping(urls->controlURL, data->first.servicetype, eport, proto, 0);
+	r = UPNP_DeletePortMapping(urls->controlURL, data->first.servicetype, eport, proto, remoteHost);
 	printf("UPNP_DeletePortMapping() returned : %d\n", r);
+}
+
+static void
+RemoveRedirectRange(struct UPNPUrls * urls,
+		    struct IGDdatas * data,
+		    const char * ePortStart, char const * ePortEnd,
+		    const char * proto, const char * manage)
+{
+	int r;
+
+	if (!manage)
+		manage = "0";
+
+	if(!proto || !ePortStart || !ePortEnd)
+	{
+		fprintf(stderr, "invalid arguments\n");
+		return;
+	}
+	proto = protofix(proto);
+	if(!proto)
+	{
+		fprintf(stderr, "protocol invalid\n");
+		return;
+	}
+	r = UPNP_DeletePortMappingRange(urls->controlURL, data->first.servicetype, ePortStart, ePortEnd, proto, manage);
+	printf("UPNP_DeletePortMappingRange() returned : %d\n", r);
 }
 
 /* IGD:2, functions for service WANIPv6FirewallControl:1 */
@@ -546,10 +585,12 @@ int main(int argc, char ** argv)
 	   || (command == 'D' && commandargc<1))
 	{
 		fprintf(stderr, "Usage :\t%s [options] -a ip port external_port protocol [duration]\n\t\tAdd port redirection\n", argv[0]);
-		fprintf(stderr, "       \t%s [options] -d external_port protocol [port2 protocol2] [...]\n\t\tDelete port redirection\n", argv[0]);
+		fprintf(stderr, "       \t%s [options] -d external_port protocol <remote host>\n\t\tDelete port redirection\n", argv[0]);
 		fprintf(stderr, "       \t%s [options] -s\n\t\tGet Connection status\n", argv[0]);
 		fprintf(stderr, "       \t%s [options] -l\n\t\tList redirections\n", argv[0]);
-		fprintf(stderr, "       \t%s [options] -L\n\t\tList redirections (using GetListOfPortMappings, IGD v2)\n", argv[0]);
+		fprintf(stderr, "       \t%s [options] -L\n\t\tList redirections (using GetListOfPortMappings (for IGD:2 only)\n", argv[0]);
+		fprintf(stderr, "       \t%s [options] -n ip port external_port protocol [duration]\n\t\tAdd (any) port redirection allowing IGD to use alternative external_port (for IGD:2 only)\n", argv[0]);
+		fprintf(stderr, "       \t%s [options] -N external_port_start external_port_end protocol [manage]\n\t\tDelete range of port redirections (for IGD:2 only)\n", argv[0]);
 		fprintf(stderr, "       \t%s [options] -r port1 protocol1 [port2 protocol2] [...]\n\t\tAdd all redirections to the current host\n", argv[0]);
 		fprintf(stderr, "       \t%s [options] -A remote_ip remote_port internal_ip internal_port protocol lease_time\n\t\tAdd Pinhole (for IGD:2 only)\n", argv[0]);
 		fprintf(stderr, "       \t%s [options] -U uniqueID new_lease_time\n\t\tUpdate Pinhole (for IGD:2 only)\n", argv[0]);
@@ -631,16 +672,28 @@ int main(int argc, char ** argv)
 				break;
 			case 'a':
 				SetRedirectAndTest(&urls, &data,
-				                   commandargv[0], commandargv[1],
-				                   commandargv[2], commandargv[3],
-				                   (commandargc > 4)?commandargv[4]:"0",
-				                   description);
+						   commandargv[0], commandargv[1],
+						   commandargv[2], commandargv[3],
+						   (commandargc > 4)?commandargv[4]:"0",
+						   description, 0);
 				break;
 			case 'd':
-				for(i=0; i<commandargc; i+=2)
-				{
-					RemoveRedirect(&urls, &data, commandargv[i], commandargv[i+1]);
-				}
+				RemoveRedirect(&urls, &data, commandargv[0], commandargv[1],
+				               commandargc > 2 ? commandargv[2] : NULL);
+				break;
+			case 'n':	/* aNy */
+				SetRedirectAndTest(&urls, &data,
+						   commandargv[0], commandargv[1],
+						   commandargv[2], commandargv[3],
+						   (commandargc > 4)?commandargv[4]:"0",
+						   description, 1);
+				break;
+			case 'N':
+				if (commandargc < 3)
+					fprintf(stderr, "too few arguments\n");
+
+				RemoveRedirectRange(&urls, &data, commandargv[0], commandargv[1], commandargv[2],
+						    commandargc > 3 ? commandargv[3] : NULL);
 				break;
 			case 's':
 				GetConnectionStatus(&urls, &data);
@@ -650,9 +703,9 @@ int main(int argc, char ** argv)
 				{
 					/*printf("port %s protocol %s\n", argv[i], argv[i+1]);*/
 					SetRedirectAndTest(&urls, &data,
-					                   lanaddr, commandargv[i],
-									   commandargv[i], commandargv[i+1], "0",
-					                   description);
+							   lanaddr, commandargv[i],
+							   commandargv[i], commandargv[i+1], "0",
+							   description, 0);
 				}
 				break;
 			case 'A':

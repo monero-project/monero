@@ -1,4 +1,4 @@
-/* $Id: minissdpc.c,v 1.16 2012/03/05 19:42:46 nanard Exp $ */
+/* $Id: minissdpc.c,v 1.15 2012/01/21 13:30:31 nanard Exp $ */
 /* Project : miniupnp
  * Web : http://miniupnp.free.fr/
  * Author : Thomas BERNARD
@@ -46,7 +46,7 @@ getDevicesFromMiniSSDPD(const char * devtype, const char * socketpath)
 {
 	struct UPNPDev * tmp;
 	struct UPNPDev * devlist = NULL;
-	unsigned char buffer[2048];
+	unsigned char buffer[4*1024];	/* is that enough ? */
 	ssize_t n;
 	unsigned char * p;
 	unsigned char * url;

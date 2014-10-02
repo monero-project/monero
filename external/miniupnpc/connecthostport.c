@@ -1,4 +1,4 @@
-/* $Id: connecthostport.c,v 1.13 2014/03/31 12:36:36 nanard Exp $ */
+/* $Id: connecthostport.c,v 1.12 2014/02/05 17:26:46 nanard Exp $ */
 /* Project : miniupnp
  * Author : Thomas Bernard
  * Copyright (c) 2010-2014 Thomas Bernard
@@ -35,7 +35,6 @@
 #ifndef USE_GETHOSTBYNAME
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/select.h>
 #endif /* #ifndef USE_GETHOSTBYNAME */
 #endif /* #else _WIN32 */
 

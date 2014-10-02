@@ -20,7 +20,7 @@ my_atoui(const char * s)
 
 /*
  * */
-LIBSPEC UNSIGNED_INTEGER
+MINIUPNP_LIBSPEC UNSIGNED_INTEGER
 UPNP_GetTotalBytesSent(const char * controlURL,
 					const char * servicetype)
 {
@@ -44,7 +44,7 @@ UPNP_GetTotalBytesSent(const char * controlURL,
 
 /*
  * */
-LIBSPEC UNSIGNED_INTEGER
+MINIUPNP_LIBSPEC UNSIGNED_INTEGER
 UPNP_GetTotalBytesReceived(const char * controlURL,
 						const char * servicetype)
 {
@@ -68,7 +68,7 @@ UPNP_GetTotalBytesReceived(const char * controlURL,
 
 /*
  * */
-LIBSPEC UNSIGNED_INTEGER
+MINIUPNP_LIBSPEC UNSIGNED_INTEGER
 UPNP_GetTotalPacketsSent(const char * controlURL,
 						const char * servicetype)
 {
@@ -92,7 +92,7 @@ UPNP_GetTotalPacketsSent(const char * controlURL,
 
 /*
  * */
-LIBSPEC UNSIGNED_INTEGER
+MINIUPNP_LIBSPEC UNSIGNED_INTEGER
 UPNP_GetTotalPacketsReceived(const char * controlURL,
 						const char * servicetype)
 {
@@ -116,7 +116,7 @@ UPNP_GetTotalPacketsReceived(const char * controlURL,
 
 /* UPNP_GetStatusInfo() call the corresponding UPNP method
  * returns the current status and uptime */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetStatusInfo(const char * controlURL,
 				const char * servicetype,
 				char * status,
@@ -181,7 +181,7 @@ UPNP_GetStatusInfo(const char * controlURL,
 
 /* UPNP_GetConnectionTypeInfo() call the corresponding UPNP method
  * returns the connection type */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetConnectionTypeInfo(const char * controlURL,
                            const char * servicetype,
                            char * connectionType)
@@ -224,7 +224,7 @@ UPNP_GetConnectionTypeInfo(const char * controlURL,
  * One of the values can be null
  * Note : GetLinkLayerMaxBitRates belongs to WANPPPConnection:1 only
  * We can use the GetCommonLinkProperties from WANCommonInterfaceConfig:1 */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetLinkLayerMaxBitRates(const char * controlURL,
                              const char * servicetype,
                              unsigned int * bitrateDown,
@@ -293,7 +293,7 @@ UPNP_GetLinkLayerMaxBitRates(const char * controlURL,
  * 402 Invalid Args - See UPnP Device Architecture section on Control.
  * 501 Action Failed - See UPnP Device Architecture section on Control.
  */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetExternalIPAddress(const char * controlURL,
                           const char * servicetype,
                           char * extIpAdd)
@@ -333,15 +333,15 @@ UPNP_GetExternalIPAddress(const char * controlURL,
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_AddPortMapping(const char * controlURL, const char * servicetype,
-                    const char * extPort,
-					const char * inPort,
-					const char * inClient,
-					const char * desc,
-					const char * proto,
-                    const char * remoteHost,
-                    const char * leaseDuration)
+		    const char * extPort,
+		    const char * inPort,
+		    const char * inClient,
+		    const char * desc,
+		    const char * proto,
+		    const char * remoteHost,
+		    const char * leaseDuration)
 {
 	struct UPNParg * AddPortMappingArgs;
 	char * buffer;
@@ -394,7 +394,74 @@ UPNP_AddPortMapping(const char * controlURL, const char * servicetype,
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
+UPNP_AddAnyPortMapping(const char * controlURL, const char * servicetype,
+		       const char * extPort,
+		       const char * inPort,
+		       const char * inClient,
+		       const char * desc,
+		       const char * proto,
+		       const char * remoteHost,
+		       const char * leaseDuration,
+		       char * reservedPort)
+{
+	struct UPNParg * AddPortMappingArgs;
+	char * buffer;
+	int bufsize;
+	struct NameValueParserData pdata;
+	const char * resVal;
+	int ret;
+
+	if(!inPort || !inClient || !proto || !extPort)
+		return UPNPCOMMAND_INVALID_ARGS;
+
+	AddPortMappingArgs = calloc(9, sizeof(struct UPNParg));
+	AddPortMappingArgs[0].elt = "NewRemoteHost";
+	AddPortMappingArgs[0].val = remoteHost;
+	AddPortMappingArgs[1].elt = "NewExternalPort";
+	AddPortMappingArgs[1].val = extPort;
+	AddPortMappingArgs[2].elt = "NewProtocol";
+	AddPortMappingArgs[2].val = proto;
+	AddPortMappingArgs[3].elt = "NewInternalPort";
+	AddPortMappingArgs[3].val = inPort;
+	AddPortMappingArgs[4].elt = "NewInternalClient";
+	AddPortMappingArgs[4].val = inClient;
+	AddPortMappingArgs[5].elt = "NewEnabled";
+	AddPortMappingArgs[5].val = "1";
+	AddPortMappingArgs[6].elt = "NewPortMappingDescription";
+	AddPortMappingArgs[6].val = desc?desc:"libminiupnpc";
+	AddPortMappingArgs[7].elt = "NewLeaseDuration";
+	AddPortMappingArgs[7].val = leaseDuration?leaseDuration:"0";
+	if(!(buffer = simpleUPnPcommand(-1, controlURL, servicetype,
+	                                "AddAnyPortMapping", AddPortMappingArgs,
+	                                &bufsize))) {
+		free(AddPortMappingArgs);
+		return UPNPCOMMAND_HTTP_ERROR;
+	}
+	ParseNameValue(buffer, bufsize, &pdata);
+	free(buffer); buffer = NULL;
+	resVal = GetValueFromNameValueList(&pdata, "errorCode");
+	if(resVal) {
+		ret = UPNPCOMMAND_UNKNOWN_ERROR;
+		sscanf(resVal, "%d", &ret);
+	} else {
+		char *p;
+
+		p = GetValueFromNameValueList(&pdata, "NewReservedPort");
+		if(p) {
+			strncpy(reservedPort, p, 6);
+			reservedPort[5] = '\0';
+			ret = UPNPCOMMAND_SUCCESS;
+		} else {
+			ret = UPNPCOMMAND_INVALID_RESPONSE;
+		}
+	}
+	ClearNameValueList(&pdata);
+	free(AddPortMappingArgs);
+	return ret;
+}
+
+MINIUPNP_LIBSPEC int
 UPNP_DeletePortMapping(const char * controlURL, const char * servicetype,
                        const char * extPort, const char * proto,
                        const char * remoteHost)
@@ -438,7 +505,53 @@ UPNP_DeletePortMapping(const char * controlURL, const char * servicetype,
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
+UPNP_DeletePortMappingRange(const char * controlURL, const char * servicetype,
+        		    const char * extPortStart, const char * extPortEnd,
+        		    const char * proto,
+			    const char * manage)
+{
+	struct UPNParg * DeletePortMappingArgs;
+	char * buffer;
+	int bufsize;
+	struct NameValueParserData pdata;
+	const char * resVal;
+	int ret;
+
+	if(!extPortStart || !extPortEnd || !proto || !manage)
+		return UPNPCOMMAND_INVALID_ARGS;
+
+	DeletePortMappingArgs = calloc(5, sizeof(struct UPNParg));
+	DeletePortMappingArgs[0].elt = "NewStartPort";
+	DeletePortMappingArgs[0].val = extPortStart;
+	DeletePortMappingArgs[1].elt = "NewEndPort";
+	DeletePortMappingArgs[1].val = extPortEnd;
+	DeletePortMappingArgs[2].elt = "NewProtocol";
+	DeletePortMappingArgs[2].val = proto;
+	DeletePortMappingArgs[3].elt = "NewManage";
+	DeletePortMappingArgs[3].val = manage;
+
+	if(!(buffer = simpleUPnPcommand(-1, controlURL, servicetype,
+	                                "DeletePortMappingRange",
+	                                DeletePortMappingArgs, &bufsize))) {
+		free(DeletePortMappingArgs);
+		return UPNPCOMMAND_HTTP_ERROR;
+	}
+	ParseNameValue(buffer, bufsize, &pdata);
+	free(buffer); buffer = NULL;
+	resVal = GetValueFromNameValueList(&pdata, "errorCode");
+	if(resVal) {
+		ret = UPNPCOMMAND_UNKNOWN_ERROR;
+		sscanf(resVal, "%d", &ret);
+	} else {
+		ret = UPNPCOMMAND_SUCCESS;
+	}
+	ClearNameValueList(&pdata);
+	free(DeletePortMappingArgs);
+	return ret;
+}
+
+MINIUPNP_LIBSPEC int
 UPNP_GetGenericPortMappingEntry(const char * controlURL,
                                 const char * servicetype,
 							 const char * index,
@@ -533,7 +646,7 @@ UPNP_GetGenericPortMappingEntry(const char * controlURL,
 	return r;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetPortMappingNumberOfEntries(const char * controlURL,
                                    const char * servicetype,
                                    unsigned int * numEntries)
@@ -574,7 +687,7 @@ UPNP_GetPortMappingNumberOfEntries(const char * controlURL,
 /* UPNP_GetSpecificPortMappingEntry retrieves an existing port mapping
  * the result is returned in the intClient and intPort strings
  * please provide 16 and 6 bytes of data */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetSpecificPortMappingEntry(const char * controlURL,
                                  const char * servicetype,
                                  const char * extPort,
@@ -666,7 +779,7 @@ UPNP_GetSpecificPortMappingEntry(const char * controlURL,
  * 733 InconsistantParameters - NewStartPort and NewEndPort values are not
  *                              consistent.
  */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetListOfPortMappings(const char * controlURL,
                            const char * servicetype,
                            const char * startPort,
@@ -748,7 +861,7 @@ UPNP_GetListOfPortMappings(const char * controlURL,
 }
 
 /* IGD:2, functions for service WANIPv6FirewallControl:1 */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetFirewallStatus(const char * controlURL,
 				const char * servicetype,
 				int * firewallEnabled,
@@ -792,7 +905,7 @@ UPNP_GetFirewallStatus(const char * controlURL,
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetOutboundPinholeTimeout(const char * controlURL, const char * servicetype,
                     const char * remoteHost,
                     const char * remotePort,
@@ -847,7 +960,7 @@ UPNP_GetOutboundPinholeTimeout(const char * controlURL, const char * servicetype
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_AddPinhole(const char * controlURL, const char * servicetype,
                     const char * remoteHost,
                     const char * remotePort,
@@ -926,7 +1039,7 @@ UPNP_AddPinhole(const char * controlURL, const char * servicetype,
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_UpdatePinhole(const char * controlURL, const char * servicetype,
                     const char * uniqueID,
                     const char * leaseTime)
@@ -968,7 +1081,7 @@ UPNP_UpdatePinhole(const char * controlURL, const char * servicetype,
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_DeletePinhole(const char * controlURL, const char * servicetype, const char * uniqueID)
 {
 	/*struct NameValueParserData pdata;*/
@@ -1007,7 +1120,7 @@ UPNP_DeletePinhole(const char * controlURL, const char * servicetype, const char
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_CheckPinholeWorking(const char * controlURL, const char * servicetype,
                                  const char * uniqueID, int * isWorking)
 {
@@ -1052,7 +1165,7 @@ UPNP_CheckPinholeWorking(const char * controlURL, const char * servicetype,
 	return ret;
 }
 
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetPinholePackets(const char * controlURL, const char * servicetype,
                                  const char * uniqueID, int * packets)
 {
