@@ -124,9 +124,9 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<int> dis(0, dns_urls.size() - 1);
-  int first_index = dis(gen);
+  size_t first_index = dis(gen);
 
-  int cur_index = first_index;
+  size_t cur_index = first_index;
   do
   {
     records = tools::DNSResolver::instance().get_txt_record(dns_urls[cur_index], avail, valid);
