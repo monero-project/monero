@@ -36,6 +36,9 @@
  * that method of "backing up" one's wallet keys.
  */
 
+#ifndef ELECTRUM_WORDS_H
+#define ELECTRUM_WORDS_H
+
 #include <string>
 #include <cstdint>
 #include <map>
@@ -55,41 +58,32 @@ namespace crypto
    */
   namespace ElectrumWords
   {
-    /*!
-     * \brief Called to initialize it to work with a word list file.
-     * \param language          Language of the word list file.
-     * \param has_checksum      True if the checksum was passed false if not.
-     * \param old_word_list     true it is to use the old style word list file false if not.
-     */
-    void init(const std::string &language, bool has_checksum=true, bool old_word_list=false);
-    
+
     /*!
      * \brief Converts seed words to bytes (secret key).
-     * \param  words String containing the words separated by spaces.
-     * \param  dst   To put the secret key restored from the words.
-     * \return       false if not a multiple of 3 words, or if word is not in the words list
+     * \param  words           String containing the words separated by spaces.
+     * \param  dst             To put the secret key restored from the words.
+     * \param  language_name   Language of the seed as found gets written here.
+     * \return                 false if not a multiple of 3 words, or if word is not in the words list
      */
-    bool words_to_bytes(const std::string& words, crypto::secret_key& dst);
+    bool words_to_bytes(const std::string& words, crypto::secret_key& dst,
+      std::string &language_name);
 
     /*!
      * \brief Converts bytes (secret key) to seed words.
-     * \param  src   Secret key
-     * \param  words Space delimited concatenated words get written here.
-     * \return       true if successful false if not. Unsuccessful if wrong key size.
+     * \param  src           Secret key
+     * \param  words         Space delimited concatenated words get written here.
+     * \param  language_name Seed language name
+     * \return               true if successful false if not. Unsuccessful if wrong key size.
      */
-    bool bytes_to_words(const crypto::secret_key& src, std::string& words);
+    bool bytes_to_words(const crypto::secret_key& src, std::string& words,
+      const std::string &language_name);
 
     /*!
      * \brief Gets a list of seed languages that are supported.
      * \param languages The vector is set to the list of languages.
      */
     void get_language_list(std::vector<std::string> &languages);
-
-    /*!
-     * \brief If the module is currenly using an old style word list.
-     * \return true if it is currenly using an old style word list false if not.
-     */
-    bool get_is_old_style_word_list();
 
     /*!
      * \brief Tells if the seed passed is an old style seed or not.
@@ -99,3 +93,5 @@ namespace crypto
     bool get_is_old_style_seed(const std::string &seed);
   }
 }
+
+#endif

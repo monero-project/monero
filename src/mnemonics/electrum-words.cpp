@@ -41,6 +41,7 @@
 #include <map>
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
 #include <boost/algorithm/string.hpp>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
 #include <fstream>
@@ -55,97 +56,93 @@
 #include "portuguese.h"
 #include "japanese.h"
 #include "old_english.h"
+#include "language_base.h"
+#include "singleton.h"
 
 namespace
 {
-  int num_words = 0;
   const int seed_length = 24;
 
-  std::map<std::string,uint32_t> words_map;
-  std::vector<std::string> words_array;
-
-  bool is_old_style_word_list = false;
-
-  const std::string WORD_LISTS_DIRECTORY = "wordlists";
-  const std::string LANGUAGES_DIRECTORY = "languages";
-  const std::string OLD_WORD_FILE = "old-word-list";
-
-  const int unique_prefix_length = 4;
   /*!
-   * \brief Tells if the module hasn't been initialized with a word list file.
-   * \return true if the module hasn't been initialized with a word list file false otherwise.
+   * \brief Finds the word list that contains the seed words and puts the indices
+   *        where matches occured in matched_indices.
+   * \param  seed            List of words to match.
+   * \param  has_checksum    If word list passed checksum test, we need to only do a prefix check.
+   * \param  matched_indices The indices where the seed words were found are added to this.
+   * \return                 true if all the words were present in some language false if not.
    */
-  bool is_uninitialized()
+  bool find_seed_language(const std::vector<std::string> &seed,
+    bool has_checksum, std::vector<uint32_t> &matched_indices, uint32_t &word_list_length,
+    std::string &language_name)
   {
-    return num_words == 0 ? true : false;
-  }
-
-  /*!
-   * \brief Create word list map and array data structres for use during inter-conversion between
-   * words and secret key.
-   * \param word_file     Path to the word list file from pwd.
-   * \param has_checksum  True if checksum was supplied false if not.
-   */
-  void create_data_structures(const std::string &word_file, bool has_checksum)
-  {
-    words_array.clear();
-    words_map.clear();
-    num_words = 0;
-    std::ifstream input_stream;
-    input_stream.open(word_file.c_str(), std::ifstream::in);
-
-    if (!input_stream)
-      throw std::runtime_error("Word list file couldn't be opened.");
-
-    std::string word;
-    while (input_stream >> word)
+    // If there's a new language added, add an instance of it here.
+    std::vector<Language::Base*> language_instances({
+      Language::Singleton<Language::English>::instance(),
+      Language::Singleton<Language::Spanish>::instance(),
+      Language::Singleton<Language::Portuguese>::instance(),
+      Language::Singleton<Language::Japanese>::instance(),
+      Language::Singleton<Language::OldEnglish>::instance()
+    });
+    // To hold trimmed seed words in case of a checksum being present.
+    std::vector<std::string> trimmed_seed;
+    if (has_checksum)
     {
-      if (word.length() == 0 || word[0] == '#')
+      // If it had a checksum, we'll just compare the unique prefix
+      // So we create a list of trimmed seed words
+      for (std::vector<std::string>::const_iterator it = seed.begin(); it != seed.end(); it++)
       {
-        // Skip empty and comment lines
-        continue;
-      }
-      words_array.push_back(word);
-      if (has_checksum)
-      {
-        // Only if checksum was passed should we stick to just 4 char checks to be lenient about typos.
-        words_map[word.substr(0, unique_prefix_length)] = num_words;
-      }
-      else
-      {
-        words_map[word] = num_words;
-      }
-      num_words++;
-    }
-    input_stream.close();
-  }
-
-  /*!
-   * \brief Tells if all the words passed in wlist was present in current word list file.
-   * \param  wlist        List of words to match.
-   * \param  has_checksum If word list passed checksum test, we need to only do a 4 char check.
-   * \return              true if all the words were present false if not.
-   */
-  bool word_list_file_match(const std::vector<std::string> &wlist, bool has_checksum)
-  {
-    for (std::vector<std::string>::const_iterator it = wlist.begin(); it != wlist.end(); it++)
-    {
-      if (has_checksum)
-      {
-        if (words_map.count(it->substr(0, unique_prefix_length)) == 0)
-        {
-          return false;
-        }
-      }
-      else
-      {
-        if (words_map.count(*it) == 0)
-        {
-          return false;
-        }
+        trimmed_seed.push_back(it->length() > Language::unique_prefix_length ?
+          it->substr(0, Language::unique_prefix_length) : *it);
       }
     }
-    return true;
+    std::unordered_map<std::string, uint32_t> word_map;
+    std::unordered_map<std::string, uint32_t> trimmed_word_map;
+    // Iterate through all the languages and find a match
+    for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
+      it1 != language_instances.end(); it1++)
+    {
+      word_map = (*it1)->get_word_map();
+      trimmed_word_map = (*it1)->get_trimmed_word_map();
+      // To iterate through seed words
+      std::vector<std::string>::const_iterator it2;
+      // To iterate through trimmed seed words
+      std::vector<std::string>::iterator it3;
+      bool full_match = true;
+
+      // Iterate through all the words and see if they're all present
+      for (it2 = seed.begin(), it3 = trimmed_seed.begin();
+        it2 != seed.end() && it3 != trimmed_seed.end(); it2++, it3++)
+      {
+        if (has_checksum)
+        {
+          // Use the trimmed words and map
+          if (trimmed_word_map.count(*it3) == 0)
+          {
+            full_match = false;
+            break;
+          }
+          matched_indices.push_back(trimmed_word_map[*it3]);
+        }
+        else
+        {
+          if (word_map.count(*it2) == 0)
+          {
+            full_match = false;
+            break;
+          }
+          matched_indices.push_back(word_map[*it2]);
+        }
+      }
+      if (full_match)
+      {
+        word_list_length = (*it1)->get_word_list().size();
+        language_name = (*it1)->get_language_name();
+        return true;
+      }
+      // Some didn't match. Clear the index array.
+      matched_indices.clear();
+    }
+    return false;
   }
 
   /*!
@@ -155,15 +152,42 @@ namespace
    */
   uint32_t create_checksum_index(const std::vector<std::string> &word_list)
   {
-    std::string four_char_words = "";
+    std::string trimmed_words = "";
 
     for (std::vector<std::string>::const_iterator it = word_list.begin(); it != word_list.end(); it++)
     {
-      four_char_words += it->substr(0, unique_prefix_length);
+      if (it->length() > 4)
+      {
+        trimmed_words += it->substr(0, Language::unique_prefix_length);
+      }
+      else
+      {
+        trimmed_words += *it;
+      }
     }
     boost::crc_32_type result;
-    result.process_bytes(four_char_words.data(), four_char_words.length());
+    result.process_bytes(trimmed_words.data(), trimmed_words.length());
     return result.checksum() % seed_length;
+  }
+
+  /*!
+   * \brief Does the checksum test on the seed passed.
+   * \param seed    Vector of seed words
+   * \return        True if the test passed false if not.
+   */
+  bool checksum_test(std::vector<std::string> seed)
+  {
+    // The last word is the checksum.
+    std::string last_word = seed.back();
+    seed.pop_back();
+
+    std::string checksum = seed[create_checksum_index(seed)];
+
+    std::string trimmed_checksum = checksum.length() > 4 ? checksum.substr(0, Language::unique_prefix_length) :
+      checksum;
+    std::string trimmed_last_word = checksum.length() > 4 ? last_word.substr(0, Language::unique_prefix_length) :
+      last_word;
+    return trimmed_checksum == trimmed_last_word;
   }
 }
 
@@ -182,114 +206,62 @@ namespace crypto
   namespace ElectrumWords
   {
     /*!
-     * \brief Called to initialize it to work with a word list file.
-     * \param language          Language of the word list file.
-     * \param has_checksum      True if the checksum was passed false if not.
-     * \param old_word_list     true it is to use the old style word list file false if not.
-     */
-    void init(const std::string &language, bool has_checksum, bool old_word_list)
-    {
-      if (old_word_list)
-      {
-        // Use the old word list file if told to.
-        create_data_structures(WORD_LISTS_DIRECTORY + '/' + OLD_WORD_FILE, has_checksum);
-        is_old_style_word_list = true;
-      }
-      else
-      {
-        create_data_structures(WORD_LISTS_DIRECTORY + '/' + LANGUAGES_DIRECTORY + '/' + language, has_checksum);
-        is_old_style_word_list = false;
-      }
-      if (num_words == 0)
-      {
-        throw std::runtime_error(std::string("Word list file is empty: ") +
-          (old_word_list ? OLD_WORD_FILE : (LANGUAGES_DIRECTORY + '/' + language)));
-      }
-    }
-
-    /*!
      * \brief Converts seed words to bytes (secret key).
-     * \param  words String containing the words separated by spaces.
-     * \param  dst   To put the secret key restored from the words.
-     * \return       false if not a multiple of 3 words, or if word is not in the words list
+     * \param  words           String containing the words separated by spaces.
+     * \param  dst             To put the secret key restored from the words.
+     * \param  language_name   Language of the seed as found gets written here.
+     * \return                 false if not a multiple of 3 words, or if word is not in the words list
      */
-    bool words_to_bytes(const std::string& words, crypto::secret_key& dst)
+    bool words_to_bytes(const std::string& words, crypto::secret_key& dst,
+      std::string &language_name)
     {
-      std::vector<std::string> wlist;
+      std::vector<std::string> seed;
 
-      boost::split(wlist, words, boost::is_any_of(" "));
+      boost::split(seed, words, boost::is_any_of(" "));
+
+      // error on non-compliant word list
+      if (seed.size() != seed_length/2 && seed.size() != seed_length &&
+        seed.size() != seed_length + 1)
+      {
+        return false;
+      }
 
       // If it is seed with a checksum.
-      bool has_checksum = (wlist.size() == seed_length + 1);
-
+      bool has_checksum = seed.size() == (seed_length + 1);
       if (has_checksum)
       {
-        // The last word is the checksum.
-        std::string last_word = wlist.back();
-        wlist.pop_back();
-
-        std::string checksum = wlist[create_checksum_index(wlist)];
-
-        if (checksum.substr(0, unique_prefix_length) != last_word.substr(0, unique_prefix_length))
+        if (!checksum_test(seed))
         {
           // Checksum fail
           return false;
         }
       }
-      // Try to find a word list file that contains all the words in the word list.
-      std::vector<std::string> languages;
-      get_language_list(languages);
-
-      std::vector<std::string>::iterator it;
-      for (it = languages.begin(); it != languages.end(); it++)
+      
+      std::vector<uint32_t> matched_indices;
+      uint32_t word_list_length;
+      if (!find_seed_language(seed, has_checksum, matched_indices, word_list_length, language_name))
       {
-        init(*it, has_checksum);
-        if (word_list_file_match(wlist, has_checksum))
-        {
-          break;
-        }
+        return false;
       }
-      // If no such file was found, see if the old style word list file has them all.
-      if (it == languages.end())
-      {
-        init("", has_checksum, true);
-        if (!word_list_file_match(wlist, has_checksum))
-        {
-          return false;
-        }
-      }
-      int n = num_words;
 
-      // error on non-compliant word list
-      if (wlist.size() != 12 && wlist.size() != 24) return false;
-
-      for (unsigned int i=0; i < wlist.size() / 3; i++)
+      for (unsigned int i=0; i < seed.size() / 3; i++)
       {
         uint32_t val;
         uint32_t w1, w2, w3;
+        w1 = matched_indices[i*3];
+        w2 = matched_indices[i*3 + 1];
+        w3 = matched_indices[i*3 + 2];
 
-        if (has_checksum)
-        {
-          w1 = words_map.at(wlist[i*3].substr(0, unique_prefix_length));
-          w2 = words_map.at(wlist[i*3 + 1].substr(0, unique_prefix_length));
-          w3 = words_map.at(wlist[i*3 + 2].substr(0, unique_prefix_length));
-        }
-        else
-        {
-          w1 = words_map.at(wlist[i*3]);
-          w2 = words_map.at(wlist[i*3 + 1]);
-          w3 = words_map.at(wlist[i*3 + 2]);
-        }
+        val = w1 + word_list_length * (((word_list_length - w1) + w2) % word_list_length) +
+          word_list_length * word_list_length * (((word_list_length - w2) + w3) % word_list_length);
 
-        val = w1 + n * (((n - w1) + w2) % n) + n * n * (((n - w2) + w3) % n);
-
-        if (!(val % n == w1)) return false;
+        if (!(val % word_list_length == w1)) return false;
 
         memcpy(dst.data + i * 4, &val, 4);  // copy 4 bytes to position
       }
 
       std::string wlist_copy = words;
-      if (wlist.size() == 12)
+      if (seed.size() == seed_length/2)
       {
         memcpy(dst.data, dst.data + 16, 16);  // if electrum 12-word seed, duplicate
         wlist_copy += ' ';
@@ -301,23 +273,44 @@ namespace crypto
 
     /*!
      * \brief Converts bytes (secret key) to seed words.
-     * \param  src   Secret key
-     * \param  words Space delimited concatenated words get written here.
-     * \return       true if successful false if not. Unsuccessful if wrong key size.
+     * \param  src           Secret key
+     * \param  words         Space delimited concatenated words get written here.
+     * \param  language_name Seed language name
+     * \return               true if successful false if not. Unsuccessful if wrong key size.
      */
-    bool bytes_to_words(const crypto::secret_key& src, std::string& words)
+    bool bytes_to_words(const crypto::secret_key& src, std::string& words,
+      const std::string &language_name)
     {
-      if (is_uninitialized())
-      {
-        init("english", true);
-      }
-
-      // To store the words for random access to add the checksum word later.
-      std::vector<std::string> words_store;
-      int n = num_words;
 
       if (sizeof(src.data) % 4 != 0 || sizeof(src.data) == 0) return false;
 
+      std::vector<std::string> word_list;
+      Language::Base *language;
+      if (language_name == "English")
+      {
+        language = Language::Singleton<Language::English>::instance();
+      }
+      else if (language_name == "Spanish")
+      {
+        language = Language::Singleton<Language::Spanish>::instance();
+      }
+      else if (language_name == "Portuguese")
+      {
+        language = Language::Singleton<Language::Portuguese>::instance();
+      }
+      else if (language_name == "Japanese")
+      {
+        language = Language::Singleton<Language::Japanese>::instance();
+      }
+      else
+      {
+        return false;
+      }
+      word_list = language->get_word_list();
+      // To store the words for random access to add the checksum word later.
+      std::vector<std::string> words_store;
+
+      uint32_t word_list_length = word_list.size();
       // 8 bytes -> 3 words.  8 digits base 16 -> 3 digits base 1626
       for (unsigned int i=0; i < sizeof(src.data)/4; i++, words += ' ')
       {
@@ -327,19 +320,19 @@ namespace crypto
 
         memcpy(&val, (src.data) + (i * 4), 4);
 
-        w1 = val % n;
-        w2 = ((val / n) + w1) % n;
-        w3 = (((val / n) / n) + w2) % n;
+        w1 = val % word_list_length;
+        w2 = ((val / word_list_length) + w1) % word_list_length;
+        w3 = (((val / word_list_length) / word_list_length) + w2) % word_list_length;
 
-        words += words_array[w1];
+        words += word_list[w1];
         words += ' ';
-        words += words_array[w2];
+        words += word_list[w2];
         words += ' ';
-        words += words_array[w3];
+        words += word_list[w3];
 
-        words_store.push_back(words_array[w1]);
-        words_store.push_back(words_array[w2]);
-        words_store.push_back(words_array[w3]);
+        words_store.push_back(word_list[w1]);
+        words_store.push_back(word_list[w2]);
+        words_store.push_back(word_list[w3]);
       }
 
       words.pop_back();
@@ -353,31 +346,18 @@ namespace crypto
      */
     void get_language_list(std::vector<std::string> &languages)
     {
-      languages.clear();
-      boost::filesystem::path languages_directory("wordlists/languages");
-      if (!boost::filesystem::exists(languages_directory) ||
-        !boost::filesystem::is_directory(languages_directory))
+      std::vector<Language::Base*> language_instances({
+        Language::Singleton<Language::English>::instance(),
+        Language::Singleton<Language::Spanish>::instance(),
+        Language::Singleton<Language::Portuguese>::instance(),
+        Language::Singleton<Language::Japanese>::instance(),
+        Language::Singleton<Language::OldEnglish>::instance()
+      });
+      for (std::vector<Language::Base*>::iterator it = language_instances.begin();
+        it != language_instances.end(); it++)
       {
-        throw std::runtime_error("Word list languages directory is missing.");
+        languages.push_back((*it)->get_language_name());
       }
-      boost::filesystem::directory_iterator end;
-      for (boost::filesystem::directory_iterator it(languages_directory); it != end; it++)
-      {
-        languages.push_back(it->path().filename().string());
-      }
-    }
-
-    /*!
-     * \brief Tells if the module is currenly using an old style word list.
-     * \return true if it is currenly using an old style word list false if not.
-     */
-    bool get_is_old_style_word_list()
-    {
-      if (is_uninitialized())
-      {
-        throw std::runtime_error("ElectrumWords hasn't been initialized with a word list yet.");
-      }
-      return is_old_style_word_list;
     }
 
     /*!
@@ -387,9 +367,9 @@ namespace crypto
      */
     bool get_is_old_style_seed(const std::string &seed)
     {
-      std::vector<std::string> wlist;
-      boost::split(wlist, seed, boost::is_any_of(" "));
-      return wlist.size() != (seed_length + 1);
+      std::vector<std::string> word_list;
+      boost::split(word_list, seed, boost::is_any_of(" "));
+      return word_list.size() != (seed_length + 1);
     }
 
   }

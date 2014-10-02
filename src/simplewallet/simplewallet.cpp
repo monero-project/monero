@@ -368,6 +368,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   {
     if (m_wallet_file.empty()) m_wallet_file = m_generate_new;  // alias for simplicity later
 
+    std::string old_language;
     // check for recover flag.  if present, require electrum word list (only recovery option for now).
     if (m_restore_deterministic_wallet)
     {
@@ -387,21 +388,14 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         }
       }
 
-      try
+      if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language))
       {
-        if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key))
-        {
-            fail_msg_writer() << "electrum-style word list failed verification";
-            return false;
-        }
-      }
-      catch (std::runtime_error &e)
-      {
-        fail_msg_writer() << e.what() << std::endl;
+        fail_msg_writer() << "electrum-style word list failed verification";
         return false;
       }
     }
-    bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, testnet);
+    bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet,
+      m_non_deterministic, testnet, old_language);
     CHECK_AND_ASSERT_MES(r, false, "account creation failed");
   }
   else
@@ -471,7 +465,7 @@ std::string simple_wallet::get_mnemonic_language()
     try
     {
       language_number = std::stoi(language_choice);
-      if (!((language_number >= 0) && (static_cast<uint>(language_number) < language_list.size())))
+      if (!((language_number >= 0) && (static_cast<unsigned int>(language_number) < language_list.size())))
       {
         language_number = -1;
         fail_msg_writer() << "Invalid language choice passed. Please try again.\n";
@@ -486,7 +480,8 @@ std::string simple_wallet::get_mnemonic_language()
 }
 
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key, bool recover, bool two_random, bool testnet)
+bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
+  bool recover, bool two_random, bool testnet, const std::string &old_language)
 {
   m_wallet_file = wallet_file;
 
@@ -512,10 +507,10 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
   // convert rng value to electrum-style word list
   std::string electrum_words;
 
-  bool was_deprecated_wallet = m_restore_deterministic_wallet && 
-    (crypto::ElectrumWords::get_is_old_style_word_list() ||
-    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
+  bool was_deprecated_wallet = (old_language == "OldEnglish") ||
+    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed);
 
+  std::string mnemonic_language = old_language;
   // Ask for seed language if it is not a wallet restore or if it was a deprecated wallet
   // that was earlier used before this restore.
   if (!m_restore_deterministic_wallet || was_deprecated_wallet)
@@ -526,26 +521,10 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
       message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
         "a deprecated version of the wallet. Please use the new seed that we provide.\n";
     }
-    std::string mnemonic_language = get_mnemonic_language();
-    try
-    {
-      crypto::ElectrumWords::init(mnemonic_language);
-    }
-    catch (std::runtime_error &e)
-    {
-      fail_msg_writer() << e.what() << std::endl;
-      return false;
-    }
+    mnemonic_language = get_mnemonic_language();
   }
-  try
-  {
-    crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
-  }
-  catch (std::runtime_error &e)
-  {
-    fail_msg_writer() << e.what() << std::endl;
-    return false;
-  }
+  crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, mnemonic_language);
+  m_wallet->set_seed_language(mnemonic_language);
 
   std::string print_electrum = "";
 
