@@ -100,8 +100,8 @@ namespace
     for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
       it1 != language_instances.end(); it1++)
     {
-      std::unordered_map<std::string, uint32_t> &word_map = (*it1)->get_word_map();
-      std::unordered_map<std::string, uint32_t> &trimmed_word_map = (*it1)->get_trimmed_word_map();
+      const std::unordered_map<std::string, uint32_t> &word_map = (*it1)->get_word_map();
+      const std::unordered_map<std::string, uint32_t> &trimmed_word_map = (*it1)->get_trimmed_word_map();
       // To iterate through seed words
       std::vector<std::string>::const_iterator it2;
       // To iterate through trimmed seed words
@@ -120,7 +120,7 @@ namespace
             full_match = false;
             break;
           }
-          matched_indices.push_back(trimmed_word_map[*it3]);
+          matched_indices.push_back(trimmed_word_map.at(*it3));
         }
         else
         {
@@ -129,7 +129,7 @@ namespace
             full_match = false;
             break;
           }
-          matched_indices.push_back(word_map[*it2]);
+          matched_indices.push_back(word_map.at(*it2));
         }
       }
       if (full_match)
@@ -305,7 +305,7 @@ namespace crypto
       {
         return false;
       }
-      std::vector<std::string> &word_list = language->get_word_list();
+      const std::vector<std::string> &word_list = language->get_word_list();
       // To store the words for random access to add the checksum word later.
       std::vector<std::string> words_store;
 
