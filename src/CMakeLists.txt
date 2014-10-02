@@ -43,8 +43,6 @@ file(GLOB_RECURSE WALLET wallet/*)
 file(GLOB_RECURSE MINER miner/*)
 file(GLOB MNEMONICS mnemonics/*)
 
-file(COPY "mnemonics/wordlists/" DESTINATION "${CMAKE_SOURCE_DIR}/build/release/src/wordlists")
-
 source_group(common FILES ${COMMON})
 source_group(crypto FILES ${CRYPTO})
 source_group(cryptonote_core FILES ${CRYPTONOTE_CORE})
