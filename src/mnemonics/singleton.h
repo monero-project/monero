@@ -26,8 +26,26 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/*!
+ * \file singleton.h
+ * 
+ * \brief A singleton helper class based on template.
+ */
+
+/*!
+ * \namespace Language
+ * \brief Mnemonic language related namespace.
+ */
 namespace Language
 {
+	/*!
+	 * \class Singleton
+	 * 
+	 * \brief Single helper class.
+	 * 
+	 * Do Language::Singleton<YourClass>::instance() to create a singleton instance
+ 	 * of `YourClass`.
+	 */
 	template <class T>
 	class Singleton
 	{

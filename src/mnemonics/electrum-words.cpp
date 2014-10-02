@@ -95,14 +95,13 @@ namespace
           it->substr(0, Language::unique_prefix_length) : *it);
       }
     }
-    std::unordered_map<std::string, uint32_t> word_map;
-    std::unordered_map<std::string, uint32_t> trimmed_word_map;
+
     // Iterate through all the languages and find a match
     for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
       it1 != language_instances.end(); it1++)
     {
-      word_map = (*it1)->get_word_map();
-      trimmed_word_map = (*it1)->get_trimmed_word_map();
+      std::unordered_map<std::string, uint32_t> &word_map = (*it1)->get_word_map();
+      std::unordered_map<std::string, uint32_t> &trimmed_word_map = (*it1)->get_trimmed_word_map();
       // To iterate through seed words
       std::vector<std::string>::const_iterator it2;
       // To iterate through trimmed seed words
@@ -285,7 +284,6 @@ namespace crypto
 
       if (sizeof(src.data) % 4 != 0 || sizeof(src.data) == 0) return false;
 
-      std::vector<std::string> word_list;
       Language::Base *language;
       if (language_name == "English")
       {
@@ -307,7 +305,7 @@ namespace crypto
       {
         return false;
       }
-      word_list = language->get_word_list();
+      std::vector<std::string> &word_list = language->get_word_list();
       // To store the words for random access to add the checksum word later.
       std::vector<std::string> words_store;
 

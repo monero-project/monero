@@ -27,6 +27,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/*!
+ * \file japanese.h
+ * 
+ * \brief Japanese word list and map.
+ */
+
 #ifndef JAPANESE_H
 #define JAPANESE_H
 
@@ -35,6 +41,10 @@
 #include "language_base.h"
 #include <string>
 
+/*!
+ * \namespace Language
+ * \brief Mnemonic language related namespace.
+ */
 namespace Language
 {
 	class Japanese: public Base

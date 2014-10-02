@@ -81,7 +81,7 @@ namespace crypto
 
     /*!
      * \brief Gets a list of seed languages that are supported.
-     * \param languages The vector is set to the list of languages.
+     * \param languages A vector is set to the list of languages.
      */
     void get_language_list(std::vector<std::string> &languages);
 
