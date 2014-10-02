@@ -48,9 +48,11 @@
 #ifdef UPNP_STATIC
  #include <miniupnpc/miniupnpc.h>
  #include <miniupnpc/upnpcommands.h>
+ #include <miniupnpc/upnperrors.h>
 #else
  #include "miniupnpc.h"
  #include "upnpcommands.h"
+ #include "upnperrors.h"
 #endif
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
@@ -324,8 +326,14 @@ namespace nodetool
       if (result == 1) {
         std::ostringstream portString;
         portString << m_listenning_port;
-        if (UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0") != 0) {
-          LOG_ERROR("UPNP_AddPortMapping failed.");
+        
+        // Delete the port mapping before we create it, just in case we have dangling port mapping from the daemon not being shut down correctly
+        UPNP_DeletePortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), "TCP", 0);
+
+        int portMappingResult;
+        portMappingResult = UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0");
+        if (portMappingResult != 0) {
+          LOG_ERROR("UPNP_AddPortMapping failed, error: " << strupnperror(portMappingResult));
         } else {
           LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
         }

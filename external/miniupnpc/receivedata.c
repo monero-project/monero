@@ -1,4 +1,4 @@
-/* $Id: receivedata.c,v 1.5 2013/10/07 09:48:36 nanard Exp $ */
+/* $Id: receivedata.c,v 1.4 2012/06/23 22:34:47 nanard Exp $ */
 /* Project : miniupnp
  * Website : http://miniupnp.free.fr/
  * Author : Thomas Bernard
@@ -40,12 +40,7 @@ receivedata(int socket,
             int timeout, unsigned int * scope_id)
 {
 #if MINIUPNPC_GET_SRC_ADDR
-#ifdef DEBUG
-	/* to shut up valgrind about uninit value */
-	struct sockaddr_storage src_addr = {0};
-#else
 	struct sockaddr_storage src_addr;
-#endif
 	socklen_t src_addr_len = sizeof(src_addr);
 #endif
     int n;

@@ -15,7 +15,6 @@
 #include <ws2tcpip.h>
 #include <io.h>
 #define MAXHOSTNAMELEN 64
-#define MIN(x,y) (((x)<(y))?(x):(y))
 #define snprintf _snprintf
 #define socklen_t int
 #ifndef strncasecmp
@@ -40,9 +39,14 @@
 #include <netdb.h>
 #define closesocket close
 #endif /* #else _WIN32 */
-#if defined(__sun) || defined(sun)
+#ifdef __GNU__
+#define MAXHOSTNAMELEN 64
+#endif /* __GNU__ */
+
+#ifndef MIN
 #define MIN(x,y) (((x)<(y))?(x):(y))
-#endif
+#endif /* MIN */
+
 
 #include "miniupnpcstrings.h"
 #include "miniwget.h"

@@ -1,4 +1,4 @@
-/* $Id: miniupnpc.h,v 1.35 2014/01/31 13:26:34 nanard Exp $ */
+/* $Id: miniupnpc.h,v 1.34 2014/01/31 13:18:25 nanard Exp $ */
 /* Project: miniupnp
  * http://miniupnp.free.fr/
  * Author: Thomas Bernard
@@ -18,7 +18,7 @@
 #define UPNPDISCOVER_MEMORY_ERROR (-102)
 
 /* versions : */
-#define MINIUPNPC_VERSION	"1.9.20140401"
+#define MINIUPNPC_VERSION	"1.9"
 #define MINIUPNPC_API_VERSION	10
 
 #ifdef __cplusplus
@@ -54,19 +54,19 @@ struct UPNPDev {
  * multicast interface for sending SSDP discover packets.
  * If sameport is not null, SSDP packets will be sent from the source port
  * 1900 (same as destination port) otherwise system assign a source port. */
-LIBSPEC struct UPNPDev *
+MINIUPNP_LIBSPEC struct UPNPDev *
 upnpDiscover(int delay, const char * multicastif,
              const char * minissdpdsock, int sameport,
              int ipv6,
              int * error);
 /* freeUPNPDevlist()
  * free list returned by upnpDiscover() */
-LIBSPEC void freeUPNPDevlist(struct UPNPDev * devlist);
+MINIUPNP_LIBSPEC void freeUPNPDevlist(struct UPNPDev * devlist);
 
 /* parserootdesc() :
  * parse root XML description of a UPnP device and fill the IGDdatas
  * structure. */
-LIBSPEC void parserootdesc(const char *, int, struct IGDdatas *);
+MINIUPNP_LIBSPEC void parserootdesc(const char *, int, struct IGDdatas *);
 
 /* structure used to get fast access to urls
  * controlURL: controlURL of the WANIPConnection
@@ -94,7 +94,7 @@ struct UPNPUrls {
  * passed as parameters are set. Donc forget to call FreeUPNPUrls(urls) to
  * free allocated memory.
  */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetValidIGD(struct UPNPDev * devlist,
                  struct UPNPUrls * urls,
 				 struct IGDdatas * data,
@@ -105,21 +105,21 @@ UPNP_GetValidIGD(struct UPNPDev * devlist,
  * return value :
  *   0 - Not ok
  *   1 - OK */
-LIBSPEC int
+MINIUPNP_LIBSPEC int
 UPNP_GetIGDFromUrl(const char * rootdescurl,
                    struct UPNPUrls * urls,
                    struct IGDdatas * data,
                    char * lanaddr, int lanaddrlen);
 
-LIBSPEC void
+MINIUPNP_LIBSPEC void
 GetUPNPUrls(struct UPNPUrls *, struct IGDdatas *,
             const char *, unsigned int);
 
-LIBSPEC void
+MINIUPNP_LIBSPEC void
 FreeUPNPUrls(struct UPNPUrls *);
 
 /* return 0 or 1 */
-LIBSPEC int UPNPIGD_IsConnected(struct UPNPUrls *, struct IGDdatas *);
+MINIUPNP_LIBSPEC int UPNPIGD_IsConnected(struct UPNPUrls *, struct IGDdatas *);
 
 
 #ifdef __cplusplus

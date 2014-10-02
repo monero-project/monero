@@ -1,4 +1,4 @@
-/* $Id: codelength.h,v 1.4 2012/09/27 15:40:29 nanard Exp $ */
+/* $Id: codelength.h,v 1.3 2011/07/30 13:10:05 nanard Exp $ */
 /* Project : miniupnp
  * Author : Thomas BERNARD
  * copyright (c) 2005-2011 Thomas Bernard

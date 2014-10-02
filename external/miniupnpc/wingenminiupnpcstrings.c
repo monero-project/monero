@@ -1,4 +1,4 @@
-/* $Id: wingenminiupnpcstrings.c,v 1.3 2012/03/05 19:42:48 nanard Exp $ */
+/* $Id: wingenminiupnpcstrings.c,v 1.2 2011/01/11 15:31:13 nanard Exp $ */
 /* Project: miniupnp
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * Author: Thomas Bernard
