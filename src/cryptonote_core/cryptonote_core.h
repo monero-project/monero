@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include <ctime>
+
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 
@@ -92,6 +94,8 @@ namespace cryptonote
 
      void set_cryptonote_protocol(i_cryptonote_protocol* pprotocol);
      void set_checkpoints(checkpoints&& chk_pts);
+     void set_checkpoints_file_path(const std::string& path);
+     void set_enforce_dns_checkpoints(bool enforce_dns);
 
      bool get_pool_transactions(std::list<transaction>& txs);
      size_t get_pool_transactions_count();
@@ -119,6 +123,8 @@ namespace cryptonote
      void set_target_blockchain_height(uint64_t target_blockchain_height);
      uint64_t get_target_blockchain_height() const;
 
+     bool update_checkpoints();
+
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
@@ -139,6 +145,7 @@ namespace cryptonote
      bool handle_command_line(const boost::program_options::variables_map& vm, bool testnet);
      bool on_update_blocktemplate_interval();
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
+     void graceful_exit();
 
 
      tx_memory_pool m_mempool;
@@ -155,6 +162,10 @@ namespace cryptonote
      std::atomic<bool> m_starter_message_showed;
 
      uint64_t m_target_blockchain_height;
+
+     std::string m_checkpoints_path;
+     time_t m_last_dns_checkpoints_update;
+     time_t m_last_json_checkpoints_update;
    };
 }
 

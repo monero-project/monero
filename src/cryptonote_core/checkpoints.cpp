@@ -44,8 +44,13 @@ namespace cryptonote
   {
     crypto::hash h = null_hash;
     bool r = epee::string_tools::parse_tpod_from_hex_string(hash_str, h);
-    CHECK_AND_ASSERT_MES(r, false, "WRONG HASH IN CHECKPOINTS!!!");
-    CHECK_AND_ASSERT_MES(0 == m_points.count(height), false, "WRONG HASH IN CHECKPOINTS!!!");
+    CHECK_AND_ASSERT_MES(r, false, "Failed to parse checkpoint hash string into binary representation!");
+
+    // return false if adding at a height we already have AND the hash is different
+    if (m_points.count(height))
+    {
+      CHECK_AND_ASSERT_MES(h == m_points[height], false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
+    }
     m_points[height] = h;
     return true;
   }
@@ -93,6 +98,7 @@ namespace cryptonote
     uint64_t checkpoint_height = it->first;
     return checkpoint_height < block_height;
   }
+  //---------------------------------------------------------------------------
   uint64_t checkpoints::get_max_height()
   {
     std::map< uint64_t, crypto::hash >::const_iterator highest = 
@@ -101,5 +107,21 @@ namespace cryptonote
                            boost::bind(&std::map< uint64_t, crypto::hash >::value_type::first, _2 ) ) );
     return highest->first;
   }
+  //---------------------------------------------------------------------------
+  const std::map<uint64_t, crypto::hash>& checkpoints::get_points()
+  {
+    return m_points;
+  }
 
+  bool checkpoints::check_for_conflicts(checkpoints& other)
+  {
+    for (auto& pt : other.get_points())
+    {
+      if (m_points.count(pt.first))
+      {
+        CHECK_AND_ASSERT_MES(pt.second == m_points[pt.first], false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
+      }
+    }
+    return true;
+  }
 }

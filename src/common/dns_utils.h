@@ -71,9 +71,11 @@ public:
    *
    * @param url A string containing a URL to query for
    *
+   * @param dnssec_available 
+   *
    * @return vector of strings containing ipv4 addresses
    */
-  std::vector<std::string> get_ipv4(const std::string& url);
+  std::vector<std::string> get_ipv4(const std::string& url, bool& dnssec_available, bool& dnssec_valid);
 
   /**
    * @brief gets ipv6 addresses from DNS query
@@ -85,7 +87,7 @@ public:
    *
    * @return vector of strings containing ipv6 addresses
    */
-   std::vector<std::string> get_ipv6(const std::string& url);
+   std::vector<std::string> get_ipv6(const std::string& url, bool& dnssec_available, bool& dnssec_valid);
 
   /**
    * @brief gets all TXT records from a DNS query for the supplied URL;
@@ -96,7 +98,7 @@ public:
    * @return A vector of strings containing a TXT record; or an empty vector
    */
   // TODO: modify this to accomodate DNSSEC
-   std::vector<std::string> get_txt_record(const std::string& url);
+   std::vector<std::string> get_txt_record(const std::string& url, bool& dnssec_available, bool& dnssec_valid);
 
   /**
    * @brief Gets the singleton instance of DNSResolver
