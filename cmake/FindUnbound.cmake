@@ -37,7 +37,11 @@ FIND_PATH(UNBOUND_INCLUDE_DIR
   /usr/
 )
 
-find_library(UNBOUND_LIBRARIES unbound)
+if(STATIC)
+  find_library(UNBOUND_LIBRARIES libunbound.a)
+else()
+  find_library(UNBOUND_LIBRARIES unbound)
+endif()
 
 IF(UNBOUND_INCLUDE_DIR)
   MESSAGE(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
