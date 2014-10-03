@@ -59,6 +59,7 @@ namespace crypto
   namespace ElectrumWords
   {
 
+    const std::string old_language_name = "OldEnglish";
     /*!
      * \brief Converts seed words to bytes (secret key).
      * \param  words           String containing the words separated by spaces.

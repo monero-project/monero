@@ -349,8 +349,7 @@ namespace crypto
         Language::Singleton<Language::English>::instance(),
         Language::Singleton<Language::Spanish>::instance(),
         Language::Singleton<Language::Portuguese>::instance(),
-        Language::Singleton<Language::Japanese>::instance(),
-        Language::Singleton<Language::OldEnglish>::instance()
+        Language::Singleton<Language::Japanese>::instance()
       });
       for (std::vector<Language::Base*>::iterator it = language_instances.begin();
         it != language_instances.end(); it++)
