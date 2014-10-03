@@ -929,15 +929,15 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
           std::string dnssec_str;
           if (dnssec_ok)
           {
-            dnssec_str = "DNSSEC validation PASSED!";
+            dnssec_str = "DNSSEC validation passed";
           }
           else
           {
-            dnssec_str = "DNSSEC validation FAILED!";
+            dnssec_str = "WARNING: DNSSEC validation was unsuccessful, this address may not be correct!";
           }
           std::stringstream prompt;
           prompt << "For URL: " << url
-                 << "," << dnssec_str << std::endl
+                 << ", " << dnssec_str << std::endl
                  << " Monero Address = " << addresses_from_dns[0]
                  << std::endl
                  << "Is this OK? (Y/n) "
@@ -947,13 +947,13 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
           std::string confirm_dns_ok = command_line::input_line(prompt.str());
           if (confirm_dns_ok != "Y" && confirm_dns_ok != "y" && confirm_dns_ok != "Yes" && confirm_dns_ok != "yes")
           {
-            fail_msg_writer() << "User terminated transfer request, disagreed with dns result from url: " << url;
+            fail_msg_writer() << "You have cancelled the transfer request";
             return true;
           }
         }
         else
         {
-          fail_msg_writer() << "Failed to get a monero address from: " << local_args[i];
+          fail_msg_writer() << "Failed to get a Monero address from: " << local_args[i];
           return true;
         }
       }
@@ -963,7 +963,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
       }
       else
       {
-        fail_msg_writer() << "wrong address: " << local_args[i];
+        fail_msg_writer() << "Wrong address: " << local_args[i];
         return true;
       }
     }
