@@ -1794,7 +1794,7 @@ void blockchain_storage::check_against_checkpoints(checkpoints& points, bool enf
       continue;
     }
 
-    if (!m_checkpoints.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
+    if (!points.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
     {
       // if asked to enforce checkpoints, roll back to a couple of blocks before the checkpoint
       if (enforce)
