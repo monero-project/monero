@@ -113,6 +113,7 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
 
 bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
 {
+  // All four MoneroPulse domains have DNSSEC on and valid
   static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
 						   , "checkpoints.moneropulse.org"
 						   , "checkpoints.moneropulse.net"
@@ -144,13 +145,13 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
 
   if (records.size() == 0)
   {
-    LOG_PRINT_L1("Fetching checkpoints from DNS TXT records failed, no TXT records available.");
+    LOG_PRINT_L1("Fetching MoneroPulse checkpoints failed, no TXT records available.");
     return true;
   }
 
   if (avail && !valid)
   {
-    LOG_PRINT_L0("WARNING: all checkpoints.moneropulse.net/org/co/se records failed DNSSEC validation and/or returned no records");
+    LOG_PRINT_L0("WARNING: MoneroPulse failed DNSSEC validation and/or returned no records");
     return true;
   }
 
