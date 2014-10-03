@@ -31,6 +31,10 @@
 #include <sstream>
 #include <unbound.h>
 
+#include <stdlib.h>
+#include "include_base_utils.h"
+using namespace epee;
+
 namespace tools
 {
 
@@ -206,7 +210,11 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, boo
     {
       for (size_t i=0; result.ptr->data[i] != NULL; i++)
       {
-        records.push_back(result.ptr->data[i]);
+      	// plz fix this, but this does NOT work and spills over into parts of memory it shouldn't: records.push_back(result.ptr->data[i]);
+        char *restxt;
+        restxt = (char*) calloc(result.ptr->len[i]+1, 1);
+        memcpy(restxt, result.ptr->data[i]+1, result.ptr->len[i]-1);
+        records.push_back(restxt);
       }
     }
   }
