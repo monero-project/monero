@@ -84,14 +84,14 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
   boost::system::error_code errcode;
   if (! (boost::filesystem::exists(json_hashfile_fullpath, errcode)))
   {
-    LOG_PRINT_L0("Blockchain checkpoints file not found");
+    LOG_PRINT_L1("Blockchain checkpoints file not found");
     return true;
   }
 
-  LOG_PRINT_L0("Adding checkpoints from blockchain hashfile");
+  LOG_PRINT_L1("Adding checkpoints from blockchain hashfile");
 
   uint64_t prev_max_height = checkpoints.get_max_height();
-  LOG_PRINT_L0("Hard-coded max checkpoint height is " << prev_max_height);
+  LOG_PRINT_L1("Hard-coded max checkpoint height is " << prev_max_height);
   t_hash_json hashes;
   epee::serialization::load_t_from_json_file(hashes, json_hashfile_fullpath);
   for (std::vector<t_hashline>::const_iterator it = hashes.hashlines.begin(); it != hashes.hashlines.end(); )
@@ -99,10 +99,10 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
       uint64_t height;
       height = it->height;
       if (height <= prev_max_height) {
-	LOG_PRINT_L0("ignoring checkpoint height " << height);
+	LOG_PRINT_L1("ignoring checkpoint height " << height);
       } else {
 	std::string blockhash = it->hash;
-	LOG_PRINT_L0("Adding checkpoint height " << height << ", hash=" << blockhash);
+	LOG_PRINT_L1("Adding checkpoint height " << height << ", hash=" << blockhash);
 	ADD_CHECKPOINT(height, blockhash);
       }
       ++it;
@@ -113,6 +113,7 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
 
 bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
 {
+  // All four MoneroPulse domains have DNSSEC on and valid
   static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
 						   , "checkpoints.moneropulse.org"
 						   , "checkpoints.moneropulse.net"
@@ -144,13 +145,13 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
 
   if (records.size() == 0)
   {
-    LOG_PRINT_L1("Fetching checkpoints from DNS TXT records failed, no TXT records available.");
+    LOG_PRINT_L1("Fetching MoneroPulse checkpoints failed, no TXT records available.");
     return true;
   }
 
   if (avail && !valid)
   {
-    LOG_PRINT_L0("DNSSEC present and failed validation for query last url, and all other urls either failed validation or returned no records");
+    LOG_PRINT_L0("WARNING: MoneroPulse failed DNSSEC validation and/or returned no records");
     return true;
   }
 

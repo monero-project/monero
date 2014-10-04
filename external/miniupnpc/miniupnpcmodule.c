@@ -1,4 +1,4 @@
-/* $Id: miniupnpcmodule.c,v 1.22 2014/01/31 13:18:25 nanard Exp $*/
+/* $Id: miniupnpcmodule.c,v 1.24 2014/06/10 09:48:11 nanard Exp $*/
 /* Project : miniupnp
  * Author : Thomas BERNARD
  * website : http://miniupnp.tuxfamily.org/
@@ -6,7 +6,7 @@
  * This software is subjet to the conditions detailed in the
  * provided LICENCE file. */
 #include <Python.h>
-#define STATICLIB
+#define MINIUPNP_STATICLIB
 #include "structmember.h"
 #include "miniupnpc.h"
 #include "upnpcommands.h"
@@ -265,6 +265,42 @@ Py_END_ALLOW_THREADS
 	}
 }
 
+/* AddAnyPortMapping(externalPort, protocol, internalHost, internalPort, desc,
+ *                   remoteHost)
+ * protocol is 'UDP' or 'TCP' */
+static PyObject *
+UPnP_addanyportmapping(UPnPObject *self, PyObject *args)
+{
+	char extPort[6];
+	unsigned short ePort;
+	char inPort[6];
+	unsigned short iPort;
+	char reservedPort[6];
+	const char * proto;
+	const char * host;
+	const char * desc;
+	const char * remoteHost;
+	const char * leaseDuration = "0";
+	int r;
+	if (!PyArg_ParseTuple(args, "HssHss", &ePort, &proto, &host, &iPort, &desc, &remoteHost))
+        return NULL;
+Py_BEGIN_ALLOW_THREADS
+	sprintf(extPort, "%hu", ePort);
+	sprintf(inPort, "%hu", iPort);
+	r = UPNP_AddAnyPortMapping(self->urls.controlURL, self->data.first.servicetype,
+	                           extPort, inPort, host, desc, proto,
+	                           remoteHost, leaseDuration, reservedPort);
+Py_END_ALLOW_THREADS
+	if(r==UPNPCOMMAND_SUCCESS) {
+		return Py_BuildValue("i", atoi(reservedPort));
+	} else {
+		/* TODO: have our own exception type ! */
+		PyErr_SetString(PyExc_Exception, strupnperror(r));
+		return NULL;
+	}
+}
+
+
 /* DeletePortMapping(extPort, proto, removeHost='')
  * proto = 'UDP', 'TCP' */
 static PyObject *
@@ -281,6 +317,37 @@ Py_BEGIN_ALLOW_THREADS
 	sprintf(extPort, "%hu", ePort);
 	r = UPNP_DeletePortMapping(self->urls.controlURL, self->data.first.servicetype,
 	                           extPort, proto, remoteHost);
+Py_END_ALLOW_THREADS
+	if(r==UPNPCOMMAND_SUCCESS) {
+		Py_RETURN_TRUE;
+	} else {
+		/* TODO: have our own exception type ! */
+		PyErr_SetString(PyExc_Exception, strupnperror(r));
+		return NULL;
+	}
+}
+
+/* DeletePortMappingRange(extPort, proto, removeHost='')
+ * proto = 'UDP', 'TCP' */
+static PyObject *
+UPnP_deleteportmappingrange(UPnPObject *self, PyObject *args)
+{
+	char extPortStart[6];
+	unsigned short ePortStart;
+	char extPortEnd[6];
+	unsigned short ePortEnd;
+	const char * proto;
+	unsigned char manage;
+	char manageStr[1];
+	int r;
+	if(!PyArg_ParseTuple(args, "HHsb", &ePortStart, &ePortEnd, &proto, &manage))
+		return NULL;
+Py_BEGIN_ALLOW_THREADS
+	sprintf(extPortStart, "%hu", ePortStart);
+	sprintf(extPortEnd, "%hu", ePortEnd);
+	sprintf(manageStr, "%hhu", manage);
+	r = UPNP_DeletePortMappingRange(self->urls.controlURL, self->data.first.servicetype,
+					extPortStart, extPortEnd, proto, manageStr);
 Py_END_ALLOW_THREADS
 	if(r==UPNPCOMMAND_SUCCESS) {
 		Py_RETURN_TRUE;
@@ -429,8 +496,14 @@ static PyMethodDef UPnP_methods[] = {
 	{"addportmapping", (PyCFunction)UPnP_addportmapping, METH_VARARGS,
 	 "add a port mapping"
 	},
+	{"addanyportmapping", (PyCFunction)UPnP_addanyportmapping, METH_VARARGS,
+	 "add a port mapping, IGD to select alternative if necessary"
+	},
 	{"deleteportmapping", (PyCFunction)UPnP_deleteportmapping, METH_VARARGS,
 	 "delete a port mapping"
+	},
+	{"deleteportmappingrange", (PyCFunction)UPnP_deleteportmappingrange, METH_VARARGS,
+	 "delete a range of port mappings"
 	},
 	{"getportmappingnumberofentries", (PyCFunction)UPnP_getportmappingnumberofentries, METH_NOARGS,
 	 "-- non standard --"
@@ -526,7 +599,11 @@ initminiupnpc(void)
     UPnPType.tp_new = PyType_GenericNew;
 #endif
     if (PyType_Ready(&UPnPType) < 0)
+#if PY_MAJOR_VERSION >= 3
+        return 0;
+#else
         return;
+#endif
 
 #if PY_MAJOR_VERSION >= 3
     m = PyModule_Create(&moduledef);
@@ -537,7 +614,7 @@ initminiupnpc(void)
 
     Py_INCREF(&UPnPType);
     PyModule_AddObject(m, "UPnP", (PyObject *)&UPnPType);
-    
+
 #if PY_MAJOR_VERSION >= 3
     return m;
 #endif

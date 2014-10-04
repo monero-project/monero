@@ -1794,18 +1794,18 @@ void blockchain_storage::check_against_checkpoints(checkpoints& points, bool enf
       continue;
     }
 
-    if (!m_checkpoints.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
+    if (!points.check_block(pt.first, get_block_hash(m_blocks[pt.first].bl)))
     {
       // if asked to enforce checkpoints, roll back to a couple of blocks before the checkpoint
       if (enforce)
       {
-	LOG_ERROR("Checkpoint failed when adding new checkpoints, rolling back!");
+	LOG_ERROR("Local blockchain failed to pass a checkpoint, rolling back!");
 	std::list<block> empty;
 	rollback_blockchain_switching(empty, pt.first - 2);
       }
       else
       {
-	LOG_ERROR("Checkpoint failed when adding new checkpoints, this could be very bad.");
+	LOG_ERROR("WARNING: local blockchain failed to pass a MoneroPulse checkpoint, and you could be on a fork. You should either sync up from scratch, OR download a fresh blockchain bootstrap, OR enable checkpoint enforcing with the --enforce-dns-checkpointing command-line option");
       }
     }
   }

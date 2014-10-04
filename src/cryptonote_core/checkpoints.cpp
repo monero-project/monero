@@ -69,7 +69,7 @@ namespace cryptonote
 
     if(it->second == h)
     {
-      LOG_PRINT_GREEN("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h, LOG_LEVEL_0);
+      LOG_PRINT_GREEN("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h, LOG_LEVEL_1);
       return true;
     }else
     {

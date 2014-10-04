@@ -1,4 +1,4 @@
-/* $Id: igd_desc_parse.h,v 1.11 2012/10/16 16:49:02 nanard Exp $ */
+/* $Id: igd_desc_parse.h,v 1.10 2011/04/11 09:19:24 nanard Exp $ */
 /* Project : miniupnp
  * http://miniupnp.free.fr/
  * Author : Thomas Bernard

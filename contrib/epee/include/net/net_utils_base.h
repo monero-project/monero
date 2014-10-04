@@ -143,7 +143,7 @@ namespace net_utils
 #define LOG_PRINT_CC_YELLOW(ct, message, log_level) LOG_PRINT_YELLOW("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
 #define LOG_PRINT_CC_CYAN(ct, message, log_level) LOG_PRINT_CYAN("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
 #define LOG_PRINT_CC_MAGENTA(ct, message, log_level) LOG_PRINT_MAGENTA("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_ERROR_CC(ct, message) LOG_PRINT_RED("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, LOG_LEVEL_1)
+#define LOG_ERROR_CC(ct, message) LOG_PRINT_RED("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, LOG_LEVEL_2)
 
 #define LOG_PRINT_CC_L0(ct, message) LOG_PRINT_L0("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
 #define LOG_PRINT_CC_L1(ct, message) LOG_PRINT_L1("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)

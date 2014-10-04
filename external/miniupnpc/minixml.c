@@ -1,4 +1,4 @@
-/* $Id: minixml.c,v 1.11 2014/02/03 15:54:12 nanard Exp $ */
+/* $Id: minixml.c,v 1.10 2012/03/05 19:42:47 nanard Exp $ */
 /* minixml.c : the minimum size a xml parser can be ! */
 /* Project : miniupnp
  * webpage: http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
