@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"> 
+  <assemblyIdentity version="1.0.0.0"
+     processorArchitecture="X86" name="unbound-service-install.exe" type="win32"/> 
+  <description>Installs or removes the unbound service in the services control panel</description> 
+  <!-- Identify the application security requirements. -->
+  <ms_asmv2:trustInfo xmlns:ms_asmv2="urn:schemas-microsoft-com:asm.v2">
+    <ms_asmv2:security>
+      <ms_asmv2:requestedPrivileges>
+        <ms_asmv2:requestedExecutionLevel
+          level="requireAdministrator"
+          uiAccess="false"/>
+        </ms_asmv2:requestedPrivileges>
+       </ms_asmv2:security>
+  </ms_asmv2:trustInfo>
+</assembly>

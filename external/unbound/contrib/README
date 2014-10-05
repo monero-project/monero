@@ -1,0 +1,28 @@
+These files are contributed to unbound, and are not part of the official
+distribution but may be helpful.
+
+* rc_d_unbound: FreeBSD compatible /etc/rc.d script.
+* parseunbound.pl: perl script to run from cron that parses statistics from
+	the log file and stores them.
+* unbound.spec and unbound.init: RPM specfile and Linux rc.d initfile.
+* update-anchor.sh: shell script that uses unbound-host to update a set
+	of trust anchor files. Run from cron twice a month.
+* unbound_munin_ : plugin for munin statistics report
+* unbound_cacti.tar.gz : setup files for cacti statistics report
+* selinux: the .fc and .te files for SElinux protection of the unbound daemon
+* unbound.plist: launchd configuration file for MacOSX.
+* build-unbound-localzone-from-hosts.pl: perl script to turn /etc/hosts into
+	a local-zone and local-data include file for unbound.conf.
+* unbound-host.nagios.patch: makes unbound-host return status that fits right
+	in with the nagios monitoring framework.  Contributed by Migiel de Vos.
+* unbound_unixsock.diff: Add Unix socket support for unbound-control. 
+	Contributed by Ilya Bakulin, 2012-08-28.
+* patch_rsamd5_enable.diff: this patch enables RSAMD5 validation (otherwise
+  it is treated as insecure).  The RSAMD5 algorithm is deprecated (RFC6725).
+* create_unbound_ad_servers.sh: shell script to enter anti-ad server lists.
+* create_unbound_ad_servers.cmd: windows script to enter anti-ad server lists.
+* unbound_cache.sh: shell script to save and load the cache.
+* unbound_cache.cmd: windows script to save and load the cache.
+* warmup.sh: shell script to warm up DNS cache by your own MRU domains.
+* warmup.cmd: windows script to warm up DNS cache by your own MRU domains.
+
