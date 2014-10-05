@@ -58,6 +58,7 @@ namespace Language
     std::unordered_map<std::string, uint32_t> *word_map; /*!< hash table to find word's index */
     std::unordered_map<std::string, uint32_t> *trimmed_word_map; /*!< hash table to find word's trimmed index */
     std::string language_name; /*!< Name of language */
+    int trim_length; /*!< Number of unique starting characters to trim the wordlist to when matching */
     /*!
      * \brief Populates the word maps after the list is ready.
      */
