@@ -28,6 +28,11 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file simplewallet.h
+ * 
+ * \brief Header file that declares simple_wallet class.
+ */
 #pragma once
 
 #include <memory>
@@ -41,12 +46,15 @@
 #include "password_container.h"
 #include "crypto/crypto.h"  // for definition of crypto::secret_key
 
-
+/*!
+ * \namespace cryptonote
+ * \brief Holds cryptonote related classes and helpers.
+ */
 namespace cryptonote
 {
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
+  /*!
+   * \brief Manages wallet operations. This is the most abstracted wallet class.
+   */
   class simple_wallet : public tools::i_wallet2_callback
   {
   public:
@@ -66,7 +74,8 @@ namespace cryptonote
 
     bool run_console_handler();
 
-    bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false, bool testnet = false);
+    bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
+        bool recover, bool two_random, bool testnet, const std::string &old_language);
     bool open_wallet(const std::string &wallet_file, const std::string& password, bool testnet);
     bool close_wallet();
 
@@ -92,6 +101,15 @@ namespace cryptonote
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
     bool ask_wallet_create_if_needed();
+
+    /*!
+     * \brief Gets the word seed language from the user.
+     * 
+     * User is asked to choose from a list of supported languages.
+     * 
+     * \return The chosen language.
+     */
+    std::string get_mnemonic_language();
 
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
