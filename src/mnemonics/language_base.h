@@ -122,7 +122,7 @@ namespace Language
      * \brief Returns the number of unique starting characters to be used for matching.
      * \return Number of unique starting characters.
      */
-    std::string get_trim_length() const
+    int get_trim_length() const
     {
       return trim_length;
     }
