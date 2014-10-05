@@ -28,6 +28,12 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file simplewallet.cpp
+ * 
+ * \brief Source file that defines simple_wallet class.
+ */
+
 #include <thread>
 #include <iostream>
 #include <sstream>
@@ -46,7 +52,8 @@
 #include "wallet/wallet_rpc_server.h"
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
-#include "crypto/electrum-words.h"
+#include "mnemonics/electrum-words.h"
+#include <stdexcept>
 
 #if defined(WIN32)
 #include <crtdbg.h>
@@ -204,7 +211,7 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
   
   if (success) 
   {
-    success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
+    success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
     std::cout << electrum_words << std::endl;      
   }
   else
@@ -361,6 +368,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   {
     if (m_wallet_file.empty()) m_wallet_file = m_generate_new;  // alias for simplicity later
 
+    std::string old_language;
     // check for recover flag.  if present, require electrum word list (only recovery option for now).
     if (m_restore_deterministic_wallet)
     {
@@ -380,13 +388,14 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         }
       }
 
-      if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key))
+      if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language))
       {
-          fail_msg_writer() << "electrum-style word list failed verification";
-          return false;
+        fail_msg_writer() << "electrum-style word list failed verification";
+        return false;
       }
     }
-    bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, testnet);
+    bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet,
+      m_non_deterministic, testnet, old_language);
     CHECK_AND_ASSERT_MES(r, false, "account creation failed");
   }
   else
@@ -430,8 +439,49 @@ bool simple_wallet::try_connect_to_daemon()
   return true;
 }
 
+/*!
+ * \brief Gets the word seed language from the user.
+ * 
+ * User is asked to choose from a list of supported languages.
+ * 
+ * \return The chosen language.
+ */
+std::string simple_wallet::get_mnemonic_language()
+{
+  std::vector<std::string> language_list;
+  std::string language_choice;
+  int language_number = -1;
+  crypto::ElectrumWords::get_language_list(language_list);
+  std::cout << "List of available languages for your wallet's seed:" << std::endl;
+  int ii;
+  std::vector<std::string>::iterator it;
+  for (it = language_list.begin(), ii = 0; it != language_list.end(); it++, ii++)
+  {
+    std::cout << ii << " : " << *it << std::endl;
+  }
+  while (language_number < 0)
+  {
+    language_choice = command_line::input_line("Enter the number corresponding to the language of your choice: ");
+    try
+    {
+      language_number = std::stoi(language_choice);
+      if (!((language_number >= 0) && (static_cast<unsigned int>(language_number) < language_list.size())))
+      {
+        language_number = -1;
+        fail_msg_writer() << "Invalid language choice passed. Please try again.\n";
+      }
+    }
+    catch (std::exception &e)
+    {
+      fail_msg_writer() << "Invalid language choice passed. Please try again.\n";
+    }
+  }
+  return language_list[language_number];
+}
+
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key, bool recover, bool two_random, bool testnet)
+bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
+  bool recover, bool two_random, bool testnet, const std::string &old_language)
 {
   m_wallet_file = wallet_file;
 
@@ -456,7 +506,25 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   // convert rng value to electrum-style word list
   std::string electrum_words;
-  crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words);
+
+  bool was_deprecated_wallet = (old_language == crypto::ElectrumWords::old_language_name) ||
+    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed);
+
+  std::string mnemonic_language = old_language;
+  // Ask for seed language if it is not a wallet restore or if it was a deprecated wallet
+  // that was earlier used before this restore.
+  if (!m_restore_deterministic_wallet || was_deprecated_wallet)
+  {
+    if (was_deprecated_wallet)
+    {
+      // The user had used an older version of the wallet with old style mnemonics.
+      message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+        "a deprecated version of the wallet. Please use the new seed that we provide.\n";
+    }
+    mnemonic_language = get_mnemonic_language();
+  }
+  crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, mnemonic_language);
+  m_wallet->set_seed_language(mnemonic_language);
 
   std::string print_electrum = "";
 
@@ -473,7 +541,7 @@ bool simple_wallet::new_wallet(const string &wallet_file, const std::string& pas
 
   if (!two_random)
   {
-    success_msg_writer(true) << "\nPLEASE NOTE: the following 24 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
+    success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
     std::cout << electrum_words << std::endl;
   }
   success_msg_writer() << "**********************************************************************";

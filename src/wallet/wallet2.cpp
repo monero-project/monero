@@ -46,7 +46,7 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "serialization/binary_utils.h"
 #include "cryptonote_protocol/blobdatatype.h"
-#include "crypto/electrum-words.h"
+#include "mnemonics/electrum-words.h"
 #include "common/dns_utils.h"
 
 extern "C"
@@ -88,7 +88,7 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
 //----------------------------------------------------------------------------------------------------
 bool wallet2::get_seed(std::string& electrum_words)
 {
-  crypto::ElectrumWords::bytes_to_words(get_account().get_keys().m_spend_secret_key, electrum_words);
+  crypto::ElectrumWords::bytes_to_words(get_account().get_keys().m_spend_secret_key, electrum_words, seed_language);
 
   crypto::secret_key second;
   keccak((uint8_t *)&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
@@ -96,6 +96,13 @@ bool wallet2::get_seed(std::string& electrum_words)
   sc_reduce32((uint8_t *)&second);
   
   return memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+}
+/*!
+ * \brief Sets the seed language
+ */
+void wallet2::set_seed_language(const std::string &language)
+{
+  seed_language = language;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height)
