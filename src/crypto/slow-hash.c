@@ -559,7 +559,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
      */
 
     _b = _mm_load_si128(R128(b));
-    // Two independent versions, one with AES, one without, this to ensure that 
+    // Two independent versions, one with AES, one without, to ensure that 
     // the useAes test is only performed once, not every iteration.
     if(useAes)
     {
