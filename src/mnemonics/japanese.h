@@ -1,4 +1,5 @@
-// Word list originally created by dabura667,
+// Word list originally created by dabura667
+// 
 // Copyright (c) 2014, The Monero Project
 // 
 // All rights reserved.
