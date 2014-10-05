@@ -103,8 +103,16 @@
     j = state_index(a); \
 	_c = _mm_load_si128(R128(&hp_state[j])); \
 	_a = _mm_load_si128(R128(a)); \
- 
-// dga's optimized scratchpad twiddling
+
+/*
+ * An SSE-optimized implementation of the second half of CryptoNote step 3.
+ * After using AES to mix a scratchpad value into _c (done by the caller), 
+ * this macro xors it with _b and stores the result back to the same index (j) that it 
+ * loaded the scratchpad value from.  It then performs a second random memory
+ * read/write from the scratchpad, but this time mixes the values using a 64
+ * bit multiply.
+ * This code is based upon an optimized implementation by dga.
+ */
 #define post_aes() \
 	_mm_store_si128(R128(c), _c); \
 	_b = _mm_xor_si128(_b, _c); \
@@ -159,6 +167,10 @@ void cpuid(int CPUInfo[4], int InfoType)
         );
 }
 #endif
+
+/**
+ * @brief a = (a xor b), where a and b point to 128 bit values
+ */
 
 STATIC INLINE void xor_blocks(uint8_t *a, const uint8_t *b)
 {
@@ -218,7 +230,12 @@ STATIC INLINE void aes_256_assist2(__m128i* t1, __m128i * t3)
  * of the AES encryption used to fill (and later, extract randomness from)
  * the large 2MB buffer.  Note that CryptoNight does not use a completely
  * standard AES encryption for its buffer expansion, so do not copy this 
- * function outside of Monero without caution!
+ * function outside of Monero without caution!  This version uses the hardware
+ * AESKEYGENASSIST instruction to speed key generation, and thus requires
+ * CPU AES support.
+ * For more information about these functions, see page 19 of Intel's AES instructions
+ * white paper:
+ * http://www.intel.com/content/dam/www/public/us/en/documents/white-papers/aes-instructions-set-white-paper.pdf
  *
  * @param key the input 128 bit key
  * @param expandedKey An output buffer to hold the generated key schedule
@@ -274,6 +291,8 @@ STATIC INLINE void aes_expand_key(const uint8_t *key, uint8_t *expandedKey)
  * in subsequent steps by aesenc_si128), and it does not use the simpler final round.
  * Hence, this is a "pseudo" round - though the function actually implements 10 rounds together.
  *
+ * Note that unlike aesb_pseudo_round, this function works on multiple data chunks.
+ *
  * @param in a pointer to nblocks * 128 bits of data to be encrypted
  * @param out a pointer to an nblocks * 128 bit buffer where the output will be stored
  * @param expandedKey the expanded AES key
@@ -303,6 +322,20 @@ STATIC INLINE void aes_pseudo_round(const uint8_t *in, uint8_t *out,
         _mm_storeu_si128((R128(out + i * AES_BLOCK_SIZE)), d);
     }
 }
+
+/*
+ * @brief aes_pseudo_round that loads data from *in and xors it with *xor first
+ *
+ * This function performs the same operations as aes_pseudo_round, but before
+ * performing the encryption of each 128 bit block from <in>, it xors
+ * it with the corresponding block from <xor>.
+ *
+ * @param in a pointer to nblocks * 128 bits of data to be encrypted
+ * @param out a pointer to an nblocks * 128 bit buffer where the output will be stored
+ * @param expandedKey the expanded AES key
+ * @param xor a pointer to an nblocks * 128 bit buffer that is xored into in before encryption (in is left unmodified)
+ * @param nblocks the number of 128 blocks of data to be encrypted
+ */
 
 STATIC INLINE void aes_pseudo_round_xor(const uint8_t *in, uint8_t *out,
                                         const uint8_t *expandedKey, const uint8_t *xor, int nblocks)
@@ -362,6 +395,18 @@ BOOL SetLockPagesPrivilege(HANDLE hProcess, BOOL bEnable)
 }
 #endif
 
+/**
+ * @brief allocate the 2MB scratch buffer using OS support for huge pages, if available
+ *
+ * This function tries to allocate the 2MB scratch buffer using a single 
+ * 2MB "huge page" (instead of the usual 4KB page sizes) to reduce TLB misses
+ * during the random accesses to the scratch buffer.  This is one of the
+ * important speed optimizations needed to make CryptoNight faster.
+ *
+ * No parameters.  Updates a thread-local pointer, hp_state, to point to
+ * the allocated buffer.
+ */
+
 void slow_hash_allocate_state(void)
 {
     int state = 0;
@@ -390,6 +435,10 @@ void slow_hash_allocate_state(void)
         hp_state = (uint8_t *) malloc(MEMORY);
     }
 }
+
+/**
+ *@brief frees the state allocated by slow_hash_allocate_state
+ */
 
 void slow_hash_free_state(void)
 {
@@ -434,9 +483,12 @@ void slow_hash_free_state(void)
  * core on 2013-era CPUs.  When available, this implementation will use hardware
  * AES support on x86 CPUs.
  *
+ * A diagram of the inner loop of this function can be found at
+ * http://www.cs.cmu.edu/~dga/crypto/xmr/cryptonight.png
+ *
  * @param data the data to hash
  * @param length the length in bytes of the data
- * @param hash a pointer to a buffer in which the final hash will be stored
+ * @param hash a pointer to a buffer in which the final 256 bit hash will be stored
  */
 
 void cn_slow_hash(const void *data, size_t length, char *hash)
@@ -507,14 +559,14 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
      */
 
     _b = _mm_load_si128(R128(b));
-    // this is ugly but the branching affects the loop somewhat so put it outside.
+    // Two independent versions, one with AES, one without, this to ensure that 
+    // the useAes test is only performed once, not every iteration.
     if(useAes)
     {
         for(i = 0; i < ITER / 2; i++)
         {
             pre_aes();
             _c = _mm_aesenc_si128(_c, _a);
-            // post_aes(), optimized scratchpad twiddling (credits to dga)
             post_aes();
         }
     }
@@ -556,10 +608,11 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
         oaes_free((OAES_CTX **) &aes_ctx);
     }
 
-    /* CryptoNight Step 5:  Use the resulting data to select which of four
-     * finalizer hash functions to apply to the data (Blake, Groestl, JH, or Skein).
-     * Use this hash to squeeze the 200 byte pseudorandom state array down
-     * to the final hash output.
+    /* CryptoNight Step 5:  Apply Keccak to the state again, and then
+     * use the resulting data to select which of four finalizer
+     * hash functions to apply to the data (Blake, Groestl, JH, or Skein).
+     * Use this hash to squeeze the state array down
+     * to the final 256 bit hash output.
      */
 
     memcpy(state.init, text, INIT_SIZE_BYTE);
