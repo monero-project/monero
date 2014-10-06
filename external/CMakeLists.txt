@@ -144,7 +144,7 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
   
   set(UNBOUND_STATIC true PARENT_SCOPE)
   set(UNBOUND_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build" PARENT_SCOPE)
-  set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build" PARENT_SCOPE)
+  set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la" PARENT_SCOPE)
 ELSE()
   MESSAGE(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
   IF(UNBOUND_LIBRARIES)
