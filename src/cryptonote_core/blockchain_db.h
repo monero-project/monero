@@ -127,6 +127,9 @@
 namespace cryptonote
 {
 
+// typedef for convenience
+typedef std::pair<crypto::hash, uint64_t> tx_out_index;
+
 /***********************************
  * Exception Definitions
  ***********************************/
