@@ -35,7 +35,7 @@
 # ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
 # others.
 
-find_package(MiniUpnpc REQUIRED)
+find_package(MiniUpnpc)
 
 # FreeBSD doesn't play well with the local copy, so default to using shared
 SET(USE_SHARED_MINIUPNPC true)
@@ -74,7 +74,7 @@ else()
   set(UPNP_LIBRARIES "upnpc-static" PARENT_SCOPE)
 endif()
 
-find_package(Unbound REQUIRED)
+find_package(Unbound)
 
 IF(!UNBOUND_INCLUDE_DIR OR STATIC)
   if(STATIC)
