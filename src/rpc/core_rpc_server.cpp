@@ -111,7 +111,7 @@ namespace cryptonote
     }
     return true;
   }
-#define CHECK_CORE_BUSY() if(!check_core_busy()){res.status =  CORE_RPC_STATUS_BUSY;return true;}
+#define CHECK_CORE_BUSY() do { if(!check_core_busy()){res.status =  CORE_RPC_STATUS_BUSY;return true;} } while(0)
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::check_core_ready()
   {
@@ -121,7 +121,7 @@ namespace cryptonote
     }
     return check_core_busy();
   }
-#define CHECK_CORE_READY() if(!check_core_ready()){res.status =  CORE_RPC_STATUS_BUSY;return true;}
+#define CHECK_CORE_READY() do { if(!check_core_ready()){res.status =  CORE_RPC_STATUS_BUSY;return true;} } while(0)
 
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_height(const COMMAND_RPC_GET_HEIGHT::request& req, COMMAND_RPC_GET_HEIGHT::response& res, connection_context& cntx)
