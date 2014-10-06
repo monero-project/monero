@@ -51,11 +51,12 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 ### On Unix and Linux:
 
 Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later
 
 **Basic Process:**
 
 * To build, change to the root of the source code directory, and run `make`.
-* The resulting executables can be found in build/release/src.
+* The resulting executables can be found in `build/release/src` or `build/debug/src`, depending on what you're building.
 
 **Advanced options:**
 
@@ -78,6 +79,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 ### On Windows:
 
 Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later
 
 **Preparing the Build Environment**
 
@@ -91,6 +93,7 @@ pacman -Su
 ```
 * For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
 * Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-unbound mingw-w64-x86_64-boost`
+* If you are planning to build statically you will also need to install: `pacman -S mingw-w64-x86_64-ldns mingw-w64-x86_64-expat` (note that these are likely already installed by the unbound dependency installation above)
 
 **Building**
 
@@ -108,8 +111,16 @@ cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=..
 cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ..
 ```
 * You can now run `make` to have it build
+* The resulting executables can be found in `build/release/src` or `build/debug/src`, depending on what you're building.
 
 If you installed MSYS2 in a folder other than c:/msys64, make the appropriate substitution above.
+
+**Advanced options:**
+
+* Parallel build: run `make -j<number of threads>` instead of `make`.
+* Statically linked release build: run `make release-static`.
+* Debug build: run `make build-debug`.
+* Test suite: run `make test-release` to run tests in addition to building. Running `make test-debug` will do the same to the debug version.
 
 ### On FreeBSD:
 
