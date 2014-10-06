@@ -105,7 +105,7 @@
 	_a = _mm_load_si128(R128(a)); \
 
 /*
- * An SSE-optimized implementation of the second half of CryptoNote step 3.
+ * An SSE-optimized implementation of the second half of CryptoNight step 3.
  * After using AES to mix a scratchpad value into _c (done by the caller), 
  * this macro xors it with _b and stores the result back to the same index (j) that it 
  * loaded the scratchpad value from.  It then performs a second random memory
