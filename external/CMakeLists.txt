@@ -105,7 +105,7 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
-    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.dll.la" PARENT_SCOPE)
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.dll.a" PARENT_SCOPE)
   ELSEIF(APPLE)
     execute_process(COMMAND brew --prefix OUTPUT_VARIABLE BREW_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
     EXTERNALPROJECT_ADD(
@@ -124,7 +124,7 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
-    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la" PARENT_SCOPE)
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.a" PARENT_SCOPE)
   ELSE()
     EXTERNALPROJECT_ADD(
       libunbound
@@ -142,12 +142,11 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
-    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la" PARENT_SCOPE)
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.a" PARENT_SCOPE)
   ENDIF()
   
   set(UNBOUND_STATIC true PARENT_SCOPE)
   set(UNBOUND_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build" PARENT_SCOPE)
-  set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la" PARENT_SCOPE)
 ELSE()
   MESSAGE(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
   IF(UNBOUND_LIBRARIES)
