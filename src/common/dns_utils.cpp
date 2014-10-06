@@ -29,7 +29,8 @@
 #include "common/dns_utils.h"
 #include <cstring>
 #include <sstream>
-#include <unbound.h>
+// check local first (in the event of static or in-source compilation of libunbound)
+#include "unbound.h"
 
 #include <stdlib.h>
 #include "include_base_utils.h"
