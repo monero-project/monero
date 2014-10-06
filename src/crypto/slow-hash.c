@@ -282,7 +282,7 @@ STATIC INLINE void aes_expand_key(const uint8_t *key, uint8_t *expandedKey)
 }
 
 /*
- * @brief a "pseudo" round of AES (similar to slightly different from normal AES encryption)
+ * @brief a "pseudo" round of AES (similar to but slightly different from normal AES encryption)
  *
  * To fill its 2MB scratch buffer, CryptoNight uses a nonstandard implementation
  * of AES encryption:  It applies 10 rounds of the basic AES encryption operation
