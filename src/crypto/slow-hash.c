@@ -103,8 +103,16 @@
     j = state_index(a); \
 	_c = _mm_load_si128(R128(&hp_state[j])); \
 	_a = _mm_load_si128(R128(a)); \
- 
-// dga's optimized scratchpad twiddling
+
+/*
+ * An SSE-optimized implementation of the second half of CryptoNote step 3.
+ * After using AES to mix a scratchpad value into _c (done by the caller), 
+ * this macro xors it with _b and stores the result back to the same index (j) that it 
+ * loaded the scratchpad value from.  It then performs a second random memory
+ * read/write from the scratchpad, but this time mixes the values using a 64
+ * bit multiply.
+ * This code is based upon an optimized implementation by dga.
+ */
 #define post_aes() \
 	_mm_store_si128(R128(c), _c); \
 	_b = _mm_xor_si128(_b, _c); \
@@ -160,11 +168,20 @@ void cpuid(int CPUInfo[4], int InfoType)
 }
 #endif
 
+/**
+ * @brief a = (a xor b), where a and b point to 128 bit values
+ */
+
 STATIC INLINE void xor_blocks(uint8_t *a, const uint8_t *b)
 {
     U64(a)[0] ^= U64(b)[0];
     U64(a)[1] ^= U64(b)[1];
 }
+
+/**
+ * @brief uses cpuid to determine if the CPU supports the AES instructions
+ * @return true if the CPU supports AES, false otherwise
+ */
 
 STATIC INLINE int check_aes_hw(void)
 {
@@ -204,6 +221,25 @@ STATIC INLINE void aes_256_assist2(__m128i* t1, __m128i * t3)
     *t3 = _mm_xor_si128(*t3, t4);
     *t3 = _mm_xor_si128(*t3, t2);
 }
+
+/** 
+ * @brief expands 'key' into a form it can be used for AES encryption.
+ * 
+ * This is an SSE-optimized implementation of AES key schedule generation.  It
+ * expands the key into multiple round keys, each of which is used in one round
+ * of the AES encryption used to fill (and later, extract randomness from)
+ * the large 2MB buffer.  Note that CryptoNight does not use a completely
+ * standard AES encryption for its buffer expansion, so do not copy this 
+ * function outside of Monero without caution!  This version uses the hardware
+ * AESKEYGENASSIST instruction to speed key generation, and thus requires
+ * CPU AES support.
+ * For more information about these functions, see page 19 of Intel's AES instructions
+ * white paper:
+ * http://www.intel.com/content/dam/www/public/us/en/documents/white-papers/aes-instructions-set-white-paper.pdf
+ *
+ * @param key the input 128 bit key
+ * @param expandedKey An output buffer to hold the generated key schedule
+ */
 
 STATIC INLINE void aes_expand_key(const uint8_t *key, uint8_t *expandedKey)
 {
@@ -245,6 +281,24 @@ STATIC INLINE void aes_expand_key(const uint8_t *key, uint8_t *expandedKey)
     ek[10] = t1;
 }
 
+/*
+ * @brief a "pseudo" round of AES (similar to but slightly different from normal AES encryption)
+ *
+ * To fill its 2MB scratch buffer, CryptoNight uses a nonstandard implementation
+ * of AES encryption:  It applies 10 rounds of the basic AES encryption operation
+ * to an input 128 bit chunk of data <in>.  Unlike normal AES, however, this is
+ * all it does;  it does not perform the initial AddRoundKey step (this is done
+ * in subsequent steps by aesenc_si128), and it does not use the simpler final round.
+ * Hence, this is a "pseudo" round - though the function actually implements 10 rounds together.
+ *
+ * Note that unlike aesb_pseudo_round, this function works on multiple data chunks.
+ *
+ * @param in a pointer to nblocks * 128 bits of data to be encrypted
+ * @param out a pointer to an nblocks * 128 bit buffer where the output will be stored
+ * @param expandedKey the expanded AES key
+ * @param nblocks the number of 128 blocks of data to be encrypted
+ */
+
 STATIC INLINE void aes_pseudo_round(const uint8_t *in, uint8_t *out,
                                     const uint8_t *expandedKey, int nblocks)
 {
@@ -268,6 +322,20 @@ STATIC INLINE void aes_pseudo_round(const uint8_t *in, uint8_t *out,
         _mm_storeu_si128((R128(out + i * AES_BLOCK_SIZE)), d);
     }
 }
+
+/*
+ * @brief aes_pseudo_round that loads data from *in and xors it with *xor first
+ *
+ * This function performs the same operations as aes_pseudo_round, but before
+ * performing the encryption of each 128 bit block from <in>, it xors
+ * it with the corresponding block from <xor>.
+ *
+ * @param in a pointer to nblocks * 128 bits of data to be encrypted
+ * @param out a pointer to an nblocks * 128 bit buffer where the output will be stored
+ * @param expandedKey the expanded AES key
+ * @param xor a pointer to an nblocks * 128 bit buffer that is xored into in before encryption (in is left unmodified)
+ * @param nblocks the number of 128 blocks of data to be encrypted
+ */
 
 STATIC INLINE void aes_pseudo_round_xor(const uint8_t *in, uint8_t *out,
                                         const uint8_t *expandedKey, const uint8_t *xor, int nblocks)
@@ -327,6 +395,18 @@ BOOL SetLockPagesPrivilege(HANDLE hProcess, BOOL bEnable)
 }
 #endif
 
+/**
+ * @brief allocate the 2MB scratch buffer using OS support for huge pages, if available
+ *
+ * This function tries to allocate the 2MB scratch buffer using a single 
+ * 2MB "huge page" (instead of the usual 4KB page sizes) to reduce TLB misses
+ * during the random accesses to the scratch buffer.  This is one of the
+ * important speed optimizations needed to make CryptoNight faster.
+ *
+ * No parameters.  Updates a thread-local pointer, hp_state, to point to
+ * the allocated buffer.
+ */
+
 void slow_hash_allocate_state(void)
 {
     int state = 0;
@@ -356,6 +436,10 @@ void slow_hash_allocate_state(void)
     }
 }
 
+/**
+ *@brief frees the state allocated by slow_hash_allocate_state
+ */
+
 void slow_hash_free_state(void)
 {
     if(hp_state == NULL)
@@ -376,9 +460,40 @@ void slow_hash_free_state(void)
     hp_allocated = 0;
 }
 
+/**
+ * @brief the hash function implementing CryptoNight, used for the Monero proof-of-work
+ *
+ * Computes the hash of <data> (which consists of <length> bytes), returning the
+ * hash in <hash>.  The CryptoNight hash operates by first using Keccak 1600,
+ * the 1600 bit variant of the Keccak hash used in SHA-3, to create a 200 byte
+ * buffer of pseudorandom data by hashing the supplied data.  It then uses this
+ * random data to fill a large 2MB buffer with pseudorandom data by iteratively
+ * encrypting it using 10 rounds of AES per entry.  After this initialization,
+ * it executes 500,000 rounds of mixing through the random 2MB buffer using
+ * AES (typically provided in hardware on modern CPUs) and a 64 bit multiply.
+ * Finally, it re-mixes this large buffer back into
+ * the 200 byte "text" buffer, and then hashes this buffer using one of four
+ * pseudorandomly selected hash functions (Blake, Groestl, JH, or Skein)
+ * to populate the output.
+ *
+ * The 2MB buffer and choice of functions for mixing are designed to make the
+ * algorithm "CPU-friendly" (and thus, reduce the advantage of GPU, FPGA,
+ * or ASIC-based implementations):  the functions used are fast on modern
+ * CPUs, and the 2MB size matches the typical amount of L3 cache available per
+ * core on 2013-era CPUs.  When available, this implementation will use hardware
+ * AES support on x86 CPUs.
+ *
+ * A diagram of the inner loop of this function can be found at
+ * http://www.cs.cmu.edu/~dga/crypto/xmr/cryptonight.png
+ *
+ * @param data the data to hash
+ * @param length the length in bytes of the data
+ * @param hash a pointer to a buffer in which the final 256 bit hash will be stored
+ */
+
 void cn_slow_hash(const void *data, size_t length, char *hash)
 {
-    RDATA_ALIGN16 uint8_t expandedKey[240];
+    RDATA_ALIGN16 uint8_t expandedKey[240];  /* These buffers are aligned to use later with SSE functions */
 
     uint8_t text[INIT_SIZE_BYTE];
     RDATA_ALIGN16 uint64_t a[2];
@@ -402,8 +517,14 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     if(hp_state == NULL)
         slow_hash_allocate_state();
 
+    /* CryptoNight Step 1:  Use Keccak1600 to initialize the 'state' (and 'text') buffers from the data. */
+
     hash_process(&state.hs, data, length);
     memcpy(text, state.init, INIT_SIZE_BYTE);
+
+    /* CryptoNight Step 2:  Iteratively encrypt the results from keccak to fill
+     * the 2MB large random access buffer.
+     */
 
     if(useAes)
     {
@@ -432,15 +553,20 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     U64(b)[0] = U64(&state.k[16])[0] ^ U64(&state.k[48])[0];
     U64(b)[1] = U64(&state.k[16])[1] ^ U64(&state.k[48])[1];
 
+    /* CryptoNight Step 3:  Bounce randomly 1 million times through the mixing buffer,
+     * using 500,000 iterations of the following mixing function.  Each execution
+     * performs two reads and writes from the mixing buffer.
+     */
+
     _b = _mm_load_si128(R128(b));
-    // this is ugly but the branching affects the loop somewhat so put it outside.
+    // Two independent versions, one with AES, one without, to ensure that 
+    // the useAes test is only performed once, not every iteration.
     if(useAes)
     {
         for(i = 0; i < ITER / 2; i++)
         {
             pre_aes();
             _c = _mm_aesenc_si128(_c, _a);
-            // post_aes(), optimized scratchpad twiddling (credits to dga)
             post_aes();
         }
     }
@@ -453,6 +579,10 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
             post_aes();
         }
     }
+
+    /* CryptoNight Step 4:  Sequentially pass through the mixing buffer and use 10 rounds
+     * of AES encryption to mix the random data back into the 'text' buffer.  'text'
+     * was originally created with the output of Keccak1600. */
 
     memcpy(text, state.init, INIT_SIZE_BYTE);
     if(useAes)
@@ -477,6 +607,13 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
         }
         oaes_free((OAES_CTX **) &aes_ctx);
     }
+
+    /* CryptoNight Step 5:  Apply Keccak to the state again, and then
+     * use the resulting data to select which of four finalizer
+     * hash functions to apply to the data (Blake, Groestl, JH, or Skein).
+     * Use this hash to squeeze the state array down
+     * to the final 256 bit hash output.
+     */
 
     memcpy(state.init, text, INIT_SIZE_BYTE);
     hash_permutation(&state.hs);
