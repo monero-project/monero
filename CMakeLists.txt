@@ -217,6 +217,7 @@ if(MINGW)
 elseif(APPLE OR FREEBSD)
   set(Boost_LIBRARIES "${Boost_LIBRARIES}")
 elseif(NOT MSVC)
+  set(Boost_LIBRARIES "${Boost_LIBRARIES};ld")
   #set(Boost_LIBRARIES "${Boost_LIBRARIES};rt;pthread")
 endif()
 
