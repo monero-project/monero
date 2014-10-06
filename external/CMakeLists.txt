@@ -94,10 +94,10 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
       URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
       CONFIGURE_COMMAND export USE_WINSOCK=1 && ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --prefix=${CMAKE_FIND_ROOT_PATH} --build=${GCC_PREFIX} --host=${GCC_PREFIX} --disable-shared --enable-static --sysconfdir=${CMAKE_FIND_ROOT_PATH}/etc --localstatedir=${CMAKE_FIND_ROOT_PATH}/var --sbindir=${CMAKE_FIND_ROOT_PATH}/bin --disable-gost --disable-rpath --with-libevent=no --with-libexpat=${CMAKE_FIND_ROOT_PATH} --without-pyunbound --without-pythonmodule --with-ssl=${CMAKE_FIND_ROOT_PATH} --without-pthreads --with-libunbound-only
-      BUILD_COMMAND make
+      BUILD_COMMAND $(MAKE)
       UPDATE_COMMAND ""
       PATCH_COMMAND ""
-      INSTALL_COMMAND ""
+      INSTALL_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libtool --mode=install cp ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build
       LOG_DOWNLOAD 1
       LOG_UPDATE 1
       LOG_CONFIGURE 1
@@ -105,17 +105,18 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.dll.la" PARENT_SCOPE)
   ELSEIF(APPLE)
     execute_process(COMMAND brew --prefix OUTPUT_VARIABLE BREW_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
     EXTERNALPROJECT_ADD(
       libunbound
       PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
       URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
-      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --prefix=${BREW_PREFIX} --disable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
-      BUILD_COMMAND make
+      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --prefix=${BREW_PREFIX} --enable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
+      BUILD_COMMAND $(MAKE)
       UPDATE_COMMAND ""
       PATCH_COMMAND ""
-      INSTALL_COMMAND ""
+      INSTALL_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libtool --mode=install cp ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build
       LOG_DOWNLOAD 1
       LOG_UPDATE 1
       LOG_CONFIGURE 1
@@ -123,16 +124,17 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la" PARENT_SCOPE)
   ELSE()
     EXTERNALPROJECT_ADD(
       libunbound
       PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
       URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
       CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --disable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
-      BUILD_COMMAND make
+      BUILD_COMMAND $(MAKE)
       UPDATE_COMMAND ""
       PATCH_COMMAND ""
-      INSTALL_COMMAND ""
+      INSTALL_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libtool --mode=install cp ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build
       LOG_DOWNLOAD 1
       LOG_UPDATE 1
       LOG_CONFIGURE 1
@@ -140,6 +142,7 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la" PARENT_SCOPE)
   ENDIF()
   
   set(UNBOUND_STATIC true PARENT_SCOPE)
