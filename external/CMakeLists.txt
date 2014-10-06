@@ -35,7 +35,7 @@
 # ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
 # others.
 
-find_package(MiniUpnpc)
+find_package(MiniUpnpc QUIET)
 
 # FreeBSD doesn't play well with the local copy, so default to using shared
 SET(USE_SHARED_MINIUPNPC true)
@@ -85,14 +85,14 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
   
   INCLUDE(ExternalProject)
   
-  FIND_PACKAGE(OpenSSL REQUIRED)
+  FIND_PACKAGE(OpenSSL QUIET)
   IF(!OPENSSL_LIBRARIES)
     MESSAGE(FATAL_ERROR "${BoldRed}Could not find the openssl library. Please make sure you have installed openssl or libssl-dev or the equivalent${ColourReset}")
   ELSE()
     MESSAGE(STATUS "Found openssl libraries")
   ENDIF()
 
-  FIND_PACKAGE(Expat REQUIRED)
+  FIND_PACKAGE(Expat QUIET)
   IF(!EXPAT_LIBRARIES)
     MESSAGE(FATAL_ERROR "${BoldRed}Could not find the expat library. Please make sure you have installed libexpat or libexpat-dev or the equivalent${ColourReset}")
   ELSE()
