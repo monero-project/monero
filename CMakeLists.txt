@@ -87,6 +87,14 @@ else()
 endif()
 set(STATIC ${DEFAULT_STATIC} CACHE BOOL "Link libraries statically")
 
+IF(STATIC)
+  IF(MSVC)
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES .lib .dll.a .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  ELSE()
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  ENDIF()
+ENDIF()
+
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
   find_package(Threads)
