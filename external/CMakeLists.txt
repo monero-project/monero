@@ -86,7 +86,18 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
   INCLUDE(ExternalProject)
   
   FIND_PACKAGE(OpenSSL REQUIRED)
+  IF(!OPENSSL_LIBRARIES)
+    MESSAGE(FATAL_ERROR "${BoldRed}Could not find the openssl library. Please make sure you have installed openssl or libssl-dev or the equivalent${ColourReset}")
+  ELSE()
+    MESSAGE(STATUS "Found openssl libraries")
+  ENDIF()
+
   FIND_PACKAGE(Expat REQUIRED)
+  IF(!EXPAT_LIBRARIES)
+    MESSAGE(FATAL_ERROR "${BoldRed}Could not find the expat library. Please make sure you have installed libexpat or libexpat-dev or the equivalent${ColourReset}")
+  ELSE()
+    MESSAGE(STATUS "Found expat libraries")
+  ENDIF()
   
   IF(MINGW)
     EXTERNALPROJECT_ADD(
@@ -105,7 +116,7 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
-    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.dll.a" PARENT_SCOPE)
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.dll.a;${OPENSSL_LIBRARIES}" PARENT_SCOPE)
   ELSEIF(APPLE)
     execute_process(COMMAND brew --prefix OUTPUT_VARIABLE BREW_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
     EXTERNALPROJECT_ADD(
@@ -124,7 +135,7 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
-    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.a" PARENT_SCOPE)
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.a;${OPENSSL_LIBRARIES}" PARENT_SCOPE)
   ELSE()
     EXTERNALPROJECT_ADD(
       libunbound
@@ -142,7 +153,7 @@ IF(!UNBOUND_INCLUDE_DIR OR STATIC)
       LOG_TEST 1
       LOG_INSTALL 1
     )
-    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.a" PARENT_SCOPE)
+    set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.a;${OPENSSL_LIBRARIES}" PARENT_SCOPE)
   ENDIF()
   
   set(UNBOUND_STATIC true PARENT_SCOPE)
