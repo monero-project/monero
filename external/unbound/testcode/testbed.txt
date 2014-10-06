@@ -1,0 +1,38 @@
+Testbed.sh help page.
+
+Testbed helps in running the test packages (using tpkg(1)) on several systems.
+The script is specially written for unbound (edit it to change to different
+software). It is licensed BSD.
+
+The hosts to run on are listed in host_file.<username>. You need to have
+public-key authorized ssh access to these systems (or type your password lots
+and lots of times). The host_file describes the directories and environment
+of each host. You need only user-level access to the host.
+
+The host_file is very restrictive in formatting. Comments are lines starting
+with the # mark. The entries must be separated by tabs. Please list the
+hostname<tab>description<tab>checkoutdir<tab>variables
+
+hostname:	network hostname to ssh to.
+desc:		pretty text to describe the machine architecture.
+checkoutdir:	directory on the remote host where a svn checkout is present.
+variables:	zero or more variables separated by spaces. BLA=value BAR=val.
+
+Only important variable for unbound is the LDNS=<dir> variable that if present
+forces --with-ldns=<dir> to be passed to ./configure. In case LDNS is not
+installed on the system itself, but present somewhere else.
+
+You can also set LIBEVENT=<dir> for the libevent directory, if it is
+installed in a nonstandard location.
+
+*** Running the testbed
+
+Run by executing the script. It will take all the hosts from the file in 
+turn and update the svn directory there, possible autoreconf if necessary,
+possibly ./configure <args> if necessary, make the executables.
+Then it will run the testcode/do-tests script. This script should execute
+the tests that this host is capable of running.
+
+in testdata/testbed.log has a line-by-line log. See your make errors here.
+in testdata/testbed.report has only the tpkg reports. Summary.
+

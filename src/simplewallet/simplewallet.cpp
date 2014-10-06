@@ -212,6 +212,8 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
   if (success) 
   {
     success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
+    boost::replace_nth(electrum_words, " ", 15, "\n");
+    boost::replace_nth(electrum_words, " ", 7, "\n");    
     std::cout << electrum_words << std::endl;      
   }
   else
@@ -542,6 +544,8 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   if (!two_random)
   {
     success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
+    boost::replace_nth(electrum_words, " ", 15, "\n");
+    boost::replace_nth(electrum_words, " ", 7, "\n");    
     std::cout << electrum_words << std::endl;
   }
   success_msg_writer() << "**********************************************************************";
