@@ -522,7 +522,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     hash_process(&state.hs, data, length);
     memcpy(text, state.init, INIT_SIZE_BYTE);
 
-    /* CryptoNight Step 2:  Iteratively encrypt the results from keccak to fill
+    /* CryptoNight Step 2:  Iteratively encrypt the results from Keccak to fill
      * the 2MB large random access buffer.
      */
 
