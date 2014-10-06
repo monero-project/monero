@@ -255,7 +255,7 @@ bool Blockchain::init(const std::string& config_folder)
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     generate_genesis_block(bl);
     add_new_block(bl, bvc);
-    CHECK_AND_ASSERT_MES(!bvc.m_verification_failed, false, "Failed to add genesis block to blockchain");
+    CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
   }
 
   // check how far behind we are
@@ -374,7 +374,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
 
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);
-  return bvc.m_added_to_main_chain && !bvc.m_verification_failed;
+  return bvc.m_added_to_main_chain && !bvc.m_verifivation_failed;
 }
 //------------------------------------------------------------------
 //TODO: move to BlockchainDB subclass
@@ -999,7 +999,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   if(0 == block_height)
   {
     LOG_ERROR("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative) have wrong miner transaction");
-    bvc.m_verification_failed = true;
+    bvc.m_verifivation_failed = true;
     return false;
   }
   // TODO: this basically says if the blockchain is smaller than the first
@@ -1010,7 +1010,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     LOG_PRINT_RED_L0("Block with id: " << id
       << std::endl << " can't be accepted for alternative chain, block height: " << block_height
       << std::endl << " blockchain height: " << get_current_blockchain_height());
-    bvc.m_verification_failed = true;
+    bvc.m_verifivation_failed = true;
     return false;
   }
 
@@ -1069,7 +1069,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     {
       LOG_PRINT_RED_L0("Block with id: " << id
         << std::endl << " for alternative chain, have invalid timestamp: " << b.timestamp);
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       return false;
     }
 
@@ -1082,7 +1082,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     if(!m_checkpoints.check_block(bei.height, id, is_a_checkpoint))
     {
       LOG_ERROR("CHECKPOINT VALIDATION FAILED");
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       return false;
     }
 
@@ -1097,7 +1097,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       LOG_PRINT_RED_L0("Block with id: " << id
         << std::endl << " for alternative chain, have not enough proof of work: " << proof_of_work
         << std::endl << " expected difficulty: " << current_diff);
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       return false;
     }
 
@@ -1105,7 +1105,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     {
       LOG_PRINT_RED_L0("Block with id: " << epee::string_tools::pod_to_hex(id)
         << " (as alternative) have wrong miner transaction.");
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       return false;
 
     }
@@ -1132,7 +1132,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       bool r = switch_to_alternative_blockchain(alt_chain, true);
 
       bvc.m_added_to_main_chain = r;
-      bvc.m_verification_failed = !r;
+      bvc.m_verifivation_failed = !r;
 
       return r;
     }
@@ -1148,7 +1148,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
       bool r = switch_to_alternative_blockchain(alt_chain, false);
       if(r) bvc.m_added_to_main_chain = true;
-      else bvc.m_verification_failed = true;
+      else bvc.m_verifivation_failed = true;
       return r;
     }
     else
@@ -1881,7 +1881,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   if (have_block(id))
   {
     LOG_PRINT_L0("Attempting to add block to main chain, but it's already either there or in an alternate chain.  hash: " << id);
-    bvc.m_verification_failed = true;
+    bvc.m_verifivation_failed = true;
     return false;
   }
   
@@ -1901,7 +1901,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   {
     LOG_PRINT_L0("Block with id: " << id << std::endl
       << "have invalid timestamp: " << bl.timestamp);
-    bvc.m_verification_failed = true;
+    bvc.m_verifivation_failed = true;
     return false;
   }
 
@@ -1938,7 +1938,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     LOG_PRINT_L0("Block with id: " << id << std::endl
       << "have not enough proof of work: " << proof_of_work << std::endl
       << "nexpected difficulty: " << current_diffic );
-    bvc.m_verification_failed = true;
+    bvc.m_verifivation_failed = true;
     return false;
   }
 
@@ -1949,7 +1949,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     if(!m_checkpoints.check_block(get_current_blockchain_height(), id))
     {
       LOG_ERROR("CHECKPOINT VALIDATION FAILED");
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       return false;
     }
   }
@@ -1961,7 +1961,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   {
     LOG_PRINT_L0("Block with id: " << id
       << " failed to pass prevalidation");
-    bvc.m_verification_failed = true;
+    bvc.m_verifivation_failed = true;
     return false;
   }
 
@@ -1988,7 +1988,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     if (m_db->tx_exists(tx_id))
     {
       LOG_PRINT_L0("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       break;
     }
 
@@ -1996,7 +1996,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     if(!m_tx_pool.take_tx(tx_id, tx, blob_size, fee))
     {
       LOG_PRINT_L0("Block with id: " << id  << "have at least one unknown transaction with id: " << tx_id);
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       break;
     }
 
@@ -2013,14 +2013,14 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
       //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
       add_block_as_invalid(bl, id);
       LOG_PRINT_L0("Block with id " << id << " added as invalid becouse of wrong inputs in transactions");
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       break;
     }
 
     if (!check_for_double_spend(tx, keys))
     {
       LOG_PRINT_L0("Double spend detected in transaction (id: " << tx_id);
-      bvc.m_verification_failed = true;
+      bvc.m_verifivation_failed = true;
       break;
     }
 
@@ -2034,7 +2034,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   {
     LOG_PRINT_L0("Block with id: " << id
       << " have wrong miner transaction");
-    bvc.m_verification_failed = true;
+    bvc.m_verifivation_failed = true;
   }
 
 
@@ -2068,7 +2068,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
   // if we failed for any reason to verify the block, return taken
   // transactions to the tx_pool.
-  if (bvc.m_verification_failed || !add_success)
+  if (bvc.m_verifivation_failed || !add_success)
   {
     // return taken transactions to transaction pool
     for (auto& tx : txs)
