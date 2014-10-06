@@ -76,17 +76,7 @@ endif()
 
 find_package(Unbound REQUIRED)
 
-IF(UNBOUND_INCLUDE_DIR)
-  MESSAGE(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
-  IF(UNBOUND_LIBRARIES)
-    MESSAGE(STATUS "Found libunbound shared library")
-    set(UNBOUND_STATIC false PARENT_SCOPE)
-    set(UNBOUND_INCLUDE ${UNBOUND_INCLUDE_DIR} PARENT_SCOPE)
-    set(UNBOUND_LIBRARY ${UNBOUND_LIBRARIES} PARENT_SCOPE)
-  ELSE()
-    MESSAGE(FATAL_ERROR "${BoldRed}Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent${ColourReset}")
-  ENDIF()
-ELSE()
+IF(!UNBOUND_INCLUDE_DIR OR STATIC)
   if(STATIC)
     message(STATUS "Using libunbound from local source tree for static build")
   else()
@@ -101,29 +91,68 @@ ELSE()
   IF(MINGW)
     EXTERNALPROJECT_ADD(
       libunbound
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/external/unbound
-      BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/unbound
-      CONFIGURE_COMMAND export USE_WINSOCK=1 && ${CMAKE_CURRENT_SOURCE_DIR}/external/unbound/configure --prefix=${CMAKE_FIND_ROOT_PATH} --build=${GCC_PREFIX} --host=${GCC_PREFIX} --disable-shared --enable-static --sysconfdir=${CMAKE_FIND_ROOT_PATH}/etc --localstatedir=${CMAKE_FIND_ROOT_PATH}/var --sbindir=${CMAKE_FIND_ROOT_PATH}/bin --disable-gost --disable-rpath --with-libevent=no --with-libexpat=${CMAKE_FIND_ROOT_PATH} --without-pyunbound --without-pythonmodule --with-ssl=${CMAKE_FIND_ROOT_PATH} --without-pthreads --with-libunbound-only
+      PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
+      URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
+      CONFIGURE_COMMAND export USE_WINSOCK=1 && ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --prefix=${CMAKE_FIND_ROOT_PATH} --build=${GCC_PREFIX} --host=${GCC_PREFIX} --disable-shared --enable-static --sysconfdir=${CMAKE_FIND_ROOT_PATH}/etc --localstatedir=${CMAKE_FIND_ROOT_PATH}/var --sbindir=${CMAKE_FIND_ROOT_PATH}/bin --disable-gost --disable-rpath --with-libevent=no --with-libexpat=${CMAKE_FIND_ROOT_PATH} --without-pyunbound --without-pythonmodule --with-ssl=${CMAKE_FIND_ROOT_PATH} --without-pthreads --with-libunbound-only
       BUILD_COMMAND make
+      UPDATE_COMMAND ""
+      PATCH_COMMAND ""
+      INSTALL_COMMAND ""
+      LOG_DOWNLOAD 1
+      LOG_UPDATE 1
+      LOG_CONFIGURE 1
+      LOG_BUILD 1
+      LOG_TEST 1
+      LOG_INSTALL 1
     )
   ELSEIF(APPLE)
+    execute_process(COMMAND brew --prefix OUTPUT_VARIABLE BREW_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
     EXTERNALPROJECT_ADD(
       libunbound
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/external/unbound
-      BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/unbound
-      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/external/unbound/configure --prefix=$(brew --prefix) --disable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
+      PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
+      URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
+      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --prefix=${BREW_PREFIX} --disable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
       BUILD_COMMAND make
+      UPDATE_COMMAND ""
+      PATCH_COMMAND ""
+      INSTALL_COMMAND ""
+      LOG_DOWNLOAD 1
+      LOG_UPDATE 1
+      LOG_CONFIGURE 1
+      LOG_BUILD 1
+      LOG_TEST 1
+      LOG_INSTALL 1
     )
   ELSE()
     EXTERNALPROJECT_ADD(
       libunbound
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/external/unbound
-      BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/unbound
-      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/external/unbound/configure --disable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
+      PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
+      URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
+      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --disable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
       BUILD_COMMAND make
+      UPDATE_COMMAND ""
+      PATCH_COMMAND ""
+      INSTALL_COMMAND ""
+      LOG_DOWNLOAD 1
+      LOG_UPDATE 1
+      LOG_CONFIGURE 1
+      LOG_BUILD 1
+      LOG_TEST 1
+      LOG_INSTALL 1
     )
   ENDIF()
   
   set(UNBOUND_STATIC true PARENT_SCOPE)
-  set(UNBOUND_LIBRARY unbound-static PARENT_SCOPE)
+  set(UNBOUND_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build" PARENT_SCOPE)
+  set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build" PARENT_SCOPE)
+ELSE()
+  MESSAGE(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
+  IF(UNBOUND_LIBRARIES)
+    MESSAGE(STATUS "Found libunbound shared library")
+    set(UNBOUND_STATIC false PARENT_SCOPE)
+    set(UNBOUND_INCLUDE ${UNBOUND_INCLUDE_DIR} PARENT_SCOPE)
+    set(UNBOUND_LIBRARY ${UNBOUND_LIBRARIES} PARENT_SCOPE)
+  ELSE()
+    MESSAGE(FATAL_ERROR "${BoldRed}Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent${ColourReset}")
+  ENDIF()
 ENDIF()
