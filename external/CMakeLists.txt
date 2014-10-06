@@ -86,7 +86,7 @@ IF(UNBOUND_INCLUDE_DIR)
   ELSE()
     MESSAGE(FATAL_ERROR "${BoldRed}Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent${ColourReset}")
   ENDIF()
-ELSE
+ELSE()
   if(STATIC)
     message(STATUS "Using libunbound from local source tree for static build")
   else()
