@@ -29,6 +29,8 @@
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 add_definitions(-DSTATICLIB)
+# miniupnp changed their static define
+add_definitions(-DMINIUPNP_STATICLIB)
 
 add_subdirectory(gtest)
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
