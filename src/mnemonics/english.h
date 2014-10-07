@@ -1681,6 +1681,7 @@ namespace Language
         "zones",
         "zoom"
       });
+      unique_prefix_length = 3;
       word_map = new std::unordered_map<std::string, uint32_t>;
       trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
       language_name = "English";

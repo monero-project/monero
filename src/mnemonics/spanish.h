@@ -1681,6 +1681,7 @@ namespace Language
         "ritmo",
         "rito"
       });
+      unique_prefix_length = 4;
       word_map = new std::unordered_map<std::string, uint32_t>;
       trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
       language_name = "Spanish";

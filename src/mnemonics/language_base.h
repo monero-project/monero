@@ -45,7 +45,6 @@
  */
 namespace Language
 {
-  const int unique_prefix_length = 4; /*!< Length of the prefix of all words guaranteed to be unique */
   /*!
    * \class Base
    * \brief A base language class which all languages have to inherit from for
@@ -58,7 +57,7 @@ namespace Language
     std::unordered_map<std::string, uint32_t> *word_map; /*!< hash table to find word's index */
     std::unordered_map<std::string, uint32_t> *trimmed_word_map; /*!< hash table to find word's trimmed index */
     std::string language_name; /*!< Name of language */
-    int trim_length; /*!< Number of unique starting characters to trim the wordlist to when matching */
+    uint32_t unique_prefix_length; /*!< Number of unique starting characters to trim the wordlist to when matching */
     /*!
      * \brief Populates the word maps after the list is ready.
      */
@@ -85,6 +84,7 @@ namespace Language
       word_list = new std::vector<std::string>;
       word_map = new std::unordered_map<std::string, uint32_t>;
       trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
+      unique_prefix_length = 4;
     }
     /*!
      * \brief Returns a pointer to the word list.
@@ -122,9 +122,9 @@ namespace Language
      * \brief Returns the number of unique starting characters to be used for matching.
      * \return Number of unique starting characters.
      */
-    int get_trim_length() const
+    uint32_t get_unique_prefix_length() const
     {
-      return trim_length;
+      return unique_prefix_length;
     }
   };
 }
