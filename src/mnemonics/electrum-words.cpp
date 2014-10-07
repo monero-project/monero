@@ -59,8 +59,6 @@
 #include "language_base.h"
 #include "singleton.h"
 
-#include <iostream>
-
 namespace
 {
   const int seed_length = 24;
