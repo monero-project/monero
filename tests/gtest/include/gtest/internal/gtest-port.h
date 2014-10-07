@@ -188,7 +188,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
+#if !defined(_MSC_VER)
+# include <unistd.h>
+#endif
 #ifndef _WIN32_WCE
 # include <sys/types.h>
 # include <sys/stat.h>

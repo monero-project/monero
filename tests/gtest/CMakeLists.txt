@@ -5,6 +5,13 @@
 # ctest.  You can select which tests to run using 'ctest -R regex'.
 # For more options, run 'ctest --help'.
 
+# Modification for Monero/MSVC: force gtest.lib to use static/dynamic settings from root
+if(MSVC)
+  if(NOT STATIC)
+    set(BUILD_SHARED_LIBS ON)
+  endif()
+endif()
+
 # BUILD_SHARED_LIBS is a standard CMake variable, but we declare it here to
 # make it prominent in the GUI.
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)

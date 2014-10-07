@@ -27,14 +27,24 @@
 
 MESSAGE(STATUS "Looking for libunbound")
 
-FIND_PATH(UNBOUND_INCLUDE_DIR
-  NAMES unbound.h
-  PATH_SUFFIXES include/ include/unbound/
-  PATHS "${PROJECT_SOURCE_DIR}"
-  ${UNBOUND_ROOT}
-  $ENV{UNBOUND_ROOT}
-  /usr/local/
-  /usr/
-)
+if(MSVC)
+  # MSVC build: check for pre-compiled library at most probable location
+  set(UNBOUND_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/unbound/libunbound)
+  set(UNBOUND_LIBRARIES ${PROJECT_SOURCE_DIR}/external/unbound/.libs/libunbound.dll.a)
+  if(NOT EXISTS ${UNBOUND_LIBRARIES})
+    message(FATAL_ERROR "libunbound library not found") 
+  endif()
 
-find_library(UNBOUND_LIBRARIES unbound)
+else()
+  FIND_PATH(UNBOUND_INCLUDE_DIR
+    NAMES unbound.h
+    PATH_SUFFIXES include/ include/unbound/
+    PATHS "${PROJECT_SOURCE_DIR}"
+    ${UNBOUND_ROOT}
+    $ENV{UNBOUND_ROOT}
+    /usr/local/
+    /usr/
+  )
+
+  find_library(UNBOUND_LIBRARIES unbound)
+endif()
