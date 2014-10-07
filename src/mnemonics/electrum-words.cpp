@@ -61,7 +61,6 @@
 
 namespace
 {
-  const int seed_length = 24;
 
   /*!
    * \brief Finds the word list that contains the seed words and puts the indices
@@ -154,7 +153,7 @@ namespace
     }
     boost::crc_32_type result;
     result.process_bytes(trimmed_words.data(), trimmed_words.length());
-    return result.checksum() % seed_length;
+    return result.checksum() % crypto::ElectrumWords::seed_length;
   }
 
   /*!
@@ -200,11 +199,12 @@ namespace crypto
      * \param  language_name   Language of the seed as found gets written here.
      * \return                 false if not a multiple of 3 words, or if word is not in the words list
      */
-    bool words_to_bytes(const std::string& words, crypto::secret_key& dst,
+    bool words_to_bytes(std::string words, crypto::secret_key& dst,
       std::string &language_name)
     {
       std::vector<std::string> seed;
 
+      boost::algorithm::trim(words);
       boost::split(seed, words, boost::is_any_of(" "));
 
       // error on non-compliant word list
@@ -234,7 +234,7 @@ namespace crypto
           return false;
         }
         seed.pop_back();
-      }      
+      }
 
       for (unsigned int i=0; i < seed.size() / 3; i++)
       {
