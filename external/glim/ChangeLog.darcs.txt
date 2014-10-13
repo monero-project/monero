@@ -1,0 +1,62 @@
+Wed Dec  6 23:50:10 Russian Standard Time 2006  ArtemGr <artem@bizlink.ru>
+  * Fixes discovered under FreeBSD.
+
+Wed Dec  6 04:43:04 Russian Standard Time 2006  ArtemGr <artem@bizlink.ru>
+  * Ported to Gentoo gcc 4.1.1
+
+Fri Nov 24 14:17:08 Russian Standard Time 2006  ArtemGr <artem@bizlink.ru>
+  * Documentation improvements for the release.
+
+Fri Nov 24 13:13:50 Russian Standard Time 2006  ArtemGr <artem@bizlink.ru>
+  * A few fixes.
+
+Fri Nov 24 13:13:20 Russian Standard Time 2006  ArtemGr <artem@bizlink.ru>
+  * Do not remove the "html" directory when cleaning.
+
+Wed Nov 22 15:30:56 Russian Standard Time 2006  ArtemGr <artem@bizlink.ru>
+  * Added a compatibility #pair method to bufstr_t.
+
+Tue Nov 21 21:54:40 Russian Standard Time 2006  ArtemGr <artem@bizlink.ru>
+  * Implemented the sugared way to querying.
+
+Mon Oct  9 23:19:11 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Fixed incorrect statement = NULL in #step. Implemented parameter bindings.
+
+Mon Oct  9 20:09:17 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * SqliteQuery and SqliteParQuery classes (no binding support as of yet).
+
+Fri Oct  6 12:11:43 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * typo
+
+Thu Oct  5 23:26:21 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Basic mutex operations in SqliteSession.
+
+Sun Oct  1 23:19:36 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Compatibility with std::string.
+
+Fri Sep 29 11:42:09 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Invented SqliteSession.
+
+Fri Sep 29 01:23:31 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * SQLite wrapper: initial documentation; opening, closing.
+
+Thu Sep 28 23:15:37 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Apache version 2 license.
+
+Thu Sep 28 23:12:41 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Multiple source files for tests.
+
+Thu Sep 28 01:05:21 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Append from another bufstr_t and from a pair.
+
+Thu Sep 28 01:04:46 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Macro to construct pair from C character array.
+
+Tue Sep 26 23:23:40 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * char const* instead of const char*
+
+Tue Sep 26 20:56:07 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Everything seems to work. The library is now headers-only.
+
+Mon Sep 25 22:52:34 Russian Daylight Time 2006  ArtemGr <artem@bizlink.ru>
+  * Initial revision, containing bufstr_t; compiles, but does not work.
