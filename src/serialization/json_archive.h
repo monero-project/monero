@@ -28,9 +28,10 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-/* json_archive.h
+/*! \file json_archive.h
  *
- * JSON archive */
+ * \brief JSON archive
+ */
 
 #pragma once
 
@@ -39,6 +40,12 @@
 #include <iostream>
 #include <iomanip>
 
+/*! \struct json_archive_base
+ *
+ * \brief the base class of json archive type
+ *
+ * \detailed contains the basic logic for serializing a json archive
+ */
 template <class Stream, bool IsSaving>
 struct json_archive_base
 {
@@ -48,7 +55,8 @@ struct json_archive_base
 
   typedef const char *variant_tag_type;
 
-  json_archive_base(stream_type &s, bool indent = false) : stream_(s), indent_(indent), object_begin(false), depth_(0) { }
+  json_archive_base(stream_type &s, bool indent = false)
+  : stream_(s), indent_(indent), object_begin(false), depth_(0) { }
 
   void tag(const char *tag) {
     if (!object_begin)
@@ -92,6 +100,13 @@ protected:
   size_t depth_;
 };
 
+
+/*! \struct json_archive
+ * 
+ * \brief a archive using the JSON standard
+ *
+ * \detailed only supports being written to
+ */
 template <bool W>
 struct json_archive;
 
