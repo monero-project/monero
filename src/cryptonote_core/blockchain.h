@@ -81,8 +81,7 @@ namespace cryptonote
 
     Blockchain(tx_memory_pool& tx_pool);
 
-    bool init() { return init(tools::get_default_data_dir()); }
-    bool init(const std::string& config_folder);
+    bool init(const std::string& config_folder, bool testnet = false);
     bool deinit();
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
@@ -189,7 +188,7 @@ namespace cryptonote
     bool prevalidate_miner_transaction(const block& b, uint64_t height);
     bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins);
     bool validate_transaction(const block& b, uint64_t height, const transaction& tx);
-    bool rollback_blockchain_switching(std::list<block>& original_chain);
+    bool rollback_blockchain_switching(std::list<block>& original_chain, uint64_t rollback_height);
     bool add_transaction_from_block(const transaction& tx, const crypto::hash& tx_id, const crypto::hash& bl_id, uint64_t bl_height);
     bool push_transaction_to_global_outs_index(const transaction& tx, const crypto::hash& tx_id, std::vector<uint64_t>& global_indexes);
     bool pop_transaction_from_global_index(const transaction& tx, const crypto::hash& tx_id);
@@ -199,7 +198,7 @@ namespace cryptonote
     bool add_block_as_invalid(const block& bl, const crypto::hash& h);
     bool add_block_as_invalid(const block_extended_info& bei, const crypto::hash& h);
     bool check_block_timestamp(const block& b);
-    bool check_block_timestamp(const std::vector<uint64_t>& timestamps, const block& b);
+    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b);
     uint64_t get_adjusted_time();
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps);
     bool update_next_cumulative_size_limit();

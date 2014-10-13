@@ -218,7 +218,7 @@ uint64_t Blockchain::get_current_blockchain_height()
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(const std::string& config_folder)
+bool Blockchain::init(const std::string& config_folder, bool testnet)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
@@ -248,14 +248,28 @@ bool Blockchain::init(const std::string& config_folder)
 
   // if the blockchain is new, add the genesis block
   // this feels kinda kludgy to do it this way, but can be looked at later.
+  // TODO: add function to create and store genesis block,
+  //       taking testnet into account
   if(!m_db->height())
   {
     LOG_PRINT_L0("Blockchain not loaded, generating genesis block.");
     block bl = boost::value_initialized<block>();
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
-    generate_genesis_block(bl);
+    if (testnet)
+    {
+      generate_genesis_block(bl, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+    }
+    else
+    {
+      generate_genesis_block(bl, config::GENESIS_TX, config::GENESIS_NONCE);
+    }
     add_new_block(bl, bvc);
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
+  }
+  // TODO: if blockchain load successful, verify blockchain against both
+  //       hard-coded and runtime-loaded (and enforced) checkpoints.
+  else
+  {
   }
 
   // check how far behind we are
@@ -576,14 +590,12 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 // This function removes blocks from the blockchain until it gets to the
 // position where the blockchain switch started and then re-adds the blocks
 // that had been removed.
-bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain)
+bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain, uint64_t rollback_height)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
-  // remove blocks from blockchain until we get back to where we were.
-  // Conveniently, that's until our top block's hash == the parent block of
-  // the first block we need to add back.
-  while (m_db->top_block_hash() != original_chain.front().prev_id)
+  // remove blocks from blockchain until we get back to where we should be.
+  while (m_db->height() != rollback_height)
   {
     pop_block_from_blockchain();
   }
@@ -596,6 +608,11 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain)
     CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC!!! failed to add (again) block while chain switching during the rollback!");
   }
 
+  LOG_PRINT_L1("Rollback to height " << rollback_height << " was successful.");
+  if (original_chain.size())
+  {
+    LOG_PRINT_L1("Restoration to previous blockchain successful as well.");
+  }
   return true;
 }
 //------------------------------------------------------------------
@@ -640,7 +657,11 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
     if(!r || !bvc.m_added_to_main_chain)
     {
       LOG_PRINT_L0("Failed to switch to alternative blockchain");
-      rollback_blockchain_switching(disconnected_chain);
+
+      // rollback_blockchain_switching should be moved to two different
+      // functions: rollback and apply_chain, but for now we pretend it is
+      // just the latter (because the rollback was done above).
+      rollback_blockchain_switching(disconnected_chain, m_db->height());
 
       // FIXME: Why do we keep invalid blocks around?  Possibly in case we hear
       // about them again so we can immediately dismiss them, but needs some
@@ -1823,7 +1844,8 @@ uint64_t Blockchain::get_adjusted_time()
   return time(NULL);
 }
 //------------------------------------------------------------------
-bool Blockchain::check_block_timestamp(const std::vector<uint64_t>& timestamps, const block& b)
+//TODO: revisit, has changed a bit on upstream
+bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b)
 {
   uint64_t median_ts = epee::misc_utils::median(timestamps);
 
