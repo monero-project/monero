@@ -55,19 +55,6 @@ namespace
   }
 
   /*!
-   * \brief Print a seed
-   * \param seed word list
-   */
-  void print_seed(const std::vector<std::string> &seed)
-  {
-    for (std::vector<std::string>::const_iterator it = seed.begin(); it != seed.end(); it++)
-    {
-      std::cout << *it << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  /*!
    * \brief Compares vectors for equality
    * \param expected expected vector
    * \param present  current vector
