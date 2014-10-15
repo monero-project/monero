@@ -61,7 +61,6 @@
 
 namespace
 {
-  const int seed_length = 24;
 
   /*!
    * \brief Finds the word list that contains the seed words and puts the indices
@@ -69,11 +68,11 @@ namespace
    * \param  seed            List of words to match.
    * \param  has_checksum    If word list passed checksum test, we need to only do a prefix check.
    * \param  matched_indices The indices where the seed words were found are added to this.
+   * \param  language        Language instance pointer to write to after it is found.
    * \return                 true if all the words were present in some language false if not.
    */
   bool find_seed_language(const std::vector<std::string> &seed,
-    bool has_checksum, std::vector<uint32_t> &matched_indices, uint32_t &word_list_length,
-    std::string &language_name)
+    bool has_checksum, std::vector<uint32_t> &matched_indices, Language::Base **language)
   {
     // If there's a new language added, add an instance of it here.
     std::vector<Language::Base*> language_instances({
@@ -83,18 +82,6 @@ namespace
       Language::Singleton<Language::Japanese>::instance(),
       Language::Singleton<Language::OldEnglish>::instance()
     });
-    // To hold trimmed seed words in case of a checksum being present.
-    std::vector<std::string> trimmed_seed;
-    if (has_checksum)
-    {
-      // If it had a checksum, we'll just compare the unique prefix
-      // So we create a list of trimmed seed words
-      for (std::vector<std::string>::const_iterator it = seed.begin(); it != seed.end(); it++)
-      {
-        trimmed_seed.push_back(it->length() > Language::unique_prefix_length ?
-          it->substr(0, Language::unique_prefix_length) : *it);
-      }
-    }
 
     // Iterate through all the languages and find a match
     for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
@@ -104,23 +91,22 @@ namespace
       const std::unordered_map<std::string, uint32_t> &trimmed_word_map = (*it1)->get_trimmed_word_map();
       // To iterate through seed words
       std::vector<std::string>::const_iterator it2;
-      // To iterate through trimmed seed words
-      std::vector<std::string>::iterator it3;
       bool full_match = true;
 
+      std::string trimmed_word;
       // Iterate through all the words and see if they're all present
-      for (it2 = seed.begin(), it3 = trimmed_seed.begin();
-        it2 != seed.end(); it2++, it3++)
+      for (it2 = seed.begin(); it2 != seed.end(); it2++)
       {
         if (has_checksum)
         {
+          trimmed_word = it2->substr(0, (*it1)->get_unique_prefix_length());
           // Use the trimmed words and map
-          if (trimmed_word_map.count(*it3) == 0)
+          if (trimmed_word_map.count(trimmed_word) == 0)
           {
             full_match = false;
             break;
           }
-          matched_indices.push_back(trimmed_word_map.at(*it3));
+          matched_indices.push_back(trimmed_word_map.at(trimmed_word));
         }
         else
         {
@@ -134,8 +120,7 @@ namespace
       }
       if (full_match)
       {
-        word_list_length = (*it1)->get_word_list().size();
-        language_name = (*it1)->get_language_name();
+        *language = *it1;
         return true;
       }
       // Some didn't match. Clear the index array.
@@ -146,18 +131,20 @@ namespace
 
   /*!
    * \brief Creates a checksum index in the word list array on the list of words.
-   * \param  word_list Vector of words
-   * \return           Checksum index
+   * \param  word_list            Vector of words
+   * \param unique_prefix_length  the prefix length of each word to use for checksum
+   * \return                      Checksum index
    */
-  uint32_t create_checksum_index(const std::vector<std::string> &word_list)
+  uint32_t create_checksum_index(const std::vector<std::string> &word_list,
+    uint32_t unique_prefix_length)
   {
     std::string trimmed_words = "";
 
     for (std::vector<std::string>::const_iterator it = word_list.begin(); it != word_list.end(); it++)
     {
-      if (it->length() > 4)
+      if (it->length() > unique_prefix_length)
       {
-        trimmed_words += it->substr(0, Language::unique_prefix_length);
+        trimmed_words += it->substr(0, unique_prefix_length);
       }
       else
       {
@@ -166,25 +153,26 @@ namespace
     }
     boost::crc_32_type result;
     result.process_bytes(trimmed_words.data(), trimmed_words.length());
-    return result.checksum() % seed_length;
+    return result.checksum() % crypto::ElectrumWords::seed_length;
   }
 
   /*!
    * \brief Does the checksum test on the seed passed.
-   * \param seed    Vector of seed words
-   * \return        True if the test passed false if not.
+   * \param seed                  Vector of seed words
+   * \param unique_prefix_length  the prefix length of each word to use for checksum
+   * \return                      True if the test passed false if not.
    */
-  bool checksum_test(std::vector<std::string> seed)
+  bool checksum_test(std::vector<std::string> seed, uint32_t unique_prefix_length)
   {
     // The last word is the checksum.
     std::string last_word = seed.back();
     seed.pop_back();
 
-    std::string checksum = seed[create_checksum_index(seed)];
+    std::string checksum = seed[create_checksum_index(seed, unique_prefix_length)];
 
-    std::string trimmed_checksum = checksum.length() > 4 ? checksum.substr(0, Language::unique_prefix_length) :
+    std::string trimmed_checksum = checksum.length() > unique_prefix_length ? checksum.substr(0, unique_prefix_length) :
       checksum;
-    std::string trimmed_last_word = checksum.length() > 4 ? last_word.substr(0, Language::unique_prefix_length) :
+    std::string trimmed_last_word = last_word.length() > unique_prefix_length ? last_word.substr(0, unique_prefix_length) :
       last_word;
     return trimmed_checksum == trimmed_last_word;
   }
@@ -211,11 +199,12 @@ namespace crypto
      * \param  language_name   Language of the seed as found gets written here.
      * \return                 false if not a multiple of 3 words, or if word is not in the words list
      */
-    bool words_to_bytes(const std::string& words, crypto::secret_key& dst,
+    bool words_to_bytes(std::string words, crypto::secret_key& dst,
       std::string &language_name)
     {
       std::vector<std::string> seed;
 
+      boost::algorithm::trim(words);
       boost::split(seed, words, boost::is_any_of(" "));
 
       // error on non-compliant word list
@@ -227,21 +216,24 @@ namespace crypto
 
       // If it is seed with a checksum.
       bool has_checksum = seed.size() == (seed_length + 1);
+
+      std::vector<uint32_t> matched_indices;
+      Language::Base *language;
+      if (!find_seed_language(seed, has_checksum, matched_indices, &language))
+      {
+        return false;
+      }
+      language_name = language->get_language_name();
+      uint32_t word_list_length = language->get_word_list().size();
+
       if (has_checksum)
       {
-        if (!checksum_test(seed))
+        if (!checksum_test(seed, language->get_unique_prefix_length()))
         {
           // Checksum fail
           return false;
         }
         seed.pop_back();
-      }
-      
-      std::vector<uint32_t> matched_indices;
-      uint32_t word_list_length = 0;
-      if (!find_seed_language(seed, has_checksum, matched_indices, word_list_length, language_name))
-      {
-        return false;
       }
 
       for (unsigned int i=0; i < seed.size() / 3; i++)
@@ -335,7 +327,7 @@ namespace crypto
       }
 
       words.pop_back();
-      words += (' ' + words_store[create_checksum_index(words_store)]);
+      words += (' ' + words_store[create_checksum_index(words_store, language->get_unique_prefix_length())]);
       return false;
     }
 

@@ -59,6 +59,7 @@ namespace crypto
   namespace ElectrumWords
   {
 
+    const int seed_length = 24;
     const std::string old_language_name = "OldEnglish";
     /*!
      * \brief Converts seed words to bytes (secret key).
@@ -67,7 +68,7 @@ namespace crypto
      * \param  language_name   Language of the seed as found gets written here.
      * \return                 false if not a multiple of 3 words, or if word is not in the words list
      */
-    bool words_to_bytes(const std::string& words, crypto::secret_key& dst,
+    bool words_to_bytes(std::string words, crypto::secret_key& dst,
       std::string &language_name);
 
     /*!
