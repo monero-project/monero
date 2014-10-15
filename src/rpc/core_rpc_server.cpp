@@ -111,7 +111,7 @@ namespace cryptonote
     }
     return true;
   }
-#define CHECK_CORE_BUSY() if(!check_core_busy()){res.status =  CORE_RPC_STATUS_BUSY;return true;}
+#define CHECK_CORE_BUSY() do { if(!check_core_busy()){res.status =  CORE_RPC_STATUS_BUSY;return true;} } while(0)
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::check_core_ready()
   {
@@ -121,7 +121,7 @@ namespace cryptonote
     }
     return check_core_busy();
   }
-#define CHECK_CORE_READY() if(!check_core_ready()){res.status =  CORE_RPC_STATUS_BUSY;return true;}
+#define CHECK_CORE_READY() do { if(!check_core_ready()){res.status =  CORE_RPC_STATUS_BUSY;return true;} } while(0)
 
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_height(const COMMAND_RPC_GET_HEIGHT::request& req, COMMAND_RPC_GET_HEIGHT::response& res, connection_context& cntx)
@@ -398,17 +398,19 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  uint64_t slow_memmem(void* start_buff, size_t buflen,void* pat,size_t patlen)
+  // equivalent of strstr, but with arbitrary bytes (ie, NULs)
+  // This does not differentiate between "not found" and "found at offset 0"
+  uint64_t slow_memmem(const void* start_buff, size_t buflen,const void* pat,size_t patlen)
   {
-    void* buf = start_buff;
-    void* end=(char*)buf+buflen-patlen;
-    while((buf=memchr(buf,((char*)pat)[0],buflen)))
+    const void* buf = start_buff;
+    const void* end=(const char*)buf+buflen;
+    if (patlen > buflen || patlen == 0) return 0;
+    while(buflen>0 && (buf=memchr(buf,((const char*)pat)[0],buflen-patlen+1)))
     {
-      if(buf>end)
-        return 0;
       if(memcmp(buf,pat,patlen)==0)
-        return (char*)buf - (char*)start_buff;
-      buf=(char*)buf+1;
+        return (const char*)buf - (const char*)start_buff;
+      buf=(const char*)buf+1;
+      buflen = (const char*)end - (const char*)buf;
     }
     return 0;
   }
