@@ -68,7 +68,7 @@ target_link_libraries(functional_tests cryptonote_core wallet common crypto ${UN
 target_link_libraries(hash-tests crypto)
 target_link_libraries(hash-target-tests crypto cryptonote_core)
 target_link_libraries(performance_tests cryptonote_core common crypto ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(unit_tests gtest_main cryptonote_core wallet crypto common ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
+target_link_libraries(unit_tests gtest_main rpc cryptonote_core wallet crypto common ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
 target_link_libraries(net_load_tests_clt cryptonote_core common crypto gtest_main ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
 target_link_libraries(net_load_tests_srv cryptonote_core common crypto gtest_main ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
 
