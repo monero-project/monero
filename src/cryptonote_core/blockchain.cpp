@@ -547,11 +547,16 @@ bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk)
   return false;
 }
 //------------------------------------------------------------------
+//FIXME: this function does not seem to be called from anywhere, but
+// if it ever is, should probably change std::list for std::vector
 void Blockchain::get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
-  main = m_db->get_hashes_range(0, m_db->height());
+  for (auto& a : m_db->get_hashes_range(0, m_db->height()))
+  {
+    main.push_back(a);
+  }
 
   BOOST_FOREACH(blocks_ext_by_hash::value_type &v, m_alternative_chains)
     alt.push_back(v.first);

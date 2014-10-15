@@ -25,6 +25,8 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#ifndef BLOCKCHAIN_DB_H
+#define BLOCKCHAIN_DB_H
 
 #include <list>
 #include <string>
@@ -69,6 +71,8 @@
  *   unless the blockchain is changing.
  *   bool lock()
  *   unlock()
+ *
+ * vector<str>   get_filenames()
  *
  * Blocks:
  *   bool        block_exists(hash)
@@ -364,6 +368,11 @@ private:
 
 
 public:
+
+  // virtual dtor
+  virtual ~BlockchainDB() { };
+
+
   // open the db at location <filename>, or create it if there isn't one.
   virtual void open(const std::string& filename) = 0;
 
@@ -378,6 +387,9 @@ public:
 
   // reset the db -- USE WITH CARE
   virtual void reset() = 0;
+
+  // get all files used by this db (if any)
+  virtual std::vector<std::string> get_filenames() = 0;
 
 
   // FIXME: these are just for functionality mocking, need to implement
@@ -435,11 +447,11 @@ public:
   // return hash of block at height <height>
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) = 0;
 
-  // return list of blocks in range <h1,h2> of height.
-  virtual std::list<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) = 0;
+  // return vector of blocks in range <h1,h2> of height (inclusively)
+  virtual std::vector<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) = 0;
 
-  // return list of block hashes in range <h1, h2> of height
-  virtual std::list<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) = 0;
+  // return vector of block hashes in range <h1, h2> of height (inclusively)
+  virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) = 0;
 
   // return the hash of the top block on the chain
   virtual crypto::hash top_block_hash() = 0;
@@ -479,7 +491,7 @@ public:
   // return list of tx with hashes <hlist>.
   // TODO: decide if a missing hash means return empty list
   // or just skip that hash
-  virtual std::list<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) = 0;
+  virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) = 0;
 
   // returns height of block that contains transaction with hash <h>
   virtual uint64_t get_tx_block_height(const crypto::hash& h) = 0;
@@ -511,3 +523,5 @@ public:
 
 
 }  // namespace cryptonote
+
+#endif  // BLOCKCHAIN_DB_H
