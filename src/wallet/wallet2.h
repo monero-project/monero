@@ -155,7 +155,11 @@ namespace tools
     /*!
      * \brief Sets the seed language
      */
-    void set_seed_language(const std::string &language);    
+    void set_seed_language(const std::string &language);
+    /*!
+     * \brief Tells if the wallet file is deprecated.
+     */
+    bool is_deprecated() const;
     void refresh();
     void refresh(uint64_t start_height, size_t & blocks_fetched);
     void refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money);
@@ -240,6 +244,7 @@ namespace tools
     i_wallet2_callback* m_callback;
     bool m_testnet;
     std::string seed_language;
+    bool is_old_file_format;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)

@@ -48,6 +48,11 @@ using namespace epee;
 #include "cryptonote_protocol/blobdatatype.h"
 #include "mnemonics/electrum-words.h"
 #include "common/dns_utils.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+
+#include <iostream>
 
 extern "C"
 {
@@ -103,6 +108,13 @@ bool wallet2::get_seed(std::string& electrum_words)
 void wallet2::set_seed_language(const std::string &language)
 {
   seed_language = language;
+}
+/*!
+ * \brief Tells if the wallet file is deprecated.
+ */
+bool wallet2::is_deprecated() const
+{
+  return is_old_file_format;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height)
@@ -440,6 +452,18 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   CHECK_AND_ASSERT_MES(r, false, "failed to serialize wallet keys");
   wallet2::keys_file_data keys_file_data = boost::value_initialized<wallet2::keys_file_data>();
 
+  rapidjson::Document json;
+  json.SetObject();
+  rapidjson::Value value(rapidjson::kStringType);
+  value.SetString(account_data.c_str(), account_data.length());
+  json.AddMember("key_data", value, json.GetAllocator());
+  value.SetString(seed_language.c_str(), seed_language.length());
+  json.AddMember("seed_language", value, json.GetAllocator());
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  json.Accept(writer);
+
+  account_data = buffer.GetString();
   crypto::chacha8_key key;
   crypto::generate_chacha8_key(password, key);
   std::string cipher;
@@ -472,14 +496,28 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   std::string buf;
   bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
+
   r = ::serialization::parse_binary(buf, keys_file_data);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
-
   crypto::chacha8_key key;
   crypto::generate_chacha8_key(password, key);
   std::string account_data;
   account_data.resize(keys_file_data.account_data.size());
   crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
+
+  rapidjson::Document json;
+  if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
+  {
+    is_old_file_format = true;
+  }
+  else
+  {
+    account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
+      json["key_data"].GetStringLength());
+    std::cout << "A/C " << json["key_data"].GetStringLength() << std::endl;
+    seed_language = std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
+      json["seed_language"].GetStringLength());
+  }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
   r = epee::serialization::load_t_from_binary(m_account, account_data);
