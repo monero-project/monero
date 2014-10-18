@@ -207,7 +207,18 @@ namespace tools
 
     static std::string address_from_txt_record(const std::string& s);
   private:
+    /*!
+     * Stores wallet information to wallet file.
+     * @param  keys_file_name Name of wallet file
+     * @param  password       Password of wallet file
+     * @return                Whether it was successful.
+     */
     bool store_keys(const std::string& keys_file_name, const std::string& password);
+    /*!
+     * Load wallet information from wallet file.
+     * @param keys_file_name Name of wallet file
+     * @param password       Password of wallet file
+     */
     void load_keys(const std::string& keys_file_name, const std::string& password);
     void process_new_transaction(const cryptonote::transaction& tx, uint64_t height);
     void process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
@@ -243,8 +254,8 @@ namespace tools
 
     i_wallet2_callback* m_callback;
     bool m_testnet;
-    std::string seed_language;
-    bool is_old_file_format;
+    std::string seed_language; /*!< Language of the mnemonics (seed). */
+    bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)

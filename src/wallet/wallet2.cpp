@@ -104,6 +104,7 @@ bool wallet2::get_seed(std::string& electrum_words)
 }
 /*!
  * \brief Sets the seed language
+ * \param language  Seed language to set to
  */
 void wallet2::set_seed_language(const std::string &language)
 {
@@ -444,7 +445,13 @@ bool wallet2::clear()
   m_local_bc_height = 1;
   return true;
 }
-//----------------------------------------------------------------------------------------------------
+
+/*!
+ * Stores wallet information to wallet file.
+ * @param  keys_file_name Name of wallet file
+ * @param  password       Password of wallet file
+ * @return                Whether it was successful.
+ */
 bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password)
 {
   std::string account_data;
@@ -493,7 +500,12 @@ namespace
     return r && expected_pub == pub;
   }
 }
-//----------------------------------------------------------------------------------------------------
+
+/*!
+ * Load wallet information from wallet file.
+ * @param keys_file_name Name of wallet file
+ * @param password       Password of wallet file
+ */
 void wallet2::load_keys(const std::string& keys_file_name, const std::string& password)
 {
   wallet2::keys_file_data keys_file_data;
@@ -530,7 +542,16 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
 }
-//----------------------------------------------------------------------------------------------------
+
+/*!
+ * Generates a wallet or restores one.
+ * @param  wallet_        Name of wallet file
+ * @param  password       Password of wallet file
+ * @param  recovery_param If it is a restore, the recovery key
+ * @param  recover        Whether it is a restore
+ * @param  two_random     Whether it is a non-deterministic wallet
+ * @return                The secret key of the generated wallet
+ */
 crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password, const crypto::secret_key& recovery_param, bool recover, bool two_random)
 {
   clear();
