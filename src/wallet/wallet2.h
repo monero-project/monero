@@ -133,9 +133,23 @@ namespace tools
       END_SERIALIZE()
     };
 
+    /*!
+     * \brief Generates a wallet or restores one.
+     * \param  wallet_        Name of wallet file
+     * \param  password       Password of wallet file
+     * \param  recovery_param If it is a restore, the recovery key
+     * \param  recover        Whether it is a restore
+     * \param  two_random     Whether it is a non-deterministic wallet
+     * \return                The secret key of the generated wallet
+     */
     crypto::secret_key generate(const std::string& wallet, const std::string& password,
       const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false,
       bool two_random = false);
+    /*!
+     * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
+     * \param wallet_name Name of wallet file (should exist)
+     * \param password    Password for wallet file
+     */
     void rewrite(const std::string& wallet_name, const std::string& password);
     void load(const std::string& wallet, const std::string& password);
     void store();
@@ -211,16 +225,16 @@ namespace tools
     static std::string address_from_txt_record(const std::string& s);
   private:
     /*!
-     * Stores wallet information to wallet file.
-     * @param  keys_file_name Name of wallet file
-     * @param  password       Password of wallet file
-     * @return                Whether it was successful.
+     * \brief  Stores wallet information to wallet file.
+     * \param  keys_file_name Name of wallet file
+     * \param  password       Password of wallet file
+     * \return                Whether it was successful.
      */
     bool store_keys(const std::string& keys_file_name, const std::string& password);
     /*!
-     * Load wallet information from wallet file.
-     * @param keys_file_name Name of wallet file
-     * @param password       Password of wallet file
+     * \brief Load wallet information from wallet file.
+     * \param keys_file_name Name of wallet file
+     * \param password       Password of wallet file
      */
     void load_keys(const std::string& keys_file_name, const std::string& password);
     void process_new_transaction(const cryptonote::transaction& tx, uint64_t height);

@@ -447,10 +447,10 @@ bool wallet2::clear()
 }
 
 /*!
- * Stores wallet information to wallet file.
- * @param  keys_file_name Name of wallet file
- * @param  password       Password of wallet file
- * @return                Whether it was successful.
+ * \brief Stores wallet information to wallet file.
+ * \param  keys_file_name Name of wallet file
+ * \param  password       Password of wallet file
+ * \return                Whether it was successful.
  */
 bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password)
 {
@@ -502,9 +502,9 @@ namespace
 }
 
 /*!
- * Load wallet information from wallet file.
- * @param keys_file_name Name of wallet file
- * @param password       Password of wallet file
+ * \brief Load wallet information from wallet file.
+ * \param keys_file_name Name of wallet file
+ * \param password       Password of wallet file
  */
 void wallet2::load_keys(const std::string& keys_file_name, const std::string& password)
 {
@@ -544,13 +544,13 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
 }
 
 /*!
- * Generates a wallet or restores one.
- * @param  wallet_        Name of wallet file
- * @param  password       Password of wallet file
- * @param  recovery_param If it is a restore, the recovery key
- * @param  recover        Whether it is a restore
- * @param  two_random     Whether it is a non-deterministic wallet
- * @return                The secret key of the generated wallet
+ * \brief  Generates a wallet or restores one.
+ * \param  wallet_        Name of wallet file
+ * \param  password       Password of wallet file
+ * \param  recovery_param If it is a restore, the recovery key
+ * \param  recover        Whether it is a restore
+ * \param  two_random     Whether it is a non-deterministic wallet
+ * \return                The secret key of the generated wallet
  */
 crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password,
   const crypto::secret_key& recovery_param, bool recover, bool two_random)
@@ -580,6 +580,11 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   return retval;
 }
 
+/*!
+ * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
+ * \param wallet_name Name of wallet file (should exist)
+ * \param password    Password for wallet file
+ */
 void wallet2::rewrite(const std::string& wallet_name, const std::string& password)
 {
   prepare_file_names(wallet_name);
