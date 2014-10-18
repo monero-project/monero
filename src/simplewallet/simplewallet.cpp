@@ -573,7 +573,7 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
         "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n";
       std::string mnemonic_language = get_mnemonic_language();
       m_wallet->set_seed_language(mnemonic_language);
-      m_wallet->generate(m_wallet_file, password, m_recovery_key, false, true);
+      m_wallet->rewrite(m_wallet_file, password);
     }
   }
   catch (const std::exception& e)

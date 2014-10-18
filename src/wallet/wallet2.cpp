@@ -552,7 +552,8 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
  * @param  two_random     Whether it is a non-deterministic wallet
  * @return                The secret key of the generated wallet
  */
-crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password, const crypto::secret_key& recovery_param, bool recover, bool two_random)
+crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password,
+  const crypto::secret_key& recovery_param, bool recover, bool two_random)
 {
   clear();
   prepare_file_names(wallet_);
@@ -577,6 +578,17 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
 
   store();
   return retval;
+}
+
+void wallet2::rewrite(const std::string& wallet_name, const std::string& password)
+{
+  prepare_file_names(wallet_name);
+  boost::system::error_code ignored_ec;
+  THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_not_found, m_wallet_file);
+  THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_keys_file, ignored_ec), error::file_not_found, m_keys_file);
+  bool r = store_keys(m_keys_file, password);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+  store();
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
