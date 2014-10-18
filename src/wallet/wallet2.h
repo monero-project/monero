@@ -82,7 +82,7 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
-    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet) {};
+    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet), is_old_file_format(false) {};
     struct transfer_details
     {
       uint64_t m_block_height;

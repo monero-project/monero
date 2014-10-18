@@ -452,6 +452,7 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   CHECK_AND_ASSERT_MES(r, false, "failed to serialize wallet keys");
   wallet2::keys_file_data keys_file_data = boost::value_initialized<wallet2::keys_file_data>();
 
+  // Create a JSON object with "key_data" and "seed_language" as keys.
   rapidjson::Document json;
   json.SetObject();
   rapidjson::Value value(rapidjson::kStringType);
@@ -459,11 +460,14 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   json.AddMember("key_data", value, json.GetAllocator());
   value.SetString(seed_language.c_str(), seed_language.length());
   json.AddMember("seed_language", value, json.GetAllocator());
+
+  // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
   json.Accept(writer);
-
   account_data = buffer.GetString();
+
+  // Encrypt the entire JSON object.
   crypto::chacha8_key key;
   crypto::generate_chacha8_key(password, key);
   std::string cipher;
@@ -497,6 +501,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
+  // Decrypt the contents
   r = ::serialization::parse_binary(buf, keys_file_data);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
   crypto::chacha8_key key;
@@ -505,6 +510,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   account_data.resize(keys_file_data.account_data.size());
   crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
 
+  // The contents should be JSON if the wallet follows the new format.
   rapidjson::Document json;
   if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
   {
@@ -514,9 +520,8 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   {
     account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
       json["key_data"].GetStringLength());
-    std::cout << "A/C " << json["key_data"].GetStringLength() << std::endl;
-    seed_language = std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
-      json["seed_language"].GetStringLength());
+    set_seed_language(std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
+      json["seed_language"].GetStringLength()));
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();

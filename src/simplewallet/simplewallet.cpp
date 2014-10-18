@@ -485,10 +485,28 @@ std::string simple_wallet::get_mnemonic_language()
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
   bool recover, bool two_random, bool testnet, const std::string &old_language)
 {
+  bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
+    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
+
+  std::string mnemonic_language = old_language;
+  // Ask for seed language if it is not a wallet restore or if it was a deprecated wallet
+  // that was earlier used before this restore.
+  if (!m_restore_deterministic_wallet || was_deprecated_wallet)
+  {
+    if (was_deprecated_wallet)
+    {
+      // The user had used an older version of the wallet with old style mnemonics.
+      message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+        "a deprecated version of the wallet. Please use the new seed that we provide.\n";
+    }
+    mnemonic_language = get_mnemonic_language();
+  }
+
   m_wallet_file = wallet_file;
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
+  m_wallet->set_seed_language(mnemonic_language);
 
   crypto::secret_key recovery_val;
   try
@@ -509,24 +527,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   // convert rng value to electrum-style word list
   std::string electrum_words;
 
-  bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
-    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
-
-  std::string mnemonic_language = old_language;
-  // Ask for seed language if it is not a wallet restore or if it was a deprecated wallet
-  // that was earlier used before this restore.
-  if (!m_restore_deterministic_wallet || was_deprecated_wallet)
-  {
-    if (was_deprecated_wallet)
-    {
-      // The user had used an older version of the wallet with old style mnemonics.
-      message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
-        "a deprecated version of the wallet. Please use the new seed that we provide.\n";
-    }
-    mnemonic_language = get_mnemonic_language();
-  }
   crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, mnemonic_language);
-  m_wallet->set_seed_language(mnemonic_language);
 
   std::string print_electrum = "";
 
@@ -564,6 +565,16 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
     m_wallet->load(m_wallet_file, password);
     message_writer(epee::log_space::console_color_white, true) << "Opened wallet: "
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+    // If the wallet file is deprecated, we should ask for mnemonic language again and store
+    // everything in the new format.
+    if (!m_non_deterministic && m_wallet->is_deprecated())
+    {
+      message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+        "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n";
+      std::string mnemonic_language = get_mnemonic_language();
+      m_wallet->set_seed_language(mnemonic_language);
+      m_wallet->generate(m_wallet_file, password, m_recovery_key, false, true);
+    }
   }
   catch (const std::exception& e)
   {
