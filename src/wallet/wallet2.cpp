@@ -52,8 +52,6 @@ using namespace epee;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
-#include <iostream>
-
 extern "C"
 {
 #include "crypto/keccak.h"

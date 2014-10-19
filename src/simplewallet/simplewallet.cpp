@@ -317,6 +317,21 @@ bool simple_wallet::ask_wallet_create_if_needed()
 
   return r;
 }
+
+/*!
+ * \brief Prints the seed with a nice message
+ * \param seed seed to print
+ */
+void simple_wallet::print_seed(std::string seed)
+{
+  success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. " << 
+    "Please write them down and store them somewhere safe and secure. Please do not store them in " << 
+    "your email or on file storage services outside of your immediate control.\n";
+  boost::replace_nth(seed, " ", 15, "\n");
+  boost::replace_nth(seed, " ", 7, "\n");
+  std::cout << seed << std::endl;
+}
+
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
@@ -544,10 +559,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 
   if (!two_random)
   {
-    success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
-    boost::replace_nth(electrum_words, " ", 15, "\n");
-    boost::replace_nth(electrum_words, " ", 7, "\n");    
-    std::cout << electrum_words << std::endl;
+    print_seed(electrum_words);
   }
   success_msg_writer() << "**********************************************************************";
 
@@ -574,6 +586,11 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
       std::string mnemonic_language = get_mnemonic_language();
       m_wallet->set_seed_language(mnemonic_language);
       m_wallet->rewrite(m_wallet_file, password);
+
+      // Display the seed
+      std::string seed;
+      m_wallet->get_seed(seed);
+      print_seed(seed);
     }
   }
   catch (const std::exception& e)
