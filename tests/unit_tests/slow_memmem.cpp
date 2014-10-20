@@ -33,8 +33,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
-#include <malloc.h>
 #include "gtest/gtest.h"
+
+// Both OS X and FreeBSD don't need malloc.h
+#if !defined(__APPLE__) && !defined(__FreeBSD__)
+ #include <malloc.h>
+#endif
 
 //#define TEST_ORIGINAL
 //#define VERBOSE
