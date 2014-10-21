@@ -61,7 +61,6 @@ message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ${BOOST_IGNORE_SYSTEM_PATH
 option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost ins	tallation" $BOOST_IGNORE_SYSTEM_PATHS_DEFAULT)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 enable_testing()
 
 # Check if we're on FreeBSD so we can exclude the local miniupnpc (it should be installed from ports instead)

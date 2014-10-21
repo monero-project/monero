@@ -4,17 +4,6 @@ project (miniupnpc C)
 set (MINIUPNPC_VERSION 1.9)
 set (MINIUPNPC_API_VERSION 10)
 
-if (NOT CMAKE_BUILD_TYPE)
-  if (WIN32)
-    set (DEFAULT_BUILD_TYPE MinSizeRel)
-  else ()
-    set (DEFAULT_BUILD_TYPE RelWithDebInfo)
-  endif()
-    set (CMAKE_BUILD_TYPE ${DEFAULT_BUILD_TYPE} CACHE STRING
-        "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel."
-        FORCE)
-endif()
-
 option (UPNPC_BUILD_STATIC "Build static library" TRUE)
 option (UPNPC_BUILD_SHARED "Build shared library" TRUE)
 if (NOT WIN32)
