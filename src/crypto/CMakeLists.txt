@@ -66,14 +66,6 @@ set(crypto_headers
   skein.h
   skein_port.h)
 
-source_group(crypto
-  FILES
-    ${crypto_sources}
-    ${crypto_headers})
-
-add_library(crypto
+bitmonero_add_library(crypto
   ${crypto_sources}
   ${crypto_headers})
-set_property(TARGET crypto
-  PROPERTY
-    FOLDER "libs")

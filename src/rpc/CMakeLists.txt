@@ -34,12 +34,7 @@ set(rpc_headers
   core_rpc_server_commands_defs.h
   core_rpc_server_error_codes.h)
 
-source_group(rpc
-  FILES
-    ${rpc_sources}
-    ${rpc_headers})
-
-add_library(rpc
+bitmonero_add_library(rpc
   ${rpc_sources}
   ${rpc_headers})
 target_link_libraries(rpc
@@ -52,6 +47,3 @@ target_link_libraries(rpc
     ${EXTRA_LIBRARIES})
 add_dependencies(rpc
   version)
-set_property(TARGET rpc
-  PROPERTY
-    FOLDER "libs")

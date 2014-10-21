@@ -56,6 +56,18 @@ function (bitmonero_add_executable name)
   endif ()
 endfunction ()
 
+function (bitmonero_add_library name)
+  source_group("${name}"
+    FILES
+      ${ARGN})
+
+  add_library("${name}"
+    ${ARGN})
+  set_property(TARGET "${name}"
+    PROPERTY
+      FOLDER "libs")
+endfunction ()
+
 add_subdirectory(common)
 add_subdirectory(crypto)
 add_subdirectory(cryptonote_core)

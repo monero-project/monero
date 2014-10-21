@@ -43,12 +43,7 @@ set(common_headers
   util.h
   varint.h)
 
-source_group(common
-  FILES
-    ${common_sources}
-    ${common_headers})
-
-add_library(common
+bitmonero_add_library(common
   ${common_sources}
   ${common_headers})
 target_link_libraries(common
@@ -59,6 +54,3 @@ target_link_libraries(common
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${EXTRA_LIBRARIES})
-set_property(TARGET common
-  PROPERTY
-    FOLDER "libs")

@@ -58,12 +58,7 @@ set(cryptonote_core_headers
   tx_pool.h
   verification_context.h)
 
-source_group(cryptonote_core
-  FILES
-    ${cryptonote_core_sources}
-    ${cryptonote_core_headers})
-
-add_library(cryptonote_core
+bitmonero_add_library(cryptonote_core
   ${cryptonote_core_sources}
   ${cryptonote_core_headers})
 target_link_libraries(cryptonote_core
@@ -78,6 +73,3 @@ target_link_libraries(cryptonote_core
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${EXTRA_LIBRARIES})
-set_property(TARGET cryptonote_core
-  PROPERTY
-    FOLDER "libs")

@@ -37,12 +37,7 @@ set(wallet_headers
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h)
 
-source_group(wallet
-  FILES
-    ${wallet_sources}
-    ${wallet_headers})
-
-add_library(wallet
+bitmonero_add_library(wallet
   ${wallet_sources}
   ${wallet_headers})
 target_link_libraries(wallet
@@ -54,6 +49,3 @@ target_link_libraries(wallet
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${EXTRA_LIBRARIES})
-set_property(TARGET wallet
-  PROPERTY
-    FOLDER "libs")

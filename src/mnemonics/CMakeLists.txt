@@ -39,12 +39,7 @@ set(mnemonics_headers
   singleton.h
   spanish.h)
 
-source_group(mnemonics
-  FILES
-    ${mnemonics_sources}
-    ${mnemonics_headers})
-
-add_library(mnemonics
+bitmonero_add_library(mnemonics
   ${mnemonics_sources}
   ${mnemonics_headers})
 target_link_libraries(mnemonics
