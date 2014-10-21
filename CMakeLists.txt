@@ -30,11 +30,18 @@
 
 cmake_minimum_required(VERSION 2.8.6)
 
-if(NOT WIN32)
-  string(ASCII 27 Esc)
-  set(ColourReset "${Esc}[m")
-  set(BoldRed     "${Esc}[1;31m")
-endif()
+function (die msg)
+  if (NOT WIN32)
+    string(ASCII 27 Esc)
+    set(ColourReset "${Esc}[m")
+    set(BoldRed     "${Esc}[1;31m")
+  else ()
+    set(ColourReset "")
+    set(BoldRed     "")
+  endif ()
+
+  message(FATAL_ERROR "${BoldRed}${msg}${ColourReset}")
+endfunction ()
 
 set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -204,11 +211,11 @@ endif()
 find_package(Boost 1.53 QUIET REQUIRED COMPONENTS system filesystem thread date_time chrono regex serialization program_options)
 
 if(NOT Boost_FOUND)
-   MESSAGE(FATAL_ERROR "${BoldRed}Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (1.53 or 1.55+) or the equivalent${ColourReset}")
+  die("Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (1.53 or 1.55+) or the equivalent")
 endif()
 
 if((${Boost_MAJOR_VERSION} EQUAL 1) AND (${Boost_MINOR_VERSION} EQUAL 54))
-  message(FATAL_ERROR "${BoldRed}Boost version 1.54 is unsupported due to a bug (see: http://goo.gl/RrCFmA), please install Boost 1.53 or 1.55 and above${ColourReset}")
+  die("Boost version 1.54 is unsupported due to a bug (see: http://goo.gl/RrCFmA), please install Boost 1.53 or 1.55 and above")
 endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
