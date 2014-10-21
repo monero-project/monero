@@ -6,9 +6,6 @@ set (MINIUPNPC_API_VERSION 10)
 
 option (UPNPC_BUILD_STATIC "Build static library" TRUE)
 option (UPNPC_BUILD_SHARED "Build shared library" TRUE)
-if (NOT WIN32)
-  option (UPNPC_BUILD_TESTS "Build test executables" TRUE)
-endif ()
 option (NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
 
 mark_as_advanced (NO_GETADDRINFO)
@@ -26,29 +23,6 @@ endif ()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   add_definitions (-D_DARWIN_C_SOURCE)
-endif ()
-
-# Set compiler specific build flags
-if (CMAKE_COMPILER_IS_GNUC)
-  # Set our own default flags at first run.
-  if (NOT CONFIGURED)
-
-    if (NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
-      set (_PIC -fPIC)
-    endif ()
-
-    set (CMAKE_C_FLAGS "${_PIC} -Wall $ENV{CFLAGS}" # CMAKE_C_FLAGS gets appended to the other C flags
-        CACHE STRING "Flags used by the C compiler during normal builds." FORCE)
-    set (CMAKE_C_FLAGS_DEBUG "-g -DDDEBUG"
-        CACHE STRING "Flags used by the C compiler during debug builds." FORCE)
-    set (CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG"
-        CACHE STRING "Flags used by the C compiler during release builds." FORCE)
-    set (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -DNDEBUG"
-        CACHE STRING "Flags used by the C compiler during release builds." FORCE)
-    set (CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG"
-        CACHE STRING "Flags used by the C compiler during release builds." FORCE)
-
-  endif ()
 endif ()
 
 configure_file (miniupnpcstrings.h.cmake ${CMAKE_BINARY_DIR}/miniupnpcstrings.h)
@@ -69,7 +43,7 @@ set (MINIUPNPC_SOURCES
   receivedata.c
 )
 
-if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+if (NOT WIN32)
   set (MINIUPNPC_SOURCES ${MINIUPNPC_SOURCES} minissdpc.c)
 endif ()
 
@@ -86,19 +60,15 @@ if (WIN32)
   set(WINSOCK2_LIBRARY ws2_32)
   set(IPHLPAPI_LIBRARY iphlpapi)
   set (LDLIBS ${WINSOCK2_LIBRARY} ${IPHLPAPI_LIBRARY} ${LDLIBS})
-#elseif (CMAKE_SYSTEM_NAME STREQUAL "Solaris")
-#  find_library (SOCKET_LIBRARY NAMES socket)
-#  find_library (NSL_LIBRARY NAMES nsl)
-#  find_library (RESOLV_LIBRARY NAMES resolv)
-#  set (LDLIBS ${SOCKET_LIBRARY} ${NSL_LIBRARY} ${RESOLV_LIBRARY} ${LDLIBS})
 endif ()
 
 if (NOT UPNPC_BUILD_STATIC AND NOT UPNPC_BUILD_SHARED)
-    message (FATAL "Both shared and static libraries are disabled!")
+  message (FATAL "Both shared and static libraries are disabled!")
 endif ()
 
 if (UPNPC_BUILD_STATIC)
   add_library (upnpc-static STATIC ${MINIUPNPC_SOURCES})
+  set_target_properties (upnpc-static PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
   set_target_properties (upnpc-static PROPERTIES OUTPUT_NAME "miniupnpc")
   target_link_libraries (upnpc-static ${LDLIBS})
   set (UPNPC_INSTALL_TARGETS ${UPNPC_INSTALL_TARGETS} upnpc-static)
@@ -107,6 +77,7 @@ endif ()
 
 if (UPNPC_BUILD_SHARED)
   add_library (upnpc-shared SHARED ${MINIUPNPC_SOURCES})
+  set_target_properties (upnpc-shared PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
   set_target_properties (upnpc-shared PROPERTIES OUTPUT_NAME "miniupnpc")
   set_target_properties (upnpc-shared PROPERTIES VERSION ${MINIUPNPC_VERSION})
   set_target_properties (upnpc-shared PROPERTIES SOVERSION ${MINIUPNPC_API_VERSION})
@@ -115,42 +86,13 @@ if (UPNPC_BUILD_SHARED)
   set (UPNPC_LIBRARY_TARGET upnpc-shared)
 endif ()
 
-if (UPNPC_BUILD_TESTS)
-  add_executable (testminixml testminixml.c minixml.c igd_desc_parse.c)
-  target_link_libraries (testminixml ${LDLIBS})
-
-  add_executable (minixmlvalid minixmlvalid.c minixml.c)
-  target_link_libraries (minixmlvalid ${LDLIBS})
-
-  add_executable (testupnpreplyparse testupnpreplyparse.c
-                                     minixml.c upnpreplyparse.c)
-  target_link_libraries (testupnpreplyparse ${LDLIBS})
-
-  add_executable (testigddescparse testigddescparse.c
-                                   igd_desc_parse.c minixml.c miniupnpc.c miniwget.c minissdpc.c
-                                   upnpcommands.c upnpreplyparse.c minisoap.c connecthostport.c
-                                   portlistingparse.c receivedata.c
-  )
-  target_link_libraries (testigddescparse ${LDLIBS})
-
-  add_executable (testminiwget testminiwget.c
-                               miniwget.c miniupnpc.c minisoap.c upnpcommands.c minissdpc.c
-                               upnpreplyparse.c minixml.c igd_desc_parse.c connecthostport.c
-                               portlistingparse.c receivedata.c
-  )
-  target_link_libraries (testminiwget ${LDLIBS})
-
-# set (UPNPC_INSTALL_TARGETS ${UPNPC_INSTALL_TARGETS} testminixml minixmlvalid testupnpreplyparse testigddescparse testminiwget)
-endif ()
-
-
 install (TARGETS ${UPNPC_INSTALL_TARGETS}
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib${LIB_SUFFIX}
   ARCHIVE DESTINATION lib${LIB_SUFFIX}
 )
 install (FILES
-	miniupnpc.h
+  miniupnpc.h
   miniwget.h
   upnpcommands.h
   igd_desc_parse.h
@@ -161,7 +103,5 @@ install (FILES
   declspec.h
   DESTINATION include/miniupnpc
 )
-
-set (CONFIGURED YES CACHE INTERNAL "")
 
 # vim: ts=2:sw=2
