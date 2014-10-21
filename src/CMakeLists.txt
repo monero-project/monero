@@ -32,6 +32,30 @@ add_definitions(-DSTATICLIB)
 # miniupnp changed their static define
 add_definitions(-DMINIUPNP_STATICLIB)
 
+function (bitmonero_add_executable name)
+  source_group("${name}"
+    FILES
+      ${ARGN})
+
+  add_executable("${name}"
+    ${ARGN})
+  target_link_libraries("${name}"
+    PRIVATE
+      ${EXTRA_LIBRARIES})
+  set_property(TARGET "${name}"
+    PROPERTY
+      FOLDER "prog")
+
+  if (STATIC)
+    set_property(TARGET "${name}"
+      PROPERTY
+        LINK_SEARCH_START_STATIC 1)
+    set_property(TARGET "${name}"
+      PROPERTY
+        LINK_SEARCH_END_STATIC 1)
+  endif ()
+endfunction ()
+
 add_subdirectory(common)
 add_subdirectory(crypto)
 add_subdirectory(cryptonote_core)

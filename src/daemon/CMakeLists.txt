@@ -48,12 +48,7 @@ set(daemon_headers
   ../p2p/p2p_protocol_defs.h
   ../p2p/stdafx.h)
 
-source_group(daemon
-  FILES
-    ${daemon_sources}
-    ${daemon_headers})
-
-add_executable(daemon
+bitmonero_add_executable(daemon
   ${daemon_sources}
   ${daemon_headers})
 target_link_libraries(daemon
@@ -74,16 +69,4 @@ add_dependencies(daemon
   version)
 set_property(TARGET daemon
   PROPERTY
-    FOLDER "prog")
-set_property(TARGET daemon
-  PROPERTY
     OUTPUT_NAME "bitmonerod")
-
-if (STATIC)
-  set_property(TARGET daemon
-    PROPERTY
-      LINK_SEARCH_START_STATIC 1)
-  set_property(TARGET daemon
-    PROPERTY
-      LINK_SEARCH_END_STATIC 1)
-endif ()

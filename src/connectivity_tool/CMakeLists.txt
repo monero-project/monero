@@ -31,12 +31,7 @@ set(connectivity_tool_sources
 
 set(connectivity_tool_headers)
 
-source_group(connectivity-tool
-  FILES
-    ${connectivity_tool_sources}
-    ${connectivity_tool_headers})
-
-add_executable(connectivity_tool
+bitmonero_add_executable(connectivity_tool
   ${connectivity_tool_sources}
   ${connectivity_tool_headers})
 target_link_libraries(connectivity_tool
@@ -48,15 +43,3 @@ target_link_libraries(connectivity_tool
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY})
-set_property(TARGET connectivity_tool
-  PROPERTY
-    FOLDER "prog")
-
-if (STATIC)
-  set_property(TARGET connectivity_tool
-    PROPERTY
-      LINK_SEARCH_START_STATIC 1)
-  set_property(TARGET connectivity_tool
-    PROPERTY
-      LINK_SEARCH_END_STATIC 1)
-endif ()

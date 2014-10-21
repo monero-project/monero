@@ -34,12 +34,7 @@ set(simpleminer_headers
   simpleminer_protocol_defs.h
   target_helper.h)
 
-source_group(simpleminer
-  FILES
-    ${simpleminer_sources}
-    ${simpleminer_headers})
-
-add_executable(simpleminer
+bitmonero_add_executable(simpleminer
   ${simpleminer_sources}
   ${simpleminer_headers})
 target_link_libraries(simpleminer
@@ -52,15 +47,3 @@ target_link_libraries(simpleminer
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${EXTRA_LIBRARIES})
-set_property(TARGET simpleminer
-  PROPERTY
-    FOLDER "prog")
-
-if (STATIC)
-  set_property(TARGET simpleminer
-    PROPERTY
-      LINK_SEARCH_START_STATIC 1)
-  set_property(TARGET simpleminer
-    PROPERTY
-      LINK_SEARCH_END_STATIC 1)
-endif ()

@@ -34,12 +34,7 @@ set(simplewallet_headers
   simplewallet.h
   password_container.h)
 
-source_group(simplewallet
-  FILES
-    ${simplewallet_sources}
-    ${simplewallet_headers})
-
-add_executable(simplewallet
+bitmonero_add_executable(simplewallet
   ${simplewallet_sources}
   ${simplewallet_headers})
 target_link_libraries(simplewallet
@@ -56,15 +51,3 @@ target_link_libraries(simplewallet
     ${EXTRA_LIBRARIES})
 add_dependencies(simplewallet
   version)
-set_property(TARGET simplewallet
-  PROPERTY
-    FOLDER "prog")
-
-if (STATIC)
-  set_property(TARGET simplewallet
-    PROPERTY
-      LINK_SEARCH_START_STATIC 1)
-  set_property(TARGET simplewallet
-    PROPERTY
-      LINK_SEARCH_END_STATIC 1)
-endif ()
