@@ -1,21 +1,21 @@
 # Copyright (c) 2014, The Monero Project
-# 
+#
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are
 # permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of
 #    conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list
 #    of conditions and the following disclaimer in the documentation and/or other
 #    materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be
 #    used to endorse or promote products derived from this software without specific
 #    prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,21 +25,28 @@
 # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
-# Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-add_definitions(-DSTATICLIB)
-# miniupnp changed their static define
-add_definitions(-DMINIUPNP_STATICLIB)
+set(mnemonics_sources
+  electrum-words.cpp)
 
-add_subdirectory(common)
-add_subdirectory(crypto)
-add_subdirectory(cryptonote_core)
-add_subdirectory(mnemonics)
-add_subdirectory(rpc)
-add_subdirectory(wallet)
+set(mnemonics_headers
+  electrum-words.h
+  english.h
+  japanese.h
+  language_base.h
+  old_english.h
+  portuguese.h
+  singleton.h
+  spanish.h)
 
-add_subdirectory(connectivity_tool)
-add_subdirectory(miner)
-add_subdirectory(simplewallet)
-add_subdirectory(daemon)
+source_group(mnemonics
+  FILES
+    ${mnemonics_sources}
+    ${mnemonics_headers})
+
+add_library(mnemonics
+  ${mnemonics_sources}
+  ${mnemonics_headers})
+target_link_libraries(mnemonics
+  PRIVATE
+    ${Boost_SYSTEM_LIBRARY})
