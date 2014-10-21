@@ -30,16 +30,21 @@ set(wallet_sources
   wallet2.cpp
   wallet_rpc_server.cpp)
 
-set(wallet_headers
+set(wallet_headers)
+
+set(wallet_private_headers
   wallet2.h
   wallet_errors.h
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h)
 
+bitmonero_private_headers(wallet
+  ${wallet_private_headers})
 bitmonero_add_library(wallet
   ${wallet_sources}
-  ${wallet_headers})
+  ${wallet_headers}
+  ${wallet_private_headers})
 target_link_libraries(wallet
   PUBLIC
     cryptonote_core

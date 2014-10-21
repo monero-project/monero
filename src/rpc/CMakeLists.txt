@@ -29,14 +29,19 @@
 set(rpc_sources
   core_rpc_server.cpp)
 
-set(rpc_headers
+set(rpc_headers)
+
+set(rpc_private_headers
   core_rpc_server.h
   core_rpc_server_commands_defs.h
   core_rpc_server_error_codes.h)
 
+bitmonero_private_headers(rpc
+  ${rpc_private_headers})
 bitmonero_add_library(rpc
   ${rpc_sources}
-  ${rpc_headers})
+  ${rpc_headers}
+  ${rpc_private_headers})
 target_link_libraries(rpc
   PRIVATE
     cryptonote_core

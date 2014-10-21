@@ -29,14 +29,19 @@
 set(simpleminer_sources
   simpleminer.cpp)
 
-set(simpleminer_headers
+set(simpleminer_headers)
+
+set(simpleminer_private_headers
   simpleminer.h
   simpleminer_protocol_defs.h
   target_helper.h)
 
+bitmonero_private_headers(simpleminer
+  ${simpleminer_private_headers})
 bitmonero_add_executable(simpleminer
   ${simpleminer_sources}
-  ${simpleminer_headers})
+  ${simpleminer_headers}
+  ${simpleminer_private_headers})
 target_link_libraries(simpleminer
   PRIVATE
     cryptonote_core

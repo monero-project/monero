@@ -29,7 +29,9 @@
 set(mnemonics_sources
   electrum-words.cpp)
 
-set(mnemonics_headers
+set(mnemonics_headers)
+
+set(mnemonics_private_headers
   electrum-words.h
   english.h
   japanese.h
@@ -39,9 +41,12 @@ set(mnemonics_headers
   singleton.h
   spanish.h)
 
+bitmonero_private_headers(mnemonics
+  ${mnemonics_private_headers})
 bitmonero_add_library(mnemonics
   ${mnemonics_sources}
-  ${mnemonics_headers})
+  ${mnemonics_headers}
+  ${mnemonics_private_headers})
 target_link_libraries(mnemonics
   PRIVATE
     ${Boost_SYSTEM_LIBRARY})

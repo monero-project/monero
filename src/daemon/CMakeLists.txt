@@ -29,7 +29,9 @@
 set(daemon_sources
   daemon.cpp)
 
-set(daemon_headers
+set(daemon_headers)
+
+set(daemon_private_headers
   daemon_commands_handler.h
 
   # cryptonote_protocol
@@ -48,9 +50,12 @@ set(daemon_headers
   ../p2p/p2p_protocol_defs.h
   ../p2p/stdafx.h)
 
+bitmonero_private_headers(daemon
+  ${daemon_private_headers})
 bitmonero_add_executable(daemon
   ${daemon_sources}
-  ${daemon_headers})
+  ${daemon_headers}
+  ${daemon_private_headers})
 target_link_libraries(daemon
   PRIVATE
     rpc

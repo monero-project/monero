@@ -38,7 +38,9 @@ set(cryptonote_core_sources
   miner.cpp
   tx_pool.cpp)
 
-set(cryptonote_core_headers
+set(cryptonote_core_headers)
+
+set(cryptonote_core_private_headers
   account.h
   account_boost_serialization.h
   blockchain_storage.h
@@ -58,9 +60,12 @@ set(cryptonote_core_headers
   tx_pool.h
   verification_context.h)
 
+bitmonero_private_headers(cryptonote_core
+  ${crypto_private_headers})
 bitmonero_add_library(cryptonote_core
   ${cryptonote_core_sources}
-  ${cryptonote_core_headers})
+  ${cryptonote_core_headers}
+  ${cryptonote_core_private_headers})
 target_link_libraries(cryptonote_core
   PUBLIC
     common

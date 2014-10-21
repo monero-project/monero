@@ -47,7 +47,9 @@ set(crypto_sources
   slow-hash.c
   tree-hash.c)
 
-set(crypto_headers
+set(crypto_headers)
+
+set(crypto_private_headers
   blake256.h
   chacha8.h
   crypto-ops.h
@@ -66,6 +68,9 @@ set(crypto_headers
   skein.h
   skein_port.h)
 
+bitmonero_private_headers(crypto
+  ${crypto_private_headers})
 bitmonero_add_library(crypto
   ${crypto_sources}
-  ${crypto_headers})
+  ${crypto_headers}
+  ${crypto_private_headers})

@@ -32,7 +32,9 @@ set(common_sources
   dns_utils.cpp
   util.cpp)
 
-set(common_headers
+set(common_headers)
+
+set(common_private_headers
   base58.h
   boost_serialization_helper.h
   command_line.h
@@ -43,9 +45,12 @@ set(common_headers
   util.h
   varint.h)
 
+bitmonero_private_headers(common
+  ${common_private_headers})
 bitmonero_add_library(common
   ${common_sources}
-  ${common_headers})
+  ${common_headers}
+  ${common_private_headers})
 target_link_libraries(common
   PRIVATE
     crypto
@@ -54,3 +59,6 @@ target_link_libraries(common
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${EXTRA_LIBRARIES})
+
+#bitmonero_install_headers(common
+#  ${common_headers})

@@ -32,6 +32,19 @@ add_definitions(-DSTATICLIB)
 # miniupnp changed their static define
 add_definitions(-DMINIUPNP_STATICLIB)
 
+function (bitmonero_private_headers group)
+  source_group("${group}\\Private"
+    FILES
+      ${ARGN})
+endfunction ()
+
+function (bitmonero_install_headers subdir)
+  install(
+    FILES       ${ARGN}
+    DESTINATION "include/${subdir}"
+    COMPONENT   development)
+endfunction ()
+
 function (bitmonero_add_executable name)
   source_group("${name}"
     FILES

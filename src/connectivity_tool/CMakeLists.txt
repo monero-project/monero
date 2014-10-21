@@ -29,11 +29,11 @@
 set(connectivity_tool_sources
   conn_tool.cpp)
 
-set(connectivity_tool_headers)
+set(connectivity_tool_private_headers)
 
 bitmonero_add_executable(connectivity_tool
   ${connectivity_tool_sources}
-  ${connectivity_tool_headers})
+  ${connectivity_tool_private_headers})
 target_link_libraries(connectivity_tool
   PRIVATE
     cryptonote_core

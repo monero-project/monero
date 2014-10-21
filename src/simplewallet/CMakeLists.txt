@@ -30,13 +30,18 @@ set(simplewallet_sources
   simplewallet.cpp
   password_container.cpp)
 
-set(simplewallet_headers
+set(simplewallet_headers)
+
+set(simplewallet_private_headers
   simplewallet.h
   password_container.h)
 
+bitmonero_private_headers(simplewallet
+  ${simplewallet_private_headers})
 bitmonero_add_executable(simplewallet
   ${simplewallet_sources}
-  ${simplewallet_headers})
+  ${simplewallet_headers}
+  ${simplewallet_private_headers})
 target_link_libraries(simplewallet
   PRIVATE
     wallet
