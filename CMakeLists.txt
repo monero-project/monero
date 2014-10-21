@@ -90,7 +90,7 @@ if(MSVC OR MINGW)
 else()
   set(DEFAULT_STATIC false)
 endif()
-set(STATIC ${DEFAULT_STATIC} CACHE BOOL "Link libraries statically")
+option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
 IF(STATIC)
   IF(MSVC)
