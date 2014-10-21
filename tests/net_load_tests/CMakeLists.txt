@@ -37,7 +37,7 @@ add_executable(net_load_tests_clt
   ${clt_headers})
 target_link_libraries(net_load_tests_clt
   PRIVATE
-    gtest_main
+    ${GTEST_MAIN_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -56,7 +56,7 @@ add_executable(net_load_tests_srv
   ${srv_headers})
 target_link_libraries(net_load_tests_srv
   PRIVATE
-    gtest_main
+    ${GTEST_MAIN_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

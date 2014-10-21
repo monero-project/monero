@@ -58,7 +58,7 @@ target_link_libraries(unit_tests
     cryptonote_core
     rpc
     wallet
-    gtest_main
+    ${GTEST_MAIN_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
