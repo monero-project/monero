@@ -7,9 +7,9 @@ set (MINIUPNPC_API_VERSION 10)
 if (NOT CMAKE_BUILD_TYPE)
   if (WIN32)
     set (DEFAULT_BUILD_TYPE MinSizeRel)
-  else (WIN32)
+  else ()
     set (DEFAULT_BUILD_TYPE RelWithDebInfo)
-  endif(WIN32)
+  endif()
     set (CMAKE_BUILD_TYPE ${DEFAULT_BUILD_TYPE} CACHE STRING
         "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel."
         FORCE)
@@ -19,21 +19,21 @@ option (UPNPC_BUILD_STATIC "Build static library" TRUE)
 option (UPNPC_BUILD_SHARED "Build shared library" TRUE)
 if (NOT WIN32)
   option (UPNPC_BUILD_TESTS "Build test executables" TRUE)
-endif (NOT WIN32)
+endif ()
 option (NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
 
 mark_as_advanced (NO_GETADDRINFO)
 
 if (NO_GETADDRINFO)
   add_definitions (-DNO_GETADDRINFO)
-endif (NO_GETADDRINFO)
+endif ()
 
 if (NOT WIN32)
   add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
   add_definitions (-D_BSD_SOURCE -D_POSIX_C_SOURCE=1)
-else (NOT WIN32)
+else ()
   add_definitions (-D_WIN32_WINNT=0x0501) # XP or higher for getnameinfo and friends
-endif (NOT WIN32)
+endif ()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   add_definitions (-D_DARWIN_C_SOURCE)
@@ -46,7 +46,7 @@ if (CMAKE_COMPILER_IS_GNUC)
 
     if (NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
       set (_PIC -fPIC)
-    endif (CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+    endif ()
 
     set (CMAKE_C_FLAGS "${_PIC} -Wall $ENV{CFLAGS}" # CMAKE_C_FLAGS gets appended to the other C flags
         CACHE STRING "Flags used by the C compiler during normal builds." FORCE)
@@ -59,7 +59,7 @@ if (CMAKE_COMPILER_IS_GNUC)
     set (CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG"
         CACHE STRING "Flags used by the C compiler during release builds." FORCE)
 
-  endif (NOT CONFIGURED)
+  endif ()
 endif ()
 
 configure_file (miniupnpcstrings.h.cmake ${CMAKE_BINARY_DIR}/miniupnpcstrings.h)
@@ -82,14 +82,14 @@ set (MINIUPNPC_SOURCES
 
 if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
   set (MINIUPNPC_SOURCES ${MINIUPNPC_SOURCES} minissdpc.c)
-endif (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+endif ()
 
 if (WIN32)
   set_source_files_properties (${MINIUPNPC_SOURCES} PROPERTIES
                                                     COMPILE_DEFINITIONS MINIUPNP_STATICLIB
                                                     COMPILE_DEFINITIONS MINIUPNP_EXPORTS
   )
-endif (WIN32)
+endif ()
 
 if (WIN32)
 #  find_library (WINSOCK2_LIBRARY NAMES ws2_32 WS2_32 Ws2_32)
@@ -102,11 +102,11 @@ if (WIN32)
 #  find_library (NSL_LIBRARY NAMES nsl)
 #  find_library (RESOLV_LIBRARY NAMES resolv)
 #  set (LDLIBS ${SOCKET_LIBRARY} ${NSL_LIBRARY} ${RESOLV_LIBRARY} ${LDLIBS})
-endif (WIN32)
+endif ()
 
 if (NOT UPNPC_BUILD_STATIC AND NOT UPNPC_BUILD_SHARED)
     message (FATAL "Both shared and static libraries are disabled!")
-endif (NOT UPNPC_BUILD_STATIC AND NOT UPNPC_BUILD_SHARED)
+endif ()
 
 if (UPNPC_BUILD_STATIC)
   add_library (upnpc-static STATIC ${MINIUPNPC_SOURCES})
@@ -114,7 +114,7 @@ if (UPNPC_BUILD_STATIC)
   target_link_libraries (upnpc-static ${LDLIBS})
   set (UPNPC_INSTALL_TARGETS ${UPNPC_INSTALL_TARGETS} upnpc-static)
   set (UPNPC_LIBRARY_TARGET upnpc-static)
-endif (UPNPC_BUILD_STATIC)
+endif ()
 
 if (UPNPC_BUILD_SHARED)
   add_library (upnpc-shared SHARED ${MINIUPNPC_SOURCES})
@@ -124,7 +124,7 @@ if (UPNPC_BUILD_SHARED)
   target_link_libraries (upnpc-shared ${LDLIBS})
   set (UPNPC_INSTALL_TARGETS ${UPNPC_INSTALL_TARGETS} upnpc-shared)
   set (UPNPC_LIBRARY_TARGET upnpc-shared)
-endif (UPNPC_BUILD_SHARED)
+endif ()
 
 if (UPNPC_BUILD_TESTS)
   add_executable (testminixml testminixml.c minixml.c igd_desc_parse.c)
@@ -152,7 +152,7 @@ if (UPNPC_BUILD_TESTS)
   target_link_libraries (testminiwget ${LDLIBS})
 
 # set (UPNPC_INSTALL_TARGETS ${UPNPC_INSTALL_TARGETS} testminixml minixmlvalid testupnpreplyparse testigddescparse testminiwget)
-endif (UPNPC_BUILD_TESTS)
+endif ()
 
 
 install (TARGETS ${UPNPC_INSTALL_TARGETS}
