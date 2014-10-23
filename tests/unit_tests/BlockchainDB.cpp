@@ -34,7 +34,7 @@
 #include "gtest/gtest.h"
 
 #include "cryptonote_core/blockchain_db.h"
-#include "cryptonote_core/BlockchainDB_impl/lmdb.h"
+#include "cryptonote_core/BlockchainDB_impl/db_lmdb.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
 using namespace cryptonote;
@@ -81,10 +81,19 @@ const std::vector<std::vector<std::string>> t_transactions =
 // from std::string, this might break.
 bool compare_blocks(const block& a, const block& b)
 {
-  auto ab = block_to_blob(a);
-  auto bb = block_to_blob(b);
+  auto hash_a = pod_to_hex(get_block_hash(a));
+  auto hash_b = pod_to_hex(get_block_hash(b));
 
-  return ab == bb;
+  return hash_a == hash_b;
+}
+
+void print_block(const block& blk, const std::string& prefix = "")
+{
+  std::cerr << prefix << ": " << std::endl
+            << "\thash - " << pod_to_hex(get_block_hash(blk)) << std::endl
+            << "\tparent - " << pod_to_hex(blk.prev_id) << std::endl
+            << "\ttimestamp - " << blk.timestamp << std::endl
+  ;
 }
 
 // if the return type (blobdata for now) of tx_to_blob ever changes
@@ -187,6 +196,9 @@ protected:
         std::cerr << "File created by test not to be removed (for safety): " << f << std::endl;
       }
     }
+
+    // remove directory if it still exists
+    boost::filesystem::remove(m_prefix);
   }
 
   void set_prefix(const std::string& prefix)
@@ -197,7 +209,7 @@ protected:
 
 using testing::Types;
 
-typedef Types<> implementations;
+typedef Types<BlockchainLMDB> implementations;
 
 TYPED_TEST_CASE(BlockchainDBTest, implementations);
 
@@ -225,7 +237,11 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
 
   // adding a block with no parent in the blockchain should throw.
   // note: this shouldn't be possible, but is a good (and cheap) failsafe.
-  ASSERT_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]), BLOCK_PARENT_DNE);
+  //
+  // TODO: need at least one more block to make this reasonable, as the
+  // BlockchainDB implementation should not check for parent if
+  // no blocks have been added yet (because genesis has no parent).
+  //ASSERT_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]), BLOCK_PARENT_DNE);
 
   ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
   ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
