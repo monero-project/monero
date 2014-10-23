@@ -28,9 +28,11 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-add_definitions(-DSTATICLIB)
-# miniupnp changed their static define
-add_definitions(-DMINIUPNP_STATICLIB)
+if (WIN32 AND STATIC)
+  add_definitions(-DSTATICLIB)
+  # miniupnp changed their static define
+  add_definitions(-DMINIUPNP_STATICLIB)
+endif ()
 
 find_package(GTest)
 
