@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.8.6)
 
+project(bitmonero)
+
 function (die msg)
   if (NOT WIN32)
     string(ASCII 27 Esc)
