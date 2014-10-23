@@ -62,40 +62,22 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
 }
 
 uint64_t BlockchainDB::add_block( const block& blk
-                  , const size_t& block_size
-                  , const difficulty_type& cumulative_difficulty
-                  , const uint64_t& coins_generated
-                  , const std::vector<transaction>& txs
-                  )
+                                , const size_t& block_size
+                                , const difficulty_type& cumulative_difficulty
+                                , const uint64_t& coins_generated
+                                , const std::vector<transaction>& txs
+                                )
 {
-  try
-  {
-    // call out to subclass implementation to add the block & metadata
-    add_block(blk, block_size, cumulative_difficulty, coins_generated);
+  // call out to subclass implementation to add the block & metadata
+  add_block(blk, block_size, cumulative_difficulty, coins_generated);
 
-    crypto::hash blk_hash = get_block_hash(blk);
-    // call out to add the transactions
-    for (const transaction& tx : txs)
-    {
-      add_transaction(blk_hash, tx);
-    }
-  }
-  // in case any of the add_block process goes awry, undo
-  catch (const std::exception& e)
+  crypto::hash blk_hash = get_block_hash(blk);
+  // call out to add the transactions
+
+  add_transaction(blk_hash, blk.miner_tx);
+  for (const transaction& tx : txs)
   {
-    LOG_ERROR("Error adding block to db: " << e.what());
-    try
-    {
-      pop_block();
-    }
-    // if undoing goes wrong as well, we need to throw, as blockchain
-    // will be in a bad state
-    catch (const std::exception& e)
-    {
-      LOG_ERROR("Error undoing partially added block: " << e.what());
-      throw;
-    }
-    throw;
+    add_transaction(blk_hash, tx);
   }
 
   return height();
@@ -104,7 +86,10 @@ uint64_t BlockchainDB::add_block( const block& blk
 void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
 {
   blk = get_top_block();
+
+  remove_block();
   
+  remove_transaction(get_transaction_hash(blk.miner_tx));
   for (const auto& h : blk.tx_hashes)
   {
     txs.push_back(get_tx(h));
