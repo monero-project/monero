@@ -32,6 +32,47 @@
 namespace cryptonote
 {
 
+struct txn_safe
+{
+  txn_safe() : m_txn(NULL) { }
+  ~txn_safe()
+  {
+    if(m_txn != NULL)
+    {
+      mdb_txn_abort(m_txn);
+    }
+  }
+
+  void commit(std::string message = "")
+  {
+    if (message.size() == 0)
+    {
+      message = "Failed to commit a transaction to the db";
+    }
+
+    if (mdb_txn_commit(m_txn))
+    {
+      m_txn = NULL;
+      LOG_PRINT_L0(message);
+      throw DB_ERROR(message.c_str());
+    }
+    m_txn = NULL;
+  }
+
+  operator MDB_txn*()
+  {
+    return m_txn;
+  }
+
+  operator MDB_txn**()
+  {
+    return &m_txn;
+  }
+
+  MDB_txn* m_txn;
+};
+
+
 class BlockchainLMDB : public BlockchainDB
 {
 public:
@@ -114,6 +155,13 @@ public:
 
   virtual bool has_key_image(const crypto::key_image& img);
 
+  virtual uint64_t add_block( const block& blk
+                            , const size_t& block_size
+                            , const difficulty_type& cumulative_difficulty
+                            , const uint64_t& coins_generated
+                            , const std::vector<transaction>& txs
+                            );
+
 private:
   virtual void add_block( const block& blk
                 , const size_t& block_size
@@ -121,7 +169,7 @@ private:
                 , const uint64_t& coins_generated
                 );
 
-  virtual void remove_block(const crypto::hash& blk_hash);
+  virtual void remove_block();
 
   virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx);
 
@@ -135,10 +183,11 @@ private:
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
+  void check_open();
+
   MDB_env* m_env;
 
   MDB_dbi m_blocks;
-  MDB_dbi m_block_txs;
   MDB_dbi m_block_hashes;
   MDB_dbi m_block_sizes;
   MDB_dbi m_block_diffs;
@@ -148,6 +197,11 @@ private:
 
   MDB_dbi m_spent;
   MDB_dbi m_utxo;
+
+  bool m_open;
+  uint64_t m_height;
+  std::string m_folder;
+  txn_safe* m_write_txn;
 };
 
 }  // namespace cryptonote

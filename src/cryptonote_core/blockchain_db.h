@@ -332,8 +332,8 @@ private:
                 , const uint64_t& coins_generated
                 ) = 0;
 
-  // tells the subclass to remove data about a block
-  virtual void remove_block(const crypto::hash& blk_hash) = 0;
+  // tells the subclass to remove data about the top block
+  virtual void remove_block() = 0;
 
   // tells the subclass to store the transaction and its metadata
   virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx) = 0;
@@ -403,12 +403,14 @@ public:
 
 
   // adds a block with the given metadata to the top of the blockchain, returns the new height
-  uint64_t add_block( const block& blk
-                    , const size_t& block_size
-                    , const difficulty_type& cumulative_difficulty
-                    , const uint64_t& coins_generated
-                    , const std::vector<transaction>& txs
-                    );
+  // NOTE: subclass implementations of this (or the functions it calls) need
+  // to handle undoing any partially-added blocks in the event of a failure.
+  virtual uint64_t add_block( const block& blk
+                            , const size_t& block_size
+                            , const difficulty_type& cumulative_difficulty
+                            , const uint64_t& coins_generated
+                            , const std::vector<transaction>& txs
+                            );
 
   // return true if a block with hash <h> exists in the blockchain
   virtual bool block_exists(const crypto::hash& h) = 0;
