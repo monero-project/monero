@@ -126,6 +126,8 @@
  *   TX_DNE
  *   TX_EXISTS
  *   OUTPUT_DNE
+ *   OUTPUT_EXISTS
+ *   KEY_IMAGE_EXISTS
  */
 
 namespace cryptonote
@@ -302,10 +304,42 @@ class OUTPUT_DNE : public std::exception
   private:
     std::string m;
   public:
-    OUTPUT_DNE() : m("The transaction requested does not exist") { }
+    OUTPUT_DNE() : m("The output requested does not exist!") { }
     OUTPUT_DNE(const char* s) : m(s) { }
 
     virtual ~OUTPUT_DNE() { }
+
+    const char* what() const throw()
+    {
+      return m.c_str();
+    }
+};
+
+class OUTPUT_EXISTS : public std::exception
+{
+  private:
+    std::string m;
+  public:
+    OUTPUT_EXISTS() : m("The output to be added already exists!") { }
+    OUTPUT_EXISTS(const char* s) : m(s) { }
+
+    virtual ~OUTPUT_EXISTS() { }
+
+    const char* what() const throw()
+    {
+      return m.c_str();
+    }
+};
+
+class KEY_IMAGE_EXISTS : public std::exception
+{
+  private:
+    std::string m;
+  public:
+    KEY_IMAGE_EXISTS() : m("The spent key image to be added already exists!") { }
+    KEY_IMAGE_EXISTS(const char* s) : m(s) { }
+
+    virtual ~KEY_IMAGE_EXISTS() { }
 
     const char* what() const throw()
     {
