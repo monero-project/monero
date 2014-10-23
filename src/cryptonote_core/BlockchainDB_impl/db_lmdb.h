@@ -194,12 +194,20 @@ private:
   MDB_dbi m_block_coins;
 
   MDB_dbi m_txs;
+  MDB_dbi m_tx_heights;
+  MDB_dbi m_tx_outputs;
 
-  MDB_dbi m_spent;
-  MDB_dbi m_utxo;
+  MDB_dbi m_output_txs;
+  MDB_dbi m_output_indices;
+  MDB_dbi m_output_gindices;
+  MDB_dbi m_output_amounts;
+  MDB_dbi m_outputs;
+
+  MDB_dbi m_spent_keys;
 
   bool m_open;
   uint64_t m_height;
+  uint64_t m_num_outputs;
   std::string m_folder;
   txn_safe* m_write_txn;
 };
