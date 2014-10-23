@@ -29,6 +29,8 @@
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 add_definitions(-DSTATICLIB)
+# miniupnp changed their static define
+add_definitions(-DMINIUPNP_STATICLIB)
 
 file(GLOB_RECURSE COMMON common/*)
 file(GLOB_RECURSE CRYPTO crypto/*)
