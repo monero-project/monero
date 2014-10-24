@@ -45,7 +45,8 @@ target_link_libraries(functional_tests
     common
     crypto
     ${UNBOUND_LIBRARY}
-    ${Boost_LIBRARIES}
+    ${Boost_REGEX_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET functional_tests
   PROPERTY

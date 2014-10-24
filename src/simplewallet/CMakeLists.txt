@@ -52,7 +52,7 @@ target_link_libraries(simplewallet
     mnemonics
     ${UNBOUND_LIBRARY}
     ${UPNP_LIBRARIES}
-    ${Boost_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 add_dependencies(simplewallet
   version)

@@ -53,7 +53,8 @@ target_link_libraries(performance_tests
     common
     crypto
     ${UNBOUND_LIBRARY}
-    ${Boost_LIBRARIES}
+    ${Boost_CHRONO_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET performance_tests
   PROPERTY
