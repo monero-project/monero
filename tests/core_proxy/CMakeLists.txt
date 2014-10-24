@@ -36,7 +36,7 @@ add_executable(core_proxy
   ${core_proxy_sources}
   ${core_proxy_headers})
 target_link_libraries(core_proxy
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     ${UPNP_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}

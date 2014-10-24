@@ -52,7 +52,7 @@ bitmonero_add_library(common
   ${common_headers}
   ${common_private_headers})
 target_link_libraries(common
-  PRIVATE
+  LINK_PRIVATE
     crypto
     ${UNBOUND_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}

@@ -67,13 +67,13 @@ bitmonero_add_library(cryptonote_core
   ${cryptonote_core_headers}
   ${cryptonote_core_private_headers})
 target_link_libraries(cryptonote_core
-  PUBLIC
+  LINK_PUBLIC
     common
     crypto
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
-  PRIVATE
+  LINK_PRIVATE
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}

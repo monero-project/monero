@@ -35,7 +35,7 @@ add_executable(hash-tests
   ${hash_sources}
   ${hash_headers})
 target_link_libraries(hash-tests
-  PRIVATE
+  LINK_PRIVATE
     crypto)
 set_property(TARGET hash-tests
   PROPERTY

@@ -35,7 +35,7 @@ add_executable(transfers
   ${transfers_sources}
   ${transfers_headers})
 target_link_libraries(transfers
-  PRIVATE
+  LINK_PRIVATE
     useragent
     rpc
     cryptonote_core

@@ -46,10 +46,10 @@ bitmonero_add_library(wallet
   ${wallet_headers}
   ${wallet_private_headers})
 target_link_libraries(wallet
-  PUBLIC
+  LINK_PUBLIC
     cryptonote_core
     mnemonics
-  PRIVATE
+  LINK_PRIVATE
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}

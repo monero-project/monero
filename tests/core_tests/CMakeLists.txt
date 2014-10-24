@@ -58,7 +58,7 @@ add_executable(coretests
   ${core_tests_sources}
   ${core_tests_headers})
 target_link_libraries(coretests
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

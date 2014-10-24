@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.8)
+cmake_minimum_required(VERSION 2.8.7)
 
 project(unbound C)
 
@@ -163,18 +163,18 @@ add_library(unbound
   ${compat_src}
   ${libunbound_src})
 target_link_libraries(unbound
-  PRIVATE
+  LINK_PRIVATE
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT})
 if (LIBEVENT2_FOUND)
   target_link_libraries(unbound
-    PRIVATE
+    LINK_PRIVATE
       ${LIBEVENT2_LIBRARIES})
 endif ()
 
 if (WIN32)
   target_link_libraries(unbound
-    PRIVATE
+    LINK_PRIVATE
       iphlpapi
       ws2_32)
 endif ()

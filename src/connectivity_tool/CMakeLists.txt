@@ -35,7 +35,7 @@ bitmonero_add_executable(connectivity_tool
   ${connectivity_tool_sources}
   ${connectivity_tool_private_headers})
 target_link_libraries(connectivity_tool
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     crypto
     common

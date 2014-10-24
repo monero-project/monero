@@ -48,7 +48,7 @@ add_executable(performance_tests
   ${performance_tests_sources}
   ${performance_tests_headers})
 target_link_libraries(performance_tests
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     common
     crypto

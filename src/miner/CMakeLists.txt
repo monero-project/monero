@@ -43,7 +43,7 @@ bitmonero_add_executable(simpleminer
   ${simpleminer_headers}
   ${simpleminer_private_headers})
 target_link_libraries(simpleminer
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     common
     ${Boost_FILESYSTEM_LIBRARY}

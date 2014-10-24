@@ -54,7 +54,7 @@ add_executable(unit_tests
   ${unit_tests_sources}
   ${unit_tests_headers})
 target_link_libraries(unit_tests
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     rpc
     wallet

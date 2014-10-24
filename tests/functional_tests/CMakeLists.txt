@@ -39,7 +39,7 @@ add_executable(functional_tests
   ${functional_tests_sources}
   ${functional_tests_headers})
 target_link_libraries(functional_tests
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     wallet
     common

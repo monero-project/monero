@@ -57,7 +57,7 @@ bitmonero_add_executable(daemon
   ${daemon_headers}
   ${daemon_private_headers})
 target_link_libraries(daemon
-  PRIVATE
+  LINK_PRIVATE
     rpc
     cryptonote_core
     crypto

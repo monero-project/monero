@@ -43,7 +43,7 @@ bitmonero_add_library(rpc
   ${rpc_headers}
   ${rpc_private_headers})
 target_link_libraries(rpc
-  PRIVATE
+  LINK_PRIVATE
     cryptonote_core
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}

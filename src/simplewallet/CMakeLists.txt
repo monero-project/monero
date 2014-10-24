@@ -43,7 +43,7 @@ bitmonero_add_executable(simplewallet
   ${simplewallet_headers}
   ${simplewallet_private_headers})
 target_link_libraries(simplewallet
-  PRIVATE
+  LINK_PRIVATE
     wallet
     rpc
     cryptonote_core
