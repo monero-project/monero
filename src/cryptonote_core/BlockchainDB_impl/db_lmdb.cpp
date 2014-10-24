@@ -249,6 +249,58 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
 void BlockchainLMDB::remove_output(const tx_out& tx_output)
 {
   check_open();
+
+  MDB_val k;
+  MDB_val v;
+
+  blobdata b;
+  t_serializable_object_to_blob(tx_output, b);
+  k.mv_size = b.size();
+  k.mv_data = &b;
+
+  if (mdb_get(*m_write_txn, m_output_gindices, &k, &v))
+  {
+      LOG_PRINT_L1("Attempting to remove output that does not exist");
+      throw OUTPUT_DNE("Attempting to remove output that does not exist");
+  }
+
+  uint64_t gindex = *(uint64_t*)v.mv_data;
+
+  auto result = mdb_del(*m_write_txn, m_output_gindices, &k, NULL);
+  if (result != 0 && result != MDB_NOTFOUND)
+  {
+      LOG_PRINT_L1("Error adding removal of output global index to db transaction");
+      throw DB_ERROR("Error adding removal of output global index to db transaction");
+  }
+
+  result = mdb_del(*m_write_txn, m_output_indices, &v, NULL);
+  if (result != 0 && result != MDB_NOTFOUND)
+  {
+      LOG_PRINT_L1("Error adding removal of output tx index to db transaction");
+      throw DB_ERROR("Error adding removal of output tx index to db transaction");
+  }
+
+  result = mdb_del(*m_write_txn, m_output_txs, &v, NULL);
+  if (result != 0 && result != MDB_NOTFOUND)
+  {
+      LOG_PRINT_L1("Error adding removal of output tx hash to db transaction");
+      throw DB_ERROR("Error adding removal of output tx hash to db transaction");
+  }
+
+  result = mdb_del(*m_write_txn, m_output_amounts, &v, NULL);
+  if (result != 0 && result != MDB_NOTFOUND)
+  {
+      LOG_PRINT_L1("Error adding removal of output amount to db transaction");
+      throw DB_ERROR("Error adding removal of output amount to db transaction");
+  }
+
+  result = mdb_del(*m_write_txn, m_outputs, &v, NULL);
+  if (result != 0 && result != MDB_NOTFOUND)
+  {
+      LOG_PRINT_L1("Error adding removal of output to db transaction");
+      throw DB_ERROR("Error adding removal of output to db transaction");
+  }
+
 }
 
 void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
@@ -280,6 +332,17 @@ void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
 void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
 {
   check_open();
+
+  crypto::key_image key_cpy = k_image;
+  MDB_val k;
+  k.mv_size = sizeof(crypto::key_image);
+  k.mv_data = &key_cpy;
+  auto result = mdb_del(*m_write_txn, m_spent_keys, &val_key, NULL);
+  if (result != 0 && result != MDB_NOTFOUND)
+  {
+      LOG_PRINT_L1("Error adding removal of key image to db transaction");
+      throw DB_ERROR("Error adding removal of key image to db transaction");
+  }
 }
 
 void BlockchainLMDB::check_open()
