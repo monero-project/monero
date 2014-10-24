@@ -178,3 +178,8 @@ if (WIN32)
       iphlpapi
       ws2_32)
 endif ()
+
+# XXX: Hack for static builds.
+set(LIBEVENT2_LIBDIR
+  "${LIBEVENT2_LIBDIR}"
+  PARENT_SCOPE)
