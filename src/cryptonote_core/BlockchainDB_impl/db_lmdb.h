@@ -26,6 +26,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cryptonote_core/blockchain_db.h"
+#include "cryptonote_protocol/blobdatatype.h" // for type blobdata
 
 #include <lmdb.h>
 
@@ -149,6 +150,17 @@ public:
 
   virtual tx_out get_output(const crypto::hash& h, const uint64_t& index);
 
+  /**
+   * @brief get an output from its global index
+   *
+   * @param index global index of the output desired
+   *
+   * @return the output associated with the index.
+   * Will throw OUTPUT_DNE if not output has that global index.
+   * Will throw DB_ERROR if there is a non-specific LMDB error in fetching
+   */
+  tx_out get_output(const uint64_t& index);
+
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index);
 
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h);
@@ -183,17 +195,48 @@ private:
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
+  /**
+   * @brief convert a tx output to a blob for storage
+   *
+   * @param output the output to convert
+   *
+   * @return the resultant blob
+   */
+  blobdata output_to_blob(const tx_out& output);
+
+  /**
+   * @brief convert a tx output blob to a tx output
+   *
+   * @param blob the blob to convert
+   *
+   * @return the resultant tx output
+   */
+  tx_out output_from_blob(const blobdata& blob);
+
+  /**
+   * @brief get the global index of the index-th output of the given amount
+   *
+   * @param amount the output amount
+   * @param index the index into the set of outputs of that amount
+   *
+   * @return the global index of the desired output
+   */
+  uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
+
   void check_open();
 
   MDB_env* m_env;
 
   MDB_dbi m_blocks;
+  MDB_dbi m_block_heights;
   MDB_dbi m_block_hashes;
+  MDB_dbi m_block_timestamps;
   MDB_dbi m_block_sizes;
   MDB_dbi m_block_diffs;
   MDB_dbi m_block_coins;
 
   MDB_dbi m_txs;
+  MDB_dbi m_tx_unlocks;
   MDB_dbi m_tx_heights;
   MDB_dbi m_tx_outputs;
 
