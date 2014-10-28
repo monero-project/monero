@@ -29,6 +29,9 @@
 set(cryptonote_core_sources
   account.cpp
   blockchain_storage.cpp
+  blockchain.cpp
+  blockchain_db.cpp
+  BlockchainDB_impl/db_lmdb.cpp
   checkpoints.cpp
   checkpoints_create.cpp
   cryptonote_basic_impl.cpp
@@ -45,6 +48,9 @@ set(cryptonote_core_private_headers
   account_boost_serialization.h
   blockchain_storage.h
   blockchain_storage_boost_serialization.h
+  blockchain.h
+  blockchain_db.h
+  BlockchainDB_impl/db_lmdb.h
   checkpoints.h
   checkpoints_create.h
   connection_context.h
@@ -77,4 +83,5 @@ target_link_libraries(cryptonote_core
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${LMDB_LIBRARIES}
     ${EXTRA_LIBRARIES})

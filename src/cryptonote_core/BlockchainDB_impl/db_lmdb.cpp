@@ -672,6 +672,7 @@ void BlockchainLMDB::open(const std::string& filename)
 // unused for now, create will happen on open if doesn't exist
 void BlockchainLMDB::create(const std::string& filename)
 {
+  throw DB_CREATE_FAILURE("create() is not implemented for this BlockchainDB, open() will create files if needed.");
 }
 
 void BlockchainLMDB::close()

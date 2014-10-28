@@ -47,7 +47,7 @@
 
 namespace cryptonote
 {
-  class blockchain_storage;
+  class Blockchain;
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -55,7 +55,7 @@ namespace cryptonote
   class tx_memory_pool: boost::noncopyable
   {
   public:
-    tx_memory_pool(blockchain_storage& bchs);
+    tx_memory_pool(Blockchain& bchs);
     bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
     bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
     //gets tx and remove it from pool
@@ -127,7 +127,7 @@ namespace cryptonote
     //transactions_container m_alternative_transactions;
 
     std::string m_config_folder;
-    blockchain_storage& m_blockchain;
+    Blockchain& m_blockchain;
     /************************************************************************/
     /*                                                                      */
     /************************************************************************/
@@ -170,9 +170,6 @@ namespace cryptonote
       uint64_t operator()(const txin_to_scripthash& tx) const {return 0;}
     };
 
-#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
-    friend class blockchain_storage;
-#endif
   };
 }
 
