@@ -1022,7 +1022,7 @@ crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height)
   if (get_result == MDB_NOTFOUND)
   {
     LOG_PRINT_L0("Attempted to get hash from height " << height << ", but no such hash exists");
-    throw DB_ERROR("Attempt to get hash from height failed -- block size not in db");
+    throw BLOCK_DNE("Attempt to get hash from height failed -- hash not in db");
   }
   else if (get_result)
   {
