@@ -1541,9 +1541,13 @@ void Blockchain::print_blockchain_index()
 {
   std::stringstream ss;
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  for(uint64_t i = 0; i <= m_db->height(); i++)
+  auto height = m_db->height();
+  if (height != 0)
   {
-    ss << "height: " << i << ", hash: " << m_db->get_block_hash_from_height(i);
+    for(uint64_t i = 0; i <= height; i++)
+    {
+      ss << "height: " << i << ", hash: " << m_db->get_block_hash_from_height(i);
+    }
   }
 
   LOG_PRINT_L0("Current blockchain index:" << std::endl
