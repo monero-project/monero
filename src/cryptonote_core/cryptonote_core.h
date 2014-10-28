@@ -39,7 +39,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "tx_pool.h"
-#include "blockchain_storage.h"
+#include "blockchain.h"
 #include "miner.h"
 #include "connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
@@ -112,7 +112,7 @@ namespace cryptonote
      bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res);
      void pause_mine();
      void resume_mine();
-     blockchain_storage& get_blockchain_storage(){return m_blockchain_storage;}
+     Blockchain& get_blockchain_storage(){return m_blockchain_storage;}
      //debug functions
      void print_blockchain(uint64_t start_index, uint64_t end_index);
      void print_blockchain_index();
@@ -149,7 +149,7 @@ namespace cryptonote
 
 
      tx_memory_pool m_mempool;
-     blockchain_storage m_blockchain_storage;
+     Blockchain m_blockchain_storage;
      i_cryptonote_protocol* m_pprotocol;
      epee::critical_section m_incoming_tx_lock;
      //m_miner and m_miner_addres are probably temporary here

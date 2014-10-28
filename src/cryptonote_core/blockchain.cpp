@@ -32,10 +32,14 @@
 #include <cstdio>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
+#include <boost/filesystem.hpp>
 
 #include "include_base_utils.h"
 #include "cryptonote_basic_impl.h"
+#include "tx_pool.h"
 #include "blockchain.h"
+#include "cryptonote_core/blockchain_db.h"
+#include "cryptonote_core/BlockchainDB_impl/db_lmdb.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
@@ -62,10 +66,6 @@ DISABLE_VS_WARNINGS(4267)
 // TODO: initialize m_db with a concrete implementation of BlockchainDB
 Blockchain::Blockchain(tx_memory_pool& tx_pool):m_db(), m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false)
 {
-  if (m_db == NULL)
-  {
-    throw new DB_ERROR("database pointer null in blockchain init");
-  }
 }
 //------------------------------------------------------------------
 //TODO: is this still needed?  I don't think so - tewinget
@@ -222,11 +222,23 @@ bool Blockchain::init(const std::string& config_folder, bool testnet)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  m_db = new BlockchainLMDB();
+
   m_config_folder = config_folder;
+  m_testnet = testnet;
+
+  boost::filesystem::path folder(m_config_folder);
+
+  // append "testnet" directory as needed
+  if (testnet)
+  {
+    folder /= "testnet";
+  }
+
   LOG_PRINT_L0("Loading blockchain...");
 
   //FIXME: update filename for BlockchainDB
-  const std::string filename = m_config_folder + "/" CRYPTONOTE_BLOCKCHAINDATA_FILENAME;
+  const std::string filename = folder.string();
   try
   {
     m_db->open(filename);
@@ -328,6 +340,8 @@ bool Blockchain::deinit()
   {
     LOG_PRINT_L0("There was an issue closing/storing the blockchain, shutting down now to prevent issues!");
   }
+
+  delete m_db;
   return true;
 }
 //------------------------------------------------------------------
@@ -1450,7 +1464,7 @@ uint64_t Blockchain::block_difficulty(uint64_t i)
 }
 //------------------------------------------------------------------
 template<class t_ids_container, class t_blocks_container, class t_missed_container>
-void Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs)
+bool Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
@@ -1464,11 +1478,16 @@ void Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container
     {
       missed_bs.push_back(block_hash);
     }
+    catch (const std::exception& e)
+    {
+      return false;
+    }
   }
+  return true;
 }
 //------------------------------------------------------------------
 template<class t_ids_container, class t_tx_container, class t_missed_container>
-void Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs)
+bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
@@ -1482,7 +1501,13 @@ void Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
     {
       missed_txs.push_back(tx_hash);
     }
+    //FIXME: is this the correct way to handle this?
+    catch (const std::exception& e)
+    {
+      return false;
+    }
   }
+  return true;
 }
 //------------------------------------------------------------------
 void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index)

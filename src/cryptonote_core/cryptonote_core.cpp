@@ -290,9 +290,9 @@ namespace cryptonote
       return false;
     }
 
-    if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
+    if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_cumulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
     {
-      LOG_PRINT_RED_L1("tx is too large " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+      LOG_PRINT_RED_L1("tx is too large " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_cumulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
       return false;
     }
 
@@ -577,7 +577,7 @@ namespace cryptonote
       m_starter_message_showed = true;
     }
 
-    m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
+    m_store_blockchain_interval.do_call(boost::bind(&Blockchain::store_blockchain, &m_blockchain_storage));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;

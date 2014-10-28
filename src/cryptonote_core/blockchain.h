@@ -41,7 +41,6 @@
 
 #include "syncobj.h"
 #include "string_tools.h"
-#include "tx_pool.h"
 #include "cryptonote_basic.h"
 #include "common/util.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
@@ -55,6 +54,7 @@
 
 namespace cryptonote
 {
+  class tx_memory_pool;
 
   /************************************************************************/
   /*                                                                      */
@@ -131,15 +131,18 @@ namespace cryptonote
     uint64_t block_difficulty(uint64_t i);
 
     template<class t_ids_container, class t_blocks_container, class t_missed_container>
-    void get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs);
+    bool get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs);
 
     template<class t_ids_container, class t_tx_container, class t_missed_container>
-    void get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs);
+    bool get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs);
 
     //debug functions
     void print_blockchain(uint64_t start_index, uint64_t end_index);
     void print_blockchain_index();
     void print_blockchain_outs(const std::string& file);
+
+    void set_enforce_dns_checkpoints(bool enforce) { }
+    bool update_checkpoints(const std::string& path, bool dns) { return true; }
 
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
@@ -175,6 +178,7 @@ namespace cryptonote
     checkpoints m_checkpoints;
     std::atomic<bool> m_is_in_checkpoint_zone;
     std::atomic<bool> m_is_blockchain_storing;
+    bool m_testnet;
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     block pop_block_from_blockchain();

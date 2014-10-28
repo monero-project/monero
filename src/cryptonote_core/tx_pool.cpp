@@ -37,7 +37,7 @@
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
-#include "blockchain_storage.h"
+#include "blockchain.h"
 #include "common/boost_serialization_helper.h"
 #include "common/int-util.h"
 #include "misc_language.h"
@@ -54,7 +54,7 @@ namespace cryptonote
   }
 
   //---------------------------------------------------------------------------------
-  tx_memory_pool::tx_memory_pool(blockchain_storage& bchs): m_blockchain(bchs)
+  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs)
   {
 
   }
