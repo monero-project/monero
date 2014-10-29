@@ -180,6 +180,8 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
         return false;
       }
 
+LOG_PRINT_L0(__func__ << ": amount == " << tx.vout[output_index.second].amount);
+
       // call to the passed boost visitor to grab the public key for the output
       if(!vis.handle_output(tx, tx.vout[output_index.second]))
       {
@@ -496,15 +498,15 @@ bool Blockchain::get_short_chain_history(std::list<crypto::hash>& ids)
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   uint64_t i = 0;
   uint64_t current_multiplier = 1;
-  uint64_t sz = m_db->height() - 1;
+  uint64_t sz = m_db->height();
 
   if(!sz)
     return true;
 
   uint64_t current_back_offset = 0;
-  while(current_back_offset <= sz)
+  while(current_back_offset < sz)
   {
-    ids.push_back(m_db->get_block_hash_from_height(sz-current_back_offset));
+    ids.push_back(m_db->get_block_hash_from_height(sz - current_back_offset - 1));
     if(i < 10)
     {
       ++current_back_offset;
@@ -585,7 +587,7 @@ void Blockchain::get_all_known_block_ids(std::list<crypto::hash> &main, std::lis
   LOG_PRINT_L2("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
-  for (auto& a : m_db->get_hashes_range(0, m_db->height()))
+  for (auto& a : m_db->get_hashes_range(0, m_db->height() - 1))
   {
     main.push_back(a);
   }
@@ -861,13 +863,13 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   }
   if(base_reward + fee < money_in_use)
   {
-    LOG_ERROR("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
+    LOG_ERROR("coinbase transaction spend too much money (" << money_in_use << "). Block reward is " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
     return false;
   }
   if(base_reward + fee != money_in_use)
   {
     LOG_ERROR("coinbase transaction doesn't use full amount of block reward:  spent: "
-                            << print_money(money_in_use) << ",  block reward " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
+                            << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
     return false;
   }
   return true;
@@ -886,8 +888,8 @@ void Blockchain::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count)
     return;
 
   // add size of last <count> blocks to vector <sz> (or less, if blockchain size < count)
-  size_t start_offset = (h+1) - std::min((h+1), count);
-  for(size_t i = start_offset; i <= h; i++)
+  size_t start_offset = h - std::min(h, count);
+  for(size_t i = start_offset; i < h; i++)
   {
     sz.push_back(m_db->get_block_size(i));
   }
@@ -922,13 +924,12 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   b.prev_id = get_tail_id();
   b.timestamp = time(NULL);
 
-  auto old_height = m_db->height();
-  height = old_height + 1;
+  height = m_db->height();
   diffic = get_difficulty_for_next_block();
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
 
   median_size = m_current_block_cumul_sz_limit / 2;
-  already_generated_coins = m_db->get_block_already_generated_coins(old_height);
+  already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
 
   CRITICAL_REGION_END();
 
@@ -1043,7 +1044,7 @@ bool Blockchain::complete_timestamps_vector(uint64_t start_top_height, std::vect
 
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   size_t need_elements = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - timestamps.size();
-  CHECK_AND_ASSERT_MES(start_top_height <= m_db->height(), false, "internal error: passed start_height > " << " m_db->height() -- " << start_top_height << " > " << m_db->height());
+  CHECK_AND_ASSERT_MES(start_top_height < m_db->height(), false, "internal error: passed start_height not < " << " m_db->height() -- " << start_top_height << " >= " << m_db->height());
   size_t stop_offset = start_top_height > need_elements ? start_top_height - need_elements : 0;
   while (start_top_height != stop_offset);
   {
@@ -1107,7 +1108,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     if(alt_chain.size())
     {
       // make sure alt chain doesn't somehow start past the end of the main chain
-      CHECK_AND_ASSERT_MES(m_db->height() > alt_chain.front()->second.height, false, "main blockchain wrong height");
+      CHECK_AND_ASSERT_MES(m_db->height() - 1 > alt_chain.front()->second.height, false, "main blockchain wrong height");
 
       // make sure that the blockchain contains the block that should connect
       // this alternate chain with it.
@@ -1979,8 +1980,8 @@ bool Blockchain::check_block_timestamp(const block& b)
   // need most recent 60 blocks, get index of first of those
   // using +1 because BlockchainDB::height() returns the index of the top block,
   // not the size of the blockchain (0-indexed)
-  size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1;
-  for(;offset <= h; ++offset)
+  size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - 1;
+  for(;offset < h; ++offset)
   {
     timestamps.push_back(m_db->get_block_timestamp(offset));
   }
@@ -2143,7 +2144,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   }
 
   uint64_t base_reward = 0;
-  uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height()) : 0;
+  uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
   if(!validate_miner_transaction(bl, cumulative_block_size, fee_summary, base_reward, already_generated_coins))
   {
     LOG_PRINT_L0("Block with id: " << id
@@ -2161,7 +2162,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   cumulative_difficulty = current_diffic;
   already_generated_coins = already_generated_coins + base_reward;
   if(m_db->height())
-    cumulative_difficulty += m_db->get_block_cumulative_difficulty(m_db->height());
+    cumulative_difficulty += m_db->get_block_cumulative_difficulty(m_db->height() - 1);
 
   update_next_cumulative_size_limit();
 
@@ -2169,15 +2170,18 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
   uint64_t new_height = 0;
   bool add_success = true;
-  try
+  if (!bvc.m_verifivation_failed)
   {
-    new_height = m_db->add_block(bl, block_size, cumulative_difficulty, already_generated_coins, txs);
-  }
-  catch (const std::exception& e)
-  {
-    //TODO: figure out the best way to deal with this failure
-    LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
-    add_success = false;
+    try
+    {
+      new_height = m_db->add_block(bl, block_size, cumulative_difficulty, already_generated_coins, txs);
+    }
+    catch (const std::exception& e)
+    {
+      //TODO: figure out the best way to deal with this failure
+      LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+      add_success = false;
+    }
   }
 
   // if we failed for any reason to verify the block, return taken
