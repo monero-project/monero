@@ -34,6 +34,8 @@
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "crypto/crypto.h"
 
+using epee::string_tools::pod_to_hex;
+
 namespace
 {
 
@@ -67,6 +69,14 @@ struct lmdb_cur
 
   MDB_cursor* m_cur;
   bool done;
+};
+
+auto compare_uint64 = [](const MDB_val *a, const MDB_val *b) {
+  uint64_t va = *(uint64_t*)a->mv_data;
+  uint64_t vb = *(uint64_t*)b->mv_data;
+  if (va < vb) return -1;
+  else if (va == vb) return 0;
+  else return 1;
 };
 
 const char* LMDB_BLOCKS = "blocks";
@@ -418,6 +428,9 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
     throw DB_ERROR("Failed to add output global index to db transaction");
   }
 
+  LOG_PRINT_L0(__func__ << ":  amount == " << amount << ", tx_index == " << local_index << "amount_index == " << get_num_outputs(amount) << ", tx_hash == " << pod_to_hex(tx_hash));
+
+  m_num_outputs++;
 }
 
 void BlockchainLMDB::remove_output(const tx_out& tx_output)
@@ -660,6 +673,9 @@ void BlockchainLMDB::open(const std::string& filename)
   lmdb_db_open(txn, LMDB_OUTPUTS, MDB_INTEGERKEY | MDB_CREATE, m_outputs, "Failed to open db handle for m_outputs");
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_outputs");
+
+  mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
+  mdb_set_dupsort(txn, m_tx_outputs, compare_uint64);
 
   // get and keep current height
   MDB_stat db_stats;
@@ -1508,8 +1524,8 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
   auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
   if (result == MDB_NOTFOUND)
   {
-    LOG_PRINT_L1("Attempting to get an output index by amount and amount index, but output not found");
-    throw OUTPUT_DNE("Attempting to get an output index by amount and amount index, but output not found");
+    LOG_PRINT_L1("Attempting to get an output index by amount and amount index, but amount not found");
+    throw OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found");
   }
   else if (result)
   {
@@ -1519,6 +1535,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
 
   size_t num_elems = 0;
   mdb_cursor_count(cur, &num_elems);
+  LOG_PRINT_L0(__func__ << ":  amount == " << amount << ", index == " << index << ", num_elem for amount == " << num_elems);
   if (num_elems <= index)
   {
     LOG_PRINT_L1("Attempting to get an output index by amount and amount index, but output not found");
@@ -1570,6 +1587,8 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
   }
 
   txn.commit();
+
+  LOG_PRINT_L0(__func__ << ": tx_hash == " << pod_to_hex(tx_hash) << " tx_index == " << *(uint64_t*)v.mv_data);
 
   return tx_out_index(tx_hash, *(uint64_t *)v.mv_data);
 }
