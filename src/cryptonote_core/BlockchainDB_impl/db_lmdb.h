@@ -174,6 +174,8 @@ public:
                             , const std::vector<transaction>& txs
                             );
 
+  virtual void pop_block(block& blk, std::vector<transaction>& txs);
+
 private:
   virtual void add_block( const block& blk
                 , const size_t& block_size
@@ -190,6 +192,10 @@ private:
   virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index);
 
   virtual void remove_output(const tx_out& tx_output);
+
+  void remove_tx_outputs(const crypto::hash& tx_hash);
+
+  void remove_output(const uint64_t& out_index);
 
   virtual void add_spent_key(const crypto::key_image& k_image);
 

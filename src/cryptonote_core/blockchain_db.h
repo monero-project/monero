@@ -508,7 +508,7 @@ public:
   // When a block is popped, the transactions associated with it need to be
   // removed, as well as outputs and spent key images associated with
   // those transactions.
-  void pop_block(block& blk, std::vector<transaction>& txs);
+  virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
 
   // return true if a transaction with hash <h> exists
