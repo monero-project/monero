@@ -45,10 +45,6 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
 {
   crypto::hash tx_hash = get_transaction_hash(tx);
 
-  LOG_PRINT_L0("Adding tx with hash " << pod_to_hex(tx_hash) << " to BlockchainDB instance");
-  LOG_PRINT_L0("Included in block with hash " << pod_to_hex(blk_hash));
-  LOG_PRINT_L0("Unlock time == " << tx.unlock_time);
-
   add_transaction_data(blk_hash, tx);
 
   // iterate tx.vout using indices instead of C++11 foreach syntax because
@@ -66,10 +62,6 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
       {
         add_spent_key(boost::get<txin_to_key>(tx_input).k_image);
       }
-      else
-      {
-        LOG_PRINT_L0("Is miner tx");
-      }
     }
   }
 }
@@ -82,7 +74,6 @@ uint64_t BlockchainDB::add_block( const block& blk
                                 )
 {
   crypto::hash blk_hash = get_block_hash(blk);
-  LOG_PRINT_L0("Adding block with hash " << pod_to_hex(blk_hash) << " to BlockchainDB instance.");
 
   // call out to subclass implementation to add the block & metadata
   add_block(blk, block_size, cumulative_difficulty, coins_generated);
