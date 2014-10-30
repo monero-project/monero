@@ -623,11 +623,10 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 
   size_t offset = h - std::min(h, static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT));
 
-  // because BlockchainDB::height() returns the index of the top block, the
-  // first index we need to get needs to be one
-  // higher than height() - DIFFICULTY_BLOCKS_COUNT.  This also conveniently
-  // makes sure we don't use the genesis block.
-  ++offset;
+  if (offset == 0)
+  {
+    ++offset;
+  }
 
   for(; offset < h; offset++)
   {
