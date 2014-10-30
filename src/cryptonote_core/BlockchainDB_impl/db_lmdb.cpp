@@ -1541,7 +1541,6 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
 
   size_t num_elems = 0;
   mdb_cursor_count(cur, &num_elems);
-  LOG_PRINT_L0(__func__ << ":  amount == " << amount << ", index == " << index << ", num_elem for amount == " << num_elems);
   if (num_elems <= index)
   {
     LOG_PRINT_L1("Attempting to get an output index by amount and amount index, but output not found");
@@ -1593,8 +1592,6 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
   }
 
   txn.commit();
-
-  LOG_PRINT_L0(__func__ << ": tx_hash == " << pod_to_hex(tx_hash) << " tx_index == " << *(uint64_t*)v.mv_data);
 
   return tx_out_index(tx_hash, *(uint64_t *)v.mv_data);
 }
