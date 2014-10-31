@@ -250,6 +250,7 @@ private:
   MDB_dbi m_output_indices;
   MDB_dbi m_output_gindices;
   MDB_dbi m_output_amounts;
+  MDB_dbi m_output_keys;
   MDB_dbi m_outputs;
 
   MDB_dbi m_spent_keys;

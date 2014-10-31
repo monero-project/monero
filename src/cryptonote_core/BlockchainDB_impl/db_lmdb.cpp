@@ -95,6 +95,7 @@ const char* LMDB_TX_OUTPUTS = "tx_outputs";
 const char* LMDB_OUTPUT_TXS = "output_txs";
 const char* LMDB_OUTPUT_INDICES = "output_indices";
 const char* LMDB_OUTPUT_AMOUNTS = "output_amounts";
+const char* LMDB_OUTPUT_KEYS = "output_keys";
 const char* LMDB_OUTPUTS = "outputs";
 const char* LMDB_OUTPUT_GINDICES = "output_gindices";
 const char* LMDB_SPENT_KEYS = "spent_keys";
@@ -417,6 +418,20 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
     throw DB_ERROR("Failed to add output amount to db transaction");
   }
 
+  if (tx_output.target.type() == typeid(txout_to_key))
+  {
+    crypto::public_key pubkey = boost::get<txout_to_key>(tx_output.target).key;
+
+    v.mv_size = sizeof(pubkey);
+    v.mv_data = &pubkey;
+    if (mdb_put(*m_write_txn, m_output_keys, &k, &v, 0))
+    {
+      LOG_PRINT_L0("Failed to add output pubkey to db transaction");
+      throw DB_ERROR("Failed to add output pubkey to db transaction");
+    }
+  }
+
+
 /****** Uncomment if ever outputs actually need to be stored in this manner
  *
   blobdata b = output_to_blob(tx_output);
@@ -541,6 +556,17 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index)
   {
       LOG_PRINT_L1("Error adding removal of output amount to db transaction");
       throw DB_ERROR("Error adding removal of output amount to db transaction");
+  }
+
+  result = mdb_del(*m_write_txn, m_output_keys, &v, NULL);
+  if (result == MDB_NOTFOUND)
+  {
+      LOG_PRINT_L2("Removing output, no public key found.");
+  }
+  else if (result)
+  {
+    LOG_PRINT_L1("Error adding removal of output pubkey to db transaction");
+    throw DB_ERROR("Error adding removal of output pubkey to db transaction");
   }
 
   m_num_outputs--;
@@ -691,7 +717,8 @@ void BlockchainLMDB::open(const std::string& filename)
     LOG_PRINT_L0("Failed to set max number of dbs");
     throw DB_ERROR("Failed to set max number of dbs");
   }
-  if (auto result = mdb_env_set_mapsize(m_env, 1 << 29))
+  size_t mapsize = 1LL << 32;
+  if (auto result = mdb_env_set_mapsize(m_env, mapsize))
   {
     LOG_PRINT_L0("Failed to set max memory map size");
     LOG_PRINT_L0("E: " << mdb_strerror(result));
@@ -731,6 +758,7 @@ void BlockchainLMDB::open(const std::string& filename)
   lmdb_db_open(txn, LMDB_OUTPUT_TXS, MDB_INTEGERKEY | MDB_CREATE, m_output_txs, "Failed to open db handle for m_output_txs");
   lmdb_db_open(txn, LMDB_OUTPUT_INDICES, MDB_INTEGERKEY | MDB_CREATE, m_output_indices, "Failed to open db handle for m_output_indices");
   lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
+  lmdb_db_open(txn, LMDB_OUTPUT_KEYS, MDB_INTEGERKEY | MDB_CREATE, m_output_keys, "Failed to open db handle for m_output_keys");
 
 /*************** not used, but kept for posterity
   lmdb_db_open(txn, LMDB_OUTPUTS, MDB_INTEGERKEY | MDB_CREATE, m_outputs, "Failed to open db handle for m_outputs");
@@ -753,10 +781,10 @@ void BlockchainLMDB::open(const std::string& filename)
   m_height = db_stats.ms_entries;
 
   // get and keep current number of outputs
-  if (mdb_stat(txn, m_outputs, &db_stats))
+  if (mdb_stat(txn, m_output_indices, &db_stats))
   {
-    LOG_PRINT_L0("Failed to query m_outputs");
-    throw DB_ERROR("Failed to query m_outputs");
+    LOG_PRINT_L0("Failed to query m_output_indices");
+    throw DB_ERROR("Failed to query m_output_indices");
   }
   m_num_outputs = db_stats.ms_entries;
 
@@ -1457,15 +1485,31 @@ crypto::public_key BlockchainLMDB::get_output_key(const uint64_t& amount, const 
 
   uint64_t global = get_output_global_index(amount, index);
 
-  tx_out output = get_output(global);
-
-  if (output.target.type() != typeid(txout_to_key))
+  txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
   {
-    LOG_PRINT_L1("Attempting to get public key for wrong type of output");
-    throw DB_ERROR("Attempting to get public key for wrong type of output");
+    LOG_PRINT_L0("Failed to create a transaction for the db");
+    throw DB_ERROR("Failed to create a transaction for the db");
   }
 
-  return boost::get<txout_to_key>(output.target).key;
+  MDB_val k;
+  k.mv_size = sizeof(global);
+  k.mv_data = &global;
+
+  MDB_val v;
+  auto get_result = mdb_get(txn, m_output_keys, &k, &v);
+  if (get_result == MDB_NOTFOUND)
+  {
+    LOG_PRINT_L0("Attempting to get output pubkey by global index, but key does not exist");
+    throw DB_ERROR("Attempting to get output pubkey by global index, but key does not exist");
+  }
+  else if (get_result)
+  {
+    LOG_PRINT_L0("Error attempting to retrieve an output pubkey from the db");
+    throw DB_ERROR("Error attempting to retrieve an output pubkey from the db");
+  }
+
+  return *(crypto::public_key*)v.mv_data;
 }
 
 tx_out BlockchainLMDB::get_output(const crypto::hash& h, const uint64_t& index)
