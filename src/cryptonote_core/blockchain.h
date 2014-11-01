@@ -141,8 +141,9 @@ namespace cryptonote
     void print_blockchain_index();
     void print_blockchain_outs(const std::string& file);
 
-    void set_enforce_dns_checkpoints(bool enforce) { }
-    bool update_checkpoints(const std::string& path, bool dns) { return true; }
+    void check_against_checkpoints(checkpoints& points, bool enforce);
+    void set_enforce_dns_checkpoints(bool enforce);
+    bool update_checkpoints(const std::string& file_path, bool check_dns);
 
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
@@ -179,6 +180,7 @@ namespace cryptonote
     std::atomic<bool> m_is_in_checkpoint_zone;
     std::atomic<bool> m_is_blockchain_storing;
     bool m_testnet;
+    bool m_enforce_dns_checkpoints;
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     block pop_block_from_blockchain();

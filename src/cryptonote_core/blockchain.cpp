@@ -50,6 +50,7 @@
 #include "common/boost_serialization_helper.h"
 #include "warnings.h"
 #include "crypto/hash.h"
+#include "cryptonote_core/checkpoints_create.h"
 //#include "serialization/json_archive.h"
 
 /* TODO:
@@ -65,7 +66,7 @@ DISABLE_VS_WARNINGS(4267)
 
 //------------------------------------------------------------------
 // TODO: initialize m_db with a concrete implementation of BlockchainDB
-Blockchain::Blockchain(tx_memory_pool& tx_pool):m_db(), m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false)
+Blockchain::Blockchain(tx_memory_pool& tx_pool):m_db(), m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false), m_testnet(false), m_enforce_dns_checkpoints(false)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -2270,4 +2271,76 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
   }
 
   return handle_block_to_main_chain(bl, id, bvc);
+}
+//------------------------------------------------------------------
+void Blockchain::check_against_checkpoints(checkpoints& points, bool enforce)
+{
+  const auto& pts = points.get_points();
+
+  for (const auto& pt : pts)
+  {
+    // if the checkpoint is for a block we don't have yet, move on
+    if (pt.first >= m_db->height())
+    {
+      continue;
+    }
+
+    if (!points.check_block(pt.first, m_db->get_block_hash_from_height(pt.first)))
+    {
+      // if asked to enforce checkpoints, roll back to a couple of blocks before the checkpoint
+      if (enforce)
+      {
+        LOG_ERROR("Local blockchain failed to pass a checkpoint, rolling back!");
+        std::list<block> empty;
+        rollback_blockchain_switching(empty, pt.first - 2);
+      }
+      else
+      {
+        LOG_ERROR("WARNING: local blockchain failed to pass a MoneroPulse checkpoint, and you could be on a fork. You should either sync up from scratch, OR download a fresh blockchain bootstrap, OR enable checkpoint enforcing with the --enforce-dns-checkpointing command-line option");
+      }
+    }
+  }
+}
+//------------------------------------------------------------------
+// returns false if any of the checkpoints loading returns false.
+// That should happen only if a checkpoint is added that conflicts
+// with an existing checkpoint.
+bool Blockchain::update_checkpoints(const std::string& file_path, bool check_dns)
+{
+  if (!cryptonote::load_checkpoints_from_json(m_checkpoints, file_path))
+  {
+    return false;
+  }
+
+  // if we're checking both dns and json, load checkpoints from dns.
+  // if we're not hard-enforcing dns checkpoints, handle accordingly
+  if (m_enforce_dns_checkpoints && check_dns)
+  {
+    if (!cryptonote::load_checkpoints_from_dns(m_checkpoints))
+    {
+      return false;
+    }
+  }
+  else if (check_dns)
+  {
+    checkpoints dns_points;
+    cryptonote::load_checkpoints_from_dns(dns_points);
+    if (m_checkpoints.check_for_conflicts(dns_points))
+    {
+      check_against_checkpoints(dns_points, false);
+    }
+    else
+    {
+      LOG_PRINT_L0("One or more checkpoints fetched from DNS conflicted with existing checkpoints!");
+    }
+  }
+
+  check_against_checkpoints(m_checkpoints, true);
+
+  return true;
+}
+//------------------------------------------------------------------
+void Blockchain::set_enforce_dns_checkpoints(bool enforce_checkpoints)
+{
+  m_enforce_dns_checkpoints = enforce_checkpoints;
 }
