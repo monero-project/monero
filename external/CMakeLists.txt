@@ -173,3 +173,7 @@ ELSE()
     MESSAGE(FATAL_ERROR "${BoldRed}Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent${ColourReset}")
   ENDIF()
 ENDIF()
+
+set(NET_SKELETON_SRCS net_skeleton/net_skeleton.c)
+add_library(net_skeleton ${NET_SKELETON_SRCS})
+
