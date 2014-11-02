@@ -231,7 +231,7 @@ bool blockchain_storage::pop_block_from_blockchain()
   m_blocks_index.erase(bl_ind);
   //pop block from core
   m_blocks.pop_back();
-  m_tx_pool.on_blockchain_dec(m_blocks.size()-1, get_tail_id());
+  m_tx_pool->on_blockchain_dec(m_blocks.size()-1, get_tail_id());
   return true;
 }
 //------------------------------------------------------------------
@@ -307,7 +307,7 @@ bool blockchain_storage::purge_transaction_from_blockchain(const crypto::hash& t
   if(!is_coinbase(tx))
   {
     cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    bool r = m_tx_pool.add_tx(tx, tvc, true);
+    bool r = m_tx_pool->add_tx(tx, tvc, true);
     CHECK_AND_ASSERT_MES(r, false, "purge_block_data_from_blockchain: failed to add transaction to transaction pool");
   }
 
@@ -676,16 +676,16 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
 
   size_t txs_size;
   uint64_t fee;
-  if (!m_tx_pool.fill_block_template(b, median_size, already_generated_coins, txs_size, fee)) {
+  if (!m_tx_pool->fill_block_template(b, median_size, already_generated_coins, txs_size, fee)) {
     return false;
   }
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
   size_t real_txs_size = 0;
   uint64_t real_fee = 0;
-  CRITICAL_REGION_BEGIN(m_tx_pool.m_transactions_lock);
+  CRITICAL_REGION_BEGIN(m_tx_pool->m_transactions_lock);
   BOOST_FOREACH(crypto::hash &cur_hash, b.tx_hashes) {
-    auto cur_res = m_tx_pool.m_transactions.find(cur_hash);
-    if (cur_res == m_tx_pool.m_transactions.end()) {
+    auto cur_res = m_tx_pool->m_transactions.find(cur_hash);
+    if (cur_res == m_tx_pool->m_transactions.end()) {
       LOG_ERROR("Creating block template: error: transaction not found");
       continue;
     }
@@ -1658,7 +1658,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     transaction tx;
     size_t blob_size = 0;
     uint64_t fee = 0;
-    if(!m_tx_pool.take_tx(tx_id, tx, blob_size, fee))
+    if(!m_tx_pool->take_tx(tx_id, tx, blob_size, fee))
     {
       LOG_PRINT_L1("Block with id: " << id  << "has at least one unknown transaction with id: " << tx_id);
       purge_block_data_from_blockchain(bl, tx_processed_count);
@@ -1670,7 +1670,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     {
       LOG_PRINT_L1("Block with id: " << id  << "has at least one transaction (id: " << tx_id << ") with wrong inputs.");
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      bool add_res = m_tx_pool.add_tx(tx, tvc, true);
+      bool add_res = m_tx_pool->add_tx(tx, tvc, true);
       CHECK_AND_ASSERT_MES2(add_res, "handle_block_to_main_chain: failed to add transaction back to transaction pool");
       purge_block_data_from_blockchain(bl, tx_processed_count);
       add_block_as_invalid(bl, id);
@@ -1683,7 +1683,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     {
        LOG_PRINT_L1("Block with id: " << id << " failed to add transaction to blockchain storage");
        cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-       bool add_res = m_tx_pool.add_tx(tx, tvc, true);
+       bool add_res = m_tx_pool->add_tx(tx, tvc, true);
        CHECK_AND_ASSERT_MES2(add_res, "handle_block_to_main_chain: failed to add transaction back to transaction pool");
        purge_block_data_from_blockchain(bl, tx_processed_count);
        bvc.m_verifivation_failed = true;
@@ -1738,7 +1738,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   /*if(!m_orphanes_reorganize_in_work)
     review_orphaned_blocks_with_new_block_id(id, true);*/
 
-  m_tx_pool.on_blockchain_inc(bei.height, id);
+  m_tx_pool->on_blockchain_inc(bei.height, id);
   //LOG_PRINT_L0("BLOCK: " << ENDL << "" << dump_obj_as_json(bei.bl));
   return true;
 }
@@ -1761,7 +1761,7 @@ bool blockchain_storage::add_new_block(const block& bl_, block_verification_cont
   //copy block here to let modify block.target
   block bl = bl_;
   crypto::hash id = get_block_hash(bl);
-  CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
+  CRITICAL_REGION_LOCAL(*m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
   if(have_block(id))
   {

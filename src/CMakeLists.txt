@@ -97,3 +97,5 @@ add_subdirectory(connectivity_tool)
 add_subdirectory(miner)
 add_subdirectory(simplewallet)
 add_subdirectory(daemon)
+
+add_subdirectory(blockchain_converter)
