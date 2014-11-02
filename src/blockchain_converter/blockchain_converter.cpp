@@ -38,6 +38,7 @@
 #include "cryptonote_core/blockchain.h"
 #include "cryptonote_core/BlockchainDB_impl/db_lmdb.h"
 #include "cryptonote_core/tx_pool.h"
+#include <iostream>
 
 using namespace cryptonote;
 
@@ -51,8 +52,8 @@ struct fake_core
 
   fake_core() : m_pool(dummy), dummy(m_pool), m_storage(&m_pool)
   {
-    m_pool.init("~/.bitmonero");
-    m_storage.init("~/.bitmonero", false);
+    m_pool.init("/home/user/.bitmonero");
+    m_storage.init("/home/user/.bitmonero", false);
   }
 };
 
@@ -64,10 +65,11 @@ int main(int argc, char* argv[])
 
   blockchain = new BlockchainLMDB();
 
-  blockchain->open("~/.bitmonero");
+  blockchain->open("/home/user/.bitmonero");
 
   for (uint64_t i = 0; i < c.m_storage.get_current_blockchain_height(); ++i)
   {
+    if (i % 10 == 0) std::cout << "block " << i << std::endl;
     block b = c.m_storage.get_block(i);
     size_t bsize = c.m_storage.get_block_size(i);
     difficulty_type bdiff = c.m_storage.get_block_cumulative_difficulty(i);
