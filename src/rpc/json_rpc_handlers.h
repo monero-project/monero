@@ -1,8 +1,62 @@
 #include "net_skeleton/net_skeleton.h"
+#include "common/command_line.h"
+#include "net/http_server_impl_base.h"
+#include "cryptonote_core/cryptonote_core.h"
+#include "p2p/net_node.h"
+#include "cryptonote_protocol/cryptonote_protocol_handler.h"
+#include <string>
+
 #include <iostream>
 
 namespace RPC
 {
+  cryptonote::core *core;
+  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p2p;
+  bool testnet;
+
+  const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {
+    "rpc-bind-ip",
+    "IP for RPC server",
+    "127.0.0.1"
+  };
+
+  const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {
+    "rpc-bind-port",
+    "Port for RPC server",
+    std::to_string(config::RPC_DEFAULT_PORT)
+  };
+
+  const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port = {
+    "testnet-rpc-bind-port",
+    "Port for testnet RPC server",
+    std::to_string(config::testnet::RPC_DEFAULT_PORT)
+  };
+
+  void init(cryptonote::core *p_core,
+    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
+    bool p_testnet)
+  {
+    core = p_core;
+    p2p = p_p2p;
+    testnet = p_testnet;
+  }
+
+  void init_options(boost::program_options::options_description& desc)
+  {
+    command_line::add_arg(desc, arg_rpc_bind_ip);
+    command_line::add_arg(desc, arg_rpc_bind_port);
+    command_line::add_arg(desc, arg_testnet_rpc_bind_port);
+  }
+
+  void get_address_and_port(const boost::program_options::variables_map& vm,
+    std::string &ip_address, std::string &port)
+  {
+    auto p2p_bind_arg = testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
+
+    ip_address = command_line::get_arg(vm, arg_rpc_bind_ip);
+    port = command_line::get_arg(vm, p2p_bind_arg);
+  }
+
   int foo(char *buf, int len, struct ns_rpc_request *req) {
     std::cout << "Method name: ";
     std::cout << req->method->ptr << std::endl;

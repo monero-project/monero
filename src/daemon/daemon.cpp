@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_dns_checkpoints);
 
   cryptonote::core::init_options(desc_cmd_sett);
-  cryptonote::core_rpc_server::init_options(desc_cmd_sett);
+  RPC::init_options(desc_cmd_sett);
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >::init_options(desc_cmd_sett);
   cryptonote::miner::init_options(desc_cmd_sett);
 
@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
       cprotocol
     , testnet_mode ? std::move(config::testnet::NETWORK_ID) : std::move(config::NETWORK_ID)
     };
-  cryptonote::core_rpc_server rpc_server {ccore, p2psrv, testnet_mode};
+
   cprotocol.set_p2p_endpoint(&p2psrv);
   ccore.set_cryptonote_protocol(&cprotocol);
   daemon_cmmands_handler dch(p2psrv, testnet_mode);
@@ -249,9 +249,11 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Protocol initialized OK");
 
   LOG_PRINT_L0("Initializing core RPC server...");
-  res = rpc_server.init(vm);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core RPC server.");
-  LOG_PRINT_GREEN("Core RPC server initialized OK on port: " << rpc_server.get_binded_port(), LOG_LEVEL_0);
+  RPC::init(&ccore, &p2psrv, testnet_mode);
+  std::string ip_address, port;
+  RPC::get_address_and_port(vm, ip_address, port);
+  RPC::Json_rpc_http_server rpc_server(ip_address, port, &RPC::ev_handler);
+  LOG_PRINT_GREEN("Core RPC server initialized on port: " << port, LOG_LEVEL_0);
 
   //initialize core here
   LOG_PRINT_L0("Initializing core...");
@@ -266,8 +268,8 @@ int main(int argc, char* argv[])
   }
 
   LOG_PRINT_L0("Starting core RPC server...");
-  res = rpc_server.run(2, false);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core RPC server.");
+  res = rpc_server.start();
+  CHECK_AND_ASSERT_MES(res, 1, "Failed to start core RPC server.");
   LOG_PRINT_L0("Core RPC server started ok");
 
   tools::signal_handler::install([&dch, &p2psrv] {
@@ -281,14 +283,11 @@ int main(int argc, char* argv[])
 
   //stop components
   LOG_PRINT_L0("Stopping core rpc server...");
-  rpc_server.send_stop_signal();
-  rpc_server.timed_wait_server_stop(5000);
+  rpc_server.stop();
 
   //deinitialize components
   LOG_PRINT_L0("Deinitializing core...");
   ccore.deinit();
-  LOG_PRINT_L0("Deinitializing RPC server ...");
-  rpc_server.deinit();
   LOG_PRINT_L0("Deinitializing protocol...");
   cprotocol.deinit();
   LOG_PRINT_L0("Deinitializing P2P...");
