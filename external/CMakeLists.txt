@@ -176,4 +176,5 @@ ENDIF()
 
 set(NET_SKELETON_SRCS net_skeleton/net_skeleton.c)
 add_library(net_skeleton ${NET_SKELETON_SRCS})
+set(NET_SKELETON_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/libnet_skeleton.a" PARENT_SCOPE)
 

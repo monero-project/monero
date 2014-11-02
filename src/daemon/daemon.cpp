@@ -50,6 +50,8 @@ using namespace epee;
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "daemon_commands_handler.h"
 #include "version.h"
+#include "rpc/json_rpc_handlers.h"
+#include "rpc/json_rpc_http_server.h"
 
 #if defined(WIN32)
 #include <crtdbg.h>
@@ -107,7 +109,9 @@ bool command_line_preprocessor(const boost::program_options::variables_map& vm)
 
 int main(int argc, char* argv[])
 {
-  
+  RPC::Json_rpc_http_server server2("127.0.0.1", "9997", &RPC::ev_handler);
+  if(!server2.start()) std::cout << "Couldn't start net_skeleton server\n";
+
   string_tools::set_module_name_and_folder(argv[0]);
 #ifdef WIN32
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );

@@ -5,14 +5,11 @@
 namespace RPC
 {
   Json_rpc_http_server::Json_rpc_http_server(const std::string &ip, const std::string &port,
-    void (*ev_handler)(struct ns_connection *nc, int ev, void *ev_data),
-    const char **method_names, ns_rpc_handler_t *handlers) :
-    m_method_names(method_names), m_handlers(handlers)
+    void (*ev_handler)(struct ns_connection *nc, int ev, void *ev_data))
   {
     m_ip = ip;
     m_port = port;
     m_is_running = false;
-    m_method_count = 0;
     m_ev_handler = ev_handler;
   }
 
@@ -32,6 +29,7 @@ namespace RPC
     }
     ns_set_protocol_http_websocket(nc);
     server_thread = new boost::thread(&Json_rpc_http_server::poll, this);
+    return true;
   }
 
   void Json_rpc_http_server::poll()
@@ -47,23 +45,5 @@ namespace RPC
     server_thread->join();
     delete server_thread;
     ns_mgr_free(&mgr);
-  }
-
-  void Json_rpc_http_server::ev_handler(struct ns_connection *nc, int ev, void *ev_data)
-  {
-    struct http_message *hm = (struct http_message *) ev_data;
-    char buf[100];
-    switch (ev) {
-      case NS_HTTP_REQUEST:
-        ns_rpc_dispatch(hm->body.p, hm->body.len, buf, sizeof(buf),
-        m_method_names, m_handlers);
-        ns_printf(nc, "HTTP/1.0 200 OK\r\nContent-Length: %d\r\n"
-        "Content-Type: application/json\r\n\r\n%s",
-        (int) strlen(buf), buf);
-        nc->flags |= NSF_FINISHED_SENDING_DATA;
-        break;
-      default:
-        break;
-    }
   }
 }
