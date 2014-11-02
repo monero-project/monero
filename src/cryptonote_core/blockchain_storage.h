@@ -78,7 +78,7 @@ namespace cryptonote
       uint64_t already_generated_coins;
     };
 
-    blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false)
+    blockchain_storage(tx_memory_pool* tx_pool):m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false)
     {};
 
     bool init() { return init(tools::get_default_data_dir(), true); }
@@ -166,7 +166,7 @@ namespace cryptonote
         if(it == m_transactions.end())
         {
           transaction tx;
-          if(!m_tx_pool.get_transaction(tx_id, tx))
+          if(!m_tx_pool->get_transaction(tx_id, tx))
             missed_txs.push_back(tx_id);
           else
             txs.push_back(tx);
@@ -184,6 +184,11 @@ namespace cryptonote
     bool update_checkpoints(const std::string& file_path, bool check_dns);
     void set_enforce_dns_checkpoints(bool enforce_checkpoints);
 
+    block get_block(uint64_t height) { return m_blocks[height].bl; }
+    size_t get_block_size(uint64_t height) { return m_blocks[height].block_cumulative_size; }
+    difficulty_type get_block_cumulative_difficulty(uint64_t height) { return m_blocks[height].cumulative_difficulty; }
+    uint64_t get_block_coins_generated(uint64_t height) { return m_blocks[height].already_generated_coins; }
+
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
     typedef std::unordered_map<crypto::hash, transaction_chain_entry> transactions_container;
@@ -193,7 +198,7 @@ namespace cryptonote
     typedef std::unordered_map<crypto::hash, block> blocks_by_hash;
     typedef std::map<uint64_t, std::vector<std::pair<crypto::hash, size_t>>> outputs_container; //crypto::hash - tx hash, size_t - index of out in transaction
 
-    tx_memory_pool& m_tx_pool;
+    tx_memory_pool* m_tx_pool;
     epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
     // main chain
