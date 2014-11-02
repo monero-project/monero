@@ -4,12 +4,16 @@
 
 namespace RPC
 {
-  Json_rpc_http_server::Json_rpc_http_server(const std::string &ip, const std::string &port)
+  Json_rpc_http_server::Json_rpc_http_server(const std::string &ip, const std::string &port,
+    void (*ev_handler)(struct ns_connection *nc, int ev, void *ev_data),
+    const char **method_names, ns_rpc_handler_t *handlers) :
+    m_method_names(method_names), m_handlers(handlers)
   {
     m_ip = ip;
     m_port = port;
     m_is_running = false;
     m_method_count = 0;
+    m_ev_handler = ev_handler;
   }
 
   Json_rpc_http_server::~Json_rpc_http_server()
@@ -17,17 +21,21 @@ namespace RPC
     stop();
   }
 
-  void Json_rpc_http_server::start()
+  bool Json_rpc_http_server::start()
   {
     m_is_running = true;
+    ns_mgr_init(&mgr, NULL);
+    nc = ns_bind(&mgr, (m_ip + ":" + m_port).c_str(), m_ev_handler);
+    if (!nc)
+    {
+      return false;
+    }
+    ns_set_protocol_http_websocket(nc);
     server_thread = new boost::thread(&Json_rpc_http_server::poll, this);
   }
 
   void Json_rpc_http_server::poll()
   {
-    ns_mgr_init(&mgr, NULL);
-    nc = ns_bind(&mgr, (m_ip + ":" + m_port).c_str(), std::bind(&Json_rpc_http_server::ev_handler, this));
-    ns_set_protocol_http_websocket(nc);
     while (m_is_running) {
       ns_mgr_poll(&mgr, 1000);
     }
@@ -57,19 +65,5 @@ namespace RPC
       default:
         break;
     }
-  }
-
-  bool Json_rpc_http_server::add_handler(const std::string &method_name,
-    int (*hander)(char *buf, int len, struct ns_rpc_request *req))
-  {
-    if (m_method_count == MAX_METHODS)
-    {
-      return false;
-    }
-    m_method_names[m_method_count] = new char[method_name.length() + 1];
-    strcpy(m_method_names[m_method_count], method_name.c_str());
-    m_handlers[m_method_count] = hander;
-    m_method_count++;
-    return true;
   }
 }
