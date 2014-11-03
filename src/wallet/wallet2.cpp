@@ -957,10 +957,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 
 	// loop until fee is met without increasing tx size to next KB boundary.
 	uint64_t needed_fee = 0;
-	uint64_t current_fee = 0;
 	do
 	{
-	  transfer(dst_vector, fake_outs_count, unlock_time, current_fee, extra, tx, ptx);
+	  transfer(dst_vector, fake_outs_count, unlock_time, needed_fee, extra, tx, ptx);
 	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
 	  uint64_t txSize = txBlob.size();
 	  uint64_t numKB = txSize / 1024;
