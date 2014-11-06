@@ -1631,7 +1631,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 
   resp.total_height = get_current_blockchain_height();
   size_t count = 0;
-  for(size_t i = resp.start_height; i <= m_db->height() && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
+  for(size_t i = resp.start_height; i < resp.total_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
   {
     resp.m_block_ids.push_back(m_db->get_block_hash_from_height(i));
   }
@@ -1651,7 +1651,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   if(req_start_block > 0)
   {
     // if requested height is higher than our chain, return false -- we can't help
-    if (req_start_block > m_db->height())
+    if (req_start_block >= m_db->height())
     {
       return false;
     }
@@ -1667,12 +1667,12 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
 
   total_height = get_current_blockchain_height();
   size_t count = 0;
-  for(size_t i = start_height; i <= m_db->height() && count < max_count; i++, count++)
+  for(size_t i = start_height; i < total_height && count < max_count; i++, count++)
   {
     blocks.resize(blocks.size()+1);
     blocks.back().first = m_db->get_block_from_height(i);
     std::list<crypto::hash> mis;
-    get_transactions(m_blocks[i].bl.tx_hashes, blocks.back().second, mis);
+    get_transactions(blocks.back().first.tx_hashes, blocks.back().second, mis);
     CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
   }
   return true;
