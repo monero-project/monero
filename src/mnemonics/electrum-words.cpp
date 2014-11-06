@@ -328,7 +328,7 @@ namespace crypto
 
       words.pop_back();
       words += (' ' + words_store[create_checksum_index(words_store, language->get_unique_prefix_length())]);
-      return false;
+      return true;
     }
 
     /*!
