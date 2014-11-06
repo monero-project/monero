@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+#define CHECK_CORE_BUSY() if (check_core_busy()) { return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_BUSY); }
+
 namespace RPC
 {
   cryptonote::core *core;
@@ -57,14 +59,49 @@ namespace RPC
     port = command_line::get_arg(vm, p2p_bind_arg);
   }
 
-  int foo(char *buf, int len, struct ns_rpc_request *req) {
-    std::cout << "Method name: ";
-    std::cout << req->method->ptr << std::endl;
-    return 0;
+  bool check_core_busy()
+  {
+    if (p2p->get_payload_object().get_core().get_blockchain_storage().is_storing_blockchain())
+    {
+      return true;
+    }
+    return false;
   }
 
-  const char *method_names[] = {"foo", NULL};
-  ns_rpc_handler_t handlers[] = {foo, NULL};  
+  void create_map_from_request()
+  {
+
+  }
+
+  int getheight(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    uint64_t height = core->get_current_blockchain_height();
+    // TODO: uint64_t -> long not ok !
+    return ns_rpc_create_reply(buf, len, req, "{s:i,s:s}", "height", height, "status", CORE_RPC_STATUS_OK);
+  }
+
+  int getblocks(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    if (!core->find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed");
+    }
+    req->params
+  }
+
+  const char *method_names[] = {
+    "getheight",
+    "getblocks",
+    NULL
+  };
+
+  ns_rpc_handler_t handlers[] = {
+    getheight,
+    getblocks,
+    NULL
+  };
 
   void ev_handler(struct ns_connection *nc, int ev, void *ev_data)
   {
