@@ -207,6 +207,13 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
 bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   std::string electrum_words;
+
+  if (m_wallet->get_seed_language().empty())
+  {
+    std::string mnemonic_language = get_mnemonic_language();
+    m_wallet->set_seed_language(mnemonic_language);
+  }
+
   bool success = m_wallet->get_seed(electrum_words);
   
   if (success) 
