@@ -544,9 +544,6 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 
   crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, mnemonic_language);
 
-  std::string print_electrum = "";
-
-
   success_msg_writer() <<
     "**********************************************************************\n" <<
     "Your wallet has been generated.\n" <<
