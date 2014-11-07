@@ -86,9 +86,12 @@ namespace cryptonote
     }
 
     uint64_t fee = inputs_amount - outputs_amount;
-    if (!kept_by_block && fee < DEFAULT_FEE)
+    uint64_t needed_fee = blob_size / 1024;
+    needed_fee += (blob_size % 1024) ? 1 : 0;
+    needed_fee *= FEE_PER_KB;
+    if (!kept_by_block && fee < needed_fee)
     {
-      LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minumim fee: " << print_money(DEFAULT_FEE));
+      LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minumim fee: " << print_money(needed_fee));
       tvc.m_verifivation_failed = true;
       return false;
     }

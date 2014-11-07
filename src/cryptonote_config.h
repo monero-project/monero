@@ -57,6 +57,7 @@
 // COIN - number of smallest units in one coin
 #define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
 #define DEFAULT_FEE                                     ((uint64_t)100000000000) // 5 * pow(10, 11)
+#define FEE_PER_KB                                      ((uint64_t)10000000000) // pow(10, 10)
 
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
