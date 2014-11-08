@@ -95,7 +95,8 @@ namespace RPC
     CHECK_CORE_BUSY();
     rapidjson::Document request_json;
     char request_buf[1000];
-    strncpy(request_buf, req->message[0].ptr, len);
+    strncpy(request_buf, req->message[0].ptr, req->message[0].len);
+    request_buf[req->message[0].len] = '\0';
     if (request_json.Parse(request_buf).HasParseError())
     {
       return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Invalid JSON passed");
@@ -113,9 +114,14 @@ namespace RPC
     uint64_t start_height = request_json["start_height"].GetUint();
     std::list<crypto::hash> block_ids;
     int ii = 0;
-    for (rapidjson::Value::ConstValueIterator it = request_json["block_ids"].Begin(); it != request_json["block_ids"].End(); it++, ii++)
+    for (rapidjson::Value::ConstValueIterator it = request_json["block_ids"].Begin();
+      it != request_json["block_ids"].End(); it++, ii++)
     {
       crypto::hash hash;
+      if (!it->IsString())
+      {
+        return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Wrong type in block_ids");
+      }
       strcpy(hash.data, it->GetString());
       block_ids.push_back(hash);
     }
@@ -124,7 +130,7 @@ namespace RPC
     uint64_t result_current_height = 0;
     uint64_t result_start_height = 0;
     if (!core->find_blockchain_supplement(start_height, block_ids, bs, result_current_height,
-      result_current_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
+      result_start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
       return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed");
     }
@@ -132,7 +138,7 @@ namespace RPC
     rapidjson::Document response_json;
     response_json.SetObject();
     rapidjson::Value block_json(rapidjson::kArrayType);
-    rapidjson::Document::AllocatorType& allocator = response_json.GetAllocator();
+    rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
     BOOST_FOREACH(auto &b, bs)
     {
       rapidjson::Value this_block(rapidjson::kObjectType);
@@ -155,6 +161,91 @@ namespace RPC
     response_json.AddMember("current_height", result_current_height, allocator);
     response_json.AddMember("status", CORE_RPC_STATUS_OK, allocator);
     response_json.AddMember("blocks", block_json, allocator);
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    response_json.Accept(writer);
+    std::string response = buffer.GetString();
+
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
+  int gettransactions(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->message[0].ptr, req->message[0].len);
+    request_buf[req->message[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Invalid JSON passed");
+    }
+
+    if (!request_json.HasMember("txs_hashes") || !request_json["txs_hashes"].IsArray())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Incorrect txs_hashes");
+    }
+
+    std::list<std::string> txs_hashes;
+    for (rapidjson::Value::ConstValueIterator it = request_json["txs_hashes"].Begin();
+      it != request_json["txs_hashes"].End(); it++)
+    {
+      if (!it->IsString())
+      {
+        return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Wrong type in txs_hashes");
+      }
+      txs_hashes.push_back(std::string(it->GetString()));
+    }
+    std::vector<crypto::hash> vh;
+    BOOST_FOREACH(const auto& tx_hex_str, txs_hashes)
+    {
+      cryptonote::blobdata b;
+      if (!string_tools::parse_hexstr_to_binbuff(tx_hex_str, b))
+      {
+        return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed to parse hex representation of transaction hash");
+      }
+      if (b.size() != sizeof(crypto::hash))
+      {
+        return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed, size of data mismatch");
+      }
+      vh.push_back(*reinterpret_cast<const crypto::hash*>(b.data()));
+    }
+    std::list<crypto::hash> missed_txs;
+    std::list<cryptonote::transaction> txs;
+    bool r = core->get_transactions(vh, txs, missed_txs);
+    if (!r)
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed");
+    }
+
+    rapidjson::Document response_json;
+    response_json.SetObject();
+    rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
+
+    rapidjson::Value txs_as_hex(rapidjson::kArrayType);
+    BOOST_FOREACH(auto &tx, txs)
+    {
+      cryptonote::blobdata blob = t_serializable_object_to_blob(tx);
+      std::string string_blob = string_tools::buff_to_hex_nodelimer(blob);
+      rapidjson::Value string_value(rapidjson::kStringType);
+      string_value.SetString(string_blob.c_str(), string_blob.length());
+      txs_as_hex.PushBack(string_value, allocator);
+    }
+    response_json.AddMember("txs_as_hex", txs_as_hex, response_json.GetAllocator());
+
+    rapidjson::Value missed_tx(rapidjson::kArrayType);
+    BOOST_FOREACH(const auto &miss_tx, missed_txs)
+    {
+      std::string string_blob = string_tools::pod_to_hex(miss_tx);
+      rapidjson::Value string_value(rapidjson::kStringType);
+      string_value.SetString(string_blob.c_str(), string_blob.length());
+      missed_tx.PushBack(string_value, allocator);
+    }
+    response_json.AddMember("missed_tx", missed_tx, response_json.GetAllocator());
+
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     response_json.Accept(writer);
@@ -168,12 +259,14 @@ namespace RPC
   const char *method_names[] = {
     "getheight",
     "getblocks",
+    "gettransactions",
     NULL
   };
 
   ns_rpc_handler_t handlers[] = {
     getheight,
     getblocks,
+    gettransactions,
     NULL
   };
 
