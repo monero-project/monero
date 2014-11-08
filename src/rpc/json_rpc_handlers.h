@@ -10,6 +10,7 @@
 #include "rapidjson/stringbuffer.h"
 #include <cstring>
 #include "cryptonote_core/cryptonote_basic.h"
+#include "crypto/hash-ops.h"
 
 #include <iostream>
 
@@ -121,6 +122,10 @@ namespace RPC
       if (!it->IsString())
       {
         return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Wrong type in block_ids");
+      }
+      if (strlen(it->GetString()) > crypto::HASH_SIZE)
+      {
+        return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Block ID exceeds length.");
       }
       strcpy(hash.data, it->GetString());
       block_ids.push_back(hash);
@@ -256,10 +261,50 @@ namespace RPC
     return response.length();
   }
 
+  int startmining(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->message[0].ptr, req->message[0].len);
+    request_buf[req->message[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Invalid JSON passed");
+    }
+
+    if (!request_json.HasMember("miner_address") || !request_json["miner_address"].IsString())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Incorrect miner_address");
+    }
+    if (!request_json.HasMember("threads_count") || !request_json["threads_count"].IsUint64())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Incorrect threads_count");
+    }
+
+    std::string miner_address = request_json["miner_address"].GetString();
+    uint64_t threads_count = request_json["threads_count"].GetUint();
+
+    cryptonote::account_public_address adr;
+    if (!cryptonote::get_account_address_from_str(adr, testnet, miner_address))
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed, wrong address");
+    }
+
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+    if (!core->get_miner().start(adr, static_cast<size_t>(threads_count), attrs))
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed, mining not started");
+    }
+    return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
+  }
+
   const char *method_names[] = {
     "getheight",
     "getblocks",
     "gettransactions",
+    "startmining",
     NULL
   };
 
@@ -267,6 +312,7 @@ namespace RPC
     getheight,
     getblocks,
     gettransactions,
+    startmining,
     NULL
   };
 
