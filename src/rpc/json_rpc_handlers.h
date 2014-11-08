@@ -300,11 +300,22 @@ namespace RPC
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
   }
 
+  int stopmining(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    if (!core->get_miner().stop())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Failed, mining not stopped");
+    }
+    return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
+  }
+
   const char *method_names[] = {
     "getheight",
     "getblocks",
     "gettransactions",
     "startmining",
+    "stopmining",
     NULL
   };
 
@@ -313,6 +324,7 @@ namespace RPC
     getblocks,
     gettransactions,
     startmining,
+    stopmining,
     NULL
   };
 
