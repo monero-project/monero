@@ -109,9 +109,6 @@ bool command_line_preprocessor(const boost::program_options::variables_map& vm)
 
 int main(int argc, char* argv[])
 {
-  RPC::Json_rpc_http_server server2("127.0.0.1", "9997", &RPC::ev_handler);
-  if(!server2.start()) std::cout << "Couldn't start net_skeleton server\n";
-
   string_tools::set_module_name_and_folder(argv[0]);
 #ifdef WIN32
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );

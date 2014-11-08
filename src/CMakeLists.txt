@@ -32,7 +32,7 @@ add_definitions(-DSTATICLIB)
 # miniupnp changed their static define
 add_definitions(-DMINIUPNP_STATICLIB)
 
-file(GLOB_RECURSE COMMON common/*)
+file(GLOB COMMON common/*)
 file(GLOB_RECURSE CRYPTO crypto/*)
 file(GLOB_RECURSE CRYPTONOTE_CORE cryptonote_core/*)
 file(GLOB_RECURSE CRYPTONOTE_PROTOCOL cryptonote_protocol/*)
