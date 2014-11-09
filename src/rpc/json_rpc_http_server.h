@@ -1,3 +1,6 @@
+#ifndef JSON_RPC_HTTP_SERVER_H
+#define JSON_RPC_HTTP_SERVER_H
+
 #include "net_skeleton/net_skeleton.h"
 #include <boost/thread.hpp>
 #include <string>
@@ -20,5 +23,12 @@ namespace RPC
     ~Json_rpc_http_server();
     bool start();
     void stop();
+
+    static int parse_error;
+    static int invalid_request;
+    static int invalid_params;
+    static int internal_error;
   };
 }
+
+#endif

@@ -4,6 +4,11 @@
 
 namespace RPC
 {
+  int Json_rpc_http_server::parse_error = -32700;
+  int Json_rpc_http_server::invalid_request = -32600;
+  int Json_rpc_http_server::invalid_params = -32602;
+  int Json_rpc_http_server::internal_error = -32603;
+
   Json_rpc_http_server::Json_rpc_http_server(const std::string &ip, const std::string &port,
     void (*ev_handler)(struct ns_connection *nc, int ev, void *ev_data))
   {
