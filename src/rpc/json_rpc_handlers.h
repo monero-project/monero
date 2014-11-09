@@ -78,7 +78,7 @@ namespace RPC
     std::string &response)
   {
     rapidjson::Value string_value(rapidjson::kStringType);
-    if (!req->id)
+    if (req->id != NULL)
     {
       string_value.SetString(req->id[0].ptr, req->id[0].len);
     }
@@ -371,6 +371,42 @@ namespace RPC
     return response.length();
   }
 
+  int getblockhash(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->message[0].ptr, req->message[0].len);
+    request_buf[req->message[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Invalid JSON passed");
+    }
+
+    if (!request_json.HasMember("height") || !request_json["height"].IsUint64())
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Incorrect height");
+    }
+    uint64_t height = request_json["height"].GetUint();
+    if (core->get_current_blockchain_height() <= height)
+    {
+      return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", "Height specified is too big.");
+    }
+    std::string hash = string_tools::pod_to_hex(core->get_block_id_by_height(height));
+    rapidjson::Document response_json;
+    response_json.SetObject();
+    rapidjson::Value string_value(rapidjson::kStringType);
+    string_value.SetString(hash.c_str(), hash.length());
+    response_json.AddMember("hash", string_value, response_json.GetAllocator());
+    response_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+
+    std::string response;
+    construct_response_string(req, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   const char *method_names[] = {
     "getheight",
     "getblocks",
@@ -379,6 +415,7 @@ namespace RPC
     "stopmining",
     "miningstatus",
     "getblockcount",
+    "getblockhash",
     NULL
   };
 
@@ -390,6 +427,7 @@ namespace RPC
     stopmining,
     miningstatus,
     getblockcount,
+    getblockhash,
     NULL
   };
 
