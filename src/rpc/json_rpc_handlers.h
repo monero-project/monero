@@ -74,18 +74,37 @@ namespace RPC
     return false;
   }
 
+  void construct_response_string(struct ns_rpc_request *req, rapidjson::Document &response_json,
+    std::string &response)
+  {
+    rapidjson::Value string_value(rapidjson::kStringType);
+    if (!req->id)
+    {
+      string_value.SetString(req->id[0].ptr, req->id[0].len);
+    }
+    else
+    {
+      string_value.SetString("null", 4);
+    }
+    response_json.AddMember("id", string_value, response_json.GetAllocator());
+    string_value.SetString(req->method[0].ptr, req->method[0].len);
+    response_json.AddMember("method", string_value, response_json.GetAllocator());
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    response_json.Accept(writer);
+    response = buffer.GetString();
+  }
+
   int getheight(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
     uint64_t height = core->get_current_blockchain_height();
-    rapidjson::Document json;
-    json.SetObject();
-    json.AddMember("height", height, json.GetAllocator());
-    json.AddMember("status", CORE_RPC_STATUS_OK, json.GetAllocator());
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    json.Accept(writer);
-    std::string response = buffer.GetString();
+    rapidjson::Document response_json;
+    response_json.SetObject();
+    response_json.AddMember("height", height, response_json.GetAllocator());
+    response_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+    std::string response;
+    construct_response_string(req, response_json, response);
     size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
     strncpy(buf, response.c_str(), copy_length);
     return response.length();
@@ -167,10 +186,8 @@ namespace RPC
     response_json.AddMember("status", CORE_RPC_STATUS_OK, allocator);
     response_json.AddMember("blocks", block_json, allocator);
 
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    response_json.Accept(writer);
-    std::string response = buffer.GetString();
+    std::string response;
+    construct_response_string(req, response_json, response);
 
     size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
     strncpy(buf, response.c_str(), copy_length);
@@ -251,10 +268,8 @@ namespace RPC
     }
     response_json.AddMember("missed_tx", missed_tx, response_json.GetAllocator());
 
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    response_json.Accept(writer);
-    std::string response = buffer.GetString();
+    std::string response;
+    construct_response_string(req, response_json, response);
 
     size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
     strncpy(buf, response.c_str(), copy_length);
@@ -310,12 +325,60 @@ namespace RPC
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
   }
 
+  int miningstatus(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    rapidjson::Document response_json;
+    response_json.SetObject();
+    bool active = core->get_miner().is_mining();
+    response_json.AddMember("active", active, response_json.GetAllocator());
+
+    if (active)
+    {
+      uint64_t speed = core->get_miner().get_speed();
+      uint64_t threads_count = core->get_miner().get_threads_count();
+      const cryptonote::account_public_address &mining_address = core->get_miner().get_mining_address();
+      std::string address = cryptonote::get_account_address_as_str(testnet, mining_address);
+      response_json.AddMember("speed", speed, response_json.GetAllocator());
+      response_json.AddMember("threads_count", threads_count, response_json.GetAllocator());
+      rapidjson::Value string_address(rapidjson::kStringType);
+      string_address.SetString(address.c_str(), address.length());
+      response_json.AddMember("address", string_address, response_json.GetAllocator());
+    }
+    response_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+
+    std::string response;
+    construct_response_string(req, response_json, response);
+
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
+  int getblockcount(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    rapidjson::Document response_json;
+    response_json.SetObject();
+    response_json.AddMember("count", core->get_current_blockchain_height(), response_json.GetAllocator());
+    response_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+
+    std::string response;
+    construct_response_string(req, response_json, response);
+
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   const char *method_names[] = {
     "getheight",
     "getblocks",
     "gettransactions",
     "startmining",
     "stopmining",
+    "miningstatus",
+    "getblockcount",
     NULL
   };
 
@@ -325,6 +388,8 @@ namespace RPC
     gettransactions,
     startmining,
     stopmining,
+    miningstatus,
+    getblockcount,
     NULL
   };
 
