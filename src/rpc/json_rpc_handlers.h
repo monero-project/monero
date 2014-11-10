@@ -582,6 +582,60 @@ namespace RPC
     return response.length();
   }
 
+  int submitblock(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Parameters missing.", "{}");
+    }
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::parse_error,
+        "Invalid JSON passed", "{}");
+    }
+    if (!request_json.HasMember("block") || !request_json["block"].IsString())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Incorrect block", "{}");
+    }
+
+    std::string string_blockblob = request_json["block"].GetString();
+    cryptonote::blobdata blockblob;
+    if (!string_tools::parse_hexstr_to_binbuff(string_blockblob, blockblob))
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_request,
+        "Incorrect block", "{}");
+    }
+    // Fixing of high orphan issue for most pools
+    cryptonote::block b = AUTO_VAL_INIT(b);
+    if (!parse_and_validate_block_from_blob(blockblob, b))
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_request,
+        "Wrong block blob", "{}");
+    }
+    // Fix from Boolberry neglects to check block
+    // size, do that with the function below
+    if (!core->check_incoming_block_size(blockblob))
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_request,
+        "Block blob size is too big, rejecting block", "{}");
+    }
+    if (!core->handle_block_found(b))
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_request,
+        "Block not accepted.", "{}");
+    }
+
+    return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
+  }
+
   const char *method_names[] = {
     "getheight",
     "getblocks",
@@ -592,6 +646,7 @@ namespace RPC
     "getblockcount",
     "getblockhash",
     "getblocktemplate",
+    "submitblock",
     NULL
   };
 
@@ -605,6 +660,7 @@ namespace RPC
     getblockcount,
     getblockhash,
     getblocktemplate,
+    submitblock,
     NULL
   };
 
