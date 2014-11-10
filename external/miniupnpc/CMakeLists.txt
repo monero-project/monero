@@ -16,7 +16,7 @@ endif ()
 
 if (NOT WIN32)
   add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
-  add_definitions (-D_BSD_SOURCE -D_POSIX_C_SOURCE=1)
+  add_definitions (-D_BSD_SOURCE -D_POSIX_C_SOURCE=201112)
 else ()
   add_definitions (-D_WIN32_WINNT=0x0501) # XP or higher for getnameinfo and friends
 endif ()
