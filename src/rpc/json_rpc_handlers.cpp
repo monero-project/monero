@@ -17,7 +17,9 @@
 
 #include "json_rpc_handlers.h"
 
-#define CHECK_CORE_BUSY() if (check_core_busy()) { return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_BUSY); }
+#define CHECK_CORE_BUSY() if (check_core_busy()) { \
+ return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error, \
+  CORE_RPC_STATUS_BUSY, "{}"); }
 
 /*!
  * \namespace
@@ -120,6 +122,39 @@ namespace
       buflen = (const char*)end - (const char*)buf;
     }
     return 0;
+  }
+
+  uint64_t get_block_reward(const cryptonote::block& blk)
+  {
+    uint64_t reward = 0;
+    BOOST_FOREACH(const cryptonote::tx_out& out, blk.miner_tx.vout)
+    {
+      reward += out.amount;
+    }
+    return reward;
+  }
+
+  void fill_block_header_response(const cryptonote::block& blk, bool orphan_status, uint64_t height,
+    const crypto::hash& hash, rapidjson::Value &header_response, rapidjson::Document &root_doc)
+  {
+    rapidjson::Value string_value(rapidjson::kStringType);
+    header_response.AddMember("major_version", blk.major_version, root_doc.GetAllocator());
+    header_response.AddMember("minor_version", blk.minor_version, root_doc.GetAllocator());
+    header_response.AddMember("timestamp", blk.timestamp, root_doc.GetAllocator());
+    std::string string_prev_hash = epee::string_tools::pod_to_hex(blk.prev_id);
+    string_value.SetString(string_prev_hash.c_str(), string_prev_hash.length());
+    header_response.AddMember("prev_hash", string_value, root_doc.GetAllocator());
+    header_response.AddMember("nonce", blk.nonce, root_doc.GetAllocator());
+    header_response.AddMember("orphan_status", orphan_status, root_doc.GetAllocator());
+    header_response.AddMember("height", height, root_doc.GetAllocator());
+    header_response.AddMember("depth", core->get_current_blockchain_height() - height - 1,
+      root_doc.GetAllocator());
+    std::string string_hash = epee::string_tools::pod_to_hex(hash);
+    string_value.SetString(string_hash.c_str(), string_hash.length());
+    header_response.AddMember("hash", string_value, root_doc.GetAllocator());
+    header_response.AddMember("difficulty", core->get_blockchain_storage().block_difficulty(height),
+      root_doc.GetAllocator());
+    header_response.AddMember("reward", get_block_reward(blk), root_doc.GetAllocator());
   }
 
   // The actual RPC method implementations start here.
@@ -708,6 +743,47 @@ namespace
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
   }
 
+  /*!
+   * \brief Implementation of 'getlastblockheader' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getlastblockheader(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    uint64_t last_block_height;
+    crypto::hash last_block_hash;
+    bool have_last_block_hash = core->get_blockchain_top(last_block_height, last_block_hash);
+
+    if (!have_last_block_hash)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_request,
+        "Internal error: can't get last block hash", "{}");
+    }
+    
+    cryptonote::block last_block;
+    bool have_last_block = core->get_block_by_hash(last_block_hash, last_block);
+    if (!have_last_block)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_request,
+        "Internal error: can't get last block hash", "{}");
+    }
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    fill_block_header_response(last_block, false, last_block_height, last_block_hash,
+      result_json, response_json);
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -720,6 +796,7 @@ namespace
     "getblockhash",
     "getblocktemplate",
     "submitblock",
+    "getlastblockheader",
     NULL
   };
 
@@ -735,6 +812,7 @@ namespace
     getblockhash,
     getblocktemplate,
     submitblock,
+    getlastblockheader,
     NULL
   };
 }
