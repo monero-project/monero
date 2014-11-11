@@ -1,7 +1,28 @@
+/*!
+ * \file json_rpc_handlers.cpp
+ * \brief Implementations of JSON RPC handlers (Daemon)
+ */
+
+// NOTE: 
+// While this uses net_skeleton (aka fossa) for JSON RPC handling, JSON parsing
+// and string conversion are done with rapidjson because it is way easier and better
+// suited.
+// To add a new method, add the name and function pointer to `method_names` and `handlers`.
+// The handler function should have the same signature as the rest of them here.
+// It should use rapidjson to parse the request string and the internal objects kept in the
+// anonymous namespace to generate the response. The response must eventually get
+// stringified using rapidjson.
+// Trivial and error responses may be returned with ns_create_rpc_reply and ns_create_rpc_error
+// respectively.
+
 #include "json_rpc_handlers.h"
 
 #define CHECK_CORE_BUSY() if (check_core_busy()) { return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_BUSY); }
 
+/*!
+ * \namespace
+ * \brief Anonymous namespace to keep things in the scope of this file.
+ */
 namespace
 {
   cryptonote::core *core;
@@ -26,6 +47,10 @@ namespace
     std::to_string(config::testnet::RPC_DEFAULT_PORT)
   };
 
+  /*!
+   * \brief Tells if core is busy
+   * \return True if core is busy, false otherwise.
+   */
   bool check_core_busy()
   {
     if (p2p->get_payload_object().get_core().get_blockchain_storage().is_storing_blockchain())
@@ -35,11 +60,21 @@ namespace
     return false;
   }
 
+  /*!
+   * \brief Constructs a response string given a result JSON object.
+   * 
+   * It also adds boilerplate properties like id, method.
+   * \param req           net_skeleton request object
+   * \param result_json   rapidjson result object
+   * \param response_json Root rapidjson document that will eventually have the whole response
+   * \param response      Response as a string gets written here.
+   */
   void construct_response_string(struct ns_rpc_request *req, rapidjson::Value &result_json,
     rapidjson::Document &response_json, std::string &response)
   {
     response_json.SetObject();
     rapidjson::Value string_value(rapidjson::kStringType);
+    // If ID was present in request use it else use "null".
     if (req->id != NULL)
     {
       string_value.SetString(req->id[0].ptr, req->id[0].len);
@@ -55,93 +90,20 @@ namespace
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     response_json.Accept(writer);
+    // Write string to `response`.
     response = buffer.GetString();
   }
 
-  //------------------------------------------------------------------------------------------------------------------------------
-  // equivalent of strstr, but with arbitrary bytes (ie, NULs)
-  // This does not differentiate between "not found" and "found at offset 0"
-  uint64_t slow_memmem(const void *start_buff, size_t buflen, const void *pat, size_t patlen)
-  {
-    const void *buf = start_buff;
-    const void *end = (const char*)buf + buflen;
-    if (patlen > buflen || patlen == 0)
-    {
-      return 0;
-    }
-    while (buflen > 0 && (buf = memchr(buf,((const char*)pat)[0], buflen - patlen + 1)))
-    {
-      if (memcmp(buf,pat,patlen) == 0)
-        return (const char*)buf - (const char*)start_buff;
-      buf = (const char*)buf + 1;
-      buflen = (const char*)end - (const char*)buf;
-    }
-    return 0;
-  }
-}
-
-namespace RPC
-{
-  void init(cryptonote::core *p_core,
-    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
-    bool p_testnet)
-  {
-    core = p_core;
-    p2p = p_p2p;
-    testnet = p_testnet;
-  }
-
-  void init_options(boost::program_options::options_description& desc)
-  {
-    command_line::add_arg(desc, arg_rpc_bind_ip);
-    command_line::add_arg(desc, arg_rpc_bind_port);
-    command_line::add_arg(desc, arg_testnet_rpc_bind_port);
-  }
-
-  void get_address_and_port(const boost::program_options::variables_map& vm,
-    std::string &ip_address, std::string &port)
-  {
-    auto p2p_bind_arg = testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
-
-    ip_address = command_line::get_arg(vm, arg_rpc_bind_ip);
-    port = command_line::get_arg(vm, p2p_bind_arg);
-  }
-
-  bool check_core_busy()
-  {
-    if (p2p->get_payload_object().get_core().get_blockchain_storage().is_storing_blockchain())
-    {
-      return true;
-    }
-    return false;
-  }
-
-  void construct_response_string(struct ns_rpc_request *req, rapidjson::Value &result_json,
-    rapidjson::Document &response_json, std::string &response)
-  {
-    response_json.SetObject();
-    rapidjson::Value string_value(rapidjson::kStringType);
-    if (req->id != NULL)
-    {
-      string_value.SetString(req->id[0].ptr, req->id[0].len);
-    }
-    else
-    {
-      string_value.SetString("null", 4);
-    }
-    response_json.AddMember("id", string_value, response_json.GetAllocator());
-    string_value.SetString(req->method[0].ptr, req->method[0].len);
-    response_json.AddMember("method", string_value, response_json.GetAllocator());
-    response_json.AddMember("result", result_json, response_json.GetAllocator());
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    response_json.Accept(writer);
-    response = buffer.GetString();
-  }
-
-  //------------------------------------------------------------------------------------------------------------------------------
-  // equivalent of strstr, but with arbitrary bytes (ie, NULs)
-  // This does not differentiate between "not found" and "found at offset 0"
+  /*!
+   * \brief equivalent of strstr, but with arbitrary bytes (ie, NULs)
+   * 
+   * This does not differentiate between "not found" and "found at offset 0"
+   * \param  start_buff String to search
+   * \param  buflen     length of string
+   * \param  pat        Pattern to search
+   * \param  patlen     Length of pattern
+   * \return            Position of match
+   */
   uint64_t slow_memmem(const void *start_buff, size_t buflen, const void *pat, size_t patlen)
   {
     const void *buf = start_buff;
@@ -160,6 +122,15 @@ namespace RPC
     return 0;
   }
 
+  // The actual RPC method implementations start here.
+
+  /*!
+   * \brief Implementation of 'getheight' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int getheight(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -176,6 +147,13 @@ namespace RPC
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getblocks' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int getblocks(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -272,6 +250,13 @@ namespace RPC
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'gettransactions' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int gettransactions(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -366,6 +351,13 @@ namespace RPC
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'startmining' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int startmining(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -415,6 +407,13 @@ namespace RPC
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
   }
 
+  /*!
+   * \brief Implementation of 'stopmining' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int stopmining(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -426,6 +425,13 @@ namespace RPC
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
   }
 
+  /*!
+   * \brief Implementation of 'miningstatus' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int miningstatus(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -457,6 +463,13 @@ namespace RPC
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getblockcount' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int getblockcount(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -474,6 +487,13 @@ namespace RPC
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getblockhash' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int getblockhash(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -519,6 +539,13 @@ namespace RPC
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getblocktemplate' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int getblocktemplate(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -620,6 +647,13 @@ namespace RPC
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'submitblock' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
   int submitblock(char *buf, int len, struct ns_rpc_request *req)
   {
     CHECK_CORE_BUSY();
@@ -674,6 +708,7 @@ namespace RPC
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", CORE_RPC_STATUS_OK);
   }
 
+  // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
     "getblocks",
@@ -688,6 +723,7 @@ namespace RPC
     NULL
   };
 
+  // Contains a list of function pointers. These must map 1-1 by index with `method_names`.
   ns_rpc_handler_t handlers[] = {
     getheight,
     getblocks,
@@ -701,7 +737,63 @@ namespace RPC
     submitblock,
     NULL
   };
+}
 
+/*!
+ * \namespace RPC
+ * \brief RPC related utilities
+ */
+namespace RPC
+{
+  /*!
+   * \brief initializes module (must call this before handling requests)
+   * \param p_core    Pointer to cryptonote core object
+   * \param p_p2p     Pointer to P2P object
+   * \param p_testnet True if testnet false otherwise
+   */
+  void init(cryptonote::core *p_core,
+    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
+    bool p_testnet)
+  {
+    core = p_core;
+    p2p = p_p2p;
+    testnet = p_testnet;
+  }
+
+  /*!
+   * \Inits certain options used in Daemon CLI.
+   * \param desc Instance of options description object
+   */
+  void init_options(boost::program_options::options_description& desc)
+  {
+    command_line::add_arg(desc, arg_rpc_bind_ip);
+    command_line::add_arg(desc, arg_rpc_bind_port);
+    command_line::add_arg(desc, arg_testnet_rpc_bind_port);
+  }
+
+  /*!
+   * \brief Gets IP address and port number from variable map
+   * \param vm         Variable map
+   * \param ip_address IP address
+   * \param port       Port number
+   */
+  void get_address_and_port(const boost::program_options::variables_map& vm,
+    std::string &ip_address, std::string &port)
+  {
+    auto p2p_bind_arg = testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
+
+    ip_address = command_line::get_arg(vm, arg_rpc_bind_ip);
+    port = command_line::get_arg(vm, p2p_bind_arg);
+  }
+
+  /*!
+   * \brief Event handler that is invoked upon net_skeleton network events.
+   * 
+   * Any change in behavior of RPC should happen from this point.
+   * \param nc      net_skeleton connection
+   * \param ev      Type of event
+   * \param ev_data Event data
+   */
   void ev_handler(struct ns_connection *nc, int ev, void *ev_data)
   {
     struct http_message *hm = (struct http_message *) ev_data;
