@@ -60,7 +60,7 @@
 #define FEE_PER_KB                                      ((uint64_t)10000000000) // pow(10, 10)
 
 // temporarily to allow backward compatibility during the switch to per-kb
-#define MINING_ALLOWED_LEGACY_FEE                       ((uint64_t)100000000000) // pow(10, 11)
+//#define MINING_ALLOWED_LEGACY_FEE                       ((uint64_t)100000000000) // pow(10, 11)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
