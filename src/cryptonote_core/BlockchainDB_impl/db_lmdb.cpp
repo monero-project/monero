@@ -717,7 +717,7 @@ void BlockchainLMDB::open(const std::string& filename)
     LOG_PRINT_L0("Failed to set max number of dbs");
     throw DB_ERROR("Failed to set max number of dbs");
   }
-  size_t mapsize = 1LL << 32;
+  size_t mapsize = 1LL << 34;
   if (auto result = mdb_env_set_mapsize(m_env, mapsize))
   {
     LOG_PRINT_L0("Failed to set max memory map size");
