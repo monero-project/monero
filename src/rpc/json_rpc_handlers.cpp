@@ -784,6 +784,134 @@ namespace
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getblockheaderbyhash' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getblockheaderbyhash(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Parameters missing.", "{}");
+    }
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::parse_error,
+        "Invalid JSON passed", "{}");
+    }
+    if (!request_json.HasMember("hash") || !request_json["hash"].IsString())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Incorrect hash", "{}");
+    }
+
+    std::string hash = request_json["hash"].GetString();
+    crypto::hash block_hash;
+    bool hash_parsed = parse_hash256(hash, block_hash);
+    if (!hash_parsed)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        std::string("Failed to parse hex representation of block hash. Hex = " + hash + '.').c_str(), "{}");
+    }
+
+    cryptonote::block blk;
+    bool have_block = core->get_block_by_hash(block_hash, blk);
+    if (!have_block)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error,
+        std::string("Internal error: can't get block by hash. Hash = " + hash + '.').c_str(), "{}");
+    }    
+
+    if (blk.miner_tx.vin.front().type() != typeid(cryptonote::txin_gen))
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error,
+        std::string("Internal error: coinbase transaction in the block has the wrong type").c_str(), "{}");
+    }
+
+    uint64_t block_height = boost::get<cryptonote::txin_gen>(blk.miner_tx.vin.front()).height;
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+    fill_block_header_response(blk, false, block_height, block_hash, result_json, response_json);
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
+  /*!
+   * \brief Implementation of 'getblockheaderbyheight' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getblockheaderbyheight(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Parameters missing.", "{}");
+    }
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::parse_error,
+        "Invalid JSON passed", "{}");
+    }
+    if (!request_json.HasMember("height") || !request_json["height"].IsUint64())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Incorrect height", "{}");
+    }
+
+    uint64_t height = request_json["height"].GetUint();
+    if (core->get_current_blockchain_height() <= height)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        std::string(std::string("To big height: ") + std::to_string(height) +
+        ", current blockchain height = " + std::to_string(core->get_current_blockchain_height())).c_str(), "{}");
+    }
+    crypto::hash block_hash = core->get_block_id_by_height(height);
+    cryptonote::block blk;
+    bool have_block = core->get_block_by_hash(block_hash, blk);
+    if (!have_block)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        std::string("Internal error: can't get block by height. Height = " + std::to_string(height) + '.').c_str(), "{}");
+    }
+
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+    fill_block_header_response(blk, false, height, block_hash, result_json, response_json);
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -797,6 +925,8 @@ namespace
     "getblocktemplate",
     "submitblock",
     "getlastblockheader",
+    "getblockheaderbyhash",
+    "getblockheaderbyheight",
     NULL
   };
 
@@ -813,6 +943,8 @@ namespace
     getblocktemplate,
     submitblock,
     getlastblockheader,
+    getblockheaderbyhash,
+    getblockheaderbyheight,
     NULL
   };
 }
