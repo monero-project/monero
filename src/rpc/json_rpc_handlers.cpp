@@ -912,6 +912,54 @@ namespace
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getconnections' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getconnections(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    
+    std::list<cryptonote::connection_info> connections = p2p->get_payload_object().get_connections();
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+    rapidjson::Value connections_json(rapidjson::kArrayType);
+    for (std::list<cryptonote::connection_info>::iterator it = connections.begin();
+      it != connections.end(); it++)
+    {
+      rapidjson::Value connection;
+      connection.SetObject();
+      rapidjson::Value string_value;
+      connection.AddMember("incoming", it->incoming, response_json.GetAllocator());
+      string_value.SetString(it->ip.c_str(), it->ip.length());
+      connection.AddMember("ip", string_value, response_json.GetAllocator());
+      string_value.SetString(it->port.c_str(), it->port.length());
+      connection.AddMember("port", string_value, response_json.GetAllocator());
+      string_value.SetString(it->peer_id.c_str(), it->peer_id.length());
+      connection.AddMember("peer_id", string_value, response_json.GetAllocator());
+      connection.AddMember("recv_count", it->recv_count, response_json.GetAllocator());
+      connection.AddMember("recv_idle_time", it->recv_idle_time, response_json.GetAllocator());
+      connection.AddMember("send_count", it->send_count, response_json.GetAllocator());
+      connection.AddMember("send_idle_time", it->send_idle_time, response_json.GetAllocator());
+      string_value.SetString(it->state.c_str(), it->state.length());
+      connection.AddMember("state", string_value, response_json.GetAllocator());
+      connection.AddMember("live_time", it->live_time, response_json.GetAllocator());
+      connections_json.PushBack(connection, response_json.GetAllocator());
+    }
+    result_json.AddMember("connections", connections_json, response_json.GetAllocator());
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -927,6 +975,7 @@ namespace
     "getlastblockheader",
     "getblockheaderbyhash",
     "getblockheaderbyheight",
+    "getconnections",
     NULL
   };
 
@@ -945,6 +994,7 @@ namespace
     getlastblockheader,
     getblockheaderbyhash,
     getblockheaderbyheight,
+    getconnections,
     NULL
   };
 }
@@ -1007,7 +1057,7 @@ namespace RPC
   void ev_handler(struct ns_connection *nc, int ev, void *ev_data)
   {
     struct http_message *hm = (struct http_message *) ev_data;
-    char buf[1000];
+    char buf[2000];
     switch (ev) {
       case NS_HTTP_REQUEST:
         ns_rpc_dispatch(hm->body.p, hm->body.len, buf, sizeof(buf),
