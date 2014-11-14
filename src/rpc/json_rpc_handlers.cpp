@@ -21,6 +21,8 @@
  return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error, \
   CORE_RPC_STATUS_BUSY, "{}"); }
 
+#define MAX_RESPONSE_SIZE 2000
+
 /*!
  * \namespace
  * \brief Anonymous namespace to keep things in the scope of this file.
@@ -960,6 +962,51 @@ namespace
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getinfo' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getinfo(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    uint64_t height = core->get_current_blockchain_height();
+    result_json.AddMember("height", height, response_json.GetAllocator());
+    result_json.AddMember("target_height", core->get_target_blockchain_height(),
+      response_json.GetAllocator());
+    result_json.AddMember("difficulty", core->get_blockchain_storage().get_difficulty_for_next_block(),
+      response_json.GetAllocator());
+    result_json.AddMember("tx_count", core->get_blockchain_storage().get_total_transactions() - height,
+      response_json.GetAllocator());
+    result_json.AddMember("tx_pool_size", core->get_pool_transactions_count(),
+      response_json.GetAllocator());
+    result_json.AddMember("alt_blocks_count", (uint64_t)core->get_blockchain_storage().get_alternative_blocks_count(),
+      response_json.GetAllocator());
+    uint64_t total_conn = p2p->get_connections_count();
+    uint64_t outgoing_connections_count = p2p->get_outgoing_connections_count();
+    result_json.AddMember("outgoing_connections_count", outgoing_connections_count,
+      response_json.GetAllocator());
+    result_json.AddMember("incoming_connections_count", total_conn - outgoing_connections_count,
+      response_json.GetAllocator());
+    result_json.AddMember("white_peerlist_size", p2p->get_peerlist_manager().get_white_peers_count(),
+      response_json.GetAllocator());
+    result_json.AddMember("grey_peerlist_size", p2p->get_peerlist_manager().get_gray_peers_count(),
+      response_json.GetAllocator());
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -976,6 +1023,7 @@ namespace
     "getblockheaderbyhash",
     "getblockheaderbyheight",
     "getconnections",
+    "getinfo",
     NULL
   };
 
@@ -995,6 +1043,7 @@ namespace
     getblockheaderbyhash,
     getblockheaderbyheight,
     getconnections,
+    getinfo,
     NULL
   };
 }
@@ -1057,7 +1106,7 @@ namespace RPC
   void ev_handler(struct ns_connection *nc, int ev, void *ev_data)
   {
     struct http_message *hm = (struct http_message *) ev_data;
-    char buf[2000];
+    char buf[MAX_RESPONSE_SIZE];
     switch (ev) {
       case NS_HTTP_REQUEST:
         ns_rpc_dispatch(hm->body.p, hm->body.len, buf, sizeof(buf),
