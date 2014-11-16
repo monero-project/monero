@@ -1007,6 +1007,71 @@ namespace
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getindexes' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */ 
+  int getindexes(char *buf, int len, struct ns_rpc_request *req)
+  {
+    CHECK_CORE_BUSY();
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Parameters missing.", "{}");
+    }
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::parse_error,
+        "Invalid JSON passed", "{}");
+    }
+    if (!request_json.HasMember("txid") || !request_json["txid"].IsString())
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "Incorrect txid", "{}");
+    }
+    std::string txid_string = request_json["txid"].GetString();
+    if (txid_string.length() < crypto::HASH_SIZE)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::invalid_params,
+        "txid is not of correct length", "{}");
+    }
+    crypto::hash txid;
+    strncpy(txid.data, txid_string.c_str(), crypto::HASH_SIZE);
+    std::vector<uint64_t> o_indexes;
+
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+
+    rapidjson::Value o_indexes_json(rapidjson::kArrayType);
+    bool r = core->get_tx_outputs_gindexs(txid, o_indexes);
+    if (!r)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error,
+        "Failed", "{}");
+    }
+    for (std::vector<uint64_t>::iterator it = o_indexes.begin(); it != o_indexes.end(); it++)
+    {
+      o_indexes_json.PushBack(*it, response_json.GetAllocator());
+    }
+    result_json.AddMember("o_indexes", o_indexes_json, response_json.GetAllocator());
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -1024,6 +1089,7 @@ namespace
     "getblockheaderbyheight",
     "getconnections",
     "getinfo",
+    "getindexes",
     NULL
   };
 
@@ -1044,6 +1110,7 @@ namespace
     getblockheaderbyheight,
     getconnections,
     getinfo,
+    getindexes,
     NULL
   };
 }
