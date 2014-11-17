@@ -95,6 +95,11 @@ else()
 endif()
 option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
+if(MINGW)
+  get_filename_component(msys2_install_path "[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MSYS2 64bit;InstallLocation]" ABSOLUTE)
+  set(CMAKE_INCLUDE_PATH "${msys2_install_path}/mingw64/include")
+endif()
+
 if(STATIC)
   if(MSVC)
     set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .dll.a .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
