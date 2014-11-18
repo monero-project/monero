@@ -60,6 +60,9 @@ function (bitmonero_add_executable name)
   set_property(TARGET "${name}"
     PROPERTY
       FOLDER "prog")
+  set_property(TARGET "${name}"
+    PROPERTY
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
   if (STATIC)
     set_property(TARGET "${name}"
