@@ -98,6 +98,14 @@ option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 if(MINGW)
   get_filename_component(msys2_install_path "[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MSYS2 64bit;InstallLocation]" ABSOLUTE)
   set(CMAKE_INCLUDE_PATH "${msys2_install_path}/mingw64/include")
+  # This is necessary because otherwise CMake will make Boost libraries -lfoo
+  # rather than a full path. Unfortunately, this makes the shared libraries get
+  # linked due to a bug in CMake which misses putting -static flags around the
+  # -lfoo arguments.
+  list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_DIRECTORIES
+    "${msys2_install_path}/mingw64/lib")
+  list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES
+    "${msys2_install_path}/mingw64/lib")
 endif()
 
 if(STATIC)
