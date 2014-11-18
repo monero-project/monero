@@ -183,3 +183,19 @@ endif ()
 set(LIBEVENT2_LIBDIR
   "${LIBEVENT2_LIBDIR}"
   PARENT_SCOPE)
+
+if (MINGW)
+  # There is no variable for this (probably due to the fact that the pthread
+  # library is implicit with a link in msys).
+  find_library(win32pthread
+    NAMES libwinpthread-1.dll)
+  foreach (input IN LISTS win32pthread OPENSSL_LIBRARIES)
+    # Copy shared libraries into the build tree so that no PATH manipulation is
+    # necessary.
+    get_filename_component(name "${input}" NAME)
+    configure_file(
+      "${input}"
+      "${CMAKE_BINARY_DIR}/bin/${name}"
+      COPYONLY)
+  endforeach ()
+endif ()
