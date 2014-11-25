@@ -26,26 +26,55 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(cryptonote_core_sources
+  account.cpp
+  blockchain_storage.cpp
+  checkpoints.cpp
+  checkpoints_create.cpp
+  cryptonote_basic_impl.cpp
+  cryptonote_core.cpp
+  cryptonote_format_utils.cpp
+  difficulty.cpp
+  miner.cpp
+  tx_pool.cpp)
 
-set(transfers_headers)
+set(cryptonote_core_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
-  LINK_PRIVATE
-    useragent
-    rpc
-    cryptonote_core
-    crypto
+set(cryptonote_core_private_headers
+  account.h
+  account_boost_serialization.h
+  blockchain_storage.h
+  blockchain_storage_boost_serialization.h
+  checkpoints.h
+  checkpoints_create.h
+  connection_context.h
+  cryptonote_basic.h
+  cryptonote_basic_impl.h
+  cryptonote_boost_serialization.h
+  cryptonote_core.h
+  cryptonote_format_utils.h
+  cryptonote_stat_info.h
+  difficulty.h
+  miner.h
+  tx_extra.h
+  tx_pool.h
+  verification_context.h)
+
+bitmonero_private_headers(cryptonote_core
+  ${crypto_private_headers})
+bitmonero_add_library(cryptonote_core
+  ${cryptonote_core_sources}
+  ${cryptonote_core_headers}
+  ${cryptonote_core_private_headers})
+target_link_libraries(cryptonote_core
+  LINK_PUBLIC
     common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
-
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+    crypto
+    ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SERIALIZATION_LIBRARY}
+  LINK_PRIVATE
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${EXTRA_LIBRARIES})

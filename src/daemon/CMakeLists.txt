@@ -26,26 +26,53 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(daemon_sources
+  daemon.cpp)
 
-set(transfers_headers)
+set(daemon_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
+set(daemon_private_headers
+  daemon_commands_handler.h
+
+  # cryptonote_protocol
+  ../cryptonote_protocol/blobdatatype.h
+  ../cryptonote_protocol/cryptonote_protocol_defs.h
+  ../cryptonote_protocol/cryptonote_protocol_handler.h
+  ../cryptonote_protocol/cryptonote_protocol_handler.inl
+  ../cryptonote_protocol/cryptonote_protocol_handler_common.h
+
+  # p2p
+  ../p2p/net_node.h
+  ../p2p/net_node.inl
+  ../p2p/net_node_common.h
+  ../p2p/net_peerlist.h
+  ../p2p/net_peerlist_boost_serialization.h
+  ../p2p/p2p_protocol_defs.h
+  ../p2p/stdafx.h)
+
+bitmonero_private_headers(daemon
+  ${daemon_private_headers})
+bitmonero_add_executable(daemon
+  ${daemon_sources}
+  ${daemon_headers}
+  ${daemon_private_headers})
+target_link_libraries(daemon
   LINK_PRIVATE
-    useragent
     rpc
     cryptonote_core
     crypto
     common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
-
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${UPNP_LIBRARIES}
+    ${EXTRA_LIBRARIES})
+add_dependencies(daemon
+  version)
+set_property(TARGET daemon
+  PROPERTY
+    OUTPUT_NAME "bitmonerod")

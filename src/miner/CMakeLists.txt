@@ -26,26 +26,30 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(simpleminer_sources
+  simpleminer.cpp)
 
-set(transfers_headers)
+set(simpleminer_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
+set(simpleminer_private_headers
+  simpleminer.h
+  simpleminer_protocol_defs.h
+  target_helper.h)
+
+bitmonero_private_headers(simpleminer
+  ${simpleminer_private_headers})
+bitmonero_add_executable(simpleminer
+  ${simpleminer_sources}
+  ${simpleminer_headers}
+  ${simpleminer_private_headers})
+target_link_libraries(simpleminer
   LINK_PRIVATE
-    useragent
-    rpc
     cryptonote_core
-    crypto
     common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
-
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})

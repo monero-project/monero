@@ -26,26 +26,20 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(connectivity_tool_sources
+  conn_tool.cpp)
 
-set(transfers_headers)
+set(connectivity_tool_private_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
+bitmonero_add_executable(connectivity_tool
+  ${connectivity_tool_sources}
+  ${connectivity_tool_private_headers})
+target_link_libraries(connectivity_tool
   LINK_PRIVATE
-    useragent
-    rpc
     cryptonote_core
     crypto
     common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
-
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY})

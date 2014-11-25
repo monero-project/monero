@@ -26,26 +26,27 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(mnemonics_sources
+  electrum-words.cpp)
 
-set(transfers_headers)
+set(mnemonics_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
+set(mnemonics_private_headers
+  electrum-words.h
+  english.h
+  japanese.h
+  language_base.h
+  old_english.h
+  portuguese.h
+  singleton.h
+  spanish.h)
+
+bitmonero_private_headers(mnemonics
+  ${mnemonics_private_headers})
+bitmonero_add_library(mnemonics
+  ${mnemonics_sources}
+  ${mnemonics_headers}
+  ${mnemonics_private_headers})
+target_link_libraries(mnemonics
   LINK_PRIVATE
-    useragent
-    rpc
-    cryptonote_core
-    crypto
-    common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
-
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+    ${Boost_SYSTEM_LIBRARY})

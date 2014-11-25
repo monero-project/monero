@@ -28,59 +28,72 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-add_definitions(-DSTATICLIB)
-# miniupnp changed their static define
-add_definitions(-DMINIUPNP_STATICLIB)
+if (WIN32 OR STATIC)
+  add_definitions(-DSTATICLIB)
+  # miniupnp changed their static define
+  add_definitions(-DMINIUPNP_STATICLIB)
+endif ()
 
-file(GLOB_RECURSE COMMON common/*)
-file(GLOB_RECURSE CRYPTO crypto/*)
-file(GLOB_RECURSE CRYPTONOTE_CORE cryptonote_core/*)
-file(GLOB_RECURSE CRYPTONOTE_PROTOCOL cryptonote_protocol/*)
-file(GLOB_RECURSE DAEMON daemon/*)
-file(GLOB_RECURSE P2P p2p/*)
-file(GLOB_RECURSE RPC rpc/*)
-file(GLOB_RECURSE SIMPLEWALLET simplewallet/*)
-file(GLOB_RECURSE CONN_TOOL connectivity_tool/*)
-file(GLOB_RECURSE WALLET wallet/*)
-file(GLOB_RECURSE MINER miner/*)
-file(GLOB MNEMONICS mnemonics/*)
+function (bitmonero_private_headers group)
+  source_group("${group}\\Private"
+    FILES
+      ${ARGN})
+endfunction ()
 
-source_group(common FILES ${COMMON})
-source_group(crypto FILES ${CRYPTO})
-source_group(cryptonote_core FILES ${CRYPTONOTE_CORE})
-source_group(cryptonote_protocol FILES ${CRYPTONOTE_PROTOCOL})
-source_group(daemon FILES ${DAEMON})
-source_group(p2p FILES ${P2P})
-source_group(rpc FILES ${RPC})
-source_group(simplewallet FILES ${SIMPLEWALLET})
-source_group(connectivity-tool FILES ${CONN_TOOL})
-source_group(wallet FILES ${WALLET})
-source_group(simpleminer FILES ${MINER})
-source_group(mnemonics FILES ${MNEMONICS})
+function (bitmonero_install_headers subdir)
+  install(
+    FILES       ${ARGN}
+    DESTINATION "include/${subdir}"
+    COMPONENT   development)
+endfunction ()
 
-add_library(common ${COMMON})
-add_library(crypto ${CRYPTO})
-add_library(cryptonote_core ${CRYPTONOTE_CORE})
-add_library(mnemonics ${MNEMONICS})
-add_executable(daemon ${DAEMON} ${P2P} ${CRYPTONOTE_PROTOCOL})
-add_executable(connectivity_tool ${CONN_TOOL})
-add_executable(simpleminer ${MINER})
-target_link_libraries(daemon rpc cryptonote_core crypto common ${UNBOUND_LIBRARY} ${UPNP_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(connectivity_tool cryptonote_core crypto common ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(simpleminer cryptonote_core crypto common ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-add_library(rpc ${RPC})
-add_library(wallet ${WALLET})
-target_link_libraries(wallet mnemonics)
-add_executable(simplewallet ${SIMPLEWALLET} )
-target_link_libraries(simplewallet wallet rpc cryptonote_core crypto common mnemonics ${UNBOUND_LIBRARY} ${UPNP_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-add_dependencies(daemon version)
-add_dependencies(rpc version)
-add_dependencies(simplewallet version)
+function (bitmonero_add_executable name)
+  source_group("${name}"
+    FILES
+      ${ARGN})
 
-set_property(TARGET common crypto cryptonote_core rpc wallet PROPERTY FOLDER "libs")
-set_property(TARGET daemon simplewallet connectivity_tool simpleminer PROPERTY FOLDER "prog")
-if (STATIC)
-  set_property(TARGET daemon simplewallet connectivity_tool simpleminer PROPERTY LINK_SEARCH_START_STATIC 1)
-  set_property(TARGET daemon simplewallet connectivity_tool simpleminer PROPERTY LINK_SEARCH_END_STATIC 1)
-endif()
-set_property(TARGET daemon PROPERTY OUTPUT_NAME "bitmonerod")
+  add_executable("${name}"
+    ${ARGN})
+  target_link_libraries("${name}"
+    LINK_PRIVATE
+      ${EXTRA_LIBRARIES})
+  set_property(TARGET "${name}"
+    PROPERTY
+      FOLDER "prog")
+  set_property(TARGET "${name}"
+    PROPERTY
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+  if (STATIC)
+    set_property(TARGET "${name}"
+      PROPERTY
+        LINK_SEARCH_START_STATIC 1)
+    set_property(TARGET "${name}"
+      PROPERTY
+        LINK_SEARCH_END_STATIC 1)
+  endif ()
+endfunction ()
+
+function (bitmonero_add_library name)
+  source_group("${name}"
+    FILES
+      ${ARGN})
+
+  add_library("${name}"
+    ${ARGN})
+  set_property(TARGET "${name}"
+    PROPERTY
+      FOLDER "libs")
+endfunction ()
+
+add_subdirectory(common)
+add_subdirectory(crypto)
+add_subdirectory(cryptonote_core)
+add_subdirectory(mnemonics)
+add_subdirectory(rpc)
+add_subdirectory(wallet)
+
+add_subdirectory(connectivity_tool)
+add_subdirectory(miner)
+add_subdirectory(simplewallet)
+add_subdirectory(daemon)

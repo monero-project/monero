@@ -26,26 +26,33 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(simplewallet_sources
+  simplewallet.cpp
+  password_container.cpp)
 
-set(transfers_headers)
+set(simplewallet_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
+set(simplewallet_private_headers
+  simplewallet.h
+  password_container.h)
+
+bitmonero_private_headers(simplewallet
+  ${simplewallet_private_headers})
+bitmonero_add_executable(simplewallet
+  ${simplewallet_sources}
+  ${simplewallet_headers}
+  ${simplewallet_private_headers})
+target_link_libraries(simplewallet
   LINK_PRIVATE
-    useragent
+    wallet
     rpc
     cryptonote_core
     crypto
     common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
-
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+    mnemonics
+    ${UNBOUND_LIBRARY}
+    ${UPNP_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+add_dependencies(simplewallet
+  version)

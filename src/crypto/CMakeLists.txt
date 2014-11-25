@@ -26,26 +26,51 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(crypto_sources
+  aesb.c
+  blake256.c
+  chacha8.c
+  crypto-ops-data.c
+  crypto-ops.c
+  crypto.cpp
+  groestl.c
+  hash-extra-blake.c
+  hash-extra-groestl.c
+  hash-extra-jh.c
+  hash-extra-skein.c
+  hash.c
+  jh.c
+  keccak.c
+  oaes_lib.c
+  random.c
+  skein.c
+  slow-hash.c
+  tree-hash.c)
 
-set(transfers_headers)
+set(crypto_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
-  LINK_PRIVATE
-    useragent
-    rpc
-    cryptonote_core
-    crypto
-    common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
+set(crypto_private_headers
+  blake256.h
+  chacha8.h
+  crypto-ops.h
+  crypto.h
+  generic-ops.h
+  groestl.h
+  groestl_tables.h
+  hash-ops.h
+  hash.h
+  initializer.h
+  jh.h
+  keccak.h
+  oaes_config.h
+  oaes_lib.h
+  random.h
+  skein.h
+  skein_port.h)
 
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+bitmonero_private_headers(crypto
+  ${crypto_private_headers})
+bitmonero_add_library(crypto
+  ${crypto_sources}
+  ${crypto_headers}
+  ${crypto_private_headers})

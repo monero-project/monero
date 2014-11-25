@@ -26,26 +26,39 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(common_sources
+  base58.cpp
+  command_line.cpp
+  dns_utils.cpp
+  util.cpp)
 
-set(transfers_headers)
+set(common_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
+set(common_private_headers
+  base58.h
+  boost_serialization_helper.h
+  command_line.h
+  dns_utils.h
+  int-util.h
+  pod-class.h
+  unordered_containers_boost_serialization.h
+  util.h
+  varint.h)
+
+bitmonero_private_headers(common
+  ${common_private_headers})
+bitmonero_add_library(common
+  ${common_sources}
+  ${common_headers}
+  ${common_private_headers})
+target_link_libraries(common
   LINK_PRIVATE
-    useragent
-    rpc
-    cryptonote_core
     crypto
-    common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
+    ${UNBOUND_LIBRARY}
+    ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${EXTRA_LIBRARIES})
 
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+#bitmonero_install_headers(common
+#  ${common_headers})

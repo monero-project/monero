@@ -38,14 +38,14 @@
 find_package(MiniUpnpc QUIET)
 
 # FreeBSD doesn't play well with the local copy, so default to using shared
-SET(USE_SHARED_MINIUPNPC false)
+set(USE_SHARED_MINIUPNPC false)
 
 # If we have the correct shared version and we're not building static, use it
-IF(STATIC)
- SET(USE_SHARED_MINIUPNPC false)
-ELSEIF(MINIUPNP_FOUND AND MINIUPNPC_VERSION_1_7_OR_HIGHER)
- SET(USE_SHARED_MINIUPNPC true)
-ENDIF()
+if(STATIC)
+ set(USE_SHARED_MINIUPNPC false)
+elseif(MINIUPNP_FOUND AND MINIUPNPC_VERSION_1_7_OR_HIGHER)
+ set(USE_SHARED_MINIUPNPC true)
+endif()
 
 if(USE_SHARED_MINIUPNPC)
   message(STATUS "Using shared miniupnpc found at ${MINIUPNP_INCLUDE_DIR}")
@@ -59,7 +59,7 @@ else()
   else()
     message(STATUS "Using miniupnpc from local source tree (/external/miniupnpc)")
   endif()
-  
+
   set(UPNPC_BUILD_STATIC ON CACHE BOOL "Build static library")
   set(UPNPC_BUILD_SHARED OFF CACHE BOOL "Build shared library")
   set(UPNPC_BUILD_TESTS OFF CACHE BOOL "Build test executables")
@@ -78,98 +78,22 @@ endif()
 
 find_package(Unbound)
 
-IF(!UNBOUND_INCLUDE_DIR OR STATIC)
-  if(STATIC)
-    message(STATUS "Using libunbound from local source tree for static build")
-  else()
-    message(STATUS "Using libunbound from local source tree (/external/unbound)")
-  endif()
-  
-  INCLUDE(ExternalProject)
-  
-  FIND_PACKAGE(OpenSSL QUIET)
-  IF(!OPENSSL_LIBRARIES)
-    MESSAGE(FATAL_ERROR "${BoldRed}Could not find the openssl library. Please make sure you have installed openssl or libssl-dev or the equivalent${ColourReset}")
-  ELSE()
-    MESSAGE(STATUS "Found openssl libraries")
-  ENDIF()
+if(NOT UNBOUND_INCLUDE_DIR OR STATIC)
+  add_subdirectory(unbound)
 
-  FIND_PACKAGE(Expat QUIET)
-  IF(!EXPAT_LIBRARIES)
-    MESSAGE(FATAL_ERROR "${BoldRed}Could not find the expat library. Please make sure you have installed libexpat or libexpat-dev or the equivalent${ColourReset}")
-  ELSE()
-    MESSAGE(STATUS "Found expat libraries")
-  ENDIF()
-  
-  IF(MINGW)
-    set(ENV{USE_WINSOCK} 1)
-    set(ENV{CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-    set(ENV{GCC_PREFIX} ${GCC_PREFIX})
-    set(ENV{CMAKE_FIND_ROOT_PATH} ${CMAKE_FIND_ROOT_PATH})
-    EXTERNALPROJECT_ADD(
-      libunbound
-      PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
-      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/monero-config.sh
-      BUILD_COMMAND $(MAKE)
-      UPDATE_COMMAND ""
-      PATCH_COMMAND ""
-      INSTALL_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libtool --mode=install cp ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build
-      LOG_DOWNLOAD 1
-      LOG_UPDATE 1
-      LOG_CONFIGURE 1
-      LOG_BUILD 1
-      LOG_TEST 1
-      LOG_INSTALL 1
-    )
-  ELSEIF(APPLE)
-    execute_process(COMMAND brew --prefix OUTPUT_VARIABLE BREW_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
-    EXTERNALPROJECT_ADD(
-      libunbound
-      PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
-      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --prefix=${BREW_PREFIX} --enable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
-      BUILD_COMMAND $(MAKE)
-      UPDATE_COMMAND ""
-      PATCH_COMMAND ""
-      INSTALL_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libtool --mode=install cp ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build
-      LOG_DOWNLOAD 1
-      LOG_UPDATE 1
-      LOG_CONFIGURE 1
-      LOG_BUILD 1
-      LOG_TEST 1
-      LOG_INSTALL 1
-    )
-  ELSE()
-    EXTERNALPROJECT_ADD(
-      libunbound
-      PREFIX ${CMAKE_CURRENT_BINARY_DIR}/unbound
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/unbound/
-      CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/unbound/configure --disable-shared --enable-static --disable-gost --disable-rpath --with-libevent=no --without-pyunbound --without-pythonmodule --without-pthreads --with-libunbound-only
-      BUILD_COMMAND $(MAKE)
-      UPDATE_COMMAND ""
-      PATCH_COMMAND ""
-      INSTALL_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libtool --mode=install cp ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.la ${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build
-      LOG_DOWNLOAD 1
-      LOG_UPDATE 1
-      LOG_CONFIGURE 1
-      LOG_BUILD 1
-      LOG_TEST 1
-      LOG_INSTALL 1
-    )
-  ENDIF()
-  
   set(UNBOUND_STATIC true PARENT_SCOPE)
-  set(UNBOUND_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build" PARENT_SCOPE)
-  set(UNBOUND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/unbound/src/libunbound-build/libunbound.a;${OPENSSL_LIBRARIES}" PARENT_SCOPE)
-ELSE()
-  MESSAGE(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
-  IF(UNBOUND_LIBRARIES)
-    MESSAGE(STATUS "Found libunbound shared library")
+  set(UNBOUND_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/unbound/libunbound" PARENT_SCOPE)
+  set(UNBOUND_LIBRARY "unbound" PARENT_SCOPE)
+  set(UNBOUND_LIBRARY_DIRS "${LIBEVENT2_LIBDIR}" PARENT_SCOPE)
+else()
+  message(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
+  if(UNBOUND_LIBRARIES)
+    message(STATUS "Found libunbound shared library")
     set(UNBOUND_STATIC false PARENT_SCOPE)
     set(UNBOUND_INCLUDE ${UNBOUND_INCLUDE_DIR} PARENT_SCOPE)
     set(UNBOUND_LIBRARY ${UNBOUND_LIBRARIES} PARENT_SCOPE)
-  ELSE()
-    MESSAGE(FATAL_ERROR "${BoldRed}Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent${ColourReset}")
-  ENDIF()
-ENDIF()
+    set(UNBOUND_LIBRARY_DIRS "" PARENT_SCOPE)
+  else()
+    die("Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent")
+  endif()
+endif()

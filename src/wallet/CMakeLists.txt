@@ -26,26 +26,31 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(transfers_sources
-  transfers.cpp)
+set(wallet_sources
+  wallet2.cpp
+  wallet_rpc_server.cpp)
 
-set(transfers_headers)
+set(wallet_headers)
 
-add_executable(transfers
-  ${transfers_sources}
-  ${transfers_headers})
-target_link_libraries(transfers
-  LINK_PRIVATE
-    useragent
-    rpc
+set(wallet_private_headers
+  wallet2.h
+  wallet_errors.h
+  wallet_rpc_server.h
+  wallet_rpc_server_commands_defs.h
+  wallet_rpc_server_error_codes.h)
+
+bitmonero_private_headers(wallet
+  ${wallet_private_headers})
+bitmonero_add_library(wallet
+  ${wallet_sources}
+  ${wallet_headers}
+  ${wallet_private_headers})
+target_link_libraries(wallet
+  LINK_PUBLIC
     cryptonote_core
-    crypto
-    common
-    epee
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_LIBRARIES})
-
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
-add_custom_target(test_transfers
-  COMMAND           transfers
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
+    mnemonics
+  LINK_PRIVATE
+    ${Boost_SERIALIZATION_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${EXTRA_LIBRARIES})
