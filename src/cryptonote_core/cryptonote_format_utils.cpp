@@ -107,7 +107,7 @@ namespace cryptonote
     block_reward += fee;
 
     std::vector<uint64_t> out_amounts;
-    decompose_amount_into_digits(block_reward, DEFAULT_FEE,
+    decompose_amount_into_digits(block_reward, ::config::DEFAULT_DUST_THRESHOLD,
       [&out_amounts](uint64_t a_chunk) { out_amounts.push_back(a_chunk); },
       [&out_amounts](uint64_t a_dust) { out_amounts.push_back(a_dust); });
 

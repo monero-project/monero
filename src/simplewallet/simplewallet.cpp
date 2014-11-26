@@ -1054,15 +1054,14 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, DEFAULT_FEE, extra);
+    auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
 
     // if more than one tx necessary, prompt user to confirm
     if (ptx_vector.size() > 1)
     {
         std::string prompt_str = "Your transaction needs to be split into ";
         prompt_str += std::to_string(ptx_vector.size());
-        prompt_str += " transactions.  This will result in a fee of ";
-        prompt_str += print_money(ptx_vector.size() * DEFAULT_FEE);
+        prompt_str += " transactions.  This will result in a transaction fee being applied to each transaction";
         prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
         std::string accepted = command_line::input_line(prompt_str);
         if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
