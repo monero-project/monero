@@ -83,6 +83,7 @@ endif()
 #   set(BSDI TRUE)
 
 include_directories(src contrib/epee/include external "${CMAKE_BINARY_DIR}/version")
+include_directories(src/common)
 
 if(APPLE)
   include_directories(SYSTEM /usr/include/malloc)
