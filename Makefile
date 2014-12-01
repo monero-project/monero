@@ -8,9 +8,12 @@ build-debug: cmake-debug
 	cd build/debug && $(MAKE)
 
 test-debug: build-debug
-	cd build/debug && $(MAKE) test
+	mkdir -p build/debug
+	cd build/debug && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Debug ../.. && $(MAKE) test
 
-all-debug: build-debug
+all-debug:
+	mkdir -p build/debug
+	cd build/debug && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Debug ../.. && $(MAKE)
 
 cmake-release:
 	mkdir -p build/release
@@ -20,13 +23,16 @@ build-release: cmake-release
 	cd build/release && $(MAKE)
 
 test-release: build-release
-	cd build/release && $(MAKE) test
+	mkdir -p build/release
+	cd build/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE) test
 
-all-release: build-release
+all-release:
+	mkdir -p build/release
+	cd build/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
 
 release-static:
 	mkdir -p build/release
-	cd build/release && cmake -D STATIC=ON -D ARCH="x86-64" -D CMAKE_BUILD_TYPE=Release ../.. && $(MAKE)
+	cd build/release && cmake -D STATIC=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
 
 clean:
 	@echo "WARNING: Back-up your wallet if it exists within ./build!" ; \
