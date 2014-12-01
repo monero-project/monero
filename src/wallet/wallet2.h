@@ -82,7 +82,7 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
-    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet) {};
+    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet), is_old_file_format(false) {};
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -133,7 +133,24 @@ namespace tools
       END_SERIALIZE()
     };
 
-    crypto::secret_key generate(const std::string& wallet, const std::string& password, const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false, bool two_random = false);
+    /*!
+     * \brief Generates a wallet or restores one.
+     * \param  wallet_        Name of wallet file
+     * \param  password       Password of wallet file
+     * \param  recovery_param If it is a restore, the recovery key
+     * \param  recover        Whether it is a restore
+     * \param  two_random     Whether it is a non-deterministic wallet
+     * \return                The secret key of the generated wallet
+     */
+    crypto::secret_key generate(const std::string& wallet, const std::string& password,
+      const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false,
+      bool two_random = false);
+    /*!
+     * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
+     * \param wallet_name Name of wallet file (should exist)
+     * \param password    Password for wallet file
+     */
+    void rewrite(const std::string& wallet_name, const std::string& password);
     void load(const std::string& wallet, const std::string& password);
     void store();
     cryptonote::account_base& get_account(){return m_account;}
@@ -155,7 +172,11 @@ namespace tools
     /*!
      * \brief Sets the seed language
      */
-    void set_seed_language(const std::string &language);    
+    void set_seed_language(const std::string &language);
+    /*!
+     * \brief Tells if the wallet file is deprecated.
+     */
+    bool is_deprecated() const;
     void refresh();
     void refresh(uint64_t start_height, size_t & blocks_fetched);
     void refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money);
@@ -203,7 +224,18 @@ namespace tools
 
     static std::string address_from_txt_record(const std::string& s);
   private:
+    /*!
+     * \brief  Stores wallet information to wallet file.
+     * \param  keys_file_name Name of wallet file
+     * \param  password       Password of wallet file
+     * \return                Whether it was successful.
+     */
     bool store_keys(const std::string& keys_file_name, const std::string& password);
+    /*!
+     * \brief Load wallet information from wallet file.
+     * \param keys_file_name Name of wallet file
+     * \param password       Password of wallet file
+     */
     void load_keys(const std::string& keys_file_name, const std::string& password);
     void process_new_transaction(const cryptonote::transaction& tx, uint64_t height);
     void process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
@@ -239,7 +271,8 @@ namespace tools
 
     i_wallet2_callback* m_callback;
     bool m_testnet;
-    std::string seed_language;
+    std::string seed_language; /*!< Language of the mnemonics (seed). */
+    bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)

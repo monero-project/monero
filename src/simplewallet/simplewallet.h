@@ -101,6 +101,11 @@ namespace cryptonote
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
     bool ask_wallet_create_if_needed();
+    /*!
+     * \brief Prints the seed with a nice message
+     * \param seed seed to print
+     */
+    void print_seed(std::string seed);
 
     /*!
      * \brief Gets the word seed language from the user.
