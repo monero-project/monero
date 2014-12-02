@@ -170,6 +170,10 @@ namespace tools
 
     bool get_seed(std::string& electrum_words);
     /*!
+     * \brief Gets the seed language
+     */
+    const std::string get_seed_language();
+    /*!
      * \brief Sets the seed language
      */
     void set_seed_language(const std::string &language);

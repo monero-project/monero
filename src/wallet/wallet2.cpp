@@ -91,6 +91,12 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
 //----------------------------------------------------------------------------------------------------
 bool wallet2::get_seed(std::string& electrum_words)
 {
+  if (seed_language.empty())
+  {
+    std::cout << "seed_language not set" << std::endl;
+    return false;
+  }
+
   crypto::ElectrumWords::bytes_to_words(get_account().get_keys().m_spend_secret_key, electrum_words, seed_language);
 
   crypto::secret_key second;
@@ -99,6 +105,13 @@ bool wallet2::get_seed(std::string& electrum_words)
   sc_reduce32((uint8_t *)&second);
   
   return memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+}
+/*!
+ * \brief Gets the seed language
+ */
+const std::string wallet2::get_seed_language()
+{
+  return seed_language;
 }
 /*!
  * \brief Sets the seed language
