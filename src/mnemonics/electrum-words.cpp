@@ -255,7 +255,7 @@ namespace crypto
       std::string wlist_copy = words;
       if (seed.size() == seed_length/2)
       {
-        memcpy(dst.data, dst.data + 16, 16);  // if electrum 12-word seed, duplicate
+        memcpy(dst.data+16, dst.data, 16);  // if electrum 12-word seed, duplicate
         wlist_copy += ' ';
         wlist_copy += words;
       }
@@ -328,7 +328,7 @@ namespace crypto
 
       words.pop_back();
       words += (' ' + words_store[create_checksum_index(words_store, language->get_unique_prefix_length())]);
-      return false;
+      return true;
     }
 
     /*!
