@@ -68,7 +68,7 @@ else()
 			message(STATUS "The most recent tag was at ${TAGGEDCOMMIT}")
 			
 			# Check if we're building that tagged commit or a different one
-			if(COMMIT MATCHES TAGGEDCOMMIT)
+			if(COMMIT STREQUAL TAGGEDCOMMIT)
 				message(STATUS "You are building a tagged release")
 				set(VERSIONTAG "release")
 			else()
