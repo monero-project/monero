@@ -50,6 +50,8 @@
 #include "storages/http_abstract_invoke.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "wallet/wallet_rpc_server.h"
+#include "wallet/wallet_json_rpc_handlers.h"
+#include "rpc/json_rpc_http_server.h"
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "mnemonics/electrum-words.h"
@@ -1212,7 +1214,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );
   command_line::add_arg(desc_params, arg_testnet);
-  tools::wallet_rpc_server::init_options(desc_params);
+  RPC::Wallet::init_options(desc_params);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
@@ -1261,7 +1263,7 @@ int main(int argc, char* argv[])
     log_space::get_set_log_detalisation_level(true, command_line::get_arg(vm, arg_log_level));
   }
 
-  if(command_line::has_arg(vm, tools::wallet_rpc_server::arg_rpc_bind_port))
+  if (command_line::has_arg(vm, RPC::Wallet::arg_rpc_bind_port))
   {
     log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
     //runs wallet with rpc interface
@@ -1295,6 +1297,8 @@ int main(int argc, char* argv[])
       daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
     tools::wallet2 wal(testnet);
+    RPC::Wallet::init(&wal);
+
     try
     {
       LOG_PRINT_L0("Loading wallet...");
@@ -1308,16 +1312,16 @@ int main(int argc, char* argv[])
       LOG_ERROR("Wallet initialize failed: " << e.what());
       return 1;
     }
-    tools::wallet_rpc_server wrpc(wal);
-    bool r = wrpc.init(vm);
-    CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet rpc server");
+    std::string ip_address, port;
+    RPC::Wallet::get_address_and_port(vm, ip_address, port);
+    RPC::Json_rpc_http_server rpc_server(ip_address, port, &RPC::Wallet::ev_handler);
 
-    tools::signal_handler::install([&wrpc, &wal] {
-      wrpc.send_stop_signal();
+    tools::signal_handler::install([&rpc_server, &wal] {
+      rpc_server.stop();
       wal.store();
     });
     LOG_PRINT_L0("Starting wallet rpc server");
-    wrpc.run();
+    rpc_server.start();
     LOG_PRINT_L0("Stopped wallet rpc server");
     try
     {

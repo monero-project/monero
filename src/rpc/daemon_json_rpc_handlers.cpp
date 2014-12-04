@@ -1,5 +1,5 @@
 /*!
- * \file json_rpc_handlers.cpp
+ * \file daemon_json_rpc_handlers.cpp
  * \brief Implementations of JSON RPC handlers (Daemon)
  */
 
@@ -15,7 +15,7 @@
 // Trivial and error responses may be returned with ns_create_rpc_reply and ns_create_rpc_error
 // respectively.
 
-#include "json_rpc_handlers.h"
+#include "daemon_json_rpc_handlers.h"
 
 #define CHECK_CORE_BUSY() if (check_core_busy()) { \
  return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error, \
@@ -1122,69 +1122,76 @@ namespace
 namespace RPC
 {
   /*!
-   * \brief initializes module (must call this before handling requests)
-   * \param p_core    Pointer to cryptonote core object
-   * \param p_p2p     Pointer to P2P object
-   * \param p_testnet True if testnet false otherwise
+   * \namespace Daemon
+   * \brief RPC relevant to daemon
    */
-  void init(cryptonote::core *p_core,
-    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
-    bool p_testnet)
+  namespace Daemon
   {
-    core = p_core;
-    p2p = p_p2p;
-    testnet = p_testnet;
-  }
+    /*!
+     * \brief initializes module (must call this before handling requests)
+     * \param p_core    Pointer to cryptonote core object
+     * \param p_p2p     Pointer to P2P object
+     * \param p_testnet True if testnet false otherwise
+     */
+    void init(cryptonote::core *p_core,
+      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
+      bool p_testnet)
+    {
+      core = p_core;
+      p2p = p_p2p;
+      testnet = p_testnet;
+    }
 
-  /*!
-   * \Inits certain options used in Daemon CLI.
-   * \param desc Instance of options description object
-   */
-  void init_options(boost::program_options::options_description& desc)
-  {
-    command_line::add_arg(desc, arg_rpc_bind_ip);
-    command_line::add_arg(desc, arg_rpc_bind_port);
-    command_line::add_arg(desc, arg_testnet_rpc_bind_port);
-  }
+    /*!
+     * \Inits certain options used in Daemon CLI.
+     * \param desc Instance of options description object
+     */
+    void init_options(boost::program_options::options_description& desc)
+    {
+      command_line::add_arg(desc, arg_rpc_bind_ip);
+      command_line::add_arg(desc, arg_rpc_bind_port);
+      command_line::add_arg(desc, arg_testnet_rpc_bind_port);
+    }
 
-  /*!
-   * \brief Gets IP address and port number from variable map
-   * \param vm         Variable map
-   * \param ip_address IP address
-   * \param port       Port number
-   */
-  void get_address_and_port(const boost::program_options::variables_map& vm,
-    std::string &ip_address, std::string &port)
-  {
-    auto p2p_bind_arg = testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
+    /*!
+     * \brief Gets IP address and port number from variable map
+     * \param vm         Variable map
+     * \param ip_address IP address
+     * \param port       Port number
+     */
+    void get_address_and_port(const boost::program_options::variables_map& vm,
+      std::string &ip_address, std::string &port)
+    {
+      auto p2p_bind_arg = testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
 
-    ip_address = command_line::get_arg(vm, arg_rpc_bind_ip);
-    port = command_line::get_arg(vm, p2p_bind_arg);
-  }
+      ip_address = command_line::get_arg(vm, arg_rpc_bind_ip);
+      port = command_line::get_arg(vm, p2p_bind_arg);
+    }
 
-  /*!
-   * \brief Event handler that is invoked upon net_skeleton network events.
-   * 
-   * Any change in behavior of RPC should happen from this point.
-   * \param nc      net_skeleton connection
-   * \param ev      Type of event
-   * \param ev_data Event data
-   */
-  void ev_handler(struct ns_connection *nc, int ev, void *ev_data)
-  {
-    struct http_message *hm = (struct http_message *) ev_data;
-    char buf[MAX_RESPONSE_SIZE];
-    switch (ev) {
-      case NS_HTTP_REQUEST:
-        ns_rpc_dispatch(hm->body.p, hm->body.len, buf, sizeof(buf),
-          method_names, handlers);
-        ns_printf(nc, "HTTP/1.0 200 OK\r\nContent-Length: %d\r\n"
-          "Content-Type: application/json\r\n\r\n%s",
-          (int) strlen(buf), buf);
-          nc->flags |= NSF_FINISHED_SENDING_DATA;
-        break;
-      default:
-        break;
+    /*!
+     * \brief Event handler that is invoked upon net_skeleton network events.
+     * 
+     * Any change in behavior of RPC should happen from this point.
+     * \param nc      net_skeleton connection
+     * \param ev      Type of event
+     * \param ev_data Event data
+     */
+    void ev_handler(struct ns_connection *nc, int ev, void *ev_data)
+    {
+      struct http_message *hm = (struct http_message *) ev_data;
+      char buf[MAX_RESPONSE_SIZE];
+      switch (ev) {
+        case NS_HTTP_REQUEST:
+          ns_rpc_dispatch(hm->body.p, hm->body.len, buf, sizeof(buf),
+            method_names, handlers);
+          ns_printf(nc, "HTTP/1.0 200 OK\r\nContent-Length: %d\r\n"
+            "Content-Type: application/json\r\n\r\n%s",
+            (int) strlen(buf), buf);
+            nc->flags |= NSF_FINISHED_SENDING_DATA;
+          break;
+        default:
+          break;
+      }
     }
   }
 }

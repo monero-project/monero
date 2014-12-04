@@ -50,7 +50,7 @@ using namespace epee;
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "daemon_commands_handler.h"
 #include "version.h"
-#include "rpc/json_rpc_handlers.h"
+#include "rpc/daemon_json_rpc_handlers.h"
 #include "rpc/json_rpc_http_server.h"
 
 #if defined(WIN32)
@@ -140,7 +140,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_dns_checkpoints);
 
   cryptonote::core::init_options(desc_cmd_sett);
-  RPC::init_options(desc_cmd_sett);
+  RPC::Daemon::init_options(desc_cmd_sett);
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >::init_options(desc_cmd_sett);
   cryptonote::miner::init_options(desc_cmd_sett);
 
@@ -246,10 +246,10 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Protocol initialized OK");
 
   LOG_PRINT_L0("Initializing core RPC server...");
-  RPC::init(&ccore, &p2psrv, testnet_mode);
+  RPC::Daemon::init(&ccore, &p2psrv, testnet_mode);
   std::string ip_address, port;
-  RPC::get_address_and_port(vm, ip_address, port);
-  RPC::Json_rpc_http_server rpc_server(ip_address, port, &RPC::ev_handler);
+  RPC::Daemon::get_address_and_port(vm, ip_address, port);
+  RPC::Json_rpc_http_server rpc_server(ip_address, port, &RPC::Daemon::ev_handler);
   LOG_PRINT_GREEN("Core RPC server initialized on port: " << port, LOG_LEVEL_0);
 
   //initialize core here
