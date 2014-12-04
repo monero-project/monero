@@ -79,11 +79,12 @@ struct dns_msg {
  * 	can be updated to full TTL even in prefetch situations.
  * @param region: region to allocate better entries from cache into.
  *   (used when is_referral is false).
+ * @param flags: flags with BIT_CD for AAAA queries in dns64 translation.
  * @return 0 on alloc error (out of memory).
  */
 int dns_cache_store(struct module_env* env, struct query_info* qinf,
         struct reply_info* rep, int is_referral, time_t leeway, int pside,
-	struct regional* region); 
+	struct regional* region, uint16_t flags); 
 
 /**
  * Store message in the cache. Stores in message cache and rrset cache.
@@ -132,6 +133,7 @@ struct delegpt* dns_cache_find_delegation(struct module_env* env,
  * @param qnamelen: length of qname.
  * @param qtype: query type.
  * @param qclass: query class.
+ * @param flags: flags with BIT_CD for AAAA queries in dns64 translation.
  * @param region: where to allocate result.
  * @param scratch: where to allocate temporary data.
  * @return new response message (alloced in region, rrsets do not have IDs).
@@ -140,7 +142,7 @@ struct delegpt* dns_cache_find_delegation(struct module_env* env,
  */
 struct dns_msg* dns_cache_lookup(struct module_env* env,
 	uint8_t* qname, size_t qnamelen, uint16_t qtype, uint16_t qclass,
-	struct regional* region, struct regional* scratch);
+	uint16_t flags, struct regional* region, struct regional* scratch);
 
 /** 
  * find and add A and AAAA records for missing nameservers in delegpt 
@@ -186,9 +188,10 @@ int dns_msg_authadd(struct dns_msg* msg, struct regional* region,
  * @param env: module environment with caches and time.
  * @param qinfo: query info for the query that needs adjustment.
  * @param adjust: time in seconds to add to the prefetch_leeway.
+ * @param flags: flags with BIT_CD for AAAA queries in dns64 translation.
  * @return false if not in cache. true if added.
  */
 int dns_cache_prefetch_adjust(struct module_env* env, struct query_info* qinfo,
-        time_t adjust);
+        time_t adjust, uint16_t flags);
 
 #endif /* SERVICES_CACHE_DNS_H */

@@ -9,16 +9,16 @@ sinclude(dnstap/dnstap.m4)
 
 # must be numbers. ac_defun because of later processing
 m4_define([VERSION_MAJOR],[1])
-m4_define([VERSION_MINOR],[4])
-m4_define([VERSION_MICRO],[23])
+m4_define([VERSION_MINOR],[5])
+m4_define([VERSION_MICRO],[1])
 AC_INIT(unbound, m4_defn([VERSION_MAJOR]).m4_defn([VERSION_MINOR]).m4_defn([VERSION_MICRO]), unbound-bugs@nlnetlabs.nl, unbound)
 AC_SUBST(UNBOUND_VERSION_MAJOR, [VERSION_MAJOR])
 AC_SUBST(UNBOUND_VERSION_MINOR, [VERSION_MINOR])
 AC_SUBST(UNBOUND_VERSION_MICRO, [VERSION_MICRO])
 
-LIBUNBOUND_CURRENT=4
+LIBUNBOUND_CURRENT=5
 LIBUNBOUND_REVISION=3
-LIBUNBOUND_AGE=2
+LIBUNBOUND_AGE=3
 # 1.0.0 had 0:12:0
 # 1.0.1 had 0:13:0
 # 1.0.2 had 0:14:0
@@ -56,7 +56,8 @@ LIBUNBOUND_AGE=2
 # 1.4.20 had 4:0:2 # adds libunbound.ttl # but shipped 3:5:1
 # 1.4.21 had 4:1:2
 # 1.4.22 had 4:1:2
-# 1.4.23 had 4:3:2
+# 1.5.0 had 5:3:3 # adds ub_ctx_add_ta_autr
+# 1.5.1 had 5:4:3
 
 #   Current  -- the number of the binary API that we're implementing
 #   Revision -- which iteration of the implementation of the binary
@@ -1022,39 +1023,6 @@ if test "$USE_NSS" = "no"; then
 				AC_SEARCH_LIBS([clock_gettime], [rt])
 			;;
 			esac
-			# generate libtool to test if linking main
-			# from a dynamic library works.
-			LT_OUTPUT
-			AC_MSG_CHECKING([if dynamic lib can refer to main])
-			cat >tmp.$$.def <<EOF
-myfunc
-EOF
-			cat >tmp.$$.c <<EOF
-int myfunc(void);
-extern int main(int, char *argv[]);
-int myfunc(void)
-{
-	return ((int)main) + 1;
-}
-EOF
-			mylibtool=./libtool
-			mylibdir=/usr/local/lib
-			myok=yes
-			$mylibtool --quiet --tag=CC --mode=compile $CC $CFLAGS -o tmp.$$.lo -c tmp.$$.c >/dev/null 2>&1
-			if test $? = 0; then myok=yes; else myok=no; fi
-			if test "$myok" = "yes"; then
-			$mylibtool --quiet --tag=CC --mode=link $CC $CFLAGS -version-info 1:0:0 -no-undefined -export-symbols tmp.$$.def -o libtmp$$.la tmp.$$.lo $LDFLAGS -rpath $mylibdir $LIBS >/dev/null 2>&1
-				if test $? = 0; then myok=yes; else myok=no; fi
-			fi
-			if test "$myok" = "yes"; then
-				AC_MSG_RESULT(yes)
-				AC_DEFINE(CAN_REFERENCE_MAIN, [1], [define if a library can reference the 'main' symbol])
-			else
-				AC_MSG_RESULT(no)
-			fi
-			$mylibtool --quiet --mode=clean rm -rf libtmp$$.la tmp.$$.lo
-			rm -f tmp.$$.def tmp.$$.c libtmp$$.la tmp.$$.lo tmp.$$.o
-
 		    fi
 		])
 	fi
@@ -1364,6 +1332,11 @@ void *unbound_stat_realloc_log(void *ptr, size_t size, const char* file,
 #define UNBOUND_CONTROL_VERSION 1
 
 ])
+
+dnl if we build from source tree, the man pages need @date@ and @version@
+dnl if this is a distro tarball, that was already done by makedist.sh
+AC_SUBST(version, [VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
+AC_SUBST(date, [`date +'%b %e, %Y'`])
 
 AC_CONFIG_FILES([Makefile doc/example.conf doc/libunbound.3 doc/unbound.8 doc/unbound-anchor.8 doc/unbound-checkconf.8 doc/unbound.conf.5 doc/unbound-control.8 doc/unbound-host.1 smallapp/unbound-control-setup.sh dnstap/dnstap_config.h])
 AC_CONFIG_HEADER([config.h])

@@ -563,7 +563,7 @@ readkeyword_bindfile(FILE* in, sldns_buffer* buf, int* line, int comments)
 		/* not a comment, complete the keyword */
 		if(numdone > 0) {
 			/* check same type */
-			if(isspace(c)) {
+			if(isspace((unsigned char)c)) {
 				ungetc(c, in);
 				return numdone;
 			}
@@ -582,12 +582,12 @@ readkeyword_bindfile(FILE* in, sldns_buffer* buf, int* line, int comments)
 		}
 		sldns_buffer_write_u8(buf, (uint8_t)c);
 		numdone++;
-		if(isspace(c)) {
+		if(isspace((unsigned char)c)) {
 			/* collate whitespace into ' ' */
 			while((c = getc(in)) != EOF ) {
 				if(c == '\n')
 					(*line)++;
-				if(!isspace(c)) {
+				if(!isspace((unsigned char)c)) {
 					ungetc(c, in);
 					break;
 				}
@@ -607,7 +607,7 @@ skip_to_special(FILE* in, sldns_buffer* buf, int* line, int spec)
 	int rdlen;
 	sldns_buffer_clear(buf);
 	while((rdlen=readkeyword_bindfile(in, buf, line, 1))) {
-		if(rdlen == 1 && isspace((int)*sldns_buffer_begin(buf))) {
+		if(rdlen == 1 && isspace((unsigned char)*sldns_buffer_begin(buf))) {
 			sldns_buffer_clear(buf);
 			continue;
 		}
@@ -648,7 +648,7 @@ process_bind_contents(struct val_anchors* anchors, sldns_buffer* buf,
 	sldns_buffer_clear(buf);
 	while((rdlen=readkeyword_bindfile(in, buf, line, comments))) {
 		if(rdlen == 1 && sldns_buffer_position(buf) == 1
-			&& isspace((int)*sldns_buffer_begin(buf))) {
+			&& isspace((unsigned char)*sldns_buffer_begin(buf))) {
 			/* starting whitespace is removed */
 			sldns_buffer_clear(buf);
 			continue;
@@ -703,7 +703,7 @@ process_bind_contents(struct val_anchors* anchors, sldns_buffer* buf,
 			}
 			return 1;
 		} else if(rdlen == 1 && 
-			isspace((int)sldns_buffer_current(buf)[-1])) {
+			isspace((unsigned char)sldns_buffer_current(buf)[-1])) {
 			/* leave whitespace here */
 		} else {
 			/* not space or whatnot, so actual content */

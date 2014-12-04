@@ -41,9 +41,9 @@ getentropy(void *buf, size_t len)
 	}
 
 	if (CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL,
-	    CRYPT_VERIFYCONTEXT) != 0)
+	    CRYPT_VERIFYCONTEXT) == 0)
 		goto fail;
-	if (CryptGenRandom(provider, len, buf) != 0) {
+	if (CryptGenRandom(provider, len, buf) == 0) {
 		CryptReleaseContext(provider, 0);
 		goto fail;
 	}

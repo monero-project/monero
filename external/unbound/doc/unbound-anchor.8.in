@@ -24,14 +24,14 @@ Suggested usage:
 .nf
 	# in the init scripts.
 	# provide or update the root anchor (if necessary)
-	unbound-anchor -a "@UNBOUND_ROOTKEY_FILE@"
+	unbound-anchor \-a "@UNBOUND_ROOTKEY_FILE@"
 	# Please note usage of this root anchor is at your own risk
 	# and under the terms of our LICENSE (see source).
 	#
 	# start validating resolver
 	# the unbound.conf contains:
 	#   auto-trust-anchor-file: "@UNBOUND_ROOTKEY_FILE@"
-	unbound -c unbound.conf
+	unbound \-c unbound.conf
 .fi
 .P
 This tool provides builtin default contents for the root anchor and root
@@ -138,7 +138,7 @@ tracking, or if an error occurred.
 .P
 You can check the exit value in this manner:
 .nf
-	unbound-anchor -a "root.key" || logger "Please check root.key"
+	unbound-anchor \-a "root.key" || logger "Please check root.key"
 .fi
 Or something more suitable for your operational environment.
 .SH "TRUST"

@@ -902,13 +902,13 @@ static int
 handle_origin(char* line, uint8_t** origin, size_t* origin_len)
 {
 	size_t len = 0;
-	while(isspace((int)*line))
+	while(isspace((unsigned char)*line))
 		line++;
 	if(strncmp(line, "$ORIGIN", 7) != 0)
 		return 0;
 	free(*origin);
 	line += 7;
-	while(isspace((int)*line))
+	while(isspace((unsigned char)*line))
 		line++;
 	*origin = sldns_str2wire_dname(line, &len);
 	*origin_len = len;

@@ -1,8 +1,5 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* define if a library can reference the 'main' symbol */
-#undef CAN_REFERENCE_MAIN
-
 /* Directory to chroot to */
 #undef CHROOT_DIR
 

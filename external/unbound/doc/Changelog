@@ -1,3 +1,102 @@
+1 December 2014: Wouter
+	- Fix bug#632: unbound fails to build on AArch64, protects
+	  getentropy compat code from calling sysctl if it is has been removed.
+
+29 November 2014: Wouter
+	- Add include to getentropy_linux.c, hopefully fixing debian build.
+
+28 November 2014: Wouter
+	- Fix makefile for build from noexec source tree.
+
+26 November 2014: Wouter
+	- Fix libunbound undefined symbol errors for main.
+	  Referencing main does not seem to be possible for libunbound.
+
+24 November 2014: Wouter
+	- Fix log at high verbosity and memory allocation failure.
+	- iana portlist update.
+
+21 November 2014: Wouter
+	- Fix crash on multiple thread random usage on systems without
+	  arc4random.
+
+20 November 2014: Wouter
+	- fix compat/getentropy_win.c check if CryptGenRandom works and no
+	  immediate exit on windows.
+
+19 November 2014: Wouter
+	- Fix cdflag dns64 processing.
+
+18 November 2014: Wouter
+	- Fix that CD flag disables DNS64 processing, returning the DNSSEC
+	  signed AAAA denial.
+	- iana portlist update.
+
+17 November 2014: Wouter
+	- Fix #627: SSL_CTX_load_verify_locations return code not properly
+	  checked.
+
+14 November 2014: Wouter
+	- parser with bison 2.7
+
+13 November 2014: Wouter
+	- Patch from Stephane Lapie for ASAHI Net that implements aaaa-filter,
+	added to contrib/aaaa-filter-iterator.patch.
+
+12 November 2014: Wouter
+	- trunk has 1.5.1 in development.
+	- Patch from Robert Edmonds to build pyunbound python module
+	  differently.  No versioninfo, with -shared and without $(LIBS).
+	- Patch from Robert Edmonds fixes hyphens in unbound-anchor man page.
+	- Removed 'increased limit open files' log message that is written
+	  to console.  It is only written on verbosity 4 and higher.
+	  This keeps system bootup console cleaner.
+	- Patch from James Raftery, always print stats for rcodes 0..5.
+
+11 November 2014: Wouter
+	- iana portlist update.
+	- Fix bug where forward or stub addresses with same address but
+	  different port number were not tried.
+	- version number in svn trunk is 1.5.0
+	- tag 1.5.0rc1
+	- review fix from Ralph.
+
+7 November 2014: Wouter
+	- dnstap fixes by Robert Edmonds:
+		dnstap/dnstap.m4: cosmetic fixes
+		dnstap/: Remove compiled protoc-c output files
+		dnstap/dnstap.m4: Error out if required libraries are not found
+		dnstap: Fix ProtobufCBufferSimple usage that is incorrect as of
+			protobuf-c 1.0.0
+		dnstap/: Adapt to API changes in latest libfstrm (>= 0.2.0)
+
+4 November 2014: Wouter
+	- Add ub_ctx_add_ta_autr function to add a RFC5011 automatically
+	  tracked trust anchor to libunbound.
+	- Redefine internal minievent symbols to unique symbols that helps
+	  linking on platforms where the linker leaks names across modules.
+
+27 October 2014: Wouter
+	- Disabled use of SSLv3 in remote-control and ssl-upstream.
+	- iana portlist update.
+
+16 October 2014: Wouter
+	- Documented dns64 configuration in unbound.conf man page.
+
+13 October 2014: Wouter
+	- Fix #617: in ldns in unbound, lowercase WKS services.
+	- Fix ctype invocation casts.
+
+10 October 2014: Wouter
+	- Fix unbound-checkconf check for module config with dns64 module.
+	- Fix unbound capsforid fallback, it ignores TTLs in comparison.
+
+6 October 2014: Wouter
+	- Fix #614: man page variable substitution bug.
+6 October 2014: Willem
+	- Whitespaces after $ORIGIN are not part of the origin dname (ldns).
+	- $TTL's value starts at position 5 (ldns).
+
 1 October 2014: Wouter
 	- fix #613: Allow tab ws in var length last rdfs (in ldns str2wire).
 

@@ -38,8 +38,8 @@
  *
  * This file contains the remote control functionality for the daemon.
  * The remote control can be performed using either the commandline
- * unbound-control tool, or a SSLv3/TLS capable web browser. 
- * The channel is secured using SSLv3 or TLSv1, and certificates.
+ * unbound-control tool, or a TLS capable web browser. 
+ * The channel is secured using TLSv1, and certificates.
  * Both the server and the client(control tool) have their own keys.
  */
 #include "config.h"
@@ -154,9 +154,14 @@ daemon_remote_create(struct config_file* cfg)
 		free(rc);
 		return NULL;
 	}
-	/* no SSLv2 because has defects */
+	/* no SSLv2, SSLv3 because has defects */
 	if(!(SSL_CTX_set_options(rc->ctx, SSL_OP_NO_SSLv2) & SSL_OP_NO_SSLv2)){
 		log_crypto_err("could not set SSL_OP_NO_SSLv2");
+		daemon_remote_delete(rc);
+		return NULL;
+	}
+	if(!(SSL_CTX_set_options(rc->ctx, SSL_OP_NO_SSLv3) & SSL_OP_NO_SSLv3)){
+		log_crypto_err("could not set SSL_OP_NO_SSLv3");
 		daemon_remote_delete(rc);
 		return NULL;
 	}
@@ -558,7 +563,7 @@ static char*
 skipwhite(char* str)
 {
 	/* EOS \0 is not a space */
-	while( isspace(*str) ) 
+	while( isspace((unsigned char)*str) ) 
 		str++;
 	return str;
 }
@@ -849,7 +854,8 @@ print_ext(SSL* ssl, struct stats_info* s)
 
 	/* RCODE */
 	for(i=0; i<STATS_RCODE_NUM; i++) {
-		if(inhibit_zero && s->svr.ans_rcode[i] == 0)
+		/* Always include RCODEs 0-5 */
+		if(inhibit_zero && i > LDNS_RCODE_REFUSED && s->svr.ans_rcode[i] == 0)
 			continue;
 		lt = sldns_lookup_by_id(sldns_rcodes, i);
 		if(lt && lt->name) {
@@ -1089,8 +1095,13 @@ do_cache_remove(struct worker* worker, uint8_t* nm, size_t nmlen,
 	k.qname_len = nmlen;
 	k.qtype = t;
 	k.qclass = c;
-	h = query_info_hash(&k);
+	h = query_info_hash(&k, 0);
 	slabhash_remove(worker->env.msg_cache, h, &k);
+	if(t == LDNS_RR_TYPE_AAAA) {
+		/* for AAAA also flush dns64 bit_cd packet */
+		h = query_info_hash(&k, BIT_CD);
+		slabhash_remove(worker->env.msg_cache, h, &k);
+	}
 }
 
 /** flush a type */

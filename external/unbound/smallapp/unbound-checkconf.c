@@ -392,10 +392,17 @@ morechecks(struct config_file* cfg, const char* fname)
 	
 	if(strcmp(cfg->module_conf, "iterator") != 0 
 		&& strcmp(cfg->module_conf, "validator iterator") != 0
+		&& strcmp(cfg->module_conf, "dns64 validator iterator") != 0
+		&& strcmp(cfg->module_conf, "dns64 iterator") != 0
 #ifdef WITH_PYTHONMODULE
 		&& strcmp(cfg->module_conf, "python iterator") != 0 
 		&& strcmp(cfg->module_conf, "python validator iterator") != 0 
 		&& strcmp(cfg->module_conf, "validator python iterator") != 0
+		&& strcmp(cfg->module_conf, "dns64 python iterator") != 0 
+		&& strcmp(cfg->module_conf, "dns64 python validator iterator") != 0 
+		&& strcmp(cfg->module_conf, "dns64 validator python iterator") != 0
+		&& strcmp(cfg->module_conf, "python dns64 iterator") != 0 
+		&& strcmp(cfg->module_conf, "python dns64 validator iterator") != 0 
 #endif
 		) {
 		fatal_exit("module conf '%s' is not known to work",

@@ -1334,16 +1334,16 @@ serviced_perturb_qname(struct ub_randstate* rnd, uint8_t* qbuf, size_t len)
 	while(lablen) {
 		while(lablen--) {
 			/* only perturb A-Z, a-z */
-			if(isalpha((int)*d)) {
+			if(isalpha((unsigned char)*d)) {
 				/* get a random bit */	
 				if(bits == 0) {
 					random = ub_random(rnd);
 					bits = 30;
 				}
 				if(random & 0x1) {
-					*d = (uint8_t)toupper((int)*d);
+					*d = (uint8_t)toupper((unsigned char)*d);
 				} else {
-					*d = (uint8_t)tolower((int)*d);
+					*d = (uint8_t)tolower((unsigned char)*d);
 				}
 				random >>= 1;
 				bits--;

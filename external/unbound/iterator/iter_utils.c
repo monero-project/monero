@@ -425,10 +425,10 @@ dns_copy_msg(struct dns_msg* from, struct regional* region)
 void 
 iter_dns_store(struct module_env* env, struct query_info* msgqinf,
 	struct reply_info* msgrep, int is_referral, time_t leeway, int pside,
-	struct regional* region)
+	struct regional* region, uint16_t flags)
 {
 	if(!dns_cache_store(env, msgqinf, msgrep, is_referral, leeway,
-		pside, region))
+		pside, region, flags))
 		log_err("out of memory: cannot store data in cache");
 }
 
@@ -457,7 +457,8 @@ causes_cycle(struct module_qstate* qstate, uint8_t* name, size_t namelen,
 	fptr_ok(fptr_whitelist_modenv_detect_cycle(
 		qstate->env->detect_cycle));
 	return (*qstate->env->detect_cycle)(qstate, &qinf, 
-		(uint16_t)(BIT_RD|BIT_CD), qstate->is_priming);
+		(uint16_t)(BIT_RD|BIT_CD), qstate->is_priming,
+		qstate->is_valrec);
 }
 
 void 
@@ -666,7 +667,7 @@ rrset_equal(struct ub_packed_rrset_key* k1, struct ub_packed_rrset_key* k2)
 		k1->rk.rrset_class != k2->rk.rrset_class ||
 		query_dname_compare(k1->rk.dname, k2->rk.dname) != 0)
 		return 0;
-	if(d1->ttl != d2->ttl ||
+	if(	/* do not check ttl: d1->ttl != d2->ttl || */
 		d1->count != d2->count ||
 		d1->rrsig_count != d2->rrsig_count ||
 		d1->trust != d2->trust ||
@@ -675,7 +676,7 @@ rrset_equal(struct ub_packed_rrset_key* k1, struct ub_packed_rrset_key* k2)
 	t = d1->count + d1->rrsig_count;
 	for(i=0; i<t; i++) {
 		if(d1->rr_len[i] != d2->rr_len[i] ||
-			d1->rr_ttl[i] != d2->rr_ttl[i] ||
+			/* no ttl check: d1->rr_ttl[i] != d2->rr_ttl[i] ||*/
 			memcmp(d1->rr_data[i], d2->rr_data[i], 
 				d1->rr_len[i]) != 0)
 			return 0;
@@ -689,8 +690,11 @@ reply_equal(struct reply_info* p, struct reply_info* q, struct regional* region)
 	size_t i;
 	if(p->flags != q->flags ||
 		p->qdcount != q->qdcount ||
+		/* do not check TTL, this may differ */
+		/*
 		p->ttl != q->ttl ||
 		p->prefetch_ttl != q->prefetch_ttl ||
+		*/
 		p->security != q->security ||
 		p->an_numrrsets != q->an_numrrsets ||
 		p->ns_numrrsets != q->ns_numrrsets ||

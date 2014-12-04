@@ -305,8 +305,9 @@ void query_entry_delete(void *q, void* arg);
 /** delete reply_info data structure */
 void reply_info_delete(void* d, void* arg);
 
-/** calculate hash value of query_info, lowercases the qname */
-hashvalue_t query_info_hash(struct query_info *q);
+/** calculate hash value of query_info, lowercases the qname,
+ * uses CD flag for AAAA qtype */
+hashvalue_t query_info_hash(struct query_info *q, uint16_t flags);
 
 /**
  * Setup query info entry

@@ -48,6 +48,7 @@
 #include <time.h>
 #include <openssl/sha.h>
 
+#include <linux/types.h>
 #include <linux/random.h>
 #include <linux/sysctl.h>
 #ifdef HAVE_GETAUXVAL
@@ -77,7 +78,7 @@ extern int main(int, char *argv[]);
 #endif
 static int gotdata(char *buf, size_t len);
 static int getentropy_urandom(void *buf, size_t len);
-#ifdef CTL_MAXNAME
+#ifdef SYS__sysctl
 static int getentropy_sysctl(void *buf, size_t len);
 #endif
 static int getentropy_fallback(void *buf, size_t len);
@@ -102,7 +103,7 @@ getentropy(void *buf, size_t len)
 	if (ret != -1)
 		return (ret);
 
-#ifdef CTL_MAXNAME
+#ifdef SYS__sysctl
 	/*
 	 * Try to use sysctl CTL_KERN, KERN_RANDOM, RANDOM_UUID.
 	 * sysctl is a failsafe API, so it guarantees a result.  This
@@ -124,7 +125,7 @@ getentropy(void *buf, size_t len)
 	ret = getentropy_sysctl(buf, len);
 	if (ret != -1)
 		return (ret);
-#endif /* CTL_MAXNAME */
+#endif /* SYS__sysctl */
 
 	/*
 	 * Entropy collection via /dev/urandom and sysctl have failed.
@@ -235,7 +236,7 @@ nodevrandom:
 	return -1;
 }
 
-#ifdef CTL_MAXNAME
+#ifdef SYS__sysctl
 static int
 getentropy_sysctl(void *buf, size_t len)
 {
@@ -265,7 +266,7 @@ sysctlfailed:
 	errno = EIO;
 	return -1;
 }
-#endif /* CTL_MAXNAME */
+#endif /* SYS__sysctl */
 
 static int cl[] = {
 	CLOCK_REALTIME,

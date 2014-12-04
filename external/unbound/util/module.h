@@ -256,13 +256,14 @@ struct module_env {
 	 * @param qinfo: what to query for (copied).
 	 * @param qflags: what flags to use (RD, CD flag or not).
 	 * @param prime: if it is a (stub) priming query.
+	 * @param valrec: validation lookup recursion, does not need validation
 	 * @param newq: If the new subquery needs initialisation, it is 
 	 * 	returned, otherwise NULL is returned.
 	 * @return: false on error, true if success (and init may be needed).
 	 */ 
 	int (*attach_sub)(struct module_qstate* qstate, 
 		struct query_info* qinfo, uint16_t qflags, int prime, 
-		struct module_qstate** newq);
+		int valrec, struct module_qstate** newq);
 
 	/**
 	 * Kill newly attached sub. If attach_sub returns newq for 
@@ -280,13 +281,15 @@ struct module_env {
 	 * @param qinfo: query info for dependency. 
 	 * @param flags: query flags of dependency, RD/CD flags.
 	 * @param prime: if dependency is a priming query or not.
+	 * @param valrec: validation lookup recursion, does not need validation
 	 * @return true if the name,type,class exists and the given 
 	 * 	qstate mesh exists as a dependency of that name. Thus 
 	 * 	if qstate becomes dependent on name,type,class then a 
 	 * 	cycle is created.
 	 */
 	int (*detect_cycle)(struct module_qstate* qstate, 
-		struct query_info* qinfo, uint16_t flags, int prime);
+		struct query_info* qinfo, uint16_t flags, int prime,
+		int valrec);
 
 	/** region for temporary usage. May be cleared after operate() call. */
 	struct regional* scratch;
@@ -397,6 +400,9 @@ struct module_qstate {
 	uint16_t query_flags;
 	/** if this is a (stub or root) priming query (with hints) */
 	int is_priming;
+	/** if this is a validation recursion query that does not get
+	 * validation itself */
+	int is_valrec;
 
 	/** comm_reply contains server replies */
 	struct comm_reply* reply;

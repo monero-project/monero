@@ -233,7 +233,7 @@ int fptr_whitelist_modenv_detach_subs(void (*fptr)(
  */
 int fptr_whitelist_modenv_attach_sub(int (*fptr)(
 	struct module_qstate* qstate, struct query_info* qinfo, 
-	uint16_t qflags, int prime, struct module_qstate** newq));
+	uint16_t qflags, int prime, int valrec, struct module_qstate** newq));
 
 /**
  * Check function pointer whitelist for module_env kill_sub callback values.
@@ -251,7 +251,7 @@ int fptr_whitelist_modenv_kill_sub(void (*fptr)(struct module_qstate* newq));
  */
 int fptr_whitelist_modenv_detect_cycle(int (*fptr)(
 	struct module_qstate* qstate, struct query_info* qinfo, 
-	uint16_t flags, int prime));
+	uint16_t flags, int prime, int valrec));
 
 /**
  * Check function pointer whitelist for module init call values.

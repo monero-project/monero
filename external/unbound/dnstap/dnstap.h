@@ -45,11 +45,11 @@ struct fstrm_queue;
 struct sldns_buffer;
 
 struct dt_env {
-	/** dnstap I/O socket */
-	struct fstrm_io *fio;
+	/** dnstap I/O thread */
+	struct fstrm_iothr *iothr;
 
-	/** dnstap I/O queue */
-	struct fstrm_queue *fq;
+	/** dnstap I/O thread input queue */
+	struct fstrm_iothr_queue *ioq;
 
 	/** dnstap "identity" field, NULL if disabled */
 	char *identity;

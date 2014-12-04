@@ -22,6 +22,7 @@
 .B ub_ctx_resolvconf,
 .B ub_ctx_hosts,
 .B ub_ctx_add_ta,
+.B ub_ctx_add_ta_autr,
 .B ub_ctx_add_ta_file,
 .B ub_ctx_trustedkeys,
 .B ub_ctx_debugout,
@@ -71,6 +72,9 @@
 .LP
 \fIint\fR
 \fBub_ctx_add_ta\fR(\fIstruct ub_ctx*\fR ctx, \fIchar*\fR ta);
+.LP
+\fIint\fR
+\fBub_ctx_add_ta_autr\fR(\fIstruct ub_ctx*\fR ctx, \fIchar*\fR fname);
 .LP
 \fIint\fR
 \fBub_ctx_add_ta_file\fR(\fIstruct ub_ctx*\fR ctx, \fIchar*\fR fname);
@@ -230,6 +234,15 @@ At this time it is only possible to add trusted keys before the
 first resolve is done.
 The format is a string, similar to the zone\-file format,
 [domainname] [type] [rdata contents]. Both DS and DNSKEY records are accepted.
+.TP
+.B ub_ctx_add_ta_autr
+Add filename with automatically tracked trust anchor to the given context.
+Pass name of a file with the managed trust anchor.  You can create this
+file with \fIunbound\-anchor\fR(8) for the root anchor.  You can also
+create it with an initial file with one line with a DNSKEY or DS record.
+If the file is writable, it is updated when the trust anchor changes.
+At this time it is only possible to add trusted keys before the
+first resolve is done.
 .TP
 .B ub_ctx_add_ta_file
 Add trust anchors to the given context.

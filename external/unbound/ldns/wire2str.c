@@ -722,7 +722,7 @@ static int dname_char_print(char** s, size_t* slen, uint8_t c)
 {
 	if(c == '.' || c == ';' || c == '(' || c == ')' || c == '\\')
 		return sldns_str_print(s, slen, "\\%c", c);
-	else if(!(isascii((int)c) && isgraph((int)c)))
+	else if(!(isascii((unsigned char)c) && isgraph((unsigned char)c)))
 		return sldns_str_print(s, slen, "\\%03u", (unsigned)c);
 	/* plain printout */
 	if(*slen) {
@@ -1064,7 +1064,7 @@ int sldns_wire2str_aaaa_scan(uint8_t** d, size_t* dl, char** s, size_t* sl)
 /** printout escaped TYPE_STR character */
 static int str_char_print(char** s, size_t* sl, uint8_t c)
 {
-	if(isprint((int)c) || c == '\t') {
+	if(isprint((unsigned char)c) || c == '\t') {
 		if(c == '\"' || c == '\\')
 			return sldns_str_print(s, sl, "\\%c", c);
 		if(*sl) {
@@ -1625,7 +1625,7 @@ int sldns_wire2str_tag_scan(uint8_t** d, size_t* dl, char** s, size_t* sl)
 	if(*dl < 1+n)
 		return -1;
 	for(i=0; i<n; i++)
-		if(!isalnum((int)(*d)[i]))
+		if(!isalnum((unsigned char)(*d)[i]))
 			return -1;
 	for(i=0; i<n; i++)
 		w += sldns_str_print(s, sl, "%c", (char)(*d)[i]);
@@ -1713,7 +1713,7 @@ int sldns_wire2str_edns_nsid_print(char** s, size_t* sl, uint8_t* data,
 	size_t i, printed=0;
 	w += print_hex_buf(s, sl, data, len);
 	for(i=0; i<len; i++) {
-		if(isprint((int)data[i]) || data[i] == '\t') {
+		if(isprint((unsigned char)data[i]) || data[i] == '\t') {
 			if(!printed) {
 				w += sldns_str_print(s, sl, " (");
 				printed = 1;

@@ -60,12 +60,12 @@ count_modules(const char* s)
                 return 0;
         while(*s) {
                 /* skip whitespace */
-                while(*s && isspace((int)*s))
+                while(*s && isspace((unsigned char)*s))
                         s++;
-                if(*s && !isspace((int)*s)) {
+                if(*s && !isspace((unsigned char)*s)) {
                         /* skip identifier */
                         num++;
-                        while(*s && !isspace((int)*s))
+                        while(*s && !isspace((unsigned char)*s))
                                 s++;
                 }
         }
@@ -152,7 +152,7 @@ module_func_block* module_factory(const char** str)
         const char* s = *str;
 	const char** names = module_list_avail();
 	fbgetfunctype* fb = module_funcs_avail();
-        while(*s && isspace((int)*s))
+        while(*s && isspace((unsigned char)*s))
                 s++;
 	while(names[i]) {
                 if(strncmp(names[i], s, strlen(names[i])) == 0) {

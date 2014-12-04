@@ -245,7 +245,7 @@ rrinternal_get_ttl(sldns_buffer* strbuf, char* token, size_t token_len,
 	}
 	*ttl = (uint32_t) sldns_str2period(token, &endptr);
 
-	if (strlen(token) > 0 && !isdigit((int)token[0])) {
+	if (strlen(token) > 0 && !isdigit((unsigned char)token[0])) {
 		*not_there = 1;
 		/* ah, it's not there or something */
 		if (default_ttl == 0) {
@@ -384,11 +384,11 @@ rrinternal_spool_hex(char* token, uint8_t* rr, size_t rr_len,
 {
 	char* p = token;
 	while(*p) {
-		if(isspace(*p)) {
+		if(isspace((unsigned char)*p)) {
 			p++;
 			continue;
 		}
-		if(!isxdigit(*p))
+		if(!isxdigit((unsigned char)*p))
 			return RET_ERR(LDNS_WIREPARSE_ERR_SYNTAX_RDATA,
 				p-token);
 		if(*cur_hex_data_size >= hex_data_size)
@@ -827,6 +827,20 @@ const char* sldns_get_errorstr_parse(int e)
 	return lt?lt->name:"unknown error";
 }
 
+/* Strip whitespace from the start and the end of <line>.  */
+static char *
+sldns_strip_ws(char *line)
+{
+        char *s = line, *e;
+
+        for (s = line; *s && isspace((unsigned char)*s); s++)
+                ;
+        for (e = strchr(s, 0); e > s+2 && isspace((unsigned char)e[-1]) && e[-2] != '\\'; e--)
+                ;
+        *e = 0;
+        return s;
+}
+
 int sldns_fp2wire_rr_buf(FILE* in, uint8_t* rr, size_t* len, size_t* dname_len,
 	struct sldns_file_parse_state* parse_state)
 {
@@ -852,28 +866,23 @@ int sldns_fp2wire_rr_buf(FILE* in, uint8_t* rr, size_t* len, size_t* dname_len,
 		return LDNS_WIREPARSE_ERR_OK;
 	}
 
-	if(strncmp(line, "$ORIGIN", 7) == 0 && isspace(line[7])) {
-		size_t off = 8;
+	if(strncmp(line, "$ORIGIN", 7) == 0 && isspace((unsigned char)line[7])) {
 		int s;
 		*len = 0;
 		*dname_len = 0;
 		if(!parse_state) return LDNS_WIREPARSE_ERR_OK;
-		while(isspace(line[off]))
-			off++;
 		parse_state->origin_len = sizeof(parse_state->origin);
-		s = sldns_str2wire_dname_buf(line+off, parse_state->origin,
-			&parse_state->origin_len);
+		s = sldns_str2wire_dname_buf(sldns_strip_ws(line+8),
+			parse_state->origin, &parse_state->origin_len);
 		if(s) parse_state->origin_len = 0;
 		return s;
-	} else if(strncmp(line, "$TTL", 4) == 0 && isspace(line[4])) {
+	} else if(strncmp(line, "$TTL", 4) == 0 && isspace((unsigned char)line[4])) {
 		const char* end = NULL;
-		size_t off = 8;
 		*len = 0;
 		*dname_len = 0;
 		if(!parse_state) return LDNS_WIREPARSE_ERR_OK;
-		while(isspace(line[off]))
-			off++;
-		parse_state->default_ttl = sldns_str2period(line+off, &end);
+		parse_state->default_ttl = sldns_str2period(
+			sldns_strip_ws(line+5), &end);
 	} else if (strncmp(line, "$INCLUDE", 8) == 0) {
 		*len = 0;
 		*dname_len = 0;
@@ -1188,11 +1197,11 @@ int sldns_str2wire_hex_buf(const char* str, uint8_t* rd, size_t* len)
 	const char* s = str;
 	size_t dlen = 0; /* number of hexdigits parsed */
 	while(*s) {
-		if(isspace(*s)) {
+		if(isspace((unsigned char)*s)) {
 			s++;
 			continue;
 		}
-		if(!isxdigit(*s))
+		if(!isxdigit((unsigned char)*s))
 			return RET_ERR(LDNS_WIREPARSE_ERR_SYNTAX_HEX, s-str);
 		if(*len < dlen/2 + 1)
 			return RET_ERR(LDNS_WIREPARSE_ERR_BUFFER_TOO_SMALL,
@@ -1392,7 +1401,7 @@ static int
 loc_parse_cm(char* my_str, char** endstr, uint8_t* m, uint8_t* e)
 {
 	uint32_t meters = 0, cm = 0, val;
-	while (isblank(*my_str)) {
+	while (isblank((unsigned char)*my_str)) {
 		my_str++;
 	}
 	meters = (uint32_t)strtol(my_str, &my_str, 10);
@@ -1443,17 +1452,17 @@ int sldns_str2wire_loc_buf(const char* str, uint8_t* rd, size_t* len)
 
 	char *my_str = (char *) str;
 
-	if (isdigit((int) *my_str)) {
+	if (isdigit((unsigned char) *my_str)) {
 		h = (uint32_t) strtol(my_str, &my_str, 10);
 	} else {
 		return LDNS_WIREPARSE_ERR_INVALID_STR;
 	}
 
-	while (isblank((int) *my_str)) {
+	while (isblank((unsigned char) *my_str)) {
 		my_str++;
 	}
 
-	if (isdigit((int) *my_str)) {
+	if (isdigit((unsigned char) *my_str)) {
 		m = (uint32_t) strtol(my_str, &my_str, 10);
 	} else if (*my_str == 'N' || *my_str == 'S') {
 		goto north;
@@ -1461,16 +1470,16 @@ int sldns_str2wire_loc_buf(const char* str, uint8_t* rd, size_t* len)
 		return LDNS_WIREPARSE_ERR_INVALID_STR;
 	}
 
-	while (isblank((int) *my_str)) {
+	while (isblank((unsigned char) *my_str)) {
 		my_str++;
 	}
 
-	if (isdigit((int) *my_str)) {
+	if (isdigit((unsigned char) *my_str)) {
 		s = strtod(my_str, &my_str);
 	}
 
 	/* skip blanks before norterness */
-	while (isblank((int) *my_str)) {
+	while (isblank((unsigned char) *my_str)) {
 		my_str++;
 	}
 
@@ -1497,21 +1506,21 @@ north:
 	} else {
 		latitude = equator - latitude;
 	}
-	while (isblank(*my_str)) {
+	while (isblank((unsigned char)*my_str)) {
 		my_str++;
 	}
 
-	if (isdigit((int) *my_str)) {
+	if (isdigit((unsigned char) *my_str)) {
 		h = (uint32_t) strtol(my_str, &my_str, 10);
 	} else {
 		return LDNS_WIREPARSE_ERR_INVALID_STR;
 	}
 
-	while (isblank((int) *my_str)) {
+	while (isblank((unsigned char) *my_str)) {
 		my_str++;
 	}
 
-	if (isdigit((int) *my_str)) {
+	if (isdigit((unsigned char) *my_str)) {
 		m = (uint32_t) strtol(my_str, &my_str, 10);
 	} else if (*my_str == 'E' || *my_str == 'W') {
 		goto east;
@@ -1519,16 +1528,16 @@ north:
 		return LDNS_WIREPARSE_ERR_INVALID_STR;
 	}
 
-	while (isblank(*my_str)) {
+	while (isblank((unsigned char)*my_str)) {
 		my_str++;
 	}
 
-	if (isdigit((int) *my_str)) {
+	if (isdigit((unsigned char) *my_str)) {
 		s = strtod(my_str, &my_str);
 	}
 
 	/* skip blanks before easterness */
-	while (isblank(*my_str)) {
+	while (isblank((unsigned char)*my_str)) {
 		my_str++;
 	}
 
@@ -1591,6 +1600,17 @@ east:
 	return LDNS_WIREPARSE_ERR_OK;
 }
 
+static void
+ldns_tolower_str(char* s)
+{
+	if(s) {
+		while(*s) {
+			*s = (char)tolower((unsigned char)*s);
+			s++;
+		}
+	}
+}
+
 int sldns_str2wire_wks_buf(const char* str, uint8_t* rd, size_t* len)
 {
 	int rd_len = 1;
@@ -1605,6 +1625,7 @@ int sldns_str2wire_wks_buf(const char* str, uint8_t* rd, size_t* len)
 		return LDNS_WIREPARSE_ERR_BUFFER_TOO_SMALL;
 
 	while(sldns_bget_token(&strbuf, token, "\t\n ", sizeof(token)) > 0) {
+		ldns_tolower_str(token);
 		if(!have_proto) {
 			struct protoent *p = getprotobyname(token);
 			have_proto = 1;
@@ -1682,11 +1703,11 @@ int sldns_str2wire_nsap_buf(const char* str, uint8_t* rd, size_t* len)
 	if(slen > LDNS_MAX_RDFLEN*2)
 		return LDNS_WIREPARSE_ERR_LABEL_OVERFLOW;
 	while(*s) {
-		if(isspace(*s) || *s == '.') {
+		if(isspace((unsigned char)*s) || *s == '.') {
 			s++;
 			continue;
 		}
-		if(!isxdigit(*s))
+		if(!isxdigit((unsigned char)*s))
 			return RET_ERR(LDNS_WIREPARSE_ERR_SYNTAX_HEX, s-str);
 		if(*len < dlen/2 + 1)
 			return RET_ERR(LDNS_WIREPARSE_ERR_BUFFER_TOO_SMALL,
@@ -1713,11 +1734,11 @@ int sldns_str2wire_atma_buf(const char* str, uint8_t* rd, size_t* len)
 	if(slen > LDNS_MAX_RDFLEN*2)
 		return LDNS_WIREPARSE_ERR_LABEL_OVERFLOW;
 	while(*s) {
-		if(isspace(*s) || *s == '.') {
+		if(isspace((unsigned char)*s) || *s == '.') {
 			s++;
 			continue;
 		}
-		if(!isxdigit(*s))
+		if(!isxdigit((unsigned char)*s))
 			return RET_ERR(LDNS_WIREPARSE_ERR_SYNTAX_HEX, s-str);
 		if(*len < dlen/2 + 1)
 			return RET_ERR(LDNS_WIREPARSE_ERR_BUFFER_TOO_SMALL,
@@ -1820,7 +1841,8 @@ int sldns_str2wire_nsec3_salt_buf(const char* str, uint8_t* rd, size_t* len)
 		return LDNS_WIREPARSE_ERR_BUFFER_TOO_SMALL;
 	rd[0] = (uint8_t) (salt_length_str / 2);
 	for (i = 0; i < salt_length_str; i += 2) {
-		if (isxdigit((int)str[i]) && isxdigit((int)str[i+1])) {
+		if (isxdigit((unsigned char)str[i]) &&
+			isxdigit((unsigned char)str[i+1])) {
 			rd[1+i/2] = (uint8_t)(sldns_hexdigit_to_int(str[i])*16
 				+ sldns_hexdigit_to_int(str[i+1]));
 		} else {
@@ -1907,7 +1929,7 @@ int sldns_str2wire_tag_buf(const char* str, uint8_t* rd, size_t* len)
 	if(*len < slen+1)
 		return LDNS_WIREPARSE_ERR_BUFFER_TOO_SMALL;
 	for (ptr = str; *ptr; ptr++) {
-		if(!isalnum(*ptr))
+		if(!isalnum((unsigned char)*ptr))
 			return RET_ERR(LDNS_WIREPARSE_ERR_SYNTAX_TAG, ptr-str);
 	}
 	rd[0] = slen;
