@@ -343,10 +343,11 @@ void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched, bool& rece
     catch (const std::exception&)
     {
       blocks_fetched += added_blocks;
-      if(try_count < 3)
+      if(try_count < 300)
       {
         LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
         ++try_count;
+        sleep(30)
       }
       else
       {
