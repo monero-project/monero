@@ -17,10 +17,6 @@
 
 #include "wallet_json_rpc_handlers.h"
 
-#define CHECK_CORE_BUSY() if (check_core_busy()) { \
- return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error, \
-  CORE_RPC_STATUS_BUSY, "{}"); }
-
 #define MAX_RESPONSE_SIZE 2000
 
 /*!
@@ -65,13 +61,83 @@ namespace
     response = buffer.GetString();
   }
 
+  /*!
+   * \brief Implementation of 'getbalance' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getbalance(char *buf, int len, struct ns_rpc_request *req)
+  {
+    uint64_t balance, unlocked_balance;
+    try
+    {
+      balance = wallet->balance();
+      unlocked_balance = wallet->unlocked_balance();
+    }
+    catch (std::exception& e)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error,
+        "Internal error", "{}");
+    }
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    result_json.AddMember("balance", balance, response_json.GetAllocator());
+    result_json.AddMember("unlocked_balance", unlocked_balance, response_json.GetAllocator());
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
+  /*!
+   * \brief Implementation of 'getaddress' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getaddress(char *buf, int len, struct ns_rpc_request *req)
+  {
+    std::string address;
+    try
+    {
+      address = wallet->get_account().get_public_address_str(wallet->testnet());
+    }
+    catch (std::exception& e)
+    {
+      return ns_rpc_create_error(buf, len, req, RPC::Json_rpc_http_server::internal_error,
+        "Internal error", "{}");
+    }
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    rapidjson::Value string_value(rapidjson::kStringType);
+    string_value.SetString(address.c_str(), address.length());
+    result_json.AddMember("address", string_value, response_json.GetAllocator());
+    result_json.AddMember("status", CORE_RPC_STATUS_OK, response_json.GetAllocator());
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
+    "getbalance",
+    "getaddress",
     NULL
   };
 
   // Contains a list of function pointers. These must map 1-1 by index with `method_names`.
   ns_rpc_handler_t handlers[] = {
+    getbalance,
+    getaddress,
     NULL
   };
 }
