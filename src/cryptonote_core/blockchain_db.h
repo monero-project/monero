@@ -323,7 +323,7 @@ public:
   virtual void reset() = 0;
 
   // get all files used by this db (if any)
-  virtual std::vector<std::string> get_filenames() = 0;
+  virtual std::vector<std::string> get_filenames() const = 0;
 
 
   // FIXME: these are just for functionality mocking, need to implement
@@ -347,59 +347,59 @@ public:
                             );
 
   // return true if a block with hash <h> exists in the blockchain
-  virtual bool block_exists(const crypto::hash& h) = 0;
+  virtual bool block_exists(const crypto::hash& h) const = 0;
 
   // return block with hash <h>
-  virtual block get_block(const crypto::hash& h) = 0;
+  virtual block get_block(const crypto::hash& h) const = 0;
 
   // return the height of the block with hash <h> on the blockchain,
   // throw if it doesn't exist
-  virtual uint64_t get_block_height(const crypto::hash& h) = 0;
+  virtual uint64_t get_block_height(const crypto::hash& h) const = 0;
 
   // return header for block with hash <h>
-  virtual block_header get_block_header(const crypto::hash& h) = 0;
+  virtual block_header get_block_header(const crypto::hash& h) const = 0;
 
   // return block at height <height>
-  virtual block get_block_from_height(const uint64_t& height) = 0;
+  virtual block get_block_from_height(const uint64_t& height) const = 0;
 
   // return timestamp of block at height <height>
-  virtual uint64_t get_block_timestamp(const uint64_t& height)  = 0;
+  virtual uint64_t get_block_timestamp(const uint64_t& height) const = 0;
 
   // return timestamp of most recent block
-  virtual uint64_t get_top_block_timestamp() = 0;
+  virtual uint64_t get_top_block_timestamp() const = 0;
 
   // return block size of block at height <height>
-  virtual size_t get_block_size(const uint64_t& height) = 0;
+  virtual size_t get_block_size(const uint64_t& height) const = 0;
 
   // return cumulative difficulty up to and including block at height <height>
-  virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) = 0;
+  virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const = 0;
 
   // return difficulty of block at height <height>
-  virtual difficulty_type get_block_difficulty(const uint64_t& height) = 0;
+  virtual difficulty_type get_block_difficulty(const uint64_t& height) const = 0;
 
   // return number of coins generated up to and including block at height <height>
-  virtual uint64_t get_block_already_generated_coins(const uint64_t& height) = 0;
+  virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const = 0;
 
   // return hash of block at height <height>
-  virtual crypto::hash get_block_hash_from_height(const uint64_t& height) = 0;
+  virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const = 0;
 
   // return vector of blocks in range <h1,h2> of height (inclusively)
-  virtual std::vector<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) = 0;
+  virtual std::vector<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) const = 0;
 
   // return vector of block hashes in range <h1, h2> of height (inclusively)
-  virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) = 0;
+  virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) const = 0;
 
   // return the hash of the top block on the chain
-  virtual crypto::hash top_block_hash() = 0;
+  virtual crypto::hash top_block_hash() const = 0;
 
   // return the block at the top of the blockchain
-  virtual block get_top_block() = 0;
+  virtual block get_top_block() const = 0;
 
   // return the index of the top block on the chain
   // NOTE: for convenience using heights as indices, this is not the total
   // size of the blockchain, but rather the index of the top block.  As the
   // chain is 0-indexed, the total size will be height() + 1.
-  virtual uint64_t height() = 0;
+  virtual uint64_t height() const = 0;
 
   // pops the top block off the blockchain.
   // Returns by reference the popped block and its associated transactions
@@ -412,48 +412,48 @@ public:
 
 
   // return true if a transaction with hash <h> exists
-  virtual bool tx_exists(const crypto::hash& h) = 0;
+  virtual bool tx_exists(const crypto::hash& h) const = 0;
 
   // return unlock time of tx with hash <h>
-  virtual uint64_t get_tx_unlock_time(const crypto::hash& h) = 0;
+  virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const = 0;
 
   // return tx with hash <h>
   // throw if no such tx exists
-  virtual transaction get_tx(const crypto::hash& h) = 0;
+  virtual transaction get_tx(const crypto::hash& h) const = 0;
 
   // returns the total number of transactions in all blocks
-  virtual uint64_t get_tx_count() = 0;
+  virtual uint64_t get_tx_count() const = 0;
 
   // return list of tx with hashes <hlist>.
   // TODO: decide if a missing hash means return empty list
   // or just skip that hash
-  virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) = 0;
+  virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const = 0;
 
   // returns height of block that contains transaction with hash <h>
-  virtual uint64_t get_tx_block_height(const crypto::hash& h) = 0;
+  virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
 
   // return global output index of a random output of amount <amount>
-  virtual uint64_t get_random_output(const uint64_t& amount) = 0;
+  virtual uint64_t get_random_output(const uint64_t& amount) const = 0;
 
   // returns the total number of outputs of amount <amount>
-  virtual uint64_t get_num_outputs(const uint64_t& amount) = 0;
+  virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
   // return public key for output with global output amount <amount> and index <index>
-  virtual crypto::public_key get_output_key(const uint64_t& amount, const uint64_t& index) = 0;
+  virtual crypto::public_key get_output_key(const uint64_t& amount, const uint64_t& index) const = 0;
 
   // returns the output indexed by <index> in the transaction with hash <h>
-  virtual tx_out get_output(const crypto::hash& h, const uint64_t& index) = 0;
+  virtual tx_out get_output(const crypto::hash& h, const uint64_t& index) const = 0;
 
   // returns the transaction-local reference for the output with <amount> at <index>
   // return type is pair of tx hash and index
-  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) = 0;
+  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const = 0;
 
   // return a vector of indices corresponding to the global output index for
   // each output in the transaction with hash <h>
-  virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) = 0;
+  virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const = 0;
 
   // returns true if key image <img> is present in spent key images storage
-  virtual bool has_key_image(const crypto::key_image& img) = 0;
+  virtual bool has_key_image(const crypto::key_image& img) const = 0;
 
 };  // class BlockchainDB
 

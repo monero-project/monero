@@ -90,65 +90,65 @@ public:
 
   virtual void reset();
 
-  virtual std::vector<std::string> get_filenames();
+  virtual std::vector<std::string> get_filenames() const;
 
   virtual bool lock();
 
   virtual void unlock();
 
-  virtual bool block_exists(const crypto::hash& h);
+  virtual bool block_exists(const crypto::hash& h) const;
 
-  virtual block get_block(const crypto::hash& h);
+  virtual block get_block(const crypto::hash& h) const;
 
-  virtual uint64_t get_block_height(const crypto::hash& h);
+  virtual uint64_t get_block_height(const crypto::hash& h) const;
 
-  virtual block_header get_block_header(const crypto::hash& h);
+  virtual block_header get_block_header(const crypto::hash& h) const;
 
-  virtual block get_block_from_height(const uint64_t& height);
+  virtual block get_block_from_height(const uint64_t& height) const;
 
-  virtual uint64_t get_block_timestamp(const uint64_t& height) ;
+  virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
-  virtual uint64_t get_top_block_timestamp();
+  virtual uint64_t get_top_block_timestamp() const;
 
-  virtual size_t get_block_size(const uint64_t& height);
+  virtual size_t get_block_size(const uint64_t& height) const;
 
-  virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height);
+  virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const;
 
-  virtual difficulty_type get_block_difficulty(const uint64_t& height);
+  virtual difficulty_type get_block_difficulty(const uint64_t& height) const;
 
-  virtual uint64_t get_block_already_generated_coins(const uint64_t& height);
+  virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const;
 
-  virtual crypto::hash get_block_hash_from_height(const uint64_t& height);
+  virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const;
 
-  virtual std::vector<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2);
+  virtual std::vector<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) const;
 
-  virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2);
+  virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) const;
 
-  virtual crypto::hash top_block_hash();
+  virtual crypto::hash top_block_hash() const;
 
-  virtual block get_top_block();
+  virtual block get_top_block() const;
 
-  virtual uint64_t height();
+  virtual uint64_t height() const;
 
-  virtual bool tx_exists(const crypto::hash& h);
+  virtual bool tx_exists(const crypto::hash& h) const;
 
-  virtual uint64_t get_tx_unlock_time(const crypto::hash& h);
+  virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
-  virtual transaction get_tx(const crypto::hash& h);
+  virtual transaction get_tx(const crypto::hash& h) const;
 
-  virtual uint64_t get_tx_count();
+  virtual uint64_t get_tx_count() const;
 
-  virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist);
+  virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const;
 
-  virtual uint64_t get_tx_block_height(const crypto::hash& h);
+  virtual uint64_t get_tx_block_height(const crypto::hash& h) const;
 
-  virtual uint64_t get_random_output(const uint64_t& amount);
+  virtual uint64_t get_random_output(const uint64_t& amount) const;
 
-  virtual uint64_t get_num_outputs(const uint64_t& amount);
+  virtual uint64_t get_num_outputs(const uint64_t& amount) const;
 
-  virtual crypto::public_key get_output_key(const uint64_t& amount, const uint64_t& index);
+  virtual crypto::public_key get_output_key(const uint64_t& amount, const uint64_t& index) const;
 
-  virtual tx_out get_output(const crypto::hash& h, const uint64_t& index);
+  virtual tx_out get_output(const crypto::hash& h, const uint64_t& index) const;
 
   /**
    * @brief get an output from its global index
@@ -159,13 +159,13 @@ public:
    * Will throw OUTPUT_DNE if not output has that global index.
    * Will throw DB_ERROR if there is a non-specific LMDB error in fetching
    */
-  tx_out get_output(const uint64_t& index);
+  tx_out get_output(const uint64_t& index) const;
 
-  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index);
+  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const;
 
-  virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h);
+  virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const;
 
-  virtual bool has_key_image(const crypto::key_image& img);
+  virtual bool has_key_image(const crypto::key_image& img) const;
 
   virtual uint64_t add_block( const block& blk
                             , const size_t& block_size
@@ -217,7 +217,7 @@ private:
    *
    * @return the resultant tx output
    */
-  tx_out output_from_blob(const blobdata& blob);
+  tx_out output_from_blob(const blobdata& blob) const;
 
   /**
    * @brief get the global index of the index-th output of the given amount
@@ -227,9 +227,9 @@ private:
    *
    * @return the global index of the desired output
    */
-  uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
+  uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index) const;
 
-  void check_open();
+  void check_open() const;
 
   MDB_env* m_env;
 
