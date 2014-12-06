@@ -139,15 +139,16 @@ typedef std::pair<crypto::hash, uint64_t> tx_out_index;
 /***********************************
  * Exception Definitions
  ***********************************/
-class DB_ERROR : public std::exception
+class DB_EXCEPTION : public std::exception
 {
   private:
     std::string m;
-  public:
-    DB_ERROR() : m("Generic DB Error") { }
-    DB_ERROR(const char* s) : m(s) { }
 
-    virtual ~DB_ERROR() { }
+  protected:
+    DB_EXCEPTION(const char *s) : m(s) { }
+
+  public:
+    virtual ~DB_EXCEPTION() { }
 
     const char* what() const throw()
     {
@@ -155,196 +156,95 @@ class DB_ERROR : public std::exception
     }
 };
 
-class DB_OPEN_FAILURE : public std::exception
+class DB_ERROR : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    DB_OPEN_FAILURE() : m("Failed to open the db") { }
-    DB_OPEN_FAILURE(const char* s) : m(s) { }
-
-    virtual ~DB_OPEN_FAILURE() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    DB_ERROR() : DB_EXCEPTION("Generic DB Error") { }
+    DB_ERROR(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class DB_CREATE_FAILURE : public std::exception
+class DB_OPEN_FAILURE : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    DB_CREATE_FAILURE() : m("Failed to create the db") { }
-    DB_CREATE_FAILURE(const char* s) : m(s) { }
-
-    virtual ~DB_CREATE_FAILURE() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    DB_OPEN_FAILURE() : DB_EXCEPTION("Failed to open the db") { }
+    DB_OPEN_FAILURE(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class DB_SYNC_FAILURE : public std::exception
+class DB_CREATE_FAILURE : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    DB_SYNC_FAILURE() : m("Failed to sync the db") { }
-    DB_SYNC_FAILURE(const char* s) : m(s) { }
-
-    virtual ~DB_SYNC_FAILURE() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    DB_CREATE_FAILURE() : DB_EXCEPTION("Failed to create the db") { }
+    DB_CREATE_FAILURE(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class BLOCK_DNE : public std::exception
+class DB_SYNC_FAILURE : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    BLOCK_DNE() : m("The block requested does not exist") { }
-    BLOCK_DNE(const char* s) : m(s) { }
-
-    virtual ~BLOCK_DNE() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    DB_SYNC_FAILURE() : DB_EXCEPTION("Failed to sync the db") { }
+    DB_SYNC_FAILURE(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class BLOCK_PARENT_DNE : public std::exception
+class BLOCK_DNE : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    BLOCK_PARENT_DNE() : m("The parent of the block does not exist") { }
-    BLOCK_PARENT_DNE(const char* s) : m(s) { }
-
-    virtual ~BLOCK_PARENT_DNE() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    BLOCK_DNE() : DB_EXCEPTION("The block requested does not exist") { }
+    BLOCK_DNE(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class BLOCK_EXISTS : public std::exception
+class BLOCK_PARENT_DNE : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    BLOCK_EXISTS() : m("The block to be added already exists!") { }
-    BLOCK_EXISTS(const char* s) : m(s) { }
-
-    virtual ~BLOCK_EXISTS() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    BLOCK_PARENT_DNE() : DB_EXCEPTION("The parent of the block does not exist") { }
+    BLOCK_PARENT_DNE(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class BLOCK_INVALID : public std::exception
+class BLOCK_EXISTS : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    BLOCK_INVALID() : m("The block to be added did not pass validation!") { }
-    BLOCK_INVALID(const char* s) : m(s) { }
-
-    virtual ~BLOCK_INVALID() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    BLOCK_EXISTS() : DB_EXCEPTION("The block to be added already exists!") { }
+    BLOCK_EXISTS(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class TX_DNE : public std::exception
+class BLOCK_INVALID : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    TX_DNE() : m("The transaction requested does not exist") { }
-    TX_DNE(const char* s) : m(s) { }
-
-    virtual ~TX_DNE() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    BLOCK_INVALID() : DB_EXCEPTION("The block to be added did not pass validation!") { }
+    BLOCK_INVALID(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class TX_EXISTS : public std::exception
+class TX_DNE : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    TX_EXISTS() : m("The transaction to be added already exists!") { }
-    TX_EXISTS(const char* s) : m(s) { }
-
-    virtual ~TX_EXISTS() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    TX_DNE() : DB_EXCEPTION("The transaction requested does not exist") { }
+    TX_DNE(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class OUTPUT_DNE : public std::exception
+class TX_EXISTS : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    OUTPUT_DNE() : m("The output requested does not exist!") { }
-    OUTPUT_DNE(const char* s) : m(s) { }
-
-    virtual ~OUTPUT_DNE() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    TX_EXISTS() : DB_EXCEPTION("The transaction to be added already exists!") { }
+    TX_EXISTS(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class OUTPUT_EXISTS : public std::exception
+class OUTPUT_DNE : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    OUTPUT_EXISTS() : m("The output to be added already exists!") { }
-    OUTPUT_EXISTS(const char* s) : m(s) { }
-
-    virtual ~OUTPUT_EXISTS() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+    OUTPUT_DNE() : DB_EXCEPTION("The output requested does not exist!") { }
+    OUTPUT_DNE(const char* s) : DB_EXCEPTION(s) { }
 };
 
-class KEY_IMAGE_EXISTS : public std::exception
+class OUTPUT_EXISTS : public DB_EXCEPTION
 {
-  private:
-    std::string m;
   public:
-    KEY_IMAGE_EXISTS() : m("The spent key image to be added already exists!") { }
-    KEY_IMAGE_EXISTS(const char* s) : m(s) { }
+    OUTPUT_EXISTS() : DB_EXCEPTION("The output to be added already exists!") { }
+    OUTPUT_EXISTS(const char* s) : DB_EXCEPTION(s) { }
+};
 
-    virtual ~KEY_IMAGE_EXISTS() { }
-
-    const char* what() const throw()
-    {
-      return m.c_str();
-    }
+class KEY_IMAGE_EXISTS : public DB_EXCEPTION
+{
+  public:
+    KEY_IMAGE_EXISTS() : DB_EXCEPTION("The spent key image to be added already exists!") { }
+    KEY_IMAGE_EXISTS(const char* s) : DB_EXCEPTION(s) { }
 };
 
 /***********************************
