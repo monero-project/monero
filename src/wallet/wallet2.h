@@ -168,6 +168,10 @@ namespace tools
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
 
+    /*!
+     * \brief Checks if deterministic wallet
+     */
+    bool is_deterministic();
     bool get_seed(std::string& electrum_words);
     /*!
      * \brief Gets the seed language

@@ -89,8 +89,23 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
   m_daemon_address = daemon_address;
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::is_deterministic()
+{
+  crypto::secret_key second;
+  keccak((uint8_t *)&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
+  sc_reduce32((uint8_t *)&second);
+  bool keys_deterministic = memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+  return keys_deterministic;
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::get_seed(std::string& electrum_words)
 {
+  bool keys_deterministic = is_deterministic();
+  if (!keys_deterministic)
+  {
+    std::cout << "This is not a deterministic wallet" << std::endl;
+    return false;
+  }
   if (seed_language.empty())
   {
     std::cout << "seed_language not set" << std::endl;
@@ -99,12 +114,7 @@ bool wallet2::get_seed(std::string& electrum_words)
 
   crypto::ElectrumWords::bytes_to_words(get_account().get_keys().m_spend_secret_key, electrum_words, seed_language);
 
-  crypto::secret_key second;
-  keccak((uint8_t *)&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
-
-  sc_reduce32((uint8_t *)&second);
-  
-  return memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+  return true;
 }
 /*!
  * \brief Gets the seed language
