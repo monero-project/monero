@@ -52,20 +52,22 @@ struct fake_core
 
   fake_core() : m_pool(dummy), dummy(m_pool), m_storage(&m_pool)
   {
-    m_pool.init("/home/user/.bitmonero");
-    m_storage.init("/home/user/.bitmonero", false);
+    boost::filesystem::path default_data_path {tools::get_default_data_dir()};
+    m_pool.init(default_data_path.string());
+    m_storage.init(default_data_path.string(), false);
   }
 };
 
 int main(int argc, char* argv[])
 {
   fake_core c;
+  boost::filesystem::path default_data_path {tools::get_default_data_dir()};
 
   BlockchainDB *blockchain;
 
   blockchain = new BlockchainLMDB();
 
-  blockchain->open("/home/user/.bitmonero");
+  blockchain->open(default_data_path.string());
 
   for (uint64_t i = 0; i < c.m_storage.get_current_blockchain_height(); ++i)
   {
