@@ -222,7 +222,7 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
   }
   else
   {
-      fail_msg_writer() << "The wallet is non-deterministic. Cannot display seed.";
+    fail_msg_writer() << "The wallet is non-deterministic. Cannot display seed.";
   }
   return true;
 }
