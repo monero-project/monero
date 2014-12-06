@@ -486,8 +486,11 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   rapidjson::Value value(rapidjson::kStringType);
   value.SetString(account_data.c_str(), account_data.length());
   json.AddMember("key_data", value, json.GetAllocator());
-  value.SetString(seed_language.c_str(), seed_language.length());
-  json.AddMember("seed_language", value, json.GetAllocator());
+  if (!seed_language.empty())
+  {
+    value.SetString(seed_language.c_str(), seed_language.length());
+    json.AddMember("seed_language", value, json.GetAllocator());
+  }
 
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
@@ -553,8 +556,11 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   {
     account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
       json["key_data"].GetStringLength());
-    set_seed_language(std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
-      json["seed_language"].GetStringLength()));
+    if (json.HasMember("seed_language"))
+    {
+      set_seed_language(std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
+        json["seed_language"].GetStringLength()));
+    }
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
