@@ -96,8 +96,8 @@ endif()
 find_package(Unbound REQUIRED)
 include_directories(${UNBOUND_INCLUDE})
 
-# TODO: make this find lmdb similarly to how unbound and boost are handled
-set(LMDB_LIBRARIES "-llmdb")
+find_package(LMDB REQUIRED)
+include_directories(${LMDB_INCLUDE})
 
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
