@@ -206,16 +206,20 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
 
 bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
+  bool success =  false;
   std::string electrum_words;
 
-  if (m_wallet->get_seed_language().empty())
+  if (m_wallet->is_deterministic())
   {
-    std::string mnemonic_language = get_mnemonic_language();
-    m_wallet->set_seed_language(mnemonic_language);
+    if (m_wallet->get_seed_language().empty())
+    {
+      std::string mnemonic_language = get_mnemonic_language();
+      m_wallet->set_seed_language(mnemonic_language);
+    }
+
+    success = m_wallet->get_seed(electrum_words);
   }
 
-  bool success = m_wallet->get_seed(electrum_words);
-  
   if (success) 
   {
     print_seed(electrum_words);
@@ -508,9 +512,11 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
     crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
 
   std::string mnemonic_language = old_language;
-  // Ask for seed language if it is not a wallet restore or if it was a deprecated wallet
-  // that was earlier used before this restore.
-  if (!m_restore_deterministic_wallet || was_deprecated_wallet)
+  // Ask for seed language if:
+  // it's a deterministic wallet AND
+  // (it is not a wallet restore OR if it was a deprecated wallet
+  // that was earlier used before this restore)
+  if ((!two_random) && (!m_restore_deterministic_wallet || was_deprecated_wallet))
   {
     if (was_deprecated_wallet)
     {
@@ -580,18 +586,28 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     // If the wallet file is deprecated, we should ask for mnemonic language again and store
     // everything in the new format.
-    if (!m_non_deterministic && m_wallet->is_deprecated())
+    // NOTE: this is_deprecated() refers to the wallet file format before becoming JSON. It does not refer to the "old english" seed words form of "deprecated" used elsewhere.
+    if (m_wallet->is_deprecated())
     {
-      message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
-        "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n";
-      std::string mnemonic_language = get_mnemonic_language();
-      m_wallet->set_seed_language(mnemonic_language);
-      m_wallet->rewrite(m_wallet_file, password);
+      if (m_wallet->is_deterministic())
+      {
+        message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+          "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n";
+        std::string mnemonic_language = get_mnemonic_language();
+        m_wallet->set_seed_language(mnemonic_language);
+        m_wallet->rewrite(m_wallet_file, password);
 
-      // Display the seed
-      std::string seed;
-      m_wallet->get_seed(seed);
-      print_seed(seed);
+        // Display the seed
+        std::string seed;
+        m_wallet->get_seed(seed);
+        print_seed(seed);
+      }
+      else
+      {
+        message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+          "a deprecated version of the wallet. Your wallet file format is being upgraded now.\n";
+          m_wallet->rewrite(m_wallet_file, password);
+      }
     }
   }
   catch (const std::exception& e)
