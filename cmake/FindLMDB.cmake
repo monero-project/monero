@@ -1,21 +1,20 @@
-# Copyright (c) 2014-2015, The Monero Project
-#
+# Copyright (c) 2014, The Monero Project
 # All rights reserved.
-#
+# 
 # Redistribution and use in source and binary forms, with or without modification, are
 # permitted provided that the following conditions are met:
-#
+# 
 # 1. Redistributions of source code must retain the above copyright notice, this list of
 #    conditions and the following disclaimer.
-#
+# 
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list
 #    of conditions and the following disclaimer in the documentation and/or other
 #    materials provided with the distribution.
-#
+# 
 # 3. Neither the name of the copyright holder nor the names of its contributors may be
 #    used to endorse or promote products derived from this software without specific
 #    prior written permission.
-#
+# 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -26,62 +25,37 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(cryptonote_core_sources
-  account.cpp
-  blockchain_storage.cpp
-  blockchain.cpp
-  blockchain_db.cpp
-  BlockchainDB_impl/db_lmdb.cpp
-  checkpoints.cpp
-  checkpoints_create.cpp
-  cryptonote_basic_impl.cpp
-  cryptonote_core.cpp
-  cryptonote_format_utils.cpp
-  difficulty.cpp
-  miner.cpp
-  tx_pool.cpp)
+MESSAGE(STATUS "Looking for liblmdb")
 
-set(cryptonote_core_headers)
+FIND_PATH(LMDB_INCLUDE_DIR
+  NAMES lmdb.h
+  PATH_SUFFIXES include/ include/lmdb/
+  PATHS "${PROJECT_SOURCE_DIR}"
+  ${LMDB_ROOT}
+  $ENV{LMDB_ROOT}
+  /usr/local/
+  /usr/
+)
 
-set(cryptonote_core_private_headers
-  account.h
-  account_boost_serialization.h
-  blockchain_storage.h
-  blockchain_storage_boost_serialization.h
-  blockchain.h
-  blockchain_db.h
-  BlockchainDB_impl/db_lmdb.h
-  checkpoints.h
-  checkpoints_create.h
-  connection_context.h
-  cryptonote_basic.h
-  cryptonote_basic_impl.h
-  cryptonote_boost_serialization.h
-  cryptonote_core.h
-  cryptonote_format_utils.h
-  cryptonote_stat_info.h
-  difficulty.h
-  miner.h
-  tx_extra.h
-  tx_pool.h
-  verification_context.h)
+if(STATIC)
+  if(MINGW)
+    find_library(LMDB_LIBRARIES liblmdb.dll.a)
+  else()
+    find_library(LMDB_LIBRARIES liblmdb.a)
+  endif()
+else()
+  find_library(LMDB_LIBRARIES lmdb)
+endif()
 
-bitmonero_private_headers(cryptonote_core
-  ${crypto_private_headers})
-bitmonero_add_library(cryptonote_core
-  ${cryptonote_core_sources}
-  ${cryptonote_core_headers}
-  ${cryptonote_core_private_headers})
-target_link_libraries(cryptonote_core
-  LINK_PUBLIC
-    common
-    crypto
-    ${Boost_DATE_TIME_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_SERIALIZATION_LIBRARY}
-  LINK_PRIVATE
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${LMDB_LIBRARY}
-    ${EXTRA_LIBRARIES})
+IF(LMDB_INCLUDE_DIR)
+  MESSAGE(STATUS "Found liblmdb include (lmdb.h) in ${LMDB_INCLUDE_DIR}")
+  IF(LMDB_LIBRARIES)
+    MESSAGE(STATUS "Found liblmdb library")
+    set(LMDB_INCLUDE ${LMDB_INCLUDE_DIR})
+    set(LMDB_LIBRARY ${LMDB_LIBRARIES})
+  ELSE()
+    MESSAGE(FATAL_ERROR "${BoldRed}Could not find liblmdb library, please make sure you have installed liblmdb or liblmdb-dev or the equivalent${ColourReset}")
+  ENDIF()
+ELSE()
+  MESSAGE(FATAL_ERROR "${BoldRed}Could not find liblmdb library, please make sure you have installed liblmdb or liblmdb-dev or the equivalent${ColourReset}")
+ENDIF()
