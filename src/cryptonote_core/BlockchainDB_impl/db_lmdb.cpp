@@ -1804,12 +1804,14 @@ uint64_t BlockchainLMDB::add_block( const block& blk
   try
   {
     BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
+    m_write_txn = NULL;
 
     txn.commit();
   }
   catch (...)
   {
     m_num_outputs = num_outputs;
+    m_write_txn = NULL;
     throw;
   }
 
@@ -1830,12 +1832,14 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
   try
   {
     BlockchainDB::pop_block(blk, txs);
+    m_write_txn = NULL;
 
     txn.commit();
   }
   catch (...)
   {
     m_num_outputs = num_outputs;
+    m_write_txn = NULL;
     throw;
   }
 
