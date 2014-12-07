@@ -252,7 +252,7 @@ namespace cryptonote
     uint64_t get_adjusted_time() const;
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps) const;
     bool update_next_comulative_size_limit();
-    bool store_genesis_block(bool testnet);
+    bool store_genesis_block(bool testnet, bool check_added = false);
   };
 
 
