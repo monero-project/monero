@@ -67,6 +67,7 @@ struct lmdb_cur
     }
   }
 
+private:
   MDB_cursor* m_cur;
   bool done;
 };
