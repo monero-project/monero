@@ -58,7 +58,11 @@ namespace tools
   bool wallet_rpc_server::run()
   {
     m_net_server.add_idle_handler([this](){
-      m_wallet.refresh();
+      try {
+        m_wallet.refresh();
+      } catch (const std::exception& ex) {
+        LOG_ERROR("Exception at while refreshing, what=" << ex.what());
+      }
       return true;
     }, 20000);
 
