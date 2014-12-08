@@ -28,7 +28,7 @@ namespace RPC
     struct ns_connection *nc; /*!< Connection pointer */
     boost::thread *server_thread; /*!< Server runs on this thread */
     /*!
-     * \brief Repeated loops processing requests if any.
+     * \brief Repeatedly loops processing requests if any.
      */
     void poll();
     std::string m_ip; /*!< IP address where its listening */

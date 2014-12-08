@@ -47,6 +47,10 @@ namespace RPC
    */
   bool Json_rpc_http_server::start()
   {
+    if (m_is_running)
+    {
+      return false;
+    }
     m_is_running = true;
     ns_mgr_init(&mgr, NULL);
     nc = ns_bind(&mgr, (m_ip + ":" + m_port).c_str(), m_ev_handler);
@@ -61,7 +65,7 @@ namespace RPC
   }
 
   /*!
-   * \brief Repeated loops processing requests if any.
+   * \brief Repeatedly loops processing requests if any.
    */
   void Json_rpc_http_server::poll()
   {
