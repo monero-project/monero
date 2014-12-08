@@ -99,7 +99,7 @@ namespace cryptonote
     return checkpoint_height < block_height;
   }
   //---------------------------------------------------------------------------
-  uint64_t checkpoints::get_max_height()
+  uint64_t checkpoints::get_max_height() const
   {
     std::map< uint64_t, crypto::hash >::const_iterator highest = 
         std::max_element( m_points.begin(), m_points.end(),
@@ -108,18 +108,18 @@ namespace cryptonote
     return highest->first;
   }
   //---------------------------------------------------------------------------
-  const std::map<uint64_t, crypto::hash>& checkpoints::get_points()
+  const std::map<uint64_t, crypto::hash>& checkpoints::get_points() const
   {
     return m_points;
   }
 
-  bool checkpoints::check_for_conflicts(checkpoints& other)
+  bool checkpoints::check_for_conflicts(const checkpoints& other) const
   {
     for (auto& pt : other.get_points())
     {
       if (m_points.count(pt.first))
       {
-        CHECK_AND_ASSERT_MES(pt.second == m_points[pt.first], false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
+        CHECK_AND_ASSERT_MES(pt.second == m_points.at(pt.first), false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
       }
     }
     return true;

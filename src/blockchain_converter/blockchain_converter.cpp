@@ -99,5 +99,6 @@ int main(int argc, char* argv[])
     }
   }
 
+  delete blockchain;
   return 0;
 }

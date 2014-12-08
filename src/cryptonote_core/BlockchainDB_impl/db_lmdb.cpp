@@ -67,6 +67,7 @@ struct lmdb_cur
     }
   }
 
+private:
   MDB_cursor* m_cur;
   bool done;
 };
@@ -79,26 +80,26 @@ auto compare_uint64 = [](const MDB_val *a, const MDB_val *b) {
   else return 1;
 };
 
-const char* LMDB_BLOCKS = "blocks";
-const char* LMDB_BLOCK_TIMESTAMPS = "block_timestamps";
-const char* LMDB_BLOCK_HEIGHTS = "block_heights";
-const char* LMDB_BLOCK_HASHES = "block_hashes";
-const char* LMDB_BLOCK_SIZES = "block_sizes";
-const char* LMDB_BLOCK_DIFFS = "block_diffs";
-const char* LMDB_BLOCK_COINS = "block_coins";
+const char* const LMDB_BLOCKS = "blocks";
+const char* const LMDB_BLOCK_TIMESTAMPS = "block_timestamps";
+const char* const LMDB_BLOCK_HEIGHTS = "block_heights";
+const char* const LMDB_BLOCK_HASHES = "block_hashes";
+const char* const LMDB_BLOCK_SIZES = "block_sizes";
+const char* const LMDB_BLOCK_DIFFS = "block_diffs";
+const char* const LMDB_BLOCK_COINS = "block_coins";
 
-const char* LMDB_TXS = "txs";
-const char* LMDB_TX_UNLOCKS = "tx_unlocks";
-const char* LMDB_TX_HEIGHTS = "tx_heights";
-const char* LMDB_TX_OUTPUTS = "tx_outputs";
+const char* const LMDB_TXS = "txs";
+const char* const LMDB_TX_UNLOCKS = "tx_unlocks";
+const char* const LMDB_TX_HEIGHTS = "tx_heights";
+const char* const LMDB_TX_OUTPUTS = "tx_outputs";
 
-const char* LMDB_OUTPUT_TXS = "output_txs";
-const char* LMDB_OUTPUT_INDICES = "output_indices";
-const char* LMDB_OUTPUT_AMOUNTS = "output_amounts";
-const char* LMDB_OUTPUT_KEYS = "output_keys";
-const char* LMDB_OUTPUTS = "outputs";
-const char* LMDB_OUTPUT_GINDICES = "output_gindices";
-const char* LMDB_SPENT_KEYS = "spent_keys";
+const char* const LMDB_OUTPUT_TXS = "output_txs";
+const char* const LMDB_OUTPUT_INDICES = "output_indices";
+const char* const LMDB_OUTPUT_AMOUNTS = "output_amounts";
+const char* const LMDB_OUTPUT_KEYS = "output_keys";
+const char* const LMDB_OUTPUTS = "outputs";
+const char* const LMDB_OUTPUT_GINDICES = "output_gindices";
+const char* const LMDB_SPENT_KEYS = "spent_keys";
 
 inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi, const std::string& error_string)
 {
@@ -628,7 +629,7 @@ blobdata BlockchainLMDB::output_to_blob(const tx_out& output)
   return b;
 }
 
-tx_out BlockchainLMDB::output_from_blob(const blobdata& blob)
+tx_out BlockchainLMDB::output_from_blob(const blobdata& blob) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   std::stringstream ss;
@@ -645,13 +646,13 @@ tx_out BlockchainLMDB::output_from_blob(const blobdata& blob)
   return o;
 }
 
-uint64_t BlockchainLMDB::get_output_global_index(const uint64_t& amount, const uint64_t& index)
+uint64_t BlockchainLMDB::get_output_global_index(const uint64_t& amount, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   return 0;
 }
 
-void BlockchainLMDB::check_open()
+void BlockchainLMDB::check_open() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (!m_open)
@@ -821,7 +822,7 @@ void BlockchainLMDB::reset()
   // TODO: this
 }
 
-std::vector<std::string> BlockchainLMDB::get_filenames()
+std::vector<std::string> BlockchainLMDB::get_filenames() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   std::vector<std::string> filenames;
@@ -853,7 +854,7 @@ void BlockchainLMDB::unlock()
 }
 
 
-bool BlockchainLMDB::block_exists(const crypto::hash& h)
+bool BlockchainLMDB::block_exists(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -888,7 +889,7 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h)
   return true;
 }
 
-block BlockchainLMDB::get_block(const crypto::hash& h)
+block BlockchainLMDB::get_block(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -896,7 +897,7 @@ block BlockchainLMDB::get_block(const crypto::hash& h)
   return get_block_from_height(get_block_height(h));
 }
 
-uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h)
+uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -930,7 +931,7 @@ uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h)
   return *(uint64_t*)result.mv_data;
 }
 
-block_header BlockchainLMDB::get_block_header(const crypto::hash& h)
+block_header BlockchainLMDB::get_block_header(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -939,7 +940,7 @@ block_header BlockchainLMDB::get_block_header(const crypto::hash& h)
   return get_block(h);
 }
 
-block BlockchainLMDB::get_block_from_height(const uint64_t& height)
+block BlockchainLMDB::get_block_from_height(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -983,7 +984,7 @@ block BlockchainLMDB::get_block_from_height(const uint64_t& height)
   return b;
 }
 
-uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) 
+uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1016,7 +1017,7 @@ uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height)
   return *(uint64_t*)result.mv_data;
 }
 
-uint64_t BlockchainLMDB::get_top_block_timestamp()
+uint64_t BlockchainLMDB::get_top_block_timestamp() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1030,7 +1031,7 @@ uint64_t BlockchainLMDB::get_top_block_timestamp()
   return get_block_timestamp(m_height - 1);
 }
 
-size_t BlockchainLMDB::get_block_size(const uint64_t& height)
+size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1063,7 +1064,7 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height)
   return *(size_t*)result.mv_data;
 }
 
-difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height)
+difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1096,7 +1097,7 @@ difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& 
   return *(difficulty_type*)result.mv_data;
 }
 
-difficulty_type BlockchainLMDB::get_block_difficulty(const uint64_t& height)
+difficulty_type BlockchainLMDB::get_block_difficulty(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1113,7 +1114,7 @@ difficulty_type BlockchainLMDB::get_block_difficulty(const uint64_t& height)
   return diff1 - diff2;
 }
 
-uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& height)
+uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1146,7 +1147,7 @@ uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& heigh
   return *(uint64_t*)result.mv_data;
 }
 
-crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height)
+crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1179,7 +1180,7 @@ crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height)
   return *(crypto::hash*)result.mv_data;
 }
 
-std::vector<block> BlockchainLMDB::get_blocks_range(const uint64_t& h1, const uint64_t& h2)
+std::vector<block> BlockchainLMDB::get_blocks_range(const uint64_t& h1, const uint64_t& h2) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1193,7 +1194,7 @@ std::vector<block> BlockchainLMDB::get_blocks_range(const uint64_t& h1, const ui
   return v;
 }
 
-std::vector<crypto::hash> BlockchainLMDB::get_hashes_range(const uint64_t& h1, const uint64_t& h2)
+std::vector<crypto::hash> BlockchainLMDB::get_hashes_range(const uint64_t& h1, const uint64_t& h2) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1207,7 +1208,7 @@ std::vector<crypto::hash> BlockchainLMDB::get_hashes_range(const uint64_t& h1, c
   return v;
 }
 
-crypto::hash BlockchainLMDB::top_block_hash()
+crypto::hash BlockchainLMDB::top_block_hash() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1219,7 +1220,7 @@ crypto::hash BlockchainLMDB::top_block_hash()
   return null_hash;
 }
 
-block BlockchainLMDB::get_top_block()
+block BlockchainLMDB::get_top_block() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1233,7 +1234,7 @@ block BlockchainLMDB::get_top_block()
   return b;
 }
 
-uint64_t BlockchainLMDB::height()
+uint64_t BlockchainLMDB::height() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1242,7 +1243,7 @@ uint64_t BlockchainLMDB::height()
 }
 
 
-bool BlockchainLMDB::tx_exists(const crypto::hash& h)
+bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1276,7 +1277,7 @@ bool BlockchainLMDB::tx_exists(const crypto::hash& h)
   return true;
 }
 
-uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h)
+uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1309,7 +1310,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h)
   return *(uint64_t*)result.mv_data;
 }
 
-transaction BlockchainLMDB::get_tx(const crypto::hash& h)
+transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1352,7 +1353,7 @@ transaction BlockchainLMDB::get_tx(const crypto::hash& h)
   return tx;
 }
 
-uint64_t BlockchainLMDB::get_tx_count()
+uint64_t BlockchainLMDB::get_tx_count() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1376,7 +1377,7 @@ uint64_t BlockchainLMDB::get_tx_count()
   return db_stats.ms_entries;
 }
 
-std::vector<transaction> BlockchainLMDB::get_tx_list(const std::vector<crypto::hash>& hlist)
+std::vector<transaction> BlockchainLMDB::get_tx_list(const std::vector<crypto::hash>& hlist) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1390,7 +1391,7 @@ std::vector<transaction> BlockchainLMDB::get_tx_list(const std::vector<crypto::h
   return v;
 }
 
-uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h)
+uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1424,7 +1425,7 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h)
 }
 
 //FIXME: make sure the random method used here is appropriate
-uint64_t BlockchainLMDB::get_random_output(const uint64_t& amount)
+uint64_t BlockchainLMDB::get_random_output(const uint64_t& amount) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1439,7 +1440,7 @@ uint64_t BlockchainLMDB::get_random_output(const uint64_t& amount)
   return crypto::rand<uint64_t>() % num_outputs;
 }
 
-uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount)
+uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1478,7 +1479,7 @@ uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount)
   return num_elems;
 }
 
-crypto::public_key BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index)
+crypto::public_key BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1512,7 +1513,7 @@ crypto::public_key BlockchainLMDB::get_output_key(const uint64_t& amount, const 
   return *(crypto::public_key*)v.mv_data;
 }
 
-tx_out BlockchainLMDB::get_output(const crypto::hash& h, const uint64_t& index)
+tx_out BlockchainLMDB::get_output(const crypto::hash& h, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1576,7 +1577,7 @@ tx_out BlockchainLMDB::get_output(const crypto::hash& h, const uint64_t& index)
 
 // As this is not used, its return is now a blank output.
 // This will save on space in the db.
-tx_out BlockchainLMDB::get_output(const uint64_t& index)
+tx_out BlockchainLMDB::get_output(const uint64_t& index) const
 {
   return tx_out();
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1612,7 +1613,7 @@ tx_out BlockchainLMDB::get_output(const uint64_t& index)
   return output_from_blob(b);
 }
 
-tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index)
+tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1702,7 +1703,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
   return tx_out_index(tx_hash, *(uint64_t *)v.mv_data);
 }
 
-std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& h)
+std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1754,7 +1755,7 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
   return index_vec;
 }
 
-bool BlockchainLMDB::has_key_image(const crypto::key_image& img)
+bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1803,12 +1804,14 @@ uint64_t BlockchainLMDB::add_block( const block& blk
   try
   {
     BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
+    m_write_txn = NULL;
 
     txn.commit();
   }
   catch (...)
   {
     m_num_outputs = num_outputs;
+    m_write_txn = NULL;
     throw;
   }
 
@@ -1829,12 +1832,14 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
   try
   {
     BlockchainDB::pop_block(blk, txs);
+    m_write_txn = NULL;
 
     txn.commit();
   }
   catch (...)
   {
     m_num_outputs = num_outputs;
+    m_write_txn = NULL;
     throw;
   }
 
