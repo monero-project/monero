@@ -686,14 +686,16 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   {
     LOG_PRINT_L0("file not found: " << m_wallet_file << ", starting with empty blockchain");
     m_account_public_address = m_account.get_keys().m_account_address;
-    return;
   }
-  bool r = tools::unserialize_obj_from_file(*this, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(
-    m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
-    m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
-    error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
+  else
+  {
+    bool r = tools::unserialize_obj_from_file(*this, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(
+      m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
+      m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
+      error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
+  }
 
   cryptonote::block genesis;
   generate_genesis(genesis);
