@@ -73,8 +73,8 @@ private:
 };
 
 auto compare_uint64 = [](const MDB_val *a, const MDB_val *b) {
-  uint64_t va = *(uint64_t*)a->mv_data;
-  uint64_t vb = *(uint64_t*)b->mv_data;
+  const uint64_t va = *(const uint64_t*)a->mv_data;
+  const uint64_t vb = *(const uint64_t*)b->mv_data;
   if (va < vb) return -1;
   else if (va == vb) return 0;
   else return 1;
@@ -150,7 +150,7 @@ void BlockchainLMDB::add_block( const block& blk
       throw DB_ERROR("Failed to get top block hash to check for new block's parent");
     }
 
-    uint64_t parent_height = *(uint64_t *)parent_h.mv_data;
+    uint64_t parent_height = *(const uint64_t *)parent_h.mv_data;
     if (parent_height != m_height - 1)
     {
       LOG_PRINT_L0("Top block is not new block's parent");
@@ -485,7 +485,7 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash)
 
     for (uint64_t i = 0; i < num_elems; ++i)
     {
-      remove_output(*(uint64_t*)v.mv_data);
+      remove_output(*(const uint64_t*)v.mv_data);
       if (i < num_elems - 1)
       {
         mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
@@ -928,7 +928,7 @@ uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h) const
   }
 
   txn.commit();
-  return *(uint64_t*)result.mv_data;
+  return *(const uint64_t*)result.mv_data;
 }
 
 block_header BlockchainLMDB::get_block_header(const crypto::hash& h) const
@@ -1014,7 +1014,7 @@ uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
   }
 
   txn.commit();
-  return *(uint64_t*)result.mv_data;
+  return *(const uint64_t*)result.mv_data;
 }
 
 uint64_t BlockchainLMDB::get_top_block_timestamp() const
@@ -1061,7 +1061,7 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
   }
 
   txn.commit();
-  return *(size_t*)result.mv_data;
+  return *(const size_t*)result.mv_data;
 }
 
 difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height) const
@@ -1144,7 +1144,7 @@ uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& heigh
   }
 
   txn.commit();
-  return *(uint64_t*)result.mv_data;
+  return *(const uint64_t*)result.mv_data;
 }
 
 crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height) const
@@ -1307,7 +1307,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
     throw DB_ERROR("DB error attempting to fetch tx unlock time from hash");
   }
 
-  return *(uint64_t*)result.mv_data;
+  return *(const uint64_t*)result.mv_data;
 }
 
 transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
@@ -1421,7 +1421,7 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
     throw DB_ERROR("DB error attempting to fetch tx height from hash");
   }
 
-  return *(uint64_t*)result.mv_data;
+  return *(const uint64_t*)result.mv_data;
 }
 
 //FIXME: make sure the random method used here is appropriate
@@ -1666,7 +1666,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
 
   mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
 
-  uint64_t glob_index = *(uint64_t*)v.mv_data;
+  uint64_t glob_index = *(const uint64_t*)v.mv_data;
 
   cur.close();
 
@@ -1700,7 +1700,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
 
   txn.commit();
 
-  return tx_out_index(tx_hash, *(uint64_t *)v.mv_data);
+  return tx_out_index(tx_hash, *(const uint64_t *)v.mv_data);
 }
 
 std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& h) const
@@ -1746,7 +1746,7 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
   {
     mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
     mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
-    index_vec.push_back(*(uint64_t *)v.mv_data);
+    index_vec.push_back(*(const uint64_t *)v.mv_data);
   }
 
   cur.close();
