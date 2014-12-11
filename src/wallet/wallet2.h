@@ -224,6 +224,12 @@ namespace tools
       a & m_payments;
     }
 
+    /*!
+     * \brief  Check if wallet keys and bin files exist
+     * \param  file_path           Wallet file path
+     * \param  keys_file_exists    Whether keys file exists
+     * \param  wallet_file_exists  Whether bin file exists
+     */
     static void wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists);
     /*!
      * \brief  Check if wallet file path is valid format
