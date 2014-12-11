@@ -633,6 +633,11 @@ void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists
   wallet_file_exists = boost::filesystem::exists(wallet_file, ignore);
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::wallet_valid_path_format(const std::string& file_path)
+{
+  return !file_path.empty();
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
 {
   cryptonote::blobdata payment_id_data;
