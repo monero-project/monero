@@ -269,6 +269,12 @@ void BlockchainLMDB::remove_block()
       throw DB_ERROR("Failed to add removal of block total generated coins to db transaction");
   }
 
+  if (mdb_del(*m_write_txn, m_block_timestamps, &k, NULL))
+  {
+      LOG_PRINT_L1("Failed to add removal of block timestamp to db transaction");
+      throw DB_ERROR("Failed to add removal of block timestamp to db transaction");
+  }
+
   if (mdb_del(*m_write_txn, m_block_heights, &h, NULL))
   {
       LOG_PRINT_L1("Failed to add removal of block height by hash to db transaction");
