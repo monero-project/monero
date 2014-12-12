@@ -238,12 +238,6 @@ bool Blockchain::init(const std::string& config_folder, bool testnet)
 
   boost::filesystem::path folder(m_config_folder);
 
-  // append "testnet" directory as needed
-  if (testnet)
-  {
-    folder /= "testnet";
-  }
-
   LOG_PRINT_L0("Loading blockchain...");
 
   //FIXME: update filename for BlockchainDB
