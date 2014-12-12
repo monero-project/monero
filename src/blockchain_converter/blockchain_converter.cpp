@@ -68,9 +68,13 @@ int main(int argc, char* argv[])
 
   blockchain->open(default_data_path.string());
 
-  for (uint64_t i = 0; i < c.m_storage.get_current_blockchain_height(); ++i)
+  for (uint64_t height, i = 0; i < (height = c.m_storage.get_current_blockchain_height()); ++i)
   {
-    if (i % 10 == 0) std::cout << "block " << i << std::endl;
+    if (i % 10 == 0)
+    {
+      std::cout << "\r                   \r" << "block " << i << "/" << height
+         << " (" << (i+1)*100/height<< "%)" << std::flush;
+    }
     block b = c.m_storage.get_block(i);
     size_t bsize = c.m_storage.get_block_size(i);
     difficulty_type bdiff = c.m_storage.get_block_cumulative_difficulty(i);
@@ -81,6 +85,7 @@ int main(int argc, char* argv[])
     c.m_storage.get_transactions(b.tx_hashes, txs, missed);
     if (missed.size())
     {
+      std::cout << std::endl;
       std::cerr << "Missed transaction(s) for block at height " << i << ", exiting" << std::endl;
       delete blockchain;
       return 1;
@@ -92,12 +97,14 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
+      std::cout << std::endl;
       std::cerr << "Error adding block to new blockchain: " << e.what() << std::endl;
       delete blockchain;
       return 2;
     }
   }
 
+  std::cout << std::endl;
   delete blockchain;
   return 0;
 }
