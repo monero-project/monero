@@ -50,18 +50,17 @@ struct fake_core
   blockchain_storage m_storage;
 
 
-  fake_core() : m_pool(dummy), dummy(m_pool), m_storage(&m_pool)
+  fake_core(const boost::filesystem::path &path) : m_pool(dummy), dummy(m_pool), m_storage(&m_pool)
   {
-    boost::filesystem::path default_data_path {tools::get_default_data_dir()};
-    m_pool.init(default_data_path.string());
-    m_storage.init(default_data_path.string(), false);
+    m_pool.init(path.string());
+    m_storage.init(path.string(), false);
   }
 };
 
 int main(int argc, char* argv[])
 {
-  fake_core c;
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
+  fake_core c(default_data_path);
 
   BlockchainDB *blockchain;
 
