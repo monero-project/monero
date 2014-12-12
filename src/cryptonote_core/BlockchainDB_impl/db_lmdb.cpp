@@ -207,6 +207,9 @@ void BlockchainLMDB::remove_block()
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  if (m_height == 0)
+    throw0(BLOCK_DNE ("Attempting to remove block from an empty blockchain"));
+
   MDB_val_copy<uint64_t> k(m_height - 1);
   MDB_val h;
   if (mdb_get(*m_write_txn, m_block_hashes, &k, &h))
