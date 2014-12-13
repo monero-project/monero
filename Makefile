@@ -32,7 +32,7 @@ all-release:
 
 release-static:
 	mkdir -p build/release
-	cd build/release && cmake -D STATIC=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
+	cd build/release && cmake -D STATIC=ON -D ARCH="x86-64" -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
 
 clean:
 	@echo "WARNING: Back-up your wallet if it exists within ./build!" ; \
