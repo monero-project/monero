@@ -345,14 +345,28 @@ bool simple_wallet::ask_wallet_create_if_needed()
 {
   std::string wallet_path;
 
-  wallet_path = command_line::input_line(
-      "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n"
-      "Wallet file name: "
-  );
+  bool valid_path = false;
+  do {
+    wallet_path = command_line::input_line(
+        "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n"
+        "Wallet file name: "
+    );
+    valid_path = tools::wallet2::wallet_valid_path_format(wallet_path);
+    if (!valid_path)
+    {
+      fail_msg_writer() << "wallet file path not valid: " << wallet_path;
+    }
+  }
+  while (!valid_path);
 
   bool keys_file_exists;
   bool wallet_file_exists;
   tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exists);
+  LOG_PRINT_L3("wallet_path: " << wallet_path << "");
+  LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
+    << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
+
+  LOG_PRINT_L1("Loading wallet...");
 
   // add logic to error out if new wallet requested but named wallet file exists
   if (keys_file_exists || wallet_file_exists)
@@ -635,6 +649,12 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::open_wallet(const string &wallet_file, const std::string& password, bool testnet)
 {
+  if (!tools::wallet2::wallet_valid_path_format(wallet_file))
+  {
+    fail_msg_writer() << "wallet file path not valid: " << wallet_file;
+    return false;
+  }
+
   m_wallet_file = wallet_file;
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);

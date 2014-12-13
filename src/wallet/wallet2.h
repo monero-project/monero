@@ -229,7 +229,19 @@ namespace tools
       a & m_payments;
     }
 
+    /*!
+     * \brief  Check if wallet keys and bin files exist
+     * \param  file_path           Wallet file path
+     * \param  keys_file_exists    Whether keys file exists
+     * \param  wallet_file_exists  Whether bin file exists
+     */
     static void wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists);
+    /*!
+     * \brief  Check if wallet file path is valid format
+     * \param  file_path      Wallet file path
+     * \return                Whether path is valid format
+     */
+    static bool wallet_valid_path_format(const std::string& file_path);
 
     static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
 
