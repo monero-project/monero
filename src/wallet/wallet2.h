@@ -153,6 +153,11 @@ namespace tools
     void rewrite(const std::string& wallet_name, const std::string& password);
     void load(const std::string& wallet, const std::string& password);
     void store();
+
+    /*!
+     * \brief verifies given password is correct for default wallet keys file
+     */
+    bool verify_password(const std::string& password);
     cryptonote::account_base& get_account(){return m_account;}
 
     // upper_transaction_size_limit as defined below is set to 

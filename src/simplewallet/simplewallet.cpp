@@ -231,6 +231,36 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
   return true;
 }
 
+bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  if (!m_wallet->is_deterministic())
+  {
+    fail_msg_writer() << "This wallet is non-deterministic and doesn't have a seed.";
+    return true;
+  }
+  tools::password_container pwd_container;
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << "failed to read wallet password";
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << "invalid password";
+    return true;
+  }
+
+  std::string mnemonic_language = get_mnemonic_language();
+  m_wallet->set_seed_language(mnemonic_language);
+  m_wallet->rewrite(m_wallet_file, pwd_container.password());
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -255,7 +285,37 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), "Get viewkey");
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), "Get deterministic seed");
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), "available options: seed language - Set wallet seed langage");
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), "Show this help");
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::set_variable(const std::vector<std::string> &args)
+{
+  if (args.empty())
+  {
+    fail_msg_writer() << "set: needs an argument. available options: seed";
+    return true;
+  }
+  else
+  {
+    if (args[0] == "seed")
+    {
+      if (args.size() == 1)
+      {
+        fail_msg_writer() << "set seed: needs an argument. available options: language";
+        return true;
+      }
+      else if (args[1] == "language")
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        seed_set_language(local_args);
+        return true;
+      }
+    }
+  }
+  fail_msg_writer() << "set: unrecognized argument(s)";
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_log(const std::vector<std::string> &args)

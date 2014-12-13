@@ -81,6 +81,17 @@ namespace cryptonote
 
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
     bool seed(const std::vector<std::string> &args = std::vector<std::string>());
+
+    /*!
+     * \brief Sets seed language.
+     *
+     * interactive
+     *   - prompts for password so wallet can be rewritten
+     *   - calls get_mnemonic_language() which prompts for language
+     *
+     * \return success status
+     */
+    bool seed_set_language(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -96,6 +107,7 @@ namespace cryptonote
     );
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
+    bool set_variable(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
