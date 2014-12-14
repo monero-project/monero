@@ -395,10 +395,7 @@ public:
   // return the block at the top of the blockchain
   virtual block get_top_block() const = 0;
 
-  // return the index of the top block on the chain
-  // NOTE: for convenience using heights as indices, this is not the total
-  // size of the blockchain, but rather the index of the top block.  As the
-  // chain is 0-indexed, the total size will be height() + 1.
+  // return the height of the chain
   virtual uint64_t height() const = 0;
 
   // pops the top block off the blockchain.
