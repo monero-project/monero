@@ -161,6 +161,8 @@ public:
    */
   tx_out get_output(const uint64_t& index) const;
 
+  virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
+
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const;
 
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const;

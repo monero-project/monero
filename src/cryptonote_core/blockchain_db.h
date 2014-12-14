@@ -107,6 +107,7 @@
  *   uint64_t    get_num_outputs(amount)
  *   pub_key     get_output_key(amount, index)
  *   tx_out      get_output(tx_hash, index)
+ *   hash,index  get_output_tx_and_index_from_global(index)
  *   hash,index  get_output_tx_and_index(amount, index)
  *   vec<uint64> get_tx_output_indices(tx_hash)
  *
@@ -440,6 +441,9 @@ public:
 
   // returns the output indexed by <index> in the transaction with hash <h>
   virtual tx_out get_output(const crypto::hash& h, const uint64_t& index) const = 0;
+
+  // returns the tx hash associated with an output, referenced by global output index
+  virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const = 0;
 
   // returns the transaction-local reference for the output with <amount> at <index>
   // return type is pair of tx hash and index

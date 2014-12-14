@@ -1208,6 +1208,35 @@ tx_out BlockchainLMDB::get_output(const uint64_t& index) const
   return output_from_blob(b);
 }
 
+tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t& index) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+  MDB_val_copy<uint64_t> k(index);
+  MDB_val v;
+
+  auto get_result = mdb_get(txn, m_output_txs, &k, &v);
+  if (get_result == MDB_NOTFOUND)
+    throw1(OUTPUT_DNE("output with given index not in db"));
+  else if (get_result)
+    throw0(DB_ERROR("DB error attempting to fetch output tx hash"));
+
+  crypto::hash tx_hash = *(crypto::hash*)v.mv_data;
+
+  get_result = mdb_get(txn, m_output_indices, &k, &v);
+  if (get_result == MDB_NOTFOUND)
+    throw1(OUTPUT_DNE("output with given index not in db"));
+  else if (get_result)
+    throw0(DB_ERROR("DB error attempting to fetch output tx index"));
+
+  return tx_out_index(tx_hash, *(const uint64_t *)v.mv_data);
+}
+
 tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1249,24 +1278,9 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
 
   cur.close();
 
-  k = MDB_val_copy<uint64_t>(glob_index);
-  auto get_result = mdb_get(txn, m_output_txs, &k, &v);
-  if (get_result == MDB_NOTFOUND)
-    throw1(OUTPUT_DNE("output with given index not in db"));
-  else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch output tx hash"));
-
-  crypto::hash tx_hash = *(crypto::hash*)v.mv_data;
-
-  get_result = mdb_get(txn, m_output_indices, &k, &v);
-  if (get_result == MDB_NOTFOUND)
-    throw1(OUTPUT_DNE("output with given index not in db"));
-  else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch output tx index"));
-
   txn.commit();
 
-  return tx_out_index(tx_hash, *(const uint64_t *)v.mv_data);
+  return get_output_tx_and_index_from_global(glob_index);
 }
 
 std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& h) const

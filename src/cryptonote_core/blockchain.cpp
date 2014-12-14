@@ -170,7 +170,7 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
     try
     {
       // get tx hash and output index for output
-      auto output_index = m_db->get_output_tx_and_index(tx_in_to_key.amount, i);
+      auto output_index = m_db->get_output_tx_and_index_from_global(i);
 
       // get tx that output is from
       auto tx = m_db->get_tx(output_index.first);
