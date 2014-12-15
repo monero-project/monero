@@ -288,7 +288,7 @@ namespace nodetool
       uint64_t sleep_interval_ms = 100;
       while (sleep_count++ * sleep_interval_ms < CRYPTONOTE_DNS_TIMEOUT_MS)
       {
-        boost::this_thread::sleep(boost::posix_time::milliseconds());
+        boost::this_thread::sleep(boost::posix_time::milliseconds(sleep_interval_ms));
         bool all_done = false;
         for (auto& done : dns_finished)
         {
