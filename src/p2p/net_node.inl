@@ -257,15 +257,13 @@ namespace nodetool
       // for some time yet.
       
       std::vector<std::vector<std::string>> dns_results;
-
-      std::vector<std::atomic_flag> dns_finished;
-
       dns_results.resize(m_seed_nodes_list.size());
-      dns_finished.resize(m_seed_nodes_list.size());
+
+      std::unique_ptr<std::atomic_flag[]> dns_finished(new std::atomic_flag[m_seed_nodes_list.size()]);
 
       // set each flag, thread will release when finished
-      for (auto& u : dns_finished)
-        u.test_and_set();
+      for (uint64_t i = 0; i < m_seed_nodes_list.size(); ++i)
+        dns_finished[i].test_and_set();
 
       uint64_t result_index = 0;
       for (const std::string& addr_str : m_seed_nodes_list)
@@ -290,12 +288,12 @@ namespace nodetool
       {
         boost::this_thread::sleep(boost::posix_time::milliseconds(sleep_interval_ms));
         bool all_done = false;
-        for (auto& done : dns_finished)
+        for (uint64_t i = 0; i < m_seed_nodes_list.size(); ++i)
         {
-          if (done.test_and_set())
+          if (dns_finished[i].test_and_set())
             break;
           else
-            done.clear();
+            dns_finished[i].clear();
           all_done = true;
         }
         if (all_done)
