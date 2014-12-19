@@ -59,7 +59,12 @@ struct fake_core
 
 int main(int argc, char* argv[])
 {
-  boost::filesystem::path default_data_path {tools::get_default_data_dir()};
+  std::string dir = tools::get_default_data_dir();
+  boost::filesystem::path default_data_path {dir};
+  if (argc >= 2 && !strcmp(argv[1], "--testnet")) {
+    default_data_path /= "testnet";
+  }
+
   fake_core c(default_data_path);
 
   BlockchainDB *blockchain;
