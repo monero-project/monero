@@ -1304,9 +1304,9 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
 
   for (uint64_t i = 0; i < num_elems; ++i)
   {
-    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
     mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
     index_vec.push_back(*(const uint64_t *)v.mv_data);
+    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
   }
 
   cur.close();
