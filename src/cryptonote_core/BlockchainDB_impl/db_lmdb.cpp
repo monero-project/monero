@@ -1162,12 +1162,9 @@ tx_out BlockchainLMDB::get_output(const crypto::hash& h, const uint64_t& index) 
 
   mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
 
-  if (index != 0)
+  for (uint64_t i = 0; i < index; ++i)
   {
-    for (uint64_t i = 0; i < index; ++i)
-    {
-      mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
-    }
+    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
   }
 
   mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
@@ -1264,12 +1261,9 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
 
   mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
 
-  if (index != 0)
+  for (uint64_t i = 0; i < index; ++i)
   {
-    for (uint64_t i = 0; i < index; ++i)
-    {
-      mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
-    }
+    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
   }
 
   mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
@@ -1310,9 +1304,9 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
 
   for (uint64_t i = 0; i < num_elems; ++i)
   {
-    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
     mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
     index_vec.push_back(*(const uint64_t *)v.mv_data);
+    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
   }
 
   cur.close();
