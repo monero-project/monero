@@ -1,6 +1,6 @@
 # Monero
 
-Copyright (c) 2014, The Monero Project
+Copyright (c) 2014-2015, The Monero Project
 
 ## Development Resources
 
@@ -30,7 +30,7 @@ Anyone is able to contribute to Monero. If you have a fix or code change, feel f
 
 ## License
 
-Copyright (c) 2014, The Monero Project
+Copyright (c) 2014-2015, The Monero Project
 
 All rights reserved.
 
