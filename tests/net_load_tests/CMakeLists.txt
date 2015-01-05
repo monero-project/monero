@@ -37,6 +37,8 @@ add_executable(net_load_tests_clt
   ${clt_headers})
 target_link_libraries(net_load_tests_clt
   LINK_PRIVATE
+	otshell_utils
+	p2p
     ${GTEST_MAIN_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
@@ -56,6 +58,8 @@ add_executable(net_load_tests_srv
   ${srv_headers})
 target_link_libraries(net_load_tests_srv
   LINK_PRIVATE
+	otshell_utils
+	p2p
     ${GTEST_MAIN_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}

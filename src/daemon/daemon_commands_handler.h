@@ -40,6 +40,7 @@
 #include "common/util.h"
 #include "crypto/hash.h"
 #include "version.h"
+#include "../../contrib/otshell_utils/utils.hpp"
 
 /*!
  * \brief I don't really know right now
@@ -74,6 +75,10 @@ public:
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
     m_cmd_binder.set_handler("set_log", boost::bind(&daemon_cmmands_handler::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
     m_cmd_binder.set_handler("diff", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Show difficulty");
+    m_cmd_binder.set_handler("out_peers", boost::bind(&daemon_cmmands_handler::out_peers_limit, this, _1), "Set max limit of out peers");
+    m_cmd_binder.set_handler("limit_up", boost::bind(&daemon_cmmands_handler::limit_up, this, _1), "Set upload limit [kB/s]");
+    m_cmd_binder.set_handler("limit_down", boost::bind(&daemon_cmmands_handler::limit_down, this, _1), "Set download limit [kB/s]");
+    m_cmd_binder.set_handler("limit", boost::bind(&daemon_cmmands_handler::limit, this, _1), "Set download and upload limit [kB/s]");
   }
 
   bool start_handling()
@@ -397,5 +402,129 @@ private:
   {
     m_srv.get_payload_object().get_core().get_miner().stop();
     return true;
+  }
+  //--------------------------------------------------------------------------------
+  bool out_peers_limit(const std::vector<std::string>& args) {
+	if(args.size()!=1) {		
+		std::cout << "Usage: limit_down <speed>" << ENDL;
+		return true;
+	}
+  
+	unsigned int limit;
+	try {
+		limit = std::stoi(args[0]);
+	}
+	  
+	catch(std::invalid_argument& ex) {
+		_erro("stoi exception");
+		return false;
+	}
+	
+	if (m_srv.m_config.m_net_config.connections_count > limit)
+	{
+		int count = m_srv.m_config.m_net_config.connections_count - limit;
+		m_srv.m_config.m_net_config.connections_count = limit;
+		m_srv.delete_connections(count);
+	}	
+	else 
+		m_srv.m_config.m_net_config.connections_count = limit;
+	
+	return true;
+ }
+  //--------------------------------------------------------------------------------
+  bool limit_up(const std::vector<std::string>& args)
+  {
+      if(args.size()!=1) {
+          std::cout << "Usage: limit_up <speed>" << ENDL;
+          return false;
+      }
+      
+	  int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+
+      if (limit==-1) {
+          limit=128;
+          //this->islimitup=false;
+      }
+
+      limit *= 1024;
+
+
+      //nodetool::epee::net_utils::connection<epee::levin::async_protocol_handler<nodetool::p2p_connection_context> >::set_rate_up_limit( limit );
+      epee::net_utils::connection_basic::set_rate_up_limit( limit );
+      std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
+
+      return true;
+  }
+  
+  //--------------------------------------------------------------------------------  
+  bool limit_down(const std::vector<std::string>& args)
+  {
+
+      if(args.size()!=1) {
+          std::cout << "Usage: limit_down <speed>" << ENDL;
+          return true;
+      }
+
+	  int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+
+      if (limit==-1) {
+          limit=128;
+          //this->islimitup=false;
+      }
+
+      limit *= 1024;
+
+
+      //nodetool::epee::net_utils::connection<epee::levin::async_protocol_handler<nodetool::p2p_connection_context> >::set_rate_up_limit( limit );
+      epee::net_utils::connection_basic::set_rate_down_limit( limit );
+      std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
+
+      return true;
+  }
+  
+  //--------------------------------------------------------------------------------  
+  bool limit(const std::vector<std::string>& args)
+  {
+      if(args.size()!=1) {
+          std::cout << "Usage: limit_down <speed>" << ENDL;
+          return true;
+      }
+
+	  int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+
+      if (limit==-1) {
+          limit=128;
+          //this->islimitup=false;
+      }
+
+      limit *= 1024;
+
+
+      //nodetool::epee::net_utils::connection<epee::levin::async_protocol_handler<nodetool::p2p_connection_context> >::set_rate_up_limit( limit );
+      epee::net_utils::connection_basic::set_rate_down_limit( limit );
+      epee::net_utils::connection_basic::set_rate_up_limit( limit );
+      std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
+      std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
+
+      return true;
   }
 };
