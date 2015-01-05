@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2015, The Monero Project
+# Copyright (c) 2014, The Monero Project
 #
 # All rights reserved.
 #
@@ -25,57 +25,22 @@
 # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+cmake_minimum_required (VERSION 2.6)
+project (bitmonero CXX)
 
-set(unit_tests_sources
-  address_from_url.cpp
-  base58.cpp
-  block_reward.cpp
-  chacha8.cpp
-  checkpoints.cpp
-  decompose_amount_into_digits.cpp
-  dns_resolver.cpp
-  epee_boosted_tcp_server.cpp
-  epee_levin_protocol_handler_async.cpp
-  get_xtype_from_string.cpp
-  main.cpp
-  mnemonics.cpp
-  mul_div.cpp
-  parse_amount.cpp
-  serialization.cpp
-  slow_memmem.cpp
-  test_format_utils.cpp
-  test_peerlist.cpp
-  test_protocol_pack.cpp)
+file(GLOB P2P *)
+source_group(p2p FILES ${P2P})
 
-set(unit_tests_headers
-  unit_tests_utils.h)
+#add_library(p2p ${P2P})
 
-add_executable(unit_tests
-  ${unit_tests_sources}
-  ${unit_tests_headers})
-target_link_libraries(unit_tests
-  LINK_PRIVATE
-    cryptonote_core
-    rpc
-    wallet
-    p2p
-    ${GTEST_MAIN_LIBRARIES}
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${EXTRA_LIBRARIES})
-set_property(TARGET unit_tests
-  PROPERTY
-    FOLDER "tests")
-
-if (NOT MSVC)
-  set_property(TARGET unit_tests
-    APPEND_STRING
-    PROPERTY
-      COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-endif ()
-
-add_test(
-  NAME    unit_tests
-  COMMAND unit_tests)
+#bitmonero_private_headers(p2p ${P2P})
+bitmonero_add_library(p2p ${P2P})
+#target_link_libraries(p2p)
+#  LINK_PRIVATE
+#    ${Boost_CHRONO_LIBRARY}
+#    ${Boost_REGEX_LIBRARY}
+#    ${Boost_SYSTEM_LIBRARY}
+#    ${Boost_THREAD_LIBRARY}
+#    ${EXTRA_LIBRARIES})
+add_dependencies(p2p
+  version)

@@ -44,7 +44,10 @@
 
 #include "net_load_tests.h"
 
+#include "../../contrib/otshell_utils/utils.hpp"
+
 using namespace net_load_tests;
+using namespace nOT::nUtils;
 
 namespace
 {

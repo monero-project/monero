@@ -1,3 +1,9 @@
+/**
+@file
+@author from CrypoNote (see copyright below; Andrey N. Sabelnikov)
+@monero rfree
+@brief the connection templated-class for one peer connection
+*/
 // Copyright (c) 2006-2013, Andrey N. Sabelnikov, www.sabelnikov.net
 // All rights reserved.
 // 
@@ -26,7 +32,7 @@
 
 
 
-#ifndef  _ABSTRACT_TCP_SERVER2_H_ 
+#ifndef _ABSTRACT_TCP_SERVER2_H_ 
 #define _ABSTRACT_TCP_SERVER2_H_ 
 
 
@@ -36,6 +42,8 @@
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <atomic>
+#include <map>
+#include <memory>
 
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
@@ -46,7 +54,8 @@
 #include <boost/thread/thread.hpp>
 #include "net_utils_base.h"
 #include "syncobj.h"
-
+#include "../../../../src/p2p/connection_basic.hpp"
+#include "../../../../contrib/otshell_utils/utils.hpp"
 
 #define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 1000
 
@@ -61,6 +70,12 @@ namespace net_utils
   protected:
     virtual ~i_connection_filter(){}
   };
+  
+  enum t_server_role { // type of the server, e.g. so that we will know how to limit it
+	  NET = 0, // default (not used? used for misc connections maybe?) TODO
+	  RPC = 1, // the rpc commands 
+	  P2P = 2  // to other p2p node
+  };
 
   /************************************************************************/
   /*                                                                      */
@@ -70,13 +85,18 @@ namespace net_utils
   class connection
     : public boost::enable_shared_from_this<connection<t_protocol_handler> >,
     private boost::noncopyable, 
-    public i_service_endpoint
+    public i_service_endpoint,
+    public connection_basic
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
     /// Construct a connection with the given io_service.
-    explicit connection(boost::asio::io_service& io_service,
-      typename t_protocol_handler::config_type& config, volatile uint32_t& sock_count, i_connection_filter * &pfilter);
+   
+    explicit connection( boost::asio::io_service& io_service,
+			typename t_protocol_handler::config_type& config, 
+			std::atomic<long> &ref_sock_count,  // the ++/-- counter 
+			std::atomic<long> &sock_number, // the only increasing ++ number generator
+			i_connection_filter * &pfilter);
 
     virtual ~connection();
     /// Get the socket associated with the connection.
@@ -90,7 +110,8 @@ namespace net_utils
     void call_back_starter();
   private:
     //----------------- i_service_endpoint ---------------------
-    virtual bool do_send(const void* ptr, size_t cb);
+    virtual bool do_send(const void* ptr, size_t cb); ///< (see do_send from i_service_endpoint)
+    virtual bool do_send_chunk(const void* ptr, size_t cb); ///< will send (or queue) a part of data
     virtual bool close();
     virtual bool call_run_once_service_io();
     virtual bool request_callback();
@@ -107,29 +128,24 @@ namespace net_utils
     /// Handle completion of a write operation.
     void handle_write(const boost::system::error_code& e, size_t cb);
 
-    /// Strand to ensure the connection's handlers are not called concurrently.
-    boost::asio::io_service::strand strand_;
-
-    /// Socket for the connection.
-    boost::asio::ip::tcp::socket socket_;
-
     /// Buffer for incoming data.
     boost::array<char, 8192> buffer_;
 
     t_connection_context context;
-    volatile uint32_t m_want_close_connection;
-    std::atomic<bool> m_was_shutdown;
-    critical_section m_send_que_lock;
-    std::list<std::string> m_send_que;
-    volatile uint32_t& m_ref_sockets_count;
     i_connection_filter* &m_pfilter;
-    volatile bool m_is_multithreaded;
 
+	// TODO what do they mean about wait on destructor?? --rfree :
     //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
     t_protocol_handler m_protocol_handler;
     //typename t_protocol_handler::config_type m_dummy_config;
     std::list<boost::shared_ptr<connection<t_protocol_handler> > > m_self_refs; // add_ref/release support
     critical_section m_self_refs_lock;
+    critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
+    
+    t_server_role m_connection_type;
+
+	public:
+			void setRPcStation();
   };
 
 
@@ -146,9 +162,11 @@ namespace net_utils
     /// Construct the server to listen on the specified TCP address and port, and
     /// serve up files from the given directory.
     boosted_tcp_server();
-    explicit boosted_tcp_server(boost::asio::io_service& external_io_service);
+    explicit boosted_tcp_server(boost::asio::io_service& external_io_service, t_server_role s_type);
     ~boosted_tcp_server();
-
+    
+    std::map<std::string, t_server_role> server_type_map;
+	void create_server_type_map();
     bool init_server(uint32_t port, const std::string address = "0.0.0.0");
     bool init_server(const std::string port,  const std::string& address = "0.0.0.0");
 
@@ -254,22 +272,25 @@ namespace net_utils
     /// Acceptor used to listen for incoming connections.
     boost::asio::ip::tcp::acceptor acceptor_;
 
-    /// The next connection to be accepted.
-    connection_ptr new_connection_;
     std::atomic<bool> m_stop_signal_sent;
     uint32_t m_port;
-    volatile uint32_t m_sockets_count;
+	std::atomic<long> m_sock_count;
+	std::atomic<long> m_sock_number;
     std::string m_address;
-    std::string m_thread_name_prefix;
+    std::string m_thread_name_prefix; //TODO: change to enum server_type, now used
     size_t m_threads_count;
     i_connection_filter* m_pfilter;
     std::vector<boost::shared_ptr<boost::thread> > m_threads;
     boost::thread::id m_main_thread_id;
     critical_section m_threads_lock;
-    volatile uint32_t m_thread_index;
-  };
-}
-}
+    volatile uint32_t m_thread_index; // TODO change to std::atomic
+    t_server_role type;
+
+    /// The next connection to be accepted
+    connection_ptr new_connection_;
+  }; // class <>boosted_tcp_server
+} // namespace
+} // namespace
 
 #include "abstract_tcp_server2.inl"
 

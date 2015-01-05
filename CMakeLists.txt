@@ -50,17 +50,24 @@ list(INSERT CMAKE_MODULE_PATH 0
 
 if (NOT DEFINED ENV{DEVELOPER_LOCAL_TOOLS})
   message(STATUS "Could not find DEVELOPER_LOCAL_TOOLS in env (not required)")
-  set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
-elseif (ENV{DEVELOPER_LOCAL_TOOLS} EQUAL 1)
+  set(BOOST_IGNORE_SYSTEM_PATHS OFF)
+elseif ("$ENV{DEVELOPER_LOCAL_TOOLS}" STREQUAL "1")
   message(STATUS "Found: env DEVELOPER_LOCAL_TOOLS = 1")
-  set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
+  set(BOOST_IGNORE_SYSTEM_PATHS ON)
 else()
   message(STATUS "Found: env DEVELOPER_LOCAL_TOOLS = 0")
-  set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
+  set(BOOST_IGNORE_SYSTEM_PATHS OFF)
 endif()
 
-message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT}")
-option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT})
+#message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT}")
+#option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT})
+message(STATUS "BOOST_IGNORE_SYSTEM_PATHS: ${BOOST_IGNORE_SYSTEM_PATHS}")
+
+# Options (for external/otshell_utils/)
+option(WITH_TERMCOLORS "Build with support for unix terminal console colors VT100" ON)
+if (WITH_TERMCOLORS)
+	add_definitions( -DCFG_WITH_TERMCOLORS )
+endif ()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
@@ -234,7 +241,7 @@ else()
   endif()
 endif()
 
-if (BOOST_IGNORE_SYSTEM_PATHS)
+if (${BOOST_IGNORE_SYSTEM_PATHS} STREQUAL "ON")
   set(Boost_NO_SYSTEM_PATHS TRUE)
 endif()
 
@@ -264,6 +271,7 @@ endif()
 
 include(version.cmake)
 
+add_subdirectory(contrib)
 add_subdirectory(src)
 
 if(BUILD_TESTS)
