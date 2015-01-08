@@ -31,6 +31,9 @@
 #pragma once
 
 #include <algorithm>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/thread.hpp> 
+#include <atomic>
 
 #include "version.h"
 #include "string_tools.h"
@@ -46,13 +49,13 @@
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
- #include <miniupnpc/miniupnpc.h>
- #include <miniupnpc/upnpcommands.h>
- #include <miniupnpc/upnperrors.h>
+  #include <miniupnpc/miniupnpc.h>
+  #include <miniupnpc/upnpcommands.h>
+  #include <miniupnpc/upnperrors.h>
 #else
- #include "miniupnpc.h"
- #include "upnpcommands.h"
- #include "upnperrors.h"
+  #include "miniupnpc.h"
+  #include "upnpcommands.h"
+  #include "upnperrors.h"
 #endif
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
@@ -252,19 +255,62 @@ namespace nodetool
       // add the result addresses as seed nodes
       // TODO: at some point add IPv6 support, but that won't be relevant
       // for some time yet.
+      
+      std::vector<std::vector<std::string>> dns_results;
+      dns_results.resize(m_seed_nodes_list.size());
+
+      std::unique_ptr<std::atomic_flag[]> dns_finished(new std::atomic_flag[m_seed_nodes_list.size()]);
+
+      // set each flag, thread will release when finished
+      for (uint64_t i = 0; i < m_seed_nodes_list.size(); ++i)
+        dns_finished[i].test_and_set();
+
+      uint64_t result_index = 0;
       for (const std::string& addr_str : m_seed_nodes_list)
       {
-        // TODO: care about dnssec avail/valid
-        bool avail, valid;
-        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
-        for (const std::string& a : addr_list)
+
+        uint64_t result_index_capture = result_index++;
+        boost::thread t([&]
         {
-          append_net_address(m_seed_nodes, a + ":18080");
+          // TODO: care about dnssec avail/valid
+          bool avail, valid;
+          std::vector<std::string> addr_list = tools::DNSResolver().get_ipv4(addr_str, avail, valid);
+
+          dns_results[result_index_capture] = addr_list;
+          dns_finished[result_index_capture].clear();
+        });
+
+      }
+
+      uint64_t sleep_count = 0;
+      uint64_t sleep_interval_ms = 100;
+      while (sleep_count++ * sleep_interval_ms < CRYPTONOTE_DNS_TIMEOUT_MS)
+      {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(sleep_interval_ms));
+        bool all_done = false;
+        for (uint64_t i = 0; i < m_seed_nodes_list.size(); ++i)
+        {
+          if (dns_finished[i].test_and_set())
+            break;
+          else
+            dns_finished[i].clear();
+          all_done = true;
+        }
+        if (all_done)
+          break;
+      }
+
+      for (const auto& result : dns_results)
+      {
+        for (const auto& addr_string : result)
+        {
+          append_net_address(m_seed_nodes, addr_string + ":18080");
         }
       }
 
       if (!m_seed_nodes.size())
       {
+        LOG_PRINT_L0("DNS seed node lookup either timed out or failed, falling back to defaults");
         append_net_address(m_seed_nodes, "62.210.78.186:18080");
         append_net_address(m_seed_nodes, "195.12.60.154:18080");
         append_net_address(m_seed_nodes, "54.241.246.125:18080");
