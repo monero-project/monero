@@ -1072,13 +1072,14 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   uint64_t block_height = get_block_height(b);
   if(0 == block_height)
   {
-    LOG_ERROR("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative) have wrong miner transaction");
+    LOG_ERROR("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative), but miner tx says height is 0.");
     bvc.m_verifivation_failed = true;
     return false;
   }
-  // TODO: this basically says if the blockchain is smaller than the first
-  // checkpoint then alternate blocks are allowed...this seems backwards, but
-  // I'm not sure.  Needs further investigating.
+  // this basically says if the blockchain is smaller than the first
+  // checkpoint then alternate blocks are allowed.  Alternatively, if the
+  // last checkpoint *before* the end of the current chain is also before
+  // the block to be added, then this is fine.
   if (!m_checkpoints.is_alternative_block_allowed(get_current_blockchain_height(), block_height))
   {
     LOG_PRINT_RED_L0("Block with id: " << id
@@ -1187,7 +1188,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     // FIXME:
     // this brings up an interesting point: consider allowing to get block
     // difficulty both by height OR by hash, not just height.
-    bei.cumulative_difficulty = alt_chain.size() ? it_prev->second.cumulative_difficulty : m_db->get_block_cumulative_difficulty(m_db->get_block_height(b.prev_id));
+    auto main_chain_cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->get_block_height(b.prev_id));
+    bei.cumulative_difficulty = alt_chain.size() ? it_prev->second.cumulative_difficulty : main_chain_cumulative_difficulty;
     bei.cumulative_difficulty += current_diff;
 
     // add block to alternate blocks storage,
@@ -1210,7 +1212,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
       return r;
     }
-    else if(m_blocks.back().cumulative_difficulty < bei.cumulative_difficulty) //check if difficulty bigger then in main chain
+    else if(main_chain_cumulative_difficulty < bei.cumulative_difficulty) //check if difficulty bigger then in main chain
     {
       //do reorganize!
       LOG_PRINT_GREEN("###### REORGANIZE on height: "
