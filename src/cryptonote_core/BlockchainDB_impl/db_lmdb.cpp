@@ -477,7 +477,44 @@ tx_out BlockchainLMDB::output_from_blob(const blobdata& blob) const
 uint64_t BlockchainLMDB::get_output_global_index(const uint64_t& amount, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  return 0;
+  check_open();
+
+  txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+  lmdb_cur cur(txn, m_output_amounts);
+
+  MDB_val_copy<uint64_t> k(amount);
+  MDB_val v;
+
+  auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
+  else if (result)
+    throw0(DB_ERROR("DB error attempting to get an output"));
+
+  size_t num_elems = 0;
+  mdb_cursor_count(cur, &num_elems);
+  if (num_elems <= index)
+    throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but output not found"));
+
+  mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
+
+  for (uint64_t i = 0; i < index; ++i)
+  {
+    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
+  }
+
+  mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
+
+  uint64_t glob_index = *(const uint64_t*)v.mv_data;
+
+  cur.close();
+
+  txn.commit();
+
+  return glob_index;
 }
 
 void BlockchainLMDB::check_open() const
@@ -1123,11 +1160,13 @@ crypto::public_key BlockchainLMDB::get_output_key(const uint64_t& amount, const 
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint64_t glob_index = get_output_global_index(amount, index);
+
   txn_safe txn;
   if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
 
-  MDB_val_copy<uint64_t> k(get_output_global_index(amount, index));
+  MDB_val_copy<uint64_t> k(glob_index);
   MDB_val v;
   auto get_result = mdb_get(txn, m_output_keys, &k, &v);
   if (get_result == MDB_NOTFOUND)
