@@ -39,13 +39,15 @@ using epee::string_tools::pod_to_hex;
 namespace
 {
 
-inline void throw0(const std::exception &e)
+template <typename T>
+inline void throw0(const T &e)
 {
   LOG_PRINT_L0(e.what());
   throw e;
 }
 
-inline void throw1(const std::exception &e)
+template <typename T>
+inline void throw1(const T &e)
 {
   LOG_PRINT_L1(e.what());
   throw e;
@@ -814,7 +816,7 @@ difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& 
   auto get_result = mdb_get(txn, m_block_diffs, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    throw0(DB_ERROR(std::string("Attempt to get cumulative difficulty from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block size not in db").c_str()));
+    throw0(DB_ERROR(std::string("Attempt to get cumulative difficulty from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- difficulty not in db").c_str()));
   }
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a cumulative difficulty from the db"));
