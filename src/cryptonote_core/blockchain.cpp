@@ -1789,7 +1789,8 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
     return false;
   }
 
-  indexs = m_db->get_tx_output_indices(tx_id);
+  // get amount output indexes, currently referred to in parts as "output global indices", but they are actually specific to amounts
+  indexs = m_db->get_tx_amount_output_indices(tx_id);
   return true;
 }
 //------------------------------------------------------------------

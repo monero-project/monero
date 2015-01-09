@@ -1317,6 +1317,85 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
   return index_vec;
 }
 
+std::vector<uint64_t> BlockchainLMDB::get_tx_amount_output_indices(const crypto::hash& h) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  std::vector<uint64_t> index_vec;
+  std::vector<uint64_t> index_vec2;
+
+  // get the transaction's global output indices first
+  index_vec = get_tx_output_indices(h);
+  // these are next used to obtain the amount output indices
+
+  transaction tx = get_tx(h);
+
+  txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+  uint64_t i = 0;
+  uint64_t global_index;
+  BOOST_FOREACH(const auto& vout, tx.vout)
+  {
+    uint64_t amount =  vout.amount;
+
+    global_index = index_vec[i];
+
+    lmdb_cur cur(txn, m_output_amounts);
+
+    MDB_val_copy<uint64_t> k(amount);
+    MDB_val v;
+
+    auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
+    if (result == MDB_NOTFOUND)
+      throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
+    else if (result)
+      throw0(DB_ERROR("DB error attempting to get an output"));
+
+    size_t num_elems = 0;
+    mdb_cursor_count(cur, &num_elems);
+
+    mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
+
+    uint64_t amount_output_index = 0;
+    uint64_t output_index = 0;
+    bool found_index = false;
+    for (uint64_t j = 0; j < num_elems; ++j)
+    {
+      mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
+      output_index = *(const uint64_t *)v.mv_data;
+      if (output_index == global_index)
+      {
+        amount_output_index = j;
+        found_index = true;
+        break;
+      }
+      mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
+    }
+    if (found_index)
+    {
+      index_vec2.push_back(amount_output_index);
+    }
+    else
+    {
+      // not found
+      cur.close();
+      txn.commit();
+      throw1(OUTPUT_DNE("specified output not found in db"));
+    }
+
+    cur.close();
+    ++i;
+  }
+
+  txn.commit();
+
+  return index_vec2;
+}
+
+
+
 bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
