@@ -452,6 +452,9 @@ public:
   // return a vector of indices corresponding to the global output index for
   // each output in the transaction with hash <h>
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const = 0;
+  // return a vector of indices corresponding to the amount output index for
+  // each output in the transaction with hash <h>
+  virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const = 0;
 
   // returns true if key image <img> is present in spent key images storage
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
