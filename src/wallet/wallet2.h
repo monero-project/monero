@@ -82,7 +82,7 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
-    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet), is_old_file_format(false) {};
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false) {};
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -196,6 +196,7 @@ namespace tools
     bool refresh(size_t & blocks_fetched, bool& received_money, bool& ok);
 
     bool testnet() { return m_testnet; }
+    bool restricted() const { return m_restricted; }
 
     uint64_t balance();
     uint64_t unlocked_balance();
@@ -296,6 +297,7 @@ namespace tools
 
     i_wallet2_callback* m_callback;
     bool m_testnet;
+    bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
   };
