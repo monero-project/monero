@@ -1113,7 +1113,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     if(alt_chain.size())
     {
       // make sure alt chain doesn't somehow start past the end of the main chain
-      CHECK_AND_ASSERT_MES(m_db->height() - 1 > alt_chain.front()->second.height, false, "main blockchain wrong height");
+      CHECK_AND_ASSERT_MES(m_db->height() > alt_chain.front()->second.height, false, "main blockchain wrong height");
 
       // make sure that the blockchain contains the block that should connect
       // this alternate chain with it.
@@ -1188,8 +1188,16 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     // FIXME:
     // this brings up an interesting point: consider allowing to get block
     // difficulty both by height OR by hash, not just height.
-    auto main_chain_cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->get_block_height(b.prev_id));
-    bei.cumulative_difficulty = alt_chain.size() ? it_prev->second.cumulative_difficulty : main_chain_cumulative_difficulty;
+    difficulty_type main_chain_cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->height() - 1);
+    if (alt_chain.size())
+    {
+      bei.cumulative_difficulty = it_prev->second.cumulative_difficulty;
+    }
+    else
+    {
+      // passed-in block's previous block's cumulative difficulty, found on the main chain
+      bei.cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->get_block_height(b.prev_id));
+    }
     bei.cumulative_difficulty += current_diff;
 
     // add block to alternate blocks storage,
@@ -1216,8 +1224,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     {
       //do reorganize!
       LOG_PRINT_GREEN("###### REORGANIZE on height: "
-          << alt_chain.front()->second.height << " of " << m_db->height()
-          << " with cum_difficulty " << m_db->get_block_cumulative_difficulty(m_db->height())
+          << alt_chain.front()->second.height << " of " << m_db->height() - 1
+          << " with cum_difficulty " << m_db->get_block_cumulative_difficulty(m_db->height() - 1)
           << std::endl << " alternative blockchain size: " << alt_chain.size()
           << " with cum_difficulty " << bei.cumulative_difficulty, LOG_LEVEL_0
       );
@@ -1699,13 +1707,22 @@ bool Blockchain::have_block(const crypto::hash& id) const
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   if(m_db->block_exists(id))
+  {
+    LOG_PRINT_L3("block exists in main chain");
     return true;
+  }
 
   if(m_alternative_chains.count(id))
+  {
+    LOG_PRINT_L3("block found in m_alternative_chains");
     return true;
+  }
 
   if(m_invalid_blocks.count(id))
+  {
+    LOG_PRINT_L3("block found in m_invalid_blocks");
     return true;
+  }
 
   return false;
 }
@@ -2010,14 +2027,25 @@ bool Blockchain::check_block_timestamp(const block& b) const
 bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
+
+  // NOTE: Omitting check below with have_block() It causes an error after a
+  // blockchain reorganize begins with error: "Attempting to add block to main
+  // chain, but it's already either there or in an alternate"
+  //
+  // A block in the alternative chain, desired to become the main chain, never
+  // makes it due to have_block finding it in he alternative chain.
+  //
+  // Original implementation didn't use it here, and it doesn't appear
+  // necessary to be called from here in this implementation either.
+
   // if we already have the block, return false
-  if (have_block(id))
-  {
-    LOG_PRINT_L0("Attempting to add block to main chain, but it's already either there or in an alternate chain.  hash: " << id);
-    bvc.m_verifivation_failed = true;
-    return false;
-  }
-  
+  // if (have_block(id))
+  // {
+  //   LOG_PRINT_L0("Attempting to add block to main chain, but it's already either there or in an alternate chain.  hash: " << id);
+  //   bvc.m_verifivation_failed = true;
+  //   return false;
+  // }
+
   TIME_MEASURE_START(block_processing_time);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   if(bl.prev_id != get_tail_id())

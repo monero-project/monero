@@ -190,15 +190,16 @@ private:
 
   virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx);
 
-  virtual void remove_transaction_data(const crypto::hash& tx_hash);
+  virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
   virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index);
 
   virtual void remove_output(const tx_out& tx_output);
 
-  void remove_tx_outputs(const crypto::hash& tx_hash);
+  void remove_tx_outputs(const crypto::hash& tx_hash, const transaction& tx);
 
-  void remove_output(const uint64_t& out_index);
+  void remove_output(const uint64_t& out_index, const uint64_t amount);
+  void remove_amount_output_index(const uint64_t amount, const uint64_t global_output_index);
 
   virtual void add_spent_key(const crypto::key_image& k_image);
 
