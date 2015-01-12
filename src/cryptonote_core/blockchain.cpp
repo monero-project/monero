@@ -1188,8 +1188,16 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     // FIXME:
     // this brings up an interesting point: consider allowing to get block
     // difficulty both by height OR by hash, not just height.
-    auto main_chain_cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->get_block_height(b.prev_id));
-    bei.cumulative_difficulty = alt_chain.size() ? it_prev->second.cumulative_difficulty : main_chain_cumulative_difficulty;
+    difficulty_type main_chain_cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->height() - 1);
+    if (alt_chain.size())
+    {
+      bei.cumulative_difficulty = it_prev->second.cumulative_difficulty;
+    }
+    else
+    {
+      // passed-in block's previous block's cumulative difficulty, found on the main chain
+      bei.cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->get_block_height(b.prev_id));
+    }
     bei.cumulative_difficulty += current_diff;
 
     // add block to alternate blocks storage,
