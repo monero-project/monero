@@ -107,6 +107,9 @@ void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 {
   transaction tx = get_tx(tx_hash);
 
+  // TODO: This loop calling remove_output() should be removed. It doesn't do
+  // anything (function is empty), and the outputs were already intended to be
+  // removed later as part of remove_transaction_data().
   for (const tx_out& tx_output : tx.vout)
   {
     remove_output(tx_output);
@@ -120,7 +123,8 @@ void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
     }
   }
 
-  remove_transaction_data(tx_hash);
+  // need tx as tx.vout has the tx outputs, and the output amounts are needed
+  remove_transaction_data(tx_hash, tx);
 }
 
 }  // namespace cryptonote

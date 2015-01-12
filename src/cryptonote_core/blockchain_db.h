@@ -274,7 +274,7 @@ private:
   virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx) = 0;
 
   // tells the subclass to remove data about a transaction
-  virtual void remove_transaction_data(const crypto::hash& tx_hash) = 0;
+  virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
 
   // tells the subclass to store an output
   virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index) = 0;
