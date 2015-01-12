@@ -1216,8 +1216,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     {
       //do reorganize!
       LOG_PRINT_GREEN("###### REORGANIZE on height: "
-          << alt_chain.front()->second.height << " of " << m_db->height()
-          << " with cum_difficulty " << m_db->get_block_cumulative_difficulty(m_db->height())
+          << alt_chain.front()->second.height << " of " << m_db->height() - 1
+          << " with cum_difficulty " << m_db->get_block_cumulative_difficulty(m_db->height() - 1)
           << std::endl << " alternative blockchain size: " << alt_chain.size()
           << " with cum_difficulty " << bei.cumulative_difficulty, LOG_LEVEL_0
       );
