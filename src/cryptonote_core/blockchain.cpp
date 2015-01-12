@@ -1113,7 +1113,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     if(alt_chain.size())
     {
       // make sure alt chain doesn't somehow start past the end of the main chain
-      CHECK_AND_ASSERT_MES(m_db->height() - 1 > alt_chain.front()->second.height, false, "main blockchain wrong height");
+      CHECK_AND_ASSERT_MES(m_db->height() > alt_chain.front()->second.height, false, "main blockchain wrong height");
 
       // make sure that the blockchain contains the block that should connect
       // this alternate chain with it.
