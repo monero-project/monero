@@ -1699,13 +1699,22 @@ bool Blockchain::have_block(const crypto::hash& id) const
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   if(m_db->block_exists(id))
+  {
+    LOG_PRINT_L3("block exists in main chain");
     return true;
+  }
 
   if(m_alternative_chains.count(id))
+  {
+    LOG_PRINT_L3("block found in m_alternative_chains");
     return true;
+  }
 
   if(m_invalid_blocks.count(id))
+  {
+    LOG_PRINT_L3("block found in m_invalid_blocks");
     return true;
+  }
 
   return false;
 }
@@ -2010,14 +2019,25 @@ bool Blockchain::check_block_timestamp(const block& b) const
 bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
+
+  // NOTE: Omitting check below with have_block() It causes an error after a
+  // blockchain reorganize begins with error: "Attempting to add block to main
+  // chain, but it's already either there or in an alternate"
+  //
+  // A block in the alternative chain, desired to become the main chain, never
+  // makes it due to have_block finding it in he alternative chain.
+  //
+  // Original implementation didn't use it here, and it doesn't appear
+  // necessary to be called from here in this implementation either.
+
   // if we already have the block, return false
-  if (have_block(id))
-  {
-    LOG_PRINT_L0("Attempting to add block to main chain, but it's already either there or in an alternate chain.  hash: " << id);
-    bvc.m_verifivation_failed = true;
-    return false;
-  }
-  
+  // if (have_block(id))
+  // {
+  //   LOG_PRINT_L0("Attempting to add block to main chain, but it's already either there or in an alternate chain.  hash: " << id);
+  //   bvc.m_verifivation_failed = true;
+  //   return false;
+  // }
+
   TIME_MEASURE_START(block_processing_time);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   if(bl.prev_id != get_tail_id())
