@@ -107,14 +107,6 @@ void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 {
   transaction tx = get_tx(tx_hash);
 
-  // TODO: This loop calling remove_output() should be removed. It doesn't do
-  // anything (function is empty), and the outputs were already intended to be
-  // removed later as part of remove_transaction_data().
-  for (const tx_out& tx_output : tx.vout)
-  {
-    remove_output(tx_output);
-  }
-
   for (const txin_v& tx_input : tx.vin)
   {
     if (tx_input.type() == typeid(txin_to_key))
