@@ -81,6 +81,7 @@ namespace
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", "Used to deploy test nets. The daemon must be launched with --testnet flag", false};
+  const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", "Restricts RPC to view only commands", false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -1336,6 +1337,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );
   command_line::add_arg(desc_params, arg_testnet);
+  command_line::add_arg(desc_params, arg_restricted);
   tools::wallet_rpc_server::init_options(desc_params);
 
   po::positional_options_description positional_options;
@@ -1406,6 +1408,7 @@ int main(int argc, char* argv[])
     }
 
     bool testnet = command_line::get_arg(vm, arg_testnet);
+    bool restricted = command_line::get_arg(vm, arg_restricted);
     std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
     std::string wallet_password = command_line::get_arg(vm, arg_password);
     std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
@@ -1418,7 +1421,7 @@ int main(int argc, char* argv[])
     if (daemon_address.empty())
       daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
-    tools::wallet2 wal(testnet);
+    tools::wallet2 wal(testnet,restricted);
     try
     {
       LOG_PRINT_L0("Loading wallet...");
