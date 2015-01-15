@@ -22,7 +22,7 @@ AC_DEFUN([dt_DNSTAP],
     fi
     AC_ARG_WITH([protobuf-c], AC_HELP_STRING([--with-protobuf-c=path],
     	[Path where protobuf-c is installed, for dnstap]), [
-	  # workaround for protobuf includes at old dir before protobuf-1.0.0
+	  # workaround for protobuf-c includes at old dir before protobuf-c-1.0.0
 	  if test -f $withval/include/google/protobuf-c/protobuf-c.h; then
 	    CFLAGS="$CFLAGS -I$withval/include/google"
 	  else
@@ -30,7 +30,7 @@ AC_DEFUN([dt_DNSTAP],
 	  fi
 	  LDFLAGS="$LDFLAGS -L$withval/lib"
 	], [
-	  # workaround for protobuf includes at old dir before protobuf-1.0.0
+	  # workaround for protobuf-c includes at old dir before protobuf-c-1.0.0
 	  if test -f /usr/include/google/protobuf-c/protobuf-c.h; then
 	    CFLAGS="$CFLAGS -I/usr/include/google"
 	  else
@@ -41,12 +41,14 @@ AC_DEFUN([dt_DNSTAP],
 	  fi
     ])
     AC_ARG_WITH([libfstrm], AC_HELP_STRING([--with-libfstrm=path],
-    	[Path where libfstrm in installed, for dnstap]), [
+    	[Path where libfstrm is installed, for dnstap]), [
 	CFLAGS="$CFLAGS -I$withval/include"
 	LDFLAGS="$LDFLAGS -L$withval/lib"
     ])
-    AC_SEARCH_LIBS([fstrm_io_init], [fstrm])
-    AC_SEARCH_LIBS([protobuf_c_message_pack], [protobuf-c])
+    AC_SEARCH_LIBS([fstrm_iothr_init], [fstrm], [],
+      AC_MSG_ERROR([The fstrm library was not found. Please install fstrm!]))
+    AC_SEARCH_LIBS([protobuf_c_message_pack], [protobuf-c], [],
+      AC_MSG_ERROR([The protobuf-c library was not found. Please install protobuf-c!]))
     $2
   else
     $3

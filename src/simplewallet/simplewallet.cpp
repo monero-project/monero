@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -208,20 +208,58 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
 
 bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
+  bool success =  false;
   std::string electrum_words;
-  bool success = m_wallet->get_seed(electrum_words);
-  
+
+  if (m_wallet->is_deterministic())
+  {
+    if (m_wallet->get_seed_language().empty())
+    {
+      std::string mnemonic_language = get_mnemonic_language();
+      m_wallet->set_seed_language(mnemonic_language);
+    }
+
+    success = m_wallet->get_seed(electrum_words);
+  }
+
   if (success) 
   {
-    success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
-    boost::replace_nth(electrum_words, " ", 15, "\n");
-    boost::replace_nth(electrum_words, " ", 7, "\n");    
-    std::cout << electrum_words << std::endl;      
+    print_seed(electrum_words);
   }
   else
   {
-      fail_msg_writer() << "The wallet is non-deterministic. Cannot display seed.";
+    fail_msg_writer() << "The wallet is non-deterministic. Cannot display seed.";
   }
+  return true;
+}
+
+bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  if (!m_wallet->is_deterministic())
+  {
+    fail_msg_writer() << "This wallet is non-deterministic and doesn't have a seed.";
+    return true;
+  }
+  tools::password_container pwd_container;
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << "failed to read wallet password";
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << "invalid password";
+    return true;
+  }
+
+  std::string mnemonic_language = get_mnemonic_language();
+  m_wallet->set_seed_language(mnemonic_language);
+  m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
 
@@ -249,7 +287,37 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), "Get viewkey");
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), "Get deterministic seed");
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), "available options: seed language - Set wallet seed langage");
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), "Show this help");
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::set_variable(const std::vector<std::string> &args)
+{
+  if (args.empty())
+  {
+    fail_msg_writer() << "set: needs an argument. available options: seed";
+    return true;
+  }
+  else
+  {
+    if (args[0] == "seed")
+    {
+      if (args.size() == 1)
+      {
+        fail_msg_writer() << "set seed: needs an argument. available options: language";
+        return true;
+      }
+      else if (args[1] == "language")
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        seed_set_language(local_args);
+        return true;
+      }
+    }
+  }
+  fail_msg_writer() << "set: unrecognized argument(s)";
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_log(const std::vector<std::string> &args)
@@ -279,14 +347,28 @@ bool simple_wallet::ask_wallet_create_if_needed()
 {
   std::string wallet_path;
 
-  wallet_path = command_line::input_line(
-      "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n"
-      "Wallet file name: "
-  );
+  bool valid_path = false;
+  do {
+    wallet_path = command_line::input_line(
+        "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n"
+        "Wallet file name: "
+    );
+    valid_path = tools::wallet2::wallet_valid_path_format(wallet_path);
+    if (!valid_path)
+    {
+      fail_msg_writer() << "wallet file path not valid: " << wallet_path;
+    }
+  }
+  while (!valid_path);
 
   bool keys_file_exists;
   bool wallet_file_exists;
   tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exists);
+  LOG_PRINT_L3("wallet_path: " << wallet_path << "");
+  LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
+    << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
+
+  LOG_PRINT_L1("Loading wallet...");
 
   // add logic to error out if new wallet requested but named wallet file exists
   if (keys_file_exists || wallet_file_exists)
@@ -319,6 +401,21 @@ bool simple_wallet::ask_wallet_create_if_needed()
 
   return r;
 }
+
+/*!
+ * \brief Prints the seed with a nice message
+ * \param seed seed to print
+ */
+void simple_wallet::print_seed(std::string seed)
+{
+  success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. " << 
+    "Please write them down and store them somewhere safe and secure. Please do not store them in " << 
+    "your email or on file storage services outside of your immediate control.\n";
+  boost::replace_nth(seed, " ", 15, "\n");
+  boost::replace_nth(seed, " ", 7, "\n");
+  std::cout << seed << std::endl;
+}
+
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
@@ -487,10 +584,30 @@ std::string simple_wallet::get_mnemonic_language()
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
   bool recover, bool two_random, bool testnet, const std::string &old_language)
 {
+  bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
+    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
+
+  std::string mnemonic_language = old_language;
+  // Ask for seed language if:
+  // it's a deterministic wallet AND
+  // (it is not a wallet restore OR if it was a deprecated wallet
+  // that was earlier used before this restore)
+  if ((!two_random) && (!m_restore_deterministic_wallet || was_deprecated_wallet))
+  {
+    if (was_deprecated_wallet)
+    {
+      // The user had used an older version of the wallet with old style mnemonics.
+      message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+        "a deprecated version of the wallet. Please use the new seed that we provide.\n";
+    }
+    mnemonic_language = get_mnemonic_language();
+  }
+
   m_wallet_file = wallet_file;
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
+  m_wallet->set_seed_language(mnemonic_language);
 
   crypto::secret_key recovery_val;
   try
@@ -511,27 +628,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   // convert rng value to electrum-style word list
   std::string electrum_words;
 
-  bool was_deprecated_wallet = (old_language == crypto::ElectrumWords::old_language_name) ||
-    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed);
-
-  std::string mnemonic_language = old_language;
-  // Ask for seed language if it is not a wallet restore or if it was a deprecated wallet
-  // that was earlier used before this restore.
-  if (!m_restore_deterministic_wallet || was_deprecated_wallet)
-  {
-    if (was_deprecated_wallet)
-    {
-      // The user had used an older version of the wallet with old style mnemonics.
-      message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
-        "a deprecated version of the wallet. Please use the new seed that we provide.\n";
-    }
-    mnemonic_language = get_mnemonic_language();
-  }
   crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, mnemonic_language);
-  m_wallet->set_seed_language(mnemonic_language);
-
-  std::string print_electrum = "";
-
 
   success_msg_writer() <<
     "**********************************************************************\n" <<
@@ -545,10 +642,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 
   if (!two_random)
   {
-    success_msg_writer(true) << "\nPLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.\n";
-    boost::replace_nth(electrum_words, " ", 15, "\n");
-    boost::replace_nth(electrum_words, " ", 7, "\n");    
-    std::cout << electrum_words << std::endl;
+    print_seed(electrum_words);
   }
   success_msg_writer() << "**********************************************************************";
 
@@ -557,6 +651,12 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::open_wallet(const string &wallet_file, const std::string& password, bool testnet)
 {
+  if (!tools::wallet2::wallet_valid_path_format(wallet_file))
+  {
+    fail_msg_writer() << "wallet file path not valid: " << wallet_file;
+    return false;
+  }
+
   m_wallet_file = wallet_file;
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
@@ -566,6 +666,31 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
     m_wallet->load(m_wallet_file, password);
     message_writer(epee::log_space::console_color_white, true) << "Opened wallet: "
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+    // If the wallet file is deprecated, we should ask for mnemonic language again and store
+    // everything in the new format.
+    // NOTE: this is_deprecated() refers to the wallet file format before becoming JSON. It does not refer to the "old english" seed words form of "deprecated" used elsewhere.
+    if (m_wallet->is_deprecated())
+    {
+      if (m_wallet->is_deterministic())
+      {
+        message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+          "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n";
+        std::string mnemonic_language = get_mnemonic_language();
+        m_wallet->set_seed_language(mnemonic_language);
+        m_wallet->rewrite(m_wallet_file, password);
+
+        // Display the seed
+        std::string seed;
+        m_wallet->get_seed(seed);
+        print_seed(seed);
+      }
+      else
+      {
+        message_writer(epee::log_space::console_color_green, false) << "\nYou had been using " <<
+          "a deprecated version of the wallet. Your wallet file format is being upgraded now.\n";
+          m_wallet->rewrite(m_wallet_file, password);
+      }
+    }
   }
   catch (const std::exception& e)
   {
@@ -1056,15 +1181,14 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, DEFAULT_FEE, extra);
+    auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
 
     // if more than one tx necessary, prompt user to confirm
     if (ptx_vector.size() > 1)
     {
         std::string prompt_str = "Your transaction needs to be split into ";
         prompt_str += std::to_string(ptx_vector.size());
-        prompt_str += " transactions.  This will result in a fee of ";
-        prompt_str += print_money(ptx_vector.size() * DEFAULT_FEE);
+        prompt_str += " transactions.  This will result in a transaction fee being applied to each transaction";
         prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
         std::string accepted = command_line::input_line(prompt_str);
         if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")

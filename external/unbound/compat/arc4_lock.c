@@ -53,8 +53,10 @@ static int arc4lockinit = 0;
 
 void _ARC4_LOCK(void)
 {
-	if(!arc4lockinit)
+	if(!arc4lockinit) {
+		arc4lockinit = 1;
 		lock_quick_init(&arc4lock);
+	}
 	lock_quick_lock(&arc4lock);
 }
 

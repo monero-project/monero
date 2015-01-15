@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -33,6 +33,8 @@
 #include <string>
 #include <boost/uuid/uuid.hpp>
 
+#define CRYPTONOTE_DNS_TIMEOUT_MS                       20000
+
 #define CRYPTONOTE_MAX_BLOCK_NUMBER                     500000000
 #define CRYPTONOTE_MAX_BLOCK_SIZE                       500000000  // block header blob limit, never used!
 #define CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE	196608 //size of block (bytes) that is the maximum that miners will produce
@@ -56,8 +58,11 @@
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
 // COIN - number of smallest units in one coin
 #define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
-#define DEFAULT_FEE                                     ((uint64_t)100000000000) // 5 * pow(10, 11)
 
+#define FEE_PER_KB                                      ((uint64_t)10000000000) // pow(10, 10)
+
+// temporarily to allow backward compatibility during the switch to per-kb
+//#define MINING_ALLOWED_LEGACY_FEE                       ((uint64_t)100000000000) // pow(10, 11)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
@@ -114,7 +119,7 @@ namespace config
 {
   uint64_t const DEFAULT_FEE_ATOMIC_XMR_PER_KB = 500; // Just a placeholder!  Change me!
   uint8_t const FEE_CALCULATION_MAX_RETRIES = 10;
-  uint64_t const DEFAULT_DUST_THRESHOLD = 5000000000; // 5 * 10^9
+  uint64_t const DEFAULT_DUST_THRESHOLD = ((uint64_t)10000000000); // pow(10, 10)
   std::string const P2P_REMOTE_DEBUG_TRUSTED_PUB_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
 
   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 18;

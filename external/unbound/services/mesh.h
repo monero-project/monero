@@ -353,12 +353,13 @@ void mesh_detach_subs(struct module_qstate* qstate);
  * @param qinfo: what to query for (copied).
  * @param qflags: what flags to use (RD / CD flag or not).
  * @param prime: if it is a (stub) priming query.
+ * @param valrec: if it is a validation recursion query (lookup of key, DS).
  * @param newq: If the new subquery needs initialisation, it is returned,
  * 	otherwise NULL is returned.
  * @return: false on error, true if success (and init may be needed).
  */
 int mesh_attach_sub(struct module_qstate* qstate, struct query_info* qinfo,
-	uint16_t qflags, int prime, struct module_qstate** newq);
+	uint16_t qflags, int prime, int valrec, struct module_qstate** newq);
 
 /**
  * Query state is done, send messages to reply entries.
@@ -406,10 +407,12 @@ void mesh_state_delete(struct module_qstate* qstate);
  * @param qinfo: query info that the mesh is for.
  * @param qflags: flags for query (RD / CD flag).
  * @param prime: if true, it is a priming query, set is_priming on mesh state.
+ * @param valrec: if true, it is a validation recursion query, and sets
+ * 	is_valrec on the mesh state.
  * @return: new mesh state or NULL on allocation error.
  */
 struct mesh_state* mesh_state_create(struct module_env* env, 
-	struct query_info* qinfo, uint16_t qflags, int prime);
+	struct query_info* qinfo, uint16_t qflags, int prime, int valrec);
 
 /**
  * Cleanup a mesh state and its query state. Does not do rbtree or 
@@ -432,10 +435,11 @@ void mesh_delete_all(struct mesh_area* mesh);
  * @param qinfo: what query
  * @param qflags: if RD / CD bit is set or not.
  * @param prime: if it is a priming query.
+ * @param valrec: if it is a validation-recursion query.
  * @return: mesh state or NULL if not found.
  */
 struct mesh_state* mesh_area_find(struct mesh_area* mesh, 
-	struct query_info* qinfo, uint16_t qflags, int prime);
+	struct query_info* qinfo, uint16_t qflags, int prime, int valrec);
 
 /**
  * Setup attachment super/sub relation between super and sub mesh state.
@@ -523,13 +527,14 @@ size_t mesh_get_mem(struct mesh_area* mesh);
  * @param qinfo: query info for dependency.
  * @param flags: query flags of dependency.
  * @param prime: if dependency is a priming query or not.
+ * @param valrec: if it is a validation recursion query (lookup of key, DS).
  * @return true if the name,type,class exists and the given qstate mesh exists
  * 	as a dependency of that name. Thus if qstate becomes dependent on
  * 	name,type,class then a cycle is created, this is return value 1.
  * 	Too large to search is value 2 (also true).
  */
 int mesh_detect_cycle(struct module_qstate* qstate, struct query_info* qinfo,
-	uint16_t flags, int prime);
+	uint16_t flags, int prime, int valrec);
 
 /** compare two mesh_states */
 int mesh_state_compare(const void* ap, const void* bp);

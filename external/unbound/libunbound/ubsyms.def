@@ -8,6 +8,7 @@ ub_ctx_set_fwd
 ub_ctx_resolvconf
 ub_ctx_hosts
 ub_ctx_add_ta
+ub_ctx_add_ta_autr
 ub_ctx_add_ta_file
 ub_ctx_trustedkeys
 ub_ctx_debugout

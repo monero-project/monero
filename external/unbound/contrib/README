@@ -25,4 +25,8 @@ distribution but may be helpful.
 * unbound_cache.cmd: windows script to save and load the cache.
 * warmup.sh: shell script to warm up DNS cache by your own MRU domains.
 * warmup.cmd: windows script to warm up DNS cache by your own MRU domains.
+* aaaa-filter-iterator.patch: adds config option aaaa-filter: yes that
+  works like the BIND feature (removes AAAA records unless AAAA-only domain).
+  Useful for certain 'broken IPv6 default route' scenarios.
+  Patch from Stephane Lapie for ASAHI Net.
 

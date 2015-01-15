@@ -80,7 +80,7 @@ LINTFLAGS+="-Dsigset_t=long"
 # FreeBSD
 LINTFLAGS+="-D__uint16_t=uint16_t" "-DEVP_PKEY_ASN1_METHOD=int" "-D_RuneLocale=int" "-D__va_list=va_list"
 
-INSTALL=$(srcdir)/install-sh
+INSTALL=$(SHELL) $(srcdir)/install-sh
 
 #pythonmod.c is not here, it is mentioned by itself in its own rules,
 #makedepend fails on missing interface.h otherwise.
@@ -397,7 +397,7 @@ libunbound/python/libunbound_wrap.c:	$(srcdir)/libunbound/python/libunbound.i un
 
 # Pyunbound python unbound wrapper
 _unbound.la:	libunbound_wrap.lo libunbound.la
-	$(LIBTOOL) --tag=CC --mode=link $(CC) $(RUNTIME_PATH) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -module -version-info @LIBUNBOUND_CURRENT@:@LIBUNBOUND_REVISION@:@LIBUNBOUND_AGE@ -no-undefined -o $@ libunbound_wrap.lo -rpath $(PYTHON_SITE_PKG) L. -L.libs -lunbound $(LIBS)
+	$(LIBTOOL) --tag=CC --mode=link $(CC) $(RUNTIME_PATH) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -module -avoid-version -no-undefined -shared -o $@ libunbound_wrap.lo -rpath $(PYTHON_SITE_PKG) L. -L.libs -lunbound
 
 util/config_file.c:	util/configparser.h
 util/configlexer.c:  $(srcdir)/util/configlexer.lex util/configparser.h

@@ -1,4 +1,4 @@
-# Copyright (c) 2014, The Monero Project
+# Copyright (c) 2014-2015, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -28,64 +28,62 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-add_definitions(-DSTATICLIB)
-# miniupnp changed their static define
-add_definitions(-DMINIUPNP_STATICLIB)
+if (WIN32 AND STATIC)
+  add_definitions(-DSTATICLIB)
+  # miniupnp changed their static define
+  add_definitions(-DMINIUPNP_STATICLIB)
+endif ()
 
-add_subdirectory(gtest)
-include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+find_package(GTest)
 
-file(GLOB_RECURSE CORE_TESTS core_tests/*)
-file(GLOB_RECURSE CRYPTO_TESTS crypto/*)
-file(GLOB_RECURSE FUNC_TESTS functional_tests/*)
-file(GLOB_RECURSE PERFORMANCE_TESTS performance_tests/*)
-file(GLOB_RECURSE CORE_PROXY core_proxy/*)
-file(GLOB_RECURSE UNIT_TESTS unit_tests/*)
+if (GTest_FOUND)
+  include_directories(SYSTEM ${GTEST_INCLUDE_DIRS})
+else ()
+  add_subdirectory(gtest)
+  include_directories(SYSTEM "${gtest_SOURCE_DIR}/include" "${gtest_SOURCE_DIR}")
 
-source_group(core_tests FILES ${CORE_TESTS})
-source_group(crypto_tests FILES ${CRYPTO_TESTS})
-source_group(functional_tests FILES ${FUNC_TESTS})
-source_group(performance_tests FILES ${PERFORMANCE_TESTS})
-source_group(core_proxy FILES ${CORE_PROXY})
-source_group(unit_tests FILES ${UNIT_TESTS})
+  # Emulate the FindGTest module's variable.
+  set(GTEST_MAIN_LIBRARIES gtest_main)
+
+  # Ignore some warnings when building gtest binaries.
+  if(NOT MSVC)
+    set_property(TARGET gtest gtest_main
+      APPEND_STRING
+      PROPERTY
+        COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
+  endif()
+endif ()
+
+add_subdirectory(core_tests)
+add_subdirectory(crypto)
+add_subdirectory(functional_tests)
+add_subdirectory(performance_tests)
+add_subdirectory(core_proxy)
+add_subdirectory(unit_tests)
+add_subdirectory(difficulty)
+add_subdirectory(hash)
+add_subdirectory(net_load_tests)
 
 # add_subdirectory(daemon_tests)
 
-add_executable(coretests ${CORE_TESTS})
-add_executable(crypto-tests ${CRYPTO_TESTS})
-add_executable(difficulty-tests difficulty/difficulty.cpp)
-add_executable(hash-tests hash/main.cpp)
-add_executable(hash-target-tests hash-target.cpp)
-add_executable(functional_tests ${FUNC_TESTS})
-add_executable(performance_tests ${PERFORMANCE_TESTS})
-add_executable(core_proxy ${CORE_PROXY})
-add_executable(unit_tests ${UNIT_TESTS})
-add_executable(net_load_tests_clt net_load_tests/clt.cpp)
-add_executable(net_load_tests_srv net_load_tests/srv.cpp)
+set(hash_targets_sources
+  hash-target.cpp)
 
-target_link_libraries(core_proxy cryptonote_core common crypto ${UNBOUND_LIBRARY} ${UPNP_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(coretests cryptonote_core common crypto ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(difficulty-tests cryptonote_core)
-target_link_libraries(functional_tests cryptonote_core wallet common crypto ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(hash-tests crypto)
-target_link_libraries(hash-target-tests crypto cryptonote_core)
-target_link_libraries(performance_tests cryptonote_core common crypto ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(unit_tests gtest_main rpc cryptonote_core wallet crypto common ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(net_load_tests_clt cryptonote_core common crypto gtest_main ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
-target_link_libraries(net_load_tests_srv cryptonote_core common crypto gtest_main ${UNBOUND_LIBRARY} ${Boost_LIBRARIES} ${EXTRA_LIBRARIES})
+set(hash_targets_headers)
 
-if(NOT MSVC)
-  set_property(TARGET gtest gtest_main unit_tests net_load_tests_clt net_load_tests_srv APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-endif()
+add_executable(hash-target-tests
+  ${hash_targets_sources}
+  ${hash_targets_headers})
+target_link_libraries(hash-target-tests
+  LINK_PRIVATE
+    cryptonote_core)
+set_property(TARGET hash-target-tests
+  PROPERTY
+    FOLDER "tests")
+
+add_test(
+  NAME    hash-target
+  COMMAND hash-target-tests)
 
 add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
-set_property(TARGET coretests crypto-tests functional_tests difficulty-tests gtest gtest_main hash-tests hash-target-tests performance_tests core_proxy unit_tests tests net_load_tests_clt net_load_tests_srv PROPERTY FOLDER "tests")
-
-add_test(coretests coretests --generate_and_play_test_data)
-add_test(crypto crypto-tests ${CMAKE_CURRENT_SOURCE_DIR}/crypto/tests.txt)
-add_test(difficulty difficulty-tests ${CMAKE_CURRENT_SOURCE_DIR}/difficulty/data.txt)
-foreach(hash IN ITEMS fast slow tree extra-blake extra-groestl extra-jh extra-skein)
-  add_test(hash-${hash} hash-tests ${hash} ${CMAKE_CURRENT_SOURCE_DIR}/hash/tests-${hash}.txt)
-endforeach(hash)
-add_test(hash-target hash-target-tests)
-add_test(unit_tests unit_tests)
+set_property(TARGET gtest gtest_main hash-target-tests tests PROPERTY FOLDER "tests")

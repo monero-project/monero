@@ -1082,6 +1082,19 @@ and the word "python" has to be put in the \fBmodule\-config:\fR option
 .TP
 .B python\-script: \fI<python file>\fR
 The script file to load. 
+.SS "DNS64 Module Options"
+.LP
+The dns64 module must be configured in the \fBmodule\-config:\fR "dns64
+validator iterator" directive and be compiled into the daemon to be
+enabled.  These settings go in the \fBserver:\fR section.
+.TP
+.B dns64\-prefix: \fI<IPv6 prefix>\fR
+This sets the DNS64 prefix to use to synthesize AAAA records with.
+It must be /96 or shorter.  The default prefix is 64:ff9b::/96.
+.TP
+.B dns64\-synthall: \fI<yes or no>\fR
+Debug option, default no.  If enabled, synthesize all AAAA records
+despite the presence of actual AAAA records.
 .SH "MEMORY CONTROL EXAMPLE"
 In the example config settings below memory usage is reduced. Some service
 levels are lower, notable very large data and a high TCP load are no longer

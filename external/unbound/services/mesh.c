@@ -132,6 +132,11 @@ mesh_state_compare(const void* ap, const void* bp)
 	if(!a->s.is_priming && b->s.is_priming)
 		return 1;
 
+	if(a->s.is_valrec && !b->s.is_valrec)
+		return -1;
+	if(!a->s.is_valrec && b->s.is_valrec)
+		return 1;
+
 	if((a->s.query_flags&BIT_RD) && !(b->s.query_flags&BIT_RD))
 		return -1;
 	if(!(a->s.query_flags&BIT_RD) && (b->s.query_flags&BIT_RD))
@@ -277,11 +282,7 @@ void mesh_new_client(struct mesh_area* mesh, struct query_info* qinfo,
         uint16_t qflags, struct edns_data* edns, struct comm_reply* rep,
         uint16_t qid)
 {
-	/* do not use CD flag from user for mesh state, we want the CD-query
-	 * to receive validation anyway, to protect out cache contents and
-	 * avoid bad-data in this cache that a downstream validator cannot
-	 * remove from this cache */
-	struct mesh_state* s = mesh_area_find(mesh, qinfo, qflags&BIT_RD, 0);
+	struct mesh_state* s = mesh_area_find(mesh, qinfo, qflags&(BIT_RD|BIT_CD), 0, 0);
 	int was_detached = 0;
 	int was_noreply = 0;
 	int added = 0;
@@ -311,7 +312,7 @@ void mesh_new_client(struct mesh_area* mesh, struct query_info* qinfo,
 #ifdef UNBOUND_DEBUG
 		struct rbnode_t* n;
 #endif
-		s = mesh_state_create(mesh->env, qinfo, qflags&BIT_RD, 0);
+		s = mesh_state_create(mesh->env, qinfo, qflags&(BIT_RD|BIT_CD), 0, 0);
 		if(!s) {
 			log_err("mesh_state_create: out of memory; SERVFAIL");
 			error_encode(rep->c->buffer, LDNS_RCODE_SERVFAIL,
@@ -375,7 +376,7 @@ mesh_new_callback(struct mesh_area* mesh, struct query_info* qinfo,
 	uint16_t qflags, struct edns_data* edns, sldns_buffer* buf, 
 	uint16_t qid, mesh_cb_func_t cb, void* cb_arg)
 {
-	struct mesh_state* s = mesh_area_find(mesh, qinfo, qflags&BIT_RD, 0);
+	struct mesh_state* s = mesh_area_find(mesh, qinfo, qflags&(BIT_RD|BIT_CD), 0, 0);
 	int was_detached = 0;
 	int was_noreply = 0;
 	int added = 0;
@@ -386,7 +387,7 @@ mesh_new_callback(struct mesh_area* mesh, struct query_info* qinfo,
 #ifdef UNBOUND_DEBUG
 		struct rbnode_t* n;
 #endif
-		s = mesh_state_create(mesh->env, qinfo, qflags&BIT_RD, 0);
+		s = mesh_state_create(mesh->env, qinfo, qflags&(BIT_RD|BIT_CD), 0, 0);
 		if(!s) {
 			return 0;
 		}
@@ -428,7 +429,7 @@ mesh_new_callback(struct mesh_area* mesh, struct query_info* qinfo,
 void mesh_new_prefetch(struct mesh_area* mesh, struct query_info* qinfo,
         uint16_t qflags, time_t leeway)
 {
-	struct mesh_state* s = mesh_area_find(mesh, qinfo, qflags&BIT_RD, 0);
+	struct mesh_state* s = mesh_area_find(mesh, qinfo, qflags&(BIT_RD|BIT_CD), 0, 0);
 #ifdef UNBOUND_DEBUG
 	struct rbnode_t* n;
 #endif
@@ -447,7 +448,7 @@ void mesh_new_prefetch(struct mesh_area* mesh, struct query_info* qinfo,
 		mesh->stats_dropped ++;
 		return;
 	}
-	s = mesh_state_create(mesh->env, qinfo, qflags&BIT_RD, 0);
+	s = mesh_state_create(mesh->env, qinfo, qflags&(BIT_RD|BIT_CD), 0, 0);
 	if(!s) {
 		log_err("prefetch mesh_state_create: out of memory");
 		return;
@@ -496,7 +497,7 @@ void mesh_report_reply(struct mesh_area* mesh, struct outbound_entry* e,
 
 struct mesh_state* 
 mesh_state_create(struct module_env* env, struct query_info* qinfo, 
-	uint16_t qflags, int prime)
+	uint16_t qflags, int prime, int valrec)
 {
 	struct regional* region = alloc_reg_obtain(env->alloc);
 	struct mesh_state* mstate;
@@ -533,6 +534,7 @@ mesh_state_create(struct module_env* env, struct query_info* qinfo,
 	/* remove all weird bits from qflags */
 	mstate->s.query_flags = (qflags & (BIT_RD|BIT_CD));
 	mstate->s.is_priming = prime;
+	mstate->s.is_valrec = valrec;
 	mstate->s.reply = NULL;
 	mstate->s.region = region;
 	mstate->s.curmod = 0;
@@ -679,11 +681,12 @@ void mesh_detach_subs(struct module_qstate* qstate)
 }
 
 int mesh_attach_sub(struct module_qstate* qstate, struct query_info* qinfo,
-        uint16_t qflags, int prime, struct module_qstate** newq)
+        uint16_t qflags, int prime, int valrec, struct module_qstate** newq)
 {
 	/* find it, if not, create it */
 	struct mesh_area* mesh = qstate->env->mesh;
-	struct mesh_state* sub = mesh_area_find(mesh, qinfo, qflags, prime);
+	struct mesh_state* sub = mesh_area_find(mesh, qinfo, qflags, prime,
+		valrec);
 	int was_detached;
 	if(mesh_detect_cycle_found(qstate, sub)) {
 		verbose(VERB_ALGO, "attach failed, cycle detected");
@@ -694,7 +697,8 @@ int mesh_attach_sub(struct module_qstate* qstate, struct query_info* qinfo,
 		struct rbnode_t* n;
 #endif
 		/* create a new one */
-		sub = mesh_state_create(qstate->env, qinfo, qflags, prime);
+		sub = mesh_state_create(qstate->env, qinfo, qflags, prime,
+			valrec);
 		if(!sub) {
 			log_err("mesh_attach_sub: out of memory");
 			return 0;
@@ -941,13 +945,14 @@ void mesh_walk_supers(struct mesh_area* mesh, struct mesh_state* mstate)
 }
 
 struct mesh_state* mesh_area_find(struct mesh_area* mesh,
-	struct query_info* qinfo, uint16_t qflags, int prime)
+	struct query_info* qinfo, uint16_t qflags, int prime, int valrec)
 {
 	struct mesh_state key;
 	struct mesh_state* result;
 
 	key.node.key = &key;
 	key.s.is_priming = prime;
+	key.s.is_valrec = valrec;
 	key.s.qinfo = *qinfo;
 	key.s.query_flags = qflags;
 	
@@ -1107,8 +1112,9 @@ mesh_log_list(struct mesh_area* mesh)
 	struct mesh_state* m;
 	int num = 0;
 	RBTREE_FOR(m, struct mesh_state*, &mesh->all) {
-		snprintf(buf, sizeof(buf), "%d%s%s%s%s%s mod%d %s%s", 
+		snprintf(buf, sizeof(buf), "%d%s%s%s%s%s%s mod%d %s%s", 
 			num++, (m->s.is_priming)?"p":"",  /* prime */
+			(m->s.is_valrec)?"v":"",  /* prime */
 			(m->s.query_flags&BIT_RD)?"RD":"",
 			(m->s.query_flags&BIT_CD)?"CD":"",
 			(m->super_set.count==0)?"d":"", /* detached */
@@ -1178,10 +1184,11 @@ mesh_get_mem(struct mesh_area* mesh)
 
 int 
 mesh_detect_cycle(struct module_qstate* qstate, struct query_info* qinfo,
-	uint16_t flags, int prime)
+	uint16_t flags, int prime, int valrec)
 {
 	struct mesh_area* mesh = qstate->env->mesh;
-	struct mesh_state* dep_m = mesh_area_find(mesh, qinfo, flags, prime);
+	struct mesh_state* dep_m = mesh_area_find(mesh, qinfo, flags, prime,
+		valrec);
 	return mesh_detect_cycle_found(qstate, dep_m);
 }
 

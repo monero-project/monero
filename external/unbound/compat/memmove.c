@@ -28,7 +28,7 @@ void *memmove(void *dest, const void *src, size_t n)
 			to[i] = from[i];
 		return dest;
 	}
-	if (from > to  && from-to < (int)n) {
+	if (from > to && from-to < (int)n) {
 		/* to overlaps with from */
 		/*        <from......>   */
 		/*  <to........>         */

@@ -324,8 +324,10 @@ sldns_ecdsa2pkey_raw(unsigned char* key, size_t keylen, uint8_t algo)
                 ec = EC_KEY_new_by_curve_name(NID_secp384r1);
         } else    ec = NULL;
         if(!ec) return NULL;
-	if(keylen+1 > sizeof(buf))
-		return NULL; /* sanity check */
+	if(keylen+1 > sizeof(buf)) { /* sanity check */
+                EC_KEY_free(ec);
+		return NULL;
+	}
 	/* prepend the 0x02 (from docs) (or actually 0x04 from implementation
 	 * of openssl) for uncompressed data */
 	buf[0] = POINT_CONVERSION_UNCOMPRESSED;

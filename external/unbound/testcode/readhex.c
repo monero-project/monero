@@ -49,7 +49,7 @@ static void
 skip_whites(const char** p)
 {
 	while(1) {
-		while(isspace((int)**p))
+		while(isspace((unsigned char)**p))
 			(*p)++;
 		if(**p == ';') {
 			/* comment, skip until newline */
@@ -71,11 +71,11 @@ void hex_to_buf(sldns_buffer* pkt, const char* hex)
 		skip_whites(&p);
 		if(sldns_buffer_position(pkt) == sldns_buffer_limit(pkt))
 			fatal_exit("hex_to_buf: buffer too small");
-		if(!isalnum((int)*p))
+		if(!isalnum((unsigned char)*p))
 			break;
 		val = sldns_hexdigit_to_int(*p++) << 4;
 		skip_whites(&p);
-		log_assert(*p && isalnum((int)*p));
+		log_assert(*p && isalnum((unsigned char)*p));
 		val |= sldns_hexdigit_to_int(*p++);
 		sldns_buffer_write_u8(pkt, (uint8_t)val);
 		skip_whites(&p);

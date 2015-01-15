@@ -114,8 +114,8 @@ query_dname_compare(register uint8_t* d1, register uint8_t* d2)
 		while(lab1--) {
 			/* compare bytes first for speed */
 			if(*d1 != *d2 && 
-				tolower((int)*d1) != tolower((int)*d2)) {
-				if(tolower((int)*d1) < tolower((int)*d2))
+				tolower((unsigned char)*d1) != tolower((unsigned char)*d2)) {
+				if(tolower((unsigned char)*d1) < tolower((unsigned char)*d2))
 					return -1;
 				return 1;
 			}
@@ -138,7 +138,7 @@ query_dname_tolower(uint8_t* dname)
 	while(labellen) {
 		dname++;
 		while(labellen--) {
-			*dname = (uint8_t)tolower((int)*dname);
+			*dname = (uint8_t)tolower((unsigned char)*dname);
 			dname++;
 		}
 		labellen = *dname;
@@ -167,7 +167,7 @@ pkt_dname_tolower(sldns_buffer* pkt, uint8_t* dname)
 		if(dname+lablen >= sldns_buffer_end(pkt))
 			return;
 		while(lablen--) {
-			*dname = (uint8_t)tolower((int)*dname);
+			*dname = (uint8_t)tolower((unsigned char)*dname);
 			dname++;
 		}
 		if(dname >= sldns_buffer_end(pkt))
@@ -256,8 +256,8 @@ dname_pkt_compare(sldns_buffer* pkt, uint8_t* d1, uint8_t* d2)
 		log_assert(len1 == len2 && len1 != 0);
 		/* compare labels */
 		while(len1--) {
-			if(tolower((int)*d1++) != tolower((int)*d2++)) {
-				if(tolower((int)d1[-1]) < tolower((int)d2[-1]))
+			if(tolower((unsigned char)*d1++) != tolower((unsigned char)*d2++)) {
+				if(tolower((unsigned char)d1[-1]) < tolower((unsigned char)d2[-1]))
 					return -1;
 				return 1;
 			}
@@ -282,7 +282,7 @@ dname_query_hash(uint8_t* dname, hashvalue_t h)
 		labuf[0] = lablen;
 		i=0;
 		while(lablen--)
-			labuf[++i] = (uint8_t)tolower((int)*dname++);
+			labuf[++i] = (uint8_t)tolower((unsigned char)*dname++);
 		h = hashlittle(labuf, labuf[0] + 1, h);
 		lablen = *dname++;
 	}
@@ -310,7 +310,7 @@ dname_pkt_hash(sldns_buffer* pkt, uint8_t* dname, hashvalue_t h)
 		labuf[0] = lablen;
 		i=0;
 		while(lablen--)
-			labuf[++i] = (uint8_t)tolower((int)*dname++);
+			labuf[++i] = (uint8_t)tolower((unsigned char)*dname++);
 		h = hashlittle(labuf, labuf[0] + 1, h);
 		lablen = *dname++;
 	}
@@ -423,8 +423,8 @@ static int
 memlowercmp(uint8_t* p1, uint8_t* p2, uint8_t len)
 {
 	while(len--) {
-		if(*p1 != *p2 && tolower((int)*p1) != tolower((int)*p2)) {
-			if(tolower((int)*p1) < tolower((int)*p2))
+		if(*p1 != *p2 && tolower((unsigned char)*p1) != tolower((unsigned char)*p2)) {
+			if(tolower((unsigned char)*p1) < tolower((unsigned char)*p2))
 				return -1;
 			return 1;
 		}
@@ -480,10 +480,10 @@ dname_lab_cmp(uint8_t* d1, int labs1, uint8_t* d2, int labs2, int* mlabs)
 			 *	lastdiff = c;
 			 *	lastmlabs = atlabel; } apart from d1++,d2++ */
 			while(len1) {
-				if(*d1 != *d2 && tolower((int)*d1) 
-					!= tolower((int)*d2)) {
-					if(tolower((int)*d1) < 
-						tolower((int)*d2)) {
+				if(*d1 != *d2 && tolower((unsigned char)*d1) 
+					!= tolower((unsigned char)*d2)) {
+					if(tolower((unsigned char)*d1) < 
+						tolower((unsigned char)*d2)) {
 						lastdiff = -1;
 						lastmlabs = atlabel;
 						d1 += len1;
@@ -561,7 +561,7 @@ void dname_str(uint8_t* dname, char* str)
 			return;
 		}
 		while(lablen--) {
-			if(isalnum((int)*dname) 
+			if(isalnum((unsigned char)*dname) 
 				|| *dname == '-' || *dname == '_' 
 				|| *dname == '*')
 				*s++ = *(char*)dname++;

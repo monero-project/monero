@@ -399,7 +399,7 @@ handle_ipv6_ptr(struct module_qstate* qstate, int id)
 
     /* Create the new sub-query. */
     fptr_ok(fptr_whitelist_modenv_attach_sub(qstate->env->attach_sub));
-    if(!(*qstate->env->attach_sub)(qstate, &qinfo, qstate->query_flags, 0,
+    if(!(*qstate->env->attach_sub)(qstate, &qinfo, qstate->query_flags, 0, 0,
                 &subq))
         return module_error;
     if (subq) {
@@ -451,7 +451,7 @@ generate_type_A_query(struct module_qstate* qstate, int id)
 	/* Start the sub-query. */
 	fptr_ok(fptr_whitelist_modenv_attach_sub(qstate->env->attach_sub));
 	if(!(*qstate->env->attach_sub)(qstate, &qinfo, qstate->query_flags, 0,
-				       &subq))
+				       0, &subq))
 	{
 		verbose(VERB_ALGO, "dns64: sub-query creation failed");
 		return module_error;
@@ -520,11 +520,13 @@ handle_event_moddone(struct module_qstate* qstate, int id)
      *
      *   - An internal query.
      *   - A query for a record type other than AAAA.
+     *   - CD FLAG was set on querier
      *   - An AAAA query for which an error was returned.
      *   - A successful AAAA query with an answer.
      */
 	if ( (enum dns64_qstate)qstate->minfo[id] == DNS64_INTERNAL_QUERY
             || qstate->qinfo.qtype != LDNS_RR_TYPE_AAAA
+	    || (qstate->query_flags & BIT_CD)
 	    || qstate->return_rcode != LDNS_RCODE_NOERROR  
 	    || (qstate->return_msg &&
 		    qstate->return_msg->rep &&
@@ -813,7 +815,7 @@ dns64_inform_super(struct module_qstate* qstate, int id,
 
 	/* Store the generated response in cache. */
 	if (!dns_cache_store(super->env, &super->qinfo, super->return_msg->rep,
-	    0, 0, 0, NULL))
+	    0, 0, 0, NULL, super->query_flags))
 		log_err("out of memory");
 }
 

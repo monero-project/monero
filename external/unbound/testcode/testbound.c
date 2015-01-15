@@ -97,7 +97,7 @@ add_opts(const char* args, int* pass_argc, char* pass_argv[])
 {
 	const char *p = args, *np;
 	size_t len;
-	while(p && isspace((int)*p)) 
+	while(p && isspace((unsigned char)*p)) 
 		p++;
 	while(p && *p) {
 		/* find location of next string and length of this one */
@@ -115,7 +115,7 @@ add_opts(const char* args, int* pass_argc, char* pass_argv[])
 		(*pass_argc)++;
 		/* go to next option */
 	        p = np;
-		while(p && isspace((int)*p)) 
+		while(p && isspace((unsigned char)*p)) 
 			p++;
 	}
 }
@@ -140,7 +140,7 @@ spool_auto_file(FILE* in, int* lineno, FILE* cfg, char* id)
 	char* parse;
 	FILE* spool;
 	/* find filename for new file */
-	while(isspace((int)*id))
+	while(isspace((unsigned char)*id))
 		id++;
 	if(strlen(id)==0) 
 		fatal_exit("AUTROTRUST_FILE must have id, line %d", *lineno);
@@ -158,7 +158,7 @@ spool_auto_file(FILE* in, int* lineno, FILE* cfg, char* id)
 	while(fgets(line, MAX_LINE_LEN-1, in)) {
 		parse = line;
 		(*lineno)++;
-		while(isspace((int)*parse))
+		while(isspace((unsigned char)*parse))
 			parse++;
 		if(strncmp(parse, "AUTOTRUST_END", 13) == 0) {
 			fclose(spool);
@@ -197,7 +197,7 @@ setup_config(FILE* in, int* lineno, int* pass_argc, char* pass_argv[])
 	while(fgets(line, MAX_LINE_LEN-1, in)) {
 		parse = line;
 		(*lineno)++;
-		while(isspace((int)*parse))
+		while(isspace((unsigned char)*parse))
 			parse++;
 		if(!*parse || parse[0] == ';')
 			continue;

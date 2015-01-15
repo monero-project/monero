@@ -130,7 +130,7 @@ strip_end_white(char* p)
 {
 	size_t i;
 	for(i = strlen(p); i > 0; i--) {
-		if(isspace((int)p[i-1]))
+		if(isspace((unsigned char)p[i-1]))
 			p[i-1] = 0;
 		else return;
 	}
@@ -170,14 +170,14 @@ replay_range_read(char* remain, FILE* in, const char* name,
 	while(fgets(line, MAX_LINE_LEN-1, in)) {
 		pstate->lineno++;
 		parse = line;
-		while(isspace((int)*parse))
+		while(isspace((unsigned char)*parse))
 			parse++;
 		if(!*parse || *parse == ';') {
 			pos = ftello(in);
 			continue;
 		}
 		if(parse_keyword(&parse, "ADDRESS")) {
-			while(isspace((int)*parse))
+			while(isspace((unsigned char)*parse))
 				parse++;
 			strip_end_white(parse);
 			if(!extstrtoaddr(parse, &rng->addr, &rng->addrlen)) {
@@ -281,7 +281,7 @@ replay_moment_read(char* remain, FILE* in, const char* name,
 		return NULL;
 	}
 	remain += skip;
-	while(isspace((int)*remain))
+	while(isspace((unsigned char)*remain))
 		remain++;
 	if(parse_keyword(&remain, "NOTHING")) {
 		mom->evt_type = repevt_nothing;
@@ -303,10 +303,10 @@ replay_moment_read(char* remain, FILE* in, const char* name,
 		mom->evt_type = repevt_timeout;
 	} else if(parse_keyword(&remain, "TIME_PASSES")) {
 		mom->evt_type = repevt_time_passes;
-		while(isspace((int)*remain))
+		while(isspace((unsigned char)*remain))
 			remain++;
 		if(parse_keyword(&remain, "EVAL")) {
-			while(isspace((int)*remain))
+			while(isspace((unsigned char)*remain))
 				remain++;
 			mom->string = strdup(remain);
 			if(!mom->string) fatal_exit("out of memory");
@@ -316,7 +316,7 @@ replay_moment_read(char* remain, FILE* in, const char* name,
 		}
 	} else if(parse_keyword(&remain, "CHECK_AUTOTRUST")) {
 		mom->evt_type = repevt_autotrust_check;
-		while(isspace((int)*remain))
+		while(isspace((unsigned char)*remain))
 			remain++;
 		if(strlen(remain)>0 && remain[strlen(remain)-1]=='\n')
 			remain[strlen(remain)-1] = 0;
@@ -333,20 +333,20 @@ replay_moment_read(char* remain, FILE* in, const char* name,
 	} else if(parse_keyword(&remain, "INFRA_RTT")) {
 		char *s, *m;
 		mom->evt_type = repevt_infra_rtt;
-		while(isspace((int)*remain))
+		while(isspace((unsigned char)*remain))
 			remain++;
 		s = remain;
 		remain = strchr(s, ' ');
 		if(!remain) fatal_exit("expected three args for INFRA_RTT");
 		remain[0] = 0;
 		remain++;
-		while(isspace((int)*remain))
+		while(isspace((unsigned char)*remain))
 			remain++;
 		m = strchr(remain, ' ');
 		if(!m) fatal_exit("expected three args for INFRA_RTT");
 		m[0] = 0;
 		m++;
-		while(isspace((int)*m))
+		while(isspace((unsigned char)*m))
 			m++;
 		if(!extstrtoaddr(s, &mom->addr, &mom->addrlen))
 			fatal_exit("bad infra_rtt address %s", s);
@@ -361,10 +361,10 @@ replay_moment_read(char* remain, FILE* in, const char* name,
 		free(mom);
 		return NULL;
 	}
-	while(isspace((int)*remain))
+	while(isspace((unsigned char)*remain))
 		remain++;
 	if(parse_keyword(&remain, "ADDRESS")) {
-		while(isspace((int)*remain))
+		while(isspace((unsigned char)*remain))
 			remain++;
 		if(strlen(remain) > 0) /* remove \n */
 			remain[strlen(remain)-1] = 0;
@@ -408,7 +408,7 @@ static struct replay_scenario*
 make_scenario(char* line)
 {
 	struct replay_scenario* scen;
-	while(isspace((int)*line))
+	while(isspace((unsigned char)*line))
 		line++;
 	if(!*line) {
 		log_err("scenario: no title given");
@@ -442,7 +442,7 @@ replay_scenario_read(FILE* in, const char* name, int* lineno)
 		parse=line;
 		pstate.lineno++;
 		(*lineno)++;
-		while(isspace((int)*parse))
+		while(isspace((unsigned char)*parse))
 			parse++;
 		if(!*parse) 
 			continue; /* empty line */
@@ -651,7 +651,7 @@ do_macro_variable(rbtree_t* store, char* buf, size_t remain)
 	char sv;
 	if(at[0]==0)
 		return NULL; /* no variable name after $ */
-	while(*at && (isalnum((int)*at) || *at=='_')) {
+	while(*at && (isalnum((unsigned char)*at) || *at=='_')) {
 		at++;
 	}
 	/* terminator, we are working in macro_expand() buffer */
@@ -724,7 +724,7 @@ do_macro_arith(char* orig, size_t remain, char** arithstart)
 		/* remember start pos of expr, skip the first number */
 		at = orig;
 		*arithstart = at;
-		while(*at && (isdigit((int)*at) || *at == '.'))
+		while(*at && (isdigit((unsigned char)*at) || *at == '.'))
 			at++;
 		return at;
 	}
@@ -737,7 +737,7 @@ do_macro_arith(char* orig, size_t remain, char** arithstart)
 		*arithstart = NULL;
 		return do_macro_arith(orig, remain, arithstart);
 	}
-	if(isdigit((int)operator)) {
+	if(isdigit((unsigned char)operator)) {
 		*arithstart = orig;
 		return at+skip; /* do nothing, but setup for later number */
 	}
@@ -820,13 +820,13 @@ macro_expand(rbtree_t* store, struct replay_runtime* runtime, char** text)
 			at = do_macro_recursion(store, runtime, at, remain);
 		} else if(*at == '$') {
 			at = do_macro_variable(store, at, remain);
-		} else if(isdigit((int)*at)) {
+		} else if(isdigit((unsigned char)*at)) {
 			at = do_macro_arith(at, remain, &arithstart);
 		} else {
 			/* copy until whitespace or operator */
-			if(*at && (isalnum((int)*at) || *at=='_')) {
+			if(*at && (isalnum((unsigned char)*at) || *at=='_')) {
 				at++;
-				while(*at && (isalnum((int)*at) || *at=='_'))
+				while(*at && (isalnum((unsigned char)*at) || *at=='_'))
 					at++;
 			} else at++;
 		}

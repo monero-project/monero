@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -81,6 +81,17 @@ namespace cryptonote
 
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
     bool seed(const std::vector<std::string> &args = std::vector<std::string>());
+
+    /*!
+     * \brief Sets seed language.
+     *
+     * interactive
+     *   - prompts for password so wallet can be rewritten
+     *   - calls get_mnemonic_language() which prompts for language
+     *
+     * \return success status
+     */
+    bool seed_set_language(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -96,11 +107,17 @@ namespace cryptonote
     );
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
+    bool set_variable(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
     bool ask_wallet_create_if_needed();
+    /*!
+     * \brief Prints the seed with a nice message
+     * \param seed seed to print
+     */
+    void print_seed(std::string seed);
 
     /*!
      * \brief Gets the word seed language from the user.

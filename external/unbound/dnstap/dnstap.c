@@ -37,6 +37,7 @@
 #ifdef USE_DNSTAP
 
 #include "config.h"
+#include <string.h>
 #include <sys/time.h>
 #include "ldns/sbuffer.h"
 #include "util/config_file.h"
@@ -65,6 +66,7 @@ dt_pack(const Dnstap__Dnstap *d, void **buf, size_t *sz)
 {
 	ProtobufCBufferSimple sbuf;
 
+	memset(&sbuf, 0, sizeof(sbuf));
 	sbuf.base.append = protobuf_c_buffer_simple_append;
 	sbuf.len = 0;
 	sbuf.alloced = DNSTAP_INITIAL_BUF_SIZE;
@@ -87,9 +89,9 @@ dt_send(const struct dt_env *env, void *buf, size_t len_buf)
 	fstrm_res res;
 	if (!buf)
 		return;
-	res = fstrm_io_submit(env->fio, env->fq, buf, len_buf,
-			      fstrm_free_wrapper, NULL);
-	if (res != FSTRM_RES_SUCCESS)
+	res = fstrm_iothr_submit(env->iothr, env->ioq, buf, len_buf,
+				 fstrm_free_wrapper, NULL);
+	if (res != fstrm_res_success)
 		free(buf);
 }
 
@@ -119,10 +121,12 @@ dt_msg_init(const struct dt_env *env,
 struct dt_env *
 dt_create(const char *socket_path, unsigned num_workers)
 {
-	char *fio_err;
+	fstrm_res res;
 	struct dt_env *env;
-	struct fstrm_io_options *fopt;
+	struct fstrm_iothr_options *fopt;
 	struct fstrm_unix_writer_options *fuwopt;
+	struct fstrm_writer *fw;
+	struct fstrm_writer_options *fwopt;
 
 	verbose(VERB_OPS, "opening dnstap socket %s", socket_path);
 	log_assert(socket_path != NULL);
@@ -132,24 +136,29 @@ dt_create(const char *socket_path, unsigned num_workers)
 	if (!env)
 		return NULL;
 
+	fwopt = fstrm_writer_options_init();
+	res = fstrm_writer_options_add_content_type(fwopt,
+		DNSTAP_CONTENT_TYPE, sizeof(DNSTAP_CONTENT_TYPE) - 1);
+	log_assert(res == fstrm_res_success);
+
 	fuwopt = fstrm_unix_writer_options_init();
 	fstrm_unix_writer_options_set_socket_path(fuwopt, socket_path);
-	fopt = fstrm_io_options_init();
-	fstrm_io_options_set_content_type(fopt,
-					  DNSTAP_CONTENT_TYPE,
-					  sizeof(DNSTAP_CONTENT_TYPE) - 1);
-	fstrm_io_options_set_num_queues(fopt, num_workers);
-	fstrm_io_options_set_writer(fopt, fstrm_unix_writer, fuwopt);
-	env->fio = fstrm_io_init(fopt, &fio_err);
-	if (env->fio == NULL) {
-		verbose(VERB_DETAIL, "dt_create: fstrm_io_init() failed: %s",
-			fio_err);
-		free(fio_err);
+
+	fw = fstrm_unix_writer_init(fuwopt, fwopt);
+	log_assert(fw != NULL);
+
+	fopt = fstrm_iothr_options_init();
+	fstrm_iothr_options_set_num_input_queues(fopt, num_workers);
+	env->iothr = fstrm_iothr_init(fopt, &fw);
+	if (env->iothr == NULL) {
+		verbose(VERB_DETAIL, "dt_create: fstrm_iothr_init() failed");
+		fstrm_writer_destroy(&fw);
 		free(env);
 		env = NULL;
 	}
-	fstrm_io_options_destroy(&fopt);
+	fstrm_iothr_options_destroy(&fopt);
 	fstrm_unix_writer_options_destroy(&fuwopt);
+	fstrm_writer_options_destroy(&fwopt);
 
 	return env;
 }
@@ -238,8 +247,8 @@ dt_apply_cfg(struct dt_env *env, struct config_file *cfg)
 int
 dt_init(struct dt_env *env)
 {
-	env->fq = fstrm_io_get_queue(env->fio);
-	if (env->fq == NULL)
+	env->ioq = fstrm_iothr_get_input_queue(env->iothr);
+	if (env->ioq == NULL)
 		return 0;
 	return 1;
 }
@@ -250,7 +259,7 @@ dt_delete(struct dt_env *env)
 	if (!env)
 		return;
 	verbose(VERB_OPS, "closing dnstap socket");
-	fstrm_io_destroy(&env->fio);
+	fstrm_iothr_destroy(&env->iothr);
 	free(env->identity);
 	free(env->version);
 	free(env);

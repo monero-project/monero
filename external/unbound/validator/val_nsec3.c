@@ -731,8 +731,8 @@ label_compare_lower(uint8_t* lab1, uint8_t* lab2, size_t lablen)
 {
 	size_t i;
 	for(i=0; i<lablen; i++) {
-		if(tolower((int)*lab1) != tolower((int)*lab2)) {
-			if(tolower((int)*lab1) < tolower((int)*lab2))
+		if(tolower((unsigned char)*lab1) != tolower((unsigned char)*lab2)) {
+			if(tolower((unsigned char)*lab1) < tolower((unsigned char)*lab2))
 				return -1;
 			return 1;
 		}

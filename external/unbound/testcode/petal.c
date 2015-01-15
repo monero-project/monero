@@ -235,6 +235,7 @@ setup_ctx(char* key, char* cert)
 	SSL_CTX* ctx = SSL_CTX_new(SSLv23_server_method());
 	if(!ctx) print_exit("out of memory");
 	(void)SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+	(void)SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3);
 	if(!SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM))
 		print_exit("cannot read cert");
 	if(!SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM))

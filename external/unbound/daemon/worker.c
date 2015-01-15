@@ -935,7 +935,7 @@ worker_handle_request(struct comm_point* c, void* arg, int error,
 			&repinfo->addr, repinfo->addrlen);
 		goto send_reply;
 	}
-	h = query_info_hash(&qinfo);
+	h = query_info_hash(&qinfo, sldns_buffer_read_u16_at(c->buffer, 2));
 	if((e=slabhash_lookup(worker->env.msg_cache, h, &qinfo, 0))) {
 		/* answer from cache - we have acquired a readlock on it */
 		if(answer_from_cache(worker, &qinfo, 

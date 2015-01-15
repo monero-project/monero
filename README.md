@@ -1,6 +1,6 @@
 # Monero
 
-Copyright (c) 2014, The Monero Project
+Copyright (c) 2014-2015, The Monero Project
 
 ## Development Resources
 
@@ -30,7 +30,7 @@ Anyone is able to contribute to Monero. If you have a fix or code change, feel f
 
 ## License
 
-Copyright (c) 2014, The Monero Project
+Copyright (c) 2014-2015, The Monero Project
 
 All rights reserved.
 
@@ -50,7 +50,7 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 
 ### On Unix and Linux:
 
-Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
 Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, bison or yacc
 
 **Basic Process:**

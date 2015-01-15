@@ -67,7 +67,7 @@ int storeQueryInCache(struct module_qstate* qstate, struct query_info* qinfo, st
     }
 
     return dns_cache_store(qstate->env, qinfo, msgrep, is_referral, 
-	qstate->prefetch_leeway, 0, NULL);
+	qstate->prefetch_leeway, 0, NULL, qstate->query_flags);
 }
 
 /*  Invalidate the message associated with query_info stored in message cache */
@@ -78,7 +78,7 @@ void invalidateQueryInCache(struct module_qstate* qstate, struct query_info* qin
     struct reply_info *r;
     size_t i, j;
 
-    h = query_info_hash(qinfo);
+    h = query_info_hash(qinfo, qstate->query_flags);
     if ((e=slabhash_lookup(qstate->env->msg_cache, h, qinfo, 0))) 
     {
 	r = (struct reply_info*)(e->data);

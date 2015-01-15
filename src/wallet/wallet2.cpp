@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -48,6 +48,9 @@ using namespace epee;
 #include "cryptonote_protocol/blobdatatype.h"
 #include "mnemonics/electrum-words.h"
 #include "common/dns_utils.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 extern "C"
 {
@@ -86,23 +89,54 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
   m_daemon_address = daemon_address;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::get_seed(std::string& electrum_words)
+bool wallet2::is_deterministic()
 {
-  crypto::ElectrumWords::bytes_to_words(get_account().get_keys().m_spend_secret_key, electrum_words, seed_language);
-
   crypto::secret_key second;
   keccak((uint8_t *)&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
-
   sc_reduce32((uint8_t *)&second);
-  
-  return memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+  bool keys_deterministic = memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+  return keys_deterministic;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::get_seed(std::string& electrum_words)
+{
+  bool keys_deterministic = is_deterministic();
+  if (!keys_deterministic)
+  {
+    std::cout << "This is not a deterministic wallet" << std::endl;
+    return false;
+  }
+  if (seed_language.empty())
+  {
+    std::cout << "seed_language not set" << std::endl;
+    return false;
+  }
+
+  crypto::ElectrumWords::bytes_to_words(get_account().get_keys().m_spend_secret_key, electrum_words, seed_language);
+
+  return true;
+}
+/*!
+ * \brief Gets the seed language
+ */
+const std::string wallet2::get_seed_language()
+{
+  return seed_language;
 }
 /*!
  * \brief Sets the seed language
+ * \param language  Seed language to set to
  */
 void wallet2::set_seed_language(const std::string &language)
 {
   seed_language = language;
+}
+/*!
+ * \brief Tells if the wallet file is deprecated.
+ */
+bool wallet2::is_deprecated() const
+{
+  return is_old_file_format;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height)
@@ -432,7 +466,13 @@ bool wallet2::clear()
   m_local_bc_height = 1;
   return true;
 }
-//----------------------------------------------------------------------------------------------------
+
+/*!
+ * \brief Stores wallet information to wallet file.
+ * \param  keys_file_name Name of wallet file
+ * \param  password       Password of wallet file
+ * \return                Whether it was successful.
+ */
 bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password)
 {
   std::string account_data;
@@ -440,6 +480,25 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   CHECK_AND_ASSERT_MES(r, false, "failed to serialize wallet keys");
   wallet2::keys_file_data keys_file_data = boost::value_initialized<wallet2::keys_file_data>();
 
+  // Create a JSON object with "key_data" and "seed_language" as keys.
+  rapidjson::Document json;
+  json.SetObject();
+  rapidjson::Value value(rapidjson::kStringType);
+  value.SetString(account_data.c_str(), account_data.length());
+  json.AddMember("key_data", value, json.GetAllocator());
+  if (!seed_language.empty())
+  {
+    value.SetString(seed_language.c_str(), seed_language.length());
+    json.AddMember("seed_language", value, json.GetAllocator());
+  }
+
+  // Serialize the JSON object
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  json.Accept(writer);
+  account_data = buffer.GetString();
+
+  // Encrypt the entire JSON object.
   crypto::chacha8_key key;
   crypto::generate_chacha8_key(password, key);
   std::string cipher;
@@ -465,21 +524,44 @@ namespace
     return r && expected_pub == pub;
   }
 }
-//----------------------------------------------------------------------------------------------------
+
+/*!
+ * \brief Load wallet information from wallet file.
+ * \param keys_file_name Name of wallet file
+ * \param password       Password of wallet file
+ */
 void wallet2::load_keys(const std::string& keys_file_name, const std::string& password)
 {
   wallet2::keys_file_data keys_file_data;
   std::string buf;
   bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
+
+  // Decrypt the contents
   r = ::serialization::parse_binary(buf, keys_file_data);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
-
   crypto::chacha8_key key;
   crypto::generate_chacha8_key(password, key);
   std::string account_data;
   account_data.resize(keys_file_data.account_data.size());
   crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
+
+  // The contents should be JSON if the wallet follows the new format.
+  rapidjson::Document json;
+  if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
+  {
+    is_old_file_format = true;
+  }
+  else
+  {
+    account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
+      json["key_data"].GetStringLength());
+    if (json.HasMember("seed_language"))
+    {
+      set_seed_language(std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
+        json["seed_language"].GetStringLength()));
+    }
+  }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
   r = epee::serialization::load_t_from_binary(m_account, account_data);
@@ -487,8 +569,66 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
 }
-//----------------------------------------------------------------------------------------------------
-crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password, const crypto::secret_key& recovery_param, bool recover, bool two_random)
+
+/*!
+ * \brief verify password for default wallet keys file.
+ * \param password       Password to verify
+ *
+ * for verification only
+ * should not mutate state, unlike load_keys()
+ * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
+ *
+ */
+bool wallet2::verify_password(const std::string& password)
+{
+  const std::string keys_file_name = m_keys_file;
+  wallet2::keys_file_data keys_file_data;
+  std::string buf;
+  bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
+
+  // Decrypt the contents
+  r = ::serialization::parse_binary(buf, keys_file_data);
+  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
+  crypto::chacha8_key key;
+  crypto::generate_chacha8_key(password, key);
+  std::string account_data;
+  account_data.resize(keys_file_data.account_data.size());
+  crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
+
+  // The contents should be JSON if the wallet follows the new format.
+  rapidjson::Document json;
+  if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
+  {
+    // old format before JSON wallet key file format
+  }
+  else
+  {
+    account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
+      json["key_data"].GetStringLength());
+  }
+
+  cryptonote::account_base account_data_check;
+
+  r = epee::serialization::load_t_from_binary(account_data_check, account_data);
+  const cryptonote::account_keys& keys = account_data_check.get_keys();
+
+  r = r && verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
+  r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
+  return r;
+}
+
+/*!
+ * \brief  Generates a wallet or restores one.
+ * \param  wallet_        Name of wallet file
+ * \param  password       Password of wallet file
+ * \param  recovery_param If it is a restore, the recovery key
+ * \param  recover        Whether it is a restore
+ * \param  two_random     Whether it is a non-deterministic wallet
+ * \return                The secret key of the generated wallet
+ */
+crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password,
+  const crypto::secret_key& recovery_param, bool recover, bool two_random)
 {
   clear();
   prepare_file_names(wallet_);
@@ -514,6 +654,20 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   store();
   return retval;
 }
+
+/*!
+ * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
+ * \param wallet_name Name of wallet file (should exist)
+ * \param password    Password for wallet file
+ */
+void wallet2::rewrite(const std::string& wallet_name, const std::string& password)
+{
+  prepare_file_names(wallet_name);
+  boost::system::error_code ignored_ec;
+  THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_keys_file, ignored_ec), error::file_not_found, m_keys_file);
+  bool r = store_keys(m_keys_file, password);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+}
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
 {
@@ -523,6 +677,11 @@ void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists
   boost::system::error_code ignore;
   keys_file_exists = boost::filesystem::exists(keys_file, ignore);
   wallet_file_exists = boost::filesystem::exists(wallet_file, ignore);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::wallet_valid_path_format(const std::string& file_path)
+{
+  return !file_path.empty();
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
@@ -578,14 +737,16 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   {
     LOG_PRINT_L0("file not found: " << m_wallet_file << ", starting with empty blockchain");
     m_account_public_address = m_account.get_keys().m_account_address;
-    return;
   }
-  bool r = tools::unserialize_obj_from_file(*this, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(
-    m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
-    m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
-    error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
+  else
+  {
+    bool r = tools::unserialize_obj_from_file(*this, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(
+      m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
+      m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
+      error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
+  }
 
   cryptonote::block genesis;
   generate_genesis(genesis);
@@ -764,7 +925,7 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t cha
 void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
                        uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx)
 {
-  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(fee), tx, ptx);
+  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), tx, ptx);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
@@ -930,7 +1091,7 @@ void wallet2::commit_tx(std::vector<pending_tx>& ptx_vector)
 //
 // this function will make multiple calls to wallet2::transfer if multiple
 // transactions will be required
-std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra)
 {
 
   // failsafe split attempt counter
@@ -954,7 +1115,22 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
       {
         cryptonote::transaction tx;
         pending_tx ptx;
-        transfer(dst_vector, fake_outs_count, unlock_time, fee, extra, tx, ptx);
+
+	// loop until fee is met without increasing tx size to next KB boundary.
+	uint64_t needed_fee = 0;
+	do
+	{
+	  transfer(dst_vector, fake_outs_count, unlock_time, needed_fee, extra, tx, ptx);
+	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
+	  uint64_t txSize = txBlob.size();
+	  uint64_t numKB = txSize / 1024;
+	  if (txSize % 1024)
+	  {
+	    numKB++;
+	  }
+	  needed_fee = numKB * FEE_PER_KB;
+	} while (ptx.fee < needed_fee);
+
         ptx_vector.push_back(ptx);
 
         // mark transfers to be used as "spent"

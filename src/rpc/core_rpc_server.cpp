@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -474,6 +474,7 @@ namespace cryptonote
       LOG_ERROR("Failed to calculate offset for ");
       return false;
     }
+    res.prev_hash = string_tools::pod_to_hex(b.prev_id);
     res.blocktemplate_blob = string_tools::buff_to_hex_nodelimer(block_blob);
     res.status = CORE_RPC_STATUS_OK;
     return true;
