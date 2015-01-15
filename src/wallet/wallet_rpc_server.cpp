@@ -315,6 +315,26 @@ namespace tools
   {
     res.payments.clear();
 
+    /* If the payment ID list is empty, we get payments to any payment ID (or lack thereof) */
+    if (req.payment_ids.empty())
+    {
+      std::list<std::pair<crypto::hash,wallet2::payment_details>> payment_list;
+      m_wallet.get_payments(payment_list, req.min_block_height);
+
+      for (auto & payment : payment_list)
+      {
+        wallet_rpc::payment_details rpc_payment;
+        rpc_payment.payment_id   = epee::string_tools::pod_to_hex(payment.first);
+        rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.second.m_tx_hash);
+        rpc_payment.amount       = payment.second.m_amount;
+        rpc_payment.block_height = payment.second.m_block_height;
+        rpc_payment.unlock_time  = payment.second.m_unlock_time;
+        res.payments.push_back(std::move(rpc_payment));
+      }
+
+      return true;
+    }
+
     for (auto & payment_id_str : req.payment_ids)
     {
       crypto::hash payment_id;
