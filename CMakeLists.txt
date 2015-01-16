@@ -84,6 +84,7 @@ endif()
 
 include_directories(src contrib/epee/include external "${CMAKE_BINARY_DIR}/version")
 include_directories(src/common/rapidjson/include/)
+include_directories(src/ipc/include)
 
 if(APPLE)
   include_directories(SYSTEM /usr/include/malloc)

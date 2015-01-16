@@ -28,70 +28,35 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#ifndef JSON_RPC_HTTP_SERVER_H
-#define JSON_RPC_HTTP_SERVER_H
+#ifndef DAEMON_IPC_HANDLERS_H
+#define DAEMON_IPC_HANDLERS_H
 
 #include "include_base_utils.h"
 using namespace epee;
 
-#include "wallet_rpc_server.h"
+#include "cryptonote_core/cryptonote_core.h"
+#include "p2p/net_node.h"
+#include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "common/command_line.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_core/account.h"
-#include "wallet_rpc_server_commands_defs.h"
 #include "misc_language.h"
 #include "string_tools.h"
 #include "crypto/hash.h"
-#include "zmq.hpp"
+#include "wap_library.h"
+#include "wap_classes.h"
 
 namespace IPC
 {
-  class Daemon_ipc_server
+  namespace Daemon
   {
-    boost::thread *server_thread; /*!< Server runs on this thread */
-    /*!
-     * \brief Repeatedly loops processing requests if any.
-     */
-    void poll();
-    void handle_request(const std::string &request_string, std::string &response);
-    bool check_core_busy();
-
-    void getblocks(std::string &response);
-    void sendtransactions(std::string &response);
-    void get_o_indexes(std::string &response);
-    std::string m_ip; /*!< IP address where its listening */
-    std::string m_port; /*!< Port where its listening */
-    bool m_is_running; /*!< Whether the server is currently running */
-    zmq::socket_t *socket; /*!< 0MQ Socket pointer */
-    cryptonote::core *core; /*!< Pointer to the core */
-    nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p2p;
-      /*!< Pointer to p2p node server */
-
-  public:
-    /**
-     * \brief Constructor
-     * \param ip IP address to bind
-     * \param port Port number to bind
-     * \param ev_handler Event handler function pointer
-     */
-    Daemon_ipc_server(const std::string &ip, const std::string &port);
-
-    /**
-     * \brief Destructor
-     */
-    ~Daemon_ipc_server();
-
-    /*!
-     * \brief Starts the server
-     * \return True if start was successful
-     */
-    bool start();
-
-    /*!
-     * \brief Stops the server
-     */
-    void stop();
-  };
+    void start_mining(wap_proto_t *message);
+    void get_blocks(wap_proto_t *message);
+    void send_transactions(wap_proto_t *message);
+    void get_o_indexes(wap_proto_t *message);
+    void init(cryptonote::core *p_core,
+      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p);
+  }
 }
 
 #endif

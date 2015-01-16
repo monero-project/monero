@@ -83,7 +83,8 @@ namespace tools
 const size_t MAX_SPLIT_ATTEMPTS = 30;
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction_size_limit)
+void wallet2::init(const std::string& daemon_address,
+  uint64_t upper_transaction_size_limit)
 {
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = daemon_address;
@@ -456,6 +457,9 @@ void wallet2::detach_blockchain(uint64_t height)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::deinit()
 {
+  //  Great, it all works. Now to shutdown, we use the destroy method,
+  //  which does a proper deconnect handshake internally:
+  wap_client_destroy (&client);
   return true;
 }
 //----------------------------------------------------------------------------------------------------

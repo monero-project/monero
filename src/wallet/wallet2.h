@@ -46,6 +46,8 @@
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/chacha8.h"
 #include "crypto/hash.h"
+#include "wap_library.h"
+#include "wap_classes.h"
 
 #include "wallet_errors.h"
 
@@ -82,7 +84,13 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
-    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet), is_old_file_format(false) {};
+    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet) {    
+      client = wap_client_new ("ipc://@/monero", 200, "wallet identity");
+      assert (client);
+      int rc = wap_client_start (client, 25);
+      std::cout << "\n\n Response: " << (int)wap_client_curr_height(client) << "\n\n";
+      assert (rc == 0);
+    };
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -165,7 +173,9 @@ namespace tools
     // free block size. TODO: fix this so that it actually takes
     // into account the current median block size rather than
     // the minimum block size.
-    void init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+    void init(const std::string& daemon_address = "http://localhost:8080",
+      uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) -
+      CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     bool deinit();
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
@@ -298,6 +308,7 @@ namespace tools
     bool m_testnet;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
+    wap_client_t *client;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)

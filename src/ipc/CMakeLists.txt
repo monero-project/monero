@@ -26,35 +26,33 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(wallet_sources
-  wallet2.cpp
-  wallet_rpc_server.cpp
-  wallet_json_rpc_handlers.cpp)
+set(server_ipc_sources
+  wap_server/wap_server.c
+  wap_proto.c
+  daemon_ipc_handlers.cpp)
 
-set(wallet_headers)
+set(client_ipc_sources
+  wap_client/wap_client.c
+  wap_proto.c)
 
-set(wallet_private_headers
-  wallet2.h
-  wallet_errors.h
-  wallet_rpc_server.h
-  wallet_rpc_server_commands_defs.h
-  wallet_rpc_server_error_codes.h)
+set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} PROPERTIES LANGUAGE CXX)
+set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} PROPERTIES COMPILE_FLAGS "-Wno-write-strings -Wno-error -fpermissive")
 
-bitmonero_private_headers(wallet
-  ${wallet_private_headers})
-bitmonero_add_library(wallet
-  ${wallet_sources}
-  ${wallet_headers}
-  ${wallet_private_headers})
-target_link_libraries(wallet
-  LINK_PUBLIC
-    client_ipc
-    cryptonote_core
-    mnemonics
+set(server_ipc_headers)
+set(client_ipc_headers)
+
+bitmonero_add_library(server_ipc
+  ${server_ipc_sources}
+  ${server_ipc_headers})
+target_link_libraries(server_ipc
   LINK_PRIVATE
-    ${Boost_SERIALIZATION_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${ZMQ_LIB}
-    ${CZMQ_LIB}
-    ${EXTRA_LIBRARIES})
+    cryptonote_core
+    ${ZMQ_LIB})
+
+bitmonero_add_library(client_ipc
+  ${client_ipc_sources}
+  ${client_ipc_headers})
+target_link_libraries(client_ipc
+  LINK_PRIVATE
+    cryptonote_core
+    ${CZMQ_LIB})

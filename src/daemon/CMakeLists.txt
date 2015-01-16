@@ -59,6 +59,7 @@ bitmonero_add_executable(daemon
 target_link_libraries(daemon
   LINK_PRIVATE
     rpc
+    server_ipc
     cryptonote_core
     crypto
     common
@@ -71,7 +72,9 @@ target_link_libraries(daemon
     ${CMAKE_THREAD_LIBS_INIT}
     ${UPNP_LIBRARIES}
     ${EXTRA_LIBRARIES}
-    ${NET_SKELETON_LIBRARY})
+    ${NET_SKELETON_LIBRARY}
+    ${ZMQ_LIB}
+    ${CZMQ_LIB})
 add_dependencies(daemon
   version)
 set_property(TARGET daemon

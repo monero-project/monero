@@ -52,6 +52,7 @@ using namespace epee;
 #include "version.h"
 #include "rpc/daemon_json_rpc_handlers.h"
 #include "rpc/json_rpc_http_server.h"
+#include "daemon_ipc_handlers.h"
 
 #if defined(WIN32)
 #include <crtdbg.h>
@@ -245,6 +246,8 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize protocol.");
   LOG_PRINT_L0("Protocol initialized OK");
 
+  // LOG_PRINT_L0("Initializing core IPC server...");
+  // IPC::Daemon::init(&ccore, &p2psrv);
   LOG_PRINT_L0("Initializing core RPC server...");
   RPC::Daemon::init(&ccore, &p2psrv, testnet_mode);
   std::string ip_address, port;

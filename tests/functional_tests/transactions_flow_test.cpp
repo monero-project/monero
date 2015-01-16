@@ -137,8 +137,6 @@ bool transactions_flow_test(std::string& working_folder,
     return false;
   }
 
-  w1.init(daemon_addr_a);
-
   size_t blocks_fetched = 0;
   bool received_money;
   bool ok;

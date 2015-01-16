@@ -1458,7 +1458,8 @@ int main(int argc, char* argv[])
       LOG_ERROR("Failed to store wallet: " << e.what());
       return 1;
     }
-  }else
+  }
+  else
   {
     //runs wallet with console interface
     r = w.init(vm);
