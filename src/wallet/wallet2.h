@@ -86,7 +86,9 @@ namespace tools
   public:
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet) {
       client = wap_client_new ("ipc://@/monero", 200, "wallet identity");
-      assert (client);
+      if (!client) {
+        // TODO: Daemon not up.
+      }
       int rc = wap_client_start (client, 25);
       assert (rc == 0);
     };
