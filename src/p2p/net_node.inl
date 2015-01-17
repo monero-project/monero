@@ -259,53 +259,66 @@ namespace nodetool
       std::vector<std::vector<std::string>> dns_results;
       dns_results.resize(m_seed_nodes_list.size());
 
-      std::unique_ptr<std::atomic_flag[]> dns_finished(new std::atomic_flag[m_seed_nodes_list.size()]);
-
-      // set each flag, thread will release when finished
-      for (uint64_t i = 0; i < m_seed_nodes_list.size(); ++i)
-        dns_finished[i].test_and_set();
-
+      std::list<boost::thread*> dns_threads;
       uint64_t result_index = 0;
       for (const std::string& addr_str : m_seed_nodes_list)
       {
-
-        uint64_t result_index_capture = result_index++;
-        boost::thread t([&]
+        boost::thread* th = new boost::thread([=, &dns_results, &addr_str]
         {
+          LOG_PRINT_L4("dns_threads[" << result_index << "] created for: " << addr_str)
           // TODO: care about dnssec avail/valid
           bool avail, valid;
-          std::vector<std::string> addr_list = tools::DNSResolver().get_ipv4(addr_str, avail, valid);
+          std::vector<std::string> addr_list;
 
-          dns_results[result_index_capture] = addr_list;
-          dns_finished[result_index_capture].clear();
+          try
+          {
+            addr_list = tools::DNSResolver().get_ipv4(addr_str, avail, valid);
+            LOG_PRINT_L4("dns_threads[" << result_index << "] DNS resolve done");
+            boost::this_thread::interruption_point();
+          }
+          catch(const boost::thread_interrupted&)
+          {
+            // thread interruption request
+            // even if we now have results, finish thread without setting
+            // result variables, which are now out of scope in main thread
+            LOG_PRINT_L4("dns_threads[" << result_index << "] interrupted");
+            return;
+          }
+
+          LOG_PRINT_L4("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
+          dns_results[result_index] = addr_list;
         });
 
+        dns_threads.push_back(th);
+        ++result_index;
       }
 
-      uint64_t sleep_count = 0;
-      uint64_t sleep_interval_ms = 100;
-      while (sleep_count++ * sleep_interval_ms < CRYPTONOTE_DNS_TIMEOUT_MS)
+      LOG_PRINT_L4("dns_threads created, now waiting for completion or timeout of " << CRYPTONOTE_DNS_TIMEOUT_MS << "ms");
+      boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(CRYPTONOTE_DNS_TIMEOUT_MS);
+      uint64_t i = 0;
+      for (boost::thread* th : dns_threads)
       {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(sleep_interval_ms));
-        bool all_done = false;
-        for (uint64_t i = 0; i < m_seed_nodes_list.size(); ++i)
+        if (! th->try_join_until(deadline))
         {
-          if (dns_finished[i].test_and_set())
-            break;
-          else
-            dns_finished[i].clear();
-          all_done = true;
+          LOG_PRINT_L4("dns_threads[" << i << "] timed out, sending interrupt");
+          th->interrupt();
         }
-        if (all_done)
-          break;
+        ++i;
       }
 
+      i = 0;
       for (const auto& result : dns_results)
       {
-        for (const auto& addr_string : result)
+        LOG_PRINT_L4("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
+        // if no results for node, thread's lookup likely timed out
+        if (result.size())
         {
-          append_net_address(m_seed_nodes, addr_string + ":18080");
+          for (const auto& addr_string : result)
+          {
+            append_net_address(m_seed_nodes, addr_string + ":18080");
+          }
         }
+        ++i;
       }
 
       if (!m_seed_nodes.size())

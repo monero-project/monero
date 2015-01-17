@@ -246,8 +246,8 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize protocol.");
   LOG_PRINT_L0("Protocol initialized OK");
 
-  // LOG_PRINT_L0("Initializing core IPC server...");
-  // IPC::Daemon::init(&ccore, &p2psrv);
+  LOG_PRINT_L0("Initializing core IPC server...");
+  IPC::Daemon::init(&ccore, &p2psrv);
   LOG_PRINT_L0("Initializing core RPC server...");
   RPC::Daemon::init(&ccore, &p2psrv, testnet_mode);
   std::string ip_address, port;
