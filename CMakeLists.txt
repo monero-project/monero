@@ -138,7 +138,10 @@ link_directories(${UNBOUND_LIBRARY_DIRS})
 # Final setup for rapidjson
 include_directories(external/rapidjson)
 
-find_package(LMDB REQUIRED)
+
+add_subdirectory(db_drivers)
+
+# Final setup for liblmdb
 include_directories(${LMDB_INCLUDE})
 
 if(MSVC)

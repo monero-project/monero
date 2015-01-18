@@ -1,4 +1,5 @@
-# Copyright (c) 2014, The Monero Project
+# Copyright (c) 2014-2015, The Monero Project
+# 
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without modification, are
@@ -25,33 +26,24 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-MESSAGE(STATUS "Looking for liblmdb")
+find_package(LMDB)
 
-FIND_PATH(LMDB_INCLUDE_DIR
-  NAMES lmdb.h
-  PATH_SUFFIXES include/ include/lmdb/
-  PATHS "${PROJECT_SOURCE_DIR}"
-  ${LMDB_ROOT}
-  $ENV{LMDB_ROOT}
-  /usr/local/
-  /usr/
-)
+if(NOT LMDB_LIBRARIES OR STATIC)
+  add_subdirectory(liblmdb)
+  message(STATUS "lmdb not found, building from src tree")
 
-if(STATIC)
-  if(MINGW)
-    find_library(LMDB_LIBRARIES liblmdb.dll.a)
-  else()
-    find_library(LMDB_LIBRARIES liblmdb.a)
-  endif()
+  set(LMDB_STATIC true PARENT_SCOPE)
+  set(LMDB_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/liblmdb" PARENT_SCOPE)
+  set(LMDB_LIBRARY "lmdb" PARENT_SCOPE)
 else()
-  find_library(LMDB_LIBRARIES lmdb)
+  message(STATUS "Found liblmdb include (lmdb.h) in ${LMDB_INCLUDE_DIR}")
+  if(LMDB_LIBRARIES)
+    message(STATUS "Found liblmdb shared library")
+    set(LMDB_STATIC false PARENT_SCOPE)
+    set(LMDB_INCLUDE ${LMDB_INCLUDE_DIR} PARENT_SCOPE)
+    set(LMDB_LIBRARY ${LMDB_LIBRARIES} PARENT_SCOPE)
+    set(LMDB_LIBRARY_DIRS "" PARENT_SCOPE)
+  else()
+    die("Found liblmdb includes, but could not find liblmdb library. Please make sure you have installed liblmdb or liblmdb-dev or the equivalent")
+  endif()
 endif()
-
-IF(LMDB_INCLUDE_DIR)
-  MESSAGE(STATUS "Found liblmdb include (lmdb.h) in ${LMDB_INCLUDE_DIR}")
-  IF(LMDB_LIBRARIES)
-    MESSAGE(STATUS "Found liblmdb library")
-    set(LMDB_INCLUDE ${LMDB_INCLUDE_DIR})
-    set(LMDB_LIBRARY ${LMDB_LIBRARIES})
-  ENDIF()
-ENDIF()
