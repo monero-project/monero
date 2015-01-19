@@ -616,7 +616,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block() const
   std::vector<difficulty_type> cumulative_difficulties;
   auto h = m_db->height();
 
-  size_t offset = h - std::min(h, static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT));
+  size_t offset = h - std::min<size_t>(h, static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT));
 
   if (offset == 0)
   {
@@ -892,7 +892,7 @@ void Blockchain::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) 
     return;
 
   // add size of last <count> blocks to vector <sz> (or less, if blockchain size < count)
-  size_t start_offset = h - std::min(h, count);
+  size_t start_offset = h - std::min<size_t>(h, count);
   for(size_t i = start_offset; i < h; i++)
   {
     sz.push_back(m_db->get_block_size(i));
