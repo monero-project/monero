@@ -383,6 +383,7 @@ namespace cryptonote
       uint64_t difficulty;
       uint64_t height;
       uint64_t reserved_offset;
+      std::string prev_hash;
       blobdata blocktemplate_blob;
       std::string status;
 
@@ -390,6 +391,7 @@ namespace cryptonote
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(height)
         KV_SERIALIZE(reserved_offset)
+        KV_SERIALIZE(prev_hash)
         KV_SERIALIZE(blocktemplate_blob)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()

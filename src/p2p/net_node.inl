@@ -31,6 +31,9 @@
 #pragma once
 
 #include <algorithm>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/thread.hpp> 
+#include <atomic>
 
 #include "version.h"
 #include "string_tools.h"
@@ -46,13 +49,13 @@
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
- #include <miniupnpc/miniupnpc.h>
- #include <miniupnpc/upnpcommands.h>
- #include <miniupnpc/upnperrors.h>
+  #include <miniupnpc/miniupnpc.h>
+  #include <miniupnpc/upnpcommands.h>
+  #include <miniupnpc/upnperrors.h>
 #else
- #include "miniupnpc.h"
- #include "upnpcommands.h"
- #include "upnperrors.h"
+  #include "miniupnpc.h"
+  #include "upnpcommands.h"
+  #include "upnperrors.h"
 #endif
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
@@ -252,19 +255,75 @@ namespace nodetool
       // add the result addresses as seed nodes
       // TODO: at some point add IPv6 support, but that won't be relevant
       // for some time yet.
+      
+      std::vector<std::vector<std::string>> dns_results;
+      dns_results.resize(m_seed_nodes_list.size());
+
+      std::list<boost::thread*> dns_threads;
+      uint64_t result_index = 0;
       for (const std::string& addr_str : m_seed_nodes_list)
       {
-        // TODO: care about dnssec avail/valid
-        bool avail, valid;
-        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
-        for (const std::string& a : addr_list)
+        boost::thread* th = new boost::thread([=, &dns_results, &addr_str]
         {
-          append_net_address(m_seed_nodes, a + ":18080");
+          LOG_PRINT_L4("dns_threads[" << result_index << "] created for: " << addr_str)
+          // TODO: care about dnssec avail/valid
+          bool avail, valid;
+          std::vector<std::string> addr_list;
+
+          try
+          {
+            addr_list = tools::DNSResolver().get_ipv4(addr_str, avail, valid);
+            LOG_PRINT_L4("dns_threads[" << result_index << "] DNS resolve done");
+            boost::this_thread::interruption_point();
+          }
+          catch(const boost::thread_interrupted&)
+          {
+            // thread interruption request
+            // even if we now have results, finish thread without setting
+            // result variables, which are now out of scope in main thread
+            LOG_PRINT_L4("dns_threads[" << result_index << "] interrupted");
+            return;
+          }
+
+          LOG_PRINT_L4("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
+          dns_results[result_index] = addr_list;
+        });
+
+        dns_threads.push_back(th);
+        ++result_index;
+      }
+
+      LOG_PRINT_L4("dns_threads created, now waiting for completion or timeout of " << CRYPTONOTE_DNS_TIMEOUT_MS << "ms");
+      boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(CRYPTONOTE_DNS_TIMEOUT_MS);
+      uint64_t i = 0;
+      for (boost::thread* th : dns_threads)
+      {
+        if (! th->try_join_until(deadline))
+        {
+          LOG_PRINT_L4("dns_threads[" << i << "] timed out, sending interrupt");
+          th->interrupt();
         }
+        ++i;
+      }
+
+      i = 0;
+      for (const auto& result : dns_results)
+      {
+        LOG_PRINT_L4("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
+        // if no results for node, thread's lookup likely timed out
+        if (result.size())
+        {
+          for (const auto& addr_string : result)
+          {
+            append_net_address(m_seed_nodes, addr_string + ":18080");
+          }
+        }
+        ++i;
       }
 
       if (!m_seed_nodes.size())
       {
+        LOG_PRINT_L0("DNS seed node lookup either timed out or failed, falling back to defaults");
         append_net_address(m_seed_nodes, "62.210.78.186:18080");
         append_net_address(m_seed_nodes, "195.12.60.154:18080");
         append_net_address(m_seed_nodes, "54.241.246.125:18080");

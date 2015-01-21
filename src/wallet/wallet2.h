@@ -82,7 +82,7 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
-    wallet2(bool testnet = false) : m_run(true), m_callback(0), m_testnet(testnet), is_old_file_format(false) {};
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false) {};
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -196,6 +196,7 @@ namespace tools
     bool refresh(size_t & blocks_fetched, bool& received_money, bool& ok);
 
     bool testnet() { return m_testnet; }
+    bool restricted() const { return m_restricted; }
 
     uint64_t balance();
     uint64_t unlocked_balance();
@@ -211,6 +212,7 @@ namespace tools
     bool check_connection();
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height = 0) const;
+    void get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height) const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
@@ -296,6 +298,7 @@ namespace tools
 
     i_wallet2_callback* m_callback;
     bool m_testnet;
+    bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
   };

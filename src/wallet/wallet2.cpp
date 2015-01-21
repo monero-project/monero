@@ -227,23 +227,24 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
   }
 
   tx_extra_nonce extra_nonce;
+  crypto::hash payment_id = null_hash;
   if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
   {
-    crypto::hash payment_id;
     if(get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
     {
-      uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
-      if (0 < received && null_hash != payment_id)
-      {
-        payment_details payment;
-        payment.m_tx_hash      = cryptonote::get_transaction_hash(tx);
-        payment.m_amount       = received;
-        payment.m_block_height = height;
-        payment.m_unlock_time  = tx.unlock_time;
-        m_payments.emplace(payment_id, payment);
-        LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
-      }
+      // We got a payment ID to go with this tx
     }
+  }
+  uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
+  if (0 < received)
+  {
+    payment_details payment;
+    payment.m_tx_hash      = cryptonote::get_transaction_hash(tx);
+    payment.m_amount       = received;
+    payment.m_block_height = height;
+    payment.m_unlock_time  = tx.unlock_time;
+    m_payments.emplace(payment_id, payment);
+    LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -812,6 +813,17 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
     if (min_height < x.second.m_block_height)
     {
       payments.push_back(x.second);
+    }
+  });
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height) const
+{
+  auto range = std::make_pair(m_payments.begin(), m_payments.end());
+  std::for_each(range.first, range.second, [&payments, &min_height](const payment_container::value_type& x) {
+    if (min_height < x.second.m_block_height)
+    {
+      payments.push_back(x);
     }
   });
 }

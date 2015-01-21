@@ -167,6 +167,13 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
+    if (m_wallet.restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
     // validate the transfer requested and populate dsts & extra
     if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
     {
@@ -218,6 +225,13 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
+    if (m_wallet.restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
     if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
     {
@@ -261,6 +275,13 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_store(const wallet_rpc::COMMAND_RPC_STORE::request& req, wallet_rpc::COMMAND_RPC_STORE::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
+    if (m_wallet.restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
     try
     {
       m_wallet.store();
@@ -314,6 +335,26 @@ namespace tools
   bool wallet_rpc_server::on_get_bulk_payments(const wallet_rpc::COMMAND_RPC_GET_BULK_PAYMENTS::request& req, wallet_rpc::COMMAND_RPC_GET_BULK_PAYMENTS::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
     res.payments.clear();
+
+    /* If the payment ID list is empty, we get payments to any payment ID (or lack thereof) */
+    if (req.payment_ids.empty())
+    {
+      std::list<std::pair<crypto::hash,wallet2::payment_details>> payment_list;
+      m_wallet.get_payments(payment_list, req.min_block_height);
+
+      for (auto & payment : payment_list)
+      {
+        wallet_rpc::payment_details rpc_payment;
+        rpc_payment.payment_id   = epee::string_tools::pod_to_hex(payment.first);
+        rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.second.m_tx_hash);
+        rpc_payment.amount       = payment.second.m_amount;
+        rpc_payment.block_height = payment.second.m_block_height;
+        rpc_payment.unlock_time  = payment.second.m_unlock_time;
+        res.payments.push_back(std::move(rpc_payment));
+      }
+
+      return true;
+    }
 
     for (auto & payment_id_str : req.payment_ids)
     {
@@ -409,6 +450,13 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_query_key(const wallet_rpc::COMMAND_RPC_QUERY_KEY::request& req, wallet_rpc::COMMAND_RPC_QUERY_KEY::response& res, epee::json_rpc::error& er, connection_context& cntx)
   {
+      if (m_wallet.restricted())
+      {
+        er.code = WALLET_RPC_ERROR_CODE_DENIED;
+        er.message = "Command unavailable in restricted mode.";
+        return false;
+      }
+
       if (req.key_type.compare("mnemonic") == 0)
       {
         if (!m_wallet.get_seed(res.key))
