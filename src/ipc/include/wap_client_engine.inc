@@ -56,7 +56,7 @@ typedef enum {
     start_ok_event = 16,
     stop_ok_event = 17,
     close_ok_event = 18,
-    connection_pong_event = 19,
+    ping_ok_event = 19,
     error_event = 20,
     command_invalid_event = 21,
     other_event = 22
@@ -102,7 +102,7 @@ s_event_name [] = {
     "START_OK",
     "STOP_OK",
     "CLOSE_OK",
-    "connection_pong",
+    "PING_OK",
     "ERROR",
     "command_invalid",
     "other"
@@ -407,6 +407,9 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
             break;
+        case WAP_PROTO_PING_OK:
+            return ping_ok_event;
+            break;
         case WAP_PROTO_ERROR:
             return error_event;
             break;
@@ -525,7 +528,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -668,7 +671,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -698,7 +701,7 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -728,7 +731,7 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -758,7 +761,7 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -788,7 +791,7 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -818,7 +821,7 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -848,7 +851,7 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -897,7 +900,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -916,7 +919,7 @@ s_client_execute (s_client_t *self, event_t event)
                 break;
 
             case defaults_state:
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {
@@ -987,7 +990,7 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == connection_pong_event) {
+                if (self->event == ping_ok_event) {
                 }
                 else
                 if (self->event == error_event) {

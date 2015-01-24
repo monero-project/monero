@@ -90,6 +90,7 @@ namespace tools
         // TODO: Daemon not up.
       }
       int rc = wap_client_start (client, 25);
+      std::cout << "\n\n Response: " << (int)wap_client_curr_height(client) << std::endl;
       assert (rc == 0);
     };
     struct transfer_details

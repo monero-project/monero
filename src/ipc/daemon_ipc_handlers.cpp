@@ -70,7 +70,7 @@ namespace IPC
 
     void getblocks(wap_proto_t *message)
     {
-
+      
     }
 
     void sendtransactions(wap_proto_t *message)
