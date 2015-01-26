@@ -640,7 +640,7 @@ bool blockchain_storage::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t
   return get_backward_blocks_sizes(m_blocks.size() -1, sz, count);
 }
 //------------------------------------------------------------------
-uint64_t blockchain_storage::get_current_comulative_blocksize_limit() const
+uint64_t blockchain_storage::get_current_cumulative_blocksize_limit() const
 {
   return m_current_block_cumul_sz_limit;
 }

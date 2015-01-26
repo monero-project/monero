@@ -51,7 +51,11 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
+#if BLOCKCHAIN_DB == DB_LMDB
               m_blockchain_storage(m_mempool),
+#else
+              m_blockchain_storage(&m_mempool),
+#endif
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()), 
               m_starter_message_showed(false),
@@ -577,7 +581,11 @@ namespace cryptonote
       m_starter_message_showed = true;
     }
 
+#if BLOCKCHAIN_DB == DB_LMDB
     m_store_blockchain_interval.do_call(boost::bind(&Blockchain::store_blockchain, &m_blockchain_storage));
+#else
+    m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
+#endif
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;

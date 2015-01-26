@@ -131,7 +131,7 @@ namespace cryptonote
     bool check_tx_inputs(const transaction& tx, const crypto::hash& tx_prefix_hash, uint64_t* pmax_used_block_height = NULL) const;
     bool check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height = NULL) const;
     bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id) const;
-    uint64_t get_current_comulative_blocksize_limit() const;
+    uint64_t get_current_cumulative_blocksize_limit() const;
     bool is_storing_blockchain()const{return m_is_blockchain_storing;}
     uint64_t block_difficulty(size_t i) const;
 

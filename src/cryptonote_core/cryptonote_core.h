@@ -39,7 +39,11 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "tx_pool.h"
+#if BLOCKCHAIN_DB == DB_LMDB
 #include "blockchain.h"
+#else
+#include "blockchain_storage.h"
+#endif
 #include "miner.h"
 #include "connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
@@ -112,7 +116,11 @@ namespace cryptonote
      bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res);
      void pause_mine();
      void resume_mine();
+#if BLOCKCHAIN_DB == DB_LMDB
      Blockchain& get_blockchain_storage(){return m_blockchain_storage;}
+#else
+     blockchain_storage& get_blockchain_storage(){return m_blockchain_storage;}
+#endif
      //debug functions
      void print_blockchain(uint64_t start_index, uint64_t end_index);
      void print_blockchain_index();
@@ -149,7 +157,11 @@ namespace cryptonote
 
 
      tx_memory_pool m_mempool;
+#if BLOCKCHAIN_DB == DB_LMDB
      Blockchain m_blockchain_storage;
+#else
+     blockchain_storage m_blockchain_storage;
+#endif
      i_cryptonote_protocol* m_pprotocol;
      epee::critical_section m_incoming_tx_lock;
      //m_miner and m_miner_addres are probably temporary here
