@@ -37,7 +37,9 @@
 #include "hash-ops.h"
 #include "oaes_lib.h"
 
+#ifndef __SSE2__
 #include <emmintrin.h>
+#else
 
 #if defined(_MSC_VER)
 #include <intrin.h>
