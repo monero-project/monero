@@ -1866,7 +1866,11 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
     // signature spending it.
     if(!check_tx_input(in_to_key, tx_prefix_hash, tx.signatures[sig_index], pmax_used_block_height))
     {
-      LOG_PRINT_L0("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index << "  *pmax_used_block_height: " << *pmax_used_block_height);
+      LOG_PRINT_L0("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+      if (pmax_used_block_height) // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
+      {
+        LOG_PRINT_L0("  *pmax_used_block_height: " << *pmax_used_block_height);
+      }
       return false;
     }
 
