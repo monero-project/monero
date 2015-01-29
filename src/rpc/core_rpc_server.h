@@ -39,6 +39,10 @@
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
+// yes, epee doesn't properly use its full namespace when calling its
+// functions from macros.  *sigh*
+using namespace epee;
+
 namespace cryptonote
 {
   /************************************************************************/
@@ -47,12 +51,16 @@ namespace cryptonote
   class core_rpc_server: public epee::http_server_impl_base<core_rpc_server>
   {
   public:
+
+    static const command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
+    static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
+    static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
+
     typedef epee::net_utils::connection_context_base connection_context;
 
     core_rpc_server(
         core& cr
       , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
-      , bool testnet
       );
 
     static void init_options(boost::program_options::options_description& desc);

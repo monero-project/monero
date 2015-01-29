@@ -40,29 +40,10 @@ using namespace epee;
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
+#include "daemon/command_line_args.h"
 
 namespace cryptonote
 {
-  namespace
-  {
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {
-        "rpc-bind-ip"
-      , "IP for RPC server"
-      , "127.0.0.1"
-      };
-
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {
-        "rpc-bind-port"
-      , "Port for RPC server"
-      , std::to_string(config::RPC_DEFAULT_PORT)
-      };
-
-    const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port = {
-        "testnet-rpc-bind-port"
-      , "Port for testnet RPC server"
-      , std::to_string(config::testnet::RPC_DEFAULT_PORT)
-      };
-  }
 
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
@@ -75,11 +56,9 @@ namespace cryptonote
   core_rpc_server::core_rpc_server(
       core& cr
     , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
-    , bool testnet
     )
     : m_core(cr)
     , m_p2p(p2p)
-    , m_testnet(testnet)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::handle_command_line(
@@ -97,6 +76,8 @@ namespace cryptonote
       const boost::program_options::variables_map& vm
     )
   {
+    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+
     m_net_server.set_threads_prefix("RPC");
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
@@ -703,4 +684,23 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-}
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_ip   = {
+      "rpc-bind-ip"
+    , "IP for RPC server"
+    , "127.0.0.1"
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
+      "rpc-bind-port"
+    , "Port for RPC server"
+    , std::to_string(config::RPC_DEFAULT_PORT)
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_testnet_rpc_bind_port = {
+      "testnet-rpc-bind-port"
+    , "Port for testnet RPC server"
+    , std::to_string(config::testnet::RPC_DEFAULT_PORT)
+    };
+
+}  // namespace cryptonote
