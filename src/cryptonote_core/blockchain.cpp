@@ -830,7 +830,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
   CHECK_AND_ASSERT_MES(b.miner_tx.vin[0].type() == typeid(txin_gen), false, "coinbase transaction in the block has the wrong type");
   if(boost::get<txin_gen>(b.miner_tx.vin[0]).height != height)
   {
-    LOG_PRINT_RED_L0("The miner transaction in block has invalid height: " << boost::get<txin_gen>(b.miner_tx.vin[0]).height << ", expected: " << height);
+    LOG_PRINT_RED_L1("The miner transaction in block has invalid height: " << boost::get<txin_gen>(b.miner_tx.vin[0]).height << ", expected: " << height);
     return false;
   }
   CHECK_AND_ASSERT_MES(b.miner_tx.unlock_time == height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW,
@@ -843,7 +843,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
   //      does not overflow a uint64_t, and this transaction *is* a uint64_t...
   if(!check_outs_overflow(b.miner_tx))
   {
-    LOG_PRINT_RED_L0("miner transaction have money overflow in block " << get_block_hash(b));
+    LOG_PRINT_RED_L1("miner transaction have money overflow in block " << get_block_hash(b));
     return false;
   }
 
@@ -1082,7 +1082,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   // the block to be added, then this is fine.
   if (!m_checkpoints.is_alternative_block_allowed(get_current_blockchain_height(), block_height))
   {
-    LOG_PRINT_RED_L0("Block with id: " << id
+    LOG_PRINT_RED_L1("Block with id: " << id
       << std::endl << " can't be accepted for alternative chain, block height: " << block_height
       << std::endl << " blockchain height: " << get_current_blockchain_height());
     bvc.m_verifivation_failed = true;
@@ -1142,7 +1142,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     // (not earlier than the median of the last X blocks)
     if(!check_block_timestamp(timestamps, b))
     {
-      LOG_PRINT_RED_L0("Block with id: " << id
+      LOG_PRINT_RED_L1("Block with id: " << id
         << std::endl << " for alternative chain, have invalid timestamp: " << b.timestamp);
       bvc.m_verifivation_failed = true;
       return false;
@@ -1169,7 +1169,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     get_block_longhash(bei.bl, proof_of_work, bei.height);
     if(!check_hash(proof_of_work, current_diff))
     {
-      LOG_PRINT_RED_L0("Block with id: " << id
+      LOG_PRINT_RED_L1("Block with id: " << id
         << std::endl << " for alternative chain, have not enough proof of work: " << proof_of_work
         << std::endl << " expected difficulty: " << current_diff);
       bvc.m_verifivation_failed = true;
@@ -1178,7 +1178,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
     if(!prevalidate_miner_transaction(b, bei.height))
     {
-      LOG_PRINT_RED_L0("Block with id: " << epee::string_tools::pod_to_hex(id)
+      LOG_PRINT_RED_L1("Block with id: " << epee::string_tools::pod_to_hex(id)
         << " (as alternative) have wrong miner transaction.");
       bvc.m_verifivation_failed = true;
       return false;
@@ -1248,7 +1248,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   {
     //block orphaned
     bvc.m_marked_as_orphaned = true;
-    LOG_PRINT_RED_L0("Block recognized as orphaned and rejected, id = " << id);
+    LOG_PRINT_RED_L1("Block recognized as orphaned and rejected, id = " << id);
   }
 
   return true;
@@ -1802,7 +1802,7 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   if (!m_db->tx_exists(tx_id))
   {
-    LOG_PRINT_L0("warning: get_tx_outputs_gindexs failed to find transaction with id = " << tx_id);
+    LOG_PRINT_RED_L1("warning: get_tx_outputs_gindexs failed to find transaction with id = " << tx_id);
     return false;
   }
 
