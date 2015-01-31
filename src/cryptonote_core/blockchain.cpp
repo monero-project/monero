@@ -1808,6 +1808,8 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
 
   // get amount output indexes, currently referred to in parts as "output global indices", but they are actually specific to amounts
   indexs = m_db->get_tx_amount_output_indices(tx_id);
+  CHECK_AND_ASSERT_MES(indexs.size(), false, "internal error: global indexes for transaction " << tx_id << " is empty");
+
   return true;
 }
 //------------------------------------------------------------------
