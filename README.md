@@ -56,14 +56,14 @@ Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, 
 **Basic Process:**
 
 * To build, change to the root of the source code directory, and run `make`.
-* The resulting executables can be found in `build/release/src` or `build/debug/src`, depending on what you're building.
+* The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.
 
 **Advanced options:**
 
 * Parallel build: run `make -j<number of threads>` instead of `make`.
 * Statically linked release build: run `make release-static`.
-* Debug build: run `make build-debug`.
-* Test suite: run `make test-release` to run tests in addition to building. Running `make test-debug` will do the same to the debug version.
+* Debug build: run `make debug`.
+* Test suite: run `make release-test` to run tests in addition to building. Running `make debug-test` will do the same to the debug version.
 * Building with Clang: it may be possible to use Clang instead of GCC, but this may not work everywhere. To build, run `export CC=clang CXX=clang++` before running `make`.
 
 ### On OS X:
@@ -111,7 +111,7 @@ cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=..
 cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ..
 ```
 * You can now run `make` to have it build
-* The resulting executables can be found in `build/release/src` or `build/debug/src`, depending on what you're building.
+* The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.
 
 If you installed MSYS2 in a folder other than c:/msys64, make the appropriate substitution above.
 
@@ -119,8 +119,8 @@ If you installed MSYS2 in a folder other than c:/msys64, make the appropriate su
 
 * Parallel build: run `make -j<number of threads>` instead of `make`.
 * Statically linked release build: run `make release-static`.
-* Debug build: run `make build-debug`.
-* Test suite: run `make test-release` to run tests in addition to building. Running `make test-debug` will do the same to the debug version.
+* Debug build: run `make debug`.
+* Test suite: run `make release-test` to run tests in addition to building. Running `make debug-test` will do the same to the debug version.
 
 ### On FreeBSD:
 
