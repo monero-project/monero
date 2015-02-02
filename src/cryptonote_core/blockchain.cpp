@@ -735,7 +735,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
       bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc);
       if(!r)
       {
-        LOG_ERROR("Failed to push ex-main chain blocks to alternative chain ");
+        LOG_PRINT_L1("Failed to push ex-main chain blocks to alternative chain ");
         // previously this would fail the blockchain switching, but I don't
         // think this is bad enough to warrant that.
       }
@@ -868,12 +868,12 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   }
   if(base_reward + fee < money_in_use)
   {
-    LOG_ERROR("coinbase transaction spend too much money (" << money_in_use << "). Block reward is " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
+    LOG_PRINT_L1("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
     return false;
   }
   if(base_reward + fee != money_in_use)
   {
-    LOG_ERROR("coinbase transaction doesn't use full amount of block reward:  spent: "
+    LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: "
                             << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
     return false;
   }
@@ -1073,7 +1073,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   uint64_t block_height = get_block_height(b);
   if(0 == block_height)
   {
-    LOG_ERROR("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative), but miner tx says height is 0.");
+    LOG_PRINT_L1("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative), but miner tx says height is 0.");
     bvc.m_verifivation_failed = true;
     return false;
   }
@@ -1445,7 +1445,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   // how can we expect to sync from the client that the block list came from?
   if(!qblock_ids.size() /*|| !req.m_total_height*/)
   {
-    LOG_ERROR("Client sent wrong NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << qblock_ids.size() << /*", m_height=" << req.m_total_height <<*/ ", dropping connection");
+    LOG_PRINT_L1("Client sent wrong NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << qblock_ids.size() << /*", m_height=" << req.m_total_height <<*/ ", dropping connection");
     return false;
   }
 
@@ -1454,7 +1454,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   auto gen_hash = m_db->get_block_hash_from_height(0);
   if(qblock_ids.back() != gen_hash)
   {
-    LOG_ERROR("Client sent wrong NOTIFY_REQUEST_CHAIN: genesis block missmatch: " << std::endl << "id: "
+    LOG_PRINT_L1("Client sent wrong NOTIFY_REQUEST_CHAIN: genesis block missmatch: " << std::endl << "id: "
       << qblock_ids.back() << ", " << std::endl << "expected: " << gen_hash
       << "," << std::endl << " dropping connection");
     return false;
@@ -1486,7 +1486,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   // but just in case...
   if(bl_it == qblock_ids.end())
   {
-    LOG_ERROR("Internal error handling connection, can't find split point");
+    LOG_PRINT_L1("Internal error handling connection, can't find split point");
     return false;
   }
 
