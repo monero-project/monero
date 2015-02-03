@@ -35,6 +35,7 @@ set(blockchain_converter_private_headers)
 bitmonero_private_headers(blockchain_converter
 	  ${blockchain_converter_private_headers})
 
+if (BLOCKCHAIN_DB STREQUAL DB_LMDB)
 bitmonero_add_executable(blockchain_converter
   ${blockchain_converter_sources}
   ${blockchain_converter_private_headers})
@@ -49,3 +50,4 @@ add_dependencies(blockchain_converter
 set_property(TARGET blockchain_converter
 	PROPERTY
 	OUTPUT_NAME "blockchain_converter")
+endif ()

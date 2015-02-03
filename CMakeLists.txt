@@ -116,6 +116,27 @@ if(STATIC)
   endif()
 endif()
 
+# default database:
+# should be lmdb for testing, memory for production still
+# set(DATABASE memory)
+set(DATABASE lmdb)
+
+if (DEFINED ENV{DATABASE})
+  set(DATABASE $ENV{DATABASE})
+  message(STATUS "DATABASE set: ${DATABASE}")
+else()
+  message(STATUS "Could not find DATABASE in env (not required unless you want to change database type from default: ${DATABASE})")
+endif()
+if (DATABASE STREQUAL "lmdb")
+  set(BLOCKCHAIN_DB DB_LMDB)
+elseif (DATABASE STREQUAL "memory")
+  set(BLOCKCHAIN_DB DB_MEMORY)
+else()
+  die("Invalid database type: ${DATABASE}")
+endif()
+
+add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
+
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
   find_package(Threads)
