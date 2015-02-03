@@ -627,6 +627,18 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
 #else
 // Portable implementation as a fallback
 
+void slow_hash_allocate_state(void)
+{
+  // Do nothing, this is just to maintain compatibility with the upgraded slow-hash.c
+  return;
+}
+
+void slow_hash_free_state(void)
+{
+  // As above
+  return;
+}
+
 static void (*const extra_hashes[4])(const void *, size_t, char *) = {
   hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
 };
