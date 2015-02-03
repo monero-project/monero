@@ -40,7 +40,7 @@ The Bitcoin donation address is: 1FhnVJi2V1k4MqXm2nHoEbY5LV7FPai7bb
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
-[![MyMonero](http://i.imgur.com/vwogzcQ.png)](https://mymonero.com) [![Dome9](http://i.imgur.com/THVVafx.png)](http://dome9.com)
+[![MyMonero](http://i.imgur.com/xdp7mNG.png?)](https://mymonero.com) [![Dome9](http://i.imgur.com/THVVafx.png)](http://dome9.com)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
