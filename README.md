@@ -28,6 +28,22 @@ As with many development projects, the repository on Github is considered to be 
 
 Anyone is able to contribute to Monero. If you have a fix or code change, feel free to submit is as a pull request directly to the "development" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
+## Supporting the Project
+
+Monero development can be supported directly through donations.
+
+Both Monero and Bitcoin donations can be made to donate.monero.cc if using a client that supports the [OpenAlias](https://openalias.org) standard
+
+The Monero donation address is: 46BeWrHpwXmHDpDEUmZBWZfoQpdc6HaERCNmx1pEYL2rAcuwufPN9rXHHtyUA4QVy66qeFQkn6sfK8aHYjA3jk3o1Bv16em (viewkey: e422831985c9205238ef84daf6805526c14d96fd7b059fe68c7ab98e495e5703)
+
+The Bitcoin donation address is: 1FhnVJi2V1k4MqXm2nHoEbY5LV7FPai7bb
+
+Core development funding and/or some supporting services are also graciously provided by sponsors:
+
+[![MyMonero](http://i.imgur.com/vwogzcQ.png)](https://mymonero.com) [![Dome9](http://i.imgur.com/THVVafx.png)](http://dome9.com)
+
+There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
+
 ## License
 
 Copyright (c) 2014-2015, The Monero Project
