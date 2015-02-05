@@ -155,7 +155,12 @@ bool t_command_server::process_command_str(const std::string& cmd)
 
 bool t_command_server::process_command_vec(const std::vector<std::string>& cmd)
 {
-  return m_command_lookup.process_command_vec(cmd);
+  bool result = m_command_lookup.process_command_vec(cmd);
+  if (!result)
+  {
+    help(std::vector<std::string>());
+  }
+  return result;
 }
 
 bool t_command_server::help(const std::vector<std::string>& args)
