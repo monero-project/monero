@@ -60,6 +60,7 @@ int main(int argc, char const * argv[])
     po::positional_options_description positional_options;
     {
       bf::path default_data_dir = daemonizer::get_default_data_dir();
+      bf::path default_testnet_data_dir = {default_data_dir / "testnet"};
 
       // Misc Options
 
@@ -67,6 +68,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, command_line::arg_version);
       command_line::add_arg(visible_options, daemon_args::arg_os_version);
       command_line::add_arg(visible_options, command_line::arg_data_dir, default_data_dir.string());
+      command_line::add_arg(visible_options, command_line::arg_testnet_data_dir, default_testnet_data_dir.string());
       bf::path default_conf = default_data_dir / std::string(CRYPTONOTE_NAME ".conf");
       command_line::add_arg(visible_options, daemon_args::arg_config_file, default_conf.string());
 

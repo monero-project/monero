@@ -34,6 +34,7 @@
 #include "misc_log_ex.h"
 #include <stdexcept>
 #include <boost/program_options.hpp>
+#include "daemon/command_line_args.h"
 
 namespace daemonize
 {
