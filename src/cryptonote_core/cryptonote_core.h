@@ -125,6 +125,8 @@ namespace cryptonote
 
      bool update_checkpoints();
 
+     void stop();
+
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);

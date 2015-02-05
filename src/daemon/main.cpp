@@ -156,34 +156,37 @@ int main(int argc, char const * argv[])
     po::notify(vm);
 
     // If there are positional options, we're running a daemon command
-    if (command_line::has_arg(vm, daemon_args::arg_command))
     {
       auto command = command_line::get_arg(vm, daemon_args::arg_command);
-      auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
-      auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
 
-      uint32_t rpc_ip;
-      uint16_t rpc_port;
-      if (!epee::string_tools::get_ip_int32_from_string(rpc_ip, rpc_ip_str))
+      if (command.size())
       {
-        std::cerr << "Invalid IP: " << rpc_ip_str << std::endl;
-        return 1;
-      }
-      if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
-      {
-        std::cerr << "Invalid port: " << rpc_port_str << std::endl;
-        return 1;
-      }
+        auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
+        auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
 
-      daemonize::t_command_server rpc_commands{rpc_ip, rpc_port};
-      if (rpc_commands.process_command_vec(command))
-      {
-        return 0;
-      }
-      else
-      {
-        std::cerr << "Unknown command" << std::endl;
-        return 1;
+        uint32_t rpc_ip;
+        uint16_t rpc_port;
+        if (!epee::string_tools::get_ip_int32_from_string(rpc_ip, rpc_ip_str))
+        {
+          std::cerr << "Invalid IP: " << rpc_ip_str << std::endl;
+          return 1;
+        }
+        if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
+        {
+          std::cerr << "Invalid port: " << rpc_port_str << std::endl;
+          return 1;
+        }
+
+        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port};
+        if (rpc_commands.process_command_vec(command))
+        {
+          return 0;
+        }
+        else
+        {
+          std::cerr << "Unknown command" << std::endl;
+          return 1;
+        }
       }
     }
 

@@ -38,7 +38,6 @@
 namespace daemonize {
 
 namespace {
-  /*
   void print_peer(std::string const & prefix, cryptonote::peer const & peer)
   {
     time_t now;
@@ -54,7 +53,6 @@ namespace {
     std::string addr_str = ip_str + ":" + port_str;
     tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
   }
-  */
 
   void print_block_header(cryptonote::block_header_responce const & header)
   {
@@ -79,7 +77,6 @@ t_rpc_command_executor::t_rpc_command_executor(
 {}
 
 bool t_rpc_command_executor::print_peer_list() {
-/*
   cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
   cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
 
@@ -97,7 +94,6 @@ bool t_rpc_command_executor::print_peer_list() {
     print_peer("gray", peer);
   }
 
-*/
   return true;
 }
 
@@ -114,7 +110,6 @@ bool t_rpc_command_executor::save_blockchain() {
 }
 
 bool t_rpc_command_executor::show_hash_rate() {
-/*
   cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::request req;
   cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::response res;
   req.visible = true;
@@ -124,12 +119,10 @@ bool t_rpc_command_executor::show_hash_rate() {
     tools::success_msg_writer() << "Hash rate logging is on";
   }
 
-*/
   return true;
 }
 
 bool t_rpc_command_executor::hide_hash_rate() {
-/*
   cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::request req;
   cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::response res;
   req.visible = false;
@@ -139,7 +132,6 @@ bool t_rpc_command_executor::hide_hash_rate() {
     tools::success_msg_writer() << "Hash rate logging is off";
   }
 
-*/
   return true;
 }
 
@@ -175,7 +167,6 @@ bool t_rpc_command_executor::print_connections() {
 }
 
 bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) {
-/*
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response res;
 
@@ -186,23 +177,20 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   {
     for (auto & header : res.headers)
     {
-      std::cout << "height " << header.height
-                << ", timestamp " << header.timestamp
-                << ", cumul_dif " << header.cumulative_difficulty
-                << ", cumul_size " << header.cumulative_size << std::endl
-                << "id " << header.hash << std::endl
-                << "difficulty " << header.difficulty
-                << ", nonce " << header.nonce
-                << ", tx_count " << header.tx_count << std::endl;
+      std::cout
+        << "major version: " << header.major_version << std::endl
+        << "minor version: " << header.minor_version << std::endl
+        << "height: " << header.height << ", timestamp: " << header.timestamp << ", difficulty: " << header.difficulty << std::endl
+        << "block id: " << header.hash << std::endl
+        << "previous block id: " << header.prev_hash << std::endl
+        << "difficulty: " << header.difficulty << ", nonce " << header.nonce << std::endl;
     }
   }
 
-*/
   return true;
 }
 
 bool t_rpc_command_executor::set_log_level(int8_t level) {
-/*
   cryptonote::COMMAND_RPC_SET_LOG_LEVEL::request req;
   cryptonote::COMMAND_RPC_SET_LOG_LEVEL::response res;
   req.level = level;
@@ -212,7 +200,6 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
     tools::success_msg_writer() << "Log level is now " << boost::lexical_cast<std::string>(level);
   }
 
-*/
   return true;
 }
 
@@ -276,7 +263,6 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
 }
 
 bool t_rpc_command_executor::print_transaction_pool_long() {
-/*
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
 
@@ -299,12 +285,10 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
     }
   }
 
-*/
   return true;
 }
 
 bool t_rpc_command_executor::print_transaction_pool_short() {
-/*
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
 
@@ -328,7 +312,6 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
     }
   }
 
-*/
   return true;
 }
 
@@ -359,7 +342,6 @@ bool t_rpc_command_executor::stop_mining() {
 
 bool t_rpc_command_executor::stop_daemon()
 {
-/*
   cryptonote::COMMAND_RPC_STOP_DAEMON::request req;
   cryptonote::COMMAND_RPC_STOP_DAEMON::response res;
 
@@ -381,7 +363,6 @@ bool t_rpc_command_executor::stop_daemon()
   {
     tools::success_msg_writer() << "Stop signal sent";
   }
-*/
 
   return true;
 }

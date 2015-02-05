@@ -110,6 +110,11 @@ namespace cryptonote
     return res;
   }
   //-----------------------------------------------------------------------------------
+  void core::stop()
+  {
+    graceful_exit();
+  }
+  //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& /*desc*/)
   {
   }
