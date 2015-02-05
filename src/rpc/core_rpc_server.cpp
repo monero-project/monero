@@ -411,7 +411,7 @@ namespace cryptonote
   {
     // FIXME: replace back to original m_p2p.send_stop_signal() after
     // investigating why that isn't working quite right.
-    m_core.stop();
+    m_p2p.send_stop_signal();
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
