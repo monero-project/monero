@@ -120,9 +120,11 @@ struct _client_args_t {
     uint32_t timeout;
     char *identity;
     zlist_t *block_ids;
+    uint64_t start_height;
     zchunk_t *tx_data;
     char *tx_id;
-    uint64_t start_height;
+    char *address;
+    uint64_t thread_count;
 };
 
 typedef struct {
@@ -252,6 +254,7 @@ s_client_destroy (s_client_t **self_p)
         zlist_destroy (&self->args.block_ids);
         zchunk_destroy (&self->args.tx_data);
         zstr_free (&self->args.tx_id);
+        zstr_free (&self->args.address);
         client_terminate (&self->client);
         wap_proto_destroy (&self->message);
         zsock_destroy (&self->msgpipe);
@@ -1069,7 +1072,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "BLOCKS")) {
         zlist_destroy (&self->args.block_ids);
-        zsock_recv (self->cmdpipe, "p", &self->args.block_ids);
+        zsock_recv (self->cmdpipe, "pi", &self->args.block_ids, &self->args.start_height);
         s_client_execute (self, blocks_event);
     }
     else
@@ -1090,7 +1093,8 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "START")) {
-        zsock_recv (self->cmdpipe, "i", &self->args.start_height);
+        zstr_free (&self->args.address);
+        zsock_recv (self->cmdpipe, "si", &self->args.address, &self->args.thread_count);
         s_client_execute (self, start_event);
     }
     else
@@ -1207,9 +1211,8 @@ struct _wap_client_t {
     zsock_t *msgpipe;           //  Pipe for async message flow
     int status;                 //  Returned by actor reply
     char *reason;               //  Returned by actor reply
-    uint32_t start_height;      //  Returned by actor reply
-    uint32_t curr_height;       //  Returned by actor reply
-    char *block_status;         //  Returned by actor reply
+    uint64_t start_height;      //  Returned by actor reply
+    uint64_t curr_height;       //  Returned by actor reply
     zmsg_t *block_data;         //  Returned by actor reply
     char *tx_id;                //  Returned by actor reply
     zchunk_t *tx_data;          //  Returned by actor reply
@@ -1268,7 +1271,6 @@ wap_client_destroy (wap_client_t **self_p)
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
         zstr_free (&self->reason);
-        zstr_free (&self->block_status);
         zmsg_destroy (&self->block_data);
         zstr_free (&self->tx_id);
         zchunk_destroy (&self->tx_data);
@@ -1335,9 +1337,8 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "BLOCKS OK")) {
-                    zstr_free (&self->block_status);
                     zmsg_destroy (&self->block_data);
-                    zsock_recv (self->actor, "iiisp", &self->status, &self->start_height, &self->curr_height, &self->block_status, &self->block_data);
+                    zsock_recv (self->actor, "iiip", &self->status, &self->start_height, &self->curr_height, &self->block_data);
                 }
                 else
                 if (streq (reply, "PUT OK")) {
@@ -1355,7 +1356,7 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "START OK")) {
-                    zsock_recv (self->actor, "ii", &self->status, &self->curr_height);
+                    zsock_recv (self->actor, "i", &self->status);
                 }
                 else
                 if (streq (reply, "STOP OK")) {
@@ -1415,10 +1416,10 @@ wap_client_destructor (wap_client_t *self)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_blocks (wap_client_t *self, zlist_t **block_ids_p)
+wap_client_blocks (wap_client_t *self, zlist_t **block_ids_p, uint64_t start_height)
 {
     assert (self);
-    zsock_send (self->actor, "sp", "BLOCKS", *block_ids_p);
+    zsock_send (self->actor, "spi", "BLOCKS", *block_ids_p, start_height);
     *block_ids_p = NULL;        //  Take ownership of block_ids
     if (s_accept_reply (self, "BLOCKS OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
@@ -1477,10 +1478,10 @@ wap_client_save (wap_client_t *self)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_start (wap_client_t *self, uint64_t start_height)
+wap_client_start (wap_client_t *self, const char *address, uint64_t thread_count)
 {
     assert (self);
-    zsock_send (self->actor, "si", "START", start_height);
+    zsock_send (self->actor, "ssi", "START", address, thread_count);
     if (s_accept_reply (self, "START OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1527,7 +1528,7 @@ wap_client_reason (wap_client_t *self)
 //  ---------------------------------------------------------------------------
 //  Return last received start_height
 
-uint32_t 
+uint64_t 
 wap_client_start_height (wap_client_t *self)
 {
     assert (self);
@@ -1538,22 +1539,11 @@ wap_client_start_height (wap_client_t *self)
 //  ---------------------------------------------------------------------------
 //  Return last received curr_height
 
-uint32_t 
+uint64_t 
 wap_client_curr_height (wap_client_t *self)
 {
     assert (self);
     return self->curr_height;
-}
-
-
-//  ---------------------------------------------------------------------------
-//  Return last received block_status
-
-const char *
-wap_client_block_status (wap_client_t *self)
-{
-    assert (self);
-    return self->block_status;
 }
 
 

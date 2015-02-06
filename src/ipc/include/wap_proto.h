@@ -33,11 +33,12 @@
     BLOCKS - Wallet requests a set of blocks from the daemon. Daemon replies with
 BLOCKS-OK, or ERROR if the request is invalid.
         block_ids           strings     
+        start_height        number 8    
 
     BLOCKS_OK - Daemon returns a set of blocks to the wallet.
+        status              number 8    
         start_height        number 8    
         curr_height         number 8    
-        block_status        string      
         block_data          msg         Frames of block data
 
     PUT - Wallet sends a raw transaction to the daemon. Daemon replies with
@@ -60,10 +61,11 @@ with GET-OK, or ERROR.
 
     START - Wallet asks daemon to start mining. Daemon replies with START-OK, or
 ERROR.
-        start_height        number 8    
+        address             string      
+        thread_count        number 8    
 
     START_OK - Daemon replies to a start mining request.
-        curr_height         number 8    
+        status              number 8    
 
     STOP - Wallet asks daemon to start mining. Daemon replies with START-OK, or
 ERROR.
@@ -186,17 +188,17 @@ uint64_t
 void
     wap_proto_set_start_height (wap_proto_t *self, uint64_t start_height);
 
+//  Get/set the status field
+uint64_t
+    wap_proto_status (wap_proto_t *self);
+void
+    wap_proto_set_status (wap_proto_t *self, uint64_t status);
+
 //  Get/set the curr_height field
 uint64_t
     wap_proto_curr_height (wap_proto_t *self);
 void
     wap_proto_set_curr_height (wap_proto_t *self, uint64_t curr_height);
-
-//  Get/set the block_status field
-const char *
-    wap_proto_block_status (wap_proto_t *self);
-void
-    wap_proto_set_block_status (wap_proto_t *self, const char *value);
 
 //  Get a copy of the block_data field
 zmsg_t *
@@ -224,11 +226,17 @@ const char *
 void
     wap_proto_set_tx_id (wap_proto_t *self, const char *value);
 
-//  Get/set the status field
-uint16_t
-    wap_proto_status (wap_proto_t *self);
+//  Get/set the address field
+const char *
+    wap_proto_address (wap_proto_t *self);
 void
-    wap_proto_set_status (wap_proto_t *self, uint16_t status);
+    wap_proto_set_address (wap_proto_t *self, const char *value);
+
+//  Get/set the thread_count field
+uint64_t
+    wap_proto_thread_count (wap_proto_t *self);
+void
+    wap_proto_set_thread_count (wap_proto_t *self, uint64_t thread_count);
 
 //  Get/set the reason field
 const char *

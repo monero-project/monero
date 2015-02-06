@@ -150,7 +150,7 @@ register_wallet (client_t *self)
 static void
 retrieve_blocks (client_t *self)
 {
-
+    IPC::Daemon::retrieve_blocks(self->message);
 }
 
 
@@ -185,7 +185,6 @@ start_mining_process (client_t *self)
 {
     IPC::Daemon::start_mining(self->message);
     printf("\n\n Request: %d \n\n", (int)wap_proto_start_height(self->message));
-    // wap_proto_set_curr_height(self->message, 100);
 }
 
 

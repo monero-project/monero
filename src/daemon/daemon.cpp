@@ -247,7 +247,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Protocol initialized OK");
 
   LOG_PRINT_L0("Initializing core IPC server...");
-  IPC::Daemon::init(&ccore, &p2psrv);
+  IPC::Daemon::init(&ccore, &p2psrv, testnet_mode);
   LOG_PRINT_L0("Initializing core RPC server...");
   RPC::Daemon::init(&ccore, &p2psrv, testnet_mode);
   std::string ip_address, port;

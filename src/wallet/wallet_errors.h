@@ -565,6 +565,13 @@ namespace tools
       {
       }
     };
+    struct daemon_internal_error : public wallet_rpc_error
+    {
+      explicit daemon_internal_error(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "daemon had an internal error processing the request", request)
+      {
+      }
+    };
     //----------------------------------------------------------------------------------------------------
     struct no_connection_to_daemon : public wallet_rpc_error
     {

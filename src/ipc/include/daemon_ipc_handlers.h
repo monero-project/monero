@@ -45,17 +45,30 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "wap_library.h"
 #include "wap_classes.h"
+#include "net/http_server_impl_base.h"
+#include "cryptonote_core/cryptonote_basic_impl.h"
+
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 namespace IPC
 {
+  const uint64_t STATUS_OK = 0;
+  const uint64_t STATUS_CORE_BUSY = 1;
+  const uint64_t STATUS_WRONG_ADDRESS = 2;
+  const uint64_t STATUS_MINING_NOT_STARTED = 3;
+  const uint64_t STATUS_WRONG_BLOCK_ID_LENGTH = 4;
+  const uint64_t STATUS_INTERNAL_ERROR = 5;
   namespace Daemon
   {
     void start_mining(wap_proto_t *message);
-    void get_blocks(wap_proto_t *message);
+    void retrieve_blocks(wap_proto_t *message);
     void send_transactions(wap_proto_t *message);
     void get_o_indexes(wap_proto_t *message);
     void init(cryptonote::core *p_core,
-      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p);
+      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
+      bool p_testnet);
   }
 }
 

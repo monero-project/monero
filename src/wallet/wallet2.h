@@ -46,10 +46,9 @@
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/chacha8.h"
 #include "crypto/hash.h"
-#include "wap_library.h"
-#include "wap_classes.h"
 
 #include "wallet_errors.h"
+#include "daemon_ipc_handlers.h"
 
 #include <iostream>
 #define DEFAULT_TX_SPENDABLE_AGE                               10
@@ -89,9 +88,21 @@ namespace tools
       if (!client) {
         // TODO: Daemon not up.
       }
-      int rc = wap_client_start (client, 25);
-      std::cout << "\n\n Response: " << (int)wap_client_curr_height(client) << std::endl;
-      assert (rc == 0);
+      /*zlist_t *list = zlist_new();
+      char cheese[32];
+      const char *foo = "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148";
+      for (int i = 0; i < 63; i += 2) {
+        std::string x = "";
+        x += foo[i];
+        x += foo[i + 1];
+        cheese[i / 2] = (char)stoi(x, NULL, 16);
+      }
+      zlist_append(list, cheese);
+      uint64_t start_height = 1;
+      int rc = wap_client_blocks(client, &list, start_height);
+      // int rc = wap_client_start(client, 25);
+      // std::cout << "\n\n Response: " << (int)wap_client_curr_height(client) << std::endl;
+      assert (rc == 0);*/
     };
     struct transfer_details
     {
@@ -283,6 +294,7 @@ namespace tools
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
+    void get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_complete_entry> &blocks);
     void pull_blocks(uint64_t start_height, size_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);

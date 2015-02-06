@@ -314,24 +314,49 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids)
   if(!genesis_included)
     ids.push_back(m_blockchain[0]);
 }
+void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_complete_entry> &blocks) {
+  zframe_t *frame = zmsg_first(msg);
+  THROW_WALLET_EXCEPTION_IF(!frame, error::get_blocks_error, "getblocks");
+  size_t size = zframe_size(frame);
+  char *block_data = reinterpret_cast<char*>(zframe_data(frame));
+
+  rapidjson::Document json;
+  int _i = 0;
+  THROW_WALLET_EXCEPTION_IF(json.Parse(block_data, size).HasParseError(), error::get_blocks_error, "getblocks");
+  for (rapidjson::SizeType i = 0; i < json["blocks"].Size(); i++) {
+    block_complete_entry block_entry;
+    std::string block_string(json["blocks"][i]["block"].GetString(), json["blocks"][i]["block"].GetStringLength());
+    block_entry.block = block_string;
+    for (rapidjson::SizeType j = 0; j < json["blocks"][i]["txs"].Size(); j++) {
+      block_entry.txs.push_back(std::string(json["blocks"][i]["txs"][j].GetString(), json["blocks"][i]["txs"][j].GetStringLength()));
+    }
+    blocks.push_back(block_entry);
+  }
+}
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
 {
   blocks_added = 0;
-  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
-  get_short_chain_history(req.block_ids);
-  req.start_height = start_height;
-  bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
+  std::list<crypto::hash> block_ids;
+  get_short_chain_history(block_ids);
+  zlist_t *list = zlist_new();
+  for (std::list<crypto::hash>::iterator it = block_ids.begin(); it != block_ids.end(); it++) {
+    zlist_append(list, it->data);
+  }
+  int rc = wap_client_blocks(client, &list, start_height);
+  THROW_WALLET_EXCEPTION_IF(rc != 0, error::no_connection_to_daemon, "getblocks");
 
-  size_t current_index = res.start_height;
-  BOOST_FOREACH(auto& bl_entry, res.blocks)
+  uint64_t status = wap_client_status(client);
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getblocks");
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "getblocks");
+  THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "getblocks");
+  std::list<block_complete_entry> blocks;
+  get_blocks_from_zmq_msg(wap_client_block_data(client), blocks);
+  uint64_t current_index = wap_client_start_height(client);
+  BOOST_FOREACH(auto& bl_entry, blocks)
   {
     cryptonote::block bl;
-    r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
+    bool r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
     THROW_WALLET_EXCEPTION_IF(!r, error::block_parse_error, bl_entry.block);
 
     crypto::hash bl_id = get_block_hash(bl);
@@ -343,9 +368,9 @@ void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
     else if(bl_id != m_blockchain[current_index])
     {
       //split detected here !!!
-      THROW_WALLET_EXCEPTION_IF(current_index == res.start_height, error::wallet_internal_error,
+      THROW_WALLET_EXCEPTION_IF(current_index == start_height, error::wallet_internal_error,
         "wrong daemon response: split starts from the first block in response " + string_tools::pod_to_hex(bl_id) +
-        " (height " + std::to_string(res.start_height) + "), local block id at this height: " +
+        " (height " + std::to_string(start_height) + "), local block id at this height: " +
         string_tools::pod_to_hex(m_blockchain[current_index]));
 
       detach_blockchain(current_index);

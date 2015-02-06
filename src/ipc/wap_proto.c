@@ -37,12 +37,13 @@ struct _wap_proto_t {
     char identity [256];                //  Wallet identity
     zlist_t *block_ids;                 //  
     uint64_t start_height;              //  
+    uint64_t status;                    //  
     uint64_t curr_height;               //  
-    char block_status [256];            //  
     zmsg_t *block_data;                 //  Frames of block data
     zchunk_t *tx_data;                  //  Transaction data
     char tx_id [256];                   //  Transaction ID
-    uint16_t status;                    //  Error status
+    char address [256];                 //  
+    uint64_t thread_count;              //  
     char reason [256];                  //  Printable explanation
 };
 
@@ -307,12 +308,13 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
                     free (string);
                 }
             }
+            GET_NUMBER8 (self->start_height);
             break;
 
         case WAP_PROTO_BLOCKS_OK:
+            GET_NUMBER8 (self->status);
             GET_NUMBER8 (self->start_height);
             GET_NUMBER8 (self->curr_height);
-            GET_STRING (self->block_status);
             //  Get zero or more remaining frames
             zmsg_destroy (&self->block_data);
             if (zsock_rcvmore (input))
@@ -362,11 +364,12 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_START:
-            GET_NUMBER8 (self->start_height);
+            GET_STRING (self->address);
+            GET_NUMBER8 (self->thread_count);
             break;
 
         case WAP_PROTO_START_OK:
-            GET_NUMBER8 (self->curr_height);
+            GET_NUMBER8 (self->status);
             break;
 
         case WAP_PROTO_STOP:
@@ -437,11 +440,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                     block_ids = (char *) zlist_next (self->block_ids);
                 }
             }
+            frame_size += 8;            //  start_height
             break;
         case WAP_PROTO_BLOCKS_OK:
+            frame_size += 8;            //  status
             frame_size += 8;            //  start_height
             frame_size += 8;            //  curr_height
-            frame_size += 1 + strlen (self->block_status);
             break;
         case WAP_PROTO_PUT:
             frame_size += 4;            //  Size is 4 octets
@@ -460,10 +464,11 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->tx_data);
             break;
         case WAP_PROTO_START:
-            frame_size += 8;            //  start_height
+            frame_size += 1 + strlen (self->address);
+            frame_size += 8;            //  thread_count
             break;
         case WAP_PROTO_START_OK:
-            frame_size += 8;            //  curr_height
+            frame_size += 8;            //  status
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -497,12 +502,13 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty string array
+            PUT_NUMBER8 (self->start_height);
             break;
 
         case WAP_PROTO_BLOCKS_OK:
+            PUT_NUMBER8 (self->status);
             PUT_NUMBER8 (self->start_height);
             PUT_NUMBER8 (self->curr_height);
-            PUT_STRING (self->block_status);
             nbr_frames += self->block_data? zmsg_size (self->block_data): 1;
             send_block_data = true;
             break;
@@ -540,11 +546,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_START:
-            PUT_NUMBER8 (self->start_height);
+            PUT_STRING (self->address);
+            PUT_NUMBER8 (self->thread_count);
             break;
 
         case WAP_PROTO_START_OK:
-            PUT_NUMBER8 (self->curr_height);
+            PUT_NUMBER8 (self->status);
             break;
 
         case WAP_PROTO_ERROR:
@@ -604,16 +611,14 @@ wap_proto_print (wap_proto_t *self)
                     block_ids = (char *) zlist_next (self->block_ids);
                 }
             }
+            zsys_debug ("    start_height=%ld", (long) self->start_height);
             break;
             
         case WAP_PROTO_BLOCKS_OK:
             zsys_debug ("WAP_PROTO_BLOCKS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
             zsys_debug ("    start_height=%ld", (long) self->start_height);
             zsys_debug ("    curr_height=%ld", (long) self->curr_height);
-            if (self->block_status)
-                zsys_debug ("    block_status='%s'", self->block_status);
-            else
-                zsys_debug ("    block_status=");
             zsys_debug ("    block_data=");
             if (self->block_data)
                 zmsg_print (self->block_data);
@@ -657,12 +662,16 @@ wap_proto_print (wap_proto_t *self)
             
         case WAP_PROTO_START:
             zsys_debug ("WAP_PROTO_START:");
-            zsys_debug ("    start_height=%ld", (long) self->start_height);
+            if (self->address)
+                zsys_debug ("    address='%s'", self->address);
+            else
+                zsys_debug ("    address=");
+            zsys_debug ("    thread_count=%ld", (long) self->thread_count);
             break;
             
         case WAP_PROTO_START_OK:
             zsys_debug ("WAP_PROTO_START_OK:");
-            zsys_debug ("    curr_height=%ld", (long) self->curr_height);
+            zsys_debug ("    status=%ld", (long) self->status);
             break;
             
         case WAP_PROTO_STOP:
@@ -882,6 +891,24 @@ wap_proto_set_start_height (wap_proto_t *self, uint64_t start_height)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the status field
+
+uint64_t
+wap_proto_status (wap_proto_t *self)
+{
+    assert (self);
+    return self->status;
+}
+
+void
+wap_proto_set_status (wap_proto_t *self, uint64_t status)
+{
+    assert (self);
+    self->status = status;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the curr_height field
 
 uint64_t
@@ -896,28 +923,6 @@ wap_proto_set_curr_height (wap_proto_t *self, uint64_t curr_height)
 {
     assert (self);
     self->curr_height = curr_height;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Get/set the block_status field
-
-const char *
-wap_proto_block_status (wap_proto_t *self)
-{
-    assert (self);
-    return self->block_status;
-}
-
-void
-wap_proto_set_block_status (wap_proto_t *self, const char *value)
-{
-    assert (self);
-    assert (value);
-    if (value == self->block_status)
-        return;
-    strncpy (self->block_status, value, 255);
-    self->block_status [255] = 0;
 }
 
 
@@ -1010,20 +1015,42 @@ wap_proto_set_tx_id (wap_proto_t *self, const char *value)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the status field
+//  Get/set the address field
 
-uint16_t
-wap_proto_status (wap_proto_t *self)
+const char *
+wap_proto_address (wap_proto_t *self)
 {
     assert (self);
-    return self->status;
+    return self->address;
 }
 
 void
-wap_proto_set_status (wap_proto_t *self, uint16_t status)
+wap_proto_set_address (wap_proto_t *self, const char *value)
 {
     assert (self);
-    self->status = status;
+    assert (value);
+    if (value == self->address)
+        return;
+    strncpy (self->address, value, 255);
+    self->address [255] = 0;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the thread_count field
+
+uint64_t
+wap_proto_thread_count (wap_proto_t *self)
+{
+    assert (self);
+    return self->thread_count;
+}
+
+void
+wap_proto_set_thread_count (wap_proto_t *self, uint64_t thread_count)
+{
+    assert (self);
+    self->thread_count = thread_count;
 }
 
 
@@ -1104,6 +1131,7 @@ wap_proto_test (bool verbose)
     zlist_append (blocks_block_ids, "Name: Brutus");
     zlist_append (blocks_block_ids, "Age: 43");
     wap_proto_set_block_ids (self, &blocks_block_ids);
+    wap_proto_set_start_height (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -1116,12 +1144,13 @@ wap_proto_test (bool verbose)
         assert (streq ((char *) zlist_first (block_ids), "Name: Brutus"));
         assert (streq ((char *) zlist_next (block_ids), "Age: 43"));
         zlist_destroy (&block_ids);
+        assert (wap_proto_start_height (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_BLOCKS_OK);
 
+    wap_proto_set_status (self, 123);
     wap_proto_set_start_height (self, 123);
     wap_proto_set_curr_height (self, 123);
-    wap_proto_set_block_status (self, "Life is short but Now lasts for ever");
     zmsg_t *blocks_ok_block_data = zmsg_new ();
     wap_proto_set_block_data (self, &blocks_ok_block_data);
     zmsg_addstr (wap_proto_block_data (self), "Hello, World");
@@ -1132,9 +1161,9 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
         assert (wap_proto_start_height (self) == 123);
         assert (wap_proto_curr_height (self) == 123);
-        assert (streq (wap_proto_block_status (self), "Life is short but Now lasts for ever"));
         assert (zmsg_size (wap_proto_block_data (self)) == 1);
     }
     wap_proto_set_id (self, WAP_PROTO_PUT);
@@ -1209,7 +1238,8 @@ wap_proto_test (bool verbose)
     }
     wap_proto_set_id (self, WAP_PROTO_START);
 
-    wap_proto_set_start_height (self, 123);
+    wap_proto_set_address (self, "Life is short but Now lasts for ever");
+    wap_proto_set_thread_count (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -1217,11 +1247,12 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
-        assert (wap_proto_start_height (self) == 123);
+        assert (streq (wap_proto_address (self), "Life is short but Now lasts for ever"));
+        assert (wap_proto_thread_count (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_START_OK);
 
-    wap_proto_set_curr_height (self, 123);
+    wap_proto_set_status (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -1229,7 +1260,7 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
-        assert (wap_proto_curr_height (self) == 123);
+        assert (wap_proto_status (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_STOP);
 
