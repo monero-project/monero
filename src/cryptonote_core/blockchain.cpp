@@ -2288,7 +2288,7 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
   return handle_block_to_main_chain(bl, id, bvc);
 }
 //------------------------------------------------------------------
-void Blockchain::check_against_checkpoints(checkpoints& points, bool enforce)
+void Blockchain::check_against_checkpoints(const checkpoints& points, bool enforce)
 {
   const auto& pts = points.get_points();
 
