@@ -1132,20 +1132,23 @@ bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  if (m_batch_active)
-  {
-    LOG_PRINT_L0("WARNING: active batch transaction while creating a read-only txn in tx_exists()");
-  }
   txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  txn_safe* txn_ptr = &txn;
+  if (m_batch_active)
+    txn_ptr = m_write_txn;
+  else
+  {
+    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR("Failed to create a transaction for the db"));
+  }
 
   MDB_val_copy<crypto::hash> key(h);
   MDB_val result;
-  auto get_result = mdb_get(txn, m_txs, &key, &result);
+  auto get_result = mdb_get(*txn_ptr, m_txs, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    txn.commit();
+    if (! m_batch_active)
+      txn.commit();
     LOG_PRINT_L1("transaction with hash " << epee::string_tools::pod_to_hex(h) << " not found in db");
     return false;
   }
