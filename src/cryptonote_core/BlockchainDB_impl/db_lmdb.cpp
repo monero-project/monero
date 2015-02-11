@@ -167,8 +167,11 @@ void BlockchainLMDB::add_block( const block& blk
     MDB_val_copy<crypto::hash> parent_key(blk.prev_id);
     MDB_val parent_h;
     if (mdb_get(*m_write_txn, m_block_heights, &parent_key, &parent_h))
+    {
+      LOG_PRINT_L3("m_height: " << m_height);
+      LOG_PRINT_L3("parent_key: " << blk.prev_id);
       throw0(DB_ERROR("Failed to get top block hash to check for new block's parent"));
-
+    }
     uint64_t parent_height = *(const uint64_t *)parent_h.mv_data;
     if (parent_height != m_height - 1)
       throw0(BLOCK_PARENT_DNE("Top block is not new block's parent"));
@@ -177,8 +180,9 @@ void BlockchainLMDB::add_block( const block& blk
   MDB_val_copy<uint64_t> key(m_height);
 
   MDB_val_copy<blobdata> blob(block_to_blob(blk));
-  if (mdb_put(*m_write_txn, m_blocks, &key, &blob, 0))
-    throw0(DB_ERROR("Failed to add block blob to db transaction"));
+  auto res = mdb_put(*m_write_txn, m_blocks, &key, &blob, 0);
+  if (res)
+    throw0(DB_ERROR(std::string("Failed to add block blob to db transaction: ").append(mdb_strerror(res)).c_str()));
 
   MDB_val_copy<size_t> sz(block_size);
   if (mdb_put(*m_write_txn, m_block_sizes, &key, &sz, 0))
@@ -505,8 +509,8 @@ void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
   char anything = '\0';
   unused.mv_size = sizeof(char);
   unused.mv_data = &anything;
-  if (mdb_put(*m_write_txn, m_spent_keys, &val_key, &unused, 0))
-      throw1(DB_ERROR("Error adding spent key image to db transaction"));
+  if (auto result = mdb_put(*m_write_txn, m_spent_keys, &val_key, &unused, 0))
+    throw1(DB_ERROR(std::string("Error adding spent key image to db transaction: ").append(mdb_strerror(result)).c_str()));
 }
 
 void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
@@ -910,7 +914,7 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
 
 difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height) const
 {
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__ << "  height: " << height);
   check_open();
 
   txn_safe txn;
