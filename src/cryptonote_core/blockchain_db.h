@@ -301,12 +301,22 @@ private:
   // helper function to remove transaction from blockchain
   void remove_transaction(const crypto::hash& tx_hash);
 
+  uint64_t num_calls = 0;
+  uint64_t time_blk_hash = 0;
+  uint64_t time_add_block1 = 0;
+  uint64_t time_add_transaction = 0;
+
 
 public:
 
   // virtual dtor
   virtual ~BlockchainDB() { };
 
+  // reset profiling stats
+  void reset_stats();
+
+  // show profiling stats
+  void show_stats();
 
   // open the db at location <filename>, or create it if there isn't one.
   virtual void open(const std::string& filename) = 0;

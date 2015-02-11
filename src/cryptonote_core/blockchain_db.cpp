@@ -28,6 +28,7 @@
 
 #include "cryptonote_core/blockchain_db.h"
 #include "cryptonote_format_utils.h"
+#include "profile_tools.h"
 
 using epee::string_tools::pod_to_hex;
 
@@ -73,18 +74,29 @@ uint64_t BlockchainDB::add_block( const block& blk
                                 , const std::vector<transaction>& txs
                                 )
 {
+  TIME_MEASURE_START(time1);
   crypto::hash blk_hash = get_block_hash(blk);
+  TIME_MEASURE_FINISH(time1);
+  time_blk_hash += time1;
 
   // call out to subclass implementation to add the block & metadata
+  time1 = epee::misc_utils::get_tick_count();
   add_block(blk, block_size, cumulative_difficulty, coins_generated);
+  TIME_MEASURE_FINISH(time1);
+  time_add_block1 += time1;
 
   // call out to add the transactions
 
+  time1 = epee::misc_utils::get_tick_count();
   add_transaction(blk_hash, blk.miner_tx);
   for (const transaction& tx : txs)
   {
     add_transaction(blk_hash, tx);
   }
+  TIME_MEASURE_FINISH(time1);
+  time_add_transaction += time1;
+
+  ++num_calls;
 
   return height();
 }
@@ -117,6 +129,32 @@ void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 
   // need tx as tx.vout has the tx outputs, and the output amounts are needed
   remove_transaction_data(tx_hash, tx);
+}
+
+void BlockchainDB::reset_stats()
+{
+  num_calls = 0;
+  time_blk_hash = 0;
+  time_add_block1 = 0;
+  time_add_transaction = 0;
+}
+
+void BlockchainDB::show_stats()
+{
+  LOG_PRINT_L1(ENDL
+    << "*********************************"
+    << ENDL
+    << "num_calls: " << num_calls
+    << ENDL
+    << "time_blk_hash: " << time_blk_hash << "ms"
+    << ENDL
+    << "time_add_block1: " << time_add_block1 << "ms"
+    << ENDL
+    << "time_add_transaction: " << time_add_transaction << "ms"
+    << ENDL
+    << "*********************************"
+    << ENDL
+  );
 }
 
 }  // namespace cryptonote
