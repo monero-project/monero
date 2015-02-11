@@ -265,13 +265,14 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , const crypto::hash& blk_hash
                 ) = 0;
 
   // tells the subclass to remove data about the top block
   virtual void remove_block() = 0;
 
   // tells the subclass to store the transaction and its metadata
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx) = 0;
+  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
 
   // tells the subclass to remove data about a transaction
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
@@ -296,7 +297,7 @@ private:
   void pop_block();
 
   // helper function for add_transactions, to add each individual tx
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx);
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL);
 
   // helper function to remove transaction from blockchain
   void remove_transaction(const crypto::hash& tx_hash);

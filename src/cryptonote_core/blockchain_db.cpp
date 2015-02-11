@@ -42,11 +42,21 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr)
 {
-  crypto::hash tx_hash = get_transaction_hash(tx);
+  crypto::hash tx_hash;
+  if (!tx_hash_ptr)
+  {
+    // should only need to compute hash for miner transactions
+    tx_hash = get_transaction_hash(tx);
+    LOG_PRINT_L3("null tx_hash_ptr - needed to compute: " << tx_hash);
+  }
+  else
+  {
+    tx_hash = *tx_hash_ptr;
+  }
 
-  add_transaction_data(blk_hash, tx);
+  add_transaction_data(blk_hash, tx, tx_hash);
 
   // iterate tx.vout using indices instead of C++11 foreach syntax because
   // we need the index
@@ -81,7 +91,7 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_size, cumulative_difficulty, coins_generated);
+  add_block(blk, block_size, cumulative_difficulty, coins_generated, blk_hash);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
@@ -89,9 +99,13 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   time1 = epee::misc_utils::get_tick_count();
   add_transaction(blk_hash, blk.miner_tx);
+  int tx_i = 0;
+  crypto::hash tx_hash = null_hash;
   for (const transaction& tx : txs)
   {
-    add_transaction(blk_hash, tx);
+    tx_hash = blk.tx_hashes[tx_i];
+    add_transaction(blk_hash, tx, &tx_hash);
+    ++tx_i;
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;

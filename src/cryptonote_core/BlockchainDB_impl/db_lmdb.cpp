@@ -152,12 +152,13 @@ void BlockchainLMDB::add_block( const block& blk
               , const size_t& block_size
               , const difficulty_type& cumulative_difficulty
               , const uint64_t& coins_generated
+              , const crypto::hash& blk_hash
               )
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  MDB_val_copy<crypto::hash> val_h(get_block_hash(blk));
+  MDB_val_copy<crypto::hash> val_h(blk_hash);
   MDB_val unused;
   if (mdb_get(*m_write_txn, m_block_heights, &val_h, &unused) == 0)
     throw1(BLOCK_EXISTS("Attempting to add block that's already in the db"));
@@ -243,12 +244,12 @@ void BlockchainLMDB::remove_block()
       throw1(DB_ERROR("Failed to add removal of block hash to db transaction"));
 }
 
-void BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, const transaction& tx)
+void BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  MDB_val_copy<crypto::hash> val_h(get_transaction_hash(tx));
+  MDB_val_copy<crypto::hash> val_h(tx_hash);
   MDB_val unused;
   if (mdb_get(*m_write_txn, m_txs, &val_h, &unused) == 0)
       throw1(TX_EXISTS("Attempting to add transaction that's already in the db"));

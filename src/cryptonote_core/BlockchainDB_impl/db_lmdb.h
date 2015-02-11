@@ -184,11 +184,12 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , const crypto::hash& block_hash
                 );
 
   virtual void remove_block();
 
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx);
+  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash);
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
