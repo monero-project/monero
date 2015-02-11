@@ -1563,6 +1563,7 @@ uint64_t BlockchainLMDB::add_block( const block& blk
 
 void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
 {
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   txn_safe txn;
   if (mdb_txn_begin(m_env, NULL, 0, txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
