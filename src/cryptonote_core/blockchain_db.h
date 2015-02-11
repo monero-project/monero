@@ -310,6 +310,7 @@ private:
 
 protected:
 
+  mutable uint64_t time_tx_exists = 0;
   uint64_t time_commit1 = 0;
 
 

@@ -1126,7 +1126,6 @@ uint64_t BlockchainLMDB::height() const
   return m_height;
 }
 
-
 bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1144,7 +1143,11 @@ bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
 
   MDB_val_copy<crypto::hash> key(h);
   MDB_val result;
+
+  TIME_MEASURE_START(time1);
   auto get_result = mdb_get(*txn_ptr, m_txs, &key, &result);
+  TIME_MEASURE_FINISH(time1);
+  time_tx_exists += time1;
   if (get_result == MDB_NOTFOUND)
   {
     if (! m_batch_active)
