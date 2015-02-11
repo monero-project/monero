@@ -347,6 +347,9 @@ public:
   // release db lock
   virtual void unlock() = 0;
 
+  virtual void batch_start() = 0;
+  virtual void batch_stop() = 0;
+  virtual void set_batch_transactions(bool) = 0;
 
   // adds a block with the given metadata to the top of the blockchain, returns the new height
   // NOTE: subclass implementations of this (or the functions it calls) need
