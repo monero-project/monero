@@ -33,6 +33,7 @@
 
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "crypto/crypto.h"
+#include "profile_tools.h"
 
 using epee::string_tools::pod_to_hex;
 
@@ -1666,7 +1667,10 @@ void BlockchainLMDB::batch_commit()
     throw0(DB_ERROR("batch transaction not in progress"));
   check_open();
   LOG_PRINT_L3("batch transaction: committing...");
+  TIME_MEASURE_START(time1);
   m_write_txn->commit();
+  TIME_MEASURE_FINISH(time1);
+  time_commit1 += time1;
   LOG_PRINT_L3("batch transaction: committed");
 
   if (mdb_txn_begin(m_env, NULL, 0, m_write_batch_txn))
@@ -1685,7 +1689,10 @@ void BlockchainLMDB::batch_stop()
     throw0(DB_ERROR("batch transaction not in progress"));
   check_open();
   LOG_PRINT_L3("batch transaction: committing...");
+  TIME_MEASURE_START(time1);
   m_write_txn->commit();
+  TIME_MEASURE_FINISH(time1);
+  time_commit1 += time1;
   // for destruction of batch transaction
   m_write_txn = nullptr;
   m_batch_active = false;
@@ -1741,7 +1748,10 @@ uint64_t BlockchainLMDB::add_block( const block& blk
     {
       m_write_txn = NULL;
 
+      TIME_MEASURE_START(time1);
       txn.commit();
+      TIME_MEASURE_FINISH(time1);
+      time_commit1 += time1;
     }
   }
   catch (...)

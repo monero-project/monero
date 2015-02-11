@@ -151,6 +151,7 @@ void BlockchainDB::reset_stats()
   time_blk_hash = 0;
   time_add_block1 = 0;
   time_add_transaction = 0;
+  time_commit1 = 0;
 }
 
 void BlockchainDB::show_stats()
@@ -165,6 +166,8 @@ void BlockchainDB::show_stats()
     << "time_add_block1: " << time_add_block1 << "ms"
     << ENDL
     << "time_add_transaction: " << time_add_transaction << "ms"
+    << ENDL
+    << "time_commit1: " << time_commit1 << "ms"
     << ENDL
     << "*********************************"
     << ENDL

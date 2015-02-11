@@ -308,6 +308,11 @@ private:
   uint64_t time_add_transaction = 0;
 
 
+protected:
+
+  uint64_t time_commit1 = 0;
+
+
 public:
 
   // virtual dtor
