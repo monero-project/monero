@@ -34,6 +34,7 @@
 #include "misc_log_ex.h"
 #include <stdexcept>
 #include <boost/program_options.hpp>
+#include "daemon/command_line_args.h"
 
 namespace daemonize
 {
@@ -59,10 +60,15 @@ public:
     : m_core{nullptr}
     , m_vm_HACK{vm}
   {
+    bool testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+
     cryptonote::checkpoints checkpoints;
-    if (!cryptonote::create_checkpoints(checkpoints))
+    if (!testnet)
     {
-      throw std::runtime_error("Failed to initialize checkpoints");
+      if (!cryptonote::create_checkpoints(checkpoints))
+      {
+        throw std::runtime_error("Failed to initialize checkpoints");
+      }
     }
     m_core.set_checkpoints(std::move(checkpoints));
   }
