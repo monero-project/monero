@@ -386,7 +386,6 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
   check_open();
 
   MDB_val_copy<uint64_t> k(out_index);
-  MDB_val v;
 
 /****** Uncomment if ever outputs actually need to be stored in this manner
   blobdata b;
