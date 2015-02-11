@@ -756,7 +756,6 @@ void BlockchainLMDB::unlock()
   check_open();
 }
 
-
 bool BlockchainLMDB::block_exists(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -772,7 +771,7 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h) const
   if (get_result == MDB_NOTFOUND)
   {
     txn.commit();
-    LOG_PRINT_L1("Block with hash " << epee::string_tools::pod_to_hex(h) << "not found in db");
+    LOG_PRINT_L1("Block with hash " << epee::string_tools::pod_to_hex(h) << " not found in db");
     return false;
   }
   else if (get_result)
@@ -1075,7 +1074,7 @@ bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
   if (get_result == MDB_NOTFOUND)
   {
     txn.commit();
-    LOG_PRINT_L1("transaction with hash " << epee::string_tools::pod_to_hex(h) << "not found in db");
+    LOG_PRINT_L1("transaction with hash " << epee::string_tools::pod_to_hex(h) << " not found in db");
     return false;
   }
   else if (get_result)
@@ -1097,7 +1096,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   MDB_val result;
   auto get_result = mdb_get(txn, m_tx_unlocks, &key, &result);
   if (get_result == MDB_NOTFOUND)
-    throw1(TX_DNE(std::string("tx unlock time with hash ").append(epee::string_tools::pod_to_hex(h)).append("not found in db").c_str()));
+    throw1(TX_DNE(std::string("tx unlock time with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
   else if (get_result)
     throw0(DB_ERROR("DB error attempting to fetch tx unlock time from hash"));
 
@@ -1117,7 +1116,7 @@ transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
   MDB_val result;
   auto get_result = mdb_get(txn, m_txs, &key, &result);
   if (get_result == MDB_NOTFOUND)
-    throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append("not found in db").c_str()));
+    throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
   else if (get_result)
     throw0(DB_ERROR("DB error attempting to fetch tx from hash"));
 
@@ -1177,7 +1176,7 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
   auto get_result = mdb_get(txn, m_tx_heights, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    throw1(TX_DNE(std::string("tx height with hash ").append(epee::string_tools::pod_to_hex(h)).append("not found in db").c_str()));
+    throw1(TX_DNE(std::string("tx height with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
   }
   else if (get_result)
     throw0(DB_ERROR("DB error attempting to fetch tx height from hash"));
