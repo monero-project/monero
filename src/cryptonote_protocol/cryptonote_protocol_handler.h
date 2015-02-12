@@ -45,7 +45,6 @@
 #include "cryptonote_core/connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
 #include "cryptonote_core/verification_context.h"
-#include <netinet/in.h>
 #include <boost/circular_buffer.hpp>
 
 PUSH_WARNINGS
