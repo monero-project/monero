@@ -357,7 +357,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         const t_safe chunksize_max = chunksize_good * 2 ;
 		const bool allow_split = (m_connection_type == RPC) ? false : true; // TODO config
 
-		if (allow_split && (cb > chunksize_max)) {
+        ASRT(! (chunksize_max<0) ); // make sure it is unsigned before removin sign with cast:
+        long long unsigned int chunksize_max_unsigned = static_cast<long long unsigned int>( chunksize_max ) ;
+
+        if (allow_split && (cb > chunksize_max_unsigned)) {
 			{ // LOCK: chunking
     		epee::critical_region_t<decltype(m_chunking_lock)> send_guard(m_chunking_lock); // *** critical *** 
 
@@ -380,7 +383,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 					ASRT(len<=chunksize_good);
 					// pos=8; len=4; all=10;	len=3;
 
-					ASRT(len>0); ASRT(len < std::numeric_limits<size_t>::max());   // yeap we want strong < then max size, to be sure
+                    ASRT(! (len<0) ); // check before we cast away sign:
+                    unsigned long long int len_unsigned = static_cast<long long int>( len );
+                    ASRT(len>0); // (redundand)
+                    ASRT(len_unsigned < std::numeric_limits<size_t>::max());   // yeap we want strong < then max size, to be sure
 					
 					void *chunk_start = ((char*)ptr) + pos;
 					_fact_c("net/out/size","chunk_start="<<chunk_start<<" ptr="<<ptr<<" pos="<<pos);
