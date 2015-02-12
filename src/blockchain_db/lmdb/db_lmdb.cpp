@@ -635,9 +635,8 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
   m_height = 0;
 }
 
-void BlockchainLMDB::open(const std::string& filename)
+void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 {
-  int mdb_flags = 0;
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 
   if (m_open)

@@ -46,14 +46,14 @@ struct fake_core_lmdb
 
   // for multi_db_runtime:
 #if !defined(BLOCKCHAIN_DB)
-  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true) : m_pool(&m_storage), m_storage(m_pool)
+  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int mdb_flags=0) : m_pool(&m_storage), m_storage(m_pool)
   // for multi_db_compile:
 #else
-  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true) : m_pool(m_storage), m_storage(m_pool)
+  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int mdb_flags=0) : m_pool(m_storage), m_storage(m_pool)
 #endif
   {
     m_pool.init(path.string());
-    m_storage.init(path.string(), use_testnet);
+    m_storage.init(path.string(), use_testnet, mdb_flags);
     if (do_batch)
       m_storage.get_db()->set_batch_transactions(do_batch);
     support_batch = true;

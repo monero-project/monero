@@ -42,6 +42,7 @@
 #include "common/command_line.h"
 #include "version.h"
 
+#include <lmdb.h> // for db flag arguments
 
 #include "import.h"
 #include "fake_core.h"
@@ -61,6 +62,58 @@ namespace po = boost::program_options;
 
 using namespace cryptonote;
 using namespace epee;
+
+
+int parse_db_arguments(const std::string& db_arg_str, std::string& db_engine, int& mdb_flags)
+{
+  std::vector<std::string> db_args;
+  boost::split(db_args, db_arg_str, boost::is_any_of("#"));
+  db_engine = db_args.front();
+  boost::algorithm::trim(db_engine);
+
+  if (db_args.size() == 1)
+  {
+    return 0;
+  }
+  else if (db_args.size() > 2)
+  {
+    std::cerr << "unrecognized database argument format: " << db_arg_str << ENDL;
+    return 1;
+  }
+
+  std::string db_arg_str2 = db_args[1];
+  boost::split(db_args, db_arg_str2, boost::is_any_of(","));
+  for (auto& it : db_args)
+  {
+    boost::algorithm::trim(it);
+    if (it.empty())
+      continue;
+    LOG_PRINT_L1("LMDB flag: " << it);
+    if (it == "nosync")
+    {
+      mdb_flags |= MDB_NOSYNC;
+    }
+    else if (it == "nometasync")
+    {
+      mdb_flags |= MDB_NOMETASYNC;
+    }
+    else if (it == "writemap")
+    {
+      mdb_flags |= MDB_WRITEMAP;
+    }
+    else if (it == "mapasync")
+    {
+      mdb_flags |= MDB_MAPASYNC;
+    }
+    else
+    {
+      std::cerr << "unrecognized database flag: " << it << ENDL;
+      return 1;
+    }
+  }
+  return 0;
+}
+
 
 int count_blocks(std::string& import_file_path)
 {
@@ -492,7 +545,7 @@ int main(int argc, char* argv[])
 
   uint32_t log_level = LOG_LEVEL_0;
   std::string dirname;
-  std::string db_engine;
+  std::string db_arg_str;
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
   boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
@@ -582,7 +635,7 @@ int main(int argc, char* argv[])
   opt_testnet = command_line::get_arg(vm, arg_testnet_on);
   auto data_dir_arg = opt_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
   dirname = command_line::get_arg(vm, data_dir_arg);
-  db_engine = command_line::get_arg(vm, arg_database);
+  db_arg_str = command_line::get_arg(vm, arg_database);
 
   log_space::get_set_log_detalisation_level(true, log_level);
   log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
@@ -598,6 +651,17 @@ int main(int argc, char* argv[])
   {
     count_blocks(import_file_path);
     exit(0);
+  }
+
+
+  std::string db_engine;
+  int mdb_flags = 0;
+  int res = 0;
+  res = parse_db_arguments(db_arg_str, db_engine, mdb_flags);
+  if (res)
+  {
+    std::cerr << "Error parsing database argument(s)" << ENDL;
+    exit(1);
   }
 
   if (std::find(db_engines.begin(), db_engines.end(), db_engine) == db_engines.end())
@@ -637,7 +701,7 @@ int main(int argc, char* argv[])
 #if !defined(BLOCKCHAIN_DB)
   if (db_engine == "lmdb")
   {
-    fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch);
+    fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch, mdb_flags);
     import_from_file(simple_core, import_file_path);
   }
   else if (db_engine == "memory")
@@ -659,7 +723,7 @@ int main(int argc, char* argv[])
     exit(1);
   }
 #if BLOCKCHAIN_DB == DB_LMDB
-  fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch);
+  fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch, mdb_flags);
 #else
   fake_core_memory simple_core(dirname, opt_testnet);
 #endif

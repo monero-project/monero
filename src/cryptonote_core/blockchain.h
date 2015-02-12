@@ -81,7 +81,7 @@ namespace cryptonote
 
     Blockchain(tx_memory_pool& tx_pool);
 
-    bool init(const std::string& config_folder, bool testnet = false);
+    bool init(const std::string& config_folder, const bool testnet = false, const int db_flags = 0);
     bool deinit();
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
