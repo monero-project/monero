@@ -104,11 +104,11 @@ namespace cryptonote {
 
 double cryptonote_protocol_handler_base::estimate_one_block_size() noexcept { // for estimating size of blocks to downloa
  const double size_min = 500; // XXX 500
- const int history_len = 20; // how many blocks to average over
+ //const int history_len = 20; // how many blocks to average over
 
  double avg=0;
  try {
- avg = get_avg_block_size(history_len);
+ avg = get_avg_block_size(/*history_len*/);
  } catch (...) { }
  avg = std::max( size_min , avg);
  return avg;
@@ -118,96 +118,6 @@ cryptonote_protocol_handler_base::cryptonote_protocol_handler_base() {
 }
 
 cryptonote_protocol_handler_base::~cryptonote_protocol_handler_base() {
-}
-
-void cryptonote_protocol_handler_base::handler_request_blocks_now(size_t &count_limit) {
-	using namespace epee::net_utils;
-	size_t est_req_size=0; //  how much data are we now requesting (to be soon send to us)
-
-	const auto count_limit_default = count_limit;
-
-	bool allowed_now = false; // are we now allowed to request or are we limited still
-	// long int size_limit;
-
-	while (!allowed_now) {
-		/* if ( ::cryptonote::core::get_is_stopping() ) {  // TODO fast exit
-			_fact("ABORT sleep (before sending requeset) due to stopping"); 
-			break;
-		}*/
-
-			//LOG_PRINT_RED("[DBG]" << get_avg_block_size(1), LOG_LEVEL_0);
-		//{
-			long int size_limit1=0, size_limit2=0;
-			//LOG_PRINT_RED("calculating REQUEST size:", LOG_LEVEL_0);
-			{
-				CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
-				network_throttle_manager::get_global_throttle_in().tick();
-				size_limit1 = network_throttle_manager::get_global_throttle_in().get_recommended_size_of_planned_transport();
-			}
-			{
-				CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_inreq );
-				network_throttle_manager::get_global_throttle_inreq().tick();
-				size_limit2 = network_throttle_manager::get_global_throttle_inreq().get_recommended_size_of_planned_transport();
-			}
-
-			long int one_block_estimated_size = estimate_one_block_size();
-			long int limit_small = std::min( size_limit1 , size_limit2 );
-			long int size_limit = limit_small/3 + size_limit1/3 + size_limit2/3;
-			if (limit_small <= 0) size_limit = 0;
-			const double estimated_peers = 1.2; // how many peers/threads we want to talk to, in order to not grab entire b/w by 1 thread
-			const double knob = 1.000;
-			size_limit /= (estimated_peers / estimated_peers) * knob;
-			_note_c("net/req-calc" , "calculating REQUEST size:" << size_limit1 << " " << size_limit2 << " small=" << limit_small << " final size_limit="<<size_limit);
-
-			double L = size_limit / one_block_estimated_size; // calculating item limit (some heuristics)
-			//LOG_PRINT_RED("L1 = " << L , LOG_LEVEL_0);
-			//double L2=0; if (L>1) L2=std::log(L);
-			//L = L/10. + L2*5;
-			//LOG_PRINT_RED("L2 = " << L , LOG_LEVEL_0);
-			L = std::min( (double)count_limit_default, (double)L);
-			//LOG_PRINT_RED("L3 = " << L , LOG_LEVEL_0);
-
-			const long int hard_limit = 500; // never get more blocks at once ; TODO depend on speed limit. Must be low or limiting is too bursty.
-
-			L = std::min(L, (double) hard_limit);
-
-			count_limit = (int)L;
-
-			est_req_size = count_limit * one_block_estimated_size ; // how much data did we just requested?
-			
-			//LOG_PRINT_RED("est_req_size = " << est_req_size , LOG_LEVEL_0);
-			//LOG_PRINT_RED("count_limit = " << count_limit , LOG_LEVEL_0);
-			//LOG_PRINT_RED("one_block_estimated_size = " << one_block_estimated_size , LOG_LEVEL_0);
-		//}
-
-		if (count_limit > 0) allowed_now = true;
-       // XXX if (!allowed_now) { // XXX DOWNLOAD
-			//long int ms = 3000; // XXX 2000
-			//LOG_PRINT_RED("size_limit = " << size_limit , LOG_LEVEL_0);
-			long int ms = network_throttle_manager::get_global_throttle_in().get_sleep_time_after_tick(one_block_estimated_size); // XXX too long
-			//long int ms = network_throttle_manager::get_global_throttle_in().get_sleep_time(count_limit); // XXX
-			//long int ms = network_throttle_manager::get_global_throttle_in().get_sleep_time(size_limit); // XXX best
-			
-			//ms /= 100; // XXX
-			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " for " << ms << " ms"); // XXX debug sleep
-			//LOG_PRINT_RED("ms = " << ms , LOG_LEVEL_0);
-			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
-		//}
-	}
-	// done waiting&sleeping ^
-
-	// ok we are allowed to send now
-	{
-		CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_inreq );
-		network_throttle_manager::get_global_throttle_inreq().handle_trafic_tcp( est_req_size ); // increase countere of the global requested input
-	}
-
-	// TODO remove debug
-	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
-	LOG_PRINT_RED("### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b", LOG_LEVEL_0);
-	LOG_PRINT_YELLOW("*************************************************************************", LOG_LEVEL_0);
-	LOG_PRINT_RED("\n", LOG_LEVEL_0);
-	_note_c("net/req", "### RRRR ### sending request (type 1), CALCULATED limit = " << count_limit << " = estimated " << est_req_size << " b");
 }
 
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {

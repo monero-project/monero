@@ -20,7 +20,7 @@ cscope.out
 cscope.in.out
 cscope.po.out
 
-
+external/miniupnpc/Makefile
 miniupnpcstrings.h
 version/
 # Created by https://www.gitignore.io

@@ -79,6 +79,10 @@ public:
     m_cmd_binder.set_handler("limit_up", boost::bind(&daemon_cmmands_handler::limit_up, this, _1), "Set upload limit [kB/s]");
     m_cmd_binder.set_handler("limit_down", boost::bind(&daemon_cmmands_handler::limit_down, this, _1), "Set download limit [kB/s]");
     m_cmd_binder.set_handler("limit", boost::bind(&daemon_cmmands_handler::limit, this, _1), "Set download and upload limit [kB/s]");
+    m_cmd_binder.set_handler("fast_exit", boost::bind(&daemon_cmmands_handler::fast_exit, this, _1), "Exit");
+    m_cmd_binder.set_handler("test_drop_download", boost::bind(&daemon_cmmands_handler::test_drop_download, this, _1), "For network testing, drop downloaded blocks instead checking/adding them to blockchain. Can fake-download blocks very fast.");
+    m_cmd_binder.set_handler("start_save_graph", boost::bind(&daemon_cmmands_handler::start_save_graph, this, _1), "");
+    m_cmd_binder.set_handler("stop_save_graph", boost::bind(&daemon_cmmands_handler::stop_save_graph, this, _1), "");
   }
 
   bool start_handling()
@@ -240,6 +244,8 @@ private:
     }
 
     log_space::log_singletone::get_set_log_detalisation_level(true, l);
+    int otshell_utils_log_level = 100 - (l * 25);
+    gCurrentLogger.setDebugLevel(otshell_utils_log_level);
 
     return true;
   }
@@ -406,7 +412,7 @@ private:
   //--------------------------------------------------------------------------------
   bool out_peers_limit(const std::vector<std::string>& args) {
 	if(args.size()!=1) {		
-		std::cout << "Usage: limit_down <speed>" << ENDL;
+		std::cout << "Usage: out_peers <number_of_peers>" << ENDL;
 		return true;
 	}
   
@@ -420,13 +426,26 @@ private:
 		return false;
 	}
 	
+	using namespace boost::chrono;
+	auto point = steady_clock::now();
+	auto time_from_epoh = point.time_since_epoch();
+	auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
+	double ms_f = ms;
+	ms_f /= 1000.;
+	
+	std::ofstream limitFile("log/dr-monero/peers_limit.info", std::ios::app);
+	limitFile.precision(7);
+	limitFile << ms_f << " " << static_cast<int>(limit) << std::endl;
 	if (m_srv.m_config.m_net_config.connections_count > limit)
 	{
-		int count = m_srv.m_config.m_net_config.connections_count - limit;
 		m_srv.m_config.m_net_config.connections_count = limit;
-		m_srv.delete_connections(count);
-	}	
-	else 
+		if (m_srv.m_number_of_out_peers > limit)
+		{
+			int count = m_srv.m_number_of_out_peers - limit;
+			m_srv.delete_connections(count);
+		}
+	}
+	else
 		m_srv.m_config.m_net_config.connections_count = limit;
 	
 	return true;
@@ -526,5 +545,30 @@ private:
       std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
 
       return true;
+  }
+  //--------------------------------------------------------------------------------  
+  bool fast_exit(const std::vector<std::string>& args)
+  {
+	  m_srv.get_payload_object().get_core().set_fast_exit();
+	  m_srv.send_stop_signal();
+	  return true;
+  }
+  //--------------------------------------------------------------------------------  
+  bool test_drop_download(const std::vector<std::string>& args)
+  {
+	  m_srv.get_payload_object().get_core().no_check_blocks();
+	  return true;
+  }
+  //--------------------------------------------------------------------------------  
+  bool start_save_graph(const std::vector<std::string>& args)
+  {
+	  m_srv.set_save_graph(true);
+	  return true;
+  }
+  //--------------------------------------------------------------------------------  
+  bool stop_save_graph(const std::vector<std::string>& args)
+  {
+	  m_srv.set_save_graph(false);
+	  return true;
   }
 };

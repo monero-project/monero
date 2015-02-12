@@ -26,8 +26,7 @@
 #elif defined(__unix__) || defined(__posix) || defined(__linux) || defined(__darwin) || defined(__APPLE__) || defined(__clang__)
 	#define OS_TYPE_POSIX
 #else
-	#warning "Compiler/OS platform is not recognized"
-	#warning "Just assuming it will work as POSIX then"
+	#warning "Compiler/OS platform is not recognized. Just assuming it will work as POSIX then"
 	#define OS_TYPE_POSIX
 #endif
 
@@ -44,7 +43,7 @@
 namespace nOT {
 namespace nUtils {
 
-INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1; // <=== namespaces
+INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1 // <=== namespaces
 
 myexception::myexception(const char * what)
 	: std::runtime_error(what)
@@ -78,26 +77,37 @@ std::string & trim(std::string &s) {
 	return ltrim(rtrim(s));
 }
 
-std::string get_current_time()
-{
+std::string get_current_time() {
+  std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+  time_t time_now = std::chrono::system_clock::to_time_t(now);
+  std::chrono::high_resolution_clock::duration duration = now.time_since_epoch();
+  int64_t micro = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+
+  // std::localtime() - This function may not be thread-safe.
+	#ifdef OS_TYPE_WINDOWS
+		struct tm * tm_pointer = std::localtime( &time_now ); // thread-safe on mingw-w64 (thread local variable) and on MSVC btw
+		// http://stackoverflow.com/questions/18551409/localtime-r-support-on-mingw
+		// tm_pointer points to thread-local data, memory is owned/managed by the system/library
+	#else
+		// linux, freebsd, have this
+		struct tm tm_object; // automatic storage duration http://en.cppreference.com/w/cpp/language/storage_duration
+		struct tm * tm_pointer = & tm_object; // just point to our data
+		auto x = localtime_r( &time_now , tm_pointer    ); // modifies our own (this thread) data in tm_object, this is safe http://linux.die.net/man/3/localtime_r
+		if (x != tm_pointer) return "(internal error in get_current_time)"; // redundant check in case of broken implementation of localtime_r
+	#endif
+	// tm_pointer now points to proper time data, and that memory is automatically managed
+	if (!tm_pointer) return "(internal error in get_current_time - NULL)"; // redundant check in case of broken implementation of used library methods
+
 	std::stringstream stream;
-	struct tm * date;
-
-	std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
-	time_t time_now;
-	time_now = std::chrono::high_resolution_clock::to_time_t(now);
-	date = std::localtime(& time_now);
-
-	char date_buff[32];
-	std::strftime(date_buff, sizeof(date_buff), "%d-%b-%Y %H:%M:%S.", date);
-	stream << date_buff;
-
-	std::chrono::high_resolution_clock::duration duration = now.time_since_epoch();
-	int64_t micro = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-	micro %= 1000000;
-	stream << std::setfill('0') << std::setw(3) << micro;
-
-	return stream.str();
+		stream << std::setfill('0')
+		<< std::setw(2) << tm_pointer->tm_year+1900
+		<< '-' << std::setw(2) << tm_pointer->tm_mon+1
+		<< '-' << std::setw(2) << tm_pointer->tm_mday
+		<< ' ' << std::setw(2) << tm_pointer->tm_hour
+		<< ':' << std::setw(2) << tm_pointer->tm_min
+		<< ':' << std::setw(2) << tm_pointer->tm_sec
+		<< '.' << std::setw(6) << (micro%1000000); // 6 because microseconds
+  return stream.str();
 }
 
 cNullstream g_nullstream; // extern a stream that does nothing (eats/discards data)
@@ -213,7 +223,7 @@ void cDebugScopeGuard::Assign(const string &chan, const int level, const string 
 	mMsg=msg;
 }
 
-}; // namespace nDetail
+} // namespace nDetail
 
 // ====================================================================
 
@@ -591,10 +601,10 @@ string stringToColor(const string &hash) {
 // algorthms
 
 
-}; // namespace nUtil
+} // namespace nUtil
 
 
-}; // namespace OT
+} // namespace OT
 
 // global namespace
 

@@ -78,6 +78,7 @@
 #include "../../src/p2p/network_throttle-detail.hpp"
 
 #include "../../contrib/otshell_utils/utils.hpp"
+#include "data_logger.hpp"
 using namespace nOT::nUtils;
 
 // ################################################################################################
@@ -152,8 +153,6 @@ network_throttle::network_throttle(const std::string &nameshort, const std::stri
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
 	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
-	m_target_MB = 0;
-
 }
 
 void network_throttle::set_name(const std::string &name) 
@@ -163,16 +162,20 @@ void network_throttle::set_name(const std::string &name)
 
 void network_throttle::set_target_speed( network_speed_kbps target ) 
 {
-    m_target_speed = target;
+    m_target_speed = target * 1024;
 	_note_c("net/"+m_nameshort, "Setting LIMIT: " << target << " kbps");
+	set_real_target_speed(target);
 }
 
-void network_throttle::set_target_kill( network_MB target )
+void network_throttle::set_real_target_speed( network_speed_kbps real_target )
 {
-	_note_c("net/"+m_nameshort, "Setting KILL: " << target << " MB hard limit");
-	m_target_MB = target;
+	m_real_target_speed = real_target * 1024;
 }
 
+network_speed_kbps network_throttle::get_terget_speed()
+{
+	return m_real_target_speed / 1024;
+}
 			
 void network_throttle::tick()
 {
@@ -187,7 +190,7 @@ void network_throttle::tick()
 	// TODO optimize when moving few slots at once
 	while ( (!m_any_packet_yet) || (last_sample_time_slot < current_sample_time_slot))
 	{
-		LOG_PRINT_L4("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
+		_dbg3("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
 		// rotate buffer 
 		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
 		m_history[0] = packet_info();
@@ -217,7 +220,6 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 	std::string history_str = oss.str();
 
-    logger_handle_net("log/dr-monero/net/inreq-all.data",get_time_seconds(),packet_size);
 	_info_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" 
         << " Speed AVG=" << std::setw(4) <<  ((long int)(cts .average/1024)) <<"[w="<<cts .window<<"]"
         <<           " " << std::setw(4) <<  ((long int)(cts2.average/1024)) <<"[w="<<cts2.window<<"]"
@@ -233,23 +235,22 @@ void network_throttle::handle_trafic_tcp(size_t packet_size)
 	_handle_trafic_exact( all_size , packet_size );
 }
 
-void network_throttle::handle_congestion(double overheat) {
-	// TODO
-}
-
 network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_size) {
 	tick();
 	return get_sleep_time(packet_size);
 }
 
 void network_throttle::logger_handle_net(const std::string &filename, double time, size_t size) {
+	if (! epee::net_utils::data_logger::m_save_graph)
+		return;
     std::mutex mutex;
     mutex.lock(); {
         std::fstream file;
         file.open(filename.c_str(), std::ios::app | std::ios::out );
+        file.precision(6);
         if(!file.is_open())
             _warn("Can't open file " << filename);
-        file << time << " " << size/1024 << "\n";
+        file << static_cast<int>(time) << " " << static_cast<double>(size/1024) << "\n";
         file.close();
     }  mutex.unlock();
 }
@@ -257,26 +258,10 @@ void network_throttle::logger_handle_net(const std::string &filename, double tim
 // fine tune this to decide about sending speed:
 network_time_seconds network_throttle::get_sleep_time(size_t packet_size) const 
 {
-	//_scope_mark("");
 	double D2=0;
 	calculate_times_struct cts = { 0, 0, 0, 0};
-	//calculate_times(packet_size, cts, false, m_window_size/2); D2=cts.delay;
-	//calculate_times(packet_size, cts, true, m_window_size/2); D2=cts.delay;
 	calculate_times(packet_size, cts, true, m_window_size); D2=cts.delay;
 	return D2;
-}
-double network_throttle::get_current_overheat() const {
- 	auto now = get_time_seconds();
- 	auto diff = now - m_overheat_time;
- 	auto overheat = m_overheat - diff;
- 	overheat = std::max(m_overheat, 0.);
- 	return overheat;
-}
-
-void network_throttle::set_overheat(double lag) {
-  	m_overheat += lag;
-  	m_overheat_time = get_time_seconds();
-  	LOG_PRINT_L0("Lag: " << lag << ", overheat: " << m_overheat );
 }
 
 // MAIN LOGIC:
@@ -310,9 +295,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 	const double D1 = (Epast - M*cts.window) / M; // delay - how long to sleep to get back to target speed
 	const double D2 = (Enow  - M*cts.window) / M; // delay - how long to sleep to get back to target speed (including current packet)
 
-	auto O = get_current_overheat();
-	auto Ouse = O * 0 ; // XXX TODO
-    cts.delay = (D1*0.80 + D2*0.20) + Ouse; // finall sleep depends on both with/without current packet
+    cts.delay = (D1*0.80 + D2*0.20); // finall sleep depends on both with/without current packet
 	//				update_overheat();
 	cts.average = Epast/cts.window; // current avg. speed (for info)
 
@@ -329,13 +312,13 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 	if (dbg) {
 		std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 		std::string history_str = oss.str();
-		_dbg1_c( "net/"+m_nameshort+"_c" ,
-			"dbg " << m_name << ": " 
+		_info_c( "net/"+m_nameshort+"_c" ,
+			(cts.delay > 0 ? "SLEEP" : "")
+			<< "dbg " << m_name << ": " 
 			<< "speed is A=" << std::setw(8) <<cts.average<<" vs "
 			<< "Max=" << std::setw(8) <<M<<" "
 			<< " so sleep: "
 			<< "D=" << std::setw(8) <<cts.delay<<" sec "
-			<< "Overheat=" << std::setw(8) <<O<<" sec "
 			<< "E="<< std::setw(8) << E << " (Enow="<<std::setw(8)<<Enow<<") "
             << "M=" << std::setw(8) << M <<" W="<< std::setw(8) << cts.window << " "
             << "R=" << std::setw(8) << cts.recomendetDataSize << " Wgood" << std::setw(8) << Wgood << " "
@@ -347,7 +330,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 }
 
 double network_throttle::get_time_seconds() const {
-	using namespace boost::chrono;
+	using namespace std::chrono;
 	auto point = steady_clock::now();
 	auto time_from_epoh = point.time_since_epoch();
 	auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
@@ -368,14 +351,28 @@ size_t network_throttle::get_recommended_size_of_planned_transport_window(double
 size_t network_throttle::get_recommended_size_of_planned_transport() const {
 	size_t R1=0,R2=0,R3=0;
 	R1 = get_recommended_size_of_planned_transport_window( -1 );
-	R2 = get_recommended_size_of_planned_transport_window( m_window_size/2);
-	R3 = get_recommended_size_of_planned_transport_window( 8              );
+	R2 = get_recommended_size_of_planned_transport_window(m_window_size / 2);
+	R3 = get_recommended_size_of_planned_transport_window( 5              );
 	auto RM = std::min(R1, std::min(R2,R3));
 
-	const double a1=70, a2=10, a3=10, am=10; // weight of the various windows in decisssion
+	const double a1=20, a2=10, a3=10, am=10; // weight of the various windows in decisssion // TODO 70 => 20
 	return (R1*a1 + R2*a2 + R3*a3 + RM*am) / (a1+a2+a3+am);
 }
 
+double network_throttle::get_current_speed() const {
+	unsigned int bytes_transferred = 0;
+	if (m_history.size() == 0 || m_slot_size == 0)
+		return 0;
+		
+	auto it = m_history.begin();
+	while (it < m_history.end() - 1)
+	{
+		bytes_transferred += it->m_size;
+		it ++;
+	}
+	
+	return bytes_transferred / ((m_history.size() - 1) * m_slot_size);
+}
 
 } // namespace
 } // namespace

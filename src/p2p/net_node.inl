@@ -46,6 +46,7 @@
 #include "net/local_ip.h"
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
+#include "data_logger.hpp"
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
@@ -85,8 +86,8 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
     
-    const command_line::arg_descriptor<bool>        arg_no_igd = {"no-igd", "Disable UPnP port mapping"};
-    const command_line::arg_descriptor<int64_t>     arg_out_peers = {"out-peers", "set max limit of out peers", -1};
+    const command_line::arg_descriptor<bool>        arg_no_igd				= {"no-igd", "Disable UPnP port mapping"};
+    const command_line::arg_descriptor<int64_t>     arg_out_peers 			= {"out-peers", "set max limit of out peers", -1};
     const command_line::arg_descriptor<int>    		arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
     
     const command_line::arg_descriptor<int64_t>    	arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up [kB/s]", -1};
@@ -289,6 +290,31 @@ namespace nodetool
       
       std::vector<std::vector<std::string>> dns_results;
       dns_results.resize(m_seed_nodes_list.size());
+      
+      std::shared_ptr<std::thread> peersLoggerThread (new std::thread([&]()
+      {
+		unsigned int number_of_peers;
+		while (1)
+		{
+			if (m_save_graph)
+			{
+				//number_of_peers = m_net_server.get_config_object().get_connections_count();
+				number_of_peers = 0;
+				m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+				{
+					if(!cntxt.m_is_income)
+						++number_of_peers;
+					return true;
+				}); // lambda
+				
+				m_number_of_out_peers = number_of_peers;
+				epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
+			}
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
+      })); // lambda
+      
+      peersLoggerThread->detach();
 
       std::list<boost::thread*> dns_threads;
       uint64_t result_index = 0;
@@ -487,6 +513,7 @@ namespace nodetool
   {
     m_peerlist.deinit();
     m_net_server.deinit_server();
+    
     return store_config();
   }
   //-----------------------------------------------------------------------------------
@@ -697,6 +724,16 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, bool white)
   {
+	if (m_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
+	{
+		return false;
+	}
+	else if (m_number_of_out_peers > m_config.m_net_config.connections_count)
+	{
+		m_net_server.get_config_object().del_out_connections(1);
+		m_number_of_out_peers --; // atomic variable, update time = 1s
+		return false;
+	}
     LOG_PRINT_L1("Connecting to " << epee::string_tools::get_ip_string_from_int32(na.ip)  << ":"
         << epee::string_tools::num_to_string_fast(na.port) << "(white=" << white << ", last_seen: "
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
@@ -784,16 +821,22 @@ namespace nodetool
 
       ++try_count;
 
-      if(is_peer_used(pe))
+			_note("Considering connecting (out) to peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)  << ":" << boost::lexical_cast<std::string>(pe.adr.port));
+
+      if(is_peer_used(pe)) {
+				_note("Peer is used");
         continue;
+			}
 
       LOG_PRINT_L1("Selected peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
                     << "[white=" << use_white_list
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
       
-      if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list))
+      if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list)) {
+				_note("Handshake failed");
         continue;
+			}
 
       return true;
     }
@@ -1336,20 +1379,31 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max)
 	{
+	    using namespace std::chrono;
+		auto point = steady_clock::now();
+		auto time_from_epoh = point.time_since_epoch();
+		auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
+		double ms_f = ms;
+		ms_f /= 1000.;
+		
+		std::ofstream limitFile("log/dr-monero/peers_limit.info", std::ios::app);
+		limitFile.precision(7);
 		if(max == -1) {
 			m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+			if (m_save_graph)
+				limitFile << static_cast<int>(ms_f) << " " << P2P_DEFAULT_CONNECTIONS_COUNT << std::endl;
 			return true;
 		}
 		
 		m_config.m_net_config.connections_count = max;
-		LOG_PRINT_RED_L0("connections_count:  " << m_config.m_net_config.connections_count);
+		limitFile << static_cast<int>(ms_f) << " " << max << std::endl;
 		return true;
 	}
 	
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::delete_connections(size_t count)
   {
-		m_net_server.get_config_object().del_connections(count);
+		m_net_server.get_config_object().del_out_connections(count);
   }
   
   	  template<class t_payload_net_handler>

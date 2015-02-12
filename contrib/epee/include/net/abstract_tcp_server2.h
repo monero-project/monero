@@ -56,6 +56,7 @@
 #include "syncobj.h"
 #include "../../../../src/p2p/connection_basic.hpp"
 #include "../../../../contrib/otshell_utils/utils.hpp"
+#include "../../../../src/p2p/network_throttle-detail.hpp"
 
 #define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 1000
 
@@ -130,6 +131,7 @@ namespace net_utils
 
     /// Buffer for incoming data.
     boost::array<char, 8192> buffer_;
+    //boost::array<char, 1024> buffer_;
 
     t_connection_context context;
     i_connection_filter* &m_pfilter;
@@ -143,6 +145,12 @@ namespace net_utils
     critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
     
     t_server_role m_connection_type;
+    
+    // for calculate speed (last 60 sec)
+    network_throttle m_throttle_speed_in;
+    network_throttle m_throttle_speed_out;
+    std::mutex m_throttle_speed_in_mutex;
+    std::mutex m_throttle_speed_out_mutex;
 
 	public:
 			void setRPcStation();
@@ -285,6 +293,7 @@ namespace net_utils
     critical_section m_threads_lock;
     volatile uint32_t m_thread_index; // TODO change to std::atomic
     t_server_role type;
+    void detach_threads();
 
     /// The next connection to be accepted
     connection_ptr new_connection_;

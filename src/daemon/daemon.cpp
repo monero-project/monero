@@ -69,7 +69,9 @@ namespace
     , "Run on testnet. The wallet must be launched with --testnet flag."
     , false
     };
-  const command_line::arg_descriptor<bool>        arg_dns_checkpoints  = {"enforce-dns-checkpointing", "checkpoints from DNS server will be enforced", false};
+  const command_line::arg_descriptor<bool>		arg_dns_checkpoints		= {"enforce-dns-checkpointing", "checkpoints from DNS server will be enforced", false};
+  const command_line::arg_descriptor<bool>		arg_test_drop_download  = {"test-drop-download", "For network testing, drop downloaded blocks instead checking/adding them to blockchain. Can fake-download blocks very fast."};
+  const command_line::arg_descriptor<bool>		arg_save_graph			= {"save-graph", "Save data for dr monero", false};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm)
@@ -99,6 +101,8 @@ bool command_line_preprocessor(const boost::program_options::variables_map& vm)
   else if (log_space::get_set_log_detalisation_level(false) != new_log_level)
   {
     log_space::get_set_log_detalisation_level(true, new_log_level);
+    int otshell_utils_log_level = 100 - (new_log_level * 25);
+    gCurrentLogger.setDebugLevel(otshell_utils_log_level);
     LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
   }
 
@@ -107,7 +111,7 @@ bool command_line_preprocessor(const boost::program_options::variables_map& vm)
 
 int main(int argc, char* argv[])
 {
-  
+
   string_tools::set_module_name_and_folder(argv[0]);
 #ifdef WIN32
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
@@ -137,6 +141,8 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_console);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_dns_checkpoints);
+  command_line::add_arg(desc_cmd_sett, arg_test_drop_download);
+  command_line::add_arg(desc_cmd_sett, arg_save_graph);
 
   cryptonote::core::init_options(desc_cmd_sett);
   cryptonote::core_rpc_server::init_options(desc_cmd_sett);
@@ -231,7 +237,17 @@ int main(int argc, char* argv[])
   cryptonote::core_rpc_server rpc_server {ccore, p2psrv, testnet_mode};
   cprotocol.set_p2p_endpoint(&p2psrv);
   ccore.set_cryptonote_protocol(&cprotocol);
-  daemon_cmmands_handler dch(p2psrv, testnet_mode);
+  std::shared_ptr<daemon_cmmands_handler> dch(new daemon_cmmands_handler(p2psrv, testnet_mode));
+  if(command_line::has_arg(vm, arg_save_graph))
+	p2psrv.set_save_graph(true);
+	
+  //initialize core here
+  LOG_PRINT_L0("Initializing core...");
+  res = ccore.init(vm, testnet_mode);
+  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
+  if (command_line::get_arg(vm, arg_test_drop_download))
+	ccore.no_check_blocks();
+  LOG_PRINT_L0("Core initialized OK");
 
   //initialize objects
   LOG_PRINT_L0("Initializing P2P server...");
@@ -248,17 +264,11 @@ int main(int argc, char* argv[])
   res = rpc_server.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core RPC server.");
   LOG_PRINT_GREEN("Core RPC server initialized OK on port: " << rpc_server.get_binded_port(), LOG_LEVEL_0);
-
-  //initialize core here
-  LOG_PRINT_L0("Initializing core...");
-  res = ccore.init(vm, testnet_mode);
-  CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
-  LOG_PRINT_L0("Core initialized OK");
-  
+ 
   // start components
   if(!command_line::has_arg(vm, arg_console))
   {
-    dch.start_handling();
+    dch->start_handling();
   }
 
   LOG_PRINT_L0("Starting core RPC server...");
@@ -267,7 +277,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Core RPC server started ok");
 
   tools::signal_handler::install([&dch, &p2psrv] {
-    dch.stop_handling();
+    dch->stop_handling();
     p2psrv.send_stop_signal();
   });
 
@@ -276,6 +286,8 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("P2P net loop stopped");
 
   //stop components
+  dch->stop_handling();
+  dch.reset();
   LOG_PRINT_L0("Stopping core rpc server...");
   rpc_server.send_stop_signal();
   rpc_server.timed_wait_server_stop(5000);

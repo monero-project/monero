@@ -10,7 +10,7 @@ Template for new files, replace word "template" and later delete this line here.
 
 namespace nOT {
 
-INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1; // <=== namespaces
+INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1 // <=== namespaces
 
 /** Global options to run this program main() Eg used for developer's special options like +setdemo +setdebug.
 This is NOT for all the other options that are parsed and executed by program. */
@@ -50,7 +50,7 @@ class cRunOptions {
 extern cRunOptions gRunOptions;
 
 
-}; // namespace nOT
+} // namespace nOT
 
 
 

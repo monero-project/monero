@@ -100,7 +100,7 @@ struct calculate_times_struct {
 typedef calculate_times_struct calculate_times_struct;
 
 
-namespace cryptonote { class cryptonote_protocol_handler_base; }; // a friend class // TODO friend not working
+namespace cryptonote { class cryptonote_protocol_handler_base; } // a friend class // TODO friend not working
 
 /*** 
 @brief Access to simple throttles, with singlton to access global network limits
@@ -146,11 +146,11 @@ class i_network_throttle {
 	public:
 		virtual void set_name(const std::string &name)=0;
 		virtual void set_target_speed( network_speed_kbps target )=0;
-		virtual void set_target_kill( network_MB target )=0;
+		virtual void set_real_target_speed(network_speed_kbps real_target)=0;
+		virtual network_speed_kbps get_terget_speed()=0;
 
 		virtual void handle_trafic_exact(size_t packet_size) =0; // count the new traffic/packet; the size is exact considering all network costs
 		virtual void handle_trafic_tcp(size_t packet_size) =0; // count the new traffic/packet; the size is as TCP, we will consider MTU etc
-		virtual void handle_congestion(double overheat) =0; // call this when congestion is detected; see example use
 		virtual void tick() =0; // poke and update timers/history
 		
 		// time calculations:
@@ -166,8 +166,6 @@ class i_network_throttle {
 		virtual size_t get_recommended_size_of_planned_transport() const =0; // what should be the recommended limit of data size that we can transport over current network_throttle in near future
 
 		virtual double get_time_seconds() const =0; // a timer
-		virtual double get_current_overheat() const =0;
-        virtual void set_overheat(double lag) =0;
         virtual void logger_handle_net(const std::string &filename, double time, size_t size)=0;
 
 

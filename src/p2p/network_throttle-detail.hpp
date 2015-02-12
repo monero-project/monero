@@ -54,7 +54,7 @@ class network_throttle : public i_network_throttle {
 
 
 		network_speed_kbps m_target_speed;
-		network_MB m_target_MB;
+		network_speed_kbps m_real_target_speed;
 		size_t m_network_add_cost; // estimated add cost of headers 
 		size_t m_network_minimal_segment; // estimated minimal cost of sending 1 byte to round up to
 		size_t m_network_max_segment; // recommended max size of 1 TCP transmission
@@ -80,18 +80,16 @@ class network_throttle : public i_network_throttle {
 		virtual ~network_throttle();
 		virtual void set_name(const std::string &name);
 		virtual void set_target_speed( network_speed_kbps target );
-		virtual void set_target_kill( network_MB target );
+		virtual void set_real_target_speed( network_speed_kbps real_target ); // only for throttle_out
+		virtual network_speed_kbps get_terget_speed();
 
 		// add information about events:
 		virtual void handle_trafic_exact(size_t packet_size); ///< count the new traffic/packet; the size is exact considering all network costs
 		virtual void handle_trafic_tcp(size_t packet_size); ///< count the new traffic/packet; the size is as TCP, we will consider MTU etc
-		virtual void handle_congestion(double overheat); ///< call this when congestion is detected; see example use
 
 		virtual void tick(); ///< poke and update timers/history (recalculates, moves the history if needed, checks the real clock etc)
 
 		virtual double get_time_seconds() const ; ///< timer that we use, time in seconds, monotionic
-		virtual double get_current_overheat() const; ///< did we detected congestion now. NOT USED NOW TODO
-		virtual void set_overheat(double lag); ///< did we detected congestion now. NOT USED NOW TODO.  rename to add_overheat ?
 
 		// time calculations:
 		virtual void calculate_times(size_t packet_size, calculate_times_struct &cts, bool dbg, double force_window) const; ///< MAIN LOGIC (see base class for info)
@@ -101,7 +99,7 @@ class network_throttle : public i_network_throttle {
 
 		virtual size_t get_recommended_size_of_planned_transport() const; ///< what should be the size (bytes) of next data block to be transported
 		virtual size_t get_recommended_size_of_planned_transport_window(double force_window) const;  ///< ditto, but for given windows time frame
-		//virtual void add_planned_transport(size_t size);
+		virtual double get_current_speed() const;
 
 	private:
 		virtual network_time_seconds time_to_slot(network_time_seconds t) const { return std::floor( t ); } // convert exact time eg 13.7 to rounded time for slot number in history 13

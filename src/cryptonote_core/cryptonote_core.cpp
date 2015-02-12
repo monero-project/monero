@@ -187,10 +187,33 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
     bool core::deinit()
   {
-    m_miner.stop();
-    m_mempool.deinit();
-    m_blockchain_storage.deinit();
+	m_miner.stop();
+	m_mempool.deinit();
+	if (!m_fast_exit)
+	{
+		m_blockchain_storage.deinit();
+	}
     return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+    void core::set_fast_exit()
+  {
+    m_fast_exit = true;
+  }
+  //-----------------------------------------------------------------------------------------------
+    bool core::get_fast_exit()
+  {
+    return m_fast_exit;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::no_check_blocks()
+  {
+	  m_check_blocks = false;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_check_blocks()
+  {
+	  return m_check_blocks;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block)
@@ -595,4 +618,6 @@ namespace cryptonote
   {
     raise(SIGTERM);
   }
+  
+  std::atomic<bool> core::m_fast_exit(false);
 }

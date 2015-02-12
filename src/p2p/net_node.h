@@ -86,7 +86,10 @@ namespace nodetool
 		m_no_igd(false),
 		m_hide_my_port(false),
 		m_network_id(std::move(network_id))
-    {}
+    {
+		m_number_of_out_peers = 0;
+		m_save_graph = false;
+	}
 
     static void init_options(boost::program_options::options_description& desc);
 
@@ -225,6 +228,12 @@ namespace nodetool
 
 	public:
     config m_config; // TODO was private, add getters?
+    std::atomic<unsigned int> m_number_of_out_peers;
+	void set_save_graph(bool save_graph)
+	{
+		m_save_graph = save_graph;
+		epee::net_utils::connection_basic::set_save_graph(save_graph);
+	}
 
 	private:
     std::string m_config_folder;
@@ -237,6 +246,7 @@ namespace nodetool
     bool m_allow_local_ip;
     bool m_hide_my_port;
     bool m_no_igd;
+    std::atomic<bool> m_save_graph;
 
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;

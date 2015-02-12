@@ -99,17 +99,11 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		virtual ~connection_basic();
 
 		// various handlers to be called from connection class:
-		void do_send_handler_start(const void * ptr , size_t cb);
-		void do_send_handler_delayed(const void * ptr , size_t cb);
 		void do_send_handler_write(const void * ptr , size_t cb);
-		void do_send_handler_stop(const void * ptr , size_t cb);
-		void do_send_handler_after_write( const boost::system::error_code& e, size_t cb ); // from handle_write
 		void do_send_handler_write_from_queue(const boost::system::error_code& e, size_t cb , int q_len); // from handle_write, sending next part
-		void do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred); // from read, after read completion
 
 		void logger_handle_net_write(size_t size); // network data written
 		void logger_handle_net_read(size_t size); // network data read
-		void logger_handle_net_peer(size_t size, bool io);
 
 		void set_start_time();
 
@@ -117,9 +111,6 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		
 		static void set_rate_up_limit(uint64_t limit);
 		static void set_rate_down_limit(uint64_t limit);
-		static void set_rate_limit(uint64_t limit);
-		static void set_rate_autodetect(uint64_t limit);
-		static void set_kill_limit (uint64_t limit);
 
 		// config misc
 		static void set_tos_flag(int tos); // ToS / QoS flag
@@ -129,6 +120,8 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		void sleep_before_packet(size_t packet_size, int phase, int q_len); // execute a sleep ; phase is not really used now(?)
 		static void save_limit_to_file(int limit); ///< for dr-monero
 		static double get_sleep_time(size_t cb);
+		
+		static void set_save_graph(bool save_graph);
 };
 
 } // nameserver

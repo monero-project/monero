@@ -185,7 +185,7 @@ namespace epee
       }
 
       return res;
-    };
+    }
 
     template<class t_owner, class t_in_type, class t_context, class callback_t>
     int buff_to_t_adapter(t_owner* powner, int command, const std::string& in_buff, callback_t cb, t_context& context)
@@ -199,7 +199,7 @@ namespace epee
       boost::value_initialized<t_in_type> in_struct;
       static_cast<t_in_type&>(in_struct).load(strg);
       return cb(command, in_struct, context);
-    }; 
+    }
 
 #define CHAIN_LEVIN_INVOKE_MAP2(context_type) \
   int invoke(int command, const std::string& in_buff, std::string& buff_out, context_type& context) \

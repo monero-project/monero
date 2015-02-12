@@ -14,7 +14,7 @@
 #endif
 
 #ifndef CFG_WITH_TERMCOLORS
-	#error "You requested to turn off terminal colors (CFG_WITH_TERMCOLORS), however currently they are hardcoded (this option to turn them off is not yet implemented)."
+	//#error "You requested to turn off terminal colors (CFG_WITH_TERMCOLORS), however currently they are hardcoded (this option to turn them off is not yet implemented)."
 #endif
 
 ///Macros related to automatic deduction of class name etc; 
@@ -35,7 +35,7 @@ class myexception : public std::runtime_error {
 };
 
 /// @macro Use this macro INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1 as a shortcut for various using std::string etc.
-INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1; // <=== namespaces
+INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1 // <=== namespaces
 
 // ======================================================================================
 /// text trimming functions (they do mutate the passes string); they trim based on std::isspace. also return it's reference again
@@ -86,6 +86,7 @@ extern std::mutex gLoggerGuard;
 #define _mark(VAR) _debug_level( 80,VAR) // marked action
 #define _warn(VAR) _debug_level( 90,VAR) // some problem
 #define _erro(VAR) _debug_level(100,VAR) // error - report
+
 
 #define _dbg3_c(C,VAR) _debug_level_c(C, 20,VAR)
 #define _dbg2_c(C,VAR) _debug_level_c(C, 30,VAR)
@@ -140,7 +141,7 @@ class cDebugScopeGuard {
 
 const char* DbgShortenCodeFileName(const char *s); ///< Returns a pointer to some part of the string that was given, skipping directory names, for log/debug
 
-}; // namespace nDetail
+} // namespace nDetail
 
 // ========== logger ==========
 
@@ -423,9 +424,9 @@ class value_init {
 template <class T, T INIT>
 value_init<T, INIT>::value_init() :	data(INIT) { }
 
-}; // namespace nUtils
+} // namespace nUtils
 
-}; // namespace nOT
+} // namespace nOT
 
 
 // global namespace

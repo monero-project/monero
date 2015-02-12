@@ -78,6 +78,7 @@
 #include "../../contrib/epee/include/net/abstract_tcp_server2.h"
 
 #include "../../contrib/otshell_utils/utils.hpp"
+#include "data_logger.hpp"
 using namespace nOT::nUtils;
 
 // TODO:
@@ -146,31 +147,31 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, std::ato
 { 
 	++ref_sock_count; // increase the global counter
 	mI->m_peer_number = sock_number.fetch_add(1); // use, and increase the generated number
-	_note("Spawned connection p2p#"<<mI->m_peer_number<<" currently we have sockets count:" << m_ref_sock_count);
+
+	string remote_addr_str = "?";
+	try { remote_addr_str = socket_.remote_endpoint().address().to_string(); } catch(...){} ;
+
+	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_ref_sock_count);
 	boost::filesystem::create_directories("log/dr-monero/net/");
-	/*boost::asio::SettableSocketOption option;// = new boost::asio::SettableSocketOption();
-	option.level(IPPROTO_IP);
-	option.name(IP_TOS);
-	option.value(&tos);
-	option.size = sizeof(tos);
-	socket_.set_option(option);*/
-	// TODO socket options
 }
 
 connection_basic::~connection_basic() {
-	_note("Destructing connection p2p#"<<mI->m_peer_number);
+	string remote_addr_str = "?";
+	try { remote_addr_str = socket_.remote_endpoint().address().to_string(); } catch(...){} ;
+	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
 }
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {
-	save_limit_to_file(limit);
+	
+	// TODO remove __SCALING_FACTOR...
+	const double SCALING_FACTOR = 2.1; // to acheve the best performance
+	limit *= SCALING_FACTOR;
 	{
-		// TODO remove __SCALING_FACTOR...
-		const double SCALING_FACTOR = 2.25; // to acheve the best performance
-		limit *= SCALING_FACTOR;
 		CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
 		network_throttle_manager::get_global_throttle_out().set_target_speed(limit);
+		network_throttle_manager::get_global_throttle_out().set_real_target_speed(limit / SCALING_FACTOR);
 	}
-	//	connection_basic_pimpl::m_throttle_global.m_out.set_target_speed(limit);
+	save_limit_to_file(limit);
 }
 
 void connection_basic::set_rate_down_limit(uint64_t limit) {
@@ -186,36 +187,30 @@ void connection_basic::set_rate_down_limit(uint64_t limit) {
     save_limit_to_file(limit);
 }
 
-void connection_basic::set_rate_limit(uint64_t limit) {
-	// TODO
-}
-void connection_basic::set_kill_limit (uint64_t limit) {
-       {
-         CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_in );
-               network_throttle_manager::get_global_throttle_in().set_target_kill(limit);
-       }
-
-       {
-         CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_out );
-               network_throttle_manager::get_global_throttle_out().set_target_kill(limit);
-       }
-
-       {
-         CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_inreq );
-               network_throttle_manager::get_global_throttle_inreq().set_target_kill(limit);
-       }
-}
 
 void connection_basic::save_limit_to_file(int limit) {
     // saving limit to file
-    std::ofstream file;
-    file.open("log/dr-monero/limit.info");
-    file << limit;
-}
+    if (!epee::net_utils::data_logger::m_save_graph)
+		return;
+    std::ofstream file_up, file_down;
+    file_up.open("log/dr-monero/limit_up.info", std::ofstream::out | std::ofstream::app);
+    file_up.precision(8);
+    file_down.open("log/dr-monero/limit_down.info", std::ofstream::out | std::ofstream::app);
+    file_down.precision(8);
+    using namespace boost::chrono;
+	auto point = steady_clock::now();
+	auto time_from_epoh = point.time_since_epoch();
+	auto s = duration_cast< seconds >( time_from_epoh ).count();
 
-void connection_basic::set_rate_autodetect(uint64_t limit) {
-	// TODO
-	LOG_PRINT_L0("inside connection_basic we set autodetect (this is additional notification)..");
+    {
+         CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_out );
+               file_up << s << " " << network_throttle_manager::get_global_throttle_out().get_terget_speed() / 1024 << "\n";
+	}
+	
+    {
+         CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_in );
+               file_down << s << " " << network_throttle_manager::get_global_throttle_in().get_terget_speed() / 1024 << "\n";
+	}
 }
  
 void connection_basic::set_tos_flag(int tos) {
@@ -230,39 +225,30 @@ void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q
 	double delay=0; // will be calculated
 	do
 	{ // rate limiting
-		//XXX 
-		/*if (::cryptonote::core::get_is_stopping()) { 
-			_dbg1("We are stopping - so abort sleep");
-			return;
-		}*/
 		if (m_was_shutdown) { 
 			_dbg2("m_was_shutdown - so abort sleep");
 			return;
 		}
 
 		{ 
-	  	CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
+			CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
 			delay = network_throttle_manager::get_global_throttle_out().get_sleep_time_after_tick( packet_size ); // decission from global
 		}
 
-		
 		delay *= 0.50;
-		delay = 0; // XXX
 		if (delay > 0) {
-			//delay += rand2*0.1;
-            		long int ms = (long int)(delay * 1000);
-			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // XXX debug sleep
+            long int ms = (long int)(delay * 1000);
+			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // debug sleep
 			_dbg1("sleep in sleep_before_packet");
-			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
+			epee::net_utils::data_logger::get_instance().add_data("sleep_up", ms);
+			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
 		}
 	} while(delay > 0);
 
 // XXX LATER XXX
 	{
 	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-		network_throttle_manager::get_global_throttle_out().handle_trafic_tcp( packet_size ); // increase counter - global
-		//epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
-		//m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
+		network_throttle_manager::get_global_throttle_out().handle_trafic_exact( packet_size * 700); // increase counter - global
 	}
 
 }
@@ -271,32 +257,10 @@ void connection_basic::set_start_time() {
 	m_start_time = network_throttle_manager::get_global_throttle_out().get_time_seconds();
 }
 
-void connection_basic::do_send_handler_start(const void* ptr , size_t cb ) {
-	_fact_c("net/out/size", "*** do_sen() called for packet="<<cb<<" B");
-    sleep_before_packet(cb,1,-1);
-	// set_start_time();
-}
-
-void connection_basic::do_send_handler_delayed(const void* ptr , size_t cb ) {
-	// CRITICAL_REGION_LOCAL(network_throttle_manager::m_lock_get_global_throttle_out);
-	// auto sending_time = network_throttle_manager::get_global_throttle_out().get_time_seconds() - m_start_time; // wrong? --r
-}
-
 void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
 	sleep_before_packet(cb,1,-1);
 	_info_c("net/out/size", "handler_write (direct) - before ASIO write, for packet="<<cb<<" B (after sleep)");
 	set_start_time();
-}
-
-void connection_basic::do_send_handler_stop(const void* ptr , size_t cb ) {
-}
-
-void connection_basic::do_send_handler_after_write(const boost::system::error_code& e, size_t cb) {
-	// CRITICAL_REGION_LOCAL(network_throttle_manager::m_lock_get_global_throttle_out);
-	// auto sending_time = network_throttle_manager::get_global_throttle_out().get_time_seconds() - m_start_time;
-	// lag: if current sending time > max sending time
-	//if (sending_time > 0.1) network_throttle_manager::get_global_throttle_out().set_overheat(sending_time); // TODO
-
 }
 
 void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
@@ -306,54 +270,23 @@ void connection_basic::do_send_handler_write_from_queue( const boost::system::er
 	set_start_time();
 }
 
-void connection_basic::do_read_handler_start(const boost::system::error_code& e, std::size_t bytes_transferred) { // from read, after read completion
-	const size_t packet_size = bytes_transferred;
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_in );
-	 // sleep_before_packet(packet_size * __SCALING_FACTOR, 1, -1); // TODO remove __SCALING_FACTOR
-		network_throttle_manager::get_global_throttle_in().handle_trafic_tcp( packet_size ); // increase counter - global
-		// epee::critical_region_t<decltype(mI->m_throttle_global_lock)> guard(mI->m_throttle_global_lock); // *** critical *** 
-		// mI->m_throttle_global.m_in.handle_trafic_tcp( packet_size ); // increase counter - global	
-	}
-}
-
-void connection_basic::logger_handle_net_peer(size_t size, bool io) { // network data written
-        // TODO OPTIMIZE! do NOT reopen idiotically :)
-        std::ostringstream oss;
-    std::string filename;
-    if (io) { // write
-        double time = network_throttle_manager::get_global_throttle_in().get_time_seconds() ;
-        oss << "log/dr-monero/net/in-peer-" << (mI->m_peer_number) << ".dat" << std::ends;
-        filename = oss.str();
-        network_throttle_manager::get_global_throttle_out().logger_handle_net(filename,time,size);
-    }
-    else { // read
-        double time = network_throttle_manager::get_global_throttle_out().get_time_seconds() ;
-        oss << "log/dr-monero/net/out-peer-" << (mI->m_peer_number) << ".dat" << std::ends;
-        filename = oss.str();
-        network_throttle_manager::get_global_throttle_in().logger_handle_net(filename,time,size);
-    }
-}
-
 void connection_basic::logger_handle_net_read(size_t size) { // network data read
-    std::string filename = "log/dr-monero/net/in-all.data";
-
-    double time = network_throttle_manager::get_global_throttle_in().get_time_seconds() ;
-    network_throttle_manager::get_global_throttle_in().logger_handle_net(filename, time, size);
-    logger_handle_net_peer(size,0);
+    size /= 1024;
+    epee::net_utils::data_logger::get_instance().add_data("download", size);
 }
 
 void connection_basic::logger_handle_net_write(size_t size) {
-    std::string filename = "log/dr-monero/net/out-all.data";
-    double time = network_throttle_manager::get_global_throttle_out().get_time_seconds() ;
-    network_throttle_manager::get_global_throttle_out().logger_handle_net(filename, time, size);
-    logger_handle_net_peer(size,1);
-
+    size /= 1024;
+    epee::net_utils::data_logger::get_instance().add_data("upload", size);	
 }
 
 double connection_basic::get_sleep_time(size_t cb) {
     auto t = network_throttle_manager::get_global_throttle_out().get_sleep_time(cb);
     return t;
+}
+
+void connection_basic::set_save_graph(bool save_graph) {
+	epee::net_utils::data_logger::m_save_graph = save_graph;
 }
 
 

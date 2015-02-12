@@ -75,6 +75,10 @@ namespace cryptonote
      bool init(const boost::program_options::variables_map& vm, bool testnet);
      bool set_genesis_block(const block& b);
      bool deinit();
+     static void set_fast_exit();
+     static bool get_fast_exit();
+     void no_check_blocks();
+     bool get_check_blocks();
      uint64_t get_current_blockchain_height();
      bool get_blockchain_top(uint64_t& heeight, crypto::hash& top_id);
      bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks, std::list<transaction>& txs);
@@ -146,6 +150,8 @@ namespace cryptonote
      bool on_update_blocktemplate_interval();
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
      void graceful_exit();
+     static std::atomic<bool> m_fast_exit;
+     bool m_check_blocks = true;
 
 
      tx_memory_pool m_mempool;

@@ -81,7 +81,7 @@ public:
 
   async_protocol_handler_config():m_pcommands_handler(NULL), m_max_packet_size(LEVIN_DEFAULT_MAX_PACKET_SIZE)
   {}
-  void del_connections(size_t count);
+  void del_out_connections(size_t count);
 };
 
 
@@ -670,10 +670,30 @@ void async_protocol_handler_config<t_connection_context>::del_connection(async_p
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
-void async_protocol_handler_config<t_connection_context>::del_connections(size_t count) // TODO
+void async_protocol_handler_config<t_connection_context>::del_out_connections(size_t count)
 {
+	std::vector <boost::uuids::uuid> out_connections;
 	CRITICAL_REGION_BEGIN(m_connects_lock);
-	m_connects.clear();		
+	for (auto& c: m_connects)
+	{
+		if (!c.second->m_connection_context.m_is_income)
+			out_connections.push_back(c.first);
+	}
+	
+	if (out_connections.size() == 0)
+		return;
+
+	// close random out connections
+	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	shuffle(out_connections.begin(), out_connections.end(), std::default_random_engine(seed));
+	while (count > 0 && out_connections.size() > 0)
+	{
+		close(*out_connections.begin());
+		del_connection(m_connects.at(*out_connections.begin()));
+		out_connections.erase(out_connections.begin());
+		--count;
+	}
+	
 	CRITICAL_REGION_END();
 }
 //------------------------------------------------------------------------------------------
