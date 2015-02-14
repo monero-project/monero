@@ -339,11 +339,22 @@ void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
   blocks_added = 0;
   std::list<crypto::hash> block_ids;
   get_short_chain_history(block_ids);
+  std::list<char*> size_prepended_block_ids;
   zlist_t *list = zlist_new();
   for (std::list<crypto::hash>::iterator it = block_ids.begin(); it != block_ids.end(); it++) {
-    zlist_append(list, it->data);
+    char *block_id = new char[crypto::HASH_SIZE + 1];
+    block_id[0] = crypto::HASH_SIZE;
+    memcpy(block_id + 1, it->data, crypto::HASH_SIZE);
+    size_prepended_block_ids.push_back(block_id);
+  }
+  for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
+    zlist_append(list, *it);
   }
   int rc = wap_client_blocks(client, &list, start_height);
+  for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
+    delete *it;
+  }
+  zlist_destroy(&list);
   THROW_WALLET_EXCEPTION_IF(rc != 0, error::no_connection_to_daemon, "getblocks");
 
   uint64_t status = wap_client_status(client);

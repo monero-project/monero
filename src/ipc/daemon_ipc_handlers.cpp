@@ -104,7 +104,7 @@ namespace IPC
       char *block_id = (char*)zlist_first(z_block_ids);
       while (block_id) {
         crypto::hash hash;
-        memcpy(hash.data, block_id, crypto::HASH_SIZE);
+        memcpy(hash.data, block_id + 1, crypto::HASH_SIZE);
         block_ids.push_back(hash);
         block_id = (char*)zlist_next(z_block_ids);
       }
