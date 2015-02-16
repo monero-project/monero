@@ -47,6 +47,20 @@ set(blockchain_import_private_headers
 bitmonero_private_headers(blockchain_import
 	  ${blockchain_import_private_headers})
 
+set(blockchain_export_sources
+  blockchain_export.cpp
+  )
+
+set(blockchain_export_private_headers
+  import.h
+  blockchain_export.h
+  )
+
+bitmonero_private_headers(blockchain_export
+	  ${blockchain_export_private_headers})
+
+
+
 if (BLOCKCHAIN_DB STREQUAL DB_LMDB)
 bitmonero_add_executable(blockchain_converter
   ${blockchain_converter_sources}
@@ -79,3 +93,18 @@ add_dependencies(blockchain_import
 set_property(TARGET blockchain_import
 	PROPERTY
 	OUTPUT_NAME "blockchain_import")
+
+bitmonero_add_executable(blockchain_export
+  ${blockchain_export_sources}
+  ${blockchain_export_private_headers})
+
+target_link_libraries(blockchain_export
+  LINK_PRIVATE
+    cryptonote_core
+    ${CMAKE_THREAD_LIBS_INIT})
+
+add_dependencies(blockchain_export
+	version)
+set_property(TARGET blockchain_export
+	PROPERTY
+	OUTPUT_NAME "blockchain_export")
