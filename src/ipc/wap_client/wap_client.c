@@ -121,6 +121,15 @@ prepare_blocks_command (client_t *self)
     wap_proto_set_start_height (self->message, self->args->start_height);
 }
 
+// ---------------------------------------------------------------------------
+// prepare_get_output_indexes_command
+//
+
+static void
+prepare_get_output_indexes_command (client_t *self)
+{
+    wap_proto_set_tx_id (self->message, self->args->tx_id);
+}
 
 //  ---------------------------------------------------------------------------
 //  signal_have_blocks_ok
@@ -236,6 +245,16 @@ signal_have_stop_ok (client_t *self)
     zsock_send (self->cmdpipe, "si", "STOP OK", 0);
 }
 
+//  ---------------------------------------------------------------------------
+//  signal_have_output_indexes_ok
+//
+
+static void
+signal_have_output_indexes_ok (client_t *self)
+{
+    zsock_send(self->cmdpipe, "sip", "OUTPUT INDEXES OK", wap_proto_status(self->message),
+        wap_proto_o_indexes(self->message));
+}
 
 //  ---------------------------------------------------------------------------
 //  signal_success

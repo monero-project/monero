@@ -198,6 +198,26 @@ stop_mining_process (client_t *self)
 
 }
 
+//  ---------------------------------------------------------------------------
+//  output_indexes
+//
+
+static void
+output_indexes (client_t *self)
+{
+    IPC::Daemon::get_output_indexes(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  send_transaction
+//
+
+static void
+send_transaction (client_t *self)
+{
+    IPC::Daemon::send_raw_transaction(self->message);
+}
+
 
 //  ---------------------------------------------------------------------------
 //  deregister_wallet

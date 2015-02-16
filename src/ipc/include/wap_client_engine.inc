@@ -30,10 +30,11 @@ typedef enum {
     expect_save_ok_state = 7,
     expect_start_ok_state = 8,
     expect_stop_ok_state = 9,
-    expect_close_ok_state = 10,
-    defaults_state = 11,
-    have_error_state = 12,
-    reexpect_open_ok_state = 13
+    expect_output_indexes_ok_state = 10,
+    expect_close_ok_state = 11,
+    defaults_state = 12,
+    have_error_state = 13,
+    reexpect_open_ok_state = 14
 } state_t;
 
 typedef enum {
@@ -48,18 +49,20 @@ typedef enum {
     save_event = 8,
     start_event = 9,
     stop_event = 10,
-    destructor_event = 11,
-    blocks_ok_event = 12,
-    get_ok_event = 13,
-    put_ok_event = 14,
-    save_ok_event = 15,
-    start_ok_event = 16,
-    stop_ok_event = 17,
-    close_ok_event = 18,
-    ping_ok_event = 19,
-    error_event = 20,
-    command_invalid_event = 21,
-    other_event = 22
+    output_indexes_event = 11,
+    destructor_event = 12,
+    blocks_ok_event = 13,
+    get_ok_event = 14,
+    put_ok_event = 15,
+    save_ok_event = 16,
+    start_ok_event = 17,
+    stop_ok_event = 18,
+    output_indexes_ok_event = 19,
+    close_ok_event = 20,
+    ping_ok_event = 21,
+    error_event = 22,
+    command_invalid_event = 23,
+    other_event = 24
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -75,6 +78,7 @@ s_state_name [] = {
     "expect save ok",
     "expect start ok",
     "expect stop ok",
+    "expect output indexes ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -94,6 +98,7 @@ s_event_name [] = {
     "SAVE",
     "START",
     "STOP",
+    "OUTPUT_INDEXES",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
@@ -101,6 +106,7 @@ s_event_name [] = {
     "SAVE_OK",
     "START_OK",
     "STOP_OK",
+    "OUTPUT_INDEXES_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -185,6 +191,8 @@ static void
 static void
     prepare_start_command (client_t *self);
 static void
+    prepare_get_output_indexes_command (client_t *self);
+static void
     signal_have_blocks_ok (client_t *self);
 static void
     signal_have_get_ok (client_t *self);
@@ -196,6 +204,8 @@ static void
     signal_have_start_ok (client_t *self);
 static void
     signal_have_stop_ok (client_t *self);
+static void
+    signal_have_output_indexes_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -382,6 +392,12 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_PUT_OK:
             return put_ok_event;
+            break;
+        case WAP_PROTO_OUTPUT_INDEXES:
+            return output_indexes_event;
+            break;
+        case WAP_PROTO_OUTPUT_INDEXES_OK:
+            return output_indexes_ok_event;
             break;
         case WAP_PROTO_GET:
             return get_event;
@@ -652,6 +668,24 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = expect_stop_ok_state;
                 }
                 else
+                if (self->event == output_indexes_event) {
+                    if (!self->exception) {
+                        //  prepare get output indexes command
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ prepare get output indexes command");
+                        prepare_get_output_indexes_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send OUTPUT_INDEXES
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send OUTPUT_INDEXES");
+                        wap_proto_set_id (self->message, WAP_PROTO_OUTPUT_INDEXES);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_output_indexes_ok_state;
+                }
+                else
                 if (self->event == destructor_event) {
                     if (!self->exception) {
                         //  send CLOSE
@@ -849,6 +883,36 @@ s_client_execute (s_client_t *self, event_t event)
                         if (wap_client_verbose)
                             zsys_debug ("wap_client:            $ signal have stop ok");
                         signal_have_stop_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
+            case expect_output_indexes_ok_state:
+                if (self->event == output_indexes_ok_event) {
+                    if (!self->exception) {
+                        //  signal have output indexes ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have output indexes ok");
+                        signal_have_output_indexes_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -1092,6 +1156,12 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, save_event);
     }
     else
+    if (streq (method, "OUTPUT INDEXES")) {
+        zstr_free (&self->args.tx_id);
+        zsock_recv (self->cmdpipe, "s", &self->args.tx_id);
+        s_client_execute (self, output_indexes_event);
+    }
+    else
     if (streq (method, "START")) {
         zstr_free (&self->args.address);
         zsock_recv (self->cmdpipe, "si", &self->args.address, &self->args.thread_count);
@@ -1214,8 +1284,8 @@ struct _wap_client_t {
     uint64_t start_height;      //  Returned by actor reply
     uint64_t curr_height;       //  Returned by actor reply
     zmsg_t *block_data;         //  Returned by actor reply
-    char *tx_id;                //  Returned by actor reply
     zchunk_t *tx_data;          //  Returned by actor reply
+    zframe_t *o_indexes;        //  Returned by actor reply
 };
 
 
@@ -1272,8 +1342,8 @@ wap_client_destroy (wap_client_t **self_p)
         zsock_destroy (&self->msgpipe);
         zstr_free (&self->reason);
         zmsg_destroy (&self->block_data);
-        zstr_free (&self->tx_id);
         zchunk_destroy (&self->tx_data);
+        zframe_destroy (&self->o_indexes);
         free (self);
         *self_p = NULL;
     }
@@ -1342,8 +1412,7 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "PUT OK")) {
-                    zstr_free (&self->tx_id);
-                    zsock_recv (self->actor, "is", &self->status, &self->tx_id);
+                    zsock_recv (self->actor, "i", &self->status);
                 }
                 else
                 if (streq (reply, "GET OK")) {
@@ -1353,6 +1422,11 @@ s_accept_reply (wap_client_t *self, ...)
                 else
                 if (streq (reply, "SAVE OK")) {
                     zsock_recv (self->actor, "i", &self->status);
+                }
+                else
+                if (streq (reply, "OUTPUT INDEXES OK")) {
+                    zframe_destroy (&self->o_indexes);
+                    zsock_recv (self->actor, "ip", &self->status, &self->o_indexes);
                 }
                 else
                 if (streq (reply, "START OK")) {
@@ -1474,6 +1548,21 @@ wap_client_save (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  Ask for tx output indexes.                                                      
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_output_indexes (wap_client_t *self, const char *tx_id)
+{
+    assert (self);
+    zsock_send (self->actor, "ss", "OUTPUT INDEXES", tx_id);
+    if (s_accept_reply (self, "OUTPUT INDEXES OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Send start command to server.                                                   
 //  Returns >= 0 if successful, -1 if interrupted.
 
@@ -1559,17 +1648,6 @@ wap_client_block_data (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  Return last received tx_id
-
-const char *
-wap_client_tx_id (wap_client_t *self)
-{
-    assert (self);
-    return self->tx_id;
-}
-
-
-//  ---------------------------------------------------------------------------
 //  Return last received tx_data
 
 zchunk_t *
@@ -1577,4 +1655,17 @@ wap_client_tx_data (wap_client_t *self)
 {
     assert (self);
     return self->tx_data;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received o_indexes
+
+zframe_t *
+wap_client_o_indexes (wap_client_t *self)
+{
+printf("here1\n");
+    assert (self);
+printf("here2\n");
+    return self->o_indexes;
 }

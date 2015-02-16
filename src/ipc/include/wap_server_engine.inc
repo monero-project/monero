@@ -37,11 +37,12 @@ typedef enum {
     save_event = 6,
     start_event = 7,
     stop_event = 8,
-    close_event = 9,
-    ping_event = 10,
-    expired_event = 11,
-    exception_event = 12,
-    settled_event = 13
+    output_indexes_event = 9,
+    close_event = 10,
+    ping_event = 11,
+    expired_event = 12,
+    exception_event = 13,
+    settled_event = 14
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -65,6 +66,7 @@ s_event_name [] = {
     "SAVE",
     "START",
     "STOP",
+    "OUTPUT_INDEXES",
     "CLOSE",
     "PING",
     "expired",
@@ -137,13 +139,15 @@ static void
 static void
     retrieve_blocks (client_t *self);
 static void
-    store_transaction (client_t *self);
+    send_transaction (client_t *self);
 static void
     retrieve_transaction (client_t *self);
 static void
     start_mining_process (client_t *self);
 static void
     stop_mining_process (client_t *self);
+static void
+    output_indexes (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -336,6 +340,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_PUT:
             return put_event;
+            break;
+        case WAP_PROTO_OUTPUT_INDEXES:
+            return output_indexes_event;
             break;
         case WAP_PROTO_GET:
             return get_event;
@@ -584,10 +591,10 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == put_event) {
                     if (!self->exception) {
-                        //  store transaction
+                        //  send transaction
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ store transaction", self->log_prefix);
-                        store_transaction (&self->client);
+                            zsys_debug ("%s:         $ send transaction", self->log_prefix);
+                        send_transaction (&self->client);
                     }
                     if (!self->exception) {
                         //  send PUT_OK
@@ -661,6 +668,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send STOP_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_STOP_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == output_indexes_event) {
+                    if (!self->exception) {
+                        //  output indexes
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ output indexes", self->log_prefix);
+                        output_indexes (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send OUTPUT_INDEXES_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send OUTPUT_INDEXES_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_OUTPUT_INDEXES_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

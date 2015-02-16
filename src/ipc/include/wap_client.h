@@ -74,6 +74,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_save (wap_client_t *self);
 
+//  Ask for tx output indexes.                                                      
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_output_indexes (wap_client_t *self, const char *tx_id);
+
 //  Send start command to server.                                                   
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
@@ -104,13 +109,13 @@ WAP_EXPORT uint64_t
 WAP_EXPORT zmsg_t *
     wap_client_block_data (wap_client_t *self);
 
-//  Return last received tx_id
-WAP_EXPORT const char *
-    wap_client_tx_id (wap_client_t *self);
-
 //  Return last received tx_data
 WAP_EXPORT zchunk_t *
     wap_client_tx_data (wap_client_t *self);
+
+//  Return last received o_indexes
+WAP_EXPORT zframe_t *
+    wap_client_o_indexes (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

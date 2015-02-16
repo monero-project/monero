@@ -175,14 +175,35 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       //usually we have only one transfer for user in transaction
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
-      req.txid = get_transaction_hash(tx);
-      bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+      crypto::hash tx_id = get_transaction_hash(tx);
+      //req.txid = get_transaction_hash(tx);
+      /*bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
       THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
       THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
       THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
-				"transactions outputs size=" + std::to_string(tx.vout.size()) +
-				" not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));
+        "transactions outputs size=" + std::to_string(tx.vout.size()) +
+        " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));*/
+
+      char *size_prepended_tx_id = new char[crypto::HASH_SIZE + 1];
+      size_prepended_tx_id[0] = crypto::HASH_SIZE;
+      memcpy(size_prepended_tx_id + 1, tx_id.data, crypto::HASH_SIZE);
+      int rc = wap_client_output_indexes(client, size_prepended_tx_id);
+      delete size_prepended_tx_id;
+      THROW_WALLET_EXCEPTION_IF(rc != 0, error::no_connection_to_daemon, "get_output_indexes");
+      uint64_t status = wap_client_status(client);
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_output_indexes");
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_output_indexes");
+      THROW_WALLET_EXCEPTION_IF(status != 100, error::get_out_indices_error, "get_output_indexes");
+
+      zframe_t *frame = wap_client_o_indexes(client);
+      THROW_WALLET_EXCEPTION_IF(!frame, error::get_out_indices_error, "get_output_indexes");
+      size_t size = zframe_size(frame) / sizeof(uint64_t);
+      uint64_t *o_indexes_array = reinterpret_cast<uint64_t*>(zframe_data(frame));
+      std::vector<uint64_t> o_indexes;
+      for (uint64_t i = 0; i < size; i++) {
+        o_indexes.push_back(o_indexes_array[i]);
+      }
 
       BOOST_FOREACH(size_t o, outs)
       {
@@ -193,7 +214,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 	transfer_details& td = m_transfers.back();
 	td.m_block_height = height;
 	td.m_internal_output_index = o;
-	td.m_global_output_index = res.o_indexes[o];
+	td.m_global_output_index = o_indexes[o];
 	td.m_tx = tx;
 	td.m_spent = false;
 	cryptonote::keypair in_ephemeral;

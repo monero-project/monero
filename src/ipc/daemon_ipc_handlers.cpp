@@ -159,14 +159,32 @@ namespace IPC
 
     }
 
-    void sendtransactions(wap_proto_t *message)
+    void send_raw_transaction(wap_proto_t *message)
     {
 
     }
 
-    void get_o_indexes(wap_proto_t *message)
+    void get_output_indexes(wap_proto_t *message)
     {
-
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      const char *tx_id = wap_proto_tx_id(message);
+      crypto::hash hash;
+      memcpy(hash.data, tx_id + 1, crypto::HASH_SIZE);
+      std::vector<uint64_t> output_indexes;
+      bool r = core->get_tx_outputs_gindexs(hash, output_indexes);
+      if (!r)
+      {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+      // Spec guarantees that vector elements are contiguous. So coversion to uint64_t[] is easy.
+      uint64_t *indexes = &output_indexes[0];
+      zframe_t *frame = zframe_new(indexes, sizeof(uint64_t) * output_indexes.size());
+      wap_proto_set_o_indexes(message, &frame);
+      wap_proto_set_status(message, 100);
     }
   }
 }

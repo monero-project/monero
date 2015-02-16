@@ -42,6 +42,7 @@ struct _wap_proto_t {
     zmsg_t *block_data;                 //  Frames of block data
     zchunk_t *tx_data;                  //  Transaction data
     char tx_id [256];                   //  Transaction ID
+    zframe_t *o_indexes;                //  Output Indexes
     char address [256];                 //  
     uint64_t thread_count;              //  
     char reason [256];                  //  Printable explanation
@@ -224,6 +225,7 @@ wap_proto_destroy (wap_proto_t **self_p)
             zlist_destroy (&self->block_ids);
         zmsg_destroy (&self->block_data);
         zchunk_destroy (&self->tx_data);
+        zframe_destroy (&self->o_indexes);
 
         //  Free object itself
         free (self);
@@ -337,7 +339,22 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_PUT_OK:
+            GET_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_OUTPUT_INDEXES:
             GET_STRING (self->tx_id);
+            break;
+
+        case WAP_PROTO_OUTPUT_INDEXES_OK:
+            GET_NUMBER8 (self->status);
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: o_indexes is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->o_indexes);
+            self->o_indexes = zframe_recv (input);
             break;
 
         case WAP_PROTO_GET:
@@ -453,7 +470,13 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->tx_data);
             break;
         case WAP_PROTO_PUT_OK:
+            frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_OUTPUT_INDEXES:
             frame_size += 1 + strlen (self->tx_id);
+            break;
+        case WAP_PROTO_OUTPUT_INDEXES_OK:
+            frame_size += 8;            //  status
             break;
         case WAP_PROTO_GET:
             frame_size += 1 + strlen (self->tx_id);
@@ -526,7 +549,16 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_PUT_OK:
+            PUT_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_OUTPUT_INDEXES:
             PUT_STRING (self->tx_id);
+            break;
+
+        case WAP_PROTO_OUTPUT_INDEXES_OK:
+            PUT_NUMBER8 (self->status);
+            nbr_frames++;
             break;
 
         case WAP_PROTO_GET:
@@ -563,6 +595,14 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
     
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_OUTPUT_INDEXES_OK) {
+        //  If o_indexes isn't set, send an empty frame
+        if (self->o_indexes)
+            zframe_send (&self->o_indexes, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
     //  Now send the block_data if necessary
     if (send_block_data) {
         if (self->block_data) {
@@ -633,10 +673,25 @@ wap_proto_print (wap_proto_t *self)
             
         case WAP_PROTO_PUT_OK:
             zsys_debug ("WAP_PROTO_PUT_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+            
+        case WAP_PROTO_OUTPUT_INDEXES:
+            zsys_debug ("WAP_PROTO_OUTPUT_INDEXES:");
             if (self->tx_id)
                 zsys_debug ("    tx_id='%s'", self->tx_id);
             else
                 zsys_debug ("    tx_id=");
+            break;
+            
+        case WAP_PROTO_OUTPUT_INDEXES_OK:
+            zsys_debug ("WAP_PROTO_OUTPUT_INDEXES_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    o_indexes=");
+            if (self->o_indexes)
+                zframe_print (self->o_indexes, NULL);
+            else
+                zsys_debug ("(NULL)");
             break;
             
         case WAP_PROTO_GET:
@@ -771,6 +826,12 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_PUT_OK:
             return ("PUT_OK");
+            break;
+        case WAP_PROTO_OUTPUT_INDEXES:
+            return ("OUTPUT_INDEXES");
+            break;
+        case WAP_PROTO_OUTPUT_INDEXES_OK:
+            return ("OUTPUT_INDEXES_OK");
             break;
         case WAP_PROTO_GET:
             return ("GET");
@@ -1015,6 +1076,39 @@ wap_proto_set_tx_id (wap_proto_t *self, const char *value)
 
 
 //  --------------------------------------------------------------------------
+//  Get the o_indexes field without transferring ownership
+
+zframe_t *
+wap_proto_o_indexes (wap_proto_t *self)
+{
+    assert (self);
+    return self->o_indexes;
+}
+
+//  Get the o_indexes field and transfer ownership to caller
+
+zframe_t *
+wap_proto_get_o_indexes (wap_proto_t *self)
+{
+    zframe_t *o_indexes = self->o_indexes;
+    self->o_indexes = NULL;
+    return o_indexes;
+}
+
+//  Set the o_indexes field, transferring ownership from caller
+
+void
+wap_proto_set_o_indexes (wap_proto_t *self, zframe_t **frame_p)
+{
+    assert (self);
+    assert (frame_p);
+    zframe_destroy (&self->o_indexes);
+    self->o_indexes = *frame_p;
+    *frame_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the address field
 
 const char *
@@ -1181,6 +1275,18 @@ wap_proto_test (bool verbose)
     }
     wap_proto_set_id (self, WAP_PROTO_PUT_OK);
 
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_OUTPUT_INDEXES);
+
     wap_proto_set_tx_id (self, "Life is short but Now lasts for ever");
     //  Send twice
     wap_proto_send (self, output);
@@ -1190,6 +1296,21 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (streq (wap_proto_tx_id (self), "Life is short but Now lasts for ever"));
+    }
+    wap_proto_set_id (self, WAP_PROTO_OUTPUT_INDEXES_OK);
+
+    wap_proto_set_status (self, 123);
+    zframe_t *output_indexes_ok_o_indexes = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_o_indexes (self, &output_indexes_ok_o_indexes);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (zframe_streq (wap_proto_o_indexes (self), "Captcha Diem"));
     }
     wap_proto_set_id (self, WAP_PROTO_GET);
 
