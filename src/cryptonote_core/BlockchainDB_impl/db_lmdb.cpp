@@ -742,6 +742,7 @@ void BlockchainLMDB::close()
 void BlockchainLMDB::sync()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
 
   // Does nothing unless LMDB environment was opened with MDB_NOSYNC or in part
   // MDB_NOMETASYNC. Force flush to be synchronous.
@@ -1757,6 +1758,8 @@ uint64_t BlockchainLMDB::add_block( const block& blk
 void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
   txn_safe txn;
   if (! m_batch_active)
   {
