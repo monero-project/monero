@@ -237,8 +237,9 @@ bool Blockchain::init(const std::string& config_folder, bool testnet)
   m_testnet = testnet;
 
   boost::filesystem::path folder(m_config_folder);
+  folder /= "lmdb";
 
-  LOG_PRINT_L0("Loading blockchain...");
+  LOG_PRINT_L0("Loading blockchain from folder " << folder.c_str() << " ...");
 
   //FIXME: update filename for BlockchainDB
   const std::string filename = folder.string();

@@ -630,6 +630,16 @@ void BlockchainLMDB::open(const std::string& filename)
       throw0(DB_OPEN_FAILURE(std::string("Failed to create directory ").append(filename).c_str()));
   }
 
+  // check for existing LMDB files in base directory
+  boost::filesystem::path old_files = direc.parent_path();
+  if (boost::filesystem::exists(old_files / "data.mdb") ||
+      boost::filesystem::exists(old_files / "lock.mdb"))
+  {
+    LOG_PRINT_L0("Found existing LMDB files in " << old_files.c_str());
+    LOG_PRINT_L0("Move data.mdb and/or lock.mdb to " << filename << ", or delete them, and then restart");
+    throw DB_ERROR("Database could not be opened");
+  }
+
   m_folder = filename;
 
   // set up lmdb environment
