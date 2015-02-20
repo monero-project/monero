@@ -206,14 +206,30 @@ namespace cryptonote
     return m_fast_exit;
   }
   //-----------------------------------------------------------------------------------------------
-  void core::no_check_blocks()
+  void core::test_drop_download()
   {
-	  m_check_blocks = false;
+	  m_test_drop_download = false;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_check_blocks()
+  void core::test_drop_download_height(uint64_t height)
   {
-	  return m_check_blocks;
+	  m_test_drop_download_height = height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_test_drop_download()
+  {
+	  return m_test_drop_download;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_test_drop_download_height()
+  {
+	  if (m_test_drop_download_height == 0)
+		return true;
+		
+	  if (get_blockchain_storage().get_current_blockchain_height() <= m_test_drop_download_height)
+		return true;
+
+	  return false;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block)

@@ -50,6 +50,7 @@
 #include "cryptonote_core/checkpoints_create.h"
 //#include "serialization/json_archive.h"
 #include "../../contrib/otshell_utils/utils.hpp"
+#include "../../src/p2p/data_logger.hpp"
 
 using namespace cryptonote;
 
@@ -176,22 +177,6 @@ bool blockchain_storage::store_genesis_block(bool testnet) {
   add_new_block(bl, bvc);
   CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
   return true;
-}
-//------------------------------------------------------------------
-void blockchain_storage::logger_handle(long int ms)
-{
-	std::ofstream log_file;
-    log_file.open("log/dr-monero/blockchain_log.data", std::ofstream::out | std::ofstream::app);
-    log_file.precision(7);
-    
-    using namespace boost::chrono;
-	auto point = steady_clock::now();
-	auto time_from_epoh = point.time_since_epoch();
-	auto m_ms = duration_cast< milliseconds >( time_from_epoh ).count();
-	double ms_f = m_ms;
-	ms_f /= 1000.;
-	
-	log_file << ms_f << " " << ms << std::endl;
 }
 //------------------------------------------------------------------
 bool blockchain_storage::store_blockchain()
@@ -1776,7 +1761,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size
     << ", " << block_processing_time << "("<< target_calculating_time << "/" << longhash_calculating_time << ")ms");
 
-	logger_handle(block_processing_time);
+	epee::net_utils::data_logger::get_instance().add_data("blockchain_processing_time", block_processing_time);
 
   bvc.m_added_to_main_chain = true;
   /*if(!m_orphanes_reorganize_in_work)

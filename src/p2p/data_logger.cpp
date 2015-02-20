@@ -1,7 +1,9 @@
 #include "data_logger.hpp"
 
 #include <boost/chrono.hpp>
+#include <boost/filesystem.hpp>
 #include <chrono>
+#include "../../contrib/otshell_utils/utils.hpp"
 
 namespace epee
 {
@@ -32,7 +34,16 @@ namespace net_utils
 		mFilesMap["request"] = data_logger::fileData("log/dr-monero/net/req-all.data");
 		mFilesMap["sleep_down"] = data_logger::fileData("log/dr-monero/down_sleep_log.data");
 		mFilesMap["sleep_up"] = data_logger::fileData("log/dr-monero/up_sleep_log.data");
+		mFilesMap["calc_time"] = data_logger::fileData("log/dr-monero/get_objects_calc_time.data");
+		mFilesMap["blockchain_processing_time"] = data_logger::fileData("log/dr-monero/blockchain_log.data");
 		
+		mFilesMap["peers_limit"] = data_logger::fileData("log/dr-monero/peers_limit.info");
+		mFilesMap["download_limit"] = data_logger::fileData("log/dr-monero/limit_down.info");
+		mFilesMap["upload_limit"] = data_logger::fileData("log/dr-monero/limit_up.info");
+		
+		mFilesMap["peers_limit"].mLimitFile = true;
+		mFilesMap["download_limit"].mLimitFile = true;
+		mFilesMap["upload_limit"].mLimitFile = true;
 	}
 	
 	void data_logger::add_data(std::string filename, unsigned int data)
@@ -40,7 +51,14 @@ namespace net_utils
 		if (mFilesMap.find(filename) == mFilesMap.end())
 			return; // TODO: exception
 			
-		mFilesMap[filename].mDataToSave += data;
+		
+		nOT::nUtils::cFilesystemUtils::CreateDirTree("log/dr-monero/net/");
+		
+		std::lock_guard<std::mutex> lock(mSaveMutex);
+		if (mFilesMap[filename].mLimitFile)
+			mFilesMap[filename].mDataToSave = data;
+		else
+			mFilesMap[filename].mDataToSave += data;
 	}
 	
 	double data_logger::fileData::get_current_time()
@@ -56,23 +74,27 @@ namespace net_utils
 	data_logger::fileData::fileData(std::string pFile)
 	{
 		mFile = std::make_shared<std::ofstream> (pFile);
+		mPath = pFile;
 	}
 	
 	void data_logger::fileData::save()
 	{
 		if (!data_logger::m_save_graph)
 			return;
+		mFile->open(mPath, std::ios::app);
 		*mFile << static_cast<int>(get_current_time()) << " " << mDataToSave << std::endl;
+		mFile->close();
 	}
 	
 	void data_logger::saveToFile()
 	{
-		 std::lock_guard<std::mutex> lock(mSaveMutex);
-		 for (auto &element : mFilesMap)
-		 {
-			 element.second.save();
-			 element.second.mDataToSave = 0;
-		 }
+		std::lock_guard<std::mutex> lock(mSaveMutex);
+		for (auto &element : mFilesMap)
+		{
+			element.second.save();
+			if (!element.second.mLimitFile)
+				element.second.mDataToSave = 0;
+		}
 	}
 	
 std::atomic<bool> data_logger::m_save_graph(false);

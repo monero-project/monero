@@ -198,8 +198,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   bool connection<t_protocol_handler>::add_ref()
   {
     TRY_ENTRY();
-    //_info("[sock " << socket_.native_handle() << "] add_ref");
+    //_dbg3("[sock " << socket_.native_handle() << "] add_ref, m_peer_number=" << mI->m_peer_number);
     CRITICAL_REGION_LOCAL(m_self_refs_lock);
+    //_dbg3("[sock " << socket_.native_handle() << "] add_ref 2, m_peer_number=" << mI->m_peer_number);
 
     // Use safe_shared_from_this, because of this is public method and it can be called on the object being deleted
     auto self = safe_shared_from_this();
@@ -364,8 +365,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			{ // LOCK: chunking
     		epee::critical_region_t<decltype(m_chunking_lock)> send_guard(m_chunking_lock); // *** critical *** 
 
-				_mark_c("net/out/size", "do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
-				_mark("do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
+				_dbg3_c("net/out/size", "do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
 				t_safe all = cb; // all bytes to send 
 				t_safe pos = 0; // current sending position
 				// 01234567890 
@@ -393,14 +393,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 					ASRT(chunk_start >= ptr); // not wrapped around address?
 					//std::memcpy( (void*)buf, chunk_start, len);
 
-					_dbg1_c("net/out/size", "part of " << lenall << ": pos="<<pos << " len="<<len);
+					_dbg3_c("net/out/size", "part of " << lenall << ": pos="<<pos << " len="<<len);
 
 					bool ok = do_send_chunk(chunk_start, len); // <====== ***
 
 					all_ok = all_ok && ok;
 					if (!all_ok) {
-						_mark_c("net/out/size", "do_send() DONE ***FAILED*** from packet="<<cb<<" B for ptr="<<ptr);
-						_mark  (                "do_send() DONE ***FAILED*** from packet="<<cb<<" B for ptr="<<ptr);
+						_dbg1_c("net/out/size", "do_send() DONE ***FAILED*** from packet="<<cb<<" B for ptr="<<ptr);
 						_dbg1("do_send() SEND was aborted in middle of big package - this is mostly harmless "
 							<< " (e.g. peer closed connection) but if it causes trouble tell us at #monero-dev. " << cb);
 						return false; // partial failure in sending
@@ -410,8 +409,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 					// (in catch block, or uniq pointer) delete buf;
 				} // each chunk
 
-				_mark_c("net/out/size", "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
-				_mark  (                "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
+				_dbg3_c("net/out/size", "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
+				_dbg3  (                "do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
 
                 _info_c("net/sleepRPC", "do_send() m_connection_type = " << m_connection_type);
 
@@ -469,7 +468,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         if (retry > retry_limit) {
             send_guard.unlock();
             _erro("send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
-            //	_mark_c("net/sleep", "send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
+            //	_dbg1_c("net/sleep", "send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
             close();
             return false;
         }
@@ -496,7 +495,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         }
 
         auto size_now = m_send_que.front().size();
-        _mark_c("net/out/size", "do_send() NOW SENSD: packet="<<size_now<<" B");
+        _dbg1_c("net/out/size", "do_send() NOW SENSD: packet="<<size_now<<" B");
         do_send_handler_write( ptr , size_now ); // (((H)))
 
         ASRT( size_now == m_send_que.front().size() );
@@ -580,7 +579,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     {
       //have more data to send
 		auto size_now = m_send_que.front().size();
-		_mark_c("net/out/size", "handle_write() NOW SENDS: packet="<<size_now<<" B" <<", from  queue size="<<m_send_que.size());
+		_dbg1_c("net/out/size", "handle_write() NOW SENDS: packet="<<size_now<<" B" <<", from  queue size="<<m_send_que.size());
 		do_send_handler_write_from_queue(e, m_send_que.front().size() , m_send_que.size()); // (((H)))
 		ASRT( size_now == m_send_que.front().size() );
 		boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), size_now) , 

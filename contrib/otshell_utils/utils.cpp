@@ -112,7 +112,22 @@ std::string get_current_time() {
 
 cNullstream g_nullstream; // extern a stream that does nothing (eats/discards data)
 
-std::mutex gLoggerGuard; // extern
+std::recursive_mutex gLoggerGuard; // extern
+std::atomic<int> gLoggerGuardDepth; // extern
+
+std::atomic<int> & gLoggerGuardDepth_Get() {
+	// TODO std::once would be nicer here
+
+	static bool once=0;
+
+	if (!once) { // initialize it once
+		once=1;
+		gLoggerGuardDepth=0;	
+	}
+
+	return gLoggerGuardDepth; // global, atomic counter
+}
+
 
 // ====================================================================
 

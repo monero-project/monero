@@ -45,10 +45,13 @@
 #include "cryptonote_core/connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
 #include "cryptonote_core/verification_context.h"
+// #include <netinet/in.h>
 #include <boost/circular_buffer.hpp>
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
+
+#define LOCALHOST_INT 2130706433
 
 namespace cryptonote
 {

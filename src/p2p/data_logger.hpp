@@ -27,12 +27,15 @@ namespace net_utils
 			{
 				public:
 					fileData(){}
+					fileData(const fileData &ob) = delete;
 					fileData(std::string pFile);
 					
 					std::shared_ptr<std::ofstream> mFile;
 					long int mDataToSave = 0;
 					static double get_current_time();
 					void save();
+					std::string mPath;
+					bool mLimitFile = false;
 			};
 			
 			std::map <std::string, fileData> mFilesMap;

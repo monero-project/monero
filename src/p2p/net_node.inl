@@ -296,20 +296,18 @@ namespace nodetool
 		unsigned int number_of_peers;
 		while (1)
 		{
-			if (m_save_graph)
+			//number_of_peers = m_net_server.get_config_object().get_connections_count();
+			number_of_peers = 0;
+			m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
 			{
-				//number_of_peers = m_net_server.get_config_object().get_connections_count();
-				number_of_peers = 0;
-				m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
-				{
-					if(!cntxt.m_is_income)
-						++number_of_peers;
-					return true;
-				}); // lambda
+				if(!cntxt.m_is_income)
+					++number_of_peers;
+				return true;
+			}); // lambda
 				
-				m_number_of_out_peers = number_of_peers;
-				epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
-			}
+			m_current_number_of_out_peers = number_of_peers;
+			epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
+				
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 		}
       })); // lambda
@@ -724,14 +722,14 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, bool white)
   {
-	if (m_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
+	if (m_current_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
 	{
 		return false;
 	}
-	else if (m_number_of_out_peers > m_config.m_net_config.connections_count)
+	else if (m_current_number_of_out_peers > m_config.m_net_config.connections_count)
 	{
 		m_net_server.get_config_object().del_out_connections(1);
-		m_number_of_out_peers --; // atomic variable, update time = 1s
+		m_current_number_of_out_peers --; // atomic variable, update time = 1s
 		return false;
 	}
     LOG_PRINT_L1("Connecting to " << epee::string_tools::get_ip_string_from_int32(na.ip)  << ":"
@@ -1378,25 +1376,14 @@ namespace nodetool
   
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max)
-	{
-	    using namespace std::chrono;
-		auto point = steady_clock::now();
-		auto time_from_epoh = point.time_since_epoch();
-		auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
-		double ms_f = ms;
-		ms_f /= 1000.;
-		
-		std::ofstream limitFile("log/dr-monero/peers_limit.info", std::ios::app);
-		limitFile.precision(7);
+	{		
 		if(max == -1) {
 			m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
-			if (m_save_graph)
-				limitFile << static_cast<int>(ms_f) << " " << P2P_DEFAULT_CONNECTIONS_COUNT << std::endl;
+			epee::net_utils::data_logger::get_instance().add_data("peers_limit", m_config.m_net_config.connections_count);
 			return true;
 		}
-		
+		epee::net_utils::data_logger::get_instance().add_data("peers_limit", max);
 		m_config.m_net_config.connections_count = max;
-		limitFile << static_cast<int>(ms_f) << " " << max << std::endl;
 		return true;
 	}
 	

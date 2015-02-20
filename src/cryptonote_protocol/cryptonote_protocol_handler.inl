@@ -42,6 +42,7 @@
 #include "profile_tools.h"
 #include "../../contrib/otshell_utils/utils.hpp"
 #include "../../src/p2p/network_throttle-detail.hpp"
+#include "../../src/p2p/data_logger.hpp"
 using namespace nOT::nUtils;
 
 namespace cryptonote
@@ -154,10 +155,10 @@ namespace cryptonote
         << std::setw(10) << std::fixed << (connection_time == 0 ? 0.0 : cntxt.m_send_cnt / connection_time / 1024)
         << std::setw(13) << std::fixed << cntxt.m_current_speed_up / 1024
         << (local_ip ? "[LAN]" : "")
-        << std::left << (ip == 2130706433 ? "[LOCALHOST]" : "") // 127.0.0.1
+        << std::left << (ip == LOCALHOST_INT ? "[LOCALHOST]" : "") // 127.0.0.1
         << ENDL;
         
-        if (connection_time > 0)
+        if (connection_time > 1)
         {
 			down_sum += (cntxt.m_recv_cnt / connection_time / 1024);
 			up_sum += (cntxt.m_send_cnt / connection_time / 1024);
@@ -397,11 +398,9 @@ namespace cryptonote
     
     // calculate size of request - mainly for logging/debug
     size_t size = 0;
-    for (auto element : arg.txs)
-		size += element.size();
+    for (auto element : arg.txs) size += element.size();
 	
-	for (auto element : arg.blocks)
-	{
+	for (auto element : arg.blocks) {
 		size += element.block.size();
 		for (auto tx : element.txs)
 			size += tx.size();
@@ -491,66 +490,65 @@ namespace cryptonote
       return 1;
     }
 
+
     {
       m_core.pause_mine();
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler(
         boost::bind(&t_core::resume_mine, &m_core));
 
 			LOG_PRINT_CCONTEXT_YELLOW( "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size() , LOG_LEVEL_0);
-      BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
-      {
-        //process transactions
-        TIME_MEASURE_START(transactions_process_time);
-        BOOST_FOREACH(auto& tx_blob, block_entry.txs)
-        {
-          tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-          m_core.handle_incoming_tx(tx_blob, tvc, true);
-          if(tvc.m_verifivation_failed)
-          {
-            LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, \r\ntx_id = " 
-              << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)) << ", dropping connection");
-            m_p2p->drop_connection(context);
-            return 1;
-          }
-        }
-        TIME_MEASURE_FINISH(transactions_process_time);
+			
+      if (m_core.get_test_drop_download() && m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
+				
+				
+		  BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
+		  {
+			// process transactions
+			TIME_MEASURE_START(transactions_process_time);
+			BOOST_FOREACH(auto& tx_blob, block_entry.txs)
+			{
+			  tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+			  m_core.handle_incoming_tx(tx_blob, tvc, true);
+			  if(tvc.m_verifivation_failed)
+			  {
+				LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, \r\ntx_id = " 
+				  << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)) << ", dropping connection");
+				m_p2p->drop_connection(context);
+				return 1;
+			  }
+			}
+			TIME_MEASURE_FINISH(transactions_process_time);
 
-        //process block
-        TIME_MEASURE_START(block_process_time);
-        block_verification_context bvc = boost::value_initialized<block_verification_context>();
-		
-		if (m_core.get_check_blocks())
-			m_core.handle_incoming_block(block_entry.block, bvc, false);
+			// process block
+			
+				TIME_MEASURE_START(block_process_time);
+				block_verification_context bvc = boost::value_initialized<block_verification_context>();
+			
+				m_core.handle_incoming_block(block_entry.block, bvc, false); // <--- process block
 
-        if(bvc.m_verifivation_failed)
-        {
-          LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
-          m_p2p->drop_connection(context);
-          return 1;
-        }
-        if(bvc.m_marked_as_orphaned)
-        {
-          LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
-          m_p2p->drop_connection(context);
-          return 1;
-        }
+				if(bvc.m_verifivation_failed)
+				{
+				  LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
+				  m_p2p->drop_connection(context);
+				  return 1;
+				}
+				if(bvc.m_marked_as_orphaned)
+				{
+				  LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
+				  m_p2p->drop_connection(context);
+				  return 1;
+				}
 
-        TIME_MEASURE_FINISH(block_process_time);
-        LOG_PRINT_CCONTEXT_L2("Block process time: " << block_process_time + transactions_process_time << "(" << transactions_process_time << "/" << block_process_time << ")ms");
-        
-        std::ofstream log_file;
-		log_file.open("log/dr-monero/get_objects_calc_time.data", std::ofstream::out | std::ofstream::app);
-		log_file.precision(7);
+				TIME_MEASURE_FINISH(block_process_time);
+				LOG_PRINT_CCONTEXT_L2("Block process time: " << block_process_time + transactions_process_time << "(" << transactions_process_time << "/" << block_process_time << ")ms");
+				
+				epee::net_utils::data_logger::get_instance().add_data("calc_time", block_process_time + transactions_process_time);
+								
+		  } // each download block
 
-		using namespace boost::chrono;
-		auto point = steady_clock::now();
-		auto time_from_epoh = point.time_since_epoch();
-		auto m_ms = duration_cast< milliseconds >( time_from_epoh ).count();
-		double ms_f = m_ms;
-		ms_f /= 1000.;
-		
-		log_file << static_cast<int>(ms_f) << " " << block_process_time + transactions_process_time << std::endl;
-      }
+		} // if not DISCARD BLOCK
+
+		  
     }
     request_missing_objects(context, true);
     return 1;

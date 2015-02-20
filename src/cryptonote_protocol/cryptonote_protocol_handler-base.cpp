@@ -128,7 +128,7 @@ void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<
 	// TODO
 }
 
-void cryptonote_protocol_handler_base::handler_response_blocks_now(size_t packet_size) { _scope_mark("");
+void cryptonote_protocol_handler_base::handler_response_blocks_now(size_t packet_size) { _scope_dbg1("");
 	using namespace epee::net_utils;
 	double delay=0; // will be calculated
 	_dbg1("Packet size: " << packet_size);

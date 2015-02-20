@@ -77,8 +77,10 @@ namespace cryptonote
      bool deinit();
      static void set_fast_exit();
      static bool get_fast_exit();
-     void no_check_blocks();
-     bool get_check_blocks();
+     void test_drop_download();
+     void test_drop_download_height(uint64_t height);
+     bool get_test_drop_download();
+     bool get_test_drop_download_height();
      uint64_t get_current_blockchain_height();
      bool get_blockchain_top(uint64_t& heeight, crypto::hash& top_id);
      bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks, std::list<transaction>& txs);
@@ -151,8 +153,8 @@ namespace cryptonote
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
      void graceful_exit();
      static std::atomic<bool> m_fast_exit;
-     bool m_check_blocks = true;
-
+     bool m_test_drop_download = true;
+	 uint64_t m_test_drop_download_height = 0;
 
      tx_memory_pool m_mempool;
      blockchain_storage m_blockchain_storage;

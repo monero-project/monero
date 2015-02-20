@@ -65,17 +65,54 @@ extern cNullstream g_nullstream; // a stream that does nothing (eats/discards da
 
 // TODO make _dbg_ignore thread-safe everywhere
 
-extern std::mutex gLoggerGuard;
+extern std::recursive_mutex gLoggerGuard; // the mutex guarding logging/debugging code e.g. protecting streams, files, etc
 
+std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton of counter (it guarantees initializing it to 0). This counter shows the current recursion (re-entrant) level of debug macros.
 
+// TODO more debug of the debug system:
+// detect lock() error e.g. recursive limit
+// detect stream e.g. operator<< error
 
-#define _debug_level_c(CHANNEL,LEVEL,VAR) do { if (_dbg_ignore< LEVEL) { \
-	nOT::nUtils::gLoggerGuard.try_lock(); \
-	gCurrentLogger.write_stream(LEVEL,CHANNEL) << nOT::nUtils::get_current_time() << ' ' << OT_CODE_STAMP << ' ' << VAR << gCurrentLogger.endline() << std::flush; \
-	nOT::nUtils::gLoggerGuard.unlock(); \
+#define _debug_level(LEVEL,VAR) do { if (_dbg_ignore< LEVEL) { \
+	auto level=LEVEL; short int part=0; \
+	try { \
+		std::lock_guard<std::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
+		part=1; \
+		try { \
+			++nOT::nUtils::gLoggerGuardDepth_Get(); \
+/* int counter = nOT::nUtils::gLoggerGuardDepth_Get();  if (counter!=1) gCurrentLogger.write_stream(100,"")<<"DEBUG-ERROR: recursion, counter="<<counter<<gCurrentLogger.endline(); */ \
+			gCurrentLogger.write_stream(LEVEL,"") << nOT::nUtils::get_current_time() << ' ' << OT_CODE_STAMP << ' ' << VAR << gCurrentLogger.endline() << std::flush; \
+			part=9; \
+		} catch(...) { \
+			gCurrentLogger.write_stream(std::max(level,90),"") << nOT::nUtils::get_current_time() << ' ' << OT_CODE_STAMP << ' ' << "(ERROR IN DEBUG)" << gCurrentLogger.endline(); \
+			--nOT::nUtils::gLoggerGuardDepth_Get(); throw ; \
+		} \
+		--nOT::nUtils::gLoggerGuardDepth_Get(); \
+	} catch(...) { if (part<8) gCurrentLogger.write_stream(100,"")<<"DEBUG-ERROR: problem in debug mechanism e.g. in locking." <<gCurrentLogger.endline();   throw ; } \
 	} } while(0)
 
-#define _debug_level(LEVEL,VAR) _debug_level_c("",LEVEL,VAR)
+// info for code below: oss object is normal stack variable, using it does not need lock protection
+#define _debug_level_c(CHANNEL,LEVEL,VAR) do { if (_dbg_ignore< LEVEL) { \
+	auto level=LEVEL; short int part=0; \
+	try { \
+		std::lock_guard<std::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
+		part=1; \
+		try { \
+			++nOT::nUtils::gLoggerGuardDepth_Get(); \
+			std::ostringstream oss; \
+			oss << nOT::nUtils::get_current_time() << ' ' << OT_CODE_STAMP << ' ' << VAR << gCurrentLogger.endline() << std::flush; \
+			std::string as_string = oss.str(); \
+/* int counter = nOT::nUtils::gLoggerGuardDepth_Get();  if (counter!=1) gCurrentLogger.write_stream(100,"")<<"DEBUG-ERROR: recursion, counter="<<counter<<gCurrentLogger.endline(); */ \
+			gCurrentLogger.write_stream(LEVEL,""     ) << as_string << gCurrentLogger.endline() << std::flush; \
+			gCurrentLogger.write_stream(LEVEL,CHANNEL) << as_string << gCurrentLogger.endline() << std::flush; \
+			part=9; \
+		} catch(...) { \
+			gCurrentLogger.write_stream(std::max(level,90),CHANNEL) << nOT::nUtils::get_current_time() << ' ' << OT_CODE_STAMP << ' ' << "(ERROR IN DEBUG)" << gCurrentLogger.endline(); \
+			--nOT::nUtils::gLoggerGuardDepth_Get(); throw ; \
+		} \
+		--nOT::nUtils::gLoggerGuardDepth_Get(); \
+	} catch(...) { if (part<8) gCurrentLogger.write_stream(100,CHANNEL)<<"DEBUG-ERROR: problem in debug mechanism e.g. in locking." <<gCurrentLogger.endline();   throw ; } \
+	} } while(0)
 
 #define _dbg3(VAR) _debug_level( 20,VAR)
 #define _dbg2(VAR) _debug_level( 30,VAR)
@@ -98,10 +135,10 @@ extern std::mutex gLoggerGuard;
 #define _warn_c(C,VAR) _debug_level_c(C, 90,VAR) // some problem
 #define _erro_c(C,VAR) _debug_level_c(C,100,VAR) // error - report
 
-// lock // because od VAR
+// lock // because of VAR
 #define _scope_debug_level_c(CHANNEL,LEVEL,VAR) \
 	std::ostringstream debug_detail_oss; \
-	nOT::nUtils::gLoggerGuard.try_lock(); \
+	nOT::nUtils::gLoggerGuard.lock(); \
 	debug_detail_oss << OT_CODE_STAMP << ' ' << VAR ; \
 	nOT::nUtils::nDetail::cDebugScopeGuard debugScopeGuard; \
 	if (_dbg_ignore<LEVEL) debugScopeGuard.Assign(CHANNEL,LEVEL, debug_detail_oss.str()); \

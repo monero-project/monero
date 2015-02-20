@@ -426,27 +426,21 @@ private:
 		return false;
 	}
 	
-	using namespace boost::chrono;
-	auto point = steady_clock::now();
-	auto time_from_epoh = point.time_since_epoch();
-	auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
-	double ms_f = ms;
-	ms_f /= 1000.;
-	
-	std::ofstream limitFile("log/dr-monero/peers_limit.info", std::ios::app);
-	limitFile.precision(7);
-	limitFile << ms_f << " " << static_cast<int>(limit) << std::endl;
 	if (m_srv.m_config.m_net_config.connections_count > limit)
 	{
 		m_srv.m_config.m_net_config.connections_count = limit;
-		if (m_srv.m_number_of_out_peers > limit)
+		epee::net_utils::data_logger::get_instance().add_data("peers_limit", m_srv.m_config.m_net_config.connections_count);
+		if (m_srv.m_current_number_of_out_peers > limit)
 		{
-			int count = m_srv.m_number_of_out_peers - limit;
+			int count = m_srv.m_current_number_of_out_peers - limit;
 			m_srv.delete_connections(count);
 		}
 	}
 	else
+	{
 		m_srv.m_config.m_net_config.connections_count = limit;
+		epee::net_utils::data_logger::get_instance().add_data("peers_limit", m_srv.m_config.m_net_config.connections_count);
+	}
 	
 	return true;
  }
@@ -556,7 +550,7 @@ private:
   //--------------------------------------------------------------------------------  
   bool test_drop_download(const std::vector<std::string>& args)
   {
-	  m_srv.get_payload_object().get_core().no_check_blocks();
+	  m_srv.get_payload_object().get_core().test_drop_download();
 	  return true;
   }
   //--------------------------------------------------------------------------------  

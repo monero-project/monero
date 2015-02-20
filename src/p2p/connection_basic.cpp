@@ -152,7 +152,7 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, std::ato
 	try { remote_addr_str = socket_.remote_endpoint().address().to_string(); } catch(...){} ;
 
 	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_ref_sock_count);
-	boost::filesystem::create_directories("log/dr-monero/net/");
+	//boost::filesystem::create_directories("log/dr-monero/net/");
 }
 
 connection_basic::~connection_basic() {
@@ -192,24 +192,15 @@ void connection_basic::save_limit_to_file(int limit) {
     // saving limit to file
     if (!epee::net_utils::data_logger::m_save_graph)
 		return;
-    std::ofstream file_up, file_down;
-    file_up.open("log/dr-monero/limit_up.info", std::ofstream::out | std::ofstream::app);
-    file_up.precision(8);
-    file_down.open("log/dr-monero/limit_down.info", std::ofstream::out | std::ofstream::app);
-    file_down.precision(8);
-    using namespace boost::chrono;
-	auto point = steady_clock::now();
-	auto time_from_epoh = point.time_since_epoch();
-	auto s = duration_cast< seconds >( time_from_epoh ).count();
 
     {
          CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_out );
-               file_up << s << " " << network_throttle_manager::get_global_throttle_out().get_terget_speed() / 1024 << "\n";
+               epee::net_utils::data_logger::get_instance().add_data("upload_limit", network_throttle_manager::get_global_throttle_out().get_terget_speed() / 1024);
 	}
 	
     {
          CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_in );
-               file_down << s << " " << network_throttle_manager::get_global_throttle_in().get_terget_speed() / 1024 << "\n";
+               epee::net_utils::data_logger::get_instance().add_data("download_limit", network_throttle_manager::get_global_throttle_in().get_terget_speed() / 1024);
 	}
 }
  

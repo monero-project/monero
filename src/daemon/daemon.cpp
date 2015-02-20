@@ -34,6 +34,7 @@
 
 #include "include_base_utils.h"
 #include "version.h"
+#include "../../contrib/epee/include/syncobj.h"
 
 using namespace epee;
 
@@ -57,6 +58,8 @@ using namespace epee;
 
 namespace po = boost::program_options;
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
 namespace
 {
   const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", "Specify configuration file", std::string(CRYPTONOTE_NAME ".conf")};
@@ -69,9 +72,11 @@ namespace
     , "Run on testnet. The wallet must be launched with --testnet flag."
     , false
     };
-  const command_line::arg_descriptor<bool>		arg_dns_checkpoints		= {"enforce-dns-checkpointing", "checkpoints from DNS server will be enforced", false};
-  const command_line::arg_descriptor<bool>		arg_test_drop_download  = {"test-drop-download", "For network testing, drop downloaded blocks instead checking/adding them to blockchain. Can fake-download blocks very fast."};
-  const command_line::arg_descriptor<bool>		arg_save_graph			= {"save-graph", "Save data for dr monero", false};
+  const command_line::arg_descriptor<bool>		arg_dns_checkpoints				= {"enforce-dns-checkpointing", "checkpoints from DNS server will be enforced", false};
+  const command_line::arg_descriptor<bool>		arg_test_drop_download  		= {"test-drop-download", "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"};
+  const command_line::arg_descriptor<uint64_t>	arg_test_drop_download_height  	= {"test-drop-download-height", "Like test-drop-download but disards only after around certain height", 0};
+  const command_line::arg_descriptor<bool>		arg_save_graph					= {"save-graph", "Save data for dr monero", false};
+  const command_line::arg_descriptor<int>		test_dbg_lock_sleep				= {"test-dbg-lock-sleep", "Sleep time in ms, defaults to 0 (off), used to debug before/after locking mutex. Values 100 to 1000 are good for tests.", 0};
 }
 
 bool command_line_preprocessor(const boost::program_options::variables_map& vm)
@@ -111,7 +116,6 @@ bool command_line_preprocessor(const boost::program_options::variables_map& vm)
 
 int main(int argc, char* argv[])
 {
-
   string_tools::set_module_name_and_folder(argv[0]);
 #ifdef WIN32
   _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
@@ -119,7 +123,10 @@ int main(int argc, char* argv[])
   log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
   log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
   LOG_PRINT_L0("Starting...");
-
+  
+  nOT::nUtils::cFilesystemUtils::CreateDirTree("log/dr-monero/net/");
+	// _warn_c("log/test","Starting program"); // TODO
+  
   TRY_ENTRY();  
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
@@ -142,7 +149,9 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_dns_checkpoints);
   command_line::add_arg(desc_cmd_sett, arg_test_drop_download);
+  command_line::add_arg(desc_cmd_sett, arg_test_drop_download_height);
   command_line::add_arg(desc_cmd_sett, arg_save_graph);
+  command_line::add_arg(desc_cmd_sett, test_dbg_lock_sleep);
 
   cryptonote::core::init_options(desc_cmd_sett);
   cryptonote::core_rpc_server::init_options(desc_cmd_sett);
@@ -241,12 +250,16 @@ int main(int argc, char* argv[])
   if(command_line::has_arg(vm, arg_save_graph))
 	p2psrv.set_save_graph(true);
 	
+  epee::g_test_dbg_lock_sleep = command_line::get_arg(vm, test_dbg_lock_sleep);
+  
   //initialize core here
   LOG_PRINT_L0("Initializing core...");
   res = ccore.init(vm, testnet_mode);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");
   if (command_line::get_arg(vm, arg_test_drop_download))
-	ccore.no_check_blocks();
+	ccore.test_drop_download();
+  
+  ccore.test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
   LOG_PRINT_L0("Core initialized OK");
 
   //initialize objects

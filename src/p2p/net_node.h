@@ -87,7 +87,7 @@ namespace nodetool
 		m_hide_my_port(false),
 		m_network_id(std::move(network_id))
     {
-		m_number_of_out_peers = 0;
+		m_current_number_of_out_peers = 0;
 		m_save_graph = false;
 	}
 
@@ -228,7 +228,7 @@ namespace nodetool
 
 	public:
     config m_config; // TODO was private, add getters?
-    std::atomic<unsigned int> m_number_of_out_peers;
+    std::atomic<unsigned int> m_current_number_of_out_peers;
 	void set_save_graph(bool save_graph)
 	{
 		m_save_graph = save_graph;
