@@ -1053,7 +1053,7 @@ uint64_t BlockchainLMDB::height() const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  return m_height - 1;
+  return m_height;
 }
 
 

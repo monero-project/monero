@@ -463,7 +463,7 @@ crypto::hash Blockchain::get_tail_id(uint64_t& height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  height = m_db->height();
+  height = m_db->height() - 1;
   return get_tail_id();
 }
 //------------------------------------------------------------------
