@@ -26,58 +26,43 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(daemon_sources
-  command_parser_executor.cpp
-  command_server.cpp
-  daemon.cpp
-  executor.cpp
-  main.cpp
-  rpc_command_executor.cpp
+if(MSVC OR MINGW)
+  set(daemonizer_sources
+    windows_service.cpp
+    windows_daemonizer.inl
+  )
+else()
+  set(daemonizer_sources
+    posix_fork.cpp
+    posix_daemonizer.inl
+  )
+endif()
+
+set(daemonizer_headers
 )
 
-set(daemon_headers)
+if(MSVC OR MINGW)
+  set(daemonizer_private_headers
+    daemonizer.h
+    windows_service.h
+    windows_service_runner.h
+  )
+else()
+  set(daemonizer_private_headers
+    daemonizer.h
+    posix_fork.h
+  )
+endif()
 
-set(daemon_private_headers
-  command_parser_executor.h
-  command_server.h
-  core.h
-  daemon.h
-  daemon_commands_handler.h
-  executor.h
-  p2p.h
-  protocol.h
-  rpc.h
-  rpc_command_executor.h
-
-  # cryptonote_protocol
-  ../cryptonote_protocol/blobdatatype.h
-  ../cryptonote_protocol/cryptonote_protocol_defs.h
-  ../cryptonote_protocol/cryptonote_protocol_handler.h
-  ../cryptonote_protocol/cryptonote_protocol_handler.inl
-  ../cryptonote_protocol/cryptonote_protocol_handler_common.h
-
-  # p2p
-  ../p2p/net_node.h
-  ../p2p/net_node.inl
-  ../p2p/net_node_common.h
-  ../p2p/net_peerlist.h
-  ../p2p/net_peerlist_boost_serialization.h
-  ../p2p/p2p_protocol_defs.h
-  ../p2p/stdafx.h)
-
-bitmonero_private_headers(daemon
-  ${daemon_private_headers})
-bitmonero_add_executable(daemon
-  ${daemon_sources}
-  ${daemon_headers}
-  ${daemon_private_headers})
-target_link_libraries(daemon
+bitmonero_private_headers(daemonizer
+  ${daemonizer_private_headers})
+bitmonero_add_library(daemonizer
+  ${daemonizer_sources}
+  ${daemonizer_headers}
+  ${daemonizer_private_headers})
+target_link_libraries(daemonizer
   LINK_PRIVATE
-    rpc
-    cryptonote_core
-    crypto
     common
-    daemonizer
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
@@ -87,8 +72,3 @@ target_link_libraries(daemon
     ${CMAKE_THREAD_LIBS_INIT}
     ${UPNP_LIBRARIES}
     ${EXTRA_LIBRARIES})
-add_dependencies(daemon
-  version)
-set_property(TARGET daemon
-  PROPERTY
-    OUTPUT_NAME "bitmonerod")
