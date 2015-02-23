@@ -805,7 +805,7 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h) const
   if (get_result == MDB_NOTFOUND)
   {
     txn.commit();
-    LOG_PRINT_L1("Block with hash " << epee::string_tools::pod_to_hex(h) << " not found in db");
+    LOG_PRINT_L3("Block with hash " << epee::string_tools::pod_to_hex(h) << " not found in db");
     return false;
   }
   else if (get_result)
