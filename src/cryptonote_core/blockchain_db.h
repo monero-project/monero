@@ -265,13 +265,14 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , const crypto::hash& blk_hash
                 ) = 0;
 
   // tells the subclass to remove data about the top block
   virtual void remove_block() = 0;
 
   // tells the subclass to store the transaction and its metadata
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx) = 0;
+  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
 
   // tells the subclass to remove data about a transaction
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
@@ -296,10 +297,21 @@ private:
   void pop_block();
 
   // helper function for add_transactions, to add each individual tx
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx);
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL);
 
   // helper function to remove transaction from blockchain
   void remove_transaction(const crypto::hash& tx_hash);
+
+  uint64_t num_calls = 0;
+  uint64_t time_blk_hash = 0;
+  uint64_t time_add_block1 = 0;
+  uint64_t time_add_transaction = 0;
+
+
+protected:
+
+  mutable uint64_t time_tx_exists = 0;
+  uint64_t time_commit1 = 0;
 
 
 public:
@@ -307,6 +319,11 @@ public:
   // virtual dtor
   virtual ~BlockchainDB() { };
 
+  // reset profiling stats
+  void reset_stats();
+
+  // show profiling stats
+  void show_stats();
 
   // open the db at location <filename>, or create it if there isn't one.
   virtual void open(const std::string& filename) = 0;
@@ -336,6 +353,9 @@ public:
   // release db lock
   virtual void unlock() = 0;
 
+  virtual void batch_start() = 0;
+  virtual void batch_stop() = 0;
+  virtual void set_batch_transactions(bool) = 0;
 
   // adds a block with the given metadata to the top of the blockchain, returns the new height
   // NOTE: subclass implementations of this (or the functions it calls) need

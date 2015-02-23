@@ -38,8 +38,23 @@ struct txn_safe
   txn_safe() : m_txn(NULL) { }
   ~txn_safe()
   {
-    if(m_txn != NULL)
+    LOG_PRINT_L3("txn_safe: destructor");
+    if (m_txn != NULL)
     {
+      if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
+      {
+        LOG_PRINT_L0("WARNING: txn_safe: m_txn is a batch txn and it's not NULL in destructor - calling mdb_txn_abort()");
+      }
+      else
+      {
+        // Example of when this occurs: a lookup fails, so a read-only txn is
+        // aborted through this destructor. However, successful read-only txns
+        // ideally should have been committed when done and not end up here.
+        //
+        // NOTE: not sure if this is ever reached for a non-batch write
+        // transaction, but it's probably not ideal if it did.
+        LOG_PRINT_L3("txn_safe: m_txn not NULL in destructor - calling mdb_txn_abort()");
+      }
       mdb_txn_abort(m_txn);
     }
   }
@@ -60,6 +75,24 @@ struct txn_safe
     m_txn = NULL;
   }
 
+  // This should only be needed for batch transaction which must be ensured to
+  // be aborted before mdb_env_close, not after. So we can't rely on
+  // BlockchainLMDB destructor to call txn_safe destructor, as that's too late
+  // to properly abort, since mdb_env_close would have been called earlier.
+  void abort()
+  {
+    LOG_PRINT_L3("txn_safe: abort()");
+    if(m_txn != NULL)
+    {
+      mdb_txn_abort(m_txn);
+      m_txn = NULL;
+    }
+    else
+    {
+      LOG_PRINT_L0("WARNING: txn_safe: abort() called, but m_txn is NULL");
+    }
+  }
+
   operator MDB_txn*()
   {
     return m_txn;
@@ -71,13 +104,14 @@ struct txn_safe
   }
 
   MDB_txn* m_txn;
+  bool m_batch_txn = false;
 };
 
 
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB();
+  BlockchainLMDB(bool batch_transactions=false);
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename);
@@ -177,6 +211,12 @@ public:
                             , const std::vector<transaction>& txs
                             );
 
+  virtual void set_batch_transactions(bool batch_transactions);
+  virtual void batch_start();
+  virtual void batch_commit();
+  virtual void batch_stop();
+  virtual void batch_abort();
+
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
 private:
@@ -184,11 +224,12 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , const crypto::hash& block_hash
                 );
 
   virtual void remove_block();
 
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx);
+  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash);
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
@@ -263,7 +304,11 @@ private:
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
-  txn_safe* m_write_txn;
+  txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
+  txn_safe m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
+
+  bool m_batch_transactions; // support for batch transactions
+  bool m_batch_active; // whether batch transaction is in progress
 };
 
 }  // namespace cryptonote

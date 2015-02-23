@@ -141,7 +141,7 @@ namespace cryptonote
     void print_blockchain_index();
     void print_blockchain_outs(const std::string& file);
 
-    void check_against_checkpoints(checkpoints& points, bool enforce);
+    void check_against_checkpoints(const checkpoints& points, bool enforce);
     void set_enforce_dns_checkpoints(bool enforce);
     bool update_checkpoints(const std::string& file_path, bool check_dns);
 

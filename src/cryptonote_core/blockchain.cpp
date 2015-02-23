@@ -237,8 +237,9 @@ bool Blockchain::init(const std::string& config_folder, bool testnet)
   m_testnet = testnet;
 
   boost::filesystem::path folder(m_config_folder);
+  folder /= "lmdb";
 
-  LOG_PRINT_L0("Loading blockchain...");
+  LOG_PRINT_L0("Loading blockchain from folder " << folder.c_str() << " ...");
 
   //FIXME: update filename for BlockchainDB
   const std::string filename = folder.string();
@@ -2288,7 +2289,7 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
   return handle_block_to_main_chain(bl, id, bvc);
 }
 //------------------------------------------------------------------
-void Blockchain::check_against_checkpoints(checkpoints& points, bool enforce)
+void Blockchain::check_against_checkpoints(const checkpoints& points, bool enforce)
 {
   const auto& pts = points.get_points();
 
