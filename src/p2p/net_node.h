@@ -89,6 +89,7 @@ namespace nodetool
     {
 		m_current_number_of_out_peers = 0;
 		m_save_graph = false;
+		is_closing = false;
 	}
 
     static void init_options(boost::program_options::options_description& desc);
@@ -209,6 +210,13 @@ namespace nodetool
   	bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
   	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
 
+    void kill() { ///< will be called e.g. from deinit()
+			_info("Killing the net_node");
+			is_closing = true;
+			mPeersLoggerThread->join(); // make sure the thread finishes
+			_info("Joined extra background net_node threads");
+		}
+
     //debug functions
     std::string print_connections_container();
 
@@ -247,7 +255,8 @@ namespace nodetool
     bool m_hide_my_port;
     bool m_no_igd;
     std::atomic<bool> m_save_graph;
-
+    std::atomic<bool> is_closing;
+	std::unique_ptr<std::thread> mPeersLoggerThread;
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;
 

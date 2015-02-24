@@ -320,7 +320,7 @@ int main(int argc, char* argv[])
   ccore.set_cryptonote_protocol(NULL);
   cprotocol.set_p2p_endpoint(NULL);
 
-  epee::net_utils::data_logger::get_instance().kill_instance();
+  epee::net_utils::data_logger::kill_instance();
   LOG_PRINT("Node stopped.", LOG_LEVEL_0);
   return 0;
 

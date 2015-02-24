@@ -20,6 +20,12 @@ namespace net_utils
 				m_state = data_logger_state::state_ready_to_use;
 			}	
 		);
+		
+		if (m_state != data_logger_state::state_ready_to_use) {
+			_erro ("trying to use not working data_logger");
+			throw std::runtime_error("data_logger ctor state");
+		}
+		
 		return * m_obj;
 	}
 	
@@ -82,7 +88,7 @@ namespace net_utils
 	}
 
 	void data_logger::kill_instance() { 
-		m_state = m_state = data_logger_state::state_dying;
+		m_state = data_logger_state::state_dying;
 		m_obj.reset();
 	}
 	

@@ -291,17 +291,17 @@ namespace nodetool
       std::vector<std::vector<std::string>> dns_results;
       dns_results.resize(m_seed_nodes_list.size());
       
-      std::shared_ptr<std::thread> peersLoggerThread (new std::thread([&]()
+      // creating thread to log number of connections
+      mPeersLoggerThread.reset(new std::thread([&]()
       {
-		unsigned int number_of_peers;
-		while (1)
-		{
+			_note("Thread monitor number of peers - start");
+		while (!is_closing)
+		{ // main loop of thread
 			//number_of_peers = m_net_server.get_config_object().get_connections_count();
-			number_of_peers = 0;
+			unsigned int number_of_peers = 0;
 			m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
 			{
-				if(!cntxt.m_is_income)
-					++number_of_peers;
+				if (!cntxt.m_is_income) ++number_of_peers;
 				return true;
 			}); // lambda
 				
@@ -309,10 +309,10 @@ namespace nodetool
 			epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
 				
 			std::this_thread::sleep_for(std::chrono::seconds(1));
-		}
+		} // main loop of thread
+			_note("Thread monitor number of peers - done");
       })); // lambda
       
-      peersLoggerThread->detach();
 
       std::list<boost::thread*> dns_threads;
       uint64_t result_index = 0;
@@ -509,6 +509,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::deinit()
   {
+	kill();
     m_peerlist.deinit();
     m_net_server.deinit_server();
     
