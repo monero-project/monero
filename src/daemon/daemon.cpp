@@ -125,8 +125,9 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Starting...");
   
   nOT::nUtils::cFilesystemUtils::CreateDirTree("log/dr-monero/net/");
-	// _warn_c("log/test","Starting program"); // TODO
-  
+	_warn_c("test","Starting program (a test message)");
+	_warn_c("main/program","Starting program");
+
   TRY_ENTRY();  
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
@@ -319,6 +320,7 @@ int main(int argc, char* argv[])
   ccore.set_cryptonote_protocol(NULL);
   cprotocol.set_p2p_endpoint(NULL);
 
+  epee::net_utils::data_logger::get_instance().kill_instance();
   LOG_PRINT("Node stopped.", LOG_LEVEL_0);
   return 0;
 

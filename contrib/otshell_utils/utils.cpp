@@ -160,7 +160,7 @@ std::unique_ptr<T> make_unique( Args&& ...args )
 #endif
 // ====================================================================
 
-char cFilesystemUtils::GetDirSeparator() {
+char cFilesystemUtils::GetDirSeparatorSys() {
 	// TODO nicer os detection?
 	#if defined(OS_TYPE_POSIX)
 		return '/';
@@ -171,26 +171,49 @@ char cFilesystemUtils::GetDirSeparator() {
 	#endif
 }
 
+char cFilesystemUtils::GetDirSeparatorInter() {
+	return '/';
+}
+
+string cFilesystemUtils::FileInternalToSystem(const std::string &name) {
+	string ret;
+	ret.resize(name.size());
+	std::replace_copy(name.begin(), name.end(), ret.begin(), 
+		GetDirSeparatorInter() , GetDirSeparatorSys());
+	return ret;
+}
+
+string cFilesystemUtils::FileSystemToInternal(const std::string &name) {
+	string ret;
+	ret.reserve(name.size());
+	std::replace_copy(name.begin(), name.end(), ret.begin(), 
+		GetDirSeparatorSys() , GetDirSeparatorInter());
+	return ret;
+}
+
 bool cFilesystemUtils::CreateDirTree(const std::string & dir, bool only_below) {
 	const bool dbg=false;
 	//struct stat st;
-	const char dirch = cFilesystemUtils::GetDirSeparator();
+	const char dirchS = cFilesystemUtils::GetDirSeparatorSys();
+	const char dirchI = cFilesystemUtils::GetDirSeparatorInter();
 	std::istringstream iss(dir);
-	string part, sofar="";
+	string partI; // current par is in internal format (though it should not matter since it doesn't contain any slashes). eg "bar"
+	string sofarS=""; // sofarS - the so far created dir part is in SYSTEM format. eg "foo/bar"
 	if (dir.size()<1) return false; // illegal name
 	// dir[0] is valid from here
-	if  (only_below && (dir[0]==dirch)) return false; // no jumping to top (on any os)
-	while (getline(iss,part,dirch)) {
-		if (dbg) cout << '['<<part<<']' << endl;
-		sofar += part;
-		if (part.size()<1) return false; // bad format?
-		if ((only_below) && (part=="..")) return false; // going up
+	if  ( only_below  &&  ((dir[0]==dirchS) || (dir[0]==dirchI))) return false; // no jumping to top (on any os)
 
-		if (dbg) cout << "test ["<<sofar<<"]"<<endl;
+	while (getline(iss,partI,dirchI)) { // get new component eg "bar" into part
+		if (dbg) cout << '['<<partI<<']' << endl;
+		sofarS += partI;
+		if (partI.size()<1) return false; // bad format?
+		if ((only_below) && (partI=="..")) return false; // trying to go up
+
+		if (dbg) cout << "test ["<<sofarS<<"]"<<endl;
 		// TODO nicer os detection?
 		#if defined(OS_TYPE_POSIX)
 			struct stat st;
-			bool exists = stat(sofar.c_str() ,&st) == 0; // *
+			bool exists = stat(sofarS.c_str() ,&st) == 0; // *
 			if (exists) {
 				if (! S_ISDIR(st.st_mode)) {
 					// std::cerr << "This exists, but as a file: [" << sofar << "]" << (size_t)st.st_ino << endl;
@@ -198,24 +221,24 @@ bool cFilesystemUtils::CreateDirTree(const std::string & dir, bool only_below) {
 				}
 			}
 		#elif defined(OS_TYPE_WINDOWS)
-			DWORD dwAttrib = GetFileAttributesA(sofar.c_str());
+			DWORD dwAttrib = GetFileAttributesA(sofarS.c_str());
 			bool exists = (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 		#else
 			#error "Do not know how to compile this for your platform."
 		#endif
 
 		if (!exists) {
-			if (dbg) cout << "mkdir ["<<sofar<<"]"<<endl;
+			if (dbg) cout << "mkdir ["<<sofarS<<"]"<<endl;
 			#if defined(OS_TYPE_POSIX)
-				bool ok = 0==  mkdir(sofar.c_str(), 0700); // ***
+				bool ok = 0==  mkdir(sofarS.c_str(), 0700); // ***
 			#elif defined(OS_TYPE_WINDOWS)
-				bool ok = (bool) CreateDirectoryA(sofar.c_str(), NULL); // TODO use -W() after conversion to unicode UTF16
+				bool ok = (bool) CreateDirectoryA(sofarS.c_str(), NULL); // TODO use -W() after conversion to unicode UTF16
 			#else
 				#error "Do not know how to compile this for your platform."
 			#endif
 			if (!ok) return false;
 		}
-		sofar += cFilesystemUtils::GetDirSeparator();
+		sofarS += dirchS;
 	}
 	return true;
 }
@@ -225,7 +248,7 @@ namespace nDetail {
 
 cDebugScopeGuard::cDebugScopeGuard() : mLevel(-1) {
 }
-
+	
 cDebugScopeGuard::~cDebugScopeGuard() {
 	if (mLevel != -1) {
 		gCurrentLogger.write_stream(mLevel,mChan) << mMsg << " ... end" << gCurrentLogger.endline() << std::flush;
@@ -244,11 +267,15 @@ void cDebugScopeGuard::Assign(const string &chan, const int level, const string 
 
 cLogger::cLogger() :
 mStream(NULL),
+mStreamBrokenDebug(NULL),
+mIsBroken(true), // before constructor finishes
 mLevel(85),
 mThread2Number_Biggest(0) // the CURRENT biggest value (no thread yet in map)
 {
 	mStream = & std::cout;
+	mStreamBrokenDebug = & std::cerr;
 	Thread2Number( std::this_thread::get_id() ); // convert current id to short number, useful to reserve a number so that main thread is usually called 1
+	mIsBroken=false; // ok, constr. succeeded, so string is not broken now
 }
 
 cLogger::~cLogger() {
@@ -259,12 +286,28 @@ cLogger::~cLogger() {
 	}
 }
 
+void cLogger::SetStreamBroken() {
+	SetStreamBroken("(no additional details about this problem)");
+}
+
+void cLogger::SetStreamBroken(const std::string &msg) {
+	if (!mIsBroken) { // if not already marked as broken
+		std::cerr << OT_CODE_STAMP << "WARNING: due to debug stream problem ("<<msg<<") - switching back to fallback stream (e.g. cerr)" << std::endl;
+		if (mStreamBrokenDebug == nullptr) {
+			std::cerr << OT_CODE_STAMP << " ERROR: in addition, while reporting this problem, mStreamBrokenDebug stream is NULL." << std::endl;
+		} else {
+			(*mStreamBrokenDebug) << OT_CODE_STAMP << "WARNING: due to debug stream problem ("<<msg<<") - switching back to fallback stream (e.g. cerr)" << std::endl;
+		}
+		mIsBroken = true;
+	}
+}
+
 std::ostream & cLogger::write_stream(int level) {
 	return write_stream(level,"");
 }
 
 std::ostream & cLogger::write_stream(int level, const std::string & channel ) {
-	if ((level >= mLevel) && (mStream)) {
+	if ((level >= mLevel) && (mStream)) { // TODO now disabling mStream also disables writting to any channel
 		ostream & output = SelectOutput(level,channel);
 		output << icon(level) << ' ';
 		std::thread::id this_id = std::this_thread::get_id();
@@ -278,33 +321,76 @@ std::string cLogger::GetLogBaseDir() const {
 	return "log";
 }
 
-void cLogger::OpenNewChannel(const std::string & channel) {
-	size_t last_split = channel.find_last_of(cFilesystemUtils::GetDirSeparator());
-	// log/test/aaa
-	//         ^----- last_split
-	string dir = GetLogBaseDir() + cFilesystemUtils::GetDirSeparator() + channel.substr(0, last_split);
-	string basefile = channel.substr(last_split+1) + ".log";
-	string fname = dir + cFilesystemUtils::GetDirSeparator() + cFilesystemUtils::GetDirSeparator() + basefile;
-	_dbg1("Starting debug to channel file: " + fname + " in directory ["+dir+"]");
-	bool dirok = cFilesystemUtils::CreateDirTree(dir);
-	if (!dirok) { const string msg = "In logger failed to open directory (" + dir +")."; _erro(msg); throw std::runtime_error(msg); }
-	std::ofstream * thefile = new std::ofstream( fname.c_str() );
-	*thefile << "====== (Log opened: " << fname << ") ======" << endl;
-	mChannels.insert( std::pair<string,std::ofstream*>(channel , thefile ) );
-}
-
-std::ostream & cLogger::SelectOutput(int level, const std::string & channel) {
-	if (channel=="") return *mStream;
-	auto obj = mChannels.find(channel);
-	if (obj == mChannels.end()) { // new channel
-		OpenNewChannel(channel);
-		return SelectOutput(level,channel);
+void cLogger::OpenNewChannel(const std::string & channel) noexcept {
+	try {
+		std::cerr<<"openning channel for channel="<<channel<<endl;
+		OpenNewChannel_(channel);
 	}
-	else { // existing
-		return * obj->second;
+	catch (const std::exception &except) {
+		SetStreamBroken(OT_CODE_STAMP + " Got exception when opening debug channel: " + ToStr(except.what()));
+	}
+	catch (...) {
+		SetStreamBroken(OT_CODE_STAMP + " Got not-standard exception when opening debug channel.");
 	}
 }
 
+void cLogger::OpenNewChannel_(const std::string & channel) { // channel=="net/sleep"
+	size_t last_split = channel.find_last_of(cFilesystemUtils::GetDirSeparatorInter());
+
+	string fname_system; // the full file name in system format
+
+	if (last_split==string::npos) { // The channel name has no directory, eg channel=="test"
+		string dir = GetLogBaseDir();
+		string basefile = channel + ".log";
+		string fname = dir + cFilesystemUtils::GetDirSeparatorInter() + basefile;
+		fname_system = cFilesystemUtils::FileInternalToSystem(fname); // <-
+	}
+	else { // there is a directory eg channel=="net/sleep"
+		// net/sleep 
+		//    ^----- last_split	
+		string dir = GetLogBaseDir() + cFilesystemUtils::GetDirSeparatorInter() + channel.substr(0, last_split);
+		string basefile = channel.substr(last_split+1) + ".log";
+		string fname = dir + cFilesystemUtils::GetDirSeparatorInter() + basefile;
+		fname_system = cFilesystemUtils::FileInternalToSystem(fname); // <-
+		bool dirok = cFilesystemUtils::CreateDirTree(dir);
+		if (!dirok) { string err = "In logger failed to open directory (" + dir +") for channel (" + channel +")"; throw std::runtime_error(err); }
+	}
+
+	std::ofstream * thefile = new std::ofstream( fname_system.c_str() ); // file system
+	*thefile << "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" << endl;
+    	cerr << "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" << endl;
+	mChannels.insert( std::pair<string,std::ofstream*>(channel , thefile ) ); // <- created the channel mapping
+}
+
+std::ostream & cLogger::SelectOutput(int level, const std::string & channel) noexcept {
+	try {
+		if (mIsBroken) return *mStreamBrokenDebug;
+		if (channel=="") return *mStream;
+
+		auto obj = mChannels.find(channel);
+		if (obj == mChannels.end()) { // not found - need to make new channel
+			OpenNewChannel(channel); // <- create channel
+			obj = mChannels.find(channel); // find again
+			if (obj == mChannels.end()) { // still not found! something is wrong
+				SetStreamBroken( OT_CODE_STAMP + " WARNING: can not get stream for channel="+ToStr(channel)+" level="+ToStr(channel) );
+				return *mStreamBrokenDebug;
+			}
+		}
+		auto the_stream_ptr = obj->second;
+		ASRT(the_stream_ptr);
+		return *the_stream_ptr; // <--- RETURN
+	} 
+	catch (std::exception &except) { 
+		SetStreamBroken( OT_CODE_STAMP + " Got exception: " + ToStr(except.what()) );
+		return *mStreamBrokenDebug;
+	}
+	catch (...) {
+		SetStreamBroken( OT_CODE_STAMP + " Got not-standard exception.");
+		return *mStreamBrokenDebug;
+	}
+
+	// dead code
+}
 
 void cLogger::setOutStreamFile(const string &fname) { // switch to using this file
 	_mark("WILL SWITCH DEBUG NOW to file: " << fname);

@@ -44,6 +44,8 @@ namespace
   const command_line::arg_descriptor<bool>        arg_test_transactions           = {"test_transactions", ""};
 }
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();

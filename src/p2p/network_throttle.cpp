@@ -78,7 +78,6 @@ int network_throttle_manager::xxx;
 // ================================================================================================
 // methods:
 i_network_throttle & network_throttle_manager::get_global_throttle_in() { 
-
 	std::call_once(m_once_get_global_throttle_in, [] { m_obj_get_global_throttle_in.reset(new network_throttle("in/all","<<< global-IN",10)); }	);
 	return * m_obj_get_global_throttle_in;
 }

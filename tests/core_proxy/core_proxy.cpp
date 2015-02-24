@@ -62,6 +62,8 @@ using namespace crypto;
 
 BOOST_CLASS_VERSION(nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> >, 1);
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
 int main(int argc, char* argv[])
 {
 
@@ -148,6 +150,7 @@ int main(int argc, char* argv[])
 
 
   LOG_PRINT("Node stopped.", LOG_LEVEL_0);
+  epee::net_utils::data_logger::get_instance().kill_instance();
   return 0;
 
   CATCH_ENTRY_L0("main", 1);

@@ -185,6 +185,7 @@ const char* DbgShortenCodeFileName(const char *s); ///< Returns a pointer to som
 /*** 
 @brief Class to write debug into. Used it by calling the debug macros _dbg1(...) _info(...) _erro(...) etc, NOT directly!
 @author rfree (maintainer) 
+@thread this class is NOT thread safe and must used only by one thread at once (use it via ot_debug_macros like _info macro they do proper locking)
 */
 class cLogger {
 	public:
@@ -201,15 +202,21 @@ class cLogger {
 		std::string endline() const; ///< returns string to be written at end of message
 
 	protected:
+		void SetStreamBroken(); ///< call in case of internal error in logger (e.g. can not open a file)
+		void SetStreamBroken(const std::string &msg); ///< same but with error message
+
 		unique_ptr<std::ofstream> mOutfile;
 		std::ostream * mStream; ///< pointing only! can point to our own mOutfile, or maye to global null stream
+		std::ostream * mStreamBrokenDebug; ///< pointing only! this is a pointer to some stream that should be used when normal debugging is broken eg std::cerr
+		bool mIsBroken; ///< is the debugging system broken (this should be set when internal problems occur and should cause fallback to std::cerr)
 
 		std::map< std::string , std::ofstream * > mChannels; // the ofstream objects are owned by this class
 
 		int mLevel; ///< current debug level
 
-		std::ostream & SelectOutput(int level, const std::string & channel);
-		void OpenNewChannel(const std::string & channel);
+		std::ostream & SelectOutput(int level, const std::string & channel) noexcept; ///< returns a proper stream for this level and channel (always usable string)
+		void OpenNewChannel(const std::string & channel) noexcept; ///< tries to prepare this channel. does NOT guarantee to created mChannels[] entry!
+		void OpenNewChannel_(const std::string & channel);  ///< internal function, will throw in case of problems
 		std::string GetLogBaseDir() const;
 
 		std::map< std::thread::id , int > mThread2Number; // change long thread IDs into a short nice number to show
@@ -360,7 +367,10 @@ eSubjectType String2SubjectType(const string & type);
 class cFilesystemUtils { // if we do not want to use boost in given project (or we could optionally write boost here later)
 	public:
 		static bool CreateDirTree(const std::string & dir, bool only_below=false);
-		static char GetDirSeparator(); // eg '/' or '\'
+		static char GetDirSeparatorSys(); /// < eg '/' or '\'
+		static char GetDirSeparatorInter(); /// < internal is '/'
+		static string FileInternalToSystem(const std::string &name); ///< converts from internal file name string to system file name string
+		static string FileSystemToInternal(const std::string &name); ///< converts from system file name string to internal file name string
 };
 
 

@@ -272,6 +272,7 @@ void connection_basic::logger_handle_net_write(size_t size) {
 }
 
 double connection_basic::get_sleep_time(size_t cb) {
+	CRITICAL_REGION_LOCAL(epee::net_utils::network_throttle_manager::network_throttle_manager::m_lock_get_global_throttle_out);
     auto t = network_throttle_manager::get_global_throttle_out().get_sleep_time(cb);
     return t;
 }
