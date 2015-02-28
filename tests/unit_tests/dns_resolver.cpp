@@ -108,12 +108,12 @@ TEST(DNSResolver, GetTXTRecord)
 {
   bool avail, valid;
 
-  std::vector<std::string> records = tools::DNSResolver::instance().get_txt_record("donate.monero.cc", avail, valid);
+  std::vector<std::string> records = tools::DNSResolver::instance().get_txt_record("donate.getmonero.org", avail, valid);
 
   EXPECT_NE(0, records.size());
 
   for (auto& rec : records)
   {
-    std::cout << "TXT record for donate.monero.cc: " << rec << std::endl;
+    std::cout << "TXT record for donate.getmonero.org: " << rec << std::endl;
   }
 }
