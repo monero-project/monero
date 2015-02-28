@@ -5,7 +5,7 @@ Copyright (c) 2014-2015, The Monero Project
 ## Development Resources
 
 Web: [getmonero.org](https://getmonero.org)  
-Forum: [forum.getmonero.org](https://forum.getmonero.org)
+Forum: [forum.getmonero.org](https://forum.getmonero.org)  
 Mail: [dev@getmonero.org](mailto:dev@getmonero.org)  
 Github (staging): [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)  
 Github (development): [http://github.com/monero-project/bitmonero/tree/development](http://github.com/monero-project/bitmonero/tree/development)  
