@@ -42,7 +42,7 @@ namespace cryptonote
   bool create_checkpoints(cryptonote::checkpoints& checkpoints);
 
   bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath);
-  bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints);
+  bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testnet = false);
   bool load_new_checkpoints(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath);
 
 }  // namespace cryptonote
