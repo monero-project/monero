@@ -165,6 +165,10 @@ int main(int argc, char const * argv[])
       {
         auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
         auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
+        if (testnet_mode)
+        {
+          rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
+        }
 
         uint32_t rpc_ip;
         uint16_t rpc_port;
