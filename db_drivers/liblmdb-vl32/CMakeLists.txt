@@ -26,16 +26,14 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# We aren't even going to check the system for an installed LMDB driver, as it is too
-# critical a consensus component to rely on dynamically linked libraries
-if(CMAKE_SIZEOF_VOID_P EQUAL "8")
-  message(STATUS "Using 64-bit LMDB from source tree")
-  add_subdirectory(liblmdb)
-  set(LMDB_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/liblmdb" PARENT_SCOPE)
-else()
-  message(STATUS "Using 32-bit LMDB from source tree")
-  add_subdirectory(liblmdb-vl32)
-  set(LMDB_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/liblmdb-vl32" PARENT_SCOPE)
-endif()
+set (lmdb_sources
+mdb.c
+midl.c)
 
-set(LMDB_LIBRARY "lmdb" PARENT_SCOPE)
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
+
+add_library(lmdb
+  ${lmdb_sources})
+target_link_libraries(lmdb
+  LINK_PRIVATE
+    ${CMAKE_THREAD_LIBS_INIT})
