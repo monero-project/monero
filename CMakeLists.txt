@@ -67,11 +67,17 @@ enable_testing()
 
 # Check whether we're on a 32-bit or 64-bit system
 if(CMAKE_SIZEOF_VOID_P EQUAL "8")
-  set(DEFAULT_ARCH_WIDTH "64")
+  set(DEFAULT_BUILD_64 ON)
 else()
-  set(DEFAULT_ARCH_WIDTH "32")
+  set(DEFAULT_BUILD_64 OFF)
 endif()
-option(ARCH_WIDTH "Platform architecture in bits (32 or 64)" ${DEFAULT_ARCH_WIDTH})
+option(BUILD_64 "Build for 64-bit? 'No' builds for 32-bit." ${DEFAULT_BUILD_64})
+
+if(BUILD_64)
+  set(ARCH_WIDTH "64")
+else()
+  set(ARCH_WIDTH "32")
+endif()
 message(STATUS "Building for a ${ARCH_WIDTH}-bit system")
 
 # Check if we're on FreeBSD so we can exclude the local miniupnpc (it should be installed from ports instead)
