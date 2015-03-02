@@ -65,6 +65,15 @@ option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost inst
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
 
+# Check whether we're on a 32-bit or 64-bit system
+if(CMAKE_SIZEOF_VOID_P EQUAL "8")
+  message(STATUS "Building on a 64-bit system")
+  set(ARCH_WIDTH "64")
+else()
+  message(STATUS "Building on a 32-bit system")
+  set(ARCH_WIDTH "32")
+endif()
+
 # Check if we're on FreeBSD so we can exclude the local miniupnpc (it should be installed from ports instead)
 # CMAKE_SYSTEM_NAME checks are commonly known, but specifically taken from libsdl's CMakeLists
 if(CMAKE_SYSTEM_NAME MATCHES "kFreeBSD.*")
