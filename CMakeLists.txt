@@ -71,7 +71,7 @@ if(CMAKE_SIZEOF_VOID_P EQUAL "8")
 else()
   set(DEFAULT_BUILD_64 OFF)
 endif()
-option(BUILD_64 "Build for 64-bit? 'No' builds for 32-bit." ${DEFAULT_BUILD_64})
+option(BUILD_64 "Build for 64-bit? 'OFF' builds for 32-bit." ${DEFAULT_BUILD_64})
 
 if(BUILD_64)
   set(ARCH_WIDTH "64")
