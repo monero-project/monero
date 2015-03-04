@@ -728,7 +728,7 @@ namespace Language
         "initiate",
         "injury",
         "inkling",
-        "incline",
+        "inline",
         "inmate",
         "innocent",
         "inorganic",
