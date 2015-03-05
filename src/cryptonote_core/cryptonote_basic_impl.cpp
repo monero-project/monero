@@ -60,6 +60,10 @@ namespace cryptonote {
   //-----------------------------------------------------------------------------------------------
   bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t &reward) {
     uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> EMISSION_SPEED_FACTOR;
+    if (base_reward < FINAL_SUBSIDY_PER_MINUTE)
+    {
+      base_reward = FINAL_SUBSIDY_PER_MINUTE;
+    }
 
     //make it soft
     if (median_size < CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE) {
