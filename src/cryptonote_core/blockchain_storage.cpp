@@ -1709,7 +1709,8 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   bei.bl = bl;
   bei.block_cumulative_size = cumulative_block_size;
   bei.cumulative_difficulty = current_diffic;
-  bei.already_generated_coins = already_generated_coins + base_reward;
+  bei.already_generated_coins = base_reward < (MONEY_SUPPLY-already_generated_coins) ? already_generated_coins + base_reward : MONEY_SUPPLY;
+
   if(m_blocks.size())
     bei.cumulative_difficulty += m_blocks.back().cumulative_difficulty;
 

@@ -51,6 +51,7 @@
 // MONEY_SUPPLY - total number coins to be generated
 #define MONEY_SUPPLY                                    ((uint64_t)(-1))
 #define EMISSION_SPEED_FACTOR                           (20)
+#define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)300000000000) // 3 * pow(10, 11)
 
 #define CRYPTONOTE_REWARD_BLOCKS_WINDOW                 100
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE       20000 //size of block (bytes) after which reward for block calculated using block size
@@ -60,9 +61,6 @@
 #define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
 
 #define FEE_PER_KB                                      ((uint64_t)10000000000) // pow(10, 10)
-
-// temporarily to allow backward compatibility during the switch to per-kb
-//#define MINING_ALLOWED_LEGACY_FEE                       ((uint64_t)100000000000) // pow(10, 11)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
