@@ -1709,6 +1709,12 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   bei.bl = bl;
   bei.block_cumulative_size = cumulative_block_size;
   bei.cumulative_difficulty = current_diffic;
+
+  // In the "tail" state when the minimum subsidy (implemented in get_block_reward) is in effect, the number of 
+  // coins will eventually exceed MONEY_SUPPLY and overflow a uint64. To prevent overflow, cap already_generated_coins 
+  // at MONEY_SUPPLY. already_generated_coins is only used to compute the block subsidy and MONEY_SUPPLY yields a 
+  // subsidy of 0 under the base formula and therefore the minimum subsidy >0 in the tail state.
+
   bei.already_generated_coins = base_reward < (MONEY_SUPPLY-already_generated_coins) ? already_generated_coins + base_reward : MONEY_SUPPLY;
 
   if(m_blocks.size())
