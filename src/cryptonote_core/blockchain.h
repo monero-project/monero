@@ -50,7 +50,7 @@
 #include "verification_context.h"
 #include "crypto/hash.h"
 #include "checkpoints.h"
-#include "blockchain_db.h"
+#include "blockchain_db/blockchain_db.h"
 
 namespace cryptonote
 {

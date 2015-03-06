@@ -43,6 +43,7 @@ bitmonero_add_executable(blockchain_converter
 target_link_libraries(blockchain_converter
   LINK_PRIVATE
     cryptonote_core
+	blockchain_db
     ${CMAKE_THREAD_LIBS_INIT})
 
 add_dependencies(blockchain_converter

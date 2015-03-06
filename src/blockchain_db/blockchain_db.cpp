@@ -26,8 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "cryptonote_core/blockchain_db.h"
-#include "cryptonote_format_utils.h"
+#include "blockchain_db.h"
+#include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
 
 using epee::string_tools::pod_to_hex;

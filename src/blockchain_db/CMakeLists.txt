@@ -26,54 +26,35 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(daemon_sources
-  daemon.cpp)
+set(blockchain_db_sources
+  blockchain_db.cpp
+  lmdb/db_lmdb.cpp
+  )
 
-set(daemon_headers)
+set(blockchain_db_headers)
 
-set(daemon_private_headers
-  daemon_commands_handler.h
+set(blockchain_db_private_headers
+  blockchain_db.h
+  lmdb/db_lmdb.h
+  )
 
-  # cryptonote_protocol
-  ../cryptonote_protocol/blobdatatype.h
-  ../cryptonote_protocol/cryptonote_protocol_defs.h
-  ../cryptonote_protocol/cryptonote_protocol_handler.h
-  ../cryptonote_protocol/cryptonote_protocol_handler.inl
-  ../cryptonote_protocol/cryptonote_protocol_handler_common.h
-
-  # p2p
-  ../p2p/net_node.h
-  ../p2p/net_node.inl
-  ../p2p/net_node_common.h
-  ../p2p/net_peerlist.h
-  ../p2p/net_peerlist_boost_serialization.h
-  ../p2p/p2p_protocol_defs.h
-  ../p2p/stdafx.h)
-
-bitmonero_private_headers(daemon
-  ${daemon_private_headers})
-bitmonero_add_executable(daemon
-  ${daemon_sources}
-  ${daemon_headers}
-  ${daemon_private_headers})
-target_link_libraries(daemon
-  LINK_PRIVATE
-    rpc
-    blockchain_db
-    cryptonote_core
-    crypto
+bitmonero_private_headers(blockchain_db
+  ${crypto_private_headers})
+bitmonero_add_library(blockchain_db
+  ${blockchain_db_sources}
+  ${blockchain_db_headers}
+  ${blockchain_db_private_headers})
+target_link_libraries(blockchain_db
+  LINK_PUBLIC
     common
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
+    crypto
+    cryptonote_core
+    ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
+    ${Boost_SERIALIZATION_LIBRARY}
+  LINK_PRIVATE
+    ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${UPNP_LIBRARIES}
+    ${LMDB_LIBRARY}
     ${EXTRA_LIBRARIES})
-add_dependencies(daemon
-  version)
-set_property(TARGET daemon
-  PROPERTY
-    OUTPUT_NAME "bitmonerod")
