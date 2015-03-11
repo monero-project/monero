@@ -49,6 +49,7 @@
 #include "crypto/hash.h"
 #include "cryptonote_core/checkpoints_create.h"
 //#include "serialization/json_archive.h"
+#include "../../contrib/otshell_utils/utils.hpp"
 
 using namespace cryptonote;
 
@@ -1151,6 +1152,31 @@ uint64_t blockchain_storage::block_difficulty(size_t i)
     return m_blocks[i].cumulative_difficulty;
 
   return m_blocks[i].cumulative_difficulty - m_blocks[i-1].cumulative_difficulty;
+}
+//------------------------------------------------------------------
+double blockchain_storage::get_avg_block_size( size_t count)
+{
+		if (count > get_current_blockchain_height()) return 500;
+
+		double average = 0;
+		_dbg1_c("net/blksize", "HEIGHT: " << get_current_blockchain_height());
+		_dbg1_c("net/blksize", "BLOCK ID BY HEIGHT: " << get_block_id_by_height(get_current_blockchain_height()) );
+		_dbg1_c("net/blksize", "BLOCK TAIL ID: " << get_tail_id() );
+		std::vector<size_t> size_vector;	
+
+		get_backward_blocks_sizes(get_current_blockchain_height() - count, size_vector, count);
+
+		std::vector<size_t>::iterator it;
+		it = size_vector.begin();
+		while (it != size_vector.end()) {
+			average += *it;
+			_dbg2_c("net/blksize", "VECTOR ELEMENT: " << (*it) );
+			it++;
+		}	
+		average = average / count;
+		_dbg1_c("net/blksize", "VECTOR SIZE: " << size_vector.size() << " average=" << average);		
+		
+		return average;
 }
 //------------------------------------------------------------------
 void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_index)
