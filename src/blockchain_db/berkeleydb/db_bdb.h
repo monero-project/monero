@@ -25,11 +25,65 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <db_cxx.h>
+
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_protocol/blobdatatype.h" // for type blobdata
 
 namespace cryptonote
 {
+
+struct bdb_txn_safe
+{
+  bdb_txn_safe() : m_txn(NULL) { }
+  ~bdb_txn_safe()
+  {
+    LOG_PRINT_L3("bdb_txn_safe: destructor");
+    abort();
+  }
+
+  void commit(std::string message = "")
+  {
+    if (message.size() == 0)
+    {
+      message = "Failed to commit a transaction to the db";
+    }
+
+    if (txn->commit())
+    {
+      m_txn = NULL;
+      LOG_PRINT_L0(message);
+      throw DB_ERROR(message.c_str());
+    }
+    m_txn = NULL;
+  }
+
+  void abort()
+  {
+    LOG_PRINT_L3("bdb_txn_safe: abort()");
+    if(m_txn != NULL)
+    {
+      m_txn->abort();
+      m_txn = NULL;
+    }
+    else
+    {
+      LOG_PRINT_L0("WARNING: bdb_txn_safe: abort() called, but m_txn is NULL");
+    }
+  }
+
+  operator DbTxn*()
+  {
+    return m_txn;
+  }
+
+  operator DbTxn**()
+  {
+    return &m_txn;
+  }
+
+  DbTxn* m_txn;
+};
 
 class BlockchainBDB : public BlockchainDB
 {
@@ -199,15 +253,35 @@ private:
 
   void check_open() const;
 
+  DbEnv* m_env;
+
+  Db* m_blocks;
+  Db* m_block_heights;
+  Db* m_block_hashes;
+  Db* m_block_timestamps;
+  Db* m_block_sizes;
+  Db* m_block_diffs;
+  Db* m_block_coins;
+
+  Db* m_txs;
+  Db* m_tx_unlocks;
+  Db* m_tx_heights;
+  Db* m_tx_outputs;
+
+  Db* m_output_txs;
+  Db* m_output_indices;
+  Db* m_output_amounts;
+  Db* m_output_keys;
+
+  Db* m_spent_keys;
+
   bool m_open;
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
-  txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
-  txn_safe m_write_batch_txn; // persist batch txn outside of BlockchainBDB
+  txn_safe m_write_txn; // may point to either a short-lived txn or a batch txn
 
   bool m_batch_transactions; // support for batch transactions
-  bool m_batch_active; // whether batch transaction is in progress
 };
 
 }  // namespace cryptonote
