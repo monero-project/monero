@@ -33,17 +33,17 @@
 namespace cryptonote
 {
 
-struct txn_safe
+struct mdb_txn_safe
 {
-  txn_safe() : m_txn(NULL) { }
-  ~txn_safe()
+  mdb_txn_safe() : m_txn(NULL) { }
+  ~mdb_txn_safe()
   {
-    LOG_PRINT_L3("txn_safe: destructor");
+    LOG_PRINT_L3("mdb_txn_safe: destructor");
     if (m_txn != NULL)
     {
       if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
       {
-        LOG_PRINT_L0("WARNING: txn_safe: m_txn is a batch txn and it's not NULL in destructor - calling mdb_txn_abort()");
+        LOG_PRINT_L0("WARNING: mdb_txn_safe: m_txn is a batch txn and it's not NULL in destructor - calling mdb_txn_abort()");
       }
       else
       {
@@ -53,7 +53,7 @@ struct txn_safe
         //
         // NOTE: not sure if this is ever reached for a non-batch write
         // transaction, but it's probably not ideal if it did.
-        LOG_PRINT_L3("txn_safe: m_txn not NULL in destructor - calling mdb_txn_abort()");
+        LOG_PRINT_L3("mdb_txn_safe: m_txn not NULL in destructor - calling mdb_txn_abort()");
       }
       mdb_txn_abort(m_txn);
     }
@@ -77,11 +77,11 @@ struct txn_safe
 
   // This should only be needed for batch transaction which must be ensured to
   // be aborted before mdb_env_close, not after. So we can't rely on
-  // BlockchainLMDB destructor to call txn_safe destructor, as that's too late
+  // BlockchainLMDB destructor to call mdb_txn_safe destructor, as that's too late
   // to properly abort, since mdb_env_close would have been called earlier.
   void abort()
   {
-    LOG_PRINT_L3("txn_safe: abort()");
+    LOG_PRINT_L3("mdb_txn_safe: abort()");
     if(m_txn != NULL)
     {
       mdb_txn_abort(m_txn);
@@ -89,7 +89,7 @@ struct txn_safe
     }
     else
     {
-      LOG_PRINT_L0("WARNING: txn_safe: abort() called, but m_txn is NULL");
+      LOG_PRINT_L0("WARNING: mdb_txn_safe: abort() called, but m_txn is NULL");
     }
   }
 
@@ -306,8 +306,8 @@ private:
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
-  txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
-  txn_safe m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
+  mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
+  mdb_txn_safe m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
 
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
