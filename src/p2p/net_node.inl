@@ -243,6 +243,13 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, bool testnet)
   {
+    const std::vector<std::string> m_seed_nodes_list =
+    { "seeds.moneroseeds.se"
+    , "seeds.moneroseeds.ae.org"
+    , "seeds.moneroseeds.ch"
+    , "seeds.moneroseeds.li"
+    };
+
     if (testnet)
     {
       append_net_address(m_seed_nodes, "107.152.187.202:28080");
