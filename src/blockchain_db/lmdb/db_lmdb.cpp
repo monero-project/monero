@@ -775,6 +775,13 @@ std::vector<std::string> BlockchainLMDB::get_filenames() const
   return filenames;
 }
 
+std::string BlockchainLMDB::get_db_name() const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+
+  return std::string("lmdb");
+}
+
 // TODO: this?
 bool BlockchainLMDB::lock()
 {

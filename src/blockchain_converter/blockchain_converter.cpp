@@ -71,7 +71,11 @@ int main(int argc, char* argv[])
 
   blockchain = new BlockchainLMDB();
 
-  blockchain->open(default_data_path.string());
+  boost::filesystem::path db_path(default_data_path);
+
+  db_path /= blockchain->get_db_name();
+
+  blockchain->open(db_path.string());
 
   for (uint64_t height, i = 0; i < (height = c.m_storage.get_current_blockchain_height()); ++i)
   {

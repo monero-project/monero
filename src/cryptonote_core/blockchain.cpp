@@ -231,17 +231,18 @@ bool Blockchain::init(const std::string& config_folder, bool testnet)
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  // TODO: make this configurable
   m_db = new BlockchainLMDB();
 
   m_config_folder = config_folder;
   m_testnet = testnet;
 
   boost::filesystem::path folder(m_config_folder);
-  folder /= "lmdb";
+
+  folder /= m_db->get_db_name();
 
   LOG_PRINT_L0("Loading blockchain from folder " << folder.c_str() << " ...");
 
-  //FIXME: update filename for BlockchainDB
   const std::string filename = folder.string();
   try
   {

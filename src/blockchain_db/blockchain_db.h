@@ -343,6 +343,9 @@ public:
   // get all files used by this db (if any)
   virtual std::vector<std::string> get_filenames() const = 0;
 
+  // return the name of the folder the db's file(s) should reside in
+  virtual std::string get_db_name() const = 0;
+
 
   // FIXME: these are just for functionality mocking, need to implement
   // RAII-friendly and multi-read one-write friendly locking mechanism
