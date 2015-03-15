@@ -1642,10 +1642,12 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     bvc.m_verifivation_failed = true;
     return false;
   }
-  size_t coinbase_blob_size = get_object_blobsize(bl.miner_tx);
+  crypto::hash coinbase_hash = null_hash;
+  size_t coinbase_blob_size = 0;
+  get_transaction_hash(bl.miner_tx, coinbase_hash, coinbase_blob_size);
   size_t cumulative_block_size = coinbase_blob_size;
   //process transactions
-  if(!add_transaction_from_block(bl.miner_tx, get_transaction_hash(bl.miner_tx), id, get_current_blockchain_height()))
+  if(!add_transaction_from_block(bl.miner_tx, coinbase_hash, id, get_current_blockchain_height()))
   {
     LOG_PRINT_L1("Block with id: " << id << " failed to add transaction to blockchain storage");
     bvc.m_verifivation_failed = true;
