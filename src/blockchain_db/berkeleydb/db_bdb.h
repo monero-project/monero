@@ -49,7 +49,7 @@ struct bdb_txn_safe
       message = "Failed to commit a transaction to the db";
     }
 
-    if (txn->commit())
+    if (m_txn->commit(0))
     {
       m_txn = NULL;
       LOG_PRINT_L0(message);
@@ -102,6 +102,8 @@ public:
   virtual void reset();
 
   virtual std::vector<std::string> get_filenames() const;
+
+  virtual std::string get_db_name() const;
 
   virtual bool lock();
 
@@ -279,7 +281,7 @@ private:
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
-  txn_safe m_write_txn; // may point to either a short-lived txn or a batch txn
+  bdb_txn_safe *m_write_txn;
 
   bool m_batch_transactions; // support for batch transactions
 };
