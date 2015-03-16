@@ -35,27 +35,40 @@
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/blockchain_storage.h"
 #include "cryptonote_core/blockchain.h"
-// TODO:
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+
+// CONFIG: choose one of the three #define's
+//
+// DB_MEMORY is a sensible default for users migrating to LMDB, as it allows
+// the exporter to use the in-memory blockchain while the other binaries
+// work with LMDB, without recompiling anything.
+//
+#define SOURCE_DB DB_MEMORY
+// #define SOURCE_DB DB_LMDB
+// to use global compile-time setting (DB_MEMORY or DB_LMDB):
+// #define SOURCE_DB BLOCKCHAIN_DB
 
 using namespace cryptonote;
 
 class BlockchainExport
 {
 public:
-  bool store_blockchain_raw(cryptonote::blockchain_storage* cs, cryptonote::tx_memory_pool* txp, 
+#if SOURCE_DB == DB_MEMORY
+  bool store_blockchain_raw(cryptonote::blockchain_storage* cs, cryptonote::tx_memory_pool* txp,
       boost::filesystem::path& output_dir, uint64_t use_block_height=0);
-  //
-  // BlockchainDB:
-  // bool store_blockchain_raw(cryptonote::BlockchainDB* cs, boost::filesystem::path& output_dir, uint64_t use_block_height=0);
+#else
+  bool store_blockchain_raw(cryptonote::Blockchain* cs, cryptonote::tx_memory_pool* txp,
+      boost::filesystem::path& output_dir, uint64_t use_block_height=0);
+#endif
 
 protected:
-  // blockchain_storage:
+#if SOURCE_DB == DB_MEMORY
   blockchain_storage* m_blockchain_storage;
-  //
-  // BlockchainDB:
-  // BlockchainDB* m_blockchain_storage;
+#else
+  Blockchain* m_blockchain_storage;
+#endif
+
   tx_memory_pool* m_tx_pool;
   typedef std::vector<char> buffer_type;
   std::ofstream * m_raw_data_file;

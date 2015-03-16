@@ -45,12 +45,6 @@
 #include "cryptonote_core/cryptonote_boost_serialization.h"
 
 #include "import.h"
-// #include "fake_core.h"
-
-#define SOURCE_DB DB_MEMORY
-// currently not supported:
-// to use what was set at compile time (DB_MEMORY or DB_LMDB)
-// #define SOURCE_DB BLOCKCHAIN_DB
 
 static int max_chunk = 0;
 static size_t height;
@@ -151,21 +145,21 @@ void BlockchainExport::write_block(block& block)
   // put coinbase transaction first
   transaction coinbase_tx = block.miner_tx;
   crypto::hash coinbase_tx_hash = get_transaction_hash(coinbase_tx);
-  // blockchain_storage:
+#if SOURCE_DB == DB_MEMORY
   const transaction* cb_tx_full = m_blockchain_storage->get_tx(coinbase_tx_hash);
-  //
-  // BlockchainDB:
-  // transaction cb_tx_full = m_blockchain_storage->get_tx(coinbase_tx_hash);
+#else
+  transaction cb_tx_full = m_blockchain_storage->get_db()->get_tx(coinbase_tx_hash);
+#endif
 
-
-  // blockchain_storage:
+#if SOURCE_DB == DB_MEMORY
   if (cb_tx_full != NULL)
   {
     txs.push_back(*cb_tx_full);
   }
-  //
-  // BlockchainDB:
-  // txs.push_back(cb_tx_full);
+#else
+  // TODO: should check and abort if cb_tx_full equals null_hash?
+  txs.push_back(cb_tx_full);
+#endif
 
   // now add all regular transactions
   BOOST_FOREACH(const auto& tx_id, block.tx_hashes)
@@ -173,7 +167,7 @@ void BlockchainExport::write_block(block& block)
 #if SOURCE_DB == DB_MEMORY
     const transaction* tx = m_blockchain_storage->get_tx(tx_id);
 #else
-    transaction tx = m_blockchain_storage->get_tx(tx_id);
+    transaction tx = m_blockchain_storage->get_db()->get_tx(tx_id);
 #endif
 
 #if SOURCE_DB == DB_MEMORY
@@ -208,9 +202,22 @@ void BlockchainExport::write_block(block& block)
   bool include_extra_block_data = true;
   if (include_extra_block_data)
   {
+#if SOURCE_DB == DB_MEMORY
     size_t block_size = m_blockchain_storage->get_block_size(block_height);
+#else
+    size_t block_size = m_blockchain_storage->get_db()->get_block_size(block_height);
+#endif
+#if SOURCE_DB == DB_MEMORY
     difficulty_type cumulative_difficulty = m_blockchain_storage->get_block_cumulative_difficulty(block_height);
+#else
+    difficulty_type cumulative_difficulty = m_blockchain_storage->get_db()->get_block_cumulative_difficulty(block_height);
+#endif
+#if SOURCE_DB == DB_MEMORY
     uint64_t coins_generated = m_blockchain_storage->get_block_coins_generated(block_height);
+#else
+    // TODO TEST to verify that this is the equivalent. make sure no off-by-one error with block height vs block number
+    uint64_t coins_generated = m_blockchain_storage->get_db()->get_block_already_generated_coins(block_height);
+#endif
 
     *m_raw_archive << block_size;
     *m_raw_archive << cumulative_difficulty;
@@ -234,7 +241,7 @@ bool BlockchainExport::BlockchainExport::close()
 #if SOURCE_DB == DB_MEMORY
 bool BlockchainExport::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t use_block_height)
 #else
-bool BlockchainExport::store_blockchain_raw(BlockchainDB* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t use_block_height)
+bool BlockchainExport::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t use_block_height)
 #endif
 {
   uint64_t use_block_height2 = 0;
@@ -339,7 +346,7 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
   boost::filesystem::path output_dir {m_config_folder};
   output_dir /= "export";
-  std::cout << "config directory: " << m_config_folder << ENDL;
+  LOG_PRINT_L0("Export directory: " << output_dir.string());
 
   // If we wanted to use the memory pool, we would set up a fake_core.
 
@@ -349,13 +356,25 @@ int main(int argc, char* argv[])
   // core_storage = new blockchain_storage(&m_mempool);
 
   blockchain_storage* core_storage = new blockchain_storage(NULL);
-#else
-  BlockchainDB* core_storage = new BlockchainLMDB();
-#endif
-  // tx_memory_pool m_mempool(core_storage);
-
-  LOG_PRINT_L0("Initializing source blockchain storage...");
+  LOG_PRINT_L0("Initializing source blockchain (in-memory database)");
   r = core_storage->init(m_config_folder, opt_testnet);
+#else
+  // Use Blockchain instead of lower-level BlockchainDB for two reasons:
+  // 1. Blockchain has the init() method for easy setup
+  // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
+  //
+  // cannot match blockchain_storage setup above with just one line,
+  // e.g.
+  //   Blockchain* core_storage = new Blockchain(NULL);
+  // because unlike blockchain_storage constructor, which takes a pointer to
+  // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
+  LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
+  Blockchain* core_storage = NULL;
+  tx_memory_pool m_mempool(*core_storage);
+  core_storage = new Blockchain(m_mempool);
+  r = core_storage->init(m_config_folder, opt_testnet);
+#endif
+
   CHECK_AND_ASSERT_MES(r, false, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");
   LOG_PRINT_L0("Exporting blockchain raw data...");
