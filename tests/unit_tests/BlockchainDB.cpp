@@ -35,6 +35,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "blockchain_db/berkeleydb/db_bdb.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
 using namespace cryptonote;
@@ -209,7 +210,7 @@ protected:
 
 using testing::Types;
 
-typedef Types<BlockchainLMDB> implementations;
+typedef Types<BlockchainLMDB, BlockchainBDB> implementations;
 
 TYPED_TEST_CASE(BlockchainDBTest, implementations);
 

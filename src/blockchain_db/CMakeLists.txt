@@ -29,6 +29,7 @@
 set(blockchain_db_sources
   blockchain_db.cpp
   lmdb/db_lmdb.cpp
+  berkeleydb/db_bdb.cpp
   )
 
 set(blockchain_db_headers)
@@ -36,6 +37,7 @@ set(blockchain_db_headers)
 set(blockchain_db_private_headers
   blockchain_db.h
   lmdb/db_lmdb.h
+  berkeleydb/db_bdb.h
   )
 
 bitmonero_private_headers(blockchain_db
@@ -57,4 +59,5 @@ target_link_libraries(blockchain_db
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${LMDB_LIBRARY}
+    ${BDB_LIBRARY}
     ${EXTRA_LIBRARIES})
