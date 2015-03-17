@@ -30,6 +30,6 @@
 # critical a consensus component to rely on dynamically linked libraries
 message(STATUS "Using ${ARCH_WIDTH}-bit LMDB from source tree")
 add_subdirectory(liblmdb${ARCH_WIDTH})
-set(LMDB_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/liblmdb${ARCH_WIDTH}" PARENT_SCOPE)
+set(LMDB_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/liblmdb${ARCH_WIDTH}" CACHE STRING "LMDB Include path")
 
-set(LMDB_LIBRARY "lmdb" PARENT_SCOPE)
+set(LMDB_LIBRARY "lmdb" CACHE STRING "LMDB Library name")
