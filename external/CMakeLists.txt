@@ -97,5 +97,3 @@ else()
     die("Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent")
   endif()
 endif()
-
-add_subdirectory(db_drivers)
