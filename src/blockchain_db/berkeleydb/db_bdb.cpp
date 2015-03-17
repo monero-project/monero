@@ -122,6 +122,7 @@ struct Dbt_copy: public Dbt
   {
     set_data(&t_copy);
     set_size(sizeof(T));
+    set_ulen(sizeof(T));
     set_flags(DB_DBT_USERMEM);
   }
 
@@ -141,6 +142,7 @@ struct Dbt_copy<cryptonote::blobdata>: public Dbt
     memcpy(m_data.get(), bd.data(), bd.size());
     set_data(m_data.get());
     set_size(bd.size());
+    set_ulen(bd.size());
     set_flags(DB_DBT_USERMEM);
   }
 private:
@@ -152,6 +154,7 @@ struct Dbt_safe : public Dbt
   Dbt_safe()
   {
     set_data(NULL);
+    set_flags(DB_DBT_MALLOC);
   }
   ~Dbt_safe()
   {
@@ -1656,7 +1659,7 @@ uint64_t BlockchainBDB::add_block( const block& blk
   {
     m_num_outputs = num_outputs;
     m_write_txn = NULL;
-    throw0(DB_ERROR(std::string("Error adding block: ").append(e.what()).c_str()));
+    throw;
   }
 
   m_height++;
