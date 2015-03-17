@@ -81,7 +81,7 @@ namespace cryptonote
 
     Blockchain(tx_memory_pool& tx_pool);
 
-    bool init(const std::string& config_folder, bool testnet = false);
+    bool init(const std::string& config_folder, const bool testnet = false, const int db_flags = 0);
     bool deinit();
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
@@ -144,6 +144,11 @@ namespace cryptonote
     void check_against_checkpoints(const checkpoints& points, bool enforce);
     void set_enforce_dns_checkpoints(bool enforce);
     bool update_checkpoints(const std::string& file_path, bool check_dns);
+
+    BlockchainDB* get_db()
+    {
+      return m_db;
+    }
 
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;

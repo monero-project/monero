@@ -226,7 +226,7 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(const std::string& config_folder, bool testnet)
+bool Blockchain::init(const std::string& config_folder, const bool testnet, const int db_flags)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -246,7 +246,7 @@ bool Blockchain::init(const std::string& config_folder, bool testnet)
   const std::string filename = folder.string();
   try
   {
-    m_db->open(filename);
+    m_db->open(filename, db_flags);
   }
   catch (const DB_OPEN_FAILURE& e)
   {
