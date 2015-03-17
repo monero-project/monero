@@ -326,7 +326,7 @@ public:
   void show_stats();
 
   // open the db at location <filename>, or create it if there isn't one.
-  virtual void open(const std::string& filename) = 0;
+  virtual void open(const std::string& filename, const int db_flags = 0) = 0;
 
   // make sure implementation has a create function as well
   virtual void create(const std::string& filename) = 0;

@@ -149,6 +149,20 @@ inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi
 namespace cryptonote
 {
 
+// If m_batch_active is set, a batch transaction exists beyond this class, such
+// as a batch import with verification enabled, or possibly (later) a batch
+// network sync.
+//
+// For some of the lookup methods, such as get_block_timestamp(), tx_exists(),
+// and get_tx(), when m_batch_active is set, the lookup uses the batch
+// transaction. This isn't only because the transaction is available, but it's
+// necessary so that lookups include the database updates only present in the
+// current batch write.
+//
+// A regular network sync without batch writes is expected to open a new read
+// transaction, as those lookups are part of the validation done prior to the
+// write for block and tx data, so no write transaction is open at the time.
+
 void BlockchainLMDB::add_block( const block& blk
               , const size_t& block_size
               , const difficulty_type& cumulative_difficulty
@@ -621,7 +635,7 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
   m_height = 0;
 }
 
-void BlockchainLMDB::open(const std::string& filename)
+void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 
@@ -661,7 +675,7 @@ void BlockchainLMDB::open(const std::string& filename)
   size_t mapsize = 1LL << 34;
   if (auto result = mdb_env_set_mapsize(m_env, mapsize))
     throw0(DB_ERROR(std::string("Failed to set max memory map size: ").append(mdb_strerror(result)).c_str()));
-  if (auto result = mdb_env_open(m_env, filename.c_str(), 0, 0644))
+  if (auto result = mdb_env_open(m_env, filename.c_str(), mdb_flags, 0644))
     throw0(DB_ERROR(std::string("Failed to open lmdb environment: ").append(mdb_strerror(result)).c_str()));
 
   // get a read/write MDB_txn
@@ -1259,14 +1273,6 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
-
-  // If m_batch_active is set, a batch transaction exists beyond this class,
-  // such as a batch import with verification enabled, or possibly (later) a
-  // batch network sync.
-  //
-  // A regular network sync without batching would be expected to open a new
-  // read transaction here, as validation is done prior to the write for block
-  // and tx data.
 
   txn_safe txn;
   txn_safe* txn_ptr = &txn;

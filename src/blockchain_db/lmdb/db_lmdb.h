@@ -114,7 +114,7 @@ public:
   BlockchainLMDB(bool batch_transactions=false);
   ~BlockchainLMDB();
 
-  virtual void open(const std::string& filename);
+  virtual void open(const std::string& filename, const int mdb_flags=0);
 
   virtual void create(const std::string& filename);
 
