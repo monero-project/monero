@@ -185,7 +185,7 @@ void BlockchainBDB::add_block( const block& blk
   if (m_block_heights->exists(*m_write_txn, &val_h, 0) == 0)
     throw1(BLOCK_EXISTS("Attempting to add block that's already in the db"));
 
-  if (m_height > 1)
+  if (m_height > 0)
   {
     Dbt_copy<crypto::hash> parent_key(blk.prev_id);
     Dbt_copy<uint32_t> parent_h;
@@ -196,11 +196,11 @@ void BlockchainBDB::add_block( const block& blk
       throw0(DB_ERROR("Failed to get top block hash to check for new block's parent"));
     }
     uint32_t parent_height = parent_h;
-    if (parent_height != m_height - 1)
+    if (parent_height != m_height)
       throw0(BLOCK_PARENT_DNE("Top block is not new block's parent"));
   }
 
-  Dbt_copy<uint32_t> key(m_height);
+  Dbt_copy<uint32_t> key(m_height + 1);
 
   Dbt_copy<blobdata> blob(block_to_blob(blk));
   auto res = m_blocks->put(*m_write_txn, &key, &blob, 0);
@@ -235,10 +235,10 @@ void BlockchainBDB::remove_block()
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   check_open();
 
-  if (m_height <= 1)
+  if (m_height == 0)
     throw0(BLOCK_DNE ("Attempting to remove block from an empty blockchain"));
 
-  Dbt_copy<uint32_t> k(m_height - 1);
+  Dbt_copy<uint32_t> k(m_height);
   Dbt_copy<crypto::hash> h;
   if (m_block_hashes->get(*m_write_txn, &k, &h, 0))
       throw1(BLOCK_DNE("Attempting to remove block that's not in the db"));
@@ -279,7 +279,7 @@ void BlockchainBDB::add_transaction_data(const crypto::hash& blk_hash, const tra
   if (m_txs->put(*m_write_txn, &val_h, &blob, 0))
     throw0(DB_ERROR("Failed to add tx blob to db transaction"));
 
-  Dbt_copy<uint32_t> height(m_height);
+  Dbt_copy<uint64_t> height(m_height + 1);
   if (m_tx_heights->put(*m_write_txn, &val_h, &height, 0))
     throw0(DB_ERROR("Failed to add tx block height to db transaction"));
 
@@ -316,7 +316,7 @@ void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_out
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   check_open();
 
-  Dbt_copy<uint32_t> k(m_num_outputs);
+  Dbt_copy<uint32_t> k(m_num_outputs + 1);
   Dbt_copy<crypto::hash> v(tx_hash);
 
   if (m_output_txs->put(*m_write_txn, &k, &v, 0))
@@ -592,10 +592,10 @@ BlockchainBDB::BlockchainBDB(bool batch_transactions)
 
   m_batch_transactions = batch_transactions;
   m_write_txn = nullptr;
-  m_height = 1;
+  m_height = 0;
 }
 
-void BlockchainBDB::open(const std::string& filename)
+void BlockchainBDB::open(const std::string& filename, const int db_flags)
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
 
@@ -706,12 +706,12 @@ void BlockchainBDB::open(const std::string& filename)
     // to be returned.  The flag should be set to 0 instead if this proves
     // to be the case.
     m_blocks->stat(txn, &stats, DB_FAST_STAT);
-    m_height = stats->bt_nkeys + 1;
+    m_height = stats->bt_nkeys;
     delete stats;
 
     // see above comment about DB_FAST_STAT
     m_output_indices->stat(txn, &stats, DB_FAST_STAT);
-    m_num_outputs = stats->bt_nkeys + 1;
+    m_num_outputs = stats->bt_nkeys;
     delete stats;
 
     txn.commit();
@@ -1000,7 +1000,7 @@ uint64_t BlockchainBDB::get_top_block_timestamp() const
   check_open();
 
   // if no blocks, return 0
-  if (m_height <= 0)
+  if (m_height == 0)
   {
     return 0;
   }
@@ -1149,7 +1149,7 @@ crypto::hash BlockchainBDB::top_block_hash() const
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   check_open();
-  if (m_height != 0)
+  if (m_height > 0)
   {
     return get_block_hash_from_height(m_height - 1);
   }
@@ -1162,7 +1162,7 @@ block BlockchainBDB::get_top_block() const
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   check_open();
 
-  if (m_height != 0)
+  if (m_height > 0)
   {
     return get_block_from_height(m_height - 1);
   }
@@ -1176,7 +1176,7 @@ uint64_t BlockchainBDB::height() const
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   check_open();
 
-  return m_height - 1;
+  return m_height;
 }
 
 bool BlockchainBDB::tx_exists(const crypto::hash& h) const
@@ -1662,9 +1662,7 @@ uint64_t BlockchainBDB::add_block( const block& blk
     throw;
   }
 
-  m_height++;
-
-  return m_height - 1;
+  return ++m_height;
 }
 
 void BlockchainBDB::pop_block(block& blk, std::vector<transaction>& txs)

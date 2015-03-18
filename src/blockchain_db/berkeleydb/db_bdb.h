@@ -39,7 +39,9 @@ struct bdb_txn_safe
   ~bdb_txn_safe()
   {
     LOG_PRINT_L3("bdb_txn_safe: destructor");
-    abort();
+
+    if (m_txn != NULL)
+      abort();
   }
 
   void commit(std::string message = "")
@@ -91,7 +93,7 @@ public:
   BlockchainBDB(bool batch_transactions=false);
   ~BlockchainBDB();
 
-  virtual void open(const std::string& filename);
+  virtual void open(const std::string& filename, const int db_flags);
 
   virtual void create(const std::string& filename);
 
