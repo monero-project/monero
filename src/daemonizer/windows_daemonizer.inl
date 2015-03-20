@@ -81,9 +81,9 @@ namespace daemonizer
       boost::program_options::variables_map const & vm
     )
   {
-    if (command_line::arg_present(vm, arg_is_service))
+    if (command_line::has_arg(vm, arg_is_service))
     {
-      if (command_line::arg_present(vm, command_line::arg_data_dir))
+      if (command_line::has_arg(vm, command_line::arg_data_dir))
       {
         return command_line::get_arg(vm, command_line::arg_data_dir);
       }
