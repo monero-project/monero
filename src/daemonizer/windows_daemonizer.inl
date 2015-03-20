@@ -107,7 +107,7 @@ namespace daemonizer
   {
     std::string arguments = get_argument_string(argc, argv);
 
-    if (command_line::arg_present(vm, arg_is_service))
+    if (command_line::has_arg(vm, arg_is_service))
     {
       // TODO - Set the service status here for return codes
       windows::t_service_runner<typename T_executor::t_daemon>::run(
@@ -116,7 +116,7 @@ namespace daemonizer
       );
       return true;
     }
-    else if (command_line::arg_present(vm, arg_install_service))
+    else if (command_line::has_arg(vm, arg_install_service))
     {
       if (windows::ensure_admin(arguments))
       {
@@ -124,21 +124,21 @@ namespace daemonizer
         return windows::install_service(executor.name(), arguments);
       }
     }
-    else if (command_line::arg_present(vm, arg_uninstall_service))
+    else if (command_line::has_arg(vm, arg_uninstall_service))
     {
       if (windows::ensure_admin(arguments))
       {
         return windows::uninstall_service(executor.name());
       }
     }
-    else if (command_line::arg_present(vm, arg_start_service))
+    else if (command_line::has_arg(vm, arg_start_service))
     {
       if (windows::ensure_admin(arguments))
       {
         return windows::start_service(executor.name());
       }
     }
-    else if (command_line::arg_present(vm, arg_stop_service))
+    else if (command_line::has_arg(vm, arg_stop_service))
     {
       if (windows::ensure_admin(arguments))
       {
