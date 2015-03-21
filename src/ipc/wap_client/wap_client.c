@@ -252,8 +252,9 @@ signal_have_stop_ok (client_t *self)
 static void
 signal_have_output_indexes_ok (client_t *self)
 {
-    zsock_send(self->cmdpipe, "sip", "OUTPUT INDEXES OK", wap_proto_status(self->message),
-        wap_proto_o_indexes(self->message));
+    zsock_send (self->cmdpipe, "s8p", "OUTPUT INDEXES OK",
+        wap_proto_status (self->message),
+        wap_proto_get_o_indexes (self->message));
 }
 
 //  ---------------------------------------------------------------------------

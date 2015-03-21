@@ -47,7 +47,8 @@ bitmonero_add_library(server_ipc
 target_link_libraries(server_ipc
   LINK_PRIVATE
     cryptonote_core
-    ${ZMQ_LIB})
+    ${ZMQ_LIB}
+    ${CZMQ_LIB})
 
 bitmonero_add_library(client_ipc
   ${client_ipc_sources}
@@ -55,4 +56,5 @@ bitmonero_add_library(client_ipc
 target_link_libraries(client_ipc
   LINK_PRIVATE
     cryptonote_core
+    ${ZMQ_LIB}
     ${CZMQ_LIB})

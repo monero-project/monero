@@ -194,7 +194,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       uint64_t status = wap_client_status(client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_output_indexes");
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_output_indexes");
-      THROW_WALLET_EXCEPTION_IF(status != 100, error::get_out_indices_error, "get_output_indexes");
+      THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_out_indices_error, "get_output_indexes");
 
       zframe_t *frame = wap_client_o_indexes(client);
       THROW_WALLET_EXCEPTION_IF(!frame, error::get_out_indices_error, "get_output_indexes");
@@ -342,7 +342,6 @@ void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_c
   char *block_data = reinterpret_cast<char*>(zframe_data(frame));
 
   rapidjson::Document json;
-  int _i = 0;
   THROW_WALLET_EXCEPTION_IF(json.Parse(block_data, size).HasParseError(), error::get_blocks_error, "getblocks");
   for (rapidjson::SizeType i = 0; i < json["blocks"].Size(); i++) {
     block_complete_entry block_entry;
@@ -383,7 +382,9 @@ void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "getblocks");
   THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "getblocks");
   std::list<block_complete_entry> blocks;
-  get_blocks_from_zmq_msg(wap_client_block_data(client), blocks);
+  zmsg_t *msg = wap_client_block_data(client); 
+  get_blocks_from_zmq_msg(msg, blocks);
+
   uint64_t current_index = wap_client_start_height(client);
   BOOST_FOREACH(auto& bl_entry, blocks)
   {

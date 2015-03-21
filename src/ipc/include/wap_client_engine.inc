@@ -1664,8 +1664,6 @@ wap_client_tx_data (wap_client_t *self)
 zframe_t *
 wap_client_o_indexes (wap_client_t *self)
 {
-printf("here1\n");
     assert (self);
-printf("here2\n");
     return self->o_indexes;
 }

@@ -184,7 +184,7 @@ namespace IPC
       uint64_t *indexes = &output_indexes[0];
       zframe_t *frame = zframe_new(indexes, sizeof(uint64_t) * output_indexes.size());
       wap_proto_set_o_indexes(message, &frame);
-      wap_proto_set_status(message, 100);
+      wap_proto_set_status(message, STATUS_OK);
     }
   }
 }
