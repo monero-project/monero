@@ -214,7 +214,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     // Reset stats, in case we're using newly created db, accumulating stats
     // from addition of genesis block.
     // This aligns internal db counts with importer counts.
-    simple_core.m_storage.get_db()->reset_stats();
+    simple_core.m_storage.get_db().reset_stats();
   }
 #endif
   boost::filesystem::path raw_file_path(import_file_path);
@@ -497,7 +497,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
             simple_core.batch_start();
             std::cout << ENDL;
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
-            simple_core.m_storage.get_db()->show_stats();
+            simple_core.m_storage.get_db().show_stats();
 #endif
           }
         }
@@ -525,7 +525,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
       simple_core.batch_stop();
     }
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
-    simple_core.m_storage.get_db()->show_stats();
+    simple_core.m_storage.get_db().show_stats();
 #endif
     if (h > 0)
       LOG_PRINT_L0("Finished at height: " << h << "  block: " << h-1);
