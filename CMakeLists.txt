@@ -238,12 +238,18 @@ if (BOOST_IGNORE_SYSTEM_PATHS)
   set(Boost_NO_SYSTEM_PATHS TRUE)
 endif()
 
+set(OLD_LIB_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
 if(STATIC)
+  if(MINGW)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+  endif()
+
   set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 find_package(Boost 1.53 QUIET REQUIRED COMPONENTS system filesystem thread date_time chrono regex serialization program_options)
 
+set(CMAKE_FIND_LIBRARY_SUFFIXES ${OLD_LIB_SUFFIXES})
 if(NOT Boost_FOUND)
   die("Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (1.53 or 1.55+) or the equivalent")
 endif()
