@@ -16,8 +16,10 @@
     =========================================================================
 */
 
-#ifndef __WAP_CLIENT_H_INCLUDED__
-#define __WAP_CLIENT_H_INCLUDED__
+#ifndef WAP_CLIENT_H_INCLUDED
+#define WAP_CLIENT_H_INCLUDED
+
+#include <czmq.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,14 +32,12 @@ typedef struct _wap_client_t wap_client_t;
 #endif
 
 //  @interface
-//  Create a new wap_client
-//  Connect to server endpoint, with specified timeout in msecs (zero means wait    
-//  forever). Constructor succeeds if connection is successful. The caller may      
-//  specify its address.                                                            
+//  Create a new wap_client, return the reference if successful, or NULL
+//  if construction failed due to lack of available memory.
 WAP_EXPORT wap_client_t *
-    wap_client_new (const char *endpoint, uint32_t timeout, const char *identity);
+    wap_client_new (void);
 
-//  Destroy the wap_client
+//  Destroy the wap_client and free all memory used by the object.
 WAP_EXPORT void
     wap_client_destroy (wap_client_t **self_p);
 
@@ -53,6 +53,13 @@ WAP_EXPORT zactor_t *
 //  is never ambiguous.
 WAP_EXPORT zsock_t *
     wap_client_msgpipe (wap_client_t *self);
+
+//  Connect to server endpoint, with specified timeout in msecs (zero means wait    
+//  forever). Constructor succeeds if connection is successful. The caller may      
+//  specify its address.                                                            
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_connect (wap_client_t *self, const char *endpoint, uint32_t timeout, const char *identity);
 
 //  Request a set of blocks from the server.                                        
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -120,7 +127,7 @@ WAP_EXPORT zframe_t *
 //  Self test of this class
 WAP_EXPORT void
     wap_client_test (bool verbose);
-    
+
 //  To enable verbose tracing (animation) of wap_client instances, set
 //  this to true. This lets you trace from and including construction.
 WAP_EXPORT extern volatile int

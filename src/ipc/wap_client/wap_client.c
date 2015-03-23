@@ -138,7 +138,7 @@ prepare_get_output_indexes_command (client_t *self)
 static void
 signal_have_blocks_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "siiip", "BLOCKS OK", wap_proto_status(self->message),
+    zsock_send (self->cmdpipe, "s888p", "BLOCKS OK", wap_proto_status(self->message),
                 wap_proto_start_height (self->message),
                 wap_proto_curr_height (self->message),
                 wap_proto_get_block_data (self->message));
@@ -174,7 +174,7 @@ prepare_put_command (client_t *self)
 static void
 signal_have_put_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "sis", "PUT OK", 0,
+    zsock_send (self->cmdpipe, "s8s", "PUT OK", 0,
                 wap_proto_tx_id (self->message));
 }
 
@@ -197,7 +197,7 @@ prepare_get_command (client_t *self)
 static void
 signal_have_get_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "sip", "GET OK", 0, 
+    zsock_send (self->cmdpipe, "s8p", "GET OK", 0, 
                 wap_proto_get_tx_data (self->message));
 }
 
@@ -220,7 +220,7 @@ prepare_save_command (client_t *self)
 static void
 signal_have_save_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "si", "SAVE OK", 0);
+    zsock_send (self->cmdpipe, "s8", "SAVE OK", 0);
 }
 
 
@@ -231,7 +231,7 @@ signal_have_save_ok (client_t *self)
 static void
 signal_have_start_ok (client_t *self)
 {
-    zsock_send(self->cmdpipe, "si", "START OK", wap_proto_status(self->message));
+    zsock_send(self->cmdpipe, "s8", "START OK", wap_proto_status(self->message));
 }
 
 
@@ -242,7 +242,7 @@ signal_have_start_ok (client_t *self)
 static void
 signal_have_stop_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "si", "STOP OK", 0);
+    zsock_send (self->cmdpipe, "s8", "STOP OK", 0);
 }
 
 //  ---------------------------------------------------------------------------

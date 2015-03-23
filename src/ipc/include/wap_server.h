@@ -16,8 +16,10 @@
     =========================================================================
 */
 
-#ifndef __WAP_SERVER_H_INCLUDED__
-#define __WAP_SERVER_H_INCLUDED__
+#ifndef WAP_SERVER_H_INCLUDED
+#define WAP_SERVER_H_INCLUDED
+
+#include <czmq.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,11 +31,11 @@ extern "C" {
 //  Create new wap_server instance, passing logging prefix:
 //
 //      zactor_t *wap_server = zactor_new (wap_server, "myname");
-//  
+//
 //  Destroy wap_server instance
 //
 //      zactor_destroy (&wap_server);
-//  
+//
 //  Enable verbose logging of commands and activity:
 //
 //      zstr_send (wap_server, "VERBOSE");
@@ -54,12 +56,16 @@ extern "C" {
 //  Specify configuration file to load, overwriting any previous loaded
 //  configuration file or options:
 //
-//      zstr_sendx (wap_server, "CONFIGURE", filename, NULL);
+//      zstr_sendx (wap_server, "LOAD", filename, NULL);
 //
 //  Set configuration path value:
 //
 //      zstr_sendx (wap_server, "SET", path, value, NULL);
-//    
+//
+//  Save configuration data to config file on disk:
+//
+//      zstr_sendx (wap_server, "SAVE", filename, NULL);
+//
 //  Send zmsg_t instance to wap_server:
 //
 //      zactor_send (wap_server, &msg);

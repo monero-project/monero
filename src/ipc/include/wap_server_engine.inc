@@ -378,7 +378,7 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     s_client_t *self = (s_client_t *) zmalloc (sizeof (s_client_t));
     assert (self);
     assert ((s_client_t *) &self->client == self);
-    
+
     self->server = server;
     self->hashkey = zframe_strhex (routing_id);
     self->routing_id = zframe_dup (routing_id);
@@ -1002,17 +1002,17 @@ static void
 s_server_config_global (s_server_t *self)
 {
     //  Built-in server configuration options
-    //  
+    //
     //  If we didn't already set verbose, check if the config tree wants it
     if (!self->verbose
     && atoi (zconfig_resolve (self->config, "server/verbose", "0")))
         self->verbose = true;
-        
+
     //  Default client timeout is 60 seconds
     self->timeout = atoi (
         zconfig_resolve (self->config, "server/timeout", "60000"));
     zloop_set_ticket_delay (self->loop, self->timeout);
-    
+
     //  Do we want to run server in the background?
     int background = atoi (
         zconfig_resolve (self->config, "server/background", "0"));
@@ -1097,12 +1097,15 @@ s_server_config_service (s_server_t *self)
             char *mechanism = zconfig_resolve (section, "mechanism", "null");
             char *domain = zconfig_resolve (section, "domain", NULL);
             if (streq (mechanism, "null")) {
+                zsys_notice ("server is using NULL security");
                 if (domain)
                     zsock_set_zap_domain (self->router, NULL);
             }
             else
-            if (streq (mechanism, "plain"))
+            if (streq (mechanism, "plain")) {
+                zsys_notice ("server is using PLAIN security");
                 zsock_set_plain_server (self->router, 1);
+            }
             else
                 zsys_warning ("mechanism=%s is not supported", mechanism);
         }
@@ -1148,20 +1151,20 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         zstr_sendm (self->pipe, "PORT");
         zstr_sendf (self->pipe, "%d", self->port);
     }
-    else
-    if (streq (method, "CONFIGURE")) {
-        char *config_file = zmsg_popstr (msg);
+    else                       //  Deprecated method name
+    if (streq (method, "LOAD") || streq (method, "CONFIGURE")) {
+        char *filename = zmsg_popstr (msg);
         zconfig_destroy (&self->config);
-        self->config = zconfig_load (config_file);
+        self->config = zconfig_load (filename);
         if (self->config) {
             s_server_config_service (self);
             self->server.config = self->config;
         }
         else {
-            zsys_warning ("cannot load config file '%s'\n", config_file);
+            zsys_warning ("cannot load config file '%s'", filename);
             self->config = zconfig_new ("root", NULL);
         }
-        free (config_file);
+        free (filename);
     }
     else
     if (streq (method, "SET")) {
@@ -1175,6 +1178,13 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_server_config_global (self);
         free (path);
         free (value);
+    }
+    else
+    if (streq (method, "SAVE")) {
+        char *filename = zmsg_popstr (msg);
+        if (zconfig_save (self->config, filename))
+            zsys_warning ("cannot save config file '%s'", filename);
+        free (filename);
     }
     else {
         //  Execute custom method
@@ -1211,7 +1221,7 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         //  Any input from client counts as activity
         if (client->ticket)
             zloop_ticket_reset (self->loop, client->ticket);
-        
+
         //  Pass to client state machine
         s_client_execute (client, s_protocol_event (self->message));
     }

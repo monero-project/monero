@@ -34,18 +34,30 @@ struct _wap_proto_t {
     int id;                             //  wap_proto message ID
     byte *needle;                       //  Read/write pointer for serialization
     byte *ceiling;                      //  Valid upper limit for read pointer
-    char identity [256];                //  Wallet identity
-    zlist_t *block_ids;                 //  
-    uint64_t start_height;              //  
-    uint64_t status;                    //  
-    uint64_t curr_height;               //  
-    zmsg_t *block_data;                 //  Frames of block data
-    zchunk_t *tx_data;                  //  Transaction data
-    char tx_id [256];                   //  Transaction ID
-    zframe_t *o_indexes;                //  Output Indexes
-    char address [256];                 //  
-    uint64_t thread_count;              //  
-    char reason [256];                  //  Printable explanation
+    /* Wallet identity  */
+    char identity [256];
+    /*                */
+    zlist_t *block_ids;
+    /*                */
+    uint64_t start_height;
+    /*                */
+    uint64_t status;
+    /*                */
+    uint64_t curr_height;
+    /* Frames of block data  */
+    zmsg_t *block_data;
+    /* Transaction data  */
+    zchunk_t *tx_data;
+    /* Transaction ID  */
+    char tx_id [256];
+    /* Output Indexes  */
+    zframe_t *o_indexes;
+    /*                */
+    char address [256];
+    /*                */
+    uint64_t thread_count;
+    /* Printable explanation  */
+    char reason [256];
 };
 
 //  --------------------------------------------------------------------------
@@ -333,6 +345,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
                     zsys_warning ("wap_proto: tx_data is missing data");
                     goto malformed;
                 }
+                zchunk_destroy (&self->tx_data);
                 self->tx_data = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
@@ -369,6 +382,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
                     zsys_warning ("wap_proto: tx_data is missing data");
                     goto malformed;
                 }
+                zchunk_destroy (&self->tx_data);
                 self->tx_data = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
@@ -1178,6 +1192,9 @@ int
 wap_proto_test (bool verbose)
 {
     printf (" * wap_proto: ");
+
+    //  Silence an "unused" warning by "using" the verbose variable
+    if (verbose) {;}
 
     //  @selftest
     //  Simple create/destroy test

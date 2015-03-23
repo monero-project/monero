@@ -18,8 +18,8 @@
     =========================================================================
 */
 
-#ifndef __WAP_PROTO_H_INCLUDED__
-#define __WAP_PROTO_H_INCLUDED__
+#ifndef WAP_PROTO_H_INCLUDED
+#define WAP_PROTO_H_INCLUDED
 
 /*  These are the wap_proto messages:
 

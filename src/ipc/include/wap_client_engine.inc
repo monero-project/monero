@@ -39,7 +39,7 @@ typedef enum {
 
 typedef enum {
     NULL_event = 0,
-    constructor_event = 1,
+    connect_event = 1,
     bad_endpoint_event = 2,
     open_ok_event = 3,
     expired_event = 4,
@@ -88,7 +88,7 @@ s_state_name [] = {
 static char *
 s_event_name [] = {
     "(NONE)",
-    "constructor",
+    "connect",
     "bad_endpoint",
     "OPEN_OK",
     "expired",
@@ -113,7 +113,7 @@ s_event_name [] = {
     "command_invalid",
     "other"
 };
- 
+
 
 //  ---------------------------------------------------------------------------
 //  Context for the client. This embeds the application-level client context
@@ -142,6 +142,7 @@ typedef struct {
     wap_proto_t *message;       //  Message received or sent
     client_args_t args;         //  Method arguments structure
     bool terminated;            //  True if client is shutdown
+    bool fsm_stopped;           //  "terminate" action called
     size_t timeout;             //  inactivity timeout, msecs
     state_t state;              //  Current state
     event_t event;              //  Current event
@@ -216,7 +217,7 @@ static void
 //  Global tracing/animation indicator; we can't use a client method as
 //  that only works after construction (which we often want to trace).
 volatile int wap_client_verbose = false;
-    
+
 //  Create a new client connection
 
 static s_client_t *
@@ -441,7 +442,7 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
 
 
 //  Execute state machine as long as we have events; if event is NULL_event,
-//  or state machine is terminated, do nothing.
+//  or state machine is stopped, do nothing.
 
 static void
 s_client_execute (s_client_t *self, event_t event)
@@ -452,7 +453,9 @@ s_client_execute (s_client_t *self, event_t event)
         zloop_timer_end (self->loop, self->wakeup_timer);
         self->wakeup_timer = 0;
     }
-    while (!self->terminated && self->next_event != NULL_event) {
+    while (!self->terminated                    //  Actor is dying
+        && !self->fsm_stopped                   //  FSM has finished
+        && self->next_event != NULL_event) {
         self->event = self->next_event;
         self->next_event = NULL_event;
         self->exception = NULL_event;
@@ -462,7 +465,7 @@ s_client_execute (s_client_t *self, event_t event)
         }
         switch (self->state) {
             case start_state:
-                if (self->event == constructor_event) {
+                if (self->event == connect_event) {
                     if (!self->exception) {
                         //  connect to server endpoint
                         if (wap_client_verbose)
@@ -503,7 +506,7 @@ s_client_execute (s_client_t *self, event_t event)
                         //  terminate
                         if (wap_client_verbose)
                             zsys_debug ("wap_client:            $ terminate");
-                        self->terminated = true;
+                        self->fsm_stopped = true;
                     }
                 }
                 else {
@@ -543,11 +546,14 @@ s_client_execute (s_client_t *self, event_t event)
                         //  terminate
                         if (wap_client_verbose)
                             zsys_debug ("wap_client:            $ terminate");
-                        self->terminated = true;
+                        self->fsm_stopped = true;
                     }
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -562,6 +568,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -709,6 +718,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -723,6 +735,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -739,6 +754,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -753,6 +771,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -769,6 +790,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -783,6 +807,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -799,6 +826,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -813,6 +843,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -829,6 +862,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -843,6 +879,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -859,6 +898,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -873,6 +915,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -889,6 +934,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -903,6 +951,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -919,6 +970,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -933,6 +987,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -948,7 +1005,7 @@ s_client_execute (s_client_t *self, event_t event)
                         //  terminate
                         if (wap_client_verbose)
                             zsys_debug ("wap_client:            $ terminate");
-                        self->terminated = true;
+                        self->fsm_stopped = true;
                     }
                 }
                 else
@@ -963,11 +1020,14 @@ s_client_execute (s_client_t *self, event_t event)
                         //  terminate
                         if (wap_client_verbose)
                             zsys_debug ("wap_client:            $ terminate");
-                        self->terminated = true;
+                        self->fsm_stopped = true;
                     }
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -982,11 +1042,17 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
             case defaults_state:
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -1001,6 +1067,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
 
@@ -1034,7 +1103,7 @@ s_client_execute (s_client_t *self, event_t event)
                         //  terminate
                         if (wap_client_verbose)
                             zsys_debug ("wap_client:            $ terminate");
-                        self->terminated = true;
+                        self->fsm_stopped = true;
                     }
                 }
                 else {
@@ -1058,6 +1127,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == ping_ok_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ ping_ok");
                 }
                 else
                 if (self->event == error_event) {
@@ -1072,6 +1144,9 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
                 }
                 break;
         }
@@ -1123,11 +1198,11 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (streq (method, "$TERM"))
         self->terminated = true;    //  Shutdown the engine
     else
-    if (streq (method, "CONSTRUCTOR")) {
+    if (streq (method, "CONNECT")) {
         zstr_free (&self->args.endpoint);
         zstr_free (&self->args.identity);
-        zsock_recv (self->cmdpipe, "sis", &self->args.endpoint, &self->args.timeout, &self->args.identity);
-        s_client_execute (self, constructor_event);
+        zsock_recv (self->cmdpipe, "s4s", &self->args.endpoint, &self->args.timeout, &self->args.identity);
+        s_client_execute (self, connect_event);
     }
     else
     if (streq (method, "DESTRUCTOR")) {
@@ -1136,7 +1211,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "BLOCKS")) {
         zlist_destroy (&self->args.block_ids);
-        zsock_recv (self->cmdpipe, "pi", &self->args.block_ids, &self->args.start_height);
+        zsock_recv (self->cmdpipe, "p8", &self->args.block_ids, &self->args.start_height);
         s_client_execute (self, blocks_event);
     }
     else
@@ -1164,7 +1239,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "START")) {
         zstr_free (&self->args.address);
-        zsock_recv (self->cmdpipe, "si", &self->args.address, &self->args.thread_count);
+        zsock_recv (self->cmdpipe, "s8", &self->args.address, &self->args.thread_count);
         s_client_execute (self, start_event);
     }
     else
@@ -1199,8 +1274,11 @@ s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
         if (wap_client_verbose)
             zsys_debug ("wap_client:        API message=%s", method);
 
-        //  Front-end shuts down msgpipe before cmdpipe
-        if (streq (method, "$TERM"))
+        //  Front-end shuts down msgpipe before cmdpipe, this little
+        //  handshake just ensures all traffic on the msgpipe has been
+        //  flushed before the calling thread continues with destroying
+        //  the actor.
+        if (streq (method, "$FLUSH"))
             zsock_signal (self->cmdpipe, 0);
         //  Cleanup pipe if any argument frames are still waiting to be eaten
         if (zsock_rcvmore (self->msgpipe)) {
@@ -1256,7 +1334,7 @@ wap_client (zsock_t *cmdpipe, void *msgpipe)
     s_client_t *self = s_client_new (cmdpipe, (zsock_t *) msgpipe);
     if (self) {
         zsock_signal (cmdpipe, 0);
-        
+
         //  Set up handler for the sockets the client uses
         engine_handle_socket ((client_t *) self, self->cmdpipe, s_client_handle_cmdpipe);
         engine_handle_socket ((client_t *) self, self->msgpipe, s_client_handle_msgpipe);
@@ -1291,25 +1369,16 @@ struct _wap_client_t {
 
 //  ---------------------------------------------------------------------------
 //  Create a new wap_client
-//  Connect to server endpoint, with specified timeout in msecs (zero means wait    
-//  forever). Constructor succeeds if connection is successful. The caller may      
-//  specify its address.                                                            
-
-static int 
-wap_client_constructor (wap_client_t *self, const char *endpoint, uint32_t timeout, const char *identity);
 
 WAP_EXPORT wap_client_t *
-wap_client_new (const char *endpoint, uint32_t timeout, const char *identity)
+wap_client_new (void)
 {
     wap_client_t *self = (wap_client_t *) zmalloc (sizeof (wap_client_t));
     if (self) {
         zsock_t *backend;
         self->msgpipe = zsys_create_pipe (&backend);
-        self->actor = zactor_new (wap_client, backend);
-        if (self->actor)
-            self->status = wap_client_constructor (self, endpoint, timeout, identity);
-        if (self->status == -1)
-            zactor_destroy (&self->actor);
+        if (self->msgpipe)
+            self->actor = zactor_new (wap_client, backend);
         if (!self->actor)
             wap_client_destroy (&self);
     }
@@ -1332,10 +1401,12 @@ wap_client_destroy (wap_client_t **self_p)
     if (*self_p) {
         wap_client_t *self = *self_p;
         if (self->actor && !zsys_interrupted) {
-            //  Shut down msgpipe first so that client can do clean shutdown,
-            //  sending any pending messages and handshaking goodbye to server
-            zstr_send (self->msgpipe, "$TERM");
-            zsock_wait (self->actor);
+            //  Before destroying the actor we have to flush any pending
+            //  traffic on the msgpipe, otherwise it gets lost in a fire and
+            //  forget scenario. We do this by sending $FLUSH to the msgpipe
+            //  and waiting for a signal back on the cmdpipe.
+            if (zstr_send (self->msgpipe, "$FLUSH") == 0)
+                zsock_wait (self->actor);
             wap_client_destructor (self);
         }
         zactor_destroy (&self->actor);
@@ -1391,7 +1462,7 @@ s_accept_reply (wap_client_t *self, ...)
         char *reply = zstr_recv (self->actor);
         if (!reply)
             break;              //  Interrupted or timed-out
-        
+
         va_list args;
         va_start (args, self);
         char *filter = va_arg (args, char *);
@@ -1408,11 +1479,11 @@ s_accept_reply (wap_client_t *self, ...)
                 else
                 if (streq (reply, "BLOCKS OK")) {
                     zmsg_destroy (&self->block_data);
-                    zsock_recv (self->actor, "iiip", &self->status, &self->start_height, &self->curr_height, &self->block_data);
+                    zsock_recv (self->actor, "888p", &self->status, &self->start_height, &self->curr_height, &self->block_data);
                 }
                 else
                 if (streq (reply, "PUT OK")) {
-                    zsock_recv (self->actor, "i", &self->status);
+                    zsock_recv (self->actor, "8", &self->status);
                 }
                 else
                 if (streq (reply, "GET OK")) {
@@ -1426,11 +1497,11 @@ s_accept_reply (wap_client_t *self, ...)
                 else
                 if (streq (reply, "OUTPUT INDEXES OK")) {
                     zframe_destroy (&self->o_indexes);
-                    zsock_recv (self->actor, "ip", &self->status, &self->o_indexes);
+                    zsock_recv (self->actor, "8p", &self->status, &self->o_indexes);
                 }
                 else
                 if (streq (reply, "START OK")) {
-                    zsock_recv (self->actor, "i", &self->status);
+                    zsock_recv (self->actor, "8", &self->status);
                 }
                 else
                 if (streq (reply, "STOP OK")) {
@@ -1458,11 +1529,12 @@ s_accept_reply (wap_client_t *self, ...)
 //  specify its address.                                                            
 //  Returns >= 0 if successful, -1 if interrupted.
 
-static int 
-wap_client_constructor (wap_client_t *self, const char *endpoint, uint32_t timeout, const char *identity)
+int 
+wap_client_connect (wap_client_t *self, const char *endpoint, uint32_t timeout, const char *identity)
 {
     assert (self);
-    zsock_send (self->actor, "ssis", "CONSTRUCTOR", endpoint, timeout, identity);
+
+    zsock_send (self->actor, "ss4s", "CONNECT", endpoint, timeout, identity);
     if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1478,6 +1550,7 @@ int
 wap_client_destructor (wap_client_t *self)
 {
     assert (self);
+
     zsock_send (self->actor, "s", "DESTRUCTOR");
     if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
@@ -1493,7 +1566,8 @@ int
 wap_client_blocks (wap_client_t *self, zlist_t **block_ids_p, uint64_t start_height)
 {
     assert (self);
-    zsock_send (self->actor, "spi", "BLOCKS", *block_ids_p, start_height);
+
+    zsock_send (self->actor, "sp8", "BLOCKS", *block_ids_p, start_height);
     *block_ids_p = NULL;        //  Take ownership of block_ids
     if (s_accept_reply (self, "BLOCKS OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
@@ -1509,6 +1583,7 @@ int
 wap_client_put (wap_client_t *self, zchunk_t **tx_data_p)
 {
     assert (self);
+
     zsock_send (self->actor, "sp", "PUT", *tx_data_p);
     *tx_data_p = NULL;          //  Take ownership of tx_data
     if (s_accept_reply (self, "PUT OK", "FAILURE", NULL))
@@ -1525,6 +1600,7 @@ int
 wap_client_get (wap_client_t *self, const char *tx_id)
 {
     assert (self);
+
     zsock_send (self->actor, "ss", "GET", tx_id);
     if (s_accept_reply (self, "GET OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
@@ -1540,6 +1616,7 @@ int
 wap_client_save (wap_client_t *self)
 {
     assert (self);
+
     zsock_send (self->actor, "s", "SAVE");
     if (s_accept_reply (self, "SAVE OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
@@ -1555,6 +1632,7 @@ int
 wap_client_output_indexes (wap_client_t *self, const char *tx_id)
 {
     assert (self);
+
     zsock_send (self->actor, "ss", "OUTPUT INDEXES", tx_id);
     if (s_accept_reply (self, "OUTPUT INDEXES OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
@@ -1570,7 +1648,8 @@ int
 wap_client_start (wap_client_t *self, const char *address, uint64_t thread_count)
 {
     assert (self);
-    zsock_send (self->actor, "ssi", "START", address, thread_count);
+
+    zsock_send (self->actor, "ss8", "START", address, thread_count);
     if (s_accept_reply (self, "START OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1585,6 +1664,7 @@ int
 wap_client_stop (wap_client_t *self)
 {
     assert (self);
+
     zsock_send (self->actor, "s", "STOP");
     if (s_accept_reply (self, "STOP OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
