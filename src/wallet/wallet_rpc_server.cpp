@@ -431,11 +431,13 @@ namespace tools
         {
           transfers_found = true;
         }
+        auto txBlob = t_serializable_object_to_blob(td.m_tx);
         wallet_rpc::transfer_details rpc_transfers;
         rpc_transfers.amount       = td.amount();
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
         rpc_transfers.tx_hash      = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(td.m_tx));
+        rpc_transfers.tx_size      = txBlob.size();
         res.transfers.push_back(rpc_transfers);
       }
     }
