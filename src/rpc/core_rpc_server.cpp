@@ -40,29 +40,10 @@ using namespace epee;
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
+#include "daemon/command_line_args.h"
 
 namespace cryptonote
 {
-  namespace
-  {
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {
-        "rpc-bind-ip"
-      , "IP for RPC server"
-      , "127.0.0.1"
-      };
-
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {
-        "rpc-bind-port"
-      , "Port for RPC server"
-      , std::to_string(config::RPC_DEFAULT_PORT)
-      };
-
-    const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port = {
-        "testnet-rpc-bind-port"
-      , "Port for testnet RPC server"
-      , std::to_string(config::testnet::RPC_DEFAULT_PORT)
-      };
-  }
 
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
@@ -75,11 +56,9 @@ namespace cryptonote
   core_rpc_server::core_rpc_server(
       core& cr
     , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
-    , bool testnet
     )
     : m_core(cr)
     , m_p2p(p2p)
-    , m_testnet(testnet)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::handle_command_line(
@@ -97,6 +76,8 @@ namespace cryptonote
       const boost::program_options::variables_map& vm
     )
   {
+    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+
     m_net_server.set_threads_prefix("RPC");
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
@@ -362,6 +343,75 @@ namespace cryptonote
       res.status = "Error while storing blockhain";
       return true;
     }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res, connection_context& cntx)
+  {
+    /*
+    std::list<nodetool::peerlist_entry> white_list;
+    std::list<nodetool::peerlist_entry> gray_list;
+    m_p2p.get_peerlist(white_list, gray_list);
+
+    for (auto & entry : white_list)
+    {
+      res.white_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
+    }
+
+    for (auto & entry : gray_list)
+    {
+      res.gray_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
+    }
+
+    */
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_log_hash_rate(const COMMAND_RPC_SET_LOG_HASH_RATE::request& req, COMMAND_RPC_SET_LOG_HASH_RATE::response& res, connection_context& cntx)
+  {
+    if(m_core.get_miner().is_mining())
+    {
+      m_core.get_miner().do_print_hashrate(req.visible);
+      res.status = CORE_RPC_STATUS_OK;
+    }
+    else
+    {
+      res.status = CORE_RPC_STATUS_NOT_MINING;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_log_level(const COMMAND_RPC_SET_LOG_LEVEL::request& req, COMMAND_RPC_SET_LOG_LEVEL::response& res, connection_context& cntx)
+  {
+    if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
+    {
+      res.status = "Error: log level not valid";
+    }
+    else
+    {
+      epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
+      res.status = CORE_RPC_STATUS_OK;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res, connection_context& cntx)
+  {
+    /*
+    CHECK_CORE_BUSY();
+    res.transactions = m_core.transaction_pool_info();
+    */
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_stop_daemon(const COMMAND_RPC_STOP_DAEMON::request& req, COMMAND_RPC_STOP_DAEMON::response& res, connection_context& cntx)
+  {
+    // FIXME: replace back to original m_p2p.send_stop_signal() after
+    // investigating why that isn't working quite right.
+    m_p2p.send_stop_signal();
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -703,4 +753,23 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-}
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_ip   = {
+      "rpc-bind-ip"
+    , "IP for RPC server"
+    , "127.0.0.1"
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
+      "rpc-bind-port"
+    , "Port for RPC server"
+    , std::to_string(config::RPC_DEFAULT_PORT)
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_testnet_rpc_bind_port = {
+      "testnet-rpc-bind-port"
+    , "Port for testnet RPC server"
+    , std::to_string(config::testnet::RPC_DEFAULT_PORT)
+    };
+
+}  // namespace cryptonote

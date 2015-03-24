@@ -39,6 +39,7 @@ namespace cryptonote
   //-----------------------------------------------
 #define CORE_RPC_STATUS_OK   "OK"
 #define CORE_RPC_STATUS_BUSY   "BUSY"
+#define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -440,7 +441,7 @@ namespace cryptonote
         KV_SERIALIZE(reward)
       END_KV_SERIALIZE_MAP()
   };
-  
+
   struct COMMAND_RPC_GET_LAST_BLOCK_HEADER
   {
     struct request
@@ -510,6 +511,135 @@ namespace cryptonote
 
   };
 
+  struct peer {
+    uint64_t id;
+    uint32_t ip;
+    uint16_t port;
+    uint64_t last_seen;
+
+    peer() = default;
+
+    peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen)
+      : id(id), ip(ip), port(port), last_seen(last_seen)
+    {}
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(id)
+      KV_SERIALIZE(ip)
+      KV_SERIALIZE(port)
+      KV_SERIALIZE(last_seen)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_PEER_LIST
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<peer> white_list;
+      std::vector<peer> gray_list;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(white_list)
+        KV_SERIALIZE(gray_list)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_HASH_RATE
+  {
+    struct request
+    {
+      bool visible;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(visible)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_LEVEL
+  {
+    struct request
+    {
+      int8_t level;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(level)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct tx_info
+  {
+    std::string id_hash;
+    std::string tx_json; // TODO - expose this data directly
+    uint64_t blob_size;
+    uint64_t fee;
+    std::string max_used_block_id_hash;
+    uint64_t max_used_block_height;
+    bool kept_by_block;
+    uint64_t last_failed_height;
+    std::string last_failed_id_hash;
+    uint64_t receive_time;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(id_hash)
+      KV_SERIALIZE(tx_json)
+      KV_SERIALIZE(blob_size)
+      KV_SERIALIZE(fee)
+      KV_SERIALIZE(max_used_block_id_hash)
+      KV_SERIALIZE(max_used_block_height)
+      KV_SERIALIZE(kept_by_block)
+      KV_SERIALIZE(last_failed_height)
+      KV_SERIALIZE(last_failed_id_hash)
+      KV_SERIALIZE(receive_time)
+    END_KV_SERIALIZE_MAP()
+  };
+  
+  struct COMMAND_RPC_GET_TRANSACTION_POOL
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<tx_info> transactions;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(transactions)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_GET_CONNECTIONS
   {
     struct request
@@ -529,6 +659,49 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
+  };
+
+  struct COMMAND_RPC_GET_BLOCK_HEADERS_RANGE
+  {
+    struct request
+    {
+      uint64_t start_height;
+      uint64_t end_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(start_height)
+        KV_SERIALIZE(end_height)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<block_header_responce> headers;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(headers)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_STOP_DAEMON
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
   };
 }
 

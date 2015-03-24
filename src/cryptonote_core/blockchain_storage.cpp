@@ -87,6 +87,7 @@ bool blockchain_storage::init(const std::string& config_folder, bool testnet)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_config_folder = config_folder;
+  m_testnet = testnet;
   LOG_PRINT_L0("Loading blockchain...");
   const std::string filename = m_config_folder + "/" CRYPTONOTE_BLOCKCHAINDATA_FILENAME;
   if(tools::unserialize_obj_from_file(*this, filename))
@@ -1840,7 +1841,7 @@ bool blockchain_storage::update_checkpoints(const std::string& file_path, bool c
   else if (check_dns)
   {
     checkpoints dns_points;
-    cryptonote::load_checkpoints_from_dns(dns_points);
+    cryptonote::load_checkpoints_from_dns(dns_points, m_testnet);
     if (m_checkpoints.check_for_conflicts(dns_points))
     {
       check_against_checkpoints(dns_points, false);

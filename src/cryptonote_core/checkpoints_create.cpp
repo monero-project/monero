@@ -113,13 +113,19 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
   return true;
 }
 
-bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
+bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testnet)
 {
   // All four MoneroPulse domains have DNSSEC on and valid
   static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
 						   , "checkpoints.moneropulse.org"
 						   , "checkpoints.moneropulse.net"
 						   , "checkpoints.moneropulse.co"
+  };
+
+  static const std::vector<std::string> testnet_dns_urls = { "testpoints.moneropulse.se"
+							   , "testpoints.moneropulse.org"
+							   , "testpoints.moneropulse.net"
+							   , "testpoints.moneropulse.co"
   };
   bool avail, valid;
   std::vector<std::string> records;
@@ -132,7 +138,14 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
   size_t cur_index = first_index;
   do
   {
-    records = tools::DNSResolver::instance().get_txt_record(dns_urls[cur_index], avail, valid);
+    if (testnet)
+    {
+      records = tools::DNSResolver::instance().get_txt_record(testnet_dns_urls[cur_index], avail, valid);
+    }
+    else
+    {
+      records = tools::DNSResolver::instance().get_txt_record(dns_urls[cur_index], avail, valid);
+    }
     if (records.size() == 0 || (avail && !valid))
     {
       cur_index++;

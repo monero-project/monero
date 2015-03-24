@@ -1,21 +1,21 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014, The Monero Project
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,24 +25,64 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
-#include "checkpoints.h"
+#include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "misc_log_ex.h"
+#include "p2p/net_node.h"
+#include <stdexcept>
+#include <boost/program_options.hpp>
 
-#define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(checkpoints.add_checkpoint(h,  hash), false);
-#define JSON_HASH_FILE_NAME "checkpoints.json"
-
-namespace cryptonote
+namespace daemonize
 {
 
-  bool create_checkpoints(cryptonote::checkpoints& checkpoints);
+class t_protocol final
+{
+private:
+  typedef cryptonote::t_cryptonote_protocol_handler<cryptonote::core> t_protocol_raw;
+  typedef nodetool::node_server<t_protocol_raw> t_node_server;
 
-  bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath);
-  bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testnet = false);
-  bool load_new_checkpoints(cryptonote::checkpoints& checkpoints, std::string json_hashfile_fullpath);
+  t_protocol_raw m_protocol;
+public:
+  t_protocol(
+      boost::program_options::variables_map const & vm
+    , t_core & core
+    )
+    : m_protocol{core.get(), nullptr}
+  {
+    LOG_PRINT_L0("Initializing cryptonote protocol...");
+    if (!m_protocol.init(vm))
+    {
+      throw std::runtime_error("Failed to initialize cryptonote protocol.");
+    }
+    LOG_PRINT_L0("Cryptonote protocol initialized OK");
+  }
 
-}  // namespace cryptonote
+  t_protocol_raw & get()
+  {
+    return m_protocol;
+  }
+
+  void set_p2p_endpoint(
+      t_node_server & server
+    )
+  {
+    m_protocol.set_p2p_endpoint(&server);
+  }
+
+  ~t_protocol()
+  {
+    LOG_PRINT_L0("Deinitializing cryptonote_protocol...");
+    try {
+      m_protocol.deinit();
+      m_protocol.set_p2p_endpoint(nullptr);
+    } catch (...) {
+      LOG_PRINT_L0("Failed to deinitialize protocol...");
+    }
+  }
+};
+
+}
