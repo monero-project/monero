@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2015, The Monero Project
 //
 // All rights reserved.
 //
@@ -25,57 +25,16 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+#pragma once
 
-#ifndef DAEMON_COMMAND_LINE_ARGS_H
-#define DAEMON_COMMAND_LINE_ARGS_H
-
-#include "common/command_line.h"
-#include "cryptonote_config.h"
-#include <boost/program_options.hpp>
-
-namespace daemon_args
+namespace cryptonote
 {
-  std::string const WINDOWS_SERVICE_NAME = "Monero Daemon";
 
-  const command_line::arg_descriptor<std::string> arg_config_file = {
-    "config-file"
-  , "Specify configuration file"
-  , std::string(CRYPTONOTE_NAME ".conf")
-  };
-  const command_line::arg_descriptor<std::string> arg_log_file = {
-    "log-file"
-  , "Specify log file"
-  , ""
-  };
-  const command_line::arg_descriptor<int> arg_log_level = {
-    "log-level"
-  , ""
-  , LOG_LEVEL_0
-  };
-  const command_line::arg_descriptor<std::vector<std::string>> arg_command = {
-    "daemon_command"
-  , "Hidden"
-  };
-  const command_line::arg_descriptor<bool> arg_os_version = {
-    "os-version"
-  , "OS for which this executable was compiled"
-  };
-  const command_line::arg_descriptor<bool> arg_testnet_on  = {
-    "testnet"
-  , "Run on testnet. The wallet must be launched with --testnet flag."
-  , false
-  };
-  const command_line::arg_descriptor<bool> arg_dns_checkpoints  = {
-    "enforce-dns-checkpointing"
-  , "checkpoints from DNS server will be enforced"
-  , false
-  };
-  const command_line::arg_descriptor<std::string> arg_db_type = {
-    "db-type"
-  , "Specify database type"
-  , "lmdb"
+  const std::unordered_set<std::string> blockchain_db_types = 
+  { "lmdb"
+  , "berkeley"
   };
 
-}  // namespace daemon_args
-
-#endif // DAEMON_COMMAND_LINE_ARGS_H
+} // namespace cryptonote

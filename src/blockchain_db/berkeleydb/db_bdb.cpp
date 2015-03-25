@@ -724,13 +724,6 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
   m_open = true;
 }
 
-// unused for now, create will happen on open if doesn't exist
-void BlockchainBDB::create(const std::string& filename)
-{
-  LOG_PRINT_L3("BlockchainBDB::" << __func__);
-  throw DB_CREATE_FAILURE("create() is not implemented for this BlockchainDB, open() will create files if needed.");
-}
-
 void BlockchainBDB::close()
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);

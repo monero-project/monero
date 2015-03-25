@@ -81,7 +81,7 @@ namespace cryptonote
 
     Blockchain(tx_memory_pool& tx_pool);
 
-    bool init(const std::string& config_folder, const bool testnet = false, const int db_flags = 0);
+    bool init(BlockchainDB* db, const bool testnet = false);
     bool deinit();
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
@@ -180,11 +180,9 @@ namespace cryptonote
     outputs_container m_outputs;
 
 
-    std::string m_config_folder;
     checkpoints m_checkpoints;
     std::atomic<bool> m_is_in_checkpoint_zone;
     std::atomic<bool> m_is_blockchain_storing;
-    bool m_testnet;
     bool m_enforce_dns_checkpoints;
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);

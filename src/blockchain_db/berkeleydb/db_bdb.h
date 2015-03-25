@@ -95,8 +95,6 @@ public:
 
   virtual void open(const std::string& filename, const int db_flags);
 
-  virtual void create(const std::string& filename);
-
   virtual void close();
 
   virtual void sync();
@@ -279,7 +277,6 @@ private:
 
   Db* m_spent_keys;
 
-  bool m_open;
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
