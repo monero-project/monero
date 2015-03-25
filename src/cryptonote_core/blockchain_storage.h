@@ -223,6 +223,7 @@ namespace cryptonote
     std::atomic<bool> m_is_blockchain_storing;
 
     bool m_enforce_dns_checkpoints;
+    bool m_testnet;
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     bool pop_block_from_blockchain();

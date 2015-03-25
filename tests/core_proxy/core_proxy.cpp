@@ -106,7 +106,6 @@ int main(int argc, char* argv[])
   cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> cprotocol(pr_core, NULL);
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> > p2psrv {
       cprotocol
-    , std::move(config::NETWORK_ID)
     };
   cprotocol.set_p2p_endpoint(&p2psrv);
   //pr_core.set_cryptonote_protocol(&cprotocol);
@@ -115,7 +114,7 @@ int main(int argc, char* argv[])
   //initialize objects
 
   LOG_PRINT_L0("Initializing p2p server...");
-  bool res = p2psrv.init(vm, false);
+  bool res = p2psrv.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize p2p server.");
   LOG_PRINT_L0("P2p server initialized OK");
 

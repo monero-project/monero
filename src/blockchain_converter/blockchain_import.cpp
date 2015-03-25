@@ -57,6 +57,8 @@ static bool opt_testnet = true;
 // adjustable through command-line argument according to available RAM
 static uint64_t db_batch_size = 20000;
 
+static std::string refresh_string = "\r                                    \r";
+
 
 namespace po = boost::program_options;
 
@@ -146,7 +148,7 @@ int count_blocks(std::string& import_file_path)
     int chunk_size;
     import_file.read(buffer1, STR_LENGTH_OF_INT);
     if (!import_file) {
-      std::cout << "\r                   \r";
+      std::cout << refresh_string;
       LOG_PRINT_L1("End of import file reached");
       quit = true;
       break;
@@ -154,7 +156,7 @@ int count_blocks(std::string& import_file_path)
     h += NUM_BLOCKS_PER_CHUNK;
     if (h % progress_interval == 0)
     {
-      std::cout << "\r                   \r" << "block height: " << h <<
+      std::cout << refresh_string << "block height: " << h <<
         std::flush;
     }
     bytes_read += STR_LENGTH_OF_INT;
@@ -162,32 +164,33 @@ int count_blocks(std::string& import_file_path)
     chunk_size = atoi(buffer1);
     if (chunk_size > BUFFER_SIZE)
     {
-      std::cout << "\r                   \r";
+      std::cout << refresh_string;
       LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE
           << "  height: " << h);
       throw std::runtime_error("Aborting: chunk size exceeds buffer size");
     }
     if (chunk_size > 100000)
     {
-      std::cout << "\r                   \r";
+      std::cout << refresh_string;
       LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > 100000" << "  height: "
           << h);
     }
     else if (chunk_size <= 0) {
-      std::cout << "\r                   \r";
+      std::cout << refresh_string;
       LOG_PRINT_L0("ERROR: chunk_size " << chunk_size << " <= 0" << "  height: " << h);
       throw std::runtime_error("Aborting");
     }
     // skip to next expected block size value
     import_file.seekg(chunk_size, std::ios_base::cur);
     if (! import_file) {
-      std::cout << "\r                   \r";
+      std::cout << refresh_string;
       LOG_PRINT_L0("ERROR: unexpected end of import file: bytes read before error: "
           << import_file.gcount() << " of chunk_size " << chunk_size);
       throw std::runtime_error("Aborting");
     }
     bytes_read += chunk_size;
-    std::cout << "\r                   \r";
+    std::cout << refresh_string;
+
     LOG_PRINT_L3("Total bytes scanned: " << bytes_read);
   }
 
@@ -214,7 +217,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     // Reset stats, in case we're using newly created db, accumulating stats
     // from addition of genesis block.
     // This aligns internal db counts with importer counts.
-    simple_core.m_storage.get_db()->reset_stats();
+    simple_core.m_storage.get_db().reset_stats();
   }
 #endif
   boost::filesystem::path raw_file_path(import_file_path);
@@ -285,7 +288,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     int chunk_size;
     import_file.read(buffer1, STR_LENGTH_OF_INT);
     if (! import_file) {
-      std::cout << "\r                   \r";
+      std::cout << refresh_string;
       LOG_PRINT_L0("End of import file reached");
       quit = 1;
       break;
@@ -340,7 +343,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
         h++;
         if (h % display_interval == 0)
         {
-          std::cout << "\r                   \r";
+          std::cout << refresh_string;
           LOG_PRINT_L0("loading block height " << h);
         }
         else
@@ -352,7 +355,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
         }
         catch (const std::exception& e)
         {
-          std::cout << "\r                   \r";
+          std::cout << refresh_string;
           LOG_PRINT_RED_L0("exception while de-archiving block, height=" << h);
           quit = 1;
           break;
@@ -361,7 +364,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
 
         if (h % progress_interval == 0)
         {
-          std::cout << "\r                   \r" << "block " << h-1
+          std::cout << refresh_string << "block " << h-1
             << std::flush;
         }
 
@@ -374,7 +377,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
         }
         catch (const std::exception& e)
         {
-          std::cout << "\r                   \r";
+          std::cout << refresh_string;
           LOG_PRINT_RED_L0("exception while de-archiving tx-num, height=" << h);
           quit = 1;
           break;
@@ -469,7 +472,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
           a >> cumulative_difficulty;
           a >> coins_generated;
 
-          std::cout << "\r                   \r";
+          std::cout << refresh_string;
           LOG_PRINT_L2("block_size: " << block_size);
           LOG_PRINT_L2("cumulative_difficulty: " << cumulative_difficulty);
           LOG_PRINT_L2("coins_generated: " << coins_generated);
@@ -480,7 +483,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
           }
           catch (const std::exception& e)
           {
-            std::cout << "\r                   \r";
+            std::cout << refresh_string;
             LOG_PRINT_RED_L0("Error adding block to blockchain: " << e.what());
             quit = 2; // make sure we don't commit partial block data
             break;
@@ -491,13 +494,13 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
         {
           if (h % db_batch_size == 0)
           {
-            std::cout << "\r                   \r";
+            std::cout << refresh_string;
             std::cout << ENDL << "[- batch commit at height " << h << " -]" << ENDL;
             simple_core.batch_stop();
             simple_core.batch_start();
             std::cout << ENDL;
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
-            simple_core.m_storage.get_db()->show_stats();
+            simple_core.m_storage.get_db().show_stats();
 #endif
           }
         }
@@ -505,7 +508,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     }
     catch (const std::exception& e)
     {
-      std::cout << "\r                   \r";
+      std::cout << refresh_string;
       LOG_PRINT_RED_L0("exception while reading from import file, height=" << h);
       return 2;
     }
@@ -525,7 +528,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
       simple_core.batch_stop();
     }
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
-    simple_core.m_storage.get_db()->show_stats();
+    simple_core.m_storage.get_db().show_stats();
 #endif
     if (h > 0)
       LOG_PRINT_L0("Finished at height: " << h << "  block: " << h-1);

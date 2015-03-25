@@ -145,9 +145,9 @@ namespace cryptonote
     void set_enforce_dns_checkpoints(bool enforce);
     bool update_checkpoints(const std::string& file_path, bool check_dns);
 
-    BlockchainDB* get_db()
+    BlockchainDB& get_db()
     {
-      return m_db;
+      return *m_db;
     }
 
   private:
