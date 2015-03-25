@@ -39,6 +39,10 @@
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
+// yes, epee doesn't properly use its full namespace when calling its
+// functions from macros.  *sigh*
+using namespace epee;
+
 namespace cryptonote
 {
   /************************************************************************/
@@ -47,12 +51,16 @@ namespace cryptonote
   class core_rpc_server: public epee::http_server_impl_base<core_rpc_server>
   {
   public:
+
+    static const command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
+    static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
+    static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
+
     typedef epee::net_utils::connection_context_base connection_context;
 
     core_rpc_server(
         core& cr
       , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
-      , bool testnet
       );
 
     static void init_options(boost::program_options::options_description& desc);
@@ -74,6 +82,12 @@ namespace cryptonote
       MAP_URI_AUTO_JON2("/stop_mining", on_stop_mining, COMMAND_RPC_STOP_MINING)
       MAP_URI_AUTO_JON2("/mining_status", on_mining_status, COMMAND_RPC_MINING_STATUS)
       MAP_URI_AUTO_JON2("/save_bc", on_save_bc, COMMAND_RPC_SAVE_BC)
+      MAP_URI_AUTO_JON2("/get_peer_list", on_get_peer_list, COMMAND_RPC_GET_PEER_LIST)
+      MAP_URI_AUTO_JON2("/set_log_hash_rate", on_set_log_hash_rate, COMMAND_RPC_SET_LOG_HASH_RATE)
+      MAP_URI_AUTO_JON2("/set_log_level", on_set_log_level, COMMAND_RPC_SET_LOG_LEVEL)
+      MAP_URI_AUTO_JON2("/get_transaction_pool", on_get_transaction_pool, COMMAND_RPC_GET_TRANSACTION_POOL)
+      MAP_URI_AUTO_JON2("/get_transaction_pool", on_get_transaction_pool, COMMAND_RPC_GET_TRANSACTION_POOL)
+      MAP_URI_AUTO_JON2("/stop_daemon", on_stop_daemon, COMMAND_RPC_STOP_DAEMON)
       MAP_URI_AUTO_JON2("/getinfo", on_get_info, COMMAND_RPC_GET_INFO)
       BEGIN_JSON_RPC_MAP("/json_rpc")
         MAP_JON_RPC("getblockcount",             on_getblockcount,              COMMAND_RPC_GETBLOCKCOUNT)
@@ -99,6 +113,11 @@ namespace cryptonote
     bool on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res, connection_context& cntx);        
     bool on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, connection_context& cntx);        
     bool on_save_bc(const COMMAND_RPC_SAVE_BC::request& req, COMMAND_RPC_SAVE_BC::response& res, connection_context& cntx);
+    bool on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res, connection_context& cntx);
+    bool on_set_log_hash_rate(const COMMAND_RPC_SET_LOG_HASH_RATE::request& req, COMMAND_RPC_SET_LOG_HASH_RATE::response& res, connection_context& cntx);
+    bool on_set_log_level(const COMMAND_RPC_SET_LOG_LEVEL::request& req, COMMAND_RPC_SET_LOG_LEVEL::response& res, connection_context& cntx);
+    bool on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res, connection_context& cntx);
+    bool on_stop_daemon(const COMMAND_RPC_STOP_DAEMON::request& req, COMMAND_RPC_STOP_DAEMON::response& res, connection_context& cntx);
     
     //json_rpc
     bool on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, connection_context& cntx);

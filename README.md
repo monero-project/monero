@@ -4,8 +4,9 @@ Copyright (c) 2014-2015, The Monero Project
 
 ## Development Resources
 
-Web: [monero.cc](http://monero.cc)  
-Mail: [dev@monero.cc](mailto:dev@monero.cc)  
+Web: [getmonero.org](https://getmonero.org)  
+Forum: [forum.getmonero.org](https://forum.getmonero.org)  
+Mail: [dev@getmonero.org](mailto:dev@getmonero.org)  
 Github (staging): [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)  
 Github (development): [http://github.com/monero-project/bitmonero/tree/development](http://github.com/monero-project/bitmonero/tree/development)  
 IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
@@ -32,7 +33,7 @@ Anyone is able to contribute to Monero. If you have a fix or code change, feel f
 
 Monero development can be supported directly through donations.
 
-Both Monero and Bitcoin donations can be made to donate.monero.cc if using a client that supports the [OpenAlias](https://openalias.org) standard
+Both Monero and Bitcoin donations can be made to donate.getmonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
 
 The Monero donation address is: 46BeWrHpwXmHDpDEUmZBWZfoQpdc6HaERCNmx1pEYL2rAcuwufPN9rXHHtyUA4QVy66qeFQkn6sfK8aHYjA3jk3o1Bv16em (viewkey: e422831985c9205238ef84daf6805526c14d96fd7b059fe68c7ab98e495e5703)
 

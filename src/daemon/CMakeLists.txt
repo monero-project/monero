@@ -27,12 +27,27 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(daemon_sources
-  daemon.cpp)
+  command_parser_executor.cpp
+  command_server.cpp
+  daemon.cpp
+  executor.cpp
+  main.cpp
+  rpc_command_executor.cpp
+)
 
 set(daemon_headers)
 
 set(daemon_private_headers
+  command_parser_executor.h
+  command_server.h
+  core.h
+  daemon.h
   daemon_commands_handler.h
+  executor.h
+  p2p.h
+  protocol.h
+  rpc.h
+  rpc_command_executor.h
 
   # cryptonote_protocol
   ../cryptonote_protocol/blobdatatype.h
@@ -63,6 +78,7 @@ target_link_libraries(daemon
     cryptonote_core
     crypto
     common
+    daemonizer
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}

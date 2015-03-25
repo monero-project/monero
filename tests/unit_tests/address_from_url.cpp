@@ -86,7 +86,7 @@ TEST(AddressFromURL, Success)
   
   bool dnssec_result = false;
 
-  std::vector<std::string> addresses = tools::wallet2::addresses_from_url("donate.monero.cc", dnssec_result);
+  std::vector<std::string> addresses = tools::wallet2::addresses_from_url("donate.getmonero.org", dnssec_result);
 
   EXPECT_EQ(1, addresses.size());
   if (addresses.size() == 1)

@@ -87,6 +87,7 @@ bool blockchain_storage::init(const std::string& config_folder, bool testnet)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_config_folder = config_folder;
+  m_testnet = testnet;
   LOG_PRINT_L0("Loading blockchain...");
   const std::string filename = m_config_folder + "/" CRYPTONOTE_BLOCKCHAINDATA_FILENAME;
   if(tools::unserialize_obj_from_file(*this, filename))
@@ -1699,7 +1700,14 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   bei.bl = bl;
   bei.block_cumulative_size = cumulative_block_size;
   bei.cumulative_difficulty = current_diffic;
-  bei.already_generated_coins = already_generated_coins + base_reward;
+
+  // In the "tail" state when the minimum subsidy (implemented in get_block_reward) is in effect, the number of 
+  // coins will eventually exceed MONEY_SUPPLY and overflow a uint64. To prevent overflow, cap already_generated_coins 
+  // at MONEY_SUPPLY. already_generated_coins is only used to compute the block subsidy and MONEY_SUPPLY yields a 
+  // subsidy of 0 under the base formula and therefore the minimum subsidy >0 in the tail state.
+
+  bei.already_generated_coins = base_reward < (MONEY_SUPPLY-already_generated_coins) ? already_generated_coins + base_reward : MONEY_SUPPLY;
+
   if(m_blocks.size())
     bei.cumulative_difficulty += m_blocks.back().cumulative_difficulty;
 
@@ -1823,7 +1831,7 @@ bool blockchain_storage::update_checkpoints(const std::string& file_path, bool c
   else if (check_dns)
   {
     checkpoints dns_points;
-    cryptonote::load_checkpoints_from_dns(dns_points);
+    cryptonote::load_checkpoints_from_dns(dns_points, m_testnet);
     if (m_checkpoints.check_for_conflicts(dns_points))
     {
       check_against_checkpoints(dns_points, false);
