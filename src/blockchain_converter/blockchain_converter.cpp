@@ -44,14 +44,19 @@
 #include "version.h"
 #include <iostream>
 
+namespace
+{
+
 // CONFIG
-static bool opt_batch   = true;
-static bool opt_testnet = false;
+bool opt_batch   = true;
+bool opt_resume  = true;
+bool opt_testnet = false;
 
 // number of blocks per batch transaction
 // adjustable through command-line argument according to available RAM
-static uint64_t db_batch_size = 20000;
+uint64_t db_batch_size = 20000;
 
+}
 
 namespace po = boost::program_options;
 
@@ -113,11 +118,14 @@ int main(int argc, char* argv[])
 
   const command_line::arg_descriptor<bool> arg_batch  =  {"batch",
     "Batch transactions for faster import", true};
+  const command_line::arg_descriptor<bool> arg_resume =  {"resume",
+        "Resume from current height if output database already exists", true};
 
   // call add_options() directly for these arguments since command_line helpers
   // support only boolean switch, not boolean argument
   desc_cmd_sett.add_options()
-    (arg_batch.name, make_semantic(arg_batch), arg_batch.description)
+    (arg_batch.name,  make_semantic(arg_batch),  arg_batch.description)
+    (arg_resume.name, make_semantic(arg_resume), arg_resume.description)
     ;
 
   po::options_description desc_options("Allowed options");
@@ -137,6 +145,7 @@ int main(int argc, char* argv[])
 
   int log_level = command_line::get_arg(vm, arg_log_level);
   opt_batch     = command_line::get_arg(vm, arg_batch);
+  opt_resume    = command_line::get_arg(vm, arg_resume);
   db_batch_size = command_line::get_arg(vm, arg_batch_size);
 
   if (command_line::get_arg(vm, command_line::arg_help))
@@ -178,23 +187,41 @@ int main(int argc, char* argv[])
   {
     LOG_PRINT_L0("batch:   " << std::boolalpha << opt_batch << std::noboolalpha);
   }
+  LOG_PRINT_L0("resume:  " << std::boolalpha << opt_resume  << std::noboolalpha);
   LOG_PRINT_L0("testnet: " << std::boolalpha << opt_testnet << std::noboolalpha);
 
   fake_core c(src_folder, opt_testnet);
 
   height = c.m_storage.get_current_blockchain_height();
-  if (! num_blocks || num_blocks > height)
-    end_block = height - 1;
-  else
-    end_block = start_block + num_blocks - 1;
 
   BlockchainDB *blockchain;
   blockchain = new BlockchainLMDB(opt_batch);
   dest_folder /= blockchain->get_db_name();
   LOG_PRINT_L0("Source blockchain: " << src_folder);
   LOG_PRINT_L0("Dest blockchain:   " << dest_folder.string());
-  LOG_PRINT_L0("Opening LMDB: " << dest_folder.string());
+  LOG_PRINT_L0("Opening dest blockchain (BlockchainDB " << blockchain->get_db_name() << ")");
   blockchain->open(dest_folder.string());
+  LOG_PRINT_L0("Source blockchain height: " << height);
+  LOG_PRINT_L0("Dest blockchain height:   " << blockchain->height());
+
+  if (opt_resume)
+    // next block number to add is same as current height
+    start_block = blockchain->height();
+
+  if (! num_blocks || (start_block + num_blocks > height))
+    end_block = height - 1;
+  else
+    end_block = start_block + num_blocks - 1;
+
+  LOG_PRINT_L0("start height: " << start_block+1 << "  stop height: " <<
+            end_block+1);
+
+  if (start_block > end_block)
+  {
+    LOG_PRINT_L0("Finished: no blocks to add");
+    delete blockchain;
+    return 0;
+  }
 
   if (opt_batch)
     blockchain->batch_start();
@@ -247,7 +274,7 @@ int main(int argc, char* argv[])
     catch (const std::exception& e)
     {
       std::cout << ENDL;
-      std::cerr << "Error adding block to new blockchain: " << e.what() << ENDL;
+      std::cerr << "Error adding block " << i << " to new blockchain: " << e.what() << ENDL;
       delete blockchain;
       return 2;
     }

@@ -148,7 +148,7 @@ void BlockchainExport::write_block(block& block)
 #if SOURCE_DB == DB_MEMORY
   const transaction* cb_tx_full = m_blockchain_storage->get_tx(coinbase_tx_hash);
 #else
-  transaction cb_tx_full = m_blockchain_storage->get_db()->get_tx(coinbase_tx_hash);
+  transaction cb_tx_full = m_blockchain_storage->get_db().get_tx(coinbase_tx_hash);
 #endif
 
 #if SOURCE_DB == DB_MEMORY
@@ -167,7 +167,7 @@ void BlockchainExport::write_block(block& block)
 #if SOURCE_DB == DB_MEMORY
     const transaction* tx = m_blockchain_storage->get_tx(tx_id);
 #else
-    transaction tx = m_blockchain_storage->get_db()->get_tx(tx_id);
+    transaction tx = m_blockchain_storage->get_db().get_tx(tx_id);
 #endif
 
 #if SOURCE_DB == DB_MEMORY
@@ -205,18 +205,18 @@ void BlockchainExport::write_block(block& block)
 #if SOURCE_DB == DB_MEMORY
     size_t block_size = m_blockchain_storage->get_block_size(block_height);
 #else
-    size_t block_size = m_blockchain_storage->get_db()->get_block_size(block_height);
+    size_t block_size = m_blockchain_storage->get_db().get_block_size(block_height);
 #endif
 #if SOURCE_DB == DB_MEMORY
     difficulty_type cumulative_difficulty = m_blockchain_storage->get_block_cumulative_difficulty(block_height);
 #else
-    difficulty_type cumulative_difficulty = m_blockchain_storage->get_db()->get_block_cumulative_difficulty(block_height);
+    difficulty_type cumulative_difficulty = m_blockchain_storage->get_db().get_block_cumulative_difficulty(block_height);
 #endif
 #if SOURCE_DB == DB_MEMORY
     uint64_t coins_generated = m_blockchain_storage->get_block_coins_generated(block_height);
 #else
     // TODO TEST to verify that this is the equivalent. make sure no off-by-one error with block height vs block number
-    uint64_t coins_generated = m_blockchain_storage->get_db()->get_block_already_generated_coins(block_height);
+    uint64_t coins_generated = m_blockchain_storage->get_db().get_block_already_generated_coins(block_height);
 #endif
 
     *m_raw_archive << block_size;
@@ -239,14 +239,16 @@ bool BlockchainExport::BlockchainExport::close()
 
 
 #if SOURCE_DB == DB_MEMORY
-bool BlockchainExport::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t use_block_height)
+bool BlockchainExport::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_height)
 #else
-bool BlockchainExport::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t use_block_height)
+bool BlockchainExport::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_height)
 #endif
 {
-  uint64_t use_block_height2 = 0;
+  uint64_t block_height = 0;
   m_blockchain_storage = _blockchain_storage;
   m_tx_pool = _tx_pool;
+  uint64_t progress_interval = 100;
+  std::string refresh_string = "\r                                    \r";
   LOG_PRINT_L0("Storing blocks raw data...");
   if (!BlockchainExport::open(output_dir))
   {
@@ -255,15 +257,15 @@ bool BlockchainExport::store_blockchain_raw(Blockchain* _blockchain_storage, tx_
   }
   block b;
   LOG_PRINT_L0("source blockchain height: " <<  m_blockchain_storage->get_current_blockchain_height());
-  LOG_PRINT_L0("requested block height: " << use_block_height);
-  if ((use_block_height > 0) && (use_block_height < m_blockchain_storage->get_current_blockchain_height()))
-    use_block_height2 = use_block_height;
+  LOG_PRINT_L0("requested block height: " << requested_block_height);
+  if ((requested_block_height > 0) && (requested_block_height < m_blockchain_storage->get_current_blockchain_height()))
+    block_height = requested_block_height;
   else
   {
-    use_block_height2 = m_blockchain_storage->get_current_blockchain_height();
-    LOG_PRINT_L0("using block height: " << use_block_height2);
+    block_height = m_blockchain_storage->get_current_blockchain_height();
+    LOG_PRINT_L0("Using block height of source blockchain: " << block_height);
   }
-  for (height=0; height < use_block_height2; ++height)
+  for (height=0; height < block_height; ++height)
   {
     crypto::hash hash = m_blockchain_storage->get_block_id_by_height(height);
     m_blockchain_storage->get_block_by_hash(hash, b);
@@ -271,11 +273,17 @@ bool BlockchainExport::store_blockchain_raw(Blockchain* _blockchain_storage, tx_
     if (height % NUM_BLOCKS_PER_CHUNK == 0) {
       flush_chunk();
     }
+    if (height % progress_interval == 0) {
+      std::cout << refresh_string;
+      std::cout << "height " << height << "/" << block_height << std::flush;
+    }
   }
   if (height % NUM_BLOCKS_PER_CHUNK != 0)
   {
     flush_chunk();
   }
+  std::cout << refresh_string;
+  std::cout << "height " << height << "/" << block_height << ENDL;
 
   LOG_PRINT_L0("longest chunk was " << max_chunk << " bytes");
   return BlockchainExport::close();

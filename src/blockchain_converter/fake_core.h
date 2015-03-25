@@ -55,7 +55,7 @@ struct fake_core_lmdb
     m_pool.init(path.string());
     m_storage.init(path.string(), use_testnet, mdb_flags);
     if (do_batch)
-      m_storage.get_db()->set_batch_transactions(do_batch);
+      m_storage.get_db().set_batch_transactions(do_batch);
     support_batch = true;
     support_add_block = true;
   }
@@ -71,17 +71,17 @@ struct fake_core_lmdb
                             , const std::vector<transaction>& txs
                             )
   {
-    return m_storage.get_db()->add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
+    return m_storage.get_db().add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
   }
 
   void batch_start()
   {
-    m_storage.get_db()->batch_start();
+    m_storage.get_db().batch_start();
   }
 
   void batch_stop()
   {
-    m_storage.get_db()->batch_stop();
+    m_storage.get_db().batch_stop();
   }
 
 };
