@@ -49,7 +49,7 @@ namespace daemonizer
       auto daemon = executor.create_daemon(vm);
       tools::success_msg_writer() << "Forking to background...";
       posix::fork();
-      return daemon.run();
+      return daemon.run() ? 0 : 1;
     }
     else
     {

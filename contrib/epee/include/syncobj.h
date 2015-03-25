@@ -56,7 +56,10 @@ namespace epee
     {
       std::unique_lock<std::mutex> lock(m_mx);
       while (!m_rised) 
-        m_cond_var.wait(lock);
+      {
+        m_cond_var.wait_for(lock, std::chrono::milliseconds(50));
+        boost::this_thread::interruption_point();
+      }
       m_rised = false;
     }
 
@@ -70,7 +73,9 @@ namespace epee
 
   class critical_section
   {
-    boost::recursive_mutex m_section;
+    boost::recursive_timed_mutex m_section;
+
+    const boost::posix_time::time_duration m_ms{boost::posix_time::milliseconds(2000)};
 
   public:
     //to make copy fake!
@@ -88,7 +93,10 @@ namespace epee
 
     void lock()
     {
-      m_section.lock();
+      while (!m_section.timed_lock(m_ms))
+      {
+        boost::this_thread::interruption_point();
+      }
       //EnterCriticalSection( &m_section );
     }
 
