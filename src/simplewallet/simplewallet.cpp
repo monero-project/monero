@@ -67,6 +67,7 @@ namespace po = boost::program_options;
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
+#define DEFAULT_MIX 3
 
 namespace
 {
@@ -280,7 +281,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("incoming_transfers", boost::bind(&simple_wallet::show_incoming_transfers, this, _1), "incoming_transfers [available|unavailable] - Show incoming transfers - all of them or filter them by availability");
   m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), "payments <payment_id_1> [<payment_id_2> ... <payment_id_N>] - Show payments <payment_id_1>, ... <payment_id_N>");
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), "Show blockchain height");
-  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), "transfer <mixin_count> <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of transactions yours is indistinguishable from (from 0 to maximum available)");
+  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), "transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of transactions yours is indistinguishable from (from 0 to maximum available)");
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
@@ -1067,19 +1068,24 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     return true;
 
   std::vector<std::string> local_args = args_;
-  if(local_args.size() < 3)
-  {
-    fail_msg_writer() << "wrong number of arguments, expected at least 3, got " << local_args.size();
-    return true;
-  }
 
   size_t fake_outs_count;
-  if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
-  {
-    fail_msg_writer() << "mixin_count should be non-negative integer, got " << local_args[0];
-    return true;
+  if(local_args.size() > 0) {
+    if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
+    {
+      fake_outs_count = DEFAULT_MIX;
+    }
+    else
+    {
+      local_args.erase(local_args.begin());
+    }
   }
-  local_args.erase(local_args.begin());
+
+  if(local_args.size() < 2)
+  {
+     fail_msg_writer() << "wrong number of arguments";
+     return true;
+  }
 
   std::vector<uint8_t> extra;
   if (1 == local_args.size() % 2)
