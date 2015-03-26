@@ -1339,7 +1339,7 @@ bool blockchain_storage::pop_transaction_from_global_index(const transaction& tx
   return true;
 }
 //------------------------------------------------------------------
-bool blockchain_storage::add_transaction_from_block(const transaction& tx, const crypto::hash& tx_id, const crypto::hash& bl_id, uint64_t bl_height)
+bool blockchain_storage::add_transaction_from_block(const transaction& tx, const crypto::hash& tx_id, const crypto::hash& bl_id, uint64_t bl_height, size_t blob_size)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   struct add_transaction_input_visitor: public boost::static_visitor<bool>
@@ -1378,6 +1378,7 @@ bool blockchain_storage::add_transaction_from_block(const transaction& tx, const
   }
   transaction_chain_entry ch_e;
   ch_e.m_keeper_block_height = bl_height;
+  ch_e.m_blob_size = blob_size;
   ch_e.tx = tx;
   auto i_r = m_transactions.insert(std::pair<crypto::hash, transaction_chain_entry>(tx_id, ch_e));
   if(!i_r.second)
@@ -1643,10 +1644,12 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     bvc.m_verifivation_failed = true;
     return false;
   }
-  size_t coinbase_blob_size = get_object_blobsize(bl.miner_tx);
+  crypto::hash coinbase_hash = null_hash;
+  size_t coinbase_blob_size = 0;
+  get_transaction_hash(bl.miner_tx, coinbase_hash, coinbase_blob_size);
   size_t cumulative_block_size = coinbase_blob_size;
   //process transactions
-  if(!add_transaction_from_block(bl.miner_tx, get_transaction_hash(bl.miner_tx), id, get_current_blockchain_height()))
+  if(!add_transaction_from_block(bl.miner_tx, coinbase_hash, id, get_current_blockchain_height(), coinbase_blob_size))
   {
     LOG_PRINT_L1("Block with id: " << id << " failed to add transaction to blockchain storage");
     bvc.m_verifivation_failed = true;
@@ -1680,7 +1683,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
       return false;
     }
 
-    if(!add_transaction_from_block(tx, tx_id, id, get_current_blockchain_height()))
+    if(!add_transaction_from_block(tx, tx_id, id, get_current_blockchain_height(), blob_size))
     {
        LOG_PRINT_L1("Block with id: " << id << " failed to add transaction to blockchain storage");
        cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
