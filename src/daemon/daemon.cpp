@@ -114,7 +114,12 @@ bool t_daemon::run()
     mp_internals->core.run();
     mp_internals->rpc.run();
     mp_internals->p2p.run();
-    mp_internals->rpc.stop();
+
+    // the stop() method clears internals
+    if (mp_internals != nullptr)
+    {
+      mp_internals->rpc.stop();
+    }
     LOG_PRINT("Node stopped.", LOG_LEVEL_0);
     return true;
   }

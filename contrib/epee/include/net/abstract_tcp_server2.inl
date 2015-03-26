@@ -535,6 +535,7 @@ POP_WARNINGS
 
       // Create a pool of threads to run all of the io_services.
       CRITICAL_REGION_BEGIN(m_threads_lock);
+      m_threads.clear();
       for (std::size_t i = 0; i < threads_count; ++i)
       {
         boost::shared_ptr<boost::thread> thread(new boost::thread(
@@ -546,8 +547,8 @@ POP_WARNINGS
       if(wait)
       {
         for (std::size_t i = 0; i < m_threads.size(); ++i)
-          m_threads[i]->join();
-        m_threads.clear();
+          if (!m_stop_signal_sent)
+            m_threads[i]->join();
 
       }else
       {
@@ -592,13 +593,34 @@ POP_WARNINGS
   bool boosted_tcp_server<t_protocol_handler>::timed_wait_server_stop(uint64_t wait_mseconds)
   {
     TRY_ENTRY();
-    boost::chrono::milliseconds ms(wait_mseconds);
-    for (std::size_t i = 0; i < m_threads.size(); ++i)
+    CRITICAL_REGION_LOCAL(m_threads_lock);
+
+    bool all_done = false;
+    boost::chrono::milliseconds ms(50);
+    for (uint64_t tries = 1; tries * 50 <= wait_mseconds; tries++)
     {
-      if(m_threads[i]->joinable() && !m_threads[i]->try_join_for(ms))
+      all_done = true;
+      for (std::size_t i = 0; i < m_threads.size(); ++i)
       {
-        LOG_PRINT_L0("Interrupting thread " << m_threads[i]->native_handle());
-        m_threads[i]->interrupt();
+        if(m_threads[i]->joinable() && !m_threads[i]->try_join_for(ms))
+        {
+          all_done = false;
+        }
+      }
+      if (all_done) break;
+    }
+    if (!all_done)
+    {
+      for (std::size_t i = 0; i < m_threads.size(); ++i)
+      {
+        if (m_threads[i]->joinable())
+        {
+          auto handle = m_threads[i]->native_handle();
+          LOG_PRINT_L0("Interrupting thread " << std::hex << handle << " and waiting for join.");
+          m_threads[i]->interrupt();
+          m_threads[i]->join();
+          LOG_PRINT_L0("Thread " << std::hex << handle << " joined successfully.");
+        }
       }
     }
     return true;

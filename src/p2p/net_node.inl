@@ -495,7 +495,9 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
     m_net_server.send_stop_signal();
-    LOG_PRINT_L0("[node] Stop signal sent");
+    LOG_PRINT_L0("[node] Stop signal sent" << std::endl
+                 << "Please be patient while the daemon shuts down gracefully.");
+    m_net_server.timed_wait_server_stop(5000);
     return true;
   }
   //-----------------------------------------------------------------------------------
