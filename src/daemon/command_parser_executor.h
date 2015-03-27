@@ -37,6 +37,7 @@
 #pragma once
 
 #include "daemon/rpc_command_executor.h"
+#include "rpc/core_rpc_server.h"
 
 namespace daemonize {
 
@@ -48,6 +49,8 @@ public:
   t_command_parser_executor(
       uint32_t ip
     , uint16_t port
+    , bool is_rpc
+    , cryptonote::core_rpc_server* rpc_server = NULL
     );
 
   bool print_peer_list(const std::vector<std::string>& args);

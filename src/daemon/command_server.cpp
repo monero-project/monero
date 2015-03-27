@@ -37,10 +37,18 @@ namespace p = std::placeholders;
 t_command_server::t_command_server(
     uint32_t ip
   , uint16_t port
+  , bool is_rpc
+  , cryptonote::core_rpc_server* rpc_server
   )
-  : m_parser(ip, port)
+  : m_parser(ip, port, is_rpc, rpc_server)
   , m_command_lookup()
+  , m_is_rpc(is_rpc)
 {
+  m_command_lookup.set_handler(
+      "q"
+    , [] (const std::vector<std::string>& args) {return true;}
+    , "ignored"
+    );
   m_command_lookup.set_handler(
       "help"
     , std::bind(&t_command_server::help, this, p::_1)
@@ -127,6 +135,11 @@ t_command_server::t_command_server(
     , "Stop the daemon"
     );
   m_command_lookup.set_handler(
+      "exit"
+    , std::bind(&t_command_parser_executor::stop_daemon, &m_parser, p::_1)
+    , "Stop the daemon"
+    );
+  m_command_lookup.set_handler(
       "print_status"
     , std::bind(&t_command_parser_executor::print_status, &m_parser, p::_1)
     , "Prints daemon status"
@@ -161,6 +174,22 @@ bool t_command_server::process_command_vec(const std::vector<std::string>& cmd)
     help(std::vector<std::string>());
   }
   return result;
+}
+
+bool t_command_server::start_handling()
+{
+  if (m_is_rpc) return false;
+
+  m_command_lookup.start_handling("", get_commands_str());
+
+  return true;
+}
+
+void t_command_server::stop_handling()
+{
+  if (m_is_rpc) return;
+
+  m_command_lookup.stop_handling();
 }
 
 bool t_command_server::help(const std::vector<std::string>& args)

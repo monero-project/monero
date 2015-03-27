@@ -269,17 +269,19 @@ namespace epee
         string_tools::trim(command);
 
         LOG_PRINT_L2("Read command: " << command);
-        if(0 == command.compare("exit") || 0 == command.compare("q"))
-        {
-          continue_handle = false;
-        }else if (command.empty())
+        if (command.empty())
         {
           continue;
         }
         else if(cmd_handler(command))
         {
           continue;
-        } else
+        }
+        else if(0 == command.compare("exit") || 0 == command.compare("q"))
+        {
+          continue_handle = false;
+        }
+        else
         {
           std::cout << "unknown command: " << command << std::endl;
           std::cout << usage;

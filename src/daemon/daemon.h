@@ -48,7 +48,7 @@ public:
   t_daemon & operator=(t_daemon && other);
   ~t_daemon();
 
-  bool run();
+  bool run(bool interactive = false);
   void stop();
 };
 }

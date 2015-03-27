@@ -65,7 +65,7 @@ namespace daemonize
     )
   {
     epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-    return t_daemon{vm}.run();
+    return t_daemon{vm}.run(true);
   }
 }
 
