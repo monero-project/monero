@@ -24,40 +24,24 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#pragma once
+
+#include <db_cxx.h>
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_protocol/blobdatatype.h" // for type blobdata
 
-#include <lmdb.h>
-
 namespace cryptonote
 {
 
-struct mdb_txn_safe
+struct bdb_txn_safe
 {
-  mdb_txn_safe() : m_txn(NULL) { }
-  ~mdb_txn_safe()
+  bdb_txn_safe() : m_txn(NULL) { }
+  ~bdb_txn_safe()
   {
-    LOG_PRINT_L3("mdb_txn_safe: destructor");
+    LOG_PRINT_L3("bdb_txn_safe: destructor");
+
     if (m_txn != NULL)
-    {
-      if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
-      {
-        LOG_PRINT_L0("WARNING: mdb_txn_safe: m_txn is a batch txn and it's not NULL in destructor - calling mdb_txn_abort()");
-      }
-      else
-      {
-        // Example of when this occurs: a lookup fails, so a read-only txn is
-        // aborted through this destructor. However, successful read-only txns
-        // ideally should have been committed when done and not end up here.
-        //
-        // NOTE: not sure if this is ever reached for a non-batch write
-        // transaction, but it's probably not ideal if it did.
-        LOG_PRINT_L3("mdb_txn_safe: m_txn not NULL in destructor - calling mdb_txn_abort()");
-      }
-      mdb_txn_abort(m_txn);
-    }
+      abort();
   }
 
   void commit(std::string message = "")
@@ -67,7 +51,7 @@ struct mdb_txn_safe
       message = "Failed to commit a transaction to the db";
     }
 
-    if (mdb_txn_commit(m_txn))
+    if (m_txn->commit(0))
     {
       m_txn = NULL;
       LOG_PRINT_L0(message);
@@ -76,46 +60,40 @@ struct mdb_txn_safe
     m_txn = NULL;
   }
 
-  // This should only be needed for batch transaction which must be ensured to
-  // be aborted before mdb_env_close, not after. So we can't rely on
-  // BlockchainLMDB destructor to call mdb_txn_safe destructor, as that's too late
-  // to properly abort, since mdb_env_close would have been called earlier.
   void abort()
   {
-    LOG_PRINT_L3("mdb_txn_safe: abort()");
+    LOG_PRINT_L3("bdb_txn_safe: abort()");
     if(m_txn != NULL)
     {
-      mdb_txn_abort(m_txn);
+      m_txn->abort();
       m_txn = NULL;
     }
     else
     {
-      LOG_PRINT_L0("WARNING: mdb_txn_safe: abort() called, but m_txn is NULL");
+      LOG_PRINT_L0("WARNING: bdb_txn_safe: abort() called, but m_txn is NULL");
     }
   }
 
-  operator MDB_txn*()
+  operator DbTxn*()
   {
     return m_txn;
   }
 
-  operator MDB_txn**()
+  operator DbTxn**()
   {
     return &m_txn;
   }
 
-  MDB_txn* m_txn;
-  bool m_batch_txn = false;
+  DbTxn* m_txn;
 };
 
-
-class BlockchainLMDB : public BlockchainDB
+class BlockchainBDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=false);
-  ~BlockchainLMDB();
+  BlockchainBDB(bool batch_transactions=false);
+  ~BlockchainBDB();
 
-  virtual void open(const std::string& filename, const int mdb_flags=0);
+  virtual void open(const std::string& filename, const int db_flags);
 
   virtual void close();
 
@@ -277,38 +255,34 @@ private:
 
   void check_open() const;
 
-  MDB_env* m_env;
+  DbEnv* m_env;
 
-  MDB_dbi m_blocks;
-  MDB_dbi m_block_heights;
-  MDB_dbi m_block_hashes;
-  MDB_dbi m_block_timestamps;
-  MDB_dbi m_block_sizes;
-  MDB_dbi m_block_diffs;
-  MDB_dbi m_block_coins;
+  Db* m_blocks;
+  Db* m_block_heights;
+  Db* m_block_hashes;
+  Db* m_block_timestamps;
+  Db* m_block_sizes;
+  Db* m_block_diffs;
+  Db* m_block_coins;
 
-  MDB_dbi m_txs;
-  MDB_dbi m_tx_unlocks;
-  MDB_dbi m_tx_heights;
-  MDB_dbi m_tx_outputs;
+  Db* m_txs;
+  Db* m_tx_unlocks;
+  Db* m_tx_heights;
+  Db* m_tx_outputs;
 
-  MDB_dbi m_output_txs;
-  MDB_dbi m_output_indices;
-  MDB_dbi m_output_gindices;
-  MDB_dbi m_output_amounts;
-  MDB_dbi m_output_keys;
-  MDB_dbi m_outputs;
+  Db* m_output_txs;
+  Db* m_output_indices;
+  Db* m_output_amounts;
+  Db* m_output_keys;
 
-  MDB_dbi m_spent_keys;
+  Db* m_spent_keys;
 
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
-  mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
-  mdb_txn_safe m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
+  bdb_txn_safe *m_write_txn;
 
   bool m_batch_transactions; // support for batch transactions
-  bool m_batch_active; // whether batch transaction is in progress
 };
 
 }  // namespace cryptonote

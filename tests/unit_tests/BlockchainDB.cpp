@@ -30,11 +30,14 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <cstdio>
 #include <iostream>
+#include <chrono>
+#include <thread>
 
 #include "gtest/gtest.h"
 
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "blockchain_db/berkeleydb/db_bdb.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
 using namespace cryptonote;
@@ -87,6 +90,7 @@ bool compare_blocks(const block& a, const block& b)
   return hash_a == hash_b;
 }
 
+/*
 void print_block(const block& blk, const std::string& prefix = "")
 {
   std::cerr << prefix << ": " << std::endl
@@ -105,6 +109,7 @@ bool compare_txs(const transaction& a, const transaction& b)
 
   return ab == bb;
 }
+*/
 
 // convert hex string to string that has values based on that hex
 // thankfully should automatically ignore null-terminator.
@@ -172,20 +177,29 @@ protected:
   }
 
   ~BlockchainDBTest() {
-    auto files = m_db->get_filenames();
     delete m_db;
-    remove_files(files);
+    remove_files();
   }
 
   BlockchainDB* m_db;
   std::string m_prefix;
   std::vector<block> m_blocks;
   std::vector<std::vector<transaction> > m_txs;
+  std::vector<std::string> m_filenames;
 
-  void remove_files(const std::vector<std::string>& files)
+  void get_filenames()
+  {
+    m_filenames = m_db->get_filenames();
+    for (auto& f : m_filenames)
+    {
+      std::cerr << "File created by test: " << f << std::endl;
+    }
+  }
+
+  void remove_files()
   {
     // remove each file the db created, making sure it starts with fname.
-    for (auto& f : files)
+    for (auto& f : m_filenames)
     {
       if (boost::starts_with(f, m_prefix))
       {
@@ -198,7 +212,7 @@ protected:
     }
 
     // remove directory if it still exists
-    boost::filesystem::remove(m_prefix);
+    boost::filesystem::remove_all(m_prefix);
   }
 
   void set_prefix(const std::string& prefix)
@@ -209,7 +223,7 @@ protected:
 
 using testing::Types;
 
-typedef Types<BlockchainLMDB> implementations;
+typedef Types<BlockchainLMDB, BlockchainBDB> implementations;
 
 TYPED_TEST_CASE(BlockchainDBTest, implementations);
 
@@ -221,6 +235,7 @@ TYPED_TEST(BlockchainDBTest, OpenAndClose)
 
   // make sure open does not throw
   ASSERT_NO_THROW(this->m_db->open(fname));
+  this->get_filenames();
 
   // make sure open when already open DOES throw
   ASSERT_THROW(this->m_db->open(fname), DB_OPEN_FAILURE);
@@ -231,9 +246,11 @@ TYPED_TEST(BlockchainDBTest, OpenAndClose)
 TYPED_TEST(BlockchainDBTest, AddBlock)
 {
   std::string fname(tmpnam(NULL));
+  this->set_prefix(fname);
 
   // make sure open does not throw
   ASSERT_NO_THROW(this->m_db->open(fname));
+  this->get_filenames();
 
   // adding a block with no parent in the blockchain should throw.
   // note: this shouldn't be possible, but is a good (and cheap) failsafe.
@@ -272,9 +289,11 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
 TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
 {
   std::string fname(tmpnam(NULL));
+  this->set_prefix(fname);
 
   // make sure open does not throw
   ASSERT_NO_THROW(this->m_db->open(fname));
+  this->get_filenames();
 
   ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
 

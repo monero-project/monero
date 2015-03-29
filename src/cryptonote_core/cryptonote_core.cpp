@@ -44,6 +44,9 @@ using namespace epee;
 #include <csignal>
 #include "daemon/command_line_args.h"
 #include "cryptonote_core/checkpoints_create.h"
+#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/lmdb/db_lmdb.h"
+#include "blockchain_db/berkeleydb/db_bdb.h"
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -194,7 +197,45 @@ namespace cryptonote
     r = m_mempool.init(m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
+#if BLOCKCHAIN_DB == DB_LMDB
+    std::string db_type = command_line::get_arg(vm, daemon_args::arg_db_type);
+
+    BlockchainDB* db = nullptr;
+    if (db_type == "lmdb")
+    {
+      db = new BlockchainLMDB();
+    }
+    else if (db_type == "berkeley")
+    {
+      db = new BlockchainBDB();
+    }
+    else
+    {
+      LOG_ERROR("Attempted to use non-existant database type");
+      return false;
+    }
+
+    boost::filesystem::path folder(m_config_folder);
+
+    folder /= db->get_db_name();
+
+    LOG_PRINT_L0("Loading blockchain from folder " << folder.c_str() << " ...");
+
+    const std::string filename = folder.string();
+    try
+    {
+      db->open(filename);
+    }
+    catch (const DB_ERROR& e)
+    {
+      LOG_PRINT_L0("Error opening database: " << e.what());
+      return false;
+    }
+
+    r = m_blockchain_storage.init(db, m_testnet);
+#else
     r = m_blockchain_storage.init(m_config_folder, m_testnet);
+#endif
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     // load json & DNS checkpoints, and verify them

@@ -62,6 +62,7 @@
  *
  * General:
  *   open()
+ *   is_open()
  *   close()
  *   sync()
  *   reset()
@@ -328,8 +329,8 @@ public:
   // open the db at location <filename>, or create it if there isn't one.
   virtual void open(const std::string& filename, const int db_flags = 0) = 0;
 
-  // make sure implementation has a create function as well
-  virtual void create(const std::string& filename) = 0;
+  // returns true of the db is open/ready, else false
+  bool is_open();
 
   // close and sync the db
   virtual void close() = 0;
@@ -482,6 +483,7 @@ public:
   // returns true if key image <img> is present in spent key images storage
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
 
+  bool m_open;
 };  // class BlockchainDB
 
 

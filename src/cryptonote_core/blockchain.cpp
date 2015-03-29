@@ -39,7 +39,6 @@
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
-#include "blockchain_db/lmdb/db_lmdb.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
@@ -65,8 +64,7 @@ using epee::string_tools::pod_to_hex;
 DISABLE_VS_WARNINGS(4267)
 
 //------------------------------------------------------------------
-// TODO: initialize m_db with a concrete implementation of BlockchainDB
-Blockchain::Blockchain(tx_memory_pool& tx_pool):m_db(), m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false), m_testnet(false), m_enforce_dns_checkpoints(false)
+Blockchain::Blockchain(tx_memory_pool& tx_pool):m_db(), m_tx_pool(tx_pool), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -226,42 +224,23 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(const std::string& config_folder, const bool testnet, const int db_flags)
+bool Blockchain::init(BlockchainDB* db, const bool testnet)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
-  // TODO: make this configurable
-  m_db = new BlockchainLMDB();
-
-  m_config_folder = config_folder;
-  m_testnet = testnet;
-
-  boost::filesystem::path folder(m_config_folder);
-
-  folder /= m_db->get_db_name();
-
-  LOG_PRINT_L0("Loading blockchain from folder " << folder.c_str() << " ...");
-
-  const std::string filename = folder.string();
-  try
+  if (db == nullptr)
   {
-    m_db->open(filename, db_flags);
+    LOG_ERROR("Attempted to init Blockchain with null DB");
+    return false;
   }
-  catch (const DB_OPEN_FAILURE& e)
+  if (!db->is_open())
   {
-    LOG_PRINT_L0("No blockchain file found, attempting to create one.");
-    try
-    {
-      m_db->create(filename);
-    }
-    catch (const DB_CREATE_FAILURE& db_create_error)
-    {
-      LOG_PRINT_L0("Unable to create BlockchainDB!  This is not good...");
-      //TODO: make sure whatever calls this handles the return value properly
-      return false;
-    }
+    LOG_ERROR("Attempted to init Blockchain with unopened DB");
+    return false;
   }
+
+  m_db = db;
 
   // if the blockchain is new, add the genesis block
   // this feels kinda kludgy to do it this way, but can be looked at later.

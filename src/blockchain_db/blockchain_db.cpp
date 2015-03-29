@@ -129,6 +129,11 @@ void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
   }
 }
 
+bool BlockchainDB::is_open()
+{
+  return m_open;
+}
+
 void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 {
   transaction tx = get_tx(tx_hash);

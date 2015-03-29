@@ -29,8 +29,10 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-#include "cryptonote_core/blockchain.h" // BlockchainDB and LMDB
+#include "cryptonote_core/blockchain.h" // BlockchainDB
 #include "cryptonote_core/blockchain_storage.h" // in-memory DB
+#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/lmdb/db_lmdb.h"
 
 using namespace cryptonote;
 
@@ -53,7 +55,27 @@ struct fake_core_lmdb
 #endif
   {
     m_pool.init(path.string());
-    m_storage.init(path.string(), use_testnet, mdb_flags);
+
+    BlockchainDB* db = new BlockchainLMDB();
+
+    boost::filesystem::path folder(path);
+
+    folder /= db->get_db_name();
+
+    LOG_PRINT_L0("Loading blockchain from folder " << folder.c_str() << " ...");
+
+    const std::string filename = folder.string();
+    try
+    {
+      db->open(filename, mdb_flags);
+    }
+    catch (const std::exception& e)
+    {
+      LOG_PRINT_L0("Error opening database: " << e.what());
+      throw;
+    }
+
+    m_storage.init(db, use_testnet);
     if (do_batch)
       m_storage.get_db().set_batch_transactions(do_batch);
     support_batch = true;
