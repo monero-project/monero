@@ -239,7 +239,7 @@ namespace cryptonote
     bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins) const;
     bool validate_transaction(const block& b, uint64_t height, const transaction& tx) const;
     bool rollback_blockchain_switching(std::list<block>& original_chain, size_t rollback_height);
-    bool add_transaction_from_block(const transaction& tx, const crypto::hash& tx_id, const crypto::hash& bl_id, uint64_t bl_height);
+    bool add_transaction_from_block(const transaction& tx, const crypto::hash& tx_id, const crypto::hash& bl_id, uint64_t bl_height, size_t blob_size);
     bool push_transaction_to_global_outs_index(const transaction& tx, const crypto::hash& tx_id, std::vector<uint64_t>& global_indexes);
     bool pop_transaction_from_global_index(const transaction& tx, const crypto::hash& tx_id);
     bool get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) const;
