@@ -47,16 +47,24 @@ namespace daemonize {
 class t_command_server {
 private:
   t_command_parser_executor m_parser;
-  epee::command_handler m_command_lookup;
+  epee::console_handlers_binder m_command_lookup;
+  bool m_is_rpc;
+
 public:
   t_command_server(
       uint32_t ip
     , uint16_t port
+    , bool is_rpc = true
+    , cryptonote::core_rpc_server* rpc_server = NULL
     );
 
   bool process_command_str(const std::string& cmd);
 
   bool process_command_vec(const std::vector<std::string>& cmd);
+
+  bool start_handling();
+
+  void stop_handling();
 
 private:
   bool help(const std::vector<std::string>& args);

@@ -35,6 +35,7 @@
 #include "daemon/p2p.h"
 #include "daemon/protocol.h"
 #include "daemon/rpc.h"
+#include "daemon/command_server.h"
 #include "misc_log_ex.h"
 #include "version.h"
 #include <boost/program_options.hpp>
@@ -101,7 +102,7 @@ t_daemon & t_daemon::operator=(t_daemon && other)
   return *this;
 }
 
-bool t_daemon::run()
+bool t_daemon::run(bool interactive)
 {
   if (nullptr == mp_internals)
   {
@@ -113,7 +114,22 @@ bool t_daemon::run()
   {
     mp_internals->core.run();
     mp_internals->rpc.run();
-    mp_internals->p2p.run();
+
+    daemonize::t_command_server* rpc_commands;
+
+    if (interactive)
+    {
+      rpc_commands = new daemonize::t_command_server(0, 0, false, mp_internals->rpc.get_server());
+      rpc_commands->start_handling();
+    }
+
+    mp_internals->p2p.run(); // blocks until p2p goes down
+
+    if (interactive)
+    {
+      rpc_commands->stop_handling();
+    }
+
     mp_internals->rpc.stop();
     LOG_PRINT("Node stopped.", LOG_LEVEL_0);
     return true;

@@ -82,6 +82,11 @@ public:
     m_server.timed_wait_server_stop(5000);
   }
 
+  cryptonote::core_rpc_server* get_server()
+  {
+    return &m_server;
+  }
+
   ~t_rpc()
   {
     LOG_PRINT_L0("Deinitializing rpc server...");

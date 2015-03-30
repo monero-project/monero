@@ -43,17 +43,25 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "p2p/net_node.h"
+#include "rpc/core_rpc_server.h"
 
 namespace daemonize {
 
 class t_rpc_command_executor final {
 private:
-  tools::t_rpc_client m_rpc_client;
+  tools::t_rpc_client* m_rpc_client;
+  cryptonote::core_rpc_server* m_rpc_server;
+  bool m_is_rpc;
+
 public:
   t_rpc_command_executor(
       uint32_t ip
     , uint16_t port
+    , bool is_rpc = true
+    , cryptonote::core_rpc_server* rpc_server = NULL
     );
+
+  ~t_rpc_command_executor();
 
   bool print_peer_list();
 
