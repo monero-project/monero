@@ -1130,13 +1130,21 @@ std::string wallet2::address_from_txt_record(const std::string& s)
 void wallet2::commit_tx(pending_tx& ptx)
 {
   using namespace cryptonote;
-  COMMAND_RPC_SEND_RAW_TX::request req;
+  /*COMMAND_RPC_SEND_RAW_TX::request req;
   req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
   COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
   bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
   THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);
+  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);*/
+
+  std::string tx_as_hex_string = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
+  zchunk_t *tx_as_hex = zchunk_new((void*)tx_as_hex_string.c_str(), tx_as_hex_string.length());
+  int rc = wap_client_put(client, &tx_as_hex);
+  uint64_t status = wap_client_status(client);
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "sendrawtransaction");
+  THROW_WALLET_EXCEPTION_IF((status == IPC::STATUS_INVALID_TX) || (status == IPC::STATUS_TX_VERIFICATION_FAILED) ||
+    (status == IPC::STATUS_TX_NOT_RELAYED), error::tx_rejected, ptx.tx, status);
 
   add_unconfirmed_tx(ptx.tx, ptx.change_dts.amount);
 
@@ -1171,6 +1179,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
   // failsafe split attempt counter
   size_t attempt_count = 0;
 
+std::cout << "a\n";
   for(attempt_count = 1; ;attempt_count++)
   {
     auto split_values = split_amounts(dsts, attempt_count);
@@ -1190,11 +1199,14 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
         cryptonote::transaction tx;
         pending_tx ptx;
 
+std::cout << "b\n";
 	// loop until fee is met without increasing tx size to next KB boundary.
 	uint64_t needed_fee = 0;
 	do
 	{
+std::cout << "c\n";
 	  transfer(dst_vector, fake_outs_count, unlock_time, needed_fee, extra, tx, ptx);
+std::cout << "d\n";
 	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
 	  uint64_t txSize = txBlob.size();
 	  uint64_t numKB = txSize / 1024;

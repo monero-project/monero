@@ -60,12 +60,17 @@ namespace IPC
   const uint64_t STATUS_MINING_NOT_STARTED = 3;
   const uint64_t STATUS_WRONG_BLOCK_ID_LENGTH = 4;
   const uint64_t STATUS_INTERNAL_ERROR = 5;
+  const uint64_t STATUS_INVALID_TX = 6;
+  const uint64_t STATUS_TX_VERIFICATION_FAILED = 7;
+  const uint64_t STATUS_TX_NOT_RELAYED = 8;
+  const uint64_t STATUS_RANDOM_OUTS_FAILED = 9;
   namespace Daemon
   {
     void start_mining(wap_proto_t *message);
     void retrieve_blocks(wap_proto_t *message);
     void send_raw_transaction(wap_proto_t *message);
     void get_output_indexes(wap_proto_t *message);
+    void get_random_outs(wap_proto_t *message);
     void init(cryptonote::core *p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
       bool p_testnet);

@@ -471,23 +471,54 @@ namespace tools
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
     if(fake_outputs_count)
     {
-      COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
-      req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
+      // COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
+      // req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
+      uint64_t outs_count = fake_outputs_count + 1;
+      std::vector<uint64_t> amounts;
       BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
       {
         THROW_WALLET_EXCEPTION_IF(it->m_tx.vout.size() <= it->m_internal_output_index, error::wallet_internal_error,
           "m_internal_output_index = " + std::to_string(it->m_internal_output_index) +
           " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size()));
-        req.amounts.push_back(it->amount());
+        amounts.push_back(it->amount());
       }
 
-      bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
+      zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
+      int rc = wap_client_random_outs(client, outs_count, &amounts_frame);
+      /*bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
       THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
       THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
       THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != selected_transfers.size(), error::wallet_internal_error,
         "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
-        std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
+        std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));*/
+
+      uint64_t status = wap_client_status(client);
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
+      // TODO: Use a code to string mapping of errors
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_RANDOM_OUTS_FAILED, error::get_random_outs_error, "IPC::STATUS_RANDOM_OUTS_FAILED");
+      THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_random_outs_error, "!IPC:STATUS_OK");
+  
+      // Convert ZMQ response back into RPC response object.
+      zframe_t *outputs_frame = wap_client_random_outputs(client);
+      uint64_t frame_size = zframe_size(outputs_frame);
+      char *frame_data = reinterpret_cast<char*>(zframe_data(outputs_frame));
+std::string tmp(frame_data, frame_size);
+std::cout << tmp << std::endl;
+      rapidjson::Document json;
+      THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data, frame_size).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
+      for (rapidjson::SizeType i = 0; i < json["outputs"].Size(); i++) {
+        COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount output;
+        output.amount = json["outputs"][i]["amount"].GetInt();
+        for (rapidjson::SizeType j = 0; j < json["outputs"][i]["outs"].Size(); j++) {
+          COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry entry;
+          entry.global_amount_index = json["outputs"][i]["outs"][j]["global_amount_index"].GetInt();
+          std::string out_key(json["outputs"][i]["outs"][j]["out_key"].GetString(), json["outputs"][i]["outs"][j]["out_key"].GetStringLength());
+          memcpy(entry.out_key.data, out_key.c_str(), 32);
+          output.outs.push_back(entry);
+        }
+        daemon_resp.outs.push_back(output);
+      }
 
       std::vector<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount> scanty_outs;
       BOOST_FOREACH(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs, daemon_resp.outs)

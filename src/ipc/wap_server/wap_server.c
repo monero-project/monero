@@ -261,3 +261,13 @@ signal_command_not_valid (client_t *self)
 {
     wap_proto_set_status (self->message, WAP_PROTO_COMMAND_INVALID);
 }
+
+//  ---------------------------------------------------------------------------
+//  random_outs
+//
+
+static void
+random_outs (client_t *self)
+{
+    IPC::Daemon::get_random_outs(self->message);
+}

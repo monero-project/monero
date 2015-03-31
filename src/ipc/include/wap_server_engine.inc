@@ -38,11 +38,12 @@ typedef enum {
     start_event = 7,
     stop_event = 8,
     output_indexes_event = 9,
-    close_event = 10,
-    ping_event = 11,
-    expired_event = 12,
-    exception_event = 13,
-    settled_event = 14
+    random_outs_event = 10,
+    close_event = 11,
+    ping_event = 12,
+    expired_event = 13,
+    exception_event = 14,
+    settled_event = 15
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -67,6 +68,7 @@ s_event_name [] = {
     "START",
     "STOP",
     "OUTPUT_INDEXES",
+    "RANDOM_OUTS",
     "CLOSE",
     "PING",
     "expired",
@@ -148,6 +150,8 @@ static void
     stop_mining_process (client_t *self);
 static void
     output_indexes (client_t *self);
+static void
+    random_outs (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -343,6 +347,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
             return output_indexes_event;
+            break;
+        case WAP_PROTO_RANDOM_OUTS:
+            return random_outs_event;
             break;
         case WAP_PROTO_GET:
             return get_event;
@@ -686,6 +693,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send OUTPUT_INDEXES_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_OUTPUT_INDEXES_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == random_outs_event) {
+                    if (!self->exception) {
+                        //  random outs
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ random outs", self->log_prefix);
+                        random_outs (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send RANDOM_OUTS_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send RANDOM_OUTS_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_RANDOM_OUTS_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }
@@ -1092,6 +1117,7 @@ s_server_config_service (s_server_t *self)
             if (zsock_bind (self->router, "%s", endpoint) == -1)
                 zsys_warning ("could not bind to %s (%s)", endpoint, zmq_strerror (zmq_errno ()));
         }
+#if (ZMQ_VERSION_MAJOR >= 4)
         else
         if (streq (zconfig_name (section), "security")) {
             char *mechanism = zconfig_resolve (section, "mechanism", "null");
@@ -1109,6 +1135,7 @@ s_server_config_service (s_server_t *self)
             else
                 zsys_warning ("mechanism=%s is not supported", mechanism);
         }
+#endif
         section = zconfig_next (section);
     }
     s_server_config_global (self);

@@ -161,7 +161,49 @@ namespace IPC
 
     void send_raw_transaction(wap_proto_t *message)
     {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      std::string tx_blob;
+      zchunk_t *tx_as_hex_chunk = wap_proto_tx_as_hex(message);
+      char *tx_as_hex = (char*)zchunk_data(tx_as_hex_chunk);
+      std::string tx_as_hex_string(tx_as_hex, zchunk_size(tx_as_hex_chunk));
+      if (!string_tools::parse_hexstr_to_binbuff(tx_as_hex_string, tx_blob))
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to parse tx from hexbuff: " << tx_as_hex_string);
+        wap_proto_set_status(message, STATUS_INVALID_TX);
+        return;
+      }
 
+      cryptonote::cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+      if (!core->handle_incoming_tx(tx_blob, tvc, false))
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
+        wap_proto_set_status(message, STATUS_INVALID_TX);
+        return;
+      }
+
+      if (tvc.m_verifivation_failed)
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed");
+        wap_proto_set_status(message, STATUS_TX_VERIFICATION_FAILED);
+        return;
+      }
+
+      if (!tvc.m_should_be_relayed)
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
+        wap_proto_set_status(message, STATUS_TX_NOT_RELAYED);
+        return;
+      }
+
+      cryptonote::NOTIFY_NEW_TRANSACTIONS::request r;
+      r.txs.push_back(tx_blob);
+      core->get_protocol()->relay_transactions(r, fake_context);
+      //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
+      wap_proto_set_status(message, STATUS_OK);
     }
 
     void get_output_indexes(wap_proto_t *message)
@@ -184,6 +226,81 @@ namespace IPC
       uint64_t *indexes = &output_indexes[0];
       zframe_t *frame = zframe_new(indexes, sizeof(uint64_t) * output_indexes.size());
       wap_proto_set_o_indexes(message, &frame);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void get_random_outs(wap_proto_t *message) {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      // The core does its stuff with old style RPC objects.
+      // So we construct and read from those objects.
+      cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req;
+      uint64_t outs_count = wap_proto_outs_count(message);
+      req.outs_count = outs_count;
+      zframe_t *amounts_frame = wap_proto_amounts(message);
+      uint64_t amounts_count = zframe_size(amounts_frame) / sizeof(uint64_t);
+      uint64_t *amounts = (uint64_t*)zframe_data(amounts_frame);
+      for (unsigned int i = 0; i < amounts_count; i++) {
+        req.amounts.push_back(amounts[i]);
+      }
+      cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response res;
+      if (!core->get_random_outs_for_amounts(req, res))
+      {
+        wap_proto_set_status(message, STATUS_RANDOM_OUTS_FAILED);
+      }
+
+      // We have to convert the result into a JSON string.
+      rapidjson::Document result_json;
+      result_json.SetObject();
+      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+      rapidjson::Value outputs_json(rapidjson::kArrayType);
+
+      typedef cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount outs_for_amount;
+      typedef cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
+      for (unsigned int i = 0; i < res.outs.size(); i++) {
+        rapidjson::Value output(rapidjson::kObjectType);
+        outs_for_amount out = res.outs[i];
+        rapidjson::Value output_entries(rapidjson::kArrayType);
+        for (std::list<out_entry>::iterator it = out.outs.begin(); it != out.outs.end(); it++) {
+          rapidjson::Value output_entry(rapidjson::kObjectType);
+          out_entry entry = *it;
+          output_entry.AddMember("global_amount_index", entry.global_amount_index, allocator);
+          rapidjson::Value string_value(rapidjson::kStringType);
+          string_value.SetString(entry.out_key.data, 32, allocator);
+          output_entry.AddMember("out_key", string_value.Move(), allocator);
+          output_entries.PushBack(output_entry, allocator);
+        }
+        output.AddMember("amount", out.amount, allocator);
+        output.AddMember("outs", output_entries, allocator);
+        outputs_json.PushBack(output, allocator);
+      }
+      result_json.AddMember("outputs", outputs_json, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      result_json.Accept(writer);
+      std::string block_string = buffer.GetString();
+
+std::cout << block_string << std::endl;
+
+      zframe_t *frame = zframe_new(block_string.c_str(), block_string.length());
+      wap_proto_set_random_outputs(message, &frame);
+
+      std::stringstream ss;
+      std::for_each(res.outs.begin(), res.outs.end(), [&](outs_for_amount& ofa)
+      {
+        ss << "[" << ofa.amount << "]:";
+        CHECK_AND_ASSERT_MES(ofa.outs.size(), ;, "internal error: ofa.outs.size() is empty for amount " << ofa.amount);
+        std::for_each(ofa.outs.begin(), ofa.outs.end(), [&](out_entry& oe)
+            {
+              ss << oe.global_amount_index << " ";
+            });
+        ss << ENDL;
+      });
+      std::string s = ss.str();
+      LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: " << ENDL << s);
       wap_proto_set_status(message, STATUS_OK);
     }
   }

@@ -54,6 +54,12 @@ WAP_EXPORT zactor_t *
 WAP_EXPORT zsock_t *
     wap_client_msgpipe (wap_client_t *self);
 
+//  Return true if client is currently connected, else false. Note that the
+//  client will automatically re-connect if the server dies and restarts after
+//  a successful first connection.
+WAP_EXPORT bool
+    wap_client_connected (wap_client_t *self);
+
 //  Connect to server endpoint, with specified timeout in msecs (zero means wait    
 //  forever). Constructor succeeds if connection is successful. The caller may      
 //  specify its address.                                                            
@@ -69,7 +75,7 @@ WAP_EXPORT int
 //  Send a raw transaction to the daemon.                                           
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_put (wap_client_t *self, zchunk_t **tx_data_p);
+    wap_client_put (wap_client_t *self, zchunk_t **tx_as_hex_p);
 
 //  Request a set of blocks from the server.                                        
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -85,6 +91,11 @@ WAP_EXPORT int
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
     wap_client_output_indexes (wap_client_t *self, const char *tx_id);
+
+//  Ask for tx output indexes.                                                      
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_random_outs (wap_client_t *self, uint64_t outs_count, zframe_t **amounts_p);
 
 //  Send start command to server.                                                   
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -123,6 +134,10 @@ WAP_EXPORT zchunk_t *
 //  Return last received o_indexes
 WAP_EXPORT zframe_t *
     wap_client_o_indexes (wap_client_t *self);
+
+//  Return last received random_outputs
+WAP_EXPORT zframe_t *
+    wap_client_random_outputs (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

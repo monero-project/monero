@@ -1,6 +1,6 @@
 /*  =========================================================================
     wap_proto - Wallet Access Protocol
-    
+
     Codec header for wap_proto.
 
     ** WARNING *************************************************************
@@ -43,7 +43,7 @@ BLOCKS-OK, or ERROR if the request is invalid.
 
     PUT - Wallet sends a raw transaction to the daemon. Daemon replies with
 PUT-OK, or ERROR.
-        tx_data             chunk       Transaction data
+        tx_as_hex           chunk       Transaction as hex
 
     PUT_OK - Daemon confirms that it accepted the raw transaction.
         status              number 8    Transaction ID
@@ -54,6 +54,14 @@ PUT-OK, or ERROR.
     OUTPUT_INDEXES_OK - Daemon returns tx output indexes.
         status              number 8    Status
         o_indexes           frame       Output Indexes
+
+    RANDOM_OUTS - Get random outputs for amounts.
+        outs_count          number 8    Outs count
+        amounts             frame       Amounts
+
+    RANDOM_OUTS_OK - Daemon returns random outputs for amounts.
+        status              number 8    Status
+        random_outputs      frame       Outputs
 
     GET - Wallet requests transaction data from the daemon. Daemon replies
 with GET-OK, or ERROR.
@@ -113,19 +121,21 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_PUT_OK                    6
 #define WAP_PROTO_OUTPUT_INDEXES            7
 #define WAP_PROTO_OUTPUT_INDEXES_OK         8
-#define WAP_PROTO_GET                       9
-#define WAP_PROTO_GET_OK                    10
-#define WAP_PROTO_SAVE                      11
-#define WAP_PROTO_SAVE_OK                   12
-#define WAP_PROTO_START                     13
-#define WAP_PROTO_START_OK                  14
-#define WAP_PROTO_STOP                      15
-#define WAP_PROTO_STOP_OK                   16
-#define WAP_PROTO_CLOSE                     17
-#define WAP_PROTO_CLOSE_OK                  18
-#define WAP_PROTO_PING                      19
-#define WAP_PROTO_PING_OK                   20
-#define WAP_PROTO_ERROR                     21
+#define WAP_PROTO_RANDOM_OUTS               9
+#define WAP_PROTO_RANDOM_OUTS_OK            10
+#define WAP_PROTO_GET                       11
+#define WAP_PROTO_GET_OK                    12
+#define WAP_PROTO_SAVE                      13
+#define WAP_PROTO_SAVE_OK                   14
+#define WAP_PROTO_START                     15
+#define WAP_PROTO_START_OK                  16
+#define WAP_PROTO_STOP                      17
+#define WAP_PROTO_STOP_OK                   18
+#define WAP_PROTO_CLOSE                     19
+#define WAP_PROTO_CLOSE_OK                  20
+#define WAP_PROTO_PING                      21
+#define WAP_PROTO_PING_OK                   22
+#define WAP_PROTO_ERROR                     23
 
 #include <czmq.h>
 
@@ -156,7 +166,7 @@ int
 //  Send the wap_proto to the output socket, does not destroy it
 int
     wap_proto_send (wap_proto_t *self, zsock_t *output);
-    
+
 //  Print contents of message to stdout
 void
     wap_proto_print (wap_proto_t *self);
@@ -219,15 +229,15 @@ zmsg_t *
 void
     wap_proto_set_block_data (wap_proto_t *self, zmsg_t **msg_p);
 
-//  Get a copy of the tx_data field
+//  Get a copy of the tx_as_hex field
 zchunk_t *
-    wap_proto_tx_data (wap_proto_t *self);
-//  Get the tx_data field and transfer ownership to caller
+    wap_proto_tx_as_hex (wap_proto_t *self);
+//  Get the tx_as_hex field and transfer ownership to caller
 zchunk_t *
-    wap_proto_get_tx_data (wap_proto_t *self);
-//  Set the tx_data field, transferring ownership from caller
+    wap_proto_get_tx_as_hex (wap_proto_t *self);
+//  Set the tx_as_hex field, transferring ownership from caller
 void
-    wap_proto_set_tx_data (wap_proto_t *self, zchunk_t **chunk_p);
+    wap_proto_set_tx_as_hex (wap_proto_t *self, zchunk_t **chunk_p);
 
 //  Get/set the tx_id field
 const char *
@@ -244,6 +254,42 @@ zframe_t *
 //  Set the o_indexes field, transferring ownership from caller
 void
     wap_proto_set_o_indexes (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the outs_count field
+uint64_t
+    wap_proto_outs_count (wap_proto_t *self);
+void
+    wap_proto_set_outs_count (wap_proto_t *self, uint64_t outs_count);
+
+//  Get a copy of the amounts field
+zframe_t *
+    wap_proto_amounts (wap_proto_t *self);
+//  Get the amounts field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_amounts (wap_proto_t *self);
+//  Set the amounts field, transferring ownership from caller
+void
+    wap_proto_set_amounts (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get a copy of the random_outputs field
+zframe_t *
+    wap_proto_random_outputs (wap_proto_t *self);
+//  Get the random_outputs field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_random_outputs (wap_proto_t *self);
+//  Set the random_outputs field, transferring ownership from caller
+void
+    wap_proto_set_random_outputs (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get a copy of the tx_data field
+zchunk_t *
+    wap_proto_tx_data (wap_proto_t *self);
+//  Get the tx_data field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_tx_data (wap_proto_t *self);
+//  Set the tx_data field, transferring ownership from caller
+void
+    wap_proto_set_tx_data (wap_proto_t *self, zchunk_t **chunk_p);
 
 //  Get/set the address field
 const char *

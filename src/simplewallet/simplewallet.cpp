@@ -1065,9 +1065,10 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer(const std::vector<std::string> &args_)
 {
-  if (!try_connect_to_daemon())
-    return true;
+  /*if (!try_connect_to_daemon())
+    return true;*/
 
+std::cout << "1\n";
   std::vector<std::string> local_args = args_;
   if(local_args.size() < 3)
   {
@@ -1075,6 +1076,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     return true;
   }
 
+std::cout << "2\n";
   size_t fake_outs_count;
   if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
   {
@@ -1083,6 +1085,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   }
   local_args.erase(local_args.begin());
 
+std::cout << "3\n";
   std::vector<uint8_t> extra;
   if (1 == local_args.size() % 2)
   {
@@ -1105,6 +1108,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     }
   }
 
+std::cout << "4\n";
   vector<cryptonote::tx_destination_entry> dsts;
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
@@ -1179,14 +1183,17 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     dsts.push_back(de);
   }
 
+std::cout << "5\n";
   try
   {
     // figure out what tx will be necessary
     auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
 
+std::cout << "5a\n";
     // if more than one tx necessary, prompt user to confirm
     if (ptx_vector.size() > 1)
     {
+std::cout << "5b\n";
         std::string prompt_str = "Your transaction needs to be split into ";
         prompt_str += std::to_string(ptx_vector.size());
         prompt_str += " transactions.  This will result in a transaction fee being applied to each transaction";
@@ -1202,6 +1209,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
         }
     }
 
+std::cout << "6\n";
     // actually commit the transactions
     while (!ptx_vector.empty())
     {
@@ -1219,6 +1227,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   }
   catch (const tools::error::no_connection_to_daemon&)
   {
+std::cout << "7\n";
     fail_msg_writer() << "no connection to daemon. Please, make sure daemon is running.";
   }
   catch (const tools::error::wallet_rpc_error& e)

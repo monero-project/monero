@@ -37,6 +37,7 @@ typedef struct {
     
     //  Own properties
     int heartbeat_timer;        //  Timeout for heartbeats to server
+    int retries;                //  How many heartbeats we've tried
 } client_t;
 
 //  Include the generated client engine
@@ -97,6 +98,32 @@ use_connect_timeout (client_t *self)
     engine_set_timeout (self, self->args->timeout);
 }
 
+//  ---------------------------------------------------------------------------
+//  client_is_connected
+//
+
+static void
+client_is_connected (client_t *self)
+{
+    self->retries = 0;
+    engine_set_connected (self, true);
+    engine_set_timeout (self, self->heartbeat_timer);
+}
+
+//  ---------------------------------------------------------------------------
+//  check_if_connection_is_dead
+//
+
+static void
+check_if_connection_is_dead (client_t *self)
+{
+    //  We send at most 3 heartbeats before expiring the server
+    if (++self->retries >= 3) {
+        engine_set_timeout (self, 0);
+        engine_set_connected (self, false);
+        engine_set_exception (self, exception_event);
+    }
+}
 
 //  ---------------------------------------------------------------------------
 //  use_heartbeat_timer
@@ -163,7 +190,7 @@ prepare_start_command (client_t *self)
 static void
 prepare_put_command (client_t *self)
 {
-    wap_proto_set_tx_data (self->message, &self->args->tx_data);
+    wap_proto_set_tx_as_hex (self->message, &self->args->tx_as_hex);
 }
 
 
@@ -174,7 +201,7 @@ prepare_put_command (client_t *self)
 static void
 signal_have_put_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8s", "PUT OK", 0,
+    zsock_send (self->cmdpipe, "s8s", "PUT OK", wap_proto_status(self->message),
                 wap_proto_tx_id (self->message));
 }
 
@@ -325,3 +352,25 @@ signal_server_not_present (client_t *self)
     zsock_send (self->cmdpipe, "sis", "FAILURE", -1, "Server is not reachable");
 }
 
+//  ---------------------------------------------------------------------------
+//  prepare_get_random_outs_command
+//
+
+static void
+prepare_get_random_outs_command (client_t *self)
+{
+    wap_proto_set_amounts (self->message, &self->args->amounts);
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_have_random_outs_ok
+//
+
+static void
+signal_have_random_outs_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8p", "RANDOM OUTS OK",
+        wap_proto_status (self->message),
+        wap_proto_get_random_outputs (self->message));
+}
