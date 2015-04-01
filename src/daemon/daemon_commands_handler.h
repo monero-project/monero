@@ -1,35 +1,7 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without modification, are
-// permitted provided that the following conditions are met:
-// 
-// 1. Redistributions of source code must retain the above copyright notice, this list of
-//    conditions and the following disclaimer.
-// 
-// 2. Redistributions in binary form must reproduce the above copyright notice, this list
-//    of conditions and the following disclaimer in the documentation and/or other
-//    materials provided with the distribution.
-// 
-// 3. Neither the name of the copyright holder nor the names of its contributors may be
-//    used to endorse or promote products derived from this software without specific
-//    prior written permission.
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
-// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+// Copyright (c) 2012-2013 The Cryptonote developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-
-/* This isn't a header file, may want to refactor this... */
 #pragma once
 
 #include <boost/lexical_cast.hpp>
@@ -42,21 +14,18 @@
 #include "version.h"
 #include "../../contrib/otshell_utils/utils.hpp"
 
-/*!
- * \brief I don't really know right now
- *  
- * 
- */
+//#include "net/net_helper.h"
+//#include "../p2p/p2p_protocol_defs.h"
+//#include "../p2p/net_peerlist_boost_serialization.h"
+//#include "net/local_ip.h"
+//#include "crypto/crypto.h"
+//#include "storages/levin_abstract_invoke2.h"
+
 class daemon_cmmands_handler
 {
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_srv;
 public:
-  daemon_cmmands_handler(
-      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& srv
-    , bool testnet
-    )
-    : m_srv(srv)
-    , m_testnet(testnet)
+  daemon_cmmands_handler(nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& srv):m_srv(srv)
   {
     m_cmd_binder.set_handler("help", boost::bind(&daemon_cmmands_handler::help, this, _1), "Show this help");
     m_cmd_binder.set_handler("print_pl", boost::bind(&daemon_cmmands_handler::print_pl, this, _1), "Print peer list");
@@ -75,14 +44,10 @@ public:
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
     m_cmd_binder.set_handler("set_log", boost::bind(&daemon_cmmands_handler::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
     m_cmd_binder.set_handler("diff", boost::bind(&daemon_cmmands_handler::diff, this, _1), "Show difficulty");
+    m_cmd_binder.set_handler("limit-up", boost::bind(&daemon_cmmands_handler::limit_up, this, _1), "Set upload limit");
+    m_cmd_binder.set_handler("limit-down", boost::bind(&daemon_cmmands_handler::limit_down, this, _1), "Set download limit");
+    m_cmd_binder.set_handler("limit", boost::bind(&daemon_cmmands_handler::limit, this, _1), "Set download and upload limit");
     m_cmd_binder.set_handler("out_peers", boost::bind(&daemon_cmmands_handler::out_peers_limit, this, _1), "Set max limit of out peers");
-    m_cmd_binder.set_handler("limit_up", boost::bind(&daemon_cmmands_handler::limit_up, this, _1), "Set upload limit [kB/s]");
-    m_cmd_binder.set_handler("limit_down", boost::bind(&daemon_cmmands_handler::limit_down, this, _1), "Set download limit [kB/s]");
-    m_cmd_binder.set_handler("limit", boost::bind(&daemon_cmmands_handler::limit, this, _1), "Set download and upload limit [kB/s]");
-    m_cmd_binder.set_handler("fast_exit", boost::bind(&daemon_cmmands_handler::fast_exit, this, _1), "Exit");
-    m_cmd_binder.set_handler("test_drop_download", boost::bind(&daemon_cmmands_handler::test_drop_download, this, _1), "For network testing, drop downloaded blocks instead checking/adding them to blockchain. Can fake-download blocks very fast.");
-    m_cmd_binder.set_handler("start_save_graph", boost::bind(&daemon_cmmands_handler::start_save_graph, this, _1), "");
-    m_cmd_binder.set_handler("stop_save_graph", boost::bind(&daemon_cmmands_handler::stop_save_graph, this, _1), "");
   }
 
   bool start_handling()
@@ -98,7 +63,7 @@ public:
 
 private:
   epee::srv_console_handlers_binder<nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > > m_cmd_binder;
-  bool m_testnet;
+
 
   //--------------------------------------------------------------------------------
   std::string get_commands_str()
@@ -131,6 +96,122 @@ private:
     return true;
   }
   //--------------------------------------------------------------------------------
+  bool limit_up(const std::vector<std::string>& args)
+  {
+      if(args.size()!=1) {
+          std::cout << "Usage: limit_up <speed>" << ENDL;
+          return false;
+      }
+      
+	  int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+
+      if (limit==-1) {
+          limit=128;
+          //this->islimitup=false;
+      }
+
+      limit *= 1024;
+
+
+      //nodetool::epee::net_utils::connection<epee::levin::async_protocol_handler<nodetool::p2p_connection_context> >::set_rate_up_limit( limit );
+      epee::net_utils::connection_basic::set_rate_up_limit( limit );
+      std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
+
+      return true;
+  }
+  
+  //--------------------------------------------------------------------------------  
+  bool limit_down(const std::vector<std::string>& args)
+  {
+
+      if(args.size()!=1) {
+          std::cout << "Usage: limit_down <speed>" << ENDL;
+          return true;
+      }
+
+	  int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+
+      if (limit==-1) {
+          limit=128;
+          //this->islimitup=false;
+      }
+
+      limit *= 1024;
+
+
+      //nodetool::epee::net_utils::connection<epee::levin::async_protocol_handler<nodetool::p2p_connection_context> >::set_rate_up_limit( limit );
+      epee::net_utils::connection_basic::set_rate_down_limit( limit );
+      std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
+
+      return true;
+  }
+  
+//--------------------------------------------------------------------------------  
+  bool limit(const std::vector<std::string>& args)
+  {
+      if(args.size()!=1) {
+          std::cout << "Usage: limit_down <speed>" << ENDL;
+          return true;
+      }
+
+	  int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+
+      if (limit==-1) {
+          limit=128;
+          //this->islimitup=false;
+      }
+
+      limit *= 1024;
+
+
+      //nodetool::epee::net_utils::connection<epee::levin::async_protocol_handler<nodetool::p2p_connection_context> >::set_rate_up_limit( limit );
+      epee::net_utils::connection_basic::set_rate_down_limit( limit );
+      epee::net_utils::connection_basic::set_rate_up_limit( limit );
+      std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
+      std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
+
+      return true;
+  }
+ //--------------------------------------------------------------------------------
+ bool out_peers_limit(const std::vector<std::string>& args) {
+	  if(args.size()!=1) {		
+		  std::cout << "Usage: limit_down <speed>" << ENDL;
+          return true;
+      }
+    
+      int limit;
+	  try {
+		  limit = std::stoi(args[0]);
+	  }
+	  
+	  catch(std::invalid_argument& ex) {
+		  return false;
+	  }
+    
+	  LOG_PRINT_RED_L0("connections_count:  " << limit);
+	  m_srv.m_config.m_net_config.connections_count = limit;
+	  return true;
+ }
+ //--------------------------------------------------------------------------------
   bool show_hr(const std::vector<std::string>& args)
   {
 	if(!m_srv.get_payload_object().get_core().get_miner().is_mining()) 
@@ -243,9 +324,11 @@ private:
       return true;
     }
 
+		// TODO what the hell causes compilation warning in following code line
+PUSH_WARNINGS
+DISABLE_GCC_WARNING(maybe-uninitialized)
     log_space::log_singletone::get_set_log_detalisation_level(true, l);
-    int otshell_utils_log_level = 100 - (l * 25);
-    gCurrentLogger.setDebugLevel(otshell_utils_log_level);
+POP_WARNINGS
 
     return true;
   }
@@ -385,7 +468,7 @@ private:
     }
 
     cryptonote::account_public_address adr;
-    if(!cryptonote::get_account_address_from_str(adr, m_testnet, args.front()))
+    if(!cryptonote::get_account_address_from_str(adr, args.front()))
     {
       std::cout << "target account address has wrong format" << std::endl;
       return true;

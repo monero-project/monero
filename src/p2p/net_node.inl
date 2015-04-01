@@ -46,7 +46,7 @@
 #include "net/local_ip.h"
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
-#include "data_logger.hpp"
+#include "daemon/command_line_args.h"
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
@@ -273,16 +273,20 @@ namespace nodetool
 
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, bool testnet)
+  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
+    bool testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+
     if (testnet)
     {
+      memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
       append_net_address(m_seed_nodes, "107.152.187.202:28080");
       append_net_address(m_seed_nodes, "197.242.158.240:28080");
       append_net_address(m_seed_nodes, "107.152.130.98:28080");
     }
     else
     {
+      memcpy(&m_network_id, &::config::NETWORK_ID, 16);
       // for each hostname in the seed nodes list, attempt to DNS resolve and
       // add the result addresses as seed nodes
       // TODO: at some point add IPv6 support, but that won't be relevant

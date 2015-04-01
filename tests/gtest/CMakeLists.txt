@@ -59,6 +59,16 @@ include_directories(
 # Where Google Test's libraries can be found.
 link_directories(${gtest_BINARY_DIR}/src)
 
+# Summary of tuple support for Microsoft Visual Studio:
+# Compiler    version(MS)  version(cmake)  Support
+# ----------  -----------  --------------  -----------------------------
+# <= VS 2010  <= 10        <= 1600         Use Google Tests's own tuple.
+# VS 2012     11           1700            std::tr1::tuple + _VARIADIC_MAX=10
+# VS 2013     12           1800            std::tr1::tuple
+if (MSVC AND MSVC_VERSION EQUAL 1700)
+  add_definitions(/D _VARIADIC_MAX=10)
+endif()
+
 ########################################################################
 #
 # Defines the gtest & gtest_main libraries.  User tests should link
@@ -77,7 +87,7 @@ target_link_libraries(gtest_main gtest)
 #
 # They are not built by default.  To build them, set the
 # gtest_build_samples option to ON.  You can do it by running ccmake
-# or specifying the -Dbuild_gtest_samples=ON flag when running cmake.
+# or specifying the -Dgtest_build_samples=ON flag when running cmake.
 
 if (gtest_build_samples)
   cxx_executable(sample1_unittest samples gtest_main samples/sample1.cc)
@@ -124,6 +134,8 @@ if (gtest_build_tests)
     test/gtest-param-test2_test.cc)
   cxx_test(gtest-port_test gtest_main)
   cxx_test(gtest_pred_impl_unittest gtest_main)
+  cxx_test(gtest_premature_exit_test gtest
+    test/gtest_premature_exit_test.cc)
   cxx_test(gtest-printers_test gtest_main)
   cxx_test(gtest_prod_test gtest_main
     test/production.cc)
@@ -140,10 +152,13 @@ if (gtest_build_tests)
   ############################################################
   # C++ tests built with non-standard compiler flags.
 
-  cxx_library(gtest_no_exception "${cxx_no_exception}"
-    src/gtest-all.cc)
-  cxx_library(gtest_main_no_exception "${cxx_no_exception}"
-    src/gtest-all.cc src/gtest_main.cc)
+  # MSVC 7.1 does not support STL with exceptions disabled.
+  if (NOT MSVC OR MSVC_VERSION GREATER 1310)
+    cxx_library(gtest_no_exception "${cxx_no_exception}"
+      src/gtest-all.cc)
+    cxx_library(gtest_main_no_exception "${cxx_no_exception}"
+      src/gtest-all.cc src/gtest_main.cc)
+  endif()
   cxx_library(gtest_main_no_rtti "${cxx_no_rtti}"
     src/gtest-all.cc src/gtest_main.cc)
 
@@ -166,12 +181,10 @@ if (gtest_build_tests)
                         PROPERTIES
                         COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 
-  if (NOT MSVC OR NOT MSVC_VERSION EQUAL 1600)
-    # The C++ Standard specifies tuple_element<int, class>.
-    # Yet MSVC 10's <utility> declares tuple_element<size_t, class>.
-    # That declaration conflicts with our own standard-conforming
-    # tuple implementation.  Therefore using our own tuple with
-    # MSVC 10 doesn't compile.
+  if (NOT MSVC OR MSVC_VERSION LESS 1600)  # 1600 is Visual Studio 2010.
+    # Visual Studio 2010, 2012, and 2013 define symbols in std::tr1 that
+    # conflict with our own definitions. Therefore using our own tuple does not
+    # work on those compilers.
     cxx_library(gtest_main_use_own_tuple "${cxx_use_own_tuple}"
       src/gtest-all.cc src/gtest_main.cc)
 
@@ -189,11 +202,15 @@ if (gtest_build_tests)
   cxx_executable(gtest_break_on_failure_unittest_ test gtest)
   py_test(gtest_break_on_failure_unittest)
 
-  cxx_executable_with_flags(
-    gtest_catch_exceptions_no_ex_test_
-    "${cxx_no_exception}"
-    gtest_main_no_exception
-    test/gtest_catch_exceptions_test_.cc)
+  # Visual Studio .NET 2003 does not support STL with exceptions disabled.
+  if (NOT MSVC OR MSVC_VERSION GREATER 1310)  # 1310 is Visual Studio .NET 2003
+    cxx_executable_with_flags(
+      gtest_catch_exceptions_no_ex_test_
+      "${cxx_no_exception}"
+      gtest_main_no_exception
+      test/gtest_catch_exceptions_test_.cc)
+  endif()
+
   cxx_executable_with_flags(
     gtest_catch_exceptions_ex_test_
     "${cxx_exception}"
@@ -222,11 +239,14 @@ if (gtest_build_tests)
   cxx_executable(gtest_shuffle_test_ test gtest)
   py_test(gtest_shuffle_test)
 
-  cxx_executable(gtest_throw_on_failure_test_ test gtest_no_exception)
-  set_target_properties(gtest_throw_on_failure_test_
-    PROPERTIES
-    COMPILE_FLAGS "${cxx_no_exception}")
-  py_test(gtest_throw_on_failure_test)
+  # MSVC 7.1 does not support STL with exceptions disabled.
+  if (NOT MSVC OR MSVC_VERSION GREATER 1310)
+    cxx_executable(gtest_throw_on_failure_test_ test gtest_no_exception)
+    set_target_properties(gtest_throw_on_failure_test_
+      PROPERTIES
+      COMPILE_FLAGS "${cxx_no_exception}")
+    py_test(gtest_throw_on_failure_test)
+  endif()
 
   cxx_executable(gtest_uninitialized_test_ test gtest)
   py_test(gtest_uninitialized_test)

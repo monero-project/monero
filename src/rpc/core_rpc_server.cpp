@@ -40,29 +40,10 @@ using namespace epee;
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
+#include "daemon/command_line_args.h"
 
 namespace cryptonote
 {
-  namespace
-  {
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {
-        "rpc-bind-ip"
-      , "IP for RPC server"
-      , "127.0.0.1"
-      };
-
-    const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {
-        "rpc-bind-port"
-      , "Port for RPC server"
-      , std::to_string(config::RPC_DEFAULT_PORT)
-      };
-
-    const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port = {
-        "testnet-rpc-bind-port"
-      , "Port for testnet RPC server"
-      , std::to_string(config::testnet::RPC_DEFAULT_PORT)
-      };
-  }
 
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
@@ -75,11 +56,9 @@ namespace cryptonote
   core_rpc_server::core_rpc_server(
       core& cr
     , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
-    , bool testnet
     )
     : m_core(cr)
     , m_p2p(p2p)
-    , m_testnet(testnet)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::handle_command_line(
@@ -97,6 +76,8 @@ namespace cryptonote
       const boost::program_options::variables_map& vm
     )
   {
+    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+
     m_net_server.set_threads_prefix("RPC");
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
@@ -124,7 +105,7 @@ namespace cryptonote
 #define CHECK_CORE_READY() do { if(!check_core_ready()){res.status =  CORE_RPC_STATUS_BUSY;return true;} } while(0)
 
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_height(const COMMAND_RPC_GET_HEIGHT::request& req, COMMAND_RPC_GET_HEIGHT::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_height(const COMMAND_RPC_GET_HEIGHT::request& req, COMMAND_RPC_GET_HEIGHT::response& res)
   {
     CHECK_CORE_BUSY();
     res.height = m_core.get_current_blockchain_height();
@@ -132,7 +113,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res)
   {
     CHECK_CORE_BUSY();
     res.height = m_core.get_current_blockchain_height();
@@ -150,7 +131,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     CHECK_CORE_BUSY();
     std::list<std::pair<block, std::list<transaction> > > bs;
@@ -175,7 +156,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res)
   {
     CHECK_CORE_BUSY();
     res.status = "Failed";
@@ -204,7 +185,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_indexes(const COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request& req, COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_indexes(const COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request& req, COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response& res)
   {
     CHECK_CORE_BUSY();
     bool r = m_core.get_tx_outputs_gindexs(req.txid, res.o_indexes);
@@ -218,7 +199,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_transactions(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_transactions(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res)
   {
     CHECK_CORE_BUSY();
     std::vector<crypto::hash> vh;
@@ -260,7 +241,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_send_raw_tx(const COMMAND_RPC_SEND_RAW_TX::request& req, COMMAND_RPC_SEND_RAW_TX::response& res, connection_context& cntx)
+  bool core_rpc_server::on_send_raw_tx(const COMMAND_RPC_SEND_RAW_TX::request& req, COMMAND_RPC_SEND_RAW_TX::response& res)
   {
     CHECK_CORE_READY();
 
@@ -303,7 +284,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_start_mining(const COMMAND_RPC_START_MINING::request& req, COMMAND_RPC_START_MINING::response& res, connection_context& cntx)
+  bool core_rpc_server::on_start_mining(const COMMAND_RPC_START_MINING::request& req, COMMAND_RPC_START_MINING::response& res)
   {
     CHECK_CORE_READY();
     account_public_address adr;
@@ -325,7 +306,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_stop_mining(const COMMAND_RPC_STOP_MINING::request& req, COMMAND_RPC_STOP_MINING::response& res, connection_context& cntx)
+  bool core_rpc_server::on_stop_mining(const COMMAND_RPC_STOP_MINING::request& req, COMMAND_RPC_STOP_MINING::response& res)
   {
     if(!m_core.get_miner().stop())
     {
@@ -336,7 +317,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_mining_status(const COMMAND_RPC_MINING_STATUS::request& req, COMMAND_RPC_MINING_STATUS::response& res, connection_context& cntx)
+  bool core_rpc_server::on_mining_status(const COMMAND_RPC_MINING_STATUS::request& req, COMMAND_RPC_MINING_STATUS::response& res)
   {
     CHECK_CORE_READY();
 
@@ -354,7 +335,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_save_bc(const COMMAND_RPC_SAVE_BC::request& req, COMMAND_RPC_SAVE_BC::response& res, connection_context& cntx)
+  bool core_rpc_server::on_save_bc(const COMMAND_RPC_SAVE_BC::request& req, COMMAND_RPC_SAVE_BC::response& res)
   {
     CHECK_CORE_BUSY();
     if( !m_core.get_blockchain_storage().store_blockchain() )
@@ -366,7 +347,76 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res)
+  {
+    /*
+    std::list<nodetool::peerlist_entry> white_list;
+    std::list<nodetool::peerlist_entry> gray_list;
+    m_p2p.get_peerlist(white_list, gray_list);
+
+    for (auto & entry : white_list)
+    {
+      res.white_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
+    }
+
+    for (auto & entry : gray_list)
+    {
+      res.gray_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
+    }
+
+    */
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_log_hash_rate(const COMMAND_RPC_SET_LOG_HASH_RATE::request& req, COMMAND_RPC_SET_LOG_HASH_RATE::response& res)
+  {
+    if(m_core.get_miner().is_mining())
+    {
+      m_core.get_miner().do_print_hashrate(req.visible);
+      res.status = CORE_RPC_STATUS_OK;
+    }
+    else
+    {
+      res.status = CORE_RPC_STATUS_NOT_MINING;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_log_level(const COMMAND_RPC_SET_LOG_LEVEL::request& req, COMMAND_RPC_SET_LOG_LEVEL::response& res)
+  {
+    if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
+    {
+      res.status = "Error: log level not valid";
+    }
+    else
+    {
+      epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
+      res.status = CORE_RPC_STATUS_OK;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res)
+  {
+    /*
+    CHECK_CORE_BUSY();
+    res.transactions = m_core.transaction_pool_info();
+    */
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_stop_daemon(const COMMAND_RPC_STOP_DAEMON::request& req, COMMAND_RPC_STOP_DAEMON::response& res)
+  {
+    // FIXME: replace back to original m_p2p.send_stop_signal() after
+    // investigating why that isn't working quite right.
+    m_p2p.send_stop_signal();
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res)
   {
     CHECK_CORE_BUSY();
     res.count = m_core.get_current_blockchain_height();
@@ -374,7 +424,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_getblockhash(const COMMAND_RPC_GETBLOCKHASH::request& req, COMMAND_RPC_GETBLOCKHASH::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  bool core_rpc_server::on_getblockhash(const COMMAND_RPC_GETBLOCKHASH::request& req, COMMAND_RPC_GETBLOCKHASH::response& res, epee::json_rpc::error& error_resp)
   {
     if(!check_core_busy())
     {
@@ -415,7 +465,7 @@ namespace cryptonote
     return 0;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_getblocktemplate(const COMMAND_RPC_GETBLOCKTEMPLATE::request& req, COMMAND_RPC_GETBLOCKTEMPLATE::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  bool core_rpc_server::on_getblocktemplate(const COMMAND_RPC_GETBLOCKTEMPLATE::request& req, COMMAND_RPC_GETBLOCKTEMPLATE::response& res, epee::json_rpc::error& error_resp)
   {
     if(!check_core_ready())
     {
@@ -481,7 +531,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_submitblock(const COMMAND_RPC_SUBMITBLOCK::request& req, COMMAND_RPC_SUBMITBLOCK::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  bool core_rpc_server::on_submitblock(const COMMAND_RPC_SUBMITBLOCK::request& req, COMMAND_RPC_SUBMITBLOCK::response& res, epee::json_rpc::error& error_resp)
   {
     CHECK_CORE_READY();
     if(req.size()!=1)
@@ -553,7 +603,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_last_block_header(const COMMAND_RPC_GET_LAST_BLOCK_HEADER::request& req, COMMAND_RPC_GET_LAST_BLOCK_HEADER::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  bool core_rpc_server::on_get_last_block_header(const COMMAND_RPC_GET_LAST_BLOCK_HEADER::request& req, COMMAND_RPC_GET_LAST_BLOCK_HEADER::response& res, epee::json_rpc::error& error_resp)
   {
     if(!check_core_busy())
     {
@@ -589,7 +639,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_block_header_by_hash(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response& res, epee::json_rpc::error& error_resp, connection_context& cntx){
+  bool core_rpc_server::on_get_block_header_by_hash(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response& res, epee::json_rpc::error& error_resp){
     if(!check_core_busy())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
@@ -630,7 +680,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res, epee::json_rpc::error& error_resp, connection_context& cntx){
+  bool core_rpc_server::on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res, epee::json_rpc::error& error_resp){
     if(!check_core_busy())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
@@ -663,7 +713,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_connections(const COMMAND_RPC_GET_CONNECTIONS::request& req, COMMAND_RPC_GET_CONNECTIONS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  bool core_rpc_server::on_get_connections(const COMMAND_RPC_GET_CONNECTIONS::request& req, COMMAND_RPC_GET_CONNECTIONS::response& res, epee::json_rpc::error& error_resp)
   {
     if(!check_core_busy())
     {
@@ -679,7 +729,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_info_json(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  bool core_rpc_server::on_get_info_json(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, epee::json_rpc::error& error_resp)
   {
     if(!check_core_busy())
     {
@@ -703,4 +753,23 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-}
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_ip   = {
+      "rpc-bind-ip"
+    , "IP for RPC server"
+    , "127.0.0.1"
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
+      "rpc-bind-port"
+    , "Port for RPC server"
+    , std::to_string(config::RPC_DEFAULT_PORT)
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_testnet_rpc_bind_port = {
+      "testnet-rpc-bind-port"
+    , "Port for testnet RPC server"
+    , std::to_string(config::testnet::RPC_DEFAULT_PORT)
+    };
+
+}  // namespace cryptonote

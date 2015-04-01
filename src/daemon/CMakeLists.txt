@@ -27,12 +27,43 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(daemon_sources
-  daemon.cpp)
+  command_parser_executor.cpp
+  command_server.cpp
+  daemon.cpp
+  executor.cpp
+  main.cpp
+  rpc_command_executor.cpp
+)
 
 set(daemon_headers)
 
 set(daemon_private_headers
-  daemon_commands_handler.h)
+  command_parser_executor.h
+  command_server.h
+  core.h
+  daemon.h
+  daemon_commands_handler.h
+  executor.h
+  p2p.h
+  protocol.h
+  rpc.h
+  rpc_command_executor.h
+
+  # cryptonote_protocol
+  ../cryptonote_protocol/blobdatatype.h
+  ../cryptonote_protocol/cryptonote_protocol_defs.h
+  ../cryptonote_protocol/cryptonote_protocol_handler.h
+  ../cryptonote_protocol/cryptonote_protocol_handler.inl
+  ../cryptonote_protocol/cryptonote_protocol_handler_common.h
+
+  # p2p
+  ../p2p/net_node.h
+  ../p2p/net_node.inl
+  ../p2p/net_node_common.h
+  ../p2p/net_peerlist.h
+  ../p2p/net_peerlist_boost_serialization.h
+  ../p2p/p2p_protocol_defs.h
+  ../p2p/stdafx.h)
 
 bitmonero_private_headers(daemon
   ${daemon_private_headers})
@@ -46,9 +77,7 @@ target_link_libraries(daemon
     cryptonote_core
     crypto
     common
-    otshell_utils
-    p2p
-    cryptonote_protocol
+    daemonizer
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}

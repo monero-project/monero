@@ -72,7 +72,7 @@ namespace cryptonote
 
      miner& get_miner(){return m_miner;}
      static void init_options(boost::program_options::options_description& desc);
-     bool init(const boost::program_options::variables_map& vm, bool testnet);
+     bool init(const boost::program_options::variables_map& vm);
      bool set_genesis_block(const block& b);
      bool deinit();
      static void set_fast_exit();
@@ -131,6 +131,8 @@ namespace cryptonote
 
      bool update_checkpoints();
 
+     void stop();
+
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
@@ -148,7 +150,7 @@ namespace cryptonote
      bool check_tx_ring_signature(const txin_to_key& tx, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig);
      bool is_tx_spendtime_unlocked(uint64_t unlock_time);
      bool update_miner_block_template();
-     bool handle_command_line(const boost::program_options::variables_map& vm, bool testnet);
+     bool handle_command_line(const boost::program_options::variables_map& vm);
      bool on_update_blocktemplate_interval();
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
      void graceful_exit();
@@ -171,6 +173,7 @@ namespace cryptonote
 
      uint64_t m_target_blockchain_height;
 
+     bool m_testnet;
      std::string m_checkpoints_path;
      time_t m_last_dns_checkpoints_update;
      time_t m_last_json_checkpoints_update;

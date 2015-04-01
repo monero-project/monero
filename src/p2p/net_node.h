@@ -80,22 +80,18 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
 
-    node_server(t_payload_net_handler& payload_handler, boost::uuids::uuid network_id)
-		:m_payload_handler(payload_handler),
-		m_allow_local_ip(false),
-		m_no_igd(false),
-		m_hide_my_port(false),
-		m_network_id(std::move(network_id))
-    {
-		m_current_number_of_out_peers = 0;
-		m_save_graph = false;
-		is_closing = false;
-	}
+    node_server(
+        t_payload_net_handler& payload_handler
+      )
+      : m_payload_handler(payload_handler)
+      , m_allow_local_ip(false)
+      , m_hide_my_port(false)
+    {}
 
     static void init_options(boost::program_options::options_description& desc);
 
     bool run();
-    bool init(const boost::program_options::variables_map& vm, bool testnet);
+    bool init(const boost::program_options::variables_map& vm);
     bool deinit();
     bool send_stop_signal();
     uint32_t get_this_peer_port(){return m_listenning_port;}
