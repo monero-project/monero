@@ -40,6 +40,7 @@ enum class data_logger_state { state_before_init, state_during_init, state_ready
 			void add_data(std::string filename, unsigned int data); ///< use this to append data here. Use it only the singleton. It locks itself.
 
 			static std::atomic<bool> m_save_graph; ///< global setting flag, should we save all the data or not (can disable logging graphs data)
+			static bool is_dying();
 
 		private:
 			static std::once_flag m_singleton; ///< to guarantee singleton creates the object exactly once

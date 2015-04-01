@@ -703,5 +703,79 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+  
+  struct COMMAND_RPC_FAST_EXIT
+  {
+	struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+	  std::string status;
+	  
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  
+  struct COMMAND_RPC_OUT_PEERS
+  {
+	struct request
+    {
+	  uint64_t out_peers;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(out_peers)
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+	  std::string status;
+	  
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+    
+  struct COMMAND_RPC_START_SAVE_GRAPH
+  {
+	struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+	  std::string status;
+	  
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  
+  struct COMMAND_RPC_STOP_SAVE_GRAPH
+  {
+	struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+	  std::string status;
+	  
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 

@@ -46,6 +46,7 @@
 #include "net/local_ip.h"
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
+#include "data_logger.hpp"
 #include "daemon/command_line_args.h"
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
@@ -93,6 +94,8 @@ namespace nodetool
     const command_line::arg_descriptor<int64_t>    	arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up [kB/s]", -1};
     const command_line::arg_descriptor<int64_t>    	arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down [kB/s]", -1};
     const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate [kB/s]", 128};
+    
+    const command_line::arg_descriptor<bool>		arg_save_graph			= {"save-graph", "Save data for dr monero", false};
   }
 
   //-----------------------------------------------------------------------------------
@@ -114,7 +117,9 @@ namespace nodetool
     command_line::add_arg(desc, arg_tos_flag);
     command_line::add_arg(desc, arg_limit_rate_up);
   	command_line::add_arg(desc, arg_limit_rate_down);
-  	command_line::add_arg(desc, arg_limit_rate);   }
+  	command_line::add_arg(desc, arg_limit_rate);
+  	command_line::add_arg(desc, arg_save_graph);
+  }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -193,6 +198,11 @@ namespace nodetool
         m_command_line_peers.push_back(pe);
       }
     }
+    
+    if(command_line::has_arg(vm, arg_save_graph))
+    {
+	  set_save_graph(true);
+	}
 
     if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
     {
@@ -294,29 +304,6 @@ namespace nodetool
       
       std::vector<std::vector<std::string>> dns_results;
       dns_results.resize(m_seed_nodes_list.size());
-      
-      // creating thread to log number of connections
-      mPeersLoggerThread.reset(new std::thread([&]()
-      {
-			_note("Thread monitor number of peers - start");
-		while (!is_closing)
-		{ // main loop of thread
-			//number_of_peers = m_net_server.get_config_object().get_connections_count();
-			unsigned int number_of_peers = 0;
-			m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
-			{
-				if (!cntxt.m_is_income) ++number_of_peers;
-				return true;
-			}); // lambda
-				
-			m_current_number_of_out_peers = number_of_peers;
-			epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
-				
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-		} // main loop of thread
-			_note("Thread monitor number of peers - done");
-      })); // lambda
-      
 
       std::list<boost::thread*> dns_threads;
       uint64_t result_index = 0;
@@ -483,6 +470,30 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::run()
   {
+	  // creating thread to log number of connections
+      mPeersLoggerThread.reset(new std::thread([&]()
+      {
+			_note("Thread monitor number of peers - start");
+		while (!is_closing)
+		{ // main loop of thread
+			//number_of_peers = m_net_server.get_config_object().get_connections_count();
+			unsigned int number_of_peers = 0;
+			m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+			{
+				if (!cntxt.m_is_income) ++number_of_peers;
+				return true;
+			}); // lambda
+				
+			m_current_number_of_out_peers = number_of_peers;
+			if (epee::net_utils::data_logger::is_dying())
+				break;
+			epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
+				
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		} // main loop of thread
+			_note("Thread monitor number of peers - done");
+      })); // lambda
+      
     //here you can set worker threads count
     int thrds_count = 10;
 
@@ -516,7 +527,6 @@ namespace nodetool
 	kill();
     m_peerlist.deinit();
     m_net_server.deinit_server();
-    
     return store_config();
   }
   //-----------------------------------------------------------------------------------

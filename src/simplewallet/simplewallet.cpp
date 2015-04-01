@@ -67,6 +67,8 @@ namespace po = boost::program_options;
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
 #define DEFAULT_MIX 3
 
 namespace

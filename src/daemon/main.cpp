@@ -71,7 +71,10 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, command_line::arg_testnet_data_dir, default_testnet_data_dir.string());
       bf::path default_conf = default_data_dir / std::string(CRYPTONOTE_NAME ".conf");
       command_line::add_arg(visible_options, daemon_args::arg_config_file, default_conf.string());
-
+      command_line::add_arg(visible_options, command_line::arg_test_drop_download);
+      command_line::add_arg(visible_options, command_line::arg_test_dbg_lock_sleep);
+      command_line::add_arg(visible_options, command_line::arg_test_drop_download_height);
+    
       // Settings
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
       command_line::add_arg(core_settings, daemon_args::arg_log_file, default_log.string());
@@ -127,6 +130,8 @@ int main(int argc, char const * argv[])
       std::cout << "OS: " << tools::get_os_version_string() << ENDL;
       return 0;
     }
+    
+    epee::g_test_dbg_lock_sleep = command_line::get_arg(vm, command_line::arg_test_dbg_lock_sleep);
 
     bool testnet_mode = command_line::get_arg(vm, daemon_args::arg_testnet_on);
 
@@ -209,6 +214,8 @@ int main(int argc, char const * argv[])
       else if (epee::log_space::get_set_log_detalisation_level(false) != new_log_level)
       {
         epee::log_space::get_set_log_detalisation_level(true, new_log_level);
+        int otshell_utils_log_level = 100 - (new_log_level * 25);
+        gCurrentLogger.setDebugLevel(otshell_utils_log_level);
         LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
       }
     }
@@ -223,6 +230,7 @@ int main(int argc, char const * argv[])
         , log_file_path.parent_path().string().c_str()
         );
     }
+		_erro("Test error");
 
     return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
   }

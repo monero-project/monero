@@ -330,10 +330,13 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 }
 
 double network_throttle::get_time_seconds() const {
-	using namespace std::chrono;
-	auto point = steady_clock::now();
+	#if defined(__APPLE__)
+	auto point = std::chrono::system_clock::now();
+	#else
+	auto point = std::chrono::steady_clock::now();
+	#endif
 	auto time_from_epoh = point.time_since_epoch();
-	auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
+	auto ms = std::chrono::duration_cast< std::chrono::milliseconds >( time_from_epoh ).count();
 	double ms_f = ms;
 	return ms_f / 1000.;
 }

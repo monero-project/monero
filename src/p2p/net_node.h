@@ -80,13 +80,16 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
 
-    node_server(
-        t_payload_net_handler& payload_handler
-      )
-      : m_payload_handler(payload_handler)
-      , m_allow_local_ip(false)
-      , m_hide_my_port(false)
-    {}
+    node_server(t_payload_net_handler& payload_handler)
+		:m_payload_handler(payload_handler),
+		m_allow_local_ip(false),
+		m_no_igd(false),
+		m_hide_my_port(false)
+    {
+		m_current_number_of_out_peers = 0;
+		m_save_graph = false;
+		is_closing = false;
+	}
 
     static void init_options(boost::program_options::options_description& desc);
 
@@ -233,12 +236,12 @@ namespace nodetool
 	public:
     config m_config; // TODO was private, add getters?
     std::atomic<unsigned int> m_current_number_of_out_peers;
+
 	void set_save_graph(bool save_graph)
 	{
 		m_save_graph = save_graph;
 		epee::net_utils::connection_basic::set_save_graph(save_graph);
 	}
-
 	private:
     std::string m_config_folder;
 

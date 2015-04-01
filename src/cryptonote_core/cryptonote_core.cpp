@@ -145,6 +145,11 @@ namespace cryptonote
 
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, daemon_args::arg_dns_checkpoints));
+    test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
+    
+    if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
+		test_drop_download();
+    
     return true;
   }
   //-----------------------------------------------------------------------------------------------

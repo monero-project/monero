@@ -13,6 +13,10 @@
 	#include <unistd.h>
 #endif
 
+#if defined(_WIN32)
+    #include"windows_stream.h"
+#endif
+
 #ifndef CFG_WITH_TERMCOLORS
 	//#error "You requested to turn off terminal colors (CFG_WITH_TERMCOLORS), however currently they are hardcoded (this option to turn them off is not yet implemented)."
 #endif
@@ -20,6 +24,16 @@
 ///Macros related to automatic deduction of class name etc; 
 #define MAKE_CLASS_NAME(NAME) private: static std::string GetObjectName() { return #NAME; }
 #define MAKE_STRUCT_NAME(NAME) private: static std::string GetObjectName() { return #NAME; } public:
+
+// define this to debug the debug system itself:
+// #define opt_debug_debug
+
+#ifdef opt_debug_debug
+	#define _dbg_dbg(X) do { std::cerr<<"_dbg_dbg: " << OT_CODE_STAMP << " {thread=" << std::this_thread::get_id()<<"} " \
+	<< " {pid="<<getpid()<<"} " <<  ": " << X << std::endl; } while(0)
+#else
+	#define _dbg_dbg(X) do { } while(0)
+#endif
 
 namespace nOT {
 
@@ -74,6 +88,7 @@ std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton o
 // detect stream e.g. operator<< error
 
 #define _debug_level(LEVEL,VAR) do { if (_dbg_ignore< LEVEL) { \
+	_dbg_dbg("WRITE DEBUG: LEVEL="<<LEVEL<<" VAR: " << VAR ); \
 	auto level=LEVEL; short int part=0; \
 	try { \
 		std::lock_guard<std::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
@@ -93,6 +108,7 @@ std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton o
 
 // info for code below: oss object is normal stack variable, using it does not need lock protection
 #define _debug_level_c(CHANNEL,LEVEL,VAR) do { if (_dbg_ignore< LEVEL) { \
+	_dbg_dbg("WRITE DEBUG: LEVEL="<<LEVEL<<" CHANNEL="<<CHANNEL<<" VAR: " << VAR ); \
 	auto level=LEVEL; short int part=0; \
 	try { \
 		std::lock_guard<std::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
@@ -102,9 +118,11 @@ std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton o
 			std::ostringstream oss; \
 			oss << nOT::nUtils::get_current_time() << ' ' << OT_CODE_STAMP << ' ' << VAR << gCurrentLogger.endline() << std::flush; \
 			std::string as_string = oss.str(); \
+			_dbg_dbg("START will write to log LEVEL="<<LEVEL<<" to CHANNEL="<<CHANNEL<<" as_string="<<as_string); \
 /* int counter = nOT::nUtils::gLoggerGuardDepth_Get();  if (counter!=1) gCurrentLogger.write_stream(100,"")<<"DEBUG-ERROR: recursion, counter="<<counter<<gCurrentLogger.endline(); */ \
 			gCurrentLogger.write_stream(LEVEL,""     ) << as_string << gCurrentLogger.endline() << std::flush; \
 			gCurrentLogger.write_stream(LEVEL,CHANNEL) << as_string << gCurrentLogger.endline() << std::flush; \
+			_dbg_dbg("DONE will write to log LEVEL="<<LEVEL<<" to CHANNEL="<<CHANNEL<<" as_string="<<as_string); \
 			part=9; \
 		} catch(...) { \
 			gCurrentLogger.write_stream(std::max(level,90),CHANNEL) << nOT::nUtils::get_current_time() << ' ' << OT_CODE_STAMP << ' ' << "(ERROR IN DEBUG)" << gCurrentLogger.endline(); \
@@ -182,6 +200,10 @@ const char* DbgShortenCodeFileName(const char *s); ///< Returns a pointer to som
 
 // ========== logger ==========
 
+namespace nDetail {
+	struct channel_use_info;
+} // namespace nDetail
+
 /*** 
 @brief Class to write debug into. Used it by calling the debug macros _dbg1(...) _info(...) _erro(...) etc, NOT directly!
 @author rfree (maintainer) 
@@ -202,6 +224,8 @@ class cLogger {
 		std::string endline() const; ///< returns string to be written at end of message
 
 	protected:
+		typedef long int t_anypid; // a portable representation of PID. long int should cover all platforms
+
 		void SetStreamBroken(); ///< call in case of internal error in logger (e.g. can not open a file)
 		void SetStreamBroken(const std::string &msg); ///< same but with error message
 
@@ -219,9 +243,13 @@ class cLogger {
 		void OpenNewChannel_(const std::string & channel);  ///< internal function, will throw in case of problems
 		std::string GetLogBaseDir() const;
 
-		std::map< std::thread::id , int > mThread2Number; // change long thread IDs into a short nice number to show
-		int mThread2Number_Biggest; // current biggest value held there (biggest key) - works as growing-only counter basically
-		int Thread2Number(const std::thread::id id); // convert the system's thread id into a nice short our id; make one if new thread
+		std::map< std::thread::id , int > mThread2Number; ///<  change long thread IDs into a short nice number to show
+		int mThread2Number_Biggest; ///<  current biggest value held there (biggest key) - works as growing-only counter basically
+		int Thread2Number(const std::thread::id id); ///<  convert the system's thread id into a nice short our id; make one if new thread
+
+		std::map< t_anypid , int > mPid2Number; ///<  change long proces PID into a short nice number to show
+		int mPid2Number_Biggest; ///<  current biggest value held there (biggest key) - works as growing-only counter basically
+		int Pid2Number(const t_anypid id); ///<  convert the system's PID id into a nice short our id; make one if new thread
 };
 
 

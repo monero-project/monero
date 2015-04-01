@@ -40,6 +40,7 @@
 	#error "Compiler/OS platform detection failed - not supported"
 #endif
 
+
 namespace nOT {
 namespace nUtils {
 
@@ -246,6 +247,13 @@ bool cFilesystemUtils::CreateDirTree(const std::string & dir, bool only_below) {
 
 namespace nDetail {
 
+struct channel_use_info { ///< feedback information about using (e.g. opening) given debug channel - used internally by logging system 
+/// TODO not yet used in code
+/// e.g. used to write into channel net/in/all that given message was a first logged message from never-before-logged thread or PID etc
+	bool m_was_interesting; ///< anything interesting happened when using the channel?
+	std::vector<std::string> m_extra_msg; ///< any additional messages about this channel use
+};	
+
 cDebugScopeGuard::cDebugScopeGuard() : mLevel(-1) {
 }
 	
@@ -269,13 +277,18 @@ cLogger::cLogger() :
 mStream(NULL),
 mStreamBrokenDebug(NULL),
 mIsBroken(true), // before constructor finishes
-mLevel(85),
-mThread2Number_Biggest(0) // the CURRENT biggest value (no thread yet in map)
+mLevel(70),
+mThread2Number_Biggest(0), // the CURRENT biggest value (no thread yet in map)
+mPid2Number_Biggest(0)
 {
 	mStream = & std::cout;
-	mStreamBrokenDebug = & std::cerr;
-	Thread2Number( std::this_thread::get_id() ); // convert current id to short number, useful to reserve a number so that main thread is usually called 1
+	mStreamBrokenDebug = & std::cerr; // the backup stream
+	*mStreamBrokenDebug << "Creating the logger system" << endl;
 	mIsBroken=false; // ok, constr. succeeded, so string is not broken now
+
+	// this is here, because it could be using logging itself to log creation of first thread/PID etc
+	Thread2Number( std::this_thread::get_id() ); // convert current id to short number, useful to reserve a number so that main thread is usually called 1
+	Pid2Number( getpid() ); // add this proces ID as first one
 }
 
 cLogger::~cLogger() {
@@ -291,7 +304,9 @@ void cLogger::SetStreamBroken() {
 }
 
 void cLogger::SetStreamBroken(const std::string &msg) {
+	_dbg_dbg("Stream is broken (msg: " << msg << ")");
 	if (!mIsBroken) { // if not already marked as broken
+		_dbg_dbg("(It was not broken before)");
 		std::cerr << OT_CODE_STAMP << "WARNING: due to debug stream problem ("<<msg<<") - switching back to fallback stream (e.g. cerr)" << std::endl;
 		if (mStreamBrokenDebug == nullptr) {
 			std::cerr << OT_CODE_STAMP << " ERROR: in addition, while reporting this problem, mStreamBrokenDebug stream is NULL." << std::endl;
@@ -307,13 +322,24 @@ std::ostream & cLogger::write_stream(int level) {
 }
 
 std::ostream & cLogger::write_stream(int level, const std::string & channel ) {
-	if ((level >= mLevel) && (mStream)) { // TODO now disabling mStream also disables writting to any channel
-		ostream & output = SelectOutput(level,channel);
-		output << icon(level) << ' ';
-		std::thread::id this_id = std::this_thread::get_id();
-		output << "{" << Thread2Number(this_id) << "} ";
-		return output;
-	}
+	_dbg_dbg("level="<<level<<" channel="<<channel);
+	if (level >= mLevel) {
+		if (mStream) { // TODO now disabling mStream also disables writting to any channel
+			_dbg_dbg("Selecting output...");
+			ostream & output = SelectOutput(level,channel);
+			_dbg_dbg("Selecting output... done, output=" << (void*)(&output));
+			#if defined(OS_TYPE_WINDOWS)
+			output << windows_stream(level);
+			#endif
+			output << icon(level) << ' ';
+			std::thread::id this_id = std::this_thread::get_id();
+			output << "{" << Thread2Number(this_id) << "}";
+			auto nicePid = Pid2Number(getpid());
+			if (nicePid>0) output << " {p" << nicePid << "}";
+			output << ' ';
+			return output; // <--- return
+		} else _dbg_dbg("Not writting: No mStream");
+	} else _dbg_dbg("Not writting: Too low level level="<<level<<" not >= mLevel="<<mLevel);
 	return g_nullstream;
 }
 
@@ -323,7 +349,7 @@ std::string cLogger::GetLogBaseDir() const {
 
 void cLogger::OpenNewChannel(const std::string & channel) noexcept {
 	try {
-		std::cerr<<"openning channel for channel="<<channel<<endl;
+		_dbg_dbg("Openning channel for channel="<<channel);
 		OpenNewChannel_(channel);
 	}
 	catch (const std::exception &except) {
@@ -335,6 +361,7 @@ void cLogger::OpenNewChannel(const std::string & channel) noexcept {
 }
 
 void cLogger::OpenNewChannel_(const std::string & channel) { // channel=="net/sleep"
+	_dbg_dbg("Openning channel for channel="<<channel);
 	size_t last_split = channel.find_last_of(cFilesystemUtils::GetDirSeparatorInter());
 
 	string fname_system; // the full file name in system format
@@ -356,19 +383,28 @@ void cLogger::OpenNewChannel_(const std::string & channel) { // channel=="net/sl
 		if (!dirok) { string err = "In logger failed to open directory (" + dir +") for channel (" + channel +")"; throw std::runtime_error(err); }
 	}
 
+	_dbg_dbg("Openning fname_system="<<fname_system);
 	std::ofstream * thefile = new std::ofstream( fname_system.c_str() ); // file system
 	*thefile << "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" << endl;
     	cerr << "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" << endl;
+  	_dbg_dbg( "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" );
 	mChannels.insert( std::pair<string,std::ofstream*>(channel , thefile ) ); // <- created the channel mapping
 }
 
 std::ostream & cLogger::SelectOutput(int level, const std::string & channel) noexcept {
 	try {
-		if (mIsBroken) return *mStreamBrokenDebug;
-		if (channel=="") return *mStream;
+		if (mIsBroken) { 
+			_dbg_dbg("The stream is broken mIsBroken="<<mIsBroken<<" so will return backup stream");
+			return *mStreamBrokenDebug;
+		}
+		if (channel=="") { 
+			_dbg_dbg("No channel given (channel="<<channel<<") so will return main stream");
+			return *mStream;
+		}
 
 		auto obj = mChannels.find(channel);
 		if (obj == mChannels.end()) { // not found - need to make new channel
+			_dbg_dbg("No stream openened for channel="<<channel<<" so will create it now");
 			OpenNewChannel(channel); // <- create channel
 			obj = mChannels.find(channel); // find again
 			if (obj == mChannels.end()) { // still not found! something is wrong
@@ -377,15 +413,18 @@ std::ostream & cLogger::SelectOutput(int level, const std::string & channel) noe
 			}
 		}
 		auto the_stream_ptr = obj->second;
+		_dbg_dbg("Found the stream file for channel="<<channel<<" as the_stream_ptr="<<the_stream_ptr);
 		ASRT(the_stream_ptr);
 		return *the_stream_ptr; // <--- RETURN
 	} 
 	catch (std::exception &except) { 
 		SetStreamBroken( OT_CODE_STAMP + " Got exception: " + ToStr(except.what()) );
+		_dbg_dbg("Exception! Returning broken stream");
 		return *mStreamBrokenDebug;
 	}
 	catch (...) {
 		SetStreamBroken( OT_CODE_STAMP + " Got not-standard exception.");
+		_dbg_dbg("Exception! Returning broken stream");
 		return *mStreamBrokenDebug;
 	}
 
@@ -428,22 +467,38 @@ std::string cLogger::icon(int level) const {
 	// TODO replan to avoid needles converting back and forth char*, string etc
 
 	using namespace zkr;
-
-	if (level >= 100) return cc::back::red     + ToStr(cc::fore::black) + ToStr("ERROR ") + ToStr(cc::fore::lightyellow) + " " ;
+    #if defined(OS_TYPE_POSIX)
+	if (level >= 100) return cc::back::lightred     + ToStr(cc::fore::lightyellow) + ToStr("ERROR ") + ToStr(cc::fore::lightyellow) + " " ;
 	if (level >=  90) return cc::back::lightyellow  + ToStr(cc::fore::black) + ToStr("Warn  ") + ToStr(cc::fore::red)+ " " ;
 	if (level >=  80) return cc::back::lightmagenta + ToStr(cc::fore::black) + ToStr("MARK  "); //+ zkr::cc::console + ToStr(cc::fore::lightmagenta)+ " ";
-	if (level >=  75) return cc::back::lightyellow + ToStr(cc::fore::black) + ToStr("FACT ") + zkr::cc::console + ToStr(cc::fore::lightyellow)+ " ";
+    if (level >=  75) return cc::back::lightyellow + ToStr(cc::fore::black) + ToStr("FACT  ") + zkr::cc::console + ToStr(cc::fore::lightyellow)+ " ";
 	if (level >=  70) return cc::fore::green    + ToStr("Note  ");
 	if (level >=  50) return cc::fore::cyan   + ToStr("info  ");
 	if (level >=  40) return cc::fore::lightwhite    + ToStr("dbg   ");
 	if (level >=  30) return cc::fore::lightblue   + ToStr("dbg   ");
 	if (level >=  20) return cc::fore::blue    + ToStr("dbg   ");
 
+    #elif defined(OS_TYPE_WINDOWS)
+    if (level >= 100) return ToStr("ERROR ");
+    if (level >=  90) return ToStr("Warn  ");
+    if (level >=  80) return ToStr("MARK  ");
+    if (level >=  75) return ToStr("FACT  ");
+    if (level >=  70) return ToStr("Note  ");
+    if (level >=  50) return ToStr("info  ");
+    if (level >=  40) return ToStr("dbg   ");
+    if (level >=  30) return ToStr("dbg   ");
+    if (level >=  20) return ToStr("dbg   ");
+    #endif
+
 	return "  ";
 }
 
 std::string cLogger::endline() const {
+	#if defined(OS_TYPE_POSIX)
 	return ToStr("") + zkr::cc::console + ToStr("\n"); // TODO replan to avoid needles converting back and forth char*, string etc
+    #elif defined(OS_TYPE_WINDOWS)
+    return ToStr("\n");
+    #endif
 }
 
 int cLogger::Thread2Number(const std::thread::id id) {
@@ -451,13 +506,24 @@ int cLogger::Thread2Number(const std::thread::id id) {
 	if (found == mThread2Number.end()) { // new one
 		mThread2Number_Biggest++;
 		mThread2Number[id] = mThread2Number_Biggest;
+		_mark_c("dbg/main", "This is a new thread (used in debug), thread id="<<id); // can cause some recursion
 		return mThread2Number_Biggest;
-	//	_info("(This is a new thread)"); // recursion!
 	} else {
 		return mThread2Number[id];
 	}
 }
 
+int cLogger::Pid2Number(const t_anypid id) {
+	auto found = mPid2Number.find( id );
+	if (found == mPid2Number.end()) { // new one
+		mPid2Number_Biggest++;
+		mPid2Number[id] = mPid2Number_Biggest;
+		_mark_c("dbg/main", "This is a new process (used in debug), process pid="<<id); // can cause some recursion
+		return mPid2Number_Biggest;
+	} else {
+		return mPid2Number[id];
+	}
+}
 
 // ====================================================================
 // object gCurrentLogger is defined later - in global namespace below

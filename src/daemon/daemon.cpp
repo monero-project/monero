@@ -1,5 +1,5 @@
-// Copyright (c) 2014, The Monero Project
-//
+// Copyright (c) 2014-2015, The Monero Project
+// 
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -38,9 +38,15 @@
 #include "daemon/command_server.h"
 #include "misc_log_ex.h"
 #include "version.h"
+#include "../../contrib/epee/include/syncobj.h"
+
+using namespace epee;
+
 #include <boost/program_options.hpp>
 #include <functional>
 #include <memory>
+
+unsigned int epee::g_test_dbg_lock_sleep = 0;
 
 namespace daemonize {
 

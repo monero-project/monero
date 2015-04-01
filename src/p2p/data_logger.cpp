@@ -43,6 +43,7 @@ namespace net_utils
 		mFilesMap["sleep_up"] = data_logger::fileData("log/dr-monero/up_sleep_log.data");
 		mFilesMap["calc_time"] = data_logger::fileData("log/dr-monero/get_objects_calc_time.data");
 		mFilesMap["blockchain_processing_time"] = data_logger::fileData("log/dr-monero/blockchain_log.data");
+		mFilesMap["block_processing"] = data_logger::fileData("log/dr-monero/block_proc.data");
 		
 		mFilesMap["peers_limit"] = data_logger::fileData("log/dr-monero/peers_limit.info");
 		mFilesMap["download_limit"] = data_logger::fileData("log/dr-monero/limit_down.info");
@@ -109,6 +110,15 @@ namespace net_utils
 			mFilesMap[filename].mDataToSave += data; // this holds a number that should be sum of all accumulated samples
 		}
 	}
+	
+	bool data_logger::is_dying() {
+		if (m_state == data_logger_state::state_dying) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
 
 	void data_logger::saveToFile() {
 		_dbg2_c("dbg/data","saving to files");
@@ -125,10 +135,13 @@ namespace net_utils
 	// the inner class:
 	
 	double data_logger::fileData::get_current_time() {
-		using namespace boost::chrono;
-		auto point = steady_clock::now();
+		#if defined(__APPLE__)
+		auto point = std::chrono::system_clock::now();
+		#else
+		auto point = std::chrono::steady_clock::now();
+		#endif
 		auto time_from_epoh = point.time_since_epoch();
-		auto ms = duration_cast< milliseconds >( time_from_epoh ).count();
+		auto ms = std::chrono::duration_cast< std::chrono::milliseconds >( time_from_epoh ).count();
 		double ms_f = ms;
 		return ms_f / 1000.;
 	}

@@ -690,7 +690,6 @@ void async_protocol_handler_config<t_connection_context>::del_out_connections(si
 	{
 		close(*out_connections.begin());
 		del_connection(m_connects.at(*out_connections.begin()));
-		out_connections.erase(out_connections.begin());
 		--count;
 	}
 	

@@ -168,7 +168,24 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   ub_ctx_resolvconf(m_data->m_ub_context, &empty_string);
   ub_ctx_hosts(m_data->m_ub_context, &empty_string);
 
-  ub_ctx_add_ta(m_data->m_ub_context, ::get_builtin_ds());
+	#ifdef DEVELOPER_LIBUNBOUND_OLD
+		#warning "Using the work around for old libunbound"
+		{ // work around for bug https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=515 needed for it to compile on e.g. Debian 7
+			char * ds_copy = NULL; // this will be the writable copy of string that bugged version of libunbound requires
+			try {
+				char * ds_copy = strdup( ::get_builtin_ds() );
+				ub_ctx_add_ta(m_data->m_ub_context, ds_copy);
+			} catch(...) { // probably not needed but to work correctly in every case...
+				if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
+				throw ;
+			}
+			if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
+		}
+	#else
+		// normal version for fixed libunbound
+		ub_ctx_add_ta(m_data->m_ub_context, ::get_builtin_ds() );
+	#endif
+
 }
 
 DNSResolver::~DNSResolver()

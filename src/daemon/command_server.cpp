@@ -150,14 +150,34 @@ t_command_server::t_command_server(
     , "limit <kB/s> - Set download and upload limit"
     );
   m_command_lookup.set_handler(
-      "limit-up"
+      "limit_up"
     , std::bind(&t_command_parser_executor::set_limit_up, &m_parser, p::_1)
     , "limit <kB/s> - Set upload limit"
     );
   m_command_lookup.set_handler(
-      "limit-down"
+      "limit_down"
     , std::bind(&t_command_parser_executor::set_limit_down, &m_parser, p::_1)
     , "limit <kB/s> - Set download limit"
+    );
+    m_command_lookup.set_handler(
+      "fast_exit"
+    , std::bind(&t_command_parser_executor::fast_exit, &m_parser, p::_1)
+    , "Exit"
+    );
+    m_command_lookup.set_handler(
+      "out_peers"
+    , std::bind(&t_command_parser_executor::out_peers, &m_parser, p::_1)
+    , "Set max limit of out peers"
+    );
+    m_command_lookup.set_handler(
+      "start_save_graph"
+    , std::bind(&t_command_parser_executor::start_save_graph, &m_parser, p::_1)
+    , "Start save data for dr monero"
+    );
+    m_command_lookup.set_handler(
+      "stop_save_graph"
+    , std::bind(&t_command_parser_executor::stop_save_graph, &m_parser, p::_1)
+    , "Stop save data for dr monero"
     );
 }
 

@@ -210,6 +210,42 @@ namespace cryptonote
 
       cnx.live_time = timestamp - cntxt.m_started;
       
+      uint32_t ip;
+	  ip = ntohl(cntxt.m_remote_ip);
+	  if (ip == LOCALHOST_INT)
+	  {
+		cnx.localhost = true;
+	  }
+	  else
+	  {
+		cnx.localhost = false;
+	  }	  
+      
+      if (ip > 3232235520 && ip < 3232301055) // 192.168.x.x
+      {
+		cnx.local_ip = true;
+	  }
+	  else
+	  {
+		cnx.local_ip = false;
+	  }
+	  
+	  auto connection_time = time(NULL) - cntxt.m_started;
+	  if (connection_time == 0)
+	  {
+		  cnx.avg_download = 0;
+		  cnx.avg_upload = 0;
+	  }
+	  
+	  else
+	  {
+		  cnx.avg_download = cntxt.m_recv_cnt / connection_time / 1024;
+		  cnx.avg_upload = cntxt.m_send_cnt / connection_time / 1024;
+	  }
+
+	  cnx.current_download = cntxt.m_current_speed_down / 1024;
+	  cnx.current_upload = cntxt.m_current_speed_up / 1024;
+	  
       connections.push_back(cnx);
 
       return true;
@@ -543,6 +579,7 @@ namespace cryptonote
 				LOG_PRINT_CCONTEXT_L2("Block process time: " << block_process_time + transactions_process_time << "(" << transactions_process_time << "/" << block_process_time << ")ms");
 				
 				epee::net_utils::data_logger::get_instance().add_data("calc_time", block_process_time + transactions_process_time);
+				epee::net_utils::data_logger::get_instance().add_data("block_processing", 1);
 								
 		  } // each download block
 
