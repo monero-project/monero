@@ -1,0 +1,71 @@
+
+[F] - fixes a bug from existing official version
+[B] - important bug discovered in official version
+[T] - testes
+[n] - not used now (only in history), replaced or not accepted to master
+
+- adding support for user-local installed compiler (e.g. non-root users on older systems to use new compiler)
+instructions to use monero on Debian 7 (build clang + deps)
+- [n] faster build: cmake with fast build, and with cotire (precompiled headers), and limited targets
+- fixed cmake local compiler e.g. BOOST_IGNORE_SYSTEM_PATHS after merges with the other new CMake
+
+- faster rebuild: separate out not-template base for main network classes: connection_basic.cpp class connection_basic
+- faster rebuild: separate out hooks: connection_basic::do_send_handler_write() do_send_handler_write_from_queue()
+- created library/cmake for the new no-templates-only networking code - libp2p
+
+- added command exit without DB save (only for testers)
+- added option --no-igd to not wait for IGD on start (faster testing)
+
+- imported logging/debug tools from otshell, with macros like _note() _info() _warn()
+- logging: added proper thread locking; showing thread number {1} in the output
+- logging: fixed colors for normal windows text console (currently they do not work in msys windows text console)
+- logging: added channels to have separate files created
+
+- created network throttle class + throttle manager 
+- cmdline options for network throttle class (limit-rate-up limit-rate-down limit-rate)
+- option and command to in fact limit (outgoing) peers --out-peers out_peers
+- rpc commands for network throttle class (limit limit_up limit_down)
+- setting ToS socket flag with option --tos-flag 
+
+- connection type support, so that RPC connection is excluded from network limits
+
+- gather and save throughput statistics (speed vs limit) into data file
+- statistics of details to tune implementation: sleep in network threads, number of peers
+- optimized statistics: accumulate sum and limit disk writes
+
+- dr. monero show the collected statistics (in real time)
+- dr. monero many windows opened at once from predefined list
+- dr. monero auto scale; selectable average window
+- dr. monero colors, show both samples and average values (transparent)
+- dr. monero showing current configured network limit (goal)
+- dr. monero show date/git commit/comments for better info in screenshots
+- dr. monero optimize speed and memory usage to handle files from long tests
+
+- [F] found few UBs in code like wrong initialization order
+- [B] found and partial debugged deadlocks on existing program (faster testing)
+
+- [B] found locking problem with connection close race
+
+- debug option --test-drop-download to test no-DB version without running out of RAM
+- also option --test-drop-download-heigh to start drop only after certain height
+
+- created new from-scratch clean network engine model (a new program/library)
+- connected the logging, the network throttles and all code to network model
+- [T] run experiments in fully controlled and very fast environment
+
+- fine tuned parameters of throttles (sleep, 3 window sizes)
+- code to estimated current network-transfer size of block based get_avg_block_size()
+- [T] tested sleep vs request-size limiting of downloads (request less or more then 200 blocks) 
+- for now we use sleep method
+
+- documented throttle classes and few other classes
+- adjusted comment headers, copyrights, added the @monero tag to doxygen denoting monero maintainer/contact for not-monero code
+- doxygen scripts fixed, tested and generated actual website
+
+- [n] rebased most of above when change to branch development was decided
+- [n] again rebase when we returned to developing against branch master
+- finall version was tested by developer on Windows 64-bit, Debian, Ubuntu
+- fixed clock compilation problems for freebsd and mac os x; Fixed related problem again on mac os x.
+
+
+
