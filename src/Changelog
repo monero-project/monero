@@ -18,12 +18,15 @@ instructions to use monero on Debian 7 (build clang + deps)
 
 - imported logging/debug tools from otshell, with macros like _note() _info() _warn()
 - logging: added proper thread locking; showing thread number {1} in the output
+- logging: also showing process number (PID) in short form (1,2,3,...) to debug forking daemon etc
 - logging: fixed colors for normal windows text console (currently they do not work in msys windows text console)
 - logging: added channels to have separate files created
+- logging: option (compile-time) to debug the logging system itself
+- logging: console colors work on windows/msys
 
 - created network throttle class + throttle manager 
 - cmdline options for network throttle class (limit-rate-up limit-rate-down limit-rate)
-- option and command to in fact limit (outgoing) peers --out-peers out_peers
+- option and command to in fact limit (outgoing) peers --out-peers out_peers [currently not working! after merge] [TODO]
 - rpc commands for network throttle class (limit limit_up limit_down)
 - setting ToS socket flag with option --tos-flag 
 
@@ -33,6 +36,7 @@ instructions to use monero on Debian 7 (build clang + deps)
 - statistics of details to tune implementation: sleep in network threads, number of peers
 - optimized statistics: accumulate sum and limit disk writes
 
+(dr. monero code is not published in this commit, but prepared)
 - dr. monero show the collected statistics (in real time)
 - dr. monero many windows opened at once from predefined list
 - dr. monero auto scale; selectable average window
@@ -48,6 +52,8 @@ instructions to use monero on Debian 7 (build clang + deps)
 
 - debug option --test-drop-download to test no-DB version without running out of RAM
 - also option --test-drop-download-heigh to start drop only after certain height
+
+- added again fast exit command (but it does not work too well yet. ONLY FOR DEVELOPERS!)
 
 - created new from-scratch clean network engine model (a new program/library)
 - connected the logging, the network throttles and all code to network model
