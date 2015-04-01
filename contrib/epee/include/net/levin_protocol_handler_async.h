@@ -34,6 +34,9 @@
 #include "levin_base.h"
 #include "misc_language.h"
 
+#include <random>
+#include <chrono>
+
 
 namespace epee
 {
@@ -684,6 +687,7 @@ void async_protocol_handler_config<t_connection_context>::del_out_connections(si
 		return;
 
 	// close random out connections
+	// TODO or better just keep removing random elements (performance)
 	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	shuffle(out_connections.begin(), out_connections.end(), std::default_random_engine(seed));
 	while (count > 0 && out_connections.size() > 0)
