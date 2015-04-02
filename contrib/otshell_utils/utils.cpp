@@ -46,6 +46,21 @@ namespace nUtils {
 
 INJECT_OT_COMMON_USING_NAMESPACE_COMMON_1 // <=== namespaces
 
+// ====================================================================
+
+// Numerical values of the debug levels - see hpp
+const int _debug_level_nr_dbg3=20;
+const int _debug_level_nr_dbg2=30;
+const int _debug_level_nr_dbg1=40;
+const int _debug_level_nr_info=50;
+const int _debug_level_nr_note=60;
+const int _debug_level_nr_fact=75;
+const int _debug_level_nr_mark=80;
+const int _debug_level_nr_warn=90;
+const int _debug_level_nr_erro=100;
+
+// ====================================================================
+
 myexception::myexception(const char * what)
 	: std::runtime_error(what)
 { }
@@ -277,7 +292,7 @@ cLogger::cLogger() :
 mStream(NULL),
 mStreamBrokenDebug(NULL),
 mIsBroken(true), // before constructor finishes
-mLevel(70),
+mLevel(_debug_level_nr_warn),
 mThread2Number_Biggest(0), // the CURRENT biggest value (no thread yet in map)
 mPid2Number_Biggest(0)
 {

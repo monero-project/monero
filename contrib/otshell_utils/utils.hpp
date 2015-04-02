@@ -132,26 +132,36 @@ std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton o
 	} catch(...) { if (part<8) gCurrentLogger.write_stream(100,CHANNEL)<<"DEBUG-ERROR: problem in debug mechanism e.g. in locking." <<gCurrentLogger.endline();   throw ; } \
 	} } while(0)
 
-#define _dbg3(VAR) _debug_level( 20,VAR)
-#define _dbg2(VAR) _debug_level( 30,VAR)
-#define _dbg1(VAR) _debug_level( 40,VAR) // details
-#define _info(VAR) _debug_level( 50,VAR) // more boring info
-#define _note(VAR) _debug_level( 70,VAR) // info
-#define _fact(VAR) _debug_level( 75,VAR) // interesting event
-#define _mark(VAR) _debug_level( 80,VAR) // marked action
-#define _warn(VAR) _debug_level( 90,VAR) // some problem
-#define _erro(VAR) _debug_level(100,VAR) // error - report
+// Numerical values of the debug levels - are defined here as const ints. Full name (with namespace) given for clarity.
+extern const int _debug_level_nr_dbg3;
+extern const int _debug_level_nr_dbg2;
+extern const int _debug_level_nr_dbg1;
+extern const int _debug_level_nr_info;
+extern const int _debug_level_nr_note;
+extern const int _debug_level_nr_fact;
+extern const int _debug_level_nr_mark;
+extern const int _debug_level_nr_warn;
+extern const int _debug_level_nr_erro;
 
+#define _dbg3(VAR) _debug_level( nOT::nUtils::_debug_level_nr_dbg3,VAR) // details - most detailed
+#define _dbg2(VAR) _debug_level( nOT::nUtils::_debug_level_nr_dbg2,VAR) // details - a bit more important
+#define _dbg1(VAR) _debug_level( nOT::nUtils::_debug_level_nr_dbg1,VAR) // details - more important
+#define _info(VAR) _debug_level( nOT::nUtils::_debug_level_nr_info,VAR) // information
+#define _note(VAR) _debug_level( nOT::nUtils::_debug_level_nr_note,VAR) // more interesting information
+#define _fact(VAR) _debug_level( nOT::nUtils::_debug_level_nr_fact,VAR) // interesting events that could be interesting even for user, for logical/business things
+#define _mark(VAR) _debug_level( nOT::nUtils::_debug_level_nr_mark,VAR) // marked actions
+#define _warn(VAR) _debug_level( nOT::nUtils::_debug_level_nr_warn,VAR) // some problems
+#define _erro(VAR) _debug_level( nOT::nUtils::_debug_level_nr_erro,VAR) // errors
 
-#define _dbg3_c(C,VAR) _debug_level_c(C, 20,VAR)
-#define _dbg2_c(C,VAR) _debug_level_c(C, 30,VAR)
-#define _dbg1_c(C,VAR) _debug_level_c(C, 40,VAR) // details
-#define _info_c(C,VAR) _debug_level_c(C, 50,VAR) // more boring info
-#define _note_c(C,VAR) _debug_level_c(C, 70,VAR) // info
-#define _fact_c(C,VAR) _debug_level_c(C, 75,VAR) // interesting event
-#define _mark_c(C,VAR) _debug_level_c(C, 80,VAR) // marked action
-#define _warn_c(C,VAR) _debug_level_c(C, 90,VAR) // some problem
-#define _erro_c(C,VAR) _debug_level_c(C,100,VAR) // error - report
+#define _dbg3_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_dbg3, VAR) // details - most detailed
+#define _dbg2_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_dbg2, VAR) // details - a bit more important
+#define _dbg1_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_dbg1, VAR) // details - more important
+#define _info_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_info, VAR) // information
+#define _note_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_note, VAR) // more interesting information
+#define _fact_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_fact, VAR) // interesting events that could be interesting even for user, for logical/business things
+#define _mark_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_mark, VAR) // marked actions
+#define _warn_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_warn, VAR) // some problems
+#define _erro_c(C,VAR) _debug_level_c(C, nOT::nUtils::_debug_level_nr_erro, VAR) // errors
 
 // lock // because of VAR
 #define _scope_debug_level_c(CHANNEL,LEVEL,VAR) \
@@ -164,15 +174,15 @@ std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton o
 	nOT::nUtils::gLoggerGuard.unlock();
 #define _scope_debug_level(LEVEL,VAR) _scope_debug_level_c("",LEVEL,VAR)
 
-#define _scope_dbg1(VAR) _scope_debug_level( 20,VAR)
-#define _scope_dbg2(VAR) _scope_debug_level( 30,VAR)
-#define _scope_dbg3(VAR) _scope_debug_level( 40,VAR) // details
-#define _scope_info(VAR) _scope_debug_level( 50,VAR) // more boring info
-#define _scope_note(VAR) _scope_debug_level( 70,VAR) // info
-#define _scope_fact(VAR) _scope_debug_level( 75,VAR) // interesting event
-#define _scope_mark(VAR) _scope_debug_level( 80,VAR) // marked action
-#define _scope_warn(VAR) _scope_debug_level( 90,VAR) // some problem
-#define _scope_erro(VAR) _scope_debug_level( 100,VAR) // error - report
+#define _scope_dbg1(VAR) _scope_debug_level( _debug_level_nr_dbg3, VAR)
+#define _scope_dbg2(VAR) _scope_debug_level( _debug_level_nr_dbg2, VAR)
+#define _scope_dbg3(VAR) _scope_debug_level( _debug_level_nr_dbg1, VAR) 
+#define _scope_info(VAR) _scope_debug_level( _debug_level_nr_info, VAR) 
+#define _scope_note(VAR) _scope_debug_level( _debug_level_nr_note, VAR) 
+#define _scope_fact(VAR) _scope_debug_level( _debug_level_nr_fact, VAR) 
+#define _scope_mark(VAR) _scope_debug_level( _debug_level_nr_mark, VAR) 
+#define _scope_warn(VAR) _scope_debug_level( _debug_level_nr_warn, VAR) 
+#define _scope_erro(VAR) _scope_debug_level( _debug_level_nr_erro, VAR) 
 
 /***
 @brief do not use this namespace directly, it is implementation detail.
