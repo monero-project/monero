@@ -249,9 +249,10 @@ namespace nodetool
     if (testnet)
     {
       memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
-      append_net_address(m_seed_nodes, "107.152.187.202:28080");
       append_net_address(m_seed_nodes, "197.242.158.240:28080");
       append_net_address(m_seed_nodes, "107.152.130.98:28080");
+      append_net_address(m_seed_nodes, "5.9.25.103:28080");
+      append_net_address(m_seed_nodes, "5.9.55.70:28080");
     }
     else
     {
@@ -329,17 +330,29 @@ namespace nodetool
       if (!m_seed_nodes.size())
       {
         LOG_PRINT_L0("DNS seed node lookup either timed out or failed, falling back to defaults");
-        append_net_address(m_seed_nodes, "62.210.78.186:18080");
-        append_net_address(m_seed_nodes, "195.12.60.154:18080");
-        append_net_address(m_seed_nodes, "54.241.246.125:18080");
-        append_net_address(m_seed_nodes, "107.170.157.169:18080");
-        append_net_address(m_seed_nodes, "54.207.112.216:18080");
-        append_net_address(m_seed_nodes, "78.27.112.54:18080");
-        append_net_address(m_seed_nodes, "209.222.30.57:18080");
-        append_net_address(m_seed_nodes, "80.71.13.55:18080");
-        append_net_address(m_seed_nodes, "107.178.112.126:18080");
-        append_net_address(m_seed_nodes, "107.158.233.98:18080");
-        append_net_address(m_seed_nodes, "64.22.111.2:18080");
+        append_net_address(m_seed_nodes, "46.165.232.77:18080");
+        append_net_address(m_seed_nodes, "63.141.254.186:18080");
+        append_net_address(m_seed_nodes, ":18080");
+        append_net_address(m_seed_nodes, "119.81.118.164:18080");
+        append_net_address(m_seed_nodes, "60.191.33.112:18080");
+        append_net_address(m_seed_nodes, "198.74.231.92:18080");
+        append_net_address(m_seed_nodes, "5.9.55.70:18080");
+        append_net_address(m_seed_nodes, "119.81.118.165:18080");
+        append_net_address(m_seed_nodes, "202.112.0.100:18080");
+        append_net_address(m_seed_nodes, "84.106.163.174:18080");
+        append_net_address(m_seed_nodes, "178.206.94.87:18080");
+        append_net_address(m_seed_nodes, "119.81.118.163:18080");
+        append_net_address(m_seed_nodes, "95.37.217.253:18080");
+        append_net_address(m_seed_nodes, "161.67.132.39:18080");
+        append_net_address(m_seed_nodes, "119.81.48.114:18080");
+        append_net_address(m_seed_nodes, "119.81.118.166:18080");
+        append_net_address(m_seed_nodes, "93.120.240.209:18080");
+        append_net_address(m_seed_nodes, "46.183.145.69:18080");
+        append_net_address(m_seed_nodes, "108.170.123.66:18080");
+        append_net_address(m_seed_nodes, "5.9.83.204:18080");
+        append_net_address(m_seed_nodes, "104.130.19.193:18080");
+        append_net_address(m_seed_nodes, "119.81.48.115:18080");
+        append_net_address(m_seed_nodes, "80.71.13.36:18080");
       }
     }
 
