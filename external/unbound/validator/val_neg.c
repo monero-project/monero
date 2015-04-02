@@ -59,8 +59,8 @@
 #include "util/config_file.h"
 #include "services/cache/rrset.h"
 #include "services/cache/dns.h"
-#include "ldns/rrdef.h"
-#include "ldns/sbuffer.h"
+#include "sldns/rrdef.h"
+#include "sldns/sbuffer.h"
 
 int val_neg_data_compare(const void* a, const void* b)
 {

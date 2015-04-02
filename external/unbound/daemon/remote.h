@@ -89,6 +89,8 @@ struct daemon_remote {
 	struct worker* worker;
 	/** commpoints for accepting remote control connections */
 	struct listen_list* accept_list;
+	/* if certificates are used */
+	int use_cert;
 	/** number of active commpoints that are handling remote control */
 	int active;
 	/** max active commpoints */

@@ -95,6 +95,7 @@ extern struct config_parser_state* cfg_parser;
 %token VAR_PRIVATE_DOMAIN VAR_REMOTE_CONTROL VAR_CONTROL_ENABLE
 %token VAR_CONTROL_INTERFACE VAR_CONTROL_PORT VAR_SERVER_KEY_FILE
 %token VAR_SERVER_CERT_FILE VAR_CONTROL_KEY_FILE VAR_CONTROL_CERT_FILE
+%token VAR_CONTROL_USE_CERT
 %token VAR_EXTENDED_STATISTICS VAR_LOCAL_DATA_PTR VAR_JOSTLE_TIMEOUT
 %token VAR_STUB_PRIME VAR_UNWANTED_REPLY_THRESHOLD VAR_LOG_TIME_ASCII
 %token VAR_DOMAIN_INSECURE VAR_PYTHON VAR_PYTHON_SCRIPT VAR_VAL_SIG_SKEW_MIN
@@ -106,6 +107,7 @@ extern struct config_parser_state* cfg_parser;
 %token VAR_SSL_SERVICE_KEY VAR_SSL_SERVICE_PEM VAR_SSL_PORT VAR_FORWARD_FIRST
 %token VAR_STUB_FIRST VAR_MINIMAL_RESPONSES VAR_RRSET_ROUNDROBIN
 %token VAR_MAX_UDP_SIZE VAR_DELAY_CLOSE VAR_UNBLOCK_LAN_ZONES
+%token VAR_INFRA_CACHE_MIN_RTT
 %token VAR_DNS64_PREFIX VAR_DNS64_SYNTHALL
 %token VAR_DNSTAP VAR_DNSTAP_ENABLE VAR_DNSTAP_SOCKET_PATH
 %token VAR_DNSTAP_SEND_IDENTITY VAR_DNSTAP_SEND_VERSION
@@ -116,6 +118,7 @@ extern struct config_parser_state* cfg_parser;
 %token VAR_DNSTAP_LOG_CLIENT_RESPONSE_MESSAGES
 %token VAR_DNSTAP_LOG_FORWARDER_QUERY_MESSAGES
 %token VAR_DNSTAP_LOG_FORWARDER_RESPONSE_MESSAGES
+%token VAR_HARDEN_ALGO_DOWNGRADE VAR_IP_TRANSPARENT
 
 %%
 toplevelvars: /* empty */ | toplevelvars toplevelvar ;
@@ -174,7 +177,9 @@ content_server: server_num_threads | server_verbosity | server_port |
 	server_ssl_service_key | server_ssl_service_pem | server_ssl_port |
 	server_minimal_responses | server_rrset_roundrobin | server_max_udp_size |
 	server_so_reuseport | server_delay_close | server_unblock_lan_zones |
-	server_dns64_prefix | server_dns64_synthall
+	server_dns64_prefix | server_dns64_synthall |
+	server_infra_cache_min_rtt | server_harden_algo_downgrade |
+	server_ip_transparent
 	;
 stubstart: VAR_STUB_ZONE
 	{
@@ -617,6 +622,16 @@ server_so_reuseport: VAR_SO_REUSEPORT STRING_ARG
         free($2);
     }
     ;
+server_ip_transparent: VAR_IP_TRANSPARENT STRING_ARG
+    {
+        OUTYY(("P(server_ip_transparent:%s)\n", $2));
+        if(strcmp($2, "yes") != 0 && strcmp($2, "no") != 0)
+            yyerror("expected yes or no.");
+        else cfg_parser->cfg->ip_transparent =
+            (strcmp($2, "yes")==0);
+        free($2);
+    }
+    ;
 server_edns_buffer_size: VAR_EDNS_BUFFER_SIZE STRING_ARG
 	{
 		OUTYY(("P(server_edns_buffer_size:%s)\n", $2));
@@ -767,6 +782,15 @@ server_infra_cache_slabs: VAR_INFRA_CACHE_SLABS STRING_ARG
 		free($2);
 	}
 	;
+server_infra_cache_min_rtt: VAR_INFRA_CACHE_MIN_RTT STRING_ARG
+	{
+		OUTYY(("P(server_infra_cache_min_rtt:%s)\n", $2));
+		if(atoi($2) == 0 && strcmp($2, "0") != 0)
+			yyerror("number expected");
+		else cfg_parser->cfg->infra_cache_min_rtt = atoi($2);
+		free($2);
+	}
+	;
 server_target_fetch_policy: VAR_TARGET_FETCH_POLICY STRING_ARG
 	{
 		OUTYY(("P(server_target_fetch_policy:%s)\n", $2));
@@ -830,6 +854,16 @@ server_harden_referral_path: VAR_HARDEN_REFERRAL_PATH STRING_ARG
 		if(strcmp($2, "yes") != 0 && strcmp($2, "no") != 0)
 			yyerror("expected yes or no.");
 		else cfg_parser->cfg->harden_referral_path = 
+			(strcmp($2, "yes")==0);
+		free($2);
+	}
+	;
+server_harden_algo_downgrade: VAR_HARDEN_ALGO_DOWNGRADE STRING_ARG
+	{
+		OUTYY(("P(server_harden_algo_downgrade:%s)\n", $2));
+		if(strcmp($2, "yes") != 0 && strcmp($2, "no") != 0)
+			yyerror("expected yes or no.");
+		else cfg_parser->cfg->harden_algo_downgrade = 
 			(strcmp($2, "yes")==0);
 		free($2);
 	}
@@ -1104,10 +1138,11 @@ server_local_zone: VAR_LOCAL_ZONE STRING_ARG STRING_ARG
 		if(strcmp($3, "static")!=0 && strcmp($3, "deny")!=0 &&
 		   strcmp($3, "refuse")!=0 && strcmp($3, "redirect")!=0 &&
 		   strcmp($3, "transparent")!=0 && strcmp($3, "nodefault")!=0
-		   && strcmp($3, "typetransparent")!=0)
+		   && strcmp($3, "typetransparent")!=0 &&
+		   strcmp($3, "inform")!=0)
 			yyerror("local-zone type: expected static, deny, "
 				"refuse, redirect, transparent, "
-				"typetransparent or nodefault");
+				"typetransparent, inform or nodefault");
 		else if(strcmp($3, "nodefault")==0) {
 			if(!cfg_strlist_insert(&cfg_parser->cfg->
 				local_zones_nodefault, $2))
@@ -1270,7 +1305,7 @@ contents_rc: contents_rc content_rc
 	| ;
 content_rc: rc_control_enable | rc_control_interface | rc_control_port |
 	rc_server_key_file | rc_server_cert_file | rc_control_key_file |
-	rc_control_cert_file
+	rc_control_cert_file | rc_control_use_cert
 	;
 rc_control_enable: VAR_CONTROL_ENABLE STRING_ARG
 	{
@@ -1296,6 +1331,16 @@ rc_control_interface: VAR_CONTROL_INTERFACE STRING_ARG
 		OUTYY(("P(control_interface:%s)\n", $2));
 		if(!cfg_strlist_insert(&cfg_parser->cfg->control_ifs, $2))
 			yyerror("out of memory");
+	}
+	;
+rc_control_use_cert: VAR_CONTROL_USE_CERT STRING_ARG
+	{
+		OUTYY(("P(control_use_cert:%s)\n", $2));
+		if(strcmp($2, "yes") != 0 && strcmp($2, "no") != 0)
+			yyerror("expected yes or no.");
+		else cfg_parser->cfg->remote_control_use_cert =
+			(strcmp($2, "yes")==0);
+		free($2);
 	}
 	;
 rc_server_key_file: VAR_SERVER_KEY_FILE STRING_ARG

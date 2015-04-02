@@ -42,8 +42,8 @@
 #include "util/log.h"
 #include "testcode/unitmain.h"
 #include "util/data/dname.h"
-#include "ldns/sbuffer.h"
-#include "ldns/str2wire.h"
+#include "sldns/sbuffer.h"
+#include "sldns/str2wire.h"
 
 /** put dname into buffer */
 static sldns_buffer*

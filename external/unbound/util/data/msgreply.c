@@ -50,8 +50,8 @@
 #include "util/regional.h"
 #include "util/data/msgparse.h"
 #include "util/data/msgencode.h"
-#include "ldns/sbuffer.h"
-#include "ldns/wire2str.h"
+#include "sldns/sbuffer.h"
+#include "sldns/wire2str.h"
 
 /** MAX TTL default for messages and rrsets */
 time_t MAX_TTL = 3600 * 24 * 10; /* ten days */
@@ -87,6 +87,7 @@ construct_reply_info_base(struct regional* region, uint16_t flags, size_t qd,
 	/* rrset_count-1 because the first ref is part of the struct. */
 	size_t s = sizeof(struct reply_info) - sizeof(struct rrset_ref) +
 		sizeof(struct ub_packed_rrset_key*) * total;
+	if(total >= RR_COUNT_MAX) return NULL; /* sanity check on numRRS*/
 	if(region)
 		rep = (struct reply_info*)regional_alloc(region, s);
 	else	rep = (struct reply_info*)malloc(s + 
@@ -277,7 +278,11 @@ parse_create_rrset(sldns_buffer* pkt, struct rrset_parse* pset,
 	struct packed_rrset_data** data, struct regional* region)
 {
 	/* allocate */
-	size_t s = sizeof(struct packed_rrset_data) + 
+	size_t s;
+	if(pset->rr_count > RR_COUNT_MAX || pset->rrsig_count > RR_COUNT_MAX ||
+		pset->size > RR_COUNT_MAX)
+		return 0; /* protect against integer overflow */
+	s = sizeof(struct packed_rrset_data) + 
 		(pset->rr_count + pset->rrsig_count) * 
 		(sizeof(size_t)+sizeof(uint8_t*)+sizeof(time_t)) + 
 		pset->size;

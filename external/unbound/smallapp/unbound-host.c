@@ -60,8 +60,8 @@
 #define unbound_lite_wrapstr(s) s
 #endif
 #include "libunbound/unbound.h"
-#include "ldns/rrdef.h"
-#include "ldns/wire2str.h"
+#include "sldns/rrdef.h"
+#include "sldns/wire2str.h"
 #ifdef HAVE_NSS
 /* nss3 */
 #include "nss.h"

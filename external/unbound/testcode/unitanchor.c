@@ -43,8 +43,8 @@
 #include "util/data/dname.h"
 #include "testcode/unitmain.h"
 #include "validator/val_anchor.h"
-#include "ldns/sbuffer.h"
-#include "ldns/rrdef.h"
+#include "sldns/sbuffer.h"
+#include "sldns/rrdef.h"
 
 /** test empty set */
 static void

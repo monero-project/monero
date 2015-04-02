@@ -295,6 +295,13 @@ void val_fill_reply(struct reply_info* chase, struct reply_info* orig,
 	size_t cname_skip, uint8_t* name, size_t len, uint8_t* signer);
 
 /**
+ * Remove rrset with index from reply, from the authority section.
+ * @param rep: reply to remove it from.
+ * @param index: rrset to remove, must be in the authority section.
+ */
+void val_reply_remove_auth(struct reply_info* rep, size_t index);
+
+/**
  * Remove all unsigned or non-secure status rrsets from NS and AR sections.
  * So that unsigned data does not get let through to clients, when we have
  * found the data to be secure.

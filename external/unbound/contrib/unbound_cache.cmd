@@ -2,7 +2,7 @@
 rem --------------------------------------------------------------
 rem -- DNS cache save/load script
 rem --
-rem -- Version 1.0
+rem -- Version 1.2
 rem -- By Yuri Voinov (c) 2014
 rem --------------------------------------------------------------
 
@@ -19,47 +19,87 @@ exit 1
 
 :start
 
-set arg=%1
+rem arg1 - command (optional)
+rem arg2 - file name (optional)
+set arg1=%1
+set arg2=%2
 
-if /I "%arg%" == "-h" goto help
+if /I "%arg1%" == "-h" goto help
 
-if "%arg%" == "" (
+if "%arg1%" == "" (
 echo Loading cache from %program_path%\%fname%
+dir /a %program_path%\%fname%
 type %program_path%\%fname%|%uc% load_cache
 goto end
 )
 
-if /I "%arg%" == "-s" (
+if defined %arg2% (goto Not_Defined) else (goto Defined)
+
+rem If file not specified; use default dump file
+:Not_defined
+if /I "%arg1%" == "-s" (
 echo Saving cache to %program_path%\%fname%
 %uc% dump_cache>%program_path%\%fname%
+dir /a %program_path%\%fname%
 echo ok
 goto end
 )
 
-if /I "%arg%" == "-l" (
+if /I "%arg1%" == "-l" (
+echo Loading cache from %program_path%\%fname%
+dir /a %program_path%\%fname%
+type %program_path%\%fname%|%uc% load_cache
+goto end
+)
+
+if /I "%arg1%" == "-r" (
+echo Saving cache to %program_path%\%fname%
+dir /a %program_path%\%fname%
+%uc% dump_cache>%program_path%\%fname%
+echo ok
 echo Loading cache from %program_path%\%fname%
 type %program_path%\%fname%|%uc% load_cache
 goto end
 )
 
-if /I "%arg%" == "-r" (
-echo Saving cache to %program_path%\%fname%
-%uc% dump_cache>%program_path%\%fname%
+rem If file name specified; use this filename
+:Defined
+if /I "%arg1%" == "-s" (
+echo Saving cache to %arg2%
+%uc% dump_cache>%arg2%
+dir /a %arg2%
 echo ok
-echo Loading cache from %program_path%\%fname%
-type %program_path%\%fname%|%uc% load_cache
+goto end
+)
+
+if /I "%arg1%" == "-l" (
+echo Loading cache from %arg2%
+dir /a %arg2%
+type %arg2%|%uc% load_cache
+goto end
+)
+
+if /I "%arg1%" == "-r" (
+echo Saving cache to %arg2%
+dir /a %arg2%
+%uc% dump_cache>%arg2%
+echo ok
+echo Loading cache from %arg2%
+type %arg2%|%uc% load_cache
 goto end
 )
 
 :help
-echo Usage: unbound_cache.cmd [-s] or [-l] or [-r] or [-h]
+echo Usage: unbound_cache.cmd [-s] or [-l] or [-r] or [-h] [filename]
 echo.
 echo l - Load - default mode. Warming up Unbound DNS cache from saved file. cache-ttl must be high value.
 echo s - Save - save Unbound DNS cache contents to plain file with domain names.
 echo r - Reload - reloadind new cache entries and refresh existing cache
 echo h - this screen.
+echo filename - file to save/load dumped cache. If not specified, %program_path%\%fname% will be used instead.
 echo Note: Run without any arguments will be in default mode.
 echo       Also, unbound-control must be configured.
 exit 1
 
 :end
+exit 0

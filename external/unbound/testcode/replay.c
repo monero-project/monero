@@ -50,7 +50,7 @@
 #include "testcode/replay.h"
 #include "testcode/testpkts.h"
 #include "testcode/fake_event.h"
-#include "ldns/str2wire.h"
+#include "sldns/str2wire.h"
 
 /** max length of lines in file */
 #define MAX_LINE_LEN 10240

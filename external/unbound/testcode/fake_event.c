@@ -60,9 +60,9 @@
 #include "testcode/testpkts.h"
 #include "util/log.h"
 #include "util/fptr_wlist.h"
-#include "ldns/sbuffer.h"
-#include "ldns/wire2str.h"
-#include "ldns/str2wire.h"
+#include "sldns/sbuffer.h"
+#include "sldns/wire2str.h"
+#include "sldns/str2wire.h"
 #include <signal.h>
 struct worker;
 struct daemon_remote;

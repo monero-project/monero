@@ -61,8 +61,8 @@
 #include "nss.h"
 #endif
 
-#include "ldns/rrdef.h"
-#include "ldns/keyraw.h"
+#include "sldns/rrdef.h"
+#include "sldns/keyraw.h"
 #include "util/log.h"
 #include "testcode/unitmain.h"
 

@@ -1,3 +1,173 @@
+26 March 2015: Wouter
+	- remote.c probedelay line is easier to read.
+	- rename ldns subdirectory to sldns to avoid name collision.
+
+25 March 2015: Wouter
+	- Fix #657:  libunbound(3) recommends deprecated
+	  CRYPTO_set_id_callback.
+	- If unknown trust anchor algorithm, and libressl is used, error
+	  message encourages upgrade of the libressl package.
+
+23 March 2015: Wouter
+	- Fix segfault on user not found at startup (from Maciej Soltysiak).
+
+20 March 2015: Wouter
+	- Fixed to add integer overflow checks on allocation (defense in depth).
+
+19 March 2015: Wouter
+	- Add ip-transparent config option for bind to non-local addresses.
+
+17 March 2015: Wouter
+	- Use reallocarray for integer overflow protection, patch submitted
+	  by Loganaden Velvindron.
+
+16 March 2015: Wouter
+	- Fixup compile on cygwin, more portable openssl thread id.
+
+12 March 2015: Wouter
+	- Updated default keylength in unbound-control-setup to 3k.
+
+10 March 2015: Wouter
+	- Fix lintian warning in unbound-checkconf man page (from Andreas
+	  Schulze).
+	- print svnroot when building windows dist.
+	- iana portlist update.
+	- Fix warning on sign compare in getentropy_linux.
+
+9 March 2015: Wouter
+	- Fix #644: harden-algo-downgrade option, if turned off, fixes the
+	  reported excessive validation failure when multiple algorithms
+	  are present.  It allows the weakest algorithm to validate the zone.
+	- iana portlist update.
+
+5 March 2015: Wouter
+	- contrib/unbound_smf22.tar.gz: Solaris SMF installation/removal
+	  scripts.  Contributed by Yuri Voinov.
+	- Document that incoming-num-tcp increase is good for large servers.
+	- stats reports tcp usage, of incoming-num-tcp buffers.
+
+4 March 2015: Wouter
+	- Patch from Brad Smith that syncs compat/getentropy_linux with
+	  OpenBSD's version (2015-03-04).
+	- 0x20 fallback improved: servfail responses do not count as missing
+	  comparisons (except if all responses are errors),
+	  inability to find nameservers does not fail equality comparisons,
+	  many nameservers does not try to compare more than max-sent-count,
+	  parse failures start 0x20 fallback procedure.
+	- store caps_response with best response in case downgrade response
+	  happens to be the last one.
+	- Document windows 8 tests.
+
+3 March 2015: Wouter
+	- tag 1.5.3rc1
+	[ This became 1.5.3 on 10 March, trunk is 1.5.4 in development ]
+
+2 March 2015: Wouter
+	- iana portlist update.
+
+20 February 2015: Wouter
+	- Use the getrandom syscall introduced in Linux 3.17 (from Heiner
+	  Kallweit).
+	- Fix #645 Portability to Solaris 10, use AF_LOCAL.
+	- Fix #646 Portability to Solaris, -lrt for getentropy_solaris.
+	- Fix #647 crash in 1.5.2 because pwd.db no longer accessible after
+	  reload.
+
+19 February 2015: Wouter
+	- 1.5.2 release tag.
+	- svn trunk contains 1.5.3 under development.
+
+13 February 2015: Wouter
+	- Fix #643: doc/example.conf.in: unnecessary whitespace.
+
+12 February 2015: Wouter
+	- tag 1.5.2rc1
+
+11 February 2015: Wouter
+	- iana portlist update.
+
+10 February 2015: Wouter
+	- Fix scrubber with harden-glue turned off to reject NS (and other
+	  not-address) records.
+
+9 February 2015: Wouter
+	- Fix validation failure in case upstream forwarder (ISC BIND) does
+	  not have the same trust anchors and decides to insert unsigned NS
+	  record in authority section.
+
+2 February 2015: Wouter
+	- infra-cache-min-rtt patch from Florian Riehm, for expected long
+	  uplink roundtrip times.
+
+30 January 2015: Wouter
+	- Fix 0x20 capsforid fallback to omit gratuitous NS and additional
+	  section changes.
+	- Portability fix for Solaris ('sun' is not usable for a variable).
+
+29 January 2015: Wouter
+	- Fix pyunbound byte string representation for python3.
+
+26 January 2015: Wouter
+	- Fix unintended use of gcc extension for incomplete enum types,
+	  compile with pedantic c99 compliance (from Daniel Dickman).
+
+23 January 2015: Wouter
+	- windows port fixes, no AF_LOCAL, no chown, no chmod(grp).
+
+16 January 2015: Wouter
+	- unit test for local unix connection.  Documentation and log_addr
+	  does not inspect port for AF_LOCAL.
+	- unbound-checkconf -f prints chroot with pidfile path.
+
+13 January 2015: Wouter
+	- iana portlist update.
+
+12 January 2015: Wouter
+	- Cast sun_len sizeof to socklen_t.
+	- Fix pyunbound ord call, portable for python 2 and 3.
+
+7 January 2015: Wouter
+	- Fix warnings in pythonmod changes.
+
+6 January 2015: Wouter
+	- iana portlist update.
+	- patch for remote control over local sockets, from Dag-Erling
+	  Smorgrav, Ilya Bakulin.  Use control-interface: /path/sock and
+	  control-use-cert: no.
+	- Fixup that patch and uid lookup (only for daemon).
+	- coded the default of control-use-cert, to yes.
+
+5 January 2015: Wouter
+	- getauxval test for ppc64 linux compatibility.
+	- make strip works for unbound-host and unbound-anchor.
+	- patch from Stephane Lapie that adds to the python API, that
+	  exposes struct delegpt, and adds the find_delegation function.
+	- print query name when max target count is exceeded.
+	- patch from Stuart Henderson that fixes DESTDIR in
+	  unbound-control-setup for installs where config is not in
+	  the prefix location.
+	- Fix #634: fix fail to start on Linux LTS 3.14.X, ignores missing
+	  IP_MTU_DISCOVER OMIT option (fix from Remi Gacogne).
+	- Updated contrib warmup.cmd/sh to support two modes - load
+	  from pre-defined list of domains or (with filename as argument)
+	  load from user-specified list of domains, and updated contrib
+	  unbound_cache.sh/cmd to support loading/save/reload cache to/from
+	  default path or (with secondary argument) arbitrary path/filename,
+	  from Yuri Voinov.
+	- Patch from Philip Paeps to contrib/unbound_munin_ that uses
+	  type ABSOLUTE.  Allows munin.conf: [idleserver.example.net]
+	  unbound_munin_hits.graph_period minute
+
+9 December 2014: Wouter
+	- svn trunk has 1.5.2 in development.
+	- config.guess and config.sub update from libtoolize.
+	- local-zone: example.com inform makes unbound log a message with
+	  client IP for queries in that zone.  Eg. for finding infected hosts.
+
+8 December 2014: Wouter
+	- Fix CVE-2014-8602: denial of service by making resolver chase
+	  endless series of delegations.
+
 1 December 2014: Wouter
 	- Fix bug#632: unbound fails to build on AArch64, protects
 	  getentropy compat code from calling sysctl if it is has been removed.

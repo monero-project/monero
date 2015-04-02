@@ -64,7 +64,7 @@
 #include "validator/val_kentry.h"
 #include "validator/val_utils.h"
 #include "validator/val_sigcrypt.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 
 /** time when nameserver glue is said to be 'recent' */
 #define SUSPICION_RECENT_EXPIRY 86400
@@ -712,6 +712,48 @@ reply_equal(struct reply_info* p, struct reply_info* q, struct regional* region)
 		}
 	}
 	return 1;
+}
+
+void 
+caps_strip_reply(struct reply_info* rep)
+{
+	size_t i;
+	if(!rep) return;
+	/* see if message is a referral, in which case the additional and
+	 * NS record cannot be removed */
+	/* referrals have the AA flag unset (strict check, not elsewhere in
+	 * unbound, but for 0x20 this is very convenient). */
+	if(!(rep->flags&BIT_AA))
+		return;
+	/* remove the additional section from the reply */
+	if(rep->ar_numrrsets != 0) {
+		verbose(VERB_ALGO, "caps fallback: removing additional section");
+		rep->rrset_count -= rep->ar_numrrsets;
+		rep->ar_numrrsets = 0;
+	}
+	/* is there an NS set in the authority section to remove? */
+	/* the failure case (Cisco firewalls) only has one rrset in authsec */
+	for(i=rep->an_numrrsets; i<rep->an_numrrsets+rep->ns_numrrsets; i++) {
+		struct ub_packed_rrset_key* s = rep->rrsets[i];
+		if(ntohs(s->rk.type) == LDNS_RR_TYPE_NS) {
+			/* remove NS rrset and break from loop (loop limits
+			 * have changed) */
+			/* move last rrset into this position (there is no
+			 * additional section any more) */
+			verbose(VERB_ALGO, "caps fallback: removing NS rrset");
+			if(i < rep->rrset_count-1)
+				rep->rrsets[i]=rep->rrsets[rep->rrset_count-1];
+			rep->rrset_count --;
+			rep->ns_numrrsets --;
+			break;
+		}
+	}
+}
+
+int caps_failed_rcode(struct reply_info* rep)
+{
+	return !(FLAGS_GET_RCODE(rep->flags) == LDNS_RCODE_NOERROR ||
+		FLAGS_GET_RCODE(rep->flags) == LDNS_RCODE_NXDOMAIN);
 }
 
 void 

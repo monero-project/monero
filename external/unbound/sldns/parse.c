@@ -8,9 +8,9 @@
  * See the file LICENSE for the license
  */
 #include "config.h"
-#include "ldns/parse.h"
-#include "ldns/parseutil.h"
-#include "ldns/sbuffer.h"
+#include "sldns/parse.h"
+#include "sldns/parseutil.h"
+#include "sldns/sbuffer.h"
 
 #include <limits.h>
 #include <strings.h>

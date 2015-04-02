@@ -57,11 +57,11 @@
 #include "services/mesh.h"
 #include "services/cache/rrset.h"
 #include "validator/val_kcache.h"
-#include "ldns/sbuffer.h"
-#include "ldns/wire2str.h"
-#include "ldns/str2wire.h"
-#include "ldns/keyraw.h"
-#include "ldns/rrdef.h"
+#include "sldns/sbuffer.h"
+#include "sldns/wire2str.h"
+#include "sldns/str2wire.h"
+#include "sldns/keyraw.h"
+#include "sldns/rrdef.h"
 #include <stdarg.h>
 #include <ctype.h>
 

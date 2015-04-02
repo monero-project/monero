@@ -49,8 +49,8 @@
 #include "util/data/msgparse.h"
 #include "util/net_help.h"
 #include "util/storage/dnstree.h"
-#include "ldns/str2wire.h"
-#include "ldns/sbuffer.h"
+#include "sldns/str2wire.h"
+#include "sldns/sbuffer.h"
 
 struct iter_priv* priv_create(void)
 {

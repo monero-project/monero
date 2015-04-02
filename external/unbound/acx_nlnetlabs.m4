@@ -2,7 +2,8 @@
 # Copyright 2009, Wouter Wijngaards, NLnet Labs.   
 # BSD licensed.
 #
-# Version 26
+# Version 27
+# 2015-03-17 AHX_CONFIG_REALLOCARRAY added
 # 2013-09-19 FLTO help text improved.
 # 2013-07-18 Enable ACX_CHECK_COMPILER_FLAG to test for -Wstrict-prototypes
 # 2013-06-25 FLTO has --disable-flto option.
@@ -1210,6 +1211,16 @@ AC_DEFUN([AHX_CONFIG_GMTIME_R],
 #ifndef HAVE_GMTIME_R
 #define gmtime_r gmtime_r_$1
 struct tm *gmtime_r(const time_t *timep, struct tm *result);
+#endif
+])
+
+dnl provide reallocarray compat prototype.
+dnl $1: unique name for compat code
+AC_DEFUN([AHX_CONFIG_REALLOCARRAY],
+[
+#ifndef HAVE_REALLOCARRAY
+#define reallocarray reallocarray$1
+void* reallocarray(void *ptr, size_t nmemb, size_t size);
 #endif
 ])
 

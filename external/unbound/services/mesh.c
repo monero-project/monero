@@ -55,7 +55,7 @@
 #include "util/fptr_wlist.h"
 #include "util/alloc.h"
 #include "util/config_file.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 
 /** subtract timers and the values do not overflow or become negative */
 static void

@@ -42,10 +42,10 @@
 #include "util/data/packed_rrset.h"
 #include "util/storage/lookup3.h"
 #include "util/regional.h"
-#include "ldns/rrdef.h"
-#include "ldns/sbuffer.h"
-#include "ldns/parseutil.h"
-#include "ldns/wire2str.h"
+#include "sldns/rrdef.h"
+#include "sldns/sbuffer.h"
+#include "sldns/parseutil.h"
+#include "sldns/wire2str.h"
 
 /** smart comparison of (compressed, valid) dnames from packet */
 static int

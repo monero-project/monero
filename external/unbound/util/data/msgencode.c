@@ -47,7 +47,7 @@
 #include "util/log.h"
 #include "util/regional.h"
 #include "util/net_help.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 
 /** return code that means the function ran out of memory. negative so it does
  * not conflict with DNS rcodes. */

@@ -46,8 +46,8 @@
 #include "util/config_file.h"
 #include "util/net_help.h"
 #include "util/data/dname.h"
-#include "ldns/rrdef.h"
-#include "ldns/str2wire.h"
+#include "sldns/rrdef.h"
+#include "sldns/str2wire.h"
 
 int
 fwd_cmp(const void* k1, const void* k2)

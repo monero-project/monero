@@ -58,6 +58,12 @@ typedef uint64_t rrset_id_t;
  * from the SOA in the answer section from a direct SOA query or ANY query. */
 #define PACKED_RRSET_SOA_NEG 0x4
 
+/** number of rrs and rrsets for integer overflow protection.  More than
+ * this is not really possible (64K packet has much less RRs and RRsets) in
+ * a message.  And this is small enough that also multiplied there is no
+ * integer overflow. */
+#define RR_COUNT_MAX 0xffffff
+
 /**
  * The identifying information for an RRset.
  */

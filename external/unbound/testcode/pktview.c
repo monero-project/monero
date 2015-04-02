@@ -45,8 +45,8 @@
 #include "util/data/msgparse.h"
 #include "testcode/unitmain.h"
 #include "testcode/readhex.h"
-#include "ldns/sbuffer.h"
-#include "ldns/parseutil.h"
+#include "sldns/sbuffer.h"
+#include "sldns/parseutil.h"
 
 /** usage information for pktview */
 static void usage(char* argv[])

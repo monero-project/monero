@@ -15,13 +15,13 @@
  * representation, as well as functions to print them.
  */
 #include "config.h"
-#include "ldns/wire2str.h"
-#include "ldns/str2wire.h"
-#include "ldns/rrdef.h"
-#include "ldns/pkthdr.h"
-#include "ldns/parseutil.h"
-#include "ldns/sbuffer.h"
-#include "ldns/keyraw.h"
+#include "sldns/wire2str.h"
+#include "sldns/str2wire.h"
+#include "sldns/rrdef.h"
+#include "sldns/pkthdr.h"
+#include "sldns/parseutil.h"
+#include "sldns/sbuffer.h"
+#include "sldns/keyraw.h"
 #ifdef HAVE_TIME_H
 #include <time.h>
 #endif

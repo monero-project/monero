@@ -16,7 +16,7 @@
 #define LDNS_STR2WIRE_H
 
 /* include rrdef for MAX_DOMAINLEN constant */
-#include <ldns/rrdef.h>
+#include <sldns/rrdef.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -42,6 +42,7 @@
 #define PYTHONMOD_UTILS_H
 
 #include "util/module.h"
+struct delegpt_addr;
 
 /**
  *  Store the reply_info and query_info pair in message cache (qstate->msg_cache)
@@ -85,5 +86,8 @@ int createResponse(struct module_qstate* qstate, sldns_buffer* pkt);
  *  @param maxlen: length of string buffer.
  */
 void reply_addr2str(struct comm_reply* reply, char* dest, int maxlen);
+
+/* Convert target->addr to string */
+void delegpt_addr_addr2str(struct delegpt_addr* target, char *dest, int maxlen);
 
 #endif /* PYTHONMOD_UTILS_H */

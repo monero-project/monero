@@ -56,10 +56,10 @@
 #include "util/net_help.h"
 #include "util/module.h"
 #include "util/config_file.h"
-#include "ldns/sbuffer.h"
-#include "ldns/keyraw.h"
-#include "ldns/str2wire.h"
-#include "ldns/wire2str.h"
+#include "sldns/sbuffer.h"
+#include "sldns/keyraw.h"
+#include "sldns/str2wire.h"
+#include "sldns/wire2str.h"
 
 /** verbose signature test */
 static int vsig = 0;

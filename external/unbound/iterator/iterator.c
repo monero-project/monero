@@ -61,10 +61,10 @@
 #include "util/data/msgencode.h"
 #include "util/fptr_wlist.h"
 #include "util/config_file.h"
-#include "ldns/rrdef.h"
-#include "ldns/wire2str.h"
-#include "ldns/parseutil.h"
-#include "ldns/sbuffer.h"
+#include "sldns/rrdef.h"
+#include "sldns/wire2str.h"
+#include "sldns/parseutil.h"
+#include "sldns/sbuffer.h"
 
 int 
 iter_init(struct module_env* env, int id)
@@ -120,6 +120,7 @@ iter_new(struct module_qstate* qstate, int id)
 	iq->query_restart_count = 0;
 	iq->referral_count = 0;
 	iq->sent_count = 0;
+	iq->target_count = NULL;
 	iq->wait_priming_stub = 0;
 	iq->refetch_glue = 0;
 	iq->dnssec_expected = 0;
@@ -307,6 +308,8 @@ iter_prepend(struct iter_qstate* iq, struct dns_msg* msg,
 	if(num_an + num_ns == 0)
 		return 1;
 	verbose(VERB_ALGO, "prepending %d rrsets", (int)num_an + (int)num_ns);
+	if(num_an > RR_COUNT_MAX || num_ns > RR_COUNT_MAX ||
+		msg->rep->rrset_count > RR_COUNT_MAX) return 0; /* overflow */
 	sets = regional_alloc(region, (num_an+num_ns+msg->rep->rrset_count) *
 		sizeof(struct ub_packed_rrset_key*));
 	if(!sets) 
@@ -454,6 +457,26 @@ handle_cname_response(struct module_qstate* qstate, struct iter_qstate* iq,
 	return 1;
 }
 
+/** create target count structure for this query */
+static void
+target_count_create(struct iter_qstate* iq)
+{
+	if(!iq->target_count) {
+		iq->target_count = (int*)calloc(2, sizeof(int));
+		/* if calloc fails we simply do not track this number */
+		if(iq->target_count)
+			iq->target_count[0] = 1;
+	}
+}
+
+static void
+target_count_increase(struct iter_qstate* iq, int num)
+{
+	target_count_create(iq);
+	if(iq->target_count)
+		iq->target_count[1] += num;
+}
+
 /**
  * Generate a subrequest.
  * Generate a local request event. Local events are tied to this module, and
@@ -529,6 +552,10 @@ generate_sub_request(uint8_t* qname, size_t qnamelen, uint16_t qtype,
 		subiq = (struct iter_qstate*)subq->minfo[id];
 		memset(subiq, 0, sizeof(*subiq));
 		subiq->num_target_queries = 0;
+		target_count_create(iq);
+		subiq->target_count = iq->target_count;
+		if(iq->target_count)
+			iq->target_count[0] ++; /* extra reference */
 		subiq->num_current_queries = 0;
 		subiq->depth = iq->depth+1;
 		outbound_list_init(&subiq->outlist);
@@ -1356,6 +1383,14 @@ query_for_targets(struct module_qstate* qstate, struct iter_qstate* iq,
 
 	if(iq->depth == ie->max_dependency_depth)
 		return 0;
+	if(iq->depth > 0 && iq->target_count &&
+		iq->target_count[1] > MAX_TARGET_COUNT) {
+		char s[LDNS_MAX_DOMAINLEN+1];
+		dname_str(qstate->qinfo.qname, s);
+		verbose(VERB_QUERY, "request %s has exceeded the maximum "
+			"number of glue fetches %d", s, iq->target_count[1]);
+		return 0;
+	}
 
 	iter_mark_cycle_targets(qstate, iq->dp);
 	missing = (int)delegpt_count_missing_targets(iq->dp);
@@ -1538,6 +1573,7 @@ processLastResort(struct module_qstate* qstate, struct iter_qstate* iq,
 			return error_response(qstate, id, LDNS_RCODE_SERVFAIL);
 		}
 		iq->num_target_queries += qs;
+		target_count_increase(iq, qs);
 		if(qs != 0) {
 			qstate->ext_state[id] = module_wait_subquery;
 			return 0; /* and wait for them */
@@ -1545,6 +1581,14 @@ processLastResort(struct module_qstate* qstate, struct iter_qstate* iq,
 	}
 	if(iq->depth == ie->max_dependency_depth) {
 		verbose(VERB_QUERY, "maxdepth and need more nameservers, fail");
+		return error_response_cache(qstate, id, LDNS_RCODE_SERVFAIL);
+	}
+	if(iq->depth > 0 && iq->target_count &&
+		iq->target_count[1] > MAX_TARGET_COUNT) {
+		char s[LDNS_MAX_DOMAINLEN+1];
+		dname_str(qstate->qinfo.qname, s);
+		verbose(VERB_QUERY, "request %s has exceeded the maximum "
+			"number of glue fetches %d", s, iq->target_count[1]);
 		return error_response_cache(qstate, id, LDNS_RCODE_SERVFAIL);
 	}
 	/* mark cycle targets for parent-side lookups */
@@ -1576,6 +1620,7 @@ processLastResort(struct module_qstate* qstate, struct iter_qstate* iq,
 		if(query_count != 0) { /* suspend to await results */
 			verbose(VERB_ALGO, "try parent-side glue lookup");
 			iq->num_target_queries += query_count;
+			target_count_increase(iq, query_count);
 			qstate->ext_state[id] = module_wait_subquery;
 			return 0;
 		}
@@ -1731,6 +1776,7 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 			return error_response(qstate, id, LDNS_RCODE_SERVFAIL);
 		}
 		iq->num_target_queries += extra;
+		target_count_increase(iq, extra);
 		if(iq->num_target_queries > 0) {
 			/* wait to get all targets, we want to try em */
 			verbose(VERB_ALGO, "wait for all targets for fallback");
@@ -1743,11 +1789,13 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 		 * the original query is one that matched too, so we have
 		 * caps_server+1 number of matching queries now */
 		if(iq->caps_server+1 >= naddr*3 ||
-			iq->caps_server+1 >= MAX_SENT_COUNT) {
+			iq->caps_server*2+2 >= MAX_SENT_COUNT) {
+			/* *2 on sentcount check because ipv6 may fail */
 			/* we're done, process the response */
 			verbose(VERB_ALGO, "0x20 fallback had %d responses "
 				"match for %d wanted, done.", 
 				(int)iq->caps_server+1, (int)naddr*3);
+			iq->response = iq->caps_response;
 			iq->caps_fallback = 0;
 			iter_dec_attempts(iq->dp, 3); /* space for fallback */
 			iq->num_current_queries++; /* RespState decrements it*/
@@ -1771,6 +1819,7 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 		/* errors ignored, these targets are not strictly necessary for
 		 * this result, we do not have to reply with SERVFAIL */
 		iq->num_target_queries += extra;
+		target_count_increase(iq, extra);
 	}
 
 	/* Add the current set of unused targets to our queue. */
@@ -1816,10 +1865,29 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 					return 1;
 				}
 				iq->num_target_queries += qs;
+				target_count_increase(iq, qs);
 			}
 			/* Since a target query might have been made, we 
 			 * need to check again. */
 			if(iq->num_target_queries == 0) {
+				/* if in capsforid fallback, instead of last
+				 * resort, we agree with the current reply
+				 * we have (if any) (our count of addrs bad)*/
+				if(iq->caps_fallback && iq->caps_reply) {
+					/* we're done, process the response */
+					verbose(VERB_ALGO, "0x20 fallback had %d responses, "
+						"but no more servers except "
+						"last resort, done.", 
+						(int)iq->caps_server+1);
+					iq->response = iq->caps_response;
+					iq->caps_fallback = 0;
+					iter_dec_attempts(iq->dp, 3); /* space for fallback */
+					iq->num_current_queries++; /* RespState decrements it*/
+					iq->referral_count++; /* make sure we don't loop */
+					iq->sent_count = 0;
+					iq->state = QUERY_RESP_STATE;
+					return 1;
+				}
 				return processLastResort(qstate, iq, ie, id);
 			}
 		}
@@ -2483,6 +2551,12 @@ processClassResponse(struct module_qstate* qstate, int id,
 			/* copy appropriate rcode */
 			to->rep->flags = from->rep->flags;
 			/* copy rrsets */
+			if(from->rep->rrset_count > RR_COUNT_MAX ||
+				to->rep->rrset_count > RR_COUNT_MAX) {
+				log_err("malloc failed (too many rrsets) in collect ANY"); 
+				foriq->state = FINISHED_STATE;
+				return; /* integer overflow protection */
+			}
 			dest = regional_alloc(forq->region, sizeof(dest[0])*n);
 			if(!dest) {
 				log_err("malloc failed in collect ANY"); 
@@ -2779,6 +2853,7 @@ process_response(struct module_qstate* qstate, struct iter_qstate* iq,
 			iq->caps_fallback = 1;
 			iq->caps_server = 0;
 			iq->caps_reply = NULL;
+			iq->caps_response = NULL;
 			iq->state = QUERYTARGETS_STATE;
 			iq->num_current_queries--;
 			/* need fresh attempts for the 0x20 fallback, if
@@ -2821,8 +2896,19 @@ process_response(struct module_qstate* qstate, struct iter_qstate* iq,
 
 	/* normalize and sanitize: easy to delete items from linked lists */
 	if(!scrub_message(pkt, prs, &iq->qchase, iq->dp->name, 
-		qstate->env->scratch, qstate->env, ie))
+		qstate->env->scratch, qstate->env, ie)) {
+		/* if 0x20 enabled, start fallback, but we have no message */
+		if(event == module_event_capsfail && !iq->caps_fallback) {
+			iq->caps_fallback = 1;
+			iq->caps_server = 0;
+			iq->caps_reply = NULL;
+			iq->caps_response = NULL;
+			iq->state = QUERYTARGETS_STATE;
+			iq->num_current_queries--;
+			verbose(VERB_DETAIL, "Capsforid: scrub failed, starting fallback with no response");
+		}
 		goto handle_it;
+	}
 
 	/* allocate response dns_msg in region */
 	iq->response = dns_alloc_msg(pkt, prs, qstate->region);
@@ -2836,11 +2922,15 @@ process_response(struct module_qstate* qstate, struct iter_qstate* iq,
 			iq->response->rep);
 	
 	if(event == module_event_capsfail || iq->caps_fallback) {
+		/* for fallback we care about main answer, not additionals */
+		/* removing that makes comparison more likely to succeed */
+		caps_strip_reply(iq->response->rep);
 		if(!iq->caps_fallback) {
 			/* start fallback */
 			iq->caps_fallback = 1;
 			iq->caps_server = 0;
 			iq->caps_reply = iq->response->rep;
+			iq->caps_response = iq->response;
 			iq->state = QUERYTARGETS_STATE;
 			iq->num_current_queries--;
 			verbose(VERB_DETAIL, "Capsforid: starting fallback");
@@ -2849,8 +2939,24 @@ process_response(struct module_qstate* qstate, struct iter_qstate* iq,
 			/* check if reply is the same, otherwise, fail */
 			if(!iq->caps_reply) {
 				iq->caps_reply = iq->response->rep;
+				iq->caps_response = iq->response;
 				iq->caps_server = -1; /*become zero at ++,
 				so that we start the full set of trials */
+			} else if(caps_failed_rcode(iq->caps_reply) &&
+				!caps_failed_rcode(iq->response->rep)) {
+				/* prefer to upgrade to non-SERVFAIL */
+				iq->caps_reply = iq->response->rep;
+				iq->caps_response = iq->response;
+			} else if(!caps_failed_rcode(iq->caps_reply) &&
+				caps_failed_rcode(iq->response->rep)) {
+				/* if we have non-SERVFAIL as answer then 
+				 * we can ignore SERVFAILs for the equality
+				 * comparison */
+				/* no instructions here, skip other else */
+			} else if(caps_failed_rcode(iq->caps_reply) &&
+				caps_failed_rcode(iq->response->rep)) {
+				/* failure is same as other failure in fallbk*/
+				/* no instructions here, skip other else */
 			} else if(!reply_equal(iq->response->rep, iq->caps_reply,
 				qstate->env->scratch)) {
 				verbose(VERB_DETAIL, "Capsforid fallback: "
@@ -2928,6 +3034,8 @@ iter_clear(struct module_qstate* qstate, int id)
 	iq = (struct iter_qstate*)qstate->minfo[id];
 	if(iq) {
 		outbound_list_clear(&iq->outlist);
+		if(iq->target_count && --iq->target_count[0] == 0)
+			free(iq->target_count);
 		iq->num_current_queries = 0;
 	}
 	qstate->minfo[id] = NULL;

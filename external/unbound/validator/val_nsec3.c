@@ -62,7 +62,7 @@
 #include "util/data/msgreply.h"
 /* we include nsec.h for the bitmap_has_type function */
 #include "validator/val_nsec.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 
 /** 
  * This function we get from ldns-compat or from base system 

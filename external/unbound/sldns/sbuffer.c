@@ -12,7 +12,7 @@
  * This file contains the definition of sldns_buffer, and functions to manipulate those.
  */
 #include "config.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #include <stdarg.h>
 
 sldns_buffer *

@@ -322,6 +322,11 @@ less than this time.  Because of big outliers (usually queries to non
 responsive servers), the average can be bigger than the median.  This median
 has been calculated by interpolation from a histogram.
 .TP
+.I threadX.tcpusage
+The currently held tcp buffers for incoming connections.  A spot value on
+the time of the request.  This helps you spot if the incoming\-num\-tcp
+buffers are full.
+.TP
 .I total.num.queries
 summed over threads.
 .TP
@@ -354,6 +359,9 @@ summed over threads.
 .TP
 .I total.recursion.time.median
 averaged over threads.
+.TP
+.I total.tcpusage
+summed over threads.
 .TP
 .I time.now
 current time in seconds since 1970.

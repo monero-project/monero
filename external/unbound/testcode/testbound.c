@@ -47,7 +47,7 @@
 #include "testcode/fake_event.h"
 #include "daemon/remote.h"
 #include "util/config_file.h"
-#include "ldns/keyraw.h"
+#include "sldns/keyraw.h"
 #include <ctype.h>
 
 /** signal that this is a testbound compile */

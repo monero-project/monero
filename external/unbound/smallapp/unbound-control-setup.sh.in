@@ -36,8 +36,7 @@
 # settings:
 
 # directory for files
-prefix=@prefix@
-DESTDIR=@sysconfdir@/unbound
+DESTDIR=@ub_conf_dir@
 
 # issuer and subject name for certificates
 SERVERNAME=unbound
@@ -47,7 +46,7 @@ CLIENTNAME=unbound-control
 DAYS=7200
 
 # size of keys in bits
-BITS=1536
+BITS=3072
 
 # hash algorithm
 HASH=sha256

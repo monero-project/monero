@@ -46,6 +46,10 @@
 #ifdef HAVE_OPENSSL_ERR_H
 #include <openssl/err.h>
 #endif
+#ifndef HEADER_DH_H
+#include <openssl/dh.h>
+#endif
+
 #include <ctype.h>
 #include "daemon/remote.h"
 #include "daemon/worker.h"
@@ -74,13 +78,16 @@
 #include "iterator/iter_delegpt.h"
 #include "services/outbound_list.h"
 #include "services/outside_network.h"
-#include "ldns/str2wire.h"
-#include "ldns/parseutil.h"
-#include "ldns/wire2str.h"
-#include "ldns/sbuffer.h"
+#include "sldns/str2wire.h"
+#include "sldns/parseutil.h"
+#include "sldns/wire2str.h"
+#include "sldns/sbuffer.h"
 
 #ifdef HAVE_SYS_TYPES_H
 #  include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
 #endif
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
@@ -131,6 +138,41 @@ timeval_divide(struct timeval* avg, const struct timeval* sum, size_t d)
 #endif
 }
 
+/*
+ * The following function was generated using the openssl utility, using
+ * the command : "openssl dhparam -dsaparam -C 512"
+ */
+#ifndef S_SPLINT_S
+DH *get_dh512()
+{
+	static unsigned char dh512_p[]={
+		0xC9,0xD7,0x05,0xDA,0x5F,0xAB,0x14,0xE8,0x11,0x56,0x77,0x85,
+		0xB1,0x24,0x2C,0x95,0x60,0xEA,0xE2,0x10,0x6F,0x0F,0x84,0xEC,
+		0xF4,0x45,0xE8,0x90,0x7A,0xA7,0x03,0xFF,0x5B,0x88,0x53,0xDE,
+		0xC4,0xDE,0xBC,0x42,0x78,0x71,0x23,0x7E,0x24,0xA5,0x5E,0x4E,
+		0xEF,0x6F,0xFF,0x5F,0xAF,0xBE,0x8A,0x77,0x62,0xB4,0x65,0x82,
+		0x7E,0xC9,0xED,0x2F,
+	};
+	static unsigned char dh512_g[]={
+		0x8D,0x3A,0x52,0xBC,0x8A,0x71,0x94,0x33,0x2F,0xE1,0xE8,0x4C,
+		0x73,0x47,0x03,0x4E,0x7D,0x40,0xE5,0x84,0xA0,0xB5,0x6D,0x10,
+		0x6F,0x90,0x43,0x05,0x1A,0xF9,0x0B,0x6A,0xD1,0x2A,0x9C,0x25,
+		0x0A,0xB9,0xD1,0x14,0xDC,0x35,0x1C,0x48,0x7C,0xC6,0x0C,0x6D,
+		0x32,0x1D,0xD3,0xC8,0x10,0xA8,0x82,0x14,0xA2,0x1C,0xF4,0x53,
+		0x23,0x3B,0x1C,0xB9,
+	};
+	DH *dh;
+
+	if ((dh=DH_new()) == NULL) return(NULL);
+	dh->p=BN_bin2bn(dh512_p,sizeof(dh512_p),NULL);
+	dh->g=BN_bin2bn(dh512_g,sizeof(dh512_g),NULL);
+	if ((dh->p == NULL) || (dh->g == NULL))
+	{ DH_free(dh); return(NULL); }
+	dh->length = 160;
+	return(dh);
+}
+#endif /* SPLINT */
+
 struct daemon_remote*
 daemon_remote_create(struct config_file* cfg)
 {
@@ -165,6 +207,24 @@ daemon_remote_create(struct config_file* cfg)
 		daemon_remote_delete(rc);
 		return NULL;
 	}
+
+	if (cfg->remote_control_use_cert == 0) {
+		/* No certificates are requested */
+		if(!SSL_CTX_set_cipher_list(rc->ctx, "aNULL")) {
+			log_crypto_err("Failed to set aNULL cipher list");
+			return NULL;
+		}
+
+		/* Since we have no certificates and hence no source of
+		 * DH params, let's generate and set them
+		 */
+		if(!SSL_CTX_set_tmp_dh(rc->ctx,get_dh512())) {
+			log_crypto_err("Wanted to set DH param, but failed");
+			return NULL;
+		}
+		return rc;
+	}
+	rc->use_cert = 1;
 	s_cert = fname_after_chroot(cfg->server_cert_file, cfg, 1);
 	s_key = fname_after_chroot(cfg->server_key_file, cfg, 1);
 	if(!s_cert || !s_key) {
@@ -241,10 +301,12 @@ void daemon_remote_delete(struct daemon_remote* rc)
  * @param nr: port nr
  * @param list: list head
  * @param noproto_is_err: if lack of protocol support is an error.
+ * @param cfg: config with username for chown of unix-sockets.
  * @return false on failure.
  */
 static int
-add_open(const char* ip, int nr, struct listen_port** list, int noproto_is_err)
+add_open(const char* ip, int nr, struct listen_port** list, int noproto_is_err,
+	struct config_file* cfg)
 {
 	struct addrinfo hints;
 	struct addrinfo* res;
@@ -255,29 +317,52 @@ add_open(const char* ip, int nr, struct listen_port** list, int noproto_is_err)
 	snprintf(port, sizeof(port), "%d", nr);
 	port[sizeof(port)-1]=0;
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
-	if((r = getaddrinfo(ip, port, &hints, &res)) != 0 || !res) {
-#ifdef USE_WINSOCK
-		if(!noproto_is_err && r == EAI_NONAME) {
-			/* tried to lookup the address as name */
-			return 1; /* return success, but do nothing */
-		}
-#endif /* USE_WINSOCK */
-                log_err("control interface %s:%s getaddrinfo: %s %s",
-			ip?ip:"default", port, gai_strerror(r),
-#ifdef EAI_SYSTEM
-			r==EAI_SYSTEM?(char*)strerror(errno):""
+
+	if(ip[0] == '/') {
+		/* This looks like a local socket */
+		fd = create_local_accept_sock(ip, &noproto);
+		/*
+		 * Change socket ownership and permissions so users other
+		 * than root can access it provided they are in the same
+		 * group as the user we run as.
+		 */
+		if(fd != -1) {
+#ifdef HAVE_CHOWN
+			if (cfg->username && cfg->username[0] &&
+				cfg_uid != (uid_t)-1)
+				chown(ip, cfg_uid, cfg_gid);
+			chmod(ip, (mode_t)(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP));
 #else
-			""
+			(void)cfg;
+#endif
+		}
+	} else {
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
+		if((r = getaddrinfo(ip, port, &hints, &res)) != 0 || !res) {
+#ifdef USE_WINSOCK
+			if(!noproto_is_err && r == EAI_NONAME) {
+				/* tried to lookup the address as name */
+				return 1; /* return success, but do nothing */
+			}
+#endif /* USE_WINSOCK */
+			log_err("control interface %s:%s getaddrinfo: %s %s",
+				ip?ip:"default", port, gai_strerror(r),
+#ifdef EAI_SYSTEM
+				r==EAI_SYSTEM?(char*)strerror(errno):""
+#else
+				""
 #endif
 			);
-		return 0;
+			return 0;
+		}
+
+		/* open fd */
+		fd = create_tcp_accept_sock(res, 1, &noproto, 0,
+			cfg->ip_transparent);
+		freeaddrinfo(res);
 	}
 
-	/* open fd */
-	fd = create_tcp_accept_sock(res, 1, &noproto, 0);
-	freeaddrinfo(res);
 	if(fd == -1 && noproto) {
 		if(!noproto_is_err)
 			return 1; /* return success, but do nothing */
@@ -314,7 +399,7 @@ struct listen_port* daemon_remote_open_ports(struct config_file* cfg)
 	if(cfg->control_ifs) {
 		struct config_strlist* p;
 		for(p = cfg->control_ifs; p; p = p->next) {
-			if(!add_open(p->str, cfg->control_port, &l, 1)) {
+			if(!add_open(p->str, cfg->control_port, &l, 1, cfg)) {
 				listening_ports_free(l);
 				return NULL;
 			}
@@ -322,12 +407,12 @@ struct listen_port* daemon_remote_open_ports(struct config_file* cfg)
 	} else {
 		/* defaults */
 		if(cfg->do_ip6 &&
-			!add_open("::1", cfg->control_port, &l, 0)) {
+			!add_open("::1", cfg->control_port, &l, 0, cfg)) {
 			listening_ports_free(l);
 			return NULL;
 		}
 		if(cfg->do_ip4 &&
-			!add_open("127.0.0.1", cfg->control_port, &l, 1)) {
+			!add_open("127.0.0.1", cfg->control_port, &l, 1, cfg)) {
 			listening_ports_free(l);
 			return NULL;
 		}
@@ -641,6 +726,8 @@ print_stats(SSL* ssl, const char* nm, struct stats_info* s)
 		(long long)avg.tv_sec, (int)avg.tv_usec)) return 0;
 	if(!ssl_printf(ssl, "%s.recursion.time.median"SQ"%g\n", nm, 
 		s->mesh_time_median)) return 0;
+	if(!ssl_printf(ssl, "%s.tcpusage"SQ"%lu\n", nm,
+		(unsigned long)s->svr.tcp_accept_usage)) return 0;
 	return 1;
 }
 
@@ -1990,7 +2077,7 @@ dump_infra_host(struct lruhash_entry* e, void* arg)
 		d->rtt.srtt, d->rtt.rttvar, rtt_notimeout(&d->rtt), d->rtt.rto,
 		d->timeout_A, d->timeout_AAAA, d->timeout_other,
 		(int)d->edns_lame_known, (int)d->edns_version,
-		(int)(a->now<d->probedelay?d->probedelay-a->now:0),
+		(int)(a->now<d->probedelay?(d->probedelay - a->now):0),
 		(int)d->isdnsseclame, (int)d->rec_lame, (int)d->lame_type_A,
 		(int)d->lame_other)) {
 		a->ssl_failed = 1;
@@ -2434,7 +2521,9 @@ int remote_control_callback(struct comm_point* c, void* arg, int err,
 	s->shake_state = rc_none;
 
 	/* once handshake has completed, check authentication */
-	if(SSL_get_verify_result(s->ssl) == X509_V_OK) {
+	if (!rc->use_cert) {
+		verbose(VERB_ALGO, "unauthenticated remote control connection");
+	} else if(SSL_get_verify_result(s->ssl) == X509_V_OK) {
 		X509* x = SSL_get_peer_certificate(s->ssl);
 		if(!x) {
 			verbose(VERB_DETAIL, "remote control connection "

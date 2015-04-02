@@ -61,7 +61,7 @@
 #include "services/localzone.h"
 #include "services/cache/infra.h"
 #include "services/cache/rrset.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #ifdef HAVE_PTHREAD
 #include <signal.h>
 #endif

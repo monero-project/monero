@@ -164,6 +164,8 @@ struct comm_point {
 	/* -------- TCP Accept -------- */
 	/** the number of TCP handlers for this tcp-accept socket */
 	int max_tcp_count;
+	/** current number of tcp handler in-use for this accept socket */
+	int cur_tcp_count;
 	/** malloced array of tcp handlers for a tcp-accept, 
 	    of size max_tcp_count. */
 	struct comm_point** tcp_handlers;

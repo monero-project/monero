@@ -14,7 +14,7 @@ NEED_NOMINGW='tcp_sigpipe.tpkg 07-confroot.tpkg 08-host-lib.tpkg fwd_ancil.tpkg'
 test_tool_avail "dig"
 test_tool_avail "ldns-testns"
 
-# test for ipv6, uses streamptcp peculiarity.
+# test for ipv6, uses streamtcp peculiarity.
 if ./streamtcp -f ::1 2>&1 | grep "not supported" >/dev/null 2>&1; then
 	HAVE_IPV6=no
 else

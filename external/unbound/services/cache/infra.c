@@ -39,7 +39,7 @@
  * This file contains the infrastructure cache.
  */
 #include "config.h"
-#include "ldns/rrdef.h"
+#include "sldns/rrdef.h"
 #include "services/cache/infra.h"
 #include "util/storage/slabhash.h"
 #include "util/storage/lookup3.h"

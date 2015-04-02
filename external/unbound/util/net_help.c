@@ -43,8 +43,8 @@
 #include "util/data/dname.h"
 #include "util/module.h"
 #include "util/regional.h"
-#include "ldns/parseutil.h"
-#include "ldns/wire2str.h"
+#include "sldns/parseutil.h"
+#include "sldns/wire2str.h"
 #include <fcntl.h>
 #ifdef HAVE_OPENSSL_SSL_H
 #include <openssl/ssl.h>
@@ -156,7 +156,12 @@ log_addr(enum verbosity_value v, const char* str,
 		case AF_INET6: family="ip6";
 			sinaddr = &((struct sockaddr_in6*)addr)->sin6_addr;
 			break;
-		case AF_UNIX: family="unix"; break;
+		case AF_LOCAL:
+			dest[0]=0;
+			(void)inet_ntop(af, sinaddr, dest,
+				(socklen_t)sizeof(dest));
+			verbose(v, "%s local %s", str, dest);
+			return; /* do not continue and try to get port */
 		default: break;
 	}
 	if(inet_ntop(af, sinaddr, dest, (socklen_t)sizeof(dest)) == 0) {
@@ -313,7 +318,7 @@ void log_name_addr(enum verbosity_value v, const char* str, uint8_t* zone,
 		case AF_INET6: family="";
 			sinaddr = &((struct sockaddr_in6*)addr)->sin6_addr;
 			break;
-		case AF_UNIX: family="unix_family "; break;
+		case AF_LOCAL: family="local "; break;
 		default: break;
 	}
 	if(inet_ntop(af, sinaddr, dest, (socklen_t)sizeof(dest)) == 0) {
@@ -765,7 +770,7 @@ static lock_basic_t *ub_openssl_locks = NULL;
 static unsigned long
 ub_crypto_id_cb(void)
 {
-	return (unsigned long)ub_thread_self();
+	return (unsigned long)log_thread_get();
 }
 
 static void
@@ -784,8 +789,8 @@ int ub_openssl_lock_init(void)
 {
 #if defined(HAVE_SSL) && defined(OPENSSL_THREADS) && !defined(THREADS_DISABLED)
 	int i;
-	ub_openssl_locks = (lock_basic_t*)malloc(
-		sizeof(lock_basic_t)*CRYPTO_num_locks());
+	ub_openssl_locks = (lock_basic_t*)reallocarray(
+		NULL, (size_t)CRYPTO_num_locks(), sizeof(lock_basic_t));
 	if(!ub_openssl_locks)
 		return 0;
 	for(i=0; i<CRYPTO_num_locks(); i++) {

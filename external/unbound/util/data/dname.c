@@ -45,7 +45,7 @@
 #include "util/data/msgparse.h"
 #include "util/log.h"
 #include "util/storage/lookup3.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 
 /* determine length of a dname in buffer, no compression pointers allowed */
 size_t

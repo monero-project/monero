@@ -49,6 +49,7 @@ struct config_file;
 struct edns_data;
 struct query_info;
 struct sldns_buffer;
+struct comm_reply;
 
 /**
  * Local zone type
@@ -70,7 +71,9 @@ enum localzone_type {
 	local_zone_redirect,
 	/** remove default AS112 blocking contents for zone
 	 * nodefault is used in config not during service. */
-	local_zone_nodefault
+	local_zone_nodefault,
+	/** log client address, but no block (transparent) */
+	local_zone_inform
 };
 
 /**
@@ -220,12 +223,14 @@ void local_zones_print(struct local_zones* zones);
  * @param edns: edns info (parsed).
  * @param buf: buffer with query ID and flags, also for reply.
  * @param temp: temporary storage region.
+ * @param repinfo: source address for checks. may be NULL.
  * @return true if answer is in buffer. false if query is not answered 
  * by authority data. If the reply should be dropped altogether, the return 
  * value is true, but the buffer is cleared (empty).
  */
 int local_zones_answer(struct local_zones* zones, struct query_info* qinfo,
-	struct edns_data* edns, struct sldns_buffer* buf, struct regional* temp);
+	struct edns_data* edns, struct sldns_buffer* buf, struct regional* temp,
+	struct comm_reply* repinfo);
 
 /**
  * Parse the string into localzone type.

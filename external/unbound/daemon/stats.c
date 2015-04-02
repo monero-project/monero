@@ -50,12 +50,13 @@
 #include "daemon/daemon.h"
 #include "services/mesh.h"
 #include "services/outside_network.h"
+#include "services/listen_dnsport.h"
 #include "util/config_file.h"
 #include "util/tube.h"
 #include "util/timehist.h"
 #include "util/net_help.h"
 #include "validator/validator.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #include "services/cache/rrset.h"
 #include "services/cache/infra.h"
 #include "validator/val_kcache.h"
@@ -140,6 +141,7 @@ void
 server_stats_compile(struct worker* worker, struct stats_info* s, int reset)
 {
 	int i;
+	struct listen_list* lp;
 
 	s->svr = worker->stats;
 	s->mesh_num_states = worker->env.mesh->all.count;
@@ -173,6 +175,13 @@ server_stats_compile(struct worker* worker, struct stats_info* s, int reset)
 	if(worker->env.key_cache)
 		s->svr.key_cache_count = count_slabhash_entries(worker->env.key_cache->slab);
 	else	s->svr.key_cache_count = 0;
+
+	/* get tcp accept usage */
+	s->svr.tcp_accept_usage = 0;
+	for(lp = worker->front->cps; lp; lp = lp->next) {
+		if(lp->com->type == comm_tcp_accept)
+			s->svr.tcp_accept_usage += lp->com->cur_tcp_count;
+	}
 
 	if(reset && !worker->env.cfg->stat_cumulative) {
 		worker_stats_clear(worker);
@@ -247,6 +256,7 @@ void server_stats_add(struct stats_info* total, struct stats_info* a)
 		total->svr.rrset_bogus += a->svr.rrset_bogus;
 		total->svr.unwanted_replies += a->svr.unwanted_replies;
 		total->svr.unwanted_queries += a->svr.unwanted_queries;
+		total->svr.tcp_accept_usage += a->svr.tcp_accept_usage;
 		for(i=0; i<STATS_QTYPE_NUM; i++)
 			total->svr.qtype[i] += a->svr.qtype[i];
 		for(i=0; i<STATS_QCLASS_NUM; i++)

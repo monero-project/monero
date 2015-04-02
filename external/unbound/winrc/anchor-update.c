@@ -41,9 +41,9 @@
  */
 #include "config.h"
 #include "libunbound/unbound.h"
-#include "ldns/rrdef.h"
-#include "ldns/pkthdr.h"
-#include "ldns/wire2str.h"
+#include "sldns/rrdef.h"
+#include "sldns/pkthdr.h"
+#include "sldns/wire2str.h"
 
 /** usage */
 static void

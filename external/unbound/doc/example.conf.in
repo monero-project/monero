@@ -87,6 +87,10 @@ server:
 	
 	# use SO_REUSEPORT to distribute queries over threads.
 	# so-reuseport: no
+	
+	# use IP_TRANSPARENT so the interface: addresses can be non-local
+	# and you can config non-existing IPs that are going to work later on
+	# ip-transparent: no
 
 	# EDNS reassembly buffer to advertise to UDP peers (the actual buffer
 	# is set with msg-buffer-size). 1480 can solve fragmentation (timeouts).
@@ -138,6 +142,9 @@ server:
 	# the time to live (TTL) value for cached roundtrip times, lameness and
 	# EDNS version information for hosts. In seconds.
 	# infra-host-ttl: 900
+	
+	# minimum wait time for responses, increase if uplink is long. In msec.
+	# infra-cache-min-rtt: 50
 
 	# the number of slabs to use for the Infrastructure cache.
 	# the number of slabs must be a power of 2.
@@ -280,6 +287,11 @@ server:
 	# Default off, because the lookups burden the server.  Experimental 
 	# implementation of draft-wijngaards-dnsext-resolver-side-mitigation.
 	# harden-referral-path: no
+
+	# Harden against algorithm downgrade when multiple algorithms are
+	# advertised in the DS record.  If no, allows the weakest algorithm
+	# to validate the zone.
+	# harden-algo-downgrade: yes
 
 	# Use 0x20-encoded random bits in the query to foil spoof attempts.
 	# This feature is an experimental implementation of draft dns-0x20.
@@ -437,7 +449,7 @@ server:
 	# the amount of memory to use for the negative cache (used for DLV).
 	# plain value in bytes or you can append k, m or G. default is "1Mb". 
 	# neg-cache-size: 1m
-	
+
 	# By default, for a number of zones a small default 'nothing here'
 	# reply is built-in.  Query traffic is thus blocked.  If you
 	# wish to serve such zone you can unblock them by uncommenting one
@@ -497,6 +509,7 @@ server:
 	# o redirect serves the zone data for any subdomain in the zone.
 	# o nodefault can be used to normally resolve AS112 zones.
 	# o typetransparent resolves normally for other types and other names
+	# o inform resolves normally, but logs client IP address
 	#
 	# defaults are localhost address, reverse for 127.0.0.1 and ::1
 	# and nxdomain for AS112 zones. If you configure one of these zones
@@ -551,6 +564,10 @@ remote-control:
 	# Enable remote control with unbound-control(8) here.
 	# set up the keys and certificates with unbound-control-setup.
 	# control-enable: no
+
+	# Set to no and use an absolute path as control-interface to use
+	# a unix local named pipe for unbound-control.
+	# control-use-cert: yes
 
 	# what interfaces are listened to for remote control.
 	# give 0.0.0.0 and ::0 to listen to all interfaces.

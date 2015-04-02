@@ -45,8 +45,8 @@
 #include "util/storage/lookup3.h"
 #include "util/regional.h"
 #include "util/net_help.h"
-#include "ldns/rrdef.h"
-#include "ldns/keyraw.h"
+#include "sldns/rrdef.h"
+#include "sldns/keyraw.h"
 
 size_t 
 key_entry_sizefunc(void* key, void* data)
