@@ -38,6 +38,8 @@ add_executable(core_proxy
 target_link_libraries(core_proxy
   LINK_PRIVATE
     cryptonote_core
+    cryptonote_protocol
+    p2p
     ${UPNP_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

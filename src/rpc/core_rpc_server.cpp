@@ -753,6 +753,45 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_fast_exit(const COMMAND_RPC_FAST_EXIT::request& req, COMMAND_RPC_FAST_EXIT::response& res)
+  {
+	  cryptonote::core::set_fast_exit();
+	  m_p2p.deinit();
+	  m_core.deinit();
+	  return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_out_peers(const COMMAND_RPC_OUT_PEERS::request& req, COMMAND_RPC_OUT_PEERS::response& res)
+  {
+	  // TODO
+	  /*if (m_p2p.get_outgoing_connections_count() > req.out_peers)
+	  {
+		  m_p2p.m_config.m_net_config.connections_count = req.out_peers;
+		  if (m_p2p.get_outgoing_connections_count() > req.out_peers)
+		  {
+			int count = m_p2p.get_outgoing_connections_count() - req.out_peers;
+			m_p2p.delete_connections(count);
+		  }
+	  }
+	  
+	  else
+		m_p2p.m_config.m_net_config.connections_count = req.out_peers;
+		*/
+	  return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_start_save_graph(const COMMAND_RPC_START_SAVE_GRAPH::request& req, COMMAND_RPC_START_SAVE_GRAPH::response& res)
+  {
+	  m_p2p.set_save_graph(true);
+	  return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_stop_save_graph(const COMMAND_RPC_STOP_SAVE_GRAPH::request& req, COMMAND_RPC_STOP_SAVE_GRAPH::response& res)
+  {
+	  m_p2p.set_save_graph(false);
+	  return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_ip   = {
       "rpc-bind-ip"

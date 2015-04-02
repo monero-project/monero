@@ -46,6 +46,8 @@ namespace cryptonote
   struct connection_info
   {
     bool incoming;
+    bool localhost;
+    bool local_ip;
 
     std::string ip;
     std::string port;
@@ -62,8 +64,16 @@ namespace cryptonote
 
     uint64_t live_time;
 
+	uint64_t avg_download;
+	uint64_t current_download;
+	
+	uint64_t avg_upload;
+	uint64_t current_upload;
+
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(incoming)
+      KV_SERIALIZE(localhost)
+      KV_SERIALIZE(local_ip)
       KV_SERIALIZE(ip)
       KV_SERIALIZE(port)
       KV_SERIALIZE(peer_id)
@@ -73,6 +83,10 @@ namespace cryptonote
       KV_SERIALIZE(send_idle_time)
       KV_SERIALIZE(state)
       KV_SERIALIZE(live_time)
+      KV_SERIALIZE(avg_download)
+      KV_SERIALIZE(current_download)
+      KV_SERIALIZE(avg_upload)
+      KV_SERIALIZE(current_upload)
     END_KV_SERIALIZE_MAP()
   };
 

@@ -145,6 +145,11 @@ namespace cryptonote
 
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, daemon_args::arg_dns_checkpoints));
+    test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
+    
+    if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
+		test_drop_download();
+    
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -216,10 +221,49 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
     bool core::deinit()
   {
-    m_miner.stop();
-    m_mempool.deinit();
-    m_blockchain_storage.deinit();
+	m_miner.stop();
+	m_mempool.deinit();
+	if (!m_fast_exit)
+	{
+		m_blockchain_storage.deinit();
+	}
     return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+    void core::set_fast_exit()
+  {
+    m_fast_exit = true;
+  }
+  //-----------------------------------------------------------------------------------------------
+    bool core::get_fast_exit()
+  {
+    return m_fast_exit;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::test_drop_download()
+  {
+	  m_test_drop_download = false;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::test_drop_download_height(uint64_t height)
+  {
+	  m_test_drop_download_height = height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_test_drop_download()
+  {
+	  return m_test_drop_download;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_test_drop_download_height()
+  {
+	  if (m_test_drop_download_height == 0)
+		return true;
+		
+	  if (get_blockchain_storage().get_current_blockchain_height() <= m_test_drop_download_height)
+		return true;
+
+	  return false;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block)
@@ -624,4 +668,6 @@ namespace cryptonote
   {
     raise(SIGTERM);
   }
+  
+  std::atomic<bool> core::m_fast_exit(false);
 }

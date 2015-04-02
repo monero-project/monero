@@ -80,13 +80,16 @@ namespace nodetool
   public:
     typedef t_payload_net_handler payload_net_handler;
 
-    node_server(
-        t_payload_net_handler& payload_handler
-      )
-      : m_payload_handler(payload_handler)
-      , m_allow_local_ip(false)
-      , m_hide_my_port(false)
-    {}
+    node_server(t_payload_net_handler& payload_handler)
+		:m_payload_handler(payload_handler),
+		m_allow_local_ip(false),
+		m_no_igd(false),
+		m_hide_my_port(false)
+    {
+		m_current_number_of_out_peers = 0;
+		m_save_graph = false;
+		is_closing = false;
+	}
 
     static void init_options(boost::program_options::options_description& desc);
 
@@ -109,6 +112,7 @@ namespace nodetool
     virtual uint64_t get_connections_count();
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
+    void delete_connections(size_t count);
   private:
     const std::vector<std::string> m_seed_nodes_list =
     { "seeds.moneroseeds.se"
@@ -116,6 +120,9 @@ namespace nodetool
     , "seeds.moneroseeds.ch"
     , "seeds.moneroseeds.li"
     };
+    
+    bool islimitup=false;
+    bool islimitdown=false;
 
     typedef COMMAND_REQUEST_STAT_INFO_T<typename t_payload_net_handler::stat_info> COMMAND_REQUEST_STAT_INFO;
 
@@ -195,6 +202,20 @@ namespace nodetool
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
+	bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
+	bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
+	
+	bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
+  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
+  	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+
+    void kill() { ///< will be called e.g. from deinit()
+			_info("Killing the net_node");
+			is_closing = true;
+			mPeersLoggerThread->join(); // make sure the thread finishes
+			_info("Joined extra background net_node threads");
+		}
+
     //debug functions
     std::string print_connections_container();
 
@@ -212,7 +233,16 @@ namespace nodetool
       END_KV_SERIALIZE_MAP()
     };
 
-    config m_config;
+	public:
+    config m_config; // TODO was private, add getters?
+    std::atomic<unsigned int> m_current_number_of_out_peers;
+
+	void set_save_graph(bool save_graph)
+	{
+		m_save_graph = save_graph;
+		epee::net_utils::connection_basic::set_save_graph(save_graph);
+	}
+	private:
     std::string m_config_folder;
 
     bool m_have_address;
@@ -222,7 +252,10 @@ namespace nodetool
     uint32_t m_ip_address;
     bool m_allow_local_ip;
     bool m_hide_my_port;
-
+    bool m_no_igd;
+    std::atomic<bool> m_save_graph;
+    std::atomic<bool> is_closing;
+	std::unique_ptr<std::thread> mPeersLoggerThread;
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;
 

@@ -50,6 +50,7 @@ target_link_libraries(simplewallet
     crypto
     common
     mnemonics
+    p2p
     ${UNBOUND_LIBRARY}
     ${UPNP_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}

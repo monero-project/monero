@@ -32,6 +32,7 @@
 #include "common/scoped_message_writer.h"
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include "cryptonote_core/cryptonote_core.h"
 #include <boost/format.hpp>
 #include <ctime>
 
@@ -267,11 +268,38 @@ bool t_rpc_command_executor::print_connections() {
     }
   }
 
+  tools::msg_writer() << std::setw(30) << std::left << "Remote Host"
+      << std::setw(20) << "Peer id"
+      << std::setw(30) << "Recv/Sent (inactive,sec)"
+      << std::setw(25) << "State"
+      << std::setw(20) << "Livetime(sec)"
+      << std::setw(12) << "Down (kB/s)"
+      << std::setw(14) << "Down(now)"
+      << std::setw(10) << "Up (kB/s)" 
+      << std::setw(13) << "Up(now)"
+      << std::endl;
+
   for (auto & info : res.connections)
   {
-    std::string address = info.ip + ":" + info.port;
-    std::string in_out = info.incoming ? "INC" : "OUT";
-    tools::msg_writer() << boost::format("%-25s peer_id: %-25s %s") % address % info.peer_id % in_out;
+    std::string address = info.incoming ? "INC " : "OUT ";
+    address += info.ip + ":" + info.port;
+    //std::string in_out = info.incoming ? "INC " : "OUT ";
+    tools::msg_writer() 
+     //<< std::setw(30) << std::left << in_out
+     << std::setw(30) << std::left << address
+     << std::setw(20) << info.peer_id
+     << std::setw(30) << std::to_string(info.recv_count) + "("  + std::to_string(info.recv_idle_time) + ")/" + std::to_string(info.send_count) + "(" + std::to_string(info.send_idle_time) + ")"
+     << std::setw(25) << info.state
+     << std::setw(20) << info.live_time
+     << std::setw(12) << info.avg_download
+     << std::setw(14) << info.current_download
+     << std::setw(10) << info.avg_upload
+     << std::setw(13) << info.current_upload
+     
+     << std::left << (info.localhost ? "[LOCALHOST]" : "")
+     << std::left << (info.local_ip ? "[LAN]" : "");
+    //tools::msg_writer() << boost::format("%-25s peer_id: %-25s %s") % address % info.peer_id % in_out;
+    
   }
 
   return true;
@@ -659,34 +687,134 @@ bool t_rpc_command_executor::print_status()
 
 bool t_rpc_command_executor::set_limit(int limit)
 {
-/*
     epee::net_utils::connection_basic::set_rate_down_limit( limit );
     epee::net_utils::connection_basic::set_rate_up_limit( limit );
     std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
     std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
-*/
-
     return true;
 }
 
 bool t_rpc_command_executor::set_limit_up(int limit)
 {
-/*
     epee::net_utils::connection_basic::set_rate_up_limit( limit );
     std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
-*/
-
     return true;
 }
 
 bool t_rpc_command_executor::set_limit_down(int limit)
 {
-/*
     epee::net_utils::connection_basic::set_rate_down_limit( limit );
     std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
-*/
-
     return true;
+}
+
+bool t_rpc_command_executor::fast_exit()
+{
+	cryptonote::COMMAND_RPC_FAST_EXIT::request req;
+	cryptonote::COMMAND_RPC_FAST_EXIT::response res;
+	
+	std::string fail_message = "Daemon did not stop";
+	
+	if (m_is_rpc)
+	{
+		if (!m_rpc_client->rpc_request(req, res, "/fast_exit", fail_message.c_str()))
+		{
+			return true;
+		}
+	}
+	
+	else
+    {
+		if (!m_rpc_server->on_fast_exit(req, res))
+		{
+			tools::fail_msg_writer() << fail_message.c_str();
+			return true;
+		}
+	}
+
+	tools::success_msg_writer() << "Daemon stopped";
+	return true;
+}
+
+bool t_rpc_command_executor::out_peers(uint64_t limit)
+{
+	cryptonote::COMMAND_RPC_OUT_PEERS::request req;
+	cryptonote::COMMAND_RPC_OUT_PEERS::response res;
+	
+	epee::json_rpc::error error_resp;
+
+	req.out_peers = limit;
+	
+	std::string fail_message = "Unsuccessful";
+
+	if (m_is_rpc)
+	{
+		if (!m_rpc_client->json_rpc_request(req, res, "/out_peers", fail_message.c_str()))
+		{
+			return true;
+		}
+	}
+	else
+	{
+		if (!m_rpc_server->on_out_peers(req, res))
+		{
+			tools::fail_msg_writer() << fail_message.c_str();
+			return true;
+		}
+	}
+
+	return true;
+}
+
+bool t_rpc_command_executor::start_save_graph()
+{
+	cryptonote::COMMAND_RPC_START_SAVE_GRAPH::request req;
+	cryptonote::COMMAND_RPC_START_SAVE_GRAPH::response res;
+	std::string fail_message = "Unsuccessful";
+	
+	if (m_is_rpc)
+	{
+		if (!m_rpc_client->rpc_request(req, res, "/start_save_graph", fail_message.c_str()))
+		{
+			return true;
+		}
+	}
+	
+	else
+    {
+		if (!m_rpc_server->on_start_save_graph(req, res))
+		{
+			tools::fail_msg_writer() << fail_message.c_str();
+			return true;
+		}
+	}
+	
+	return true;
+}
+
+bool t_rpc_command_executor::stop_save_graph()
+{
+	cryptonote::COMMAND_RPC_STOP_SAVE_GRAPH::request req;
+	cryptonote::COMMAND_RPC_STOP_SAVE_GRAPH::response res;
+	std::string fail_message = "Unsuccessful";
+	
+	if (m_is_rpc)
+	{
+		if (!m_rpc_client->rpc_request(req, res, "/stop_save_graph", fail_message.c_str()))
+		{
+			return true;
+		}
+	}
+	
+	else
+    {
+		if (!m_rpc_server->on_stop_save_graph(req, res))
+		{
+			tools::fail_msg_writer() << fail_message.c_str();
+			return true;
+		}
+	}
+	return true;
 }
 
 }// namespace daemonize

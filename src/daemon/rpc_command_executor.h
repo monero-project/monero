@@ -105,7 +105,13 @@ public:
 
   bool set_limit_down(int limit);
 
-
+  bool fast_exit();
+  
+  bool out_peers(uint64_t limit);
+  
+  bool start_save_graph();
+  
+  bool stop_save_graph();
 };
 
 } // namespace daemonize

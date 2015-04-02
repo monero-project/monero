@@ -51,7 +51,7 @@ list(INSERT CMAKE_MODULE_PATH 0
 if (NOT DEFINED ENV{DEVELOPER_LOCAL_TOOLS})
   message(STATUS "Could not find DEVELOPER_LOCAL_TOOLS in env (not required)")
   set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
-elseif (ENV{DEVELOPER_LOCAL_TOOLS} EQUAL 1)
+elseif ("$ENV{DEVELOPER_LOCAL_TOOLS}" EQUAL 1)
   message(STATUS "Found: env DEVELOPER_LOCAL_TOOLS = 1")
   set(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
 else()
@@ -62,8 +62,23 @@ endif()
 message(STATUS "BOOST_IGNORE_SYSTEM_PATHS defaults to ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT}")
 option(BOOST_IGNORE_SYSTEM_PATHS "Ignore boost system paths for local boost installation" ${BOOST_IGNORE_SYSTEM_PATHS_DEFAULT})
 
+
+if (NOT DEFINED ENV{DEVELOPER_LIBUNBOUND_OLD})
+  message(STATUS "Could not find DEVELOPER_LIBUNBOUND_OLD in env (not required)")
+elseif ("$ENV{DEVELOPER_LIBUNBOUND_OLD}" EQUAL 1)
+  message(STATUS "Found: env DEVELOPER_LIBUNBOUND_OLD = 1, will use the work around")
+  add_definitions(-DDEVELOPER_LIBUNBOUND_OLD)
+elseif ("$ENV{DEVELOPER_LIBUNBOUND_OLD}" EQUAL 0)
+  message(STATUS "Found: env DEVELOPER_LIBUNBOUND_OLD = 0")
+else()
+  message(STATUS "Found: env DEVELOPER_LIBUNBOUND_OLD with bad value. Will NOT use the work around")
+endif()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
+
+option(BUILD_DOCUMENTATION "Build the Doxygen documentation." ON)
+
 
 # Check if we're on FreeBSD so we can exclude the local miniupnpc (it should be installed from ports instead)
 # CMAKE_SYSTEM_NAME checks are commonly known, but specifically taken from libsdl's CMakeLists
@@ -155,9 +170,9 @@ else()
   else()
     set(ARCH_FLAG "-march=${ARCH}")
   endif()
-  set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-error=sign-compare -Wno-error=strict-aliasing -Wno-error=type-limits -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
+  set(WARNINGS "-Wall -pedantic -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-error=sign-compare -Wno-error=strict-aliasing -Wno-error=type-limits -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
   if(NOT MINGW)
-    set(WARNINGS "${WARNINGS} -Werror")
+ #   set(WARNINGS "${WARNINGS} -Werror") # to allow pedantic but not stop compilation
   endif()
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     set(WARNINGS "${WARNINGS} -Wno-error=mismatched-tags -Wno-error=null-conversion -Wno-overloaded-shift-op-parentheses -Wno-error=shift-count-overflow -Wno-error=tautological-constant-out-of-range-compare -Wno-error=unused-private-field -Wno-error=unneeded-internal-declaration")
@@ -234,7 +249,7 @@ else()
   endif()
 endif()
 
-if (BOOST_IGNORE_SYSTEM_PATHS)
+if (${BOOST_IGNORE_SYSTEM_PATHS} STREQUAL "ON")
   set(Boost_NO_SYSTEM_PATHS TRUE)
 endif()
 
@@ -270,8 +285,34 @@ endif()
 
 include(version.cmake)
 
+add_subdirectory(contrib)
 add_subdirectory(src)
 
 if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
+
+
+
+if(BUILD_DOCUMENTATION)
+  set(DOC_GRAPHS "YES" CACHE STRING "Create dependency graphs (needs graphviz)")
+  set(DOC_FULLGRAPHS "NO" CACHE STRING "Create call/callee graphs (large)")
+
+  find_program(DOT_PATH dot)
+
+  if (DOT_PATH STREQUAL "DOT_PATH-NOTFOUND")
+    message("Doxygen: graphviz not found - graphs disabled")
+    set(DOC_GRAPHS "NO")
+  endif()
+
+  find_package(Doxygen)
+  if(DOXYGEN_FOUND)
+    configure_file("cmake/Doxyfile.in" "Doxyfile" @ONLY)
+    configure_file("cmake/Doxygen.extra.css.in" "Doxygen.extra.css" @ONLY)
+    add_custom_target(doc
+      ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+      COMMENT "Generating API documentation with Doxygen.." VERBATIM)
+  endif()
+endif()
+

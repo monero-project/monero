@@ -46,6 +46,7 @@
 #include "net/local_ip.h"
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
+#include "data_logger.hpp"
 #include "daemon/command_line_args.h"
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
@@ -85,6 +86,16 @@ namespace nodetool
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
+    
+    const command_line::arg_descriptor<bool>        arg_no_igd				= {"no-igd", "Disable UPnP port mapping"};
+    const command_line::arg_descriptor<int64_t>     arg_out_peers 			= {"out-peers", "set max limit of out peers", -1};
+    const command_line::arg_descriptor<int>    		arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
+    
+    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up [kB/s]", -1};
+    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down [kB/s]", -1};
+    const command_line::arg_descriptor<uint64_t>    arg_limit_rate      	= {"limit-rate", "set limit-rate [kB/s]", 128};
+    
+    const command_line::arg_descriptor<bool>		arg_save_graph			= {"save-graph", "Save data for dr monero", false};
   }
 
   //-----------------------------------------------------------------------------------
@@ -100,7 +111,15 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_priority_node);
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
     command_line::add_arg(desc, arg_p2p_seed_node);    
-    command_line::add_arg(desc, arg_p2p_hide_my_port);   }
+    command_line::add_arg(desc, arg_p2p_hide_my_port);
+    command_line::add_arg(desc, arg_no_igd);
+    command_line::add_arg(desc, arg_out_peers);
+    command_line::add_arg(desc, arg_tos_flag);
+    command_line::add_arg(desc, arg_limit_rate_up);
+  	command_line::add_arg(desc, arg_limit_rate_down);
+  	command_line::add_arg(desc, arg_limit_rate);
+  	command_line::add_arg(desc, arg_save_graph);
+  }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init_config()
@@ -121,7 +140,6 @@ namespace nodetool
 
     //at this moment we have hardcoded config
     m_config.m_net_config.handshake_interval = P2P_DEFAULT_HANDSHAKE_INTERVAL;
-    m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
     m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE; //20 MB limit
     m_config.m_net_config.config_id = 0; // initial config
     m_config.m_net_config.connection_timeout = P2P_DEFAULT_CONNECTION_TIMEOUT;
@@ -166,6 +184,7 @@ namespace nodetool
     m_port = command_line::get_arg(vm, p2p_bind_arg);
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
+    m_no_igd = command_line::get_arg(vm, arg_no_igd);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {       
@@ -179,17 +198,24 @@ namespace nodetool
         m_command_line_peers.push_back(pe);
       }
     }
+    
+    if(command_line::has_arg(vm, arg_save_graph))
+    {
+	  set_save_graph(true);
+	}
 
     if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
         return false;
     }
+    
     if (command_line::has_arg(vm, arg_p2p_add_priority_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_priority_node, m_priority_peers))
         return false;
     }
+    
     if (command_line::has_arg(vm, arg_p2p_seed_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, m_seed_nodes))
@@ -198,6 +224,21 @@ namespace nodetool
 
     if(command_line::has_arg(vm, arg_p2p_hide_my_port))
       m_hide_my_port = true;
+      
+    if ( !set_max_out_peers(vm, command_line::get_arg(vm, arg_out_peers) ) )
+		return false;
+		
+	if ( !set_tos_flag(vm, command_line::get_arg(vm, arg_tos_flag) ) )
+		return false;
+
+	if ( !set_rate_up_limit(vm, command_line::get_arg(vm, arg_limit_rate_up) ) )
+		return false;
+
+	if ( !set_rate_down_limit(vm, command_line::get_arg(vm, arg_limit_rate_down) ) )
+		return false;
+
+	if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
+		return false; 
 
     return true;
   }
@@ -393,42 +434,43 @@ namespace nodetool
       LOG_PRINT_L0("External port defined as " << m_external_port);
 
     // Add UPnP port mapping
-    LOG_PRINT_L0("Attempting to add IGD port mapping.");
-    int result;
-    UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
-    UPNPUrls urls;
-    IGDdatas igdData;
-    char lanAddress[64];
-    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
-    freeUPNPDevlist(deviceList);
-    if (result != 0) {
-      if (result == 1) {
-        std::ostringstream portString;
-        portString << m_listenning_port;
-        
-        // Delete the port mapping before we create it, just in case we have dangling port mapping from the daemon not being shut down correctly
-        UPNP_DeletePortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), "TCP", 0);
+    if(m_no_igd == false) {
+		LOG_PRINT_L0("Attempting to add IGD port mapping.");
+		int result;
+		UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
+		UPNPUrls urls;
+		IGDdatas igdData;
+		char lanAddress[64];
+		result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+		freeUPNPDevlist(deviceList);
+		if (result != 0) {
+		  if (result == 1) {
+			std::ostringstream portString;
+			portString << m_listenning_port;
+			
+			// Delete the port mapping before we create it, just in case we have dangling port mapping from the daemon not being shut down correctly
+			UPNP_DeletePortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), "TCP", 0);
 
-        int portMappingResult;
-        portMappingResult = UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0");
-        if (portMappingResult != 0) {
-          LOG_ERROR("UPNP_AddPortMapping failed, error: " << strupnperror(portMappingResult));
-        } else {
-          LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
-        }
-      } else if (result == 2) {
-        LOG_PRINT_L0("IGD was found but reported as not connected.");
-      } else if (result == 3) {
-        LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
-      } else {
-        LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
-      }
+			int portMappingResult;
+			portMappingResult = UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0");
+			if (portMappingResult != 0) {
+			  LOG_ERROR("UPNP_AddPortMapping failed, error: " << strupnperror(portMappingResult));
+			} else {
+			  LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
+			}
+		  } else if (result == 2) {
+			LOG_PRINT_L0("IGD was found but reported as not connected.");
+		  } else if (result == 3) {
+			LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
+		  } else {
+			LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
+		  }
 
-      FreeUPNPUrls(&urls);
-    } else {
-      LOG_PRINT_L0("No IGD was found.");
-    }
-
+		  FreeUPNPUrls(&urls);
+		} else {
+		  LOG_PRINT_L0("No IGD was found.");
+		}
+	}
     return res;
   }
   //-----------------------------------------------------------------------------------
@@ -441,6 +483,30 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::run()
   {
+	  // creating thread to log number of connections
+      mPeersLoggerThread.reset(new std::thread([&]()
+      {
+			_note("Thread monitor number of peers - start");
+		while (!is_closing)
+		{ // main loop of thread
+			//number_of_peers = m_net_server.get_config_object().get_connections_count();
+			unsigned int number_of_peers = 0;
+			m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+			{
+				if (!cntxt.m_is_income) ++number_of_peers;
+				return true;
+			}); // lambda
+				
+			m_current_number_of_out_peers = number_of_peers;
+			if (epee::net_utils::data_logger::is_dying())
+				break;
+			epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
+				
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		} // main loop of thread
+			_note("Thread monitor number of peers - done");
+      })); // lambda
+      
     //here you can set worker threads count
     int thrds_count = 10;
 
@@ -471,6 +537,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::deinit()
   {
+	kill();
     m_peerlist.deinit();
     m_net_server.deinit_server();
     return store_config();
@@ -683,6 +750,16 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, bool white)
   {
+	if (m_current_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
+	{
+		return false;
+	}
+	else if (m_current_number_of_out_peers > m_config.m_net_config.connections_count)
+	{
+		m_net_server.get_config_object().del_out_connections(1);
+		m_current_number_of_out_peers --; // atomic variable, update time = 1s
+		return false;
+	}
     LOG_PRINT_L1("Connecting to " << epee::string_tools::get_ip_string_from_int32(na.ip)  << ":"
         << epee::string_tools::num_to_string_fast(na.port) << "(white=" << white << ", last_seen: "
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
@@ -770,16 +847,22 @@ namespace nodetool
 
       ++try_count;
 
-      if(is_peer_used(pe))
+			_note("Considering connecting (out) to peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)  << ":" << boost::lexical_cast<std::string>(pe.adr.port));
+
+      if(is_peer_used(pe)) {
+				_note("Peer is used");
         continue;
+			}
 
       LOG_PRINT_L1("Selected peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
                     << "[white=" << use_white_list
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
       
-      if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list))
+      if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list)) {
+				_note("Handshake failed");
         continue;
+			}
 
       return true;
     }
@@ -1318,4 +1401,83 @@ namespace nodetool
 
     return true;
   }
+  
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max)
+	{		
+		if(max == -1) {
+			m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+			epee::net_utils::data_logger::get_instance().add_data("peers_limit", m_config.m_net_config.connections_count);
+			return true;
+		}
+		epee::net_utils::data_logger::get_instance().add_data("peers_limit", max);
+		m_config.m_net_config.connections_count = max;
+		return true;
+	}
+	
+  template<class t_payload_net_handler>
+  void node_server<t_payload_net_handler>::delete_connections(size_t count)
+  {
+		m_net_server.get_config_object().del_out_connections(count);
+  }
+  
+  	  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_tos_flag(const boost::program_options::variables_map& vm, int flag)
+	{
+		if(flag==-1){
+			return true;
+		}
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_tos_flag(flag);
+		_dbg1("Set ToS flag  " << flag);
+		return true;
+	}
+	
+	  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit)
+	{
+		this->islimitup=true;
+
+		if (limit==-1) {
+			limit=128;
+			this->islimitup=false;
+		}
+		
+		limit *= 1024;
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+		LOG_PRINT_L0("Set limit-up to " << limit/1024 << " kB/s");
+		return true;
+	}
+	
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit)
+	{
+		this->islimitdown=true;
+		if(limit==-1) {
+			limit=128;
+			this->islimitdown=false;
+		}
+		limit *= 1024;
+		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		LOG_PRINT_L0("Set limit-down to " << limit/1024 << " kB/s");
+		return true;
+	}
+
+  template<class t_payload_net_handler>
+	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit)
+	{
+		limit *= 1024;
+		if(this->islimitdown==false && this->islimitup==false) {
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+			LOG_PRINT_L0("Set limit to " << limit/1024 << " kB/s");
+		}
+		else if(this->islimitdown==false && this->islimitup==true ) {
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+		}
+		else if(this->islimitdown==true && this->islimitup==false ) {
+			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+        }
+
+		return true;
+	}
 }

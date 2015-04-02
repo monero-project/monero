@@ -92,6 +92,8 @@ add_subdirectory(cryptonote_core)
 add_subdirectory(mnemonics)
 add_subdirectory(rpc)
 add_subdirectory(wallet)
+add_subdirectory(p2p)
+add_subdirectory(cryptonote_protocol)
 
 add_subdirectory(connectivity_tool)
 add_subdirectory(miner)
