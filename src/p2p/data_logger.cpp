@@ -30,7 +30,7 @@ namespace net_utils
 	}
 	
 	data_logger::data_logger() {
-		_warn_c("dbg/data","Starting data logger (for graphs data)");
+		_note_c("dbg/data","Starting data logger (for graphs data)");
 		if (m_state != data_logger_state::state_during_init) { _erro_c("dbg/data","Singleton ctor state"); throw std::runtime_error("data_logger ctor state"); }
 		std::lock_guard<std::mutex> lock(mMutex); // lock
 		
@@ -55,19 +55,19 @@ namespace net_utils
 
 		// do NOT modify mFilesMap below this point, since there is no locking for this used (yet)
 
-		_note_c("dbg/data","Creating thread for data logger"); // create timer thread
+		_info_c("dbg/data","Creating thread for data logger"); // create timer thread
 		m_thread_maybe_running=true;
 		std::shared_ptr<std::thread> logger_thread(new std::thread([&]() {
-			_note_c("dbg/data","Inside thread for data logger");
+			_info_c("dbg/data","Inside thread for data logger");
 			while (m_state == data_logger_state::state_during_init) { // wait for creation to be done (in other thread, in singleton) before actually running
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 			}
-			_note_c("dbg/data","Inside thread for data logger - going into main loop");
+			_info_c("dbg/data","Inside thread for data logger - going into main loop");
 			while (m_state == data_logger_state::state_ready_to_use) { // run as long as we are not closing the single object
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 				saveToFile(); // save all the pending data
 			}
-			_note_c("dbg/data","Inside thread for data logger - done the main loop");
+			_info_c("dbg/data","Inside thread for data logger - done the main loop");
 			m_thread_maybe_running=false;
 		}));
 		logger_thread->detach();

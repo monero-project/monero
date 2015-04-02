@@ -50,6 +50,9 @@ int main(int argc, char const * argv[])
 {
   try {
 
+		_note_c("dbg/main", "Begin of main()");
+		// TODO parse the debug options like set log level right here at start
+
     epee::string_tools::set_module_name_and_folder(argv[0]);
 
     // Build argument description
@@ -230,7 +233,8 @@ int main(int argc, char const * argv[])
         , log_file_path.parent_path().string().c_str()
         );
     }
-		_erro("Test error");
+
+		_note_c("dbg/main", "Moving from main() into the daemonize now.");
 
     return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
   }

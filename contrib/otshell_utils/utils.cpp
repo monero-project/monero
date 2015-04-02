@@ -322,9 +322,9 @@ void cLogger::SetStreamBroken(const std::string &msg) {
 	_dbg_dbg("Stream is broken (msg: " << msg << ")");
 	if (!mIsBroken) { // if not already marked as broken
 		_dbg_dbg("(It was not broken before)");
-		std::cerr << OT_CODE_STAMP << "WARNING: due to debug stream problem ("<<msg<<") - switching back to fallback stream (e.g. cerr)" << std::endl;
+		std::cerr << OT_CODE_STAMP << "WARNING: due to a problem in the debug/logging system itself ("<<msg<<") - we are switching back to fallback stream (e.g. cerr)" << std::endl;
 		if (mStreamBrokenDebug == nullptr) {
-			std::cerr << OT_CODE_STAMP << " ERROR: in addition, while reporting this problem, mStreamBrokenDebug stream is NULL." << std::endl;
+			std::cerr << OT_CODE_STAMP << " ERROR: in addition, while reporting this problem, mStreamBrokenDebug stream is NULL: " << mStreamBrokenDebug << std::endl;
 		} else {
 			(*mStreamBrokenDebug) << OT_CODE_STAMP << "WARNING: due to debug stream problem ("<<msg<<") - switching back to fallback stream (e.g. cerr)" << std::endl;
 		}
@@ -401,7 +401,7 @@ void cLogger::OpenNewChannel_(const std::string & channel) { // channel=="net/sl
 	_dbg_dbg("Openning fname_system="<<fname_system);
 	std::ofstream * thefile = new std::ofstream( fname_system.c_str() ); // file system
 	*thefile << "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" << endl;
-    	cerr << "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" << endl;
+//    	cerr << "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" << endl;
   	_dbg_dbg( "====== Log opened: " << fname_system << " (in " << ((void*)thefile) << ") ======" );
 	mChannels.insert( std::pair<string,std::ofstream*>(channel , thefile ) ); // <- created the channel mapping
 }
@@ -521,7 +521,7 @@ int cLogger::Thread2Number(const std::thread::id id) {
 	if (found == mThread2Number.end()) { // new one
 		mThread2Number_Biggest++;
 		mThread2Number[id] = mThread2Number_Biggest;
-		_mark_c("dbg/main", "This is a new thread (used in debug), thread id="<<id); // can cause some recursion
+		_info_c("dbg/main", "This is a new thread (used in debug), thread id="<<id); // can cause some recursion
 		return mThread2Number_Biggest;
 	} else {
 		return mThread2Number[id];
@@ -533,7 +533,7 @@ int cLogger::Pid2Number(const t_anypid id) {
 	if (found == mPid2Number.end()) { // new one
 		mPid2Number_Biggest++;
 		mPid2Number[id] = mPid2Number_Biggest;
-		_mark_c("dbg/main", "This is a new process (used in debug), process pid="<<id); // can cause some recursion
+		_info_c("dbg/main", "This is a new process (used in debug), process pid="<<id); // can cause some recursion
 		return mPid2Number_Biggest;
 	} else {
 		return mPid2Number[id];
