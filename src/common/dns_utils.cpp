@@ -162,11 +162,9 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   // init libunbound context
   m_data->m_ub_context = ub_ctx_create();
 
-  char empty_string = '\0';
-
   // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
-  ub_ctx_resolvconf(m_data->m_ub_context, &empty_string);
-  ub_ctx_hosts(m_data->m_ub_context, &empty_string);
+  ub_ctx_resolvconf(m_data->m_ub_context, NULL);
+  ub_ctx_hosts(m_data->m_ub_context, NULL);
 
   ub_ctx_add_ta(m_data->m_ub_context, ::get_builtin_ds());
 }
