@@ -137,13 +137,13 @@ if (NOT HAVE_GETADDRINFO)
 endif ()
 
 set(sldns_src
-  ldns/keyraw.c
-  ldns/sbuffer.c
-  ldns/wire2str.c
-  ldns/parse.c
-  ldns/parseutil.c
-  ldns/rrdef.c
-  ldns/str2wire.c)
+  sldns/keyraw.c
+  sldns/sbuffer.c
+  sldns/wire2str.c
+  sldns/parse.c
+  sldns/parseutil.c
+  sldns/rrdef.c
+  sldns/str2wire.c)
 
 set(libunbound_src
   libunbound/context.c
