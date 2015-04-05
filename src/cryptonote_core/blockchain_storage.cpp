@@ -1086,6 +1086,9 @@ bool blockchain_storage::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDO
         uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
 	double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
 	size_t i = (size_t)(frac*up_index_limit);
+	// just in case rounding up to 1 occurs after sqrt
+	if (i == up_index_limit)
+	  --i;
         if(used.count(i))
           continue;
         bool added = add_out_to_get_random_outs(amount_outs, result_outs, amount, i);
