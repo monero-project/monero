@@ -45,7 +45,7 @@
 /* Whether the C compiler accepts the "unused" attribute */
 #cmakedefine HAVE_ATTR_UNUSED
 
-/* Define to 1 if your system has a working `chown' function. */
+/* Define to 1 if you have the `chown' function. */
 #cmakedefine HAVE_CHOWN
 
 /* Define to 1 if you have the `chroot' function. */
@@ -72,6 +72,10 @@
 /* Define to 1 if you have the declaration of `NID_X9_62_prime256v1', and to 0
    if you don't. */
 #cmakedefine HAVE_DECL_NID_X9_62_PRIME256V1
+
+/* Define to 1 if you have the declaration of `reallocarray', and to 0 if you
+   don't. */
+#cmakedefine HAVE_DECL_REALLOCARRAY
 
 /* Define to 1 if you have the declaration of `sk_SSL_COMP_pop_free', and to 0
    if you don't. */
@@ -148,6 +152,9 @@
 
 /* Whether getaddrinfo is available */
 #cmakedefine HAVE_GETADDRINFO
+
+/* Define to 1 if you have the `getauxval' function. */
+#cmakedefine HAVE_GETAUXVAL
 
 /* Define to 1 if you have the `getentropy' function. */
 #cmakedefine HAVE_GETENTROPY
@@ -266,6 +273,9 @@
 /* Define to 1 if you have the `random' function. */
 #cmakedefine HAVE_RANDOM
 
+/* Define to 1 if you have the `reallocarray' function. */
+#cmakedefine HAVE_REALLOCARRAY
+
 /* Define to 1 if you have the `recvmsg' function. */
 #cmakedefine HAVE_RECVMSG
 
@@ -353,6 +363,9 @@
 /* Define to 1 if `ipi_spec_dst' is a member of `struct in_pktinfo'. */
 #cmakedefine HAVE_STRUCT_IN_PKTINFO_IPI_SPEC_DST
 
+/* Define to 1 if `sun_len' is a member of `struct sockaddr_un'. */
+#cmakedefine HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+
 /* Define if you have Swig libraries and header files. */
 #cmakedefine HAVE_SWIG
 
@@ -382,6 +395,9 @@
 
 /* Define to 1 if you have the <sys/uio.h> header file. */
 #cmakedefine HAVE_SYS_UIO_H
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#cmakedefine HAVE_SYS_UN_H
 
 /* Define to 1 if you have the <sys/wait.h> header file. */
 #cmakedefine HAVE_SYS_WAIT_H
@@ -805,6 +821,10 @@
 #endif
 
 
+#ifndef AF_LOCAL
+#define AF_LOCAL AF_UNIX
+#endif
+
  
 #ifdef HAVE_ATTR_FORMAT
 #  define ATTR_FORMAT(archetype, string_index, first_to_check) \
@@ -887,6 +907,12 @@ struct tm *gmtime_r(const time_t *timep, struct tm *result);
 #endif
 
 
+#ifndef HAVE_REALLOCARRAY
+#define reallocarray reallocarrayunbound
+void* reallocarray(void *ptr, size_t nmemb, size_t size);
+#endif
+
+
 #if !defined(HAVE_SLEEP) || defined(HAVE_WINDOWS_H)
 #define sleep(x) Sleep((x)*1000) /* on win32 */
 #endif /* HAVE_SLEEP */
@@ -951,6 +977,9 @@ uint32_t arc4random(void);
 #  endif
 #  if !HAVE_DECL_ARC4RANDOM_UNIFORM && defined(HAVE_ARC4RANDOM_UNIFORM)
 uint32_t arc4random_uniform(uint32_t upper_bound);
+#  endif
+#  if !HAVE_DECL_REALLOCARRAY
+void *reallocarray(void *ptr, size_t nmemb, size_t size);
 #  endif
 #endif /* HAVE_LIBRESSL */
 #ifndef HAVE_ARC4RANDOM
