@@ -51,9 +51,9 @@
 #include "util/net_help.h"
 #include "testcode/readhex.h"
 #include "testcode/testpkts.h"
-#include "ldns/sbuffer.h"
-#include "ldns/str2wire.h"
-#include "ldns/wire2str.h"
+#include "sldns/sbuffer.h"
+#include "sldns/str2wire.h"
+#include "sldns/wire2str.h"
 
 /** verbose message parse unit test */
 static int vbmp = 0;

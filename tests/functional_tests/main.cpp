@@ -55,6 +55,8 @@ namespace
   const command_line::arg_descriptor<size_t> arg_test_repeat_count = {"test_repeat_count", "", 1};
 }
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();

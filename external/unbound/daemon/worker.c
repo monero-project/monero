@@ -71,7 +71,7 @@
 #include "validator/val_anchor.h"
 #include "libunbound/context.h"
 #include "libunbound/libworker.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 
 #ifdef HAVE_SYS_TYPES_H
 #  include <sys/types.h>
@@ -900,7 +900,7 @@ worker_handle_request(struct comm_point* c, void* arg, int error,
 		goto send_reply;
 	}
 	if(local_zones_answer(worker->daemon->local_zones, &qinfo, &edns, 
-		c->buffer, worker->scratchpad)) {
+		c->buffer, worker->scratchpad, repinfo)) {
 		regional_free_all(worker->scratchpad);
 		if(sldns_buffer_limit(c->buffer) == 0) {
 			comm_point_drop_reply(repinfo);

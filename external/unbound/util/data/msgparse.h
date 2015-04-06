@@ -63,8 +63,8 @@
 #ifndef UTIL_DATA_MSGPARSE_H
 #define UTIL_DATA_MSGPARSE_H
 #include "util/storage/lruhash.h"
-#include "ldns/pkthdr.h"
-#include "ldns/rrdef.h"
+#include "sldns/pkthdr.h"
+#include "sldns/rrdef.h"
 struct sldns_buffer;
 struct rrset_parse;
 struct rr_parse;

@@ -47,9 +47,9 @@
 #include "util/alloc.h"
 #include "util/regional.h"
 #include "util/net_help.h"
-#include "ldns/rrdef.h"
-#include "ldns/sbuffer.h"
-#include "ldns/wire2str.h"
+#include "sldns/rrdef.h"
+#include "sldns/sbuffer.h"
+#include "sldns/wire2str.h"
 
 void
 ub_packed_rrset_parsedelete(struct ub_packed_rrset_key* pkey,

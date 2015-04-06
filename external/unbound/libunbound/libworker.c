@@ -70,8 +70,8 @@
 #include "util/tube.h"
 #include "iterator/iter_fwd.h"
 #include "iterator/iter_hints.h"
-#include "ldns/sbuffer.h"
-#include "ldns/str2wire.h"
+#include "sldns/sbuffer.h"
+#include "sldns/str2wire.h"
 
 /** handle new query command for bg worker */
 static void handle_newq(struct libworker* w, uint8_t* buf, uint32_t len);
@@ -606,7 +606,7 @@ int libworker_fg(struct ub_ctx* ctx, struct ctx_query* q)
 	sldns_buffer_write_u16_at(w->back->udp_buff, 0, qid);
 	sldns_buffer_write_u16_at(w->back->udp_buff, 2, qflags);
 	if(local_zones_answer(ctx->local_zones, &qinfo, &edns, 
-		w->back->udp_buff, w->env->scratch)) {
+		w->back->udp_buff, w->env->scratch, NULL)) {
 		regional_free_all(w->env->scratch);
 		libworker_fillup_fg(q, LDNS_RCODE_NOERROR, 
 			w->back->udp_buff, sec_status_insecure, NULL);
@@ -676,7 +676,7 @@ int libworker_attach_mesh(struct ub_ctx* ctx, struct ctx_query* q,
 	sldns_buffer_write_u16_at(w->back->udp_buff, 0, qid);
 	sldns_buffer_write_u16_at(w->back->udp_buff, 2, qflags);
 	if(local_zones_answer(ctx->local_zones, &qinfo, &edns, 
-		w->back->udp_buff, w->env->scratch)) {
+		w->back->udp_buff, w->env->scratch, NULL)) {
 		regional_free_all(w->env->scratch);
 		free(qinfo.qname);
 		libworker_event_done_cb(q, LDNS_RCODE_NOERROR,
@@ -796,7 +796,7 @@ handle_newq(struct libworker* w, uint8_t* buf, uint32_t len)
 	sldns_buffer_write_u16_at(w->back->udp_buff, 0, qid);
 	sldns_buffer_write_u16_at(w->back->udp_buff, 2, qflags);
 	if(local_zones_answer(w->ctx->local_zones, &qinfo, &edns, 
-		w->back->udp_buff, w->env->scratch)) {
+		w->back->udp_buff, w->env->scratch, NULL)) {
 		regional_free_all(w->env->scratch);
 		q->msg_security = sec_status_insecure;
 		add_bg_result(w, q, w->back->udp_buff, UB_NOERROR, NULL);

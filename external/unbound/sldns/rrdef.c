@@ -13,8 +13,8 @@
  * Defines resource record types and constants.
  */
 #include "config.h"
-#include "ldns/rrdef.h"
-#include "ldns/parseutil.h"
+#include "sldns/rrdef.h"
+#include "sldns/parseutil.h"
 
 /* classes  */
 static sldns_lookup_table sldns_rr_classes_data[] = {

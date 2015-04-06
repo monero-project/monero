@@ -232,6 +232,7 @@ if [ "$DOWIN" = "yes" ]; then
 		cd ..
 	fi
 
+        info "SVNROOT  is $SVNROOT"
 	info "Exporting source from SVN."
 	svn export "$SVNROOT" unbound || error_cleanup "SVN command failed"
 	cd unbound || error_cleanup "Unbound not exported correctly from SVN"

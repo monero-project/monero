@@ -48,7 +48,8 @@
 #include "util/data/msgreply.h"
 #include "util/storage/slabhash.h"
 #include "util/regional.h"
-#include "ldns/sbuffer.h"
+#include "iterator/iter_delegpt.h"
+#include "sldns/sbuffer.h"
 
 #undef _POSIX_C_SOURCE
 #undef _XOPEN_SOURCE
@@ -171,6 +172,20 @@ void reply_addr2str(struct comm_reply* reply, char* dest, int maxlen)
 
 	if(af == AF_INET6)
 		sinaddr = &((struct sockaddr_in6*)&(reply->addr))->sin6_addr;
+	dest[0] = 0;
+	if (inet_ntop(af, sinaddr, dest, (socklen_t)maxlen) == 0)
+	   return;
+	dest[maxlen-1] = 0;
+}
+
+/* Convert target->addr to string */
+void delegpt_addr_addr2str(struct delegpt_addr* target, char *dest, int maxlen)
+{
+	int af = (int)((struct sockaddr_in*) &(target->addr))->sin_family;
+	void* sinaddr = &((struct sockaddr_in*) &(target->addr))->sin_addr;
+
+	if(af == AF_INET6)
+		sinaddr = &((struct sockaddr_in6*)&(target->addr))->sin6_addr;
 	dest[0] = 0;
 	if (inet_ntop(af, sinaddr, dest, (socklen_t)maxlen) == 0)
 	   return;

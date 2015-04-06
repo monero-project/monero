@@ -13,7 +13,7 @@
  */
 
 #include "config.h"
-#include "ldns/parseutil.h"
+#include "sldns/parseutil.h"
 #include <sys/time.h>
 #include <time.h>
 #include <ctype.h>

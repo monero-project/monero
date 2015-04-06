@@ -49,7 +49,7 @@
 #include "services/cache/infra.h"
 #include "util/data/msgreply.h"
 #include "util/storage/slabhash.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 
 int 
 context_finalize(struct ub_ctx* ctx)
@@ -360,7 +360,7 @@ context_serialize_cancel(struct ctx_query* q, uint32_t* len)
 	/* format of cancel:
 	 * 	o uint32 cmd
 	 * 	o uint32 async-id */
-	uint8_t* p = (uint8_t*)malloc(2*sizeof(uint32_t));
+	uint8_t* p = (uint8_t*)reallocarray(NULL, sizeof(uint32_t), 2);
 	if(!p) return NULL;
 	*len = 2*sizeof(uint32_t);
 	sldns_write_uint32(p, UB_LIBCMD_CANCEL);

@@ -35,7 +35,7 @@
 # ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
 # others.
 
-find_package(MiniUpnpc QUIET)
+find_package(Miniupnpc QUIET)
 
 # FreeBSD doesn't play well with the local copy, so default to using shared
 set(USE_SHARED_MINIUPNPC false)

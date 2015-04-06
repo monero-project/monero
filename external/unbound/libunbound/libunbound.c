@@ -61,7 +61,7 @@
 #include "services/localzone.h"
 #include "services/cache/infra.h"
 #include "services/cache/rrset.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #ifdef HAVE_PTHREAD
 #include <signal.h>
 #endif
@@ -1028,7 +1028,6 @@ ub_ctx_hosts(struct ub_ctx* ctx, const char* fname)
 					"\\hosts");
 				retval=ub_ctx_hosts(ctx, buf);
 			}
-			free(name);
 			return retval;
 		}
 		return UB_READFILE;

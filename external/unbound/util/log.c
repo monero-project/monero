@@ -40,7 +40,7 @@
 #include "config.h"
 #include "util/log.h"
 #include "util/locks.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #include <stdarg.h>
 #ifdef HAVE_TIME_H
 #include <time.h>
@@ -162,6 +162,14 @@ void log_file(FILE *f)
 void log_thread_set(int* num)
 {
 	ub_thread_key_set(logkey, num);
+}
+
+int log_thread_get(void)
+{
+	unsigned int* tid;
+	if(!key_created) return 0;
+	tid = (unsigned int*)ub_thread_key_get(logkey);
+	return (int)(tid?*tid:0);
 }
 
 void log_ident_set(const char* id)

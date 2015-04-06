@@ -164,12 +164,14 @@ By default only ports above 1024 that have not been assigned by IANA are used.
 Give a port number or a range of the form "low\-high", without spaces.
 .TP
 .B outgoing\-num\-tcp: \fI<number>
-Number of outgoing TCP buffers to allocate per thread. Default is 10. If set
-to 0, or if do\-tcp is "no", no TCP queries to authoritative servers are done.
+Number of outgoing TCP buffers to allocate per thread. Default is 10. If
+set to 0, or if do\-tcp is "no", no TCP queries to authoritative servers
+are done.  For larger installations increasing this value is a good idea.
 .TP
 .B incoming\-num\-tcp: \fI<number>
-Number of incoming TCP buffers to allocate per thread. Default is 10. If set
-to 0, or if do\-tcp is "no", no TCP queries from clients are accepted.
+Number of incoming TCP buffers to allocate per thread. Default is
+10. If set to 0, or if do\-tcp is "no", no TCP queries from clients are
+accepted. For larger installations increasing this value is a good idea.
 .TP
 .B edns\-buffer\-size: \fI<number>
 Number of bytes size to advertise as the EDNS reassembly buffer size.
@@ -265,6 +267,16 @@ it then attempts to open the port and passes the option if it was available
 at compile time, if that works it is used, if it fails, it continues
 silently (unless verbosity 3) without the option.
 .TP
+.B ip\-transparent: \fI<yes or no>
+If yes, then use IP_TRANSPARENT socket option on sockets where unbound
+is listening for incoming traffic.  Default no.  Allows you to bind to
+non\-local interfaces.  For example for non\-existant IP addresses that
+are going to exist later on, with host failover configuration.  This is
+a lot like interface\-automatic, but that one services all interfaces
+and with this option you can select which (future) interfaces unbound
+provides service on.  This option needs unbound to be started with root
+permissions on some systems.
+.TP
 .B rrset\-cache\-size: \fI<number>
 Number of bytes size of the RRset cache. Default is 4 megabytes.
 A plain number is in bytes, append 'k', 'm' or 'g' for kilobytes, megabytes
@@ -300,6 +312,11 @@ by threads. Must be set to a power of 2.
 .TP
 .B infra\-cache\-numhosts: \fI<number>
 Number of hosts for which information is cached. Default is 10000.
+.TP
+.B infra\-cache\-min\-rtt: \fI<msec>
+Lower limit for dynamic retransmit timeout calculation in infrastructure
+cache. Default is 50 milliseconds. Increase this value if using forwarders
+needing more time to do recursive name resolution.
 .TP
 .B do\-ip4: \fI<yes or no>
 Enable or disable whether ip4 queries are answered or issued. Default is yes.
@@ -542,6 +559,13 @@ not RFC standard, and could lead to performance problems because of the
 extra query load that is generated.  Experimental option.
 If you enable it consider adding more numbers after the target\-fetch\-policy
 to increase the max depth that is checked to.
+.TP
+.B harden\-algo\-downgrade: \fI<yes or no>
+Harden against algorithm downgrade when multiple algorithms are
+advertised in the DS record.  If no, allows the weakest algorithm to
+validate the zone.  Default is yes.  Zone signers must produce zones
+that allow this feature to work, but sometimes they do not, and turning
+this option off avoids that validation failure.
 .TP
 .B use\-caps\-for\-id: \fI<yes or no>
 Use 0x20\-encoded random bits in the query to foil spoof attempts.
@@ -791,7 +815,7 @@ data leakage about the local network to the upstream DNS servers.
 .B local\-zone: \fI<zone> <type>
 Configure a local zone. The type determines the answer to give if
 there is no match from local\-data. The types are deny, refuse, static,
-transparent, redirect, nodefault, typetransparent, and are explained
+transparent, redirect, nodefault, typetransparent, inform, and are explained
 below. After that the default settings are listed. Use local\-data: to
 enter data into the local zone. Answers for local zones are authoritative
 DNS answers. By default the zones are class IN.
@@ -840,6 +864,13 @@ local\-zone: "example.com." redirect and
 local\-data: "example.com. A 127.0.0.1"
 queries for www.example.com and www.foo.example.com are redirected, so
 that users with web browsers cannot access sites with suffix example.com.
+.TP 10
+\h'5'\fIinform\fR 
+The query is answered normally.  The client IP address (@portnumber)
+is printed to the logfile.  The log message is: timestamp, unbound-pid,
+info: zonename inform IP@port queryname type class.  This option can be
+used for normal resolution, but machines looking up infected names are
+logged, eg. to run antivirus on them.
 .TP 10
 \h'5'\fInodefault\fR 
 Used to turn off default contents for AS112 zones. The other types
@@ -958,36 +989,47 @@ to setup SSLv3 / TLSv1 security for the connection.  The
 section for options.  To setup the correct self\-signed certificates use the
 \fIunbound\-control\-setup\fR(8) utility.
 .TP 5
-.B control\-enable:     \fI<yes or no>
+.B control\-enable: \fI<yes or no>
 The option is used to enable remote control, default is "no".
 If turned off, the server does not listen for control commands.
 .TP 5
-.B control\-interface: <ip address>
-Give IPv4 or IPv6 addresses to listen on for control commands.
+.B control\-interface: \fI<ip address or path>
+Give IPv4 or IPv6 addresses or local socket path to listen on for
+control commands.
 By default localhost (127.0.0.1 and ::1) is listened to.
 Use 0.0.0.0 and ::0 to listen to all interfaces.
+If you change this and permissions have been dropped, you must restart
+the server for the change to take effect.
 .TP 5
-.B control\-port: <port number>
-The port number to listen on for control commands, default is 8953.
-If you change this port number, and permissions have been dropped,
-a reload is not sufficient to open the port again, you must then restart.
+.B control\-port: \fI<port number>
+The port number to listen on for IPv4 or IPv6 control interfaces,
+default is 8953.
+If you change this and permissions have been dropped, you must restart
+the server for the change to take effect.
 .TP 5
-.B server\-key\-file: "<private key file>"
+.B control\-use\-cert: \fI<yes or no>
+Whether to require certificate authentication of control connections.
+The default is "yes".
+This should not be changed unless there are other mechanisms in place
+to prevent untrusted users from accessing the remote control
+interface.
+.TP 5
+.B server\-key\-file: \fI<private key file>
 Path to the server private key, by default unbound_server.key.
 This file is generated by the \fIunbound\-control\-setup\fR utility.
 This file is used by the unbound server, but not by \fIunbound\-control\fR.
 .TP 5
-.B server\-cert\-file: "<certificate file.pem>"
+.B server\-cert\-file: \fI<certificate file.pem>
 Path to the server self signed certificate, by default unbound_server.pem.
 This file is generated by the \fIunbound\-control\-setup\fR utility.
 This file is used by the unbound server, and also by \fIunbound\-control\fR.
 .TP 5
-.B control\-key\-file: "<private key file>"
+.B control\-key\-file: \fI<private key file>
 Path to the control client private key, by default unbound_control.key.
 This file is generated by the \fIunbound\-control\-setup\fR utility.
 This file is used by \fIunbound\-control\fR.
 .TP 5
-.B control\-cert\-file: "<certificate file.pem>"
+.B control\-cert\-file: \fI<certificate file.pem>
 Path to the control client certificate, by default unbound_control.pem.
 This certificate has to be signed with the server certificate.
 This file is generated by the \fIunbound\-control\-setup\fR utility.

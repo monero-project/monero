@@ -29,4 +29,5 @@ distribution but may be helpful.
   works like the BIND feature (removes AAAA records unless AAAA-only domain).
   Useful for certain 'broken IPv6 default route' scenarios.
   Patch from Stephane Lapie for ASAHI Net.
-
+* unbound_smf22.tar.gz: Solaris SMF installation/removal scripts.
+  Contributed by Yuri Voinov.

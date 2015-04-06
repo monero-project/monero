@@ -12,11 +12,11 @@
  * Parses text to wireformat.
  */
 #include "config.h"
-#include "ldns/str2wire.h"
-#include "ldns/wire2str.h"
-#include "ldns/sbuffer.h"
-#include "ldns/parse.h"
-#include "ldns/parseutil.h"
+#include "sldns/str2wire.h"
+#include "sldns/wire2str.h"
+#include "sldns/sbuffer.h"
+#include "sldns/parse.h"
+#include "sldns/parseutil.h"
 #include <ctype.h>
 #ifdef HAVE_TIME_H
 #include <time.h>

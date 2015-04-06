@@ -188,15 +188,15 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       char *size_prepended_tx_id = new char[crypto::HASH_SIZE + 1];
       size_prepended_tx_id[0] = crypto::HASH_SIZE;
       memcpy(size_prepended_tx_id + 1, tx_id.data, crypto::HASH_SIZE);
-      int rc = wap_client_output_indexes(client, size_prepended_tx_id);
+      int rc = wap_client_output_indexes(ipc_client, size_prepended_tx_id);
       delete size_prepended_tx_id;
-      THROW_WALLET_EXCEPTION_IF(rc != 0, error::no_connection_to_daemon, "get_output_indexes");
-      uint64_t status = wap_client_status(client);
+      THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_output_indexes");
+      uint64_t status = wap_client_status(ipc_client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_output_indexes");
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_output_indexes");
       THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_out_indices_error, "get_output_indexes");
 
-      zframe_t *frame = wap_client_o_indexes(client);
+      zframe_t *frame = wap_client_o_indexes(ipc_client);
       THROW_WALLET_EXCEPTION_IF(!frame, error::get_out_indices_error, "get_output_indexes");
       size_t size = zframe_size(frame) / sizeof(uint64_t);
       uint64_t *o_indexes_array = reinterpret_cast<uint64_t*>(zframe_data(frame));
@@ -370,22 +370,22 @@ void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
   for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
     zlist_append(list, *it);
   }
-  int rc = wap_client_blocks(client, &list, start_height);
+  int rc = wap_client_blocks(ipc_client, &list, start_height);
   for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
     delete *it;
   }
   zlist_destroy(&list);
-  THROW_WALLET_EXCEPTION_IF(rc != 0, error::no_connection_to_daemon, "getblocks");
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "getblocks");
 
-  uint64_t status = wap_client_status(client);
+  uint64_t status = wap_client_status(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getblocks");
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "getblocks");
   THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "getblocks");
   std::list<block_complete_entry> blocks;
-  zmsg_t *msg = wap_client_block_data(client); 
+  zmsg_t *msg = wap_client_block_data(ipc_client); 
   get_blocks_from_zmq_msg(msg, blocks);
 
-  uint64_t current_index = wap_client_start_height(client);
+  uint64_t current_index = wap_client_start_height(ipc_client);
   BOOST_FOREACH(auto& bl_entry, blocks)
   {
     cryptonote::block bl;
@@ -518,7 +518,6 @@ bool wallet2::deinit()
 {
   //  Great, it all works. Now to shutdown, we use the destroy method,
   //  which does a proper deconnect handshake internally:
-  wap_client_destroy (&client);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1140,8 +1139,8 @@ void wallet2::commit_tx(pending_tx& ptx)
 
   std::string tx_as_hex_string = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
   zchunk_t *tx_as_hex = zchunk_new((void*)tx_as_hex_string.c_str(), tx_as_hex_string.length());
-  int rc = wap_client_put(client, &tx_as_hex);
-  uint64_t status = wap_client_status(client);
+  int rc = wap_client_put(ipc_client, &tx_as_hex);
+  uint64_t status = wap_client_status(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "sendrawtransaction");
   THROW_WALLET_EXCEPTION_IF((status == IPC::STATUS_INVALID_TX) || (status == IPC::STATUS_TX_VERIFICATION_FAILED) ||
     (status == IPC::STATUS_TX_NOT_RELAYED), error::tx_rejected, ptx.tx, status);
@@ -1285,5 +1284,9 @@ void wallet2::generate_genesis(cryptonote::block& b) {
   {
     cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
   }
+}
+
+void wallet2::stop_ipc_client() {
+  wap_client_destroy(&ipc_client);
 }
 }

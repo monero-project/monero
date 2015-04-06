@@ -42,6 +42,8 @@
 #include "config.h"
 #include "util/rtt.h"
 
+/* overwritten by config: infra_cache_min_rtt: */
+int RTT_MIN_TIMEOUT = 50;
 /** calculate RTO from rtt information */
 static int
 calc_rto(const struct rtt_info* rtt)

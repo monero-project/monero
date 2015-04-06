@@ -129,6 +129,8 @@ struct server_stats {
 	size_t unwanted_replies;
 	/** unwanted traffic received on client-facing ports */
 	size_t unwanted_queries;
+	/** usage of tcp accept list */
+	size_t tcp_accept_usage;
 
 	/** histogram data exported to array 
 	 * if the array is the same size, no data is lost, and

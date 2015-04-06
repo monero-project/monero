@@ -69,6 +69,9 @@ namespace po = boost::program_options;
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
+#define DEFAULT_MIX 3
 
 namespace
 {
@@ -282,7 +285,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("incoming_transfers", boost::bind(&simple_wallet::show_incoming_transfers, this, _1), "incoming_transfers [available|unavailable] - Show incoming transfers - all of them or filter them by availability");
   m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), "payments <payment_id_1> [<payment_id_2> ... <payment_id_N>] - Show payments <payment_id_1>, ... <payment_id_N>");
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), "Show blockchain height");
-  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), "transfer <mixin_count> <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of transactions yours is indistinguishable from (from 0 to maximum available)");
+  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), "transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of transactions yours is indistinguishable from (from 0 to maximum available)");
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
@@ -514,6 +517,7 @@ bool simple_wallet::deinit()
   if (!m_wallet.get())
     return true;
 
+  m_wallet->stop_ipc_client();
   return close_wallet();
 }
 //----------------------------------------------------------------------------------------------------
@@ -1070,20 +1074,25 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
 
 std::cout << "1\n";
   std::vector<std::string> local_args = args_;
-  if(local_args.size() < 3)
-  {
-    fail_msg_writer() << "wrong number of arguments, expected at least 3, got " << local_args.size();
-    return true;
-  }
 
 std::cout << "2\n";
   size_t fake_outs_count;
-  if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
-  {
-    fail_msg_writer() << "mixin_count should be non-negative integer, got " << local_args[0];
-    return true;
+  if(local_args.size() > 0) {
+    if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
+    {
+      fake_outs_count = DEFAULT_MIX;
+    }
+    else
+    {
+      local_args.erase(local_args.begin());
+    }
   }
-  local_args.erase(local_args.begin());
+
+  if(local_args.size() < 2)
+  {
+     fail_msg_writer() << "wrong number of arguments";
+     return true;
+  }
 
 std::cout << "3\n";
   std::vector<uint8_t> extra;
@@ -1434,7 +1443,7 @@ int main(int argc, char* argv[])
       daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
     tools::wallet2 wal(testnet,restricted);
-    RPC::Wallet::init(&wal);
+    // RPC::Wallet::init(&wal);
     try
     {
       LOG_PRINT_L0("Loading wallet...");
@@ -1448,17 +1457,26 @@ int main(int argc, char* argv[])
       LOG_ERROR("Wallet initialize failed: " << e.what());
       return 1;
     }
-    std::string ip_address, port;
-    RPC::Wallet::get_address_and_port(vm, ip_address, port);
-    RPC::Json_rpc_http_server rpc_server(ip_address, port, &RPC::Wallet::ev_handler);
+    // std::string ip_address, port;
+    // RPC::Wallet::get_address_and_port(vm, ip_address, port);
+    // RPC::Json_rpc_http_server rpc_server(ip_address, port, &RPC::Wallet::ev_handler);
 
-    tools::signal_handler::install([&rpc_server, &wal] {
+    tools::wallet_rpc_server wrpc(wal);
+    bool r = wrpc.init(vm);
+    CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet rpc server");
+
+    /*tools::signal_handler::install([&rpc_server, &wal] {
       rpc_server.stop();
+      wal.store();
+    });*/
+    tools::signal_handler::install([&wrpc, &wal] {
+      wrpc.send_stop_signal();
       wal.store();
     });
     LOG_PRINT_L0("Starting wallet rpc server");
-    rpc_server.start();
+    wrpc.run();
     LOG_PRINT_L0("Stopped wallet rpc server");
+    wal.stop_ipc_client();
     try
     {
       LOG_PRINT_L0("Storing wallet...");

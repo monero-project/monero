@@ -41,9 +41,9 @@
 #include "config.h"
 #include "util/log.h"
 #include "testcode/unitmain.h"
-#include "ldns/sbuffer.h"
-#include "ldns/str2wire.h"
-#include "ldns/wire2str.h"
+#include "sldns/sbuffer.h"
+#include "sldns/str2wire.h"
+#include "sldns/wire2str.h"
 
 /** verbose this unit test */
 static int vbmp = 0; 

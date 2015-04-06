@@ -39,8 +39,11 @@ set(common_private_headers
   boost_serialization_helper.h
   command_line.h
   dns_utils.h
+  http_connection.h
   int-util.h
   pod-class.h
+  rpc_client.h
+  scoped_message_writer.h
   unordered_containers_boost_serialization.h
   util.h
   varint.h)

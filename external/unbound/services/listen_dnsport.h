@@ -189,11 +189,12 @@ void listen_start_accept(struct listen_dnsport* listen);
  * 	set SO_REUSEADDR on it.
  * @param reuseport: if nonNULL and true, try to set SO_REUSEPORT on
  * 	listening UDP port.  Set to false on return if it failed to do so.
+ * @param transparent: set IP_TRANSPARENT socket option.
  * @return: the socket. -1 on error.
  */
 int create_udp_sock(int family, int socktype, struct sockaddr* addr, 
 	socklen_t addrlen, int v6only, int* inuse, int* noproto, int rcv,
-	int snd, int listen, int* reuseport);
+	int snd, int listen, int* reuseport, int transparent);
 
 /**
  * Create and bind TCP listening socket
@@ -202,9 +203,19 @@ int create_udp_sock(int family, int socktype, struct sockaddr* addr,
  * @param noproto: if error caused by lack of protocol support.
  * @param reuseport: if nonNULL and true, try to set SO_REUSEPORT on
  * 	listening UDP port.  Set to false on return if it failed to do so.
+ * @param transparent: set IP_TRANSPARENT socket option.
  * @return: the socket. -1 on error.
  */
 int create_tcp_accept_sock(struct addrinfo *addr, int v6only, int* noproto,
-	int* reuseport);
+	int* reuseport, int transparent);
+
+/**
+ * Create and bind local listening socket
+ * @param path: path to the socket.
+ * @param noproto: on error, this is set true if cause is that local sockets
+ *	are not supported.
+ * @return: the socket. -1 on error.
+ */
+int create_local_accept_sock(const char* path, int* noproto);
 
 #endif /* LISTEN_DNSPORT_H */

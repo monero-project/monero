@@ -10,7 +10,7 @@ See LICENSE for the license text file.
 Unbound is a recursive DNS server.  It does caching, full recursion, stub
 recursion, DNSSEC validation, NSEC3, IPv6.  More information can be found 
 at the http://unbound.net site.  Unbound has been built and tested on 
-Windows XP, Vista and 7.
+Windows XP, Vista, 7 and 8.
 
 At http://unbound.net/documentation is an install and configuration manual
 for windows.

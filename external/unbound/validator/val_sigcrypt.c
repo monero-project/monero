@@ -51,10 +51,10 @@
 #include "util/module.h"
 #include "util/net_help.h"
 #include "util/regional.h"
-#include "ldns/keyraw.h"
-#include "ldns/sbuffer.h"
-#include "ldns/parseutil.h"
-#include "ldns/wire2str.h"
+#include "sldns/keyraw.h"
+#include "sldns/sbuffer.h"
+#include "sldns/parseutil.h"
+#include "sldns/wire2str.h"
 
 #include <ctype.h>
 #if !defined(HAVE_SSL) && !defined(HAVE_NSS)
@@ -1079,6 +1079,8 @@ int rrset_canonical_equal(struct regional* region,
 	fd.rr_data = fdata;
 	rbtree_init(&sortree1, &canonical_tree_compare);
 	rbtree_init(&sortree2, &canonical_tree_compare);
+	if(d1->count > RR_COUNT_MAX || d2->count > RR_COUNT_MAX)
+		return 1; /* protection against integer overflow */
 	rrs1 = regional_alloc(region, sizeof(struct canon_rr)*d1->count);
 	rrs2 = regional_alloc(region, sizeof(struct canon_rr)*d2->count);
 	if(!rrs1 || !rrs2) return 1; /* alloc failure */
@@ -1135,6 +1137,8 @@ rrset_canonical(struct regional* region, sldns_buffer* buf,
 			sizeof(rbtree_t));
 		if(!*sortree)
 			return 0;
+		if(d->count > RR_COUNT_MAX)
+			return 0; /* integer overflow protection */
 		rrs = regional_alloc(region, sizeof(struct canon_rr)*d->count);
 		if(!rrs) {
 			*sortree = NULL;

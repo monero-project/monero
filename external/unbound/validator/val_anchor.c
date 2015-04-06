@@ -48,9 +48,9 @@
 #include "util/log.h"
 #include "util/net_help.h"
 #include "util/config_file.h"
-#include "ldns/sbuffer.h"
-#include "ldns/rrdef.h"
-#include "ldns/str2wire.h"
+#include "sldns/sbuffer.h"
+#include "sldns/rrdef.h"
+#include "sldns/str2wire.h"
 #ifdef HAVE_GLOB_H
 #include <glob.h>
 #endif
@@ -882,14 +882,14 @@ assemble_it(struct trust_anchor* ta, size_t num, uint16_t type)
 	memset(pd, 0, sizeof(*pd));
 	pd->count = num;
 	pd->trust = rrset_trust_ultimate;
-	pd->rr_len = (size_t*)malloc(num*sizeof(size_t));
+	pd->rr_len = (size_t*)reallocarray(NULL, num, sizeof(size_t));
 	if(!pd->rr_len) {
 		free(pd);
 		free(pkey->rk.dname);
 		free(pkey);
 		return NULL;
 	}
-	pd->rr_ttl = (time_t*)malloc(num*sizeof(time_t));
+	pd->rr_ttl = (time_t*)reallocarray(NULL, num, sizeof(time_t));
 	if(!pd->rr_ttl) {
 		free(pd->rr_len);
 		free(pd);
@@ -897,7 +897,7 @@ assemble_it(struct trust_anchor* ta, size_t num, uint16_t type)
 		free(pkey);
 		return NULL;
 	}
-	pd->rr_data = (uint8_t**)malloc(num*sizeof(uint8_t*));
+	pd->rr_data = (uint8_t**)reallocarray(NULL, num, sizeof(uint8_t*));
 	if(!pd->rr_data) {
 		free(pd->rr_ttl);
 		free(pd->rr_len);
@@ -1020,7 +1020,13 @@ anchors_assemble_rrsets(struct val_anchors* anchors)
 			dname_str(ta->name, b);
 			log_warn("trust anchor %s has no supported algorithms,"
 				" the anchor is ignored (check if you need to"
-				" upgrade unbound and openssl)", b);
+				" upgrade unbound and "
+#ifdef HAVE_LIBRESSL
+				"libressl"
+#else
+				"openssl"
+#endif
+				")", b);
 			(void)rbtree_delete(anchors->tree, &ta->node);
 			lock_basic_unlock(&ta->lock);
 			anchors_delfunc(&ta->node, NULL);

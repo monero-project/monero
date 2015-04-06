@@ -84,9 +84,10 @@ namespace tools
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet) {
-      client = wap_client_new ();
-      wap_client_connect (client, "ipc://@/monero", 200, "wallet identity");
-      if (!client) {
+      ipc_client = wap_client_new();
+      wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
+      if (!ipc_client) {
+std::cout << "Couldn't connect to daemon\n\n";
         // TODO: Daemon not up.
       }
       /*zlist_t *list = zlist_new();
@@ -255,6 +256,7 @@ namespace tools
       a & m_payments;
     }
 
+    void stop_ipc_client();
     /*!
      * \brief  Check if wallet keys and bin files exist
      * \param  file_path           Wallet file path
@@ -326,7 +328,7 @@ namespace tools
     bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
-    wap_client_t *client;
+    wap_client_t *ipc_client;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)
@@ -484,7 +486,7 @@ namespace tools
       }
 
       zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
-      int rc = wap_client_random_outs(client, outs_count, &amounts_frame);
+      int rc = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
       /*bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
       THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
@@ -493,14 +495,14 @@ namespace tools
         "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
         std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));*/
 
-      uint64_t status = wap_client_status(client);
+      uint64_t status = wap_client_status(ipc_client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
       // TODO: Use a code to string mapping of errors
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_RANDOM_OUTS_FAILED, error::get_random_outs_error, "IPC::STATUS_RANDOM_OUTS_FAILED");
       THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_random_outs_error, "!IPC:STATUS_OK");
   
       // Convert ZMQ response back into RPC response object.
-      zframe_t *outputs_frame = wap_client_random_outputs(client);
+      zframe_t *outputs_frame = wap_client_random_outputs(ipc_client);
       uint64_t frame_size = zframe_size(outputs_frame);
       char *frame_data = reinterpret_cast<char*>(zframe_data(outputs_frame));
 std::string tmp(frame_data, frame_size);

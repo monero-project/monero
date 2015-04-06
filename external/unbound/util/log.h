@@ -98,6 +98,15 @@ void log_file(FILE *f);
 void log_thread_set(int* num);
 
 /**
+ * Get the thread id from logging system.  Set after log_init is
+ * initialised, or log_thread_set for newly created threads.
+ * This initialisation happens in unbound as a daemon, in daemon
+ * startup code, when that spawns threads.
+ * @return thread number, from 0 and up.  Before initialised, returns 0.
+ */
+int log_thread_get(void);
+
+/**
  * Set identity to print, default is 'unbound'. 
  * @param id: string to print. Name of executable.
  */

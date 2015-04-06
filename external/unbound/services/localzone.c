@@ -40,14 +40,15 @@
  */
 #include "config.h"
 #include "services/localzone.h"
-#include "ldns/str2wire.h"
-#include "ldns/sbuffer.h"
+#include "sldns/str2wire.h"
+#include "sldns/sbuffer.h"
 #include "util/regional.h"
 #include "util/config_file.h"
 #include "util/data/dname.h"
 #include "util/data/packed_rrset.h"
 #include "util/data/msgencode.h"
 #include "util/net_help.h"
+#include "util/netevent.h"
 #include "util/data/msgreply.h"
 #include "util/data/msgparse.h"
 
@@ -1022,6 +1023,10 @@ void local_zones_print(struct local_zones* zones)
 			log_nametypeclass(0, "static zone", 
 				z->name, 0, z->dclass);
 			break;
+		case local_zone_inform:
+			log_nametypeclass(0, "inform zone", 
+				z->name, 0, z->dclass);
+			break;
 		default:
 			log_nametypeclass(0, "badtyped zone", 
 				z->name, 0, z->dclass);
@@ -1169,9 +1174,25 @@ lz_zone_answer(struct local_zone* z, struct query_info* qinfo,
 	return 0;
 }
 
+/** print log information for an inform zone query */
+static void
+lz_inform_print(struct local_zone* z, struct query_info* qinfo,
+	struct comm_reply* repinfo)
+{
+	char ip[128], txt[512];
+	char zname[LDNS_MAX_DOMAINLEN+1];
+	uint16_t port = ntohs(((struct sockaddr_in*)&repinfo->addr)->sin_port);
+	dname_str(z->name, zname);
+	addr_to_str(&repinfo->addr, repinfo->addrlen, ip, sizeof(ip));
+	snprintf(txt, sizeof(txt), "%s inform %s@%u", zname, ip,
+		(unsigned)port);
+	log_nametypeclass(0, txt, qinfo->qname, qinfo->qtype, qinfo->qclass);
+}
+
 int 
 local_zones_answer(struct local_zones* zones, struct query_info* qinfo,
-	struct edns_data* edns, sldns_buffer* buf, struct regional* temp)
+	struct edns_data* edns, sldns_buffer* buf, struct regional* temp,
+	struct comm_reply* repinfo)
 {
 	/* see if query is covered by a zone,
 	 * 	if so:	- try to match (exact) local data 
@@ -1189,6 +1210,9 @@ local_zones_answer(struct local_zones* zones, struct query_info* qinfo,
 	}
 	lock_rw_rdlock(&z->lock);
 	lock_rw_unlock(&zones->lock);
+
+	if(z->type == local_zone_inform && repinfo)
+		lz_inform_print(z, qinfo, repinfo);
 
 	if(local_data_answer(z, qinfo, edns, buf, temp, labs, &ld)) {
 		lock_rw_unlock(&z->lock);
@@ -1209,6 +1233,7 @@ const char* local_zone_type2str(enum localzone_type t)
 		case local_zone_typetransparent: return "typetransparent";
 		case local_zone_static: return "static";
 		case local_zone_nodefault: return "nodefault";
+		case local_zone_inform: return "inform";
 	}
 	return "badtyped"; 
 }
@@ -1227,6 +1252,8 @@ int local_zone_str2type(const char* type, enum localzone_type* t)
 		*t = local_zone_typetransparent;
 	else if(strcmp(type, "redirect") == 0)
 		*t = local_zone_redirect;
+	else if(strcmp(type, "inform") == 0)
+		*t = local_zone_inform;
 	else return 0;
 	return 1;
 }

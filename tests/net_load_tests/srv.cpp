@@ -213,6 +213,8 @@ namespace
   };
 }
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
 int main(int argc, char** argv)
 {
   //set up logging options
@@ -232,6 +234,6 @@ int main(int argc, char** argv)
 
   if (!tcp_server.run_server(thread_count, true))
     return 2;
-
+  epee::net_utils::data_logger::get_instance().kill_instance();
   return 0;
 }

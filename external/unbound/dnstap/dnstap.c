@@ -39,7 +39,7 @@
 #include "config.h"
 #include <string.h>
 #include <sys/time.h>
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #include "util/config_file.h"
 #include "util/net_help.h"
 #include "util/netevent.h"

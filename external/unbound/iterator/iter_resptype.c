@@ -45,8 +45,8 @@
 #include "services/cache/dns.h"
 #include "util/net_help.h"
 #include "util/data/dname.h"
-#include "ldns/rrdef.h"
-#include "ldns/pkthdr.h"
+#include "sldns/rrdef.h"
+#include "sldns/pkthdr.h"
 
 enum response_type 
 response_type_from_cache(struct dns_msg* msg, 

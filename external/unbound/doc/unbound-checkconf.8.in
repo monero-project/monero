@@ -13,6 +13,7 @@ unbound\-checkconf
 .SH "SYNOPSIS"
 .B unbound\-checkconf
 .RB [ \-h ]
+.RB [ \-f ]
 .RB [ \-o
 .IR option ]
 .RI [ cfgfile ]
@@ -28,6 +29,9 @@ The available options are:
 .TP
 .B \-h
 Show the version and commandline option help.
+.TP
+.B \-f
+Print full pathname, with chroot applied to it.  Use with the \-o option.
 .TP
 .B \-o\fI option
 If given, after checking the config file the value of this option is 

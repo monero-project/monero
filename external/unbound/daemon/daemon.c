@@ -84,7 +84,7 @@
 #include "util/random.h"
 #include "util/tube.h"
 #include "util/net_help.h"
-#include "ldns/keyraw.h"
+#include "sldns/keyraw.h"
 #include <signal.h>
 
 /** How many quit requests happened. */

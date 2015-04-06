@@ -56,9 +56,9 @@
 #include "iterator/iter_utils.h"
 #include "iterator/iter_fwd.h"
 #include "iterator/iter_hints.h"
-#include "ldns/sbuffer.h"
-#include "ldns/wire2str.h"
-#include "ldns/str2wire.h"
+#include "sldns/sbuffer.h"
+#include "sldns/wire2str.h"
+#include "sldns/str2wire.h"
 
 /** dump one rrset zonefile line */
 static int
@@ -223,6 +223,8 @@ copy_msg(struct regional* region, struct lruhash_entry* e,
 	struct query_info** k, struct reply_info** d)
 {
 	struct reply_info* rep = (struct reply_info*)e->data;
+	if(rep->rrset_count > RR_COUNT_MAX)
+		return 0; /* to protect against integer overflow */
 	*d = (struct reply_info*)regional_alloc_init(region, e->data,
 		sizeof(struct reply_info) + 
 		sizeof(struct rrset_ref) * (rep->rrset_count-1) +
@@ -470,6 +472,10 @@ load_rrset(SSL* ssl, sldns_buffer* buf, struct worker* worker)
 		log_warn("bad rrset without contents");
 		return 0;
 	}
+	if(rr_count > RR_COUNT_MAX || rrsig_count > RR_COUNT_MAX) {
+		log_warn("bad rrset with too many rrs");
+		return 0;
+	}
 	d->count = (size_t)rr_count;
 	d->rrsig_count = (size_t)rrsig_count;
 	d->security = (enum sec_status)security;
@@ -646,6 +652,10 @@ load_msg(SSL* ssl, sldns_buffer* buf, struct worker* worker)
 	rep.ttl = (time_t)ttl;
 	rep.prefetch_ttl = PREFETCH_TTL_CALC(rep.ttl);
 	rep.security = (enum sec_status)security;
+	if(an > RR_COUNT_MAX || ns > RR_COUNT_MAX || ar > RR_COUNT_MAX) {
+		log_warn("error too many rrsets");
+		return 0; /* protect against integer overflow in alloc */
+	}
 	rep.an_numrrsets = (size_t)an;
 	rep.ns_numrrsets = (size_t)ns;
 	rep.ar_numrrsets = (size_t)ar;

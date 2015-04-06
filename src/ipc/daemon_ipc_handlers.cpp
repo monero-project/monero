@@ -53,16 +53,20 @@ namespace IPC
 {
   namespace Daemon
   {
-    void init(cryptonote::core *p_core,
-      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
+    void init(cryptonote::core &p_core,
+      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet)
     {
-      p2p = p_p2p;
-      core = p_core;
+      p2p = &p_p2p;
+      core = &p_core;
       testnet = p_testnet;
       server = zactor_new (wap_server, NULL);
       zsock_send (server, "ss", "BIND", "ipc://@/monero");
       zsock_send (server, "sss", "SET", "server/timeout", "5000");
+    }
+
+    void stop() {
+      zactor_destroy(&server);
     }
 
     void start_mining(wap_proto_t *message)

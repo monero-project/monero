@@ -42,6 +42,8 @@ using namespace epee;
 #include "cryptonote_format_utils.h"
 #include "misc_language.h"
 #include <csignal>
+#include "daemon/command_line_args.h"
+#include "cryptonote_core/checkpoints_create.h"
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -108,14 +110,46 @@ namespace cryptonote
     return res;
   }
   //-----------------------------------------------------------------------------------
+  void core::stop()
+  {
+    graceful_exit();
+  }
+  //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& /*desc*/)
   {
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_command_line(const boost::program_options::variables_map& vm, bool testnet)
+  bool core::handle_command_line(const boost::program_options::variables_map& vm)
   {
-    auto data_dir_arg = testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+
+    auto data_dir_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, data_dir_arg);
+
+    auto data_dir = boost::filesystem::path(m_config_folder);
+
+    if (!m_testnet)
+    {
+      cryptonote::checkpoints checkpoints;
+      if (!cryptonote::create_checkpoints(checkpoints))
+      {
+        throw std::runtime_error("Failed to initialize checkpoints");
+      }
+      set_checkpoints(std::move(checkpoints));
+
+      boost::filesystem::path json(JSON_HASH_FILE_NAME);
+      boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
+
+      set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
+    }
+
+
+    set_enforce_dns_checkpoints(command_line::get_arg(vm, daemon_args::arg_dns_checkpoints));
+    test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
+    
+    if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
+		test_drop_download();
+    
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -154,21 +188,21 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::init(const boost::program_options::variables_map& vm, bool testnet)
+  bool core::init(const boost::program_options::variables_map& vm)
   {
-    bool r = handle_command_line(vm, testnet);
+    bool r = handle_command_line(vm);
 
     r = m_mempool.init(m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
-    r = m_blockchain_storage.init(m_config_folder, testnet);
+    r = m_blockchain_storage.init(m_config_folder, m_testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     // load json & DNS checkpoints, and verify them
     // with respect to what blocks we already have
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
-    r = m_miner.init(vm, testnet);
+    r = m_miner.init(vm, m_testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     return load_state_data();
@@ -187,10 +221,49 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
     bool core::deinit()
   {
-    m_miner.stop();
-    m_mempool.deinit();
-    m_blockchain_storage.deinit();
+	m_miner.stop();
+	m_mempool.deinit();
+	if (!m_fast_exit)
+	{
+		m_blockchain_storage.deinit();
+	}
     return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+    void core::set_fast_exit()
+  {
+    m_fast_exit = true;
+  }
+  //-----------------------------------------------------------------------------------------------
+    bool core::get_fast_exit()
+  {
+    return m_fast_exit;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::test_drop_download()
+  {
+	  m_test_drop_download = false;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::test_drop_download_height(uint64_t height)
+  {
+	  m_test_drop_download_height = height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_test_drop_download()
+  {
+	  return m_test_drop_download;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_test_drop_download_height()
+  {
+	  if (m_test_drop_download_height == 0)
+		return true;
+		
+	  if (get_blockchain_storage().get_current_blockchain_height() <= m_test_drop_download_height)
+		return true;
+
+	  return false;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block)
@@ -595,4 +668,6 @@ namespace cryptonote
   {
     raise(SIGTERM);
   }
+  
+  std::atomic<bool> core::m_fast_exit(false);
 }

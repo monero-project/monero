@@ -71,9 +71,10 @@ namespace IPC
     void send_raw_transaction(wap_proto_t *message);
     void get_output_indexes(wap_proto_t *message);
     void get_random_outs(wap_proto_t *message);
-    void init(cryptonote::core *p_core,
-      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p_p2p,
+    void init(cryptonote::core &p_core,
+      nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet);
+    void stop();
   }
 }
 

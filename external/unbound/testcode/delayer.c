@@ -50,7 +50,7 @@
 #include <sys/time.h>
 #include "util/net_help.h"
 #include "util/config_file.h"
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #include <signal.h>
 
 /** number of reads per select for delayer */

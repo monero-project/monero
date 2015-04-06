@@ -846,6 +846,18 @@ val_fill_reply(struct reply_info* chase, struct reply_info* orig,
 		chase->ar_numrrsets;
 }
 
+void val_reply_remove_auth(struct reply_info* rep, size_t index)
+{
+	log_assert(index < rep->rrset_count);
+	log_assert(index >= rep->an_numrrsets);
+	log_assert(index < rep->an_numrrsets+rep->ns_numrrsets);
+	memmove(rep->rrsets+index, rep->rrsets+index+1,
+		sizeof(struct ub_packed_rrset_key*)*
+		(rep->rrset_count - index - 1));
+	rep->ns_numrrsets--;
+	rep->rrset_count--;
+}
+
 void
 val_check_nonsecure(struct val_env* ve, struct reply_info* rep) 
 {

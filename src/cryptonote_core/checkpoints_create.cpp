@@ -76,6 +76,7 @@ bool create_checkpoints(cryptonote::checkpoints& checkpoints)
   ADD_CHECKPOINT(231350, "b5add137199b820e1ea26640e5c3e121fd85faa86a1e39cf7e6cc097bdeb1131");
   ADD_CHECKPOINT(232150, "955de8e6b6508af2c24f7334f97beeea651d78e9ade3ab18fec3763be3201aa8");
   ADD_CHECKPOINT(249380, "654fb0a81ce3e5caf7e3264a70f447d4bd07586c08fa50f6638cc54da0a52b2d");
+  ADD_CHECKPOINT(460000, "75037a7aed3e765db96c75bcf908f59d690a5f3390baebb9edeafd336a1c4831");
 
   return true;
 }
@@ -112,13 +113,19 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
   return true;
 }
 
-bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
+bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testnet)
 {
   // All four MoneroPulse domains have DNSSEC on and valid
   static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
 						   , "checkpoints.moneropulse.org"
 						   , "checkpoints.moneropulse.net"
 						   , "checkpoints.moneropulse.co"
+  };
+
+  static const std::vector<std::string> testnet_dns_urls = { "testpoints.moneropulse.se"
+							   , "testpoints.moneropulse.org"
+							   , "testpoints.moneropulse.net"
+							   , "testpoints.moneropulse.co"
   };
   bool avail, valid;
   std::vector<std::string> records;
@@ -131,14 +138,34 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
   size_t cur_index = first_index;
   do
   {
-    records = tools::DNSResolver::instance().get_txt_record(dns_urls[cur_index], avail, valid);
-    if (records.size() == 0 || (avail && !valid))
+    std::string url;
+    if (testnet)
+    {
+      url = testnet_dns_urls[cur_index];
+    }
+    else
+    {
+      url = dns_urls[cur_index];
+    }
+
+    records = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
+    if (!avail)
+    {
+      LOG_PRINT_L2("DNSSEC not available for checkpoint update at URL: " << url << ", skipping.");
+    }
+    if (!valid)
+    {
+      LOG_PRINT_L2("DNSSEC validation failed for checkpoint update at URL: " << url << ", skipping.");
+    }
+
+    if (records.size() == 0 || !avail || !valid)
     {
       cur_index++;
       if (cur_index == dns_urls.size())
       {
 	cur_index = 0;
       }
+      records.clear();
       continue;
     }
     break;
@@ -146,13 +173,7 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints)
 
   if (records.size() == 0)
   {
-    LOG_PRINT_L1("Fetching MoneroPulse checkpoints failed, no TXT records available.");
-    return true;
-  }
-
-  if (avail && !valid)
-  {
-    LOG_PRINT_L0("WARNING: MoneroPulse failed DNSSEC validation and/or returned no records");
+    LOG_PRINT_L0("WARNING: All MoneroPulse checkpoint URLs failed DNSSEC validation and/or returned no records");
     return true;
   }
 

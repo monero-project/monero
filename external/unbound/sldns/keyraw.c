@@ -11,8 +11,8 @@
  */
 
 #include "config.h"
-#include "ldns/keyraw.h"
-#include "ldns/rrdef.h"
+#include "sldns/keyraw.h"
+#include "sldns/rrdef.h"
 
 #ifdef HAVE_SSL
 #include <openssl/ssl.h>

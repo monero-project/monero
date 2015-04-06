@@ -42,7 +42,7 @@
 #ifndef LIBUNBOUND_WORKER_H
 #define LIBUNBOUND_WORKER_H
 
-#include "ldns/sbuffer.h"
+#include "sldns/sbuffer.h"
 #include "util/data/packed_rrset.h" /* for enum sec_status */
 struct comm_reply;
 struct comm_point;

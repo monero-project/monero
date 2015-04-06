@@ -223,6 +223,23 @@ int iter_msg_from_zone(struct dns_msg* msg, struct delegpt* dp,
 int reply_equal(struct reply_info* p, struct reply_info* q, struct regional* region);
 
 /**
+ * Remove unused bits from the reply if possible.
+ * So that caps-for-id (0x20) fallback is more likely to be successful.
+ * This removes like, the additional section, and NS record in the authority
+ * section if those records are gratuitous (not for a referral).
+ * @param rep: the reply to strip stuff out of.
+ */
+void caps_strip_reply(struct reply_info* rep);
+
+/**
+ * see if reply has a 'useful' rcode for capsforid comparison, so
+ * not SERVFAIL or REFUSED, and thus NOERROR or NXDOMAIN.
+ * @param rep: reply to check.
+ * @return true if the rcode is a bad type of message.
+ */
+int caps_failed_rcode(struct reply_info* rep);
+
+/**
  * Store parent-side rrset in seperate rrset cache entries for later 
  * last-resort * lookups in case the child-side versions of this information 
  * fails.

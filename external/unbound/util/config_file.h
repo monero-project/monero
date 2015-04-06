@@ -119,6 +119,8 @@ struct config_file {
 	size_t infra_cache_slabs;
 	/** max number of hosts in the infra cache */
 	size_t infra_cache_numhosts;
+	/** min value for infra cache rtt */
+	int infra_cache_min_rtt;
 	/** delay close of udp-timeouted ports, if 0 no delayclose. in msec */
 	int delay_close;
 
@@ -134,6 +136,8 @@ struct config_file {
 	size_t so_sndbuf;
 	/** SO_REUSEPORT requested on port 53 sockets */
 	int so_reuseport;
+	/** IP_TRANSPARENT socket option requested on port 53 sockets */
+	int ip_transparent;
 
 	/** number of interfaces to open. If 0 default all interfaces. */
 	int num_ifs;
@@ -171,6 +175,8 @@ struct config_file {
 	int harden_below_nxdomain;
 	/** harden the referral path, query for NS,A,AAAA and validate */
 	int harden_referral_path;
+	/** harden against algorithm downgrade */
+	int harden_algo_downgrade;
 	/** use 0x20 bits in query as random ID bits */
 	int use_caps_bits_for_id;
 	/** strip away these private addrs from answers, no DNS Rebinding */
@@ -282,6 +288,8 @@ struct config_file {
 	struct config_strlist* control_ifs;
 	/** port number for the control port */
 	int control_port;
+	/** use certificates for remote control */
+	int remote_control_use_cert;
 	/** private key file for server */
 	char* server_key_file;
 	/** certificate file for server */
@@ -338,6 +346,11 @@ struct config_file {
 	/** true to log dnstap FORWARDER_RESPONSE message events */
 	int dnstap_log_forwarder_response_messages;
 };
+
+/** from cfg username, after daemonise setup performed */
+extern uid_t cfg_uid;
+/** from cfg username, after daemonise setup performed */
+extern gid_t cfg_gid;
 
 /**
  * Stub config options
@@ -421,6 +434,12 @@ void config_delete(struct config_file* config);
  * @param config: to apply. Side effect: global constants change.
  */
 void config_apply(struct config_file* config);
+
+/**
+ * Find username, sets cfg_uid and cfg_gid.
+ * @param config: the config structure.
+ */
+void config_lookup_uid(struct config_file* config);
 
 /**
  * Set the given keyword to the given value.

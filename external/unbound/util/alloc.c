@@ -367,8 +367,12 @@ void *unbound_stat_malloc(size_t size)
 /** calloc with stats */
 void *unbound_stat_calloc(size_t nmemb, size_t size)
 {
-	size_t s = (nmemb*size==0)?(size_t)1:nmemb*size;
-	void* res = calloc(1, s+16);
+	size_t s;
+	void* res;
+	if(nmemb != 0 && INT_MAX/nmemb < size)
+		return NULL; /* integer overflow check */
+	s = (nmemb*size==0)?(size_t)1:nmemb*size;
+	res = calloc(1, s+16);
 	if(!res) return NULL;
 	log_info("stat %p=calloc(%u, %u)", res+16, (unsigned)nmemb, (unsigned)size);
 	unbound_mem_alloc += s;
@@ -503,8 +507,12 @@ void *unbound_stat_malloc_lite(size_t size, const char* file, int line,
 void *unbound_stat_calloc_lite(size_t nmemb, size_t size, const char* file,
         int line, const char* func)
 {
-	size_t req = nmemb * size;
-	void* res = malloc(req+lite_pad*2+sizeof(size_t));
+	size_t req;
+	void* res;
+	if(nmemb != 0 && INT_MAX/nmemb < size)
+		return NULL; /* integer overflow check */
+	req = nmemb * size;
+	res = malloc(req+lite_pad*2+sizeof(size_t));
 	if(!res) return NULL;
 	memmove(res, lite_pre, lite_pad);
 	memmove(res+lite_pad, &req, sizeof(size_t));

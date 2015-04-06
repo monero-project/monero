@@ -47,8 +47,8 @@
 #include "util/data/packed_rrset.h"
 #include "util/data/msgreply.h"
 #include "util/net_help.h"
-#include "ldns/rrdef.h"
-#include "ldns/sbuffer.h"
+#include "sldns/rrdef.h"
+#include "sldns/sbuffer.h"
 
 struct delegpt* 
 delegpt_create(struct regional* region)

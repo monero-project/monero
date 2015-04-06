@@ -48,7 +48,7 @@
 #include "libunbound/context.h"
 #include "util/locks.h"
 #include "util/log.h"
-#include "ldns/rrdef.h"
+#include "sldns/rrdef.h"
 #ifdef UNBOUND_ALLOC_LITE
 #undef malloc
 #undef calloc

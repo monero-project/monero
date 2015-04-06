@@ -56,10 +56,40 @@ namespace cryptonote {
 #else
 
   static inline void mul(uint64_t a, uint64_t b, uint64_t &low, uint64_t &high) {
-    typedef unsigned __int128 uint128_t;
-    uint128_t res = (uint128_t) a * (uint128_t) b;
-    low = (uint64_t) res;
-    high = (uint64_t) (res >> 64);
+	// __int128 isn't part of the standard, so the previous function wasn't portable. mul128() in Windows is fine,
+	// but this portable function should be used elsewhere. Credit for this function goes to latexi95.
+
+	uint64_t aLow = a & 0xFFFFFFFF;
+	uint64_t aHigh = a >> 32;
+	uint64_t bLow = b & 0xFFFFFFFF;
+	uint64_t bHigh = b >> 32;
+ 
+	uint64_t res = aLow * bLow;
+	uint64_t lowRes1 = res & 0xFFFFFFFF;
+	uint64_t carry = res >> 32;
+ 
+	res = aHigh * bLow + carry;
+	uint64_t highResHigh1 = res >> 32;
+	uint64_t highResLow1 = res & 0xFFFFFFFF;
+ 
+	res = aLow * bHigh;
+	uint64_t lowRes2 = res & 0xFFFFFFFF;
+	carry = res >> 32;
+ 
+	res = aHigh * bHigh + carry;
+	uint64_t highResHigh2 = res >> 32;
+	uint64_t highResLow2 = res & 0xFFFFFFFF;
+ 
+	//Addition
+ 
+	uint64_t r = highResLow1 + lowRes2;
+	carry = r >> 32;
+	low = (r << 32) | lowRes1;
+	r = highResHigh1 + highResLow2 + carry;
+	uint64_t d3 = r & 0xFFFFFFFF;
+	carry = r >> 32;
+	r = highResHigh2 + carry;
+	high = d3 | (r << 32);
   }
 
 #endif

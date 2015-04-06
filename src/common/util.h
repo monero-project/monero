@@ -58,6 +58,18 @@ namespace tools
    */
   std::string get_default_data_dir();
 
+#ifdef WIN32
+  /**
+   * @brief 
+   *
+   * @param nfolder
+   * @param iscreate
+   *
+   * @return 
+   */
+  std::string get_special_folder_path(int nfolder, bool iscreate);
+#endif
+
   /*! \brief Returns the OS version string
    *
    * \details This is a wrapper around the primitives

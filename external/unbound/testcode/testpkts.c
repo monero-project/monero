@@ -27,11 +27,11 @@ struct sockaddr_storage;
 #include <ctype.h>
 #include "testcode/testpkts.h"
 #include "util/net_help.h"
-#include "ldns/sbuffer.h"
-#include "ldns/rrdef.h"
-#include "ldns/pkthdr.h"
-#include "ldns/str2wire.h"
-#include "ldns/wire2str.h"
+#include "sldns/sbuffer.h"
+#include "sldns/rrdef.h"
+#include "sldns/pkthdr.h"
+#include "sldns/str2wire.h"
+#include "sldns/wire2str.h"
 
 /** max size of a packet */
 #define MAX_PACKETLEN 65536

@@ -56,7 +56,7 @@ struct rtt_info {
 };
 
 /** min retransmit timeout value, in milliseconds */
-#define RTT_MIN_TIMEOUT	50
+extern int RTT_MIN_TIMEOUT;
 /** max retransmit timeout value, in milliseconds */
 #define RTT_MAX_TIMEOUT 120000
 
