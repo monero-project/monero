@@ -42,7 +42,7 @@ release-static-32:
 
 release-static-arm6:
 	mkdir -p build/release
-	cd build/release && cmake -D STATIC=ON -D ARCH="armv6zk" -D BUILD_64=OFF -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
+	cd build/release && cmake -D STATIC=ON -D ARCH="armv6zk" -D BUILD_64=OFF -D NO_AES=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
 
 release-static-win64:
 	mkdir -p build/release
