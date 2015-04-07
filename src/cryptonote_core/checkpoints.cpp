@@ -84,6 +84,10 @@ namespace cryptonote
     return check_block(height, h, ignored);
   }
   //---------------------------------------------------------------------------
+  // this basically says if the blockchain is smaller than the first
+  // checkpoint then alternate blocks are allowed.  Alternatively, if the
+  // last checkpoint *before* the end of the current chain is also before
+  // the block to be added, then this is fine.
   bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const
   {
     if (0 == block_height)
@@ -99,7 +103,7 @@ namespace cryptonote
     return checkpoint_height < block_height;
   }
   //---------------------------------------------------------------------------
-  uint64_t checkpoints::get_max_height()
+  uint64_t checkpoints::get_max_height() const
   {
     std::map< uint64_t, crypto::hash >::const_iterator highest = 
         std::max_element( m_points.begin(), m_points.end(),
@@ -108,18 +112,18 @@ namespace cryptonote
     return highest->first;
   }
   //---------------------------------------------------------------------------
-  const std::map<uint64_t, crypto::hash>& checkpoints::get_points()
+  const std::map<uint64_t, crypto::hash>& checkpoints::get_points() const
   {
     return m_points;
   }
 
-  bool checkpoints::check_for_conflicts(checkpoints& other)
+  bool checkpoints::check_for_conflicts(const checkpoints& other) const
   {
     for (auto& pt : other.get_points())
     {
       if (m_points.count(pt.first))
       {
-        CHECK_AND_ASSERT_MES(pt.second == m_points[pt.first], false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
+        CHECK_AND_ASSERT_MES(pt.second == m_points.at(pt.first), false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
       }
     }
     return true;

@@ -44,10 +44,13 @@
 #include "verification_context.h"
 #include "crypto/hash.h"
 
-
 namespace cryptonote
 {
+#if BLOCKCHAIN_DB == DB_LMDB
+  class Blockchain;
+#else
   class blockchain_storage;
+#endif
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -55,7 +58,11 @@ namespace cryptonote
   class tx_memory_pool: boost::noncopyable
   {
   public:
+#if BLOCKCHAIN_DB == DB_LMDB
+    tx_memory_pool(Blockchain& bchs);
+#else
     tx_memory_pool(blockchain_storage& bchs);
+#endif
     bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
     bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
     //gets tx and remove it from pool
@@ -127,7 +134,11 @@ namespace cryptonote
     //transactions_container m_alternative_transactions;
 
     std::string m_config_folder;
+#if BLOCKCHAIN_DB == DB_LMDB
+    Blockchain& m_blockchain;
+#else
     blockchain_storage& m_blockchain;
+#endif
     /************************************************************************/
     /*                                                                      */
     /************************************************************************/
@@ -170,8 +181,11 @@ namespace cryptonote
       uint64_t operator()(const txin_to_scripthash& tx) const {return 0;}
     };
 
+#if BLOCKCHAIN_DB == DB_LMDB
+#else
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
     friend class blockchain_storage;
+#endif
 #endif
   };
 }
