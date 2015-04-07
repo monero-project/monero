@@ -46,7 +46,9 @@ using namespace epee;
 #include "cryptonote_core/checkpoints_create.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#ifndef STATICLIB
 #include "blockchain_db/berkeleydb/db_bdb.h"
+#endif
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -207,7 +209,12 @@ namespace cryptonote
     }
     else if (db_type == "berkeley")
     {
+#ifndef STATICLIB
       db = new BlockchainBDB();
+#else
+      LOG_ERROR("BlockchainBDB not supported on STATIC builds");
+      return false;
+#endif
     }
     else
     {

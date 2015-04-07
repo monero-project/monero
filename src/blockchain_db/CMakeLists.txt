@@ -29,16 +29,29 @@
 set(blockchain_db_sources
   blockchain_db.cpp
   lmdb/db_lmdb.cpp
+  )
+
+if (NOT STATIC)
+  set(blockchain_db_sources
+  ${blockchain_db_sources}
   berkeleydb/db_bdb.cpp
   )
+endif()
+
 
 set(blockchain_db_headers)
 
 set(blockchain_db_private_headers
   blockchain_db.h
   lmdb/db_lmdb.h
+  )
+
+if (NOT STATIC)
+  set(blockchain_db_private_headers
+  ${blockchain_db_private_headers}
   berkeleydb/db_bdb.h
   )
+endif()
 
 bitmonero_private_headers(blockchain_db
   ${crypto_private_headers})
