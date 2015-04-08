@@ -29,6 +29,7 @@
 set(unit_tests_sources
   address_from_url.cpp
   base58.cpp
+  BlockchainDB.cpp
   block_reward.cpp
   chacha8.cpp
   checkpoints.cpp
@@ -56,6 +57,7 @@ add_executable(unit_tests
 target_link_libraries(unit_tests
   LINK_PRIVATE
     cryptonote_core
+    blockchain_db
     rpc
     wallet
     p2p

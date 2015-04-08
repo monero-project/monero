@@ -79,6 +79,20 @@ enable_testing()
 
 option(BUILD_DOCUMENTATION "Build the Doxygen documentation." ON)
 
+# Check whether we're on a 32-bit or 64-bit system
+if(CMAKE_SIZEOF_VOID_P EQUAL "8")
+  set(DEFAULT_BUILD_64 ON)
+else()
+  set(DEFAULT_BUILD_64 OFF)
+endif()
+option(BUILD_64 "Build for 64-bit? 'OFF' builds for 32-bit." ${DEFAULT_BUILD_64})
+
+if(BUILD_64)
+  set(ARCH_WIDTH "64")
+else()
+  set(ARCH_WIDTH "32")
+endif()
+message(STATUS "Building for a ${ARCH_WIDTH}-bit system")
 
 # Check if we're on FreeBSD so we can exclude the local miniupnpc (it should be installed from ports instead)
 # CMAKE_SYSTEM_NAME checks are commonly known, but specifically taken from libsdl's CMakeLists
@@ -111,16 +125,16 @@ endif()
 option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
 if(MINGW)
-  get_filename_component(msys2_install_path "[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MSYS2 64bit;InstallLocation]" ABSOLUTE)
-  set(CMAKE_INCLUDE_PATH "${msys2_install_path}/mingw64/include")
+  get_filename_component(msys2_install_path "[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MSYS2 ${ARCH_WIDTH}bit;InstallLocation]" ABSOLUTE)
+  set(CMAKE_INCLUDE_PATH "${msys2_install_path}/mingw${ARCH_WIDTH}/include")
   # This is necessary because otherwise CMake will make Boost libraries -lfoo
   # rather than a full path. Unfortunately, this makes the shared libraries get
   # linked due to a bug in CMake which misses putting -static flags around the
   # -lfoo arguments.
   list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_DIRECTORIES
-    "${msys2_install_path}/mingw64/lib")
+    "${msys2_install_path}/mingw${ARCH_WIDTH}/lib")
   list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES
-    "${msys2_install_path}/mingw64/lib")
+    "${msys2_install_path}/mingw${ARCH_WIDTH}/lib")
 endif()
 
 if(STATIC)
@@ -130,6 +144,27 @@ if(STATIC)
     set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
   endif()
 endif()
+
+# default database:
+# should be lmdb for testing, memory for production still
+# set(DATABASE memory)
+set(DATABASE lmdb)
+
+if (DEFINED ENV{DATABASE})
+  set(DATABASE $ENV{DATABASE})
+  message(STATUS "DATABASE set: ${DATABASE}")
+else()
+  message(STATUS "Could not find DATABASE in env (not required unless you want to change database type from default: ${DATABASE})")
+endif()
+if (DATABASE STREQUAL "lmdb")
+  set(BLOCKCHAIN_DB DB_LMDB)
+elseif (DATABASE STREQUAL "memory")
+  set(BLOCKCHAIN_DB DB_MEMORY)
+else()
+  die("Invalid database type: ${DATABASE}")
+endif()
+
+add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
@@ -153,6 +188,14 @@ link_directories(${UNBOUND_LIBRARY_DIRS})
 # Final setup for rapidjson
 include_directories(external/rapidjson)
 
+# Final setup for liblmdb
+include_directories(${LMDB_INCLUDE})
+
+# Final setup for Berkeley DB
+if (NOT STATIC)
+  include_directories(${BDB_INCLUDE})
+endif()
+
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
   # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Dinline=__inline")
@@ -170,9 +213,9 @@ else()
   else()
     set(ARCH_FLAG "-march=${ARCH}")
   endif()
-  set(WARNINGS "-Wall -pedantic -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-error=sign-compare -Wno-error=strict-aliasing -Wno-error=type-limits -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
+  set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-error=sign-compare -Wno-error=strict-aliasing -Wno-error=type-limits -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
   if(NOT MINGW)
- #   set(WARNINGS "${WARNINGS} -Werror") # to allow pedantic but not stop compilation
+    set(WARNINGS "${WARNINGS} -Werror") # to allow pedantic but not stop compilation
   endif()
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     set(WARNINGS "${WARNINGS} -Wno-error=mismatched-tags -Wno-error=null-conversion -Wno-overloaded-shift-op-parentheses -Wno-error=shift-count-overflow -Wno-error=tautological-constant-out-of-range-compare -Wno-error=unused-private-field -Wno-error=unneeded-internal-declaration")
@@ -207,7 +250,15 @@ else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${ARCH_FLAG} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${ARCH_FLAG} -maes")
   endif()
-  
+
+  string(SUBSTRING ${ARCH} 0 3 ARM_TEST)
+  string(TOLOWER ${ARM_TEST} ARM_TEST)
+  if(${ARM_TEST} STREQUAL "arm")
+    message(STATUS "Setting ARM C and C++ flags")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
+  endif()
+
   if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
   endif()

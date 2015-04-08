@@ -70,6 +70,11 @@ namespace daemon_args
   , "checkpoints from DNS server will be enforced"
   , false
   };
+  const command_line::arg_descriptor<std::string> arg_db_type = {
+    "db-type"
+  , "Specify database type"
+  , "lmdb"
+  };
 
 }  // namespace daemon_args
 

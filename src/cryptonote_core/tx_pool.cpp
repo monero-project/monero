@@ -37,7 +37,11 @@
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
+#if BLOCKCHAIN_DB == DB_LMDB
+#include "blockchain.h"
+#else
 #include "blockchain_storage.h"
+#endif
 #include "common/boost_serialization_helper.h"
 #include "common/int-util.h"
 #include "misc_language.h"
@@ -52,12 +56,19 @@ namespace cryptonote
   {
     size_t const TRANSACTION_SIZE_LIMIT = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
   }
-
   //---------------------------------------------------------------------------------
+#if BLOCKCHAIN_DB == DB_LMDB
+  //---------------------------------------------------------------------------------
+  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs)
+  {
+
+  }
+#else
   tx_memory_pool::tx_memory_pool(blockchain_storage& bchs): m_blockchain(bchs)
   {
 
   }
+#endif
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block)
   {
