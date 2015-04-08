@@ -72,11 +72,6 @@ namespace net_utils
     virtual ~i_connection_filter(){}
   };
   
-  enum t_server_role { // type of the server, e.g. so that we will know how to limit it
-	  NET = 0, // default (not used? used for misc connections maybe?) TODO
-	  RPC = 1, // the rpc commands 
-	  P2P = 2  // to other p2p node
-  };
 
   /************************************************************************/
   /*                                                                      */
@@ -97,7 +92,8 @@ namespace net_utils
 			typename t_protocol_handler::config_type& config, 
 			std::atomic<long> &ref_sock_count,  // the ++/-- counter 
 			std::atomic<long> &sock_number, // the only increasing ++ number generator
-			i_connection_filter * &pfilter);
+			i_connection_filter * &pfilter
+			,t_connection_type connection_type);
 
     virtual ~connection();
     /// Get the socket associated with the connection.
@@ -109,6 +105,12 @@ namespace net_utils
     void get_context(t_connection_context& context_){context_ = context;}
 
     void call_back_starter();
+    
+    void save_dbg_log();
+
+
+		bool speed_limit_is_enabled() const; ///< tells us should we be sleeping here (e.g. do not sleep on RPC connections)
+    
   private:
     //----------------- i_service_endpoint ---------------------
     virtual bool do_send(const void* ptr, size_t cb); ///< (see do_send from i_service_endpoint)
@@ -144,7 +146,7 @@ namespace net_utils
     critical_section m_self_refs_lock;
     critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
     
-    t_server_role m_connection_type;
+    t_connection_type m_connection_type;
     
     // for calculate speed (last 60 sec)
     network_throttle m_throttle_speed_in;
@@ -153,7 +155,7 @@ namespace net_utils
     std::mutex m_throttle_speed_out_mutex;
 
 	public:
-			void setRPcStation();
+			void setRpcStation();
   };
 
 
@@ -169,12 +171,14 @@ namespace net_utils
     typedef typename t_protocol_handler::connection_context t_connection_context;
     /// Construct the server to listen on the specified TCP address and port, and
     /// serve up files from the given directory.
-    boosted_tcp_server();
-    explicit boosted_tcp_server(boost::asio::io_service& external_io_service, t_server_role s_type);
+
+    boosted_tcp_server(t_connection_type connection_type = e_connection_type_NET);
+    explicit boosted_tcp_server(boost::asio::io_service& external_io_service, t_connection_type connection_type = e_connection_type_NET);
     ~boosted_tcp_server();
     
-    std::map<std::string, t_server_role> server_type_map;
-	void create_server_type_map();
+    std::map<std::string, t_connection_type> server_type_map;
+    void create_server_type_map();
+
     bool init_server(uint32_t port, const std::string address = "0.0.0.0");
     bool init_server(const std::string port,  const std::string& address = "0.0.0.0");
 
@@ -292,12 +296,16 @@ namespace net_utils
     boost::thread::id m_main_thread_id;
     critical_section m_threads_lock;
     volatile uint32_t m_thread_index; // TODO change to std::atomic
-    t_server_role type;
     void detach_threads();
+
+    t_connection_type m_connection_type;
 
     /// The next connection to be accepted
     connection_ptr new_connection_;
+
   }; // class <>boosted_tcp_server
+
+
 } // namespace
 } // namespace
 

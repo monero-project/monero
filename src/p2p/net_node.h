@@ -84,7 +84,8 @@ namespace nodetool
 		:m_payload_handler(payload_handler),
 		m_allow_local_ip(false),
 		m_no_igd(false),
-		m_hide_my_port(false)
+		m_hide_my_port(false),
+		m_net_server( epee::net_utils::e_connection_type_P2P ) // this is a P2P connection of the main p2p node server, because this is class node_server<>
     {
 		m_current_number_of_out_peers = 0;
 		m_save_graph = false;
