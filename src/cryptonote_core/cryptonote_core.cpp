@@ -98,6 +98,8 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints()
   {
+    if (m_testnet) return true;
+
     bool res = true;
     if (time(NULL) - m_last_dns_checkpoints_update >= 3600)
     {
