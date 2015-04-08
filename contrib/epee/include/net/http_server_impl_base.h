@@ -45,7 +45,7 @@ namespace epee
 
   public:
     http_server_impl_base()
-        : m_net_server()
+        : m_net_server(epee::net_utils::e_connection_type_RPC)
     {}
 
     explicit http_server_impl_base(boost::asio::io_service& external_io_service)
@@ -75,6 +75,7 @@ namespace epee
     {
       //go to loop
       LOG_PRINT("Run net_service loop( " << threads_count << " threads)...", LOG_LEVEL_0);
+      _fact_c("net/RPClog", "Run net_service loop( " << threads_count << " threads)...");
       if(!m_net_server.run_server(threads_count, wait))
       {
         LOG_ERROR("Failed to run net tcp server!");

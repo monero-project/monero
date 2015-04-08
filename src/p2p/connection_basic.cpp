@@ -94,6 +94,18 @@ namespace epee
 namespace net_utils
 {
 
+  std::string to_string(t_connection_type type)
+  {
+	  if (type == e_connection_type_NET)
+		return std::string("NET");
+	  else if (type == e_connection_type_RPC)
+	    return std::string("RPC");
+	  else if (type == e_connection_type_P2P)
+	    return std::string("P2P");
+	  
+	  return std::string("UNKNOWN");
+  }
+
 
 /* ============================================================================ */
 

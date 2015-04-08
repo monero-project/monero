@@ -71,16 +71,17 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		std::atomic<long> &ref_sock_count,  // the ++/-- counter 
 		std::atomic<long> &sock_number, // the only increasing ++ number generator
 		i_connection_filter* &pfilter
+		,t_connection_type connection_type
 	)
 	: 
 		connection_basic(io_service, ref_sock_count, sock_number), 
 		m_protocol_handler(this, config, context),
 		m_pfilter( pfilter ),
-		m_connection_type(NET),
+		m_connection_type( connection_type ),
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
 		m_throttle_speed_out("speed_out", "throttle_speed_out")
   {
-    _info_c("net/sleepRPC", "connection constructor set m_connection_type="<<m_connection_type);
+    _info_c("net/sleepRPC", "test, connection constructor set m_connection_type="<<m_connection_type);
   }
 PRAGMA_WARNING_DISABLE_VS(4355)
   //---------------------------------------------------------------------------------
@@ -239,6 +240,16 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
+  void connection<t_protocol_handler>::save_dbg_log()
+  {
+    _mark_c("net/kind" ,
+			 " connection type " << to_string( m_connection_type ) << " "
+	    << socket_.local_endpoint().address().to_string() << ":" << socket_.local_endpoint().port()
+			<<	" <--> " << socket_.remote_endpoint().address().to_string() << ":" << socket_.remote_endpoint().port()
+		);
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
   void connection<t_protocol_handler>::handle_read(const boost::system::error_code& e,
     std::size_t bytes_transferred)
   {
@@ -253,25 +264,30 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			context.m_current_speed_down = m_throttle_speed_in.get_current_speed();
 		}
     
-    	{
+    {
 			CRITICAL_REGION_LOCAL(	epee::net_utils::network_throttle_manager::network_throttle_manager::m_lock_get_global_throttle_in );
 			epee::net_utils::network_throttle_manager::network_throttle_manager::get_global_throttle_in().handle_trafic_exact(bytes_transferred * 1024);
 		}
-		double delay=0; // will be calculated
-		do
-		{
-			{ //_scope_dbg1("CRITICAL_REGION_LOCAL");
-				CRITICAL_REGION_LOCAL(	epee::net_utils::network_throttle_manager::m_lock_get_global_throttle_in );
-				delay = epee::net_utils::network_throttle_manager::get_global_throttle_in().get_sleep_time_after_tick( bytes_transferred ); // decission from global
-			}
-			
-			delay *= 0.5;
-			if (delay > 0) {
-				long int ms = (long int)(delay * 100);
-				epee::net_utils::data_logger::get_instance().add_data("sleep_down", ms);
-				std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-			}
-		} while(delay > 0);
+
+		double delay=0; // will be calculated - how much we should sleep to obey speed limit etc
+
+
+		if (speed_limit_is_enabled()) {
+			do // keep sleeping if we should sleep
+			{
+				{ //_scope_dbg1("CRITICAL_REGION_LOCAL");
+					CRITICAL_REGION_LOCAL(	epee::net_utils::network_throttle_manager::m_lock_get_global_throttle_in );
+					delay = epee::net_utils::network_throttle_manager::get_global_throttle_in().get_sleep_time_after_tick( bytes_transferred ); // decission from global throttle
+				}
+				
+				delay *= 0.5;
+				if (delay > 0) {
+					long int ms = (long int)(delay * 100);
+					epee::net_utils::data_logger::get_instance().add_data("sleep_down", ms);
+					std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+				}
+			} while(delay > 0);
+		} // any form of sleeping
 		
       //_info("[sock " << socket_.native_handle() << "] RECV " << bytes_transferred);
       logger_handle_net_read(bytes_transferred);
@@ -356,7 +372,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		typedef long long signed int t_safe; // my t_size to avoid any overunderflow in arithmetic
 		const t_safe chunksize_good = (t_safe)( 1024 * std::max(1.0,factor) );
         const t_safe chunksize_max = chunksize_good * 2 ;
-		const bool allow_split = (m_connection_type == RPC) ? false : true; // TODO config
+		const bool allow_split = (m_connection_type == e_connection_type_RPC) ? false : true; // do not split RPC data
 
         ASRT(! (chunksize_max<0) ); // make sure it is unsigned before removin sign with cast:
         long long unsigned int chunksize_max_unsigned = static_cast<long long unsigned int>( chunksize_max ) ;
@@ -447,7 +463,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //some data should be wrote to stream
     //request complete
     
-	sleep_before_packet(cb, 1, 1);
+		if (speed_limit_is_enabled()) {
+			sleep_before_packet(cb, 1, 1);
+		}
+
     epee::critical_region_t<decltype(m_send_que_lock)> send_guard(m_send_que_lock); // *** critical ***
     long int retry=0;
     const long int retry_limit = 5*4;
@@ -496,7 +515,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
         auto size_now = m_send_que.front().size();
         _dbg1_c("net/out/size", "do_send() NOW SENSD: packet="<<size_now<<" B");
-        do_send_handler_write( ptr , size_now ); // (((H)))
+        if (speed_limit_is_enabled())
+			do_send_handler_write( ptr , size_now ); // (((H)))
 
         ASRT( size_now == m_send_que.front().size() );
         boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), size_now ) ,
@@ -545,6 +565,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::close", false);
   }
+
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
   void connection<t_protocol_handler>::handle_write(const boost::system::error_code& e, size_t cb)
@@ -559,7 +580,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       return;
     }
     logger_handle_net_write(cb);
-	sleep_before_packet(cb, 1, 1);
+
+		if (speed_limit_is_enabled()) {
+			sleep_before_packet(cb, 1, 1);
+		}
+
     bool do_shutdown = false;
     CRITICAL_REGION_BEGIN(m_send_que_lock);
     if(m_send_que.empty())
@@ -580,7 +605,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       //have more data to send
 		auto size_now = m_send_que.front().size();
 		_dbg1_c("net/out/size", "handle_write() NOW SENDS: packet="<<size_now<<" B" <<", from  queue size="<<m_send_que.size());
-		do_send_handler_write_from_queue(e, m_send_que.front().size() , m_send_que.size()); // (((H)))
+		if (speed_limit_is_enabled())
+			do_send_handler_write_from_queue(e, m_send_que.front().size() , m_send_que.size()); // (((H)))
 		ASRT( size_now == m_send_que.front().size() );
 		boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), size_now) , 
         // strand_.wrap(
@@ -597,42 +623,52 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }
     CATCH_ENTRY_L0("connection<t_protocol_handler>::handle_write", void());
   }
+
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  void connection<t_protocol_handler>::setRPcStation()
+  void connection<t_protocol_handler>::setRpcStation()
   {
-	m_connection_type = RPC; 
-	_fact_c("net/sleepRPC", "set m_connection_type = RPC ");
+    m_connection_type = e_connection_type_RPC; 
+    _fact_c("net/sleepRPC", "set m_connection_type = RPC ");
+    _info_c("net/kind", "set m_connection_type = RPC ");
   }
+
+
+  template<class t_protocol_handler>
+  bool connection<t_protocol_handler>::speed_limit_is_enabled() const {
+		return m_connection_type != e_connection_type_RPC ;
+	}
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
   template<class t_protocol_handler>
-  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server():
+  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server( t_connection_type connection_type ) :
     m_io_service_local_instance(new boost::asio::io_service()),
     io_service_(*m_io_service_local_instance.get()),
     acceptor_(io_service_),
     m_stop_signal_sent(false), m_port(0), 
 	m_sock_count(0), m_sock_number(0), m_threads_count(0), 
 	m_pfilter(NULL), m_thread_index(0),
-    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter))
+		m_connection_type( connection_type ),
+    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type))
   {
     create_server_type_map();
     m_thread_name_prefix = "NET";
-    type = NET;
   }
 
   template<class t_protocol_handler>
-  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server(boost::asio::io_service& extarnal_io_service, t_server_role s_type):
+  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server(boost::asio::io_service& extarnal_io_service, t_connection_type connection_type) :
     io_service_(extarnal_io_service),
     acceptor_(io_service_),
     m_stop_signal_sent(false), m_port(0), 
 		m_sock_count(0), m_sock_number(0), m_threads_count(0), 
 		m_pfilter(NULL), m_thread_index(0),
-		type(NET),
-    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter))
+		m_connection_type(connection_type),
+    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, connection_type))
   {
-  create_server_type_map();
+    create_server_type_map();
     m_thread_name_prefix = "NET";
   }
   //---------------------------------------------------------------------------------
@@ -646,9 +682,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   void boosted_tcp_server<t_protocol_handler>::create_server_type_map() 
   {
-		server_type_map["NET"] = t_server_role::NET;
-		server_type_map["RPC"] = t_server_role::RPC;
-		server_type_map["P2P"] = t_server_role::P2P;
+		server_type_map["NET"] = e_connection_type_NET;
+		server_type_map["RPC"] = e_connection_type_RPC;
+		server_type_map["P2P"] = e_connection_type_P2P;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -668,6 +704,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     acceptor_.listen();
     boost::asio::ip::tcp::endpoint binded_endpoint = acceptor_.local_endpoint();
     m_port = binded_endpoint.port();
+    _fact_c("net/RPClog", "start accept");
     acceptor_.async_accept(new_connection_->socket(),
       boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
       boost::asio::placeholders::error));
@@ -724,9 +761,11 @@ POP_WARNINGS
   void boosted_tcp_server<t_protocol_handler>::set_threads_prefix(const std::string& prefix_name)
   {
     m_thread_name_prefix = prefix_name;
-    type = server_type_map[m_thread_name_prefix];
-    _note("Set server type to: " << type);
-    _note("Set server type to: " << m_thread_name_prefix);
+		auto it = server_type_map.find(m_thread_name_prefix);
+		if (it==server_type_map.end()) throw std::runtime_error("Unknown prefix/server type:" + std::string(prefix_name));
+    auto connection_type = it->second; // the value of type
+    _info_c("net/RPClog", "Set server type to: " << connection_type << " from name: " << m_thread_name_prefix);
+    _info_c("net/RPClog", "prefix_name = " << prefix_name);
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -845,15 +884,17 @@ POP_WARNINGS
   template<class t_protocol_handler>
   void boosted_tcp_server<t_protocol_handler>::handle_accept(const boost::system::error_code& e)
   {
+	_fact_c("net/RPClog", "handle_accept");
     TRY_ENTRY();
     if (!e)
     {
-		if (type == RPC) {
-			new_connection_->setRPcStation();
-			_note("New server for RPC connections");
+		if (m_connection_type == e_connection_type_RPC) {
+			_note_c("net/rpc", "New server for RPC connections");
+			_fact_c("net/RPClog", "New server for RPC connections");
+			new_connection_->setRpcStation(); // hopefully this is not needed actually
 		}
 		connection_ptr conn(std::move(new_connection_));
-      new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter));
+      new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
       acceptor_.async_accept(new_connection_->socket(),
         boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
         boost::asio::placeholders::error));
@@ -861,6 +902,7 @@ POP_WARNINGS
       bool r = conn->start(true, 1 < m_threads_count);
       if (!r)
         _erro("[sock " << conn->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
+      conn->save_dbg_log();
     }else
     {
       _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
@@ -873,7 +915,7 @@ POP_WARNINGS
   {
     TRY_ENTRY();
 
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type) );
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
     //////////////////////////////////////////////////////////////////////////
@@ -953,6 +995,8 @@ POP_WARNINGS
     {
       _erro("[sock " << new_connection_->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
     }
+    
+	new_connection_l->save_dbg_log();
 
     return r;
 
@@ -963,7 +1007,7 @@ POP_WARNINGS
   bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_callback cb, const std::string& bind_ip)
   {
     TRY_ENTRY();    
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type) );
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
     //////////////////////////////////////////////////////////////////////////

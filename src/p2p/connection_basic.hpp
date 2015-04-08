@@ -75,6 +75,14 @@ namespace net_utils
 
 class connection_basic_pimpl; // PIMPL for this class
 
+  enum t_connection_type { // type of the connection (of this server), e.g. so that we will know how to limit it
+	  e_connection_type_NET = 0, // default (not used?)
+	  e_connection_type_RPC = 1, // the rpc commands  (probably not rate limited, not chunked, etc)
+	  e_connection_type_P2P = 2  // to other p2p node (probably limited)
+  };
+  
+  std::string to_string(t_connection_type type);
+
 class connection_basic { // not-templated base class for rapid developmet of some code parts
 	public:
 		std::unique_ptr< connection_basic_pimpl > mI; // my Implementation
