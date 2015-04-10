@@ -590,10 +590,24 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
   req.miner_address = cryptonote::get_account_address_as_str(false, address);
   req.threads_count = num_threads;
 
-  if (m_rpc_client->rpc_request(req, res, "/start_mining", "Mining did not start"))
+  std::string fail_message = "Mining did not start";
+
+  if (m_is_rpc)
   {
-    tools::success_msg_writer() << "Mining started";
+    if (m_rpc_client->rpc_request(req, res, "/start_mining", fail_message.c_str()))
+    {
+      tools::success_msg_writer() << "Mining started";
+    }
   }
+  else
+  {
+    if (!m_rpc_server->on_start_mining(req, res))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
   return true;
 }
 
