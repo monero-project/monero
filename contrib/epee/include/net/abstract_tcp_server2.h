@@ -172,8 +172,8 @@ namespace net_utils
     /// Construct the server to listen on the specified TCP address and port, and
     /// serve up files from the given directory.
 
-    boosted_tcp_server(t_connection_type connection_type = e_connection_type_NET);
-    explicit boosted_tcp_server(boost::asio::io_service& external_io_service, t_connection_type connection_type = e_connection_type_NET);
+    boosted_tcp_server(t_connection_type connection_type);
+    explicit boosted_tcp_server(boost::asio::io_service& external_io_service, t_connection_type connection_type);
     ~boosted_tcp_server();
     
     std::map<std::string, t_connection_type> server_type_map;
