@@ -91,7 +91,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 * Ensure Homebrew is installed, it can be found at http://brew.sh
 * Add the repository to brew: `brew tap sammy007/cryptonight`
-* Build Monero: `brew install --HEAD bitmonero`
+* Build Monero: `brew install bitmonero --build-from-source`
 
 ### On Windows:
 
