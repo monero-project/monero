@@ -155,7 +155,7 @@ prepare_blocks_command (client_t *self)
 static void
 prepare_get_output_indexes_command (client_t *self)
 {
-    wap_proto_set_tx_id (self->message, self->args->tx_id);
+    wap_proto_set_tx_id (self->message, &self->args->tx_id);
 }
 
 //  ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ signal_have_put_ok (client_t *self)
 static void
 prepare_get_command (client_t *self)
 {
-    wap_proto_set_tx_id (self->message, self->args->tx_id);
+    wap_proto_set_tx_id (self->message, &self->args->tx_id);
 }
 
 
@@ -359,6 +359,7 @@ signal_server_not_present (client_t *self)
 static void
 prepare_get_random_outs_command (client_t *self)
 {
+    wap_proto_set_outs_count(self->message, self->args->outs_count);
     wap_proto_set_amounts (self->message, &self->args->amounts);
 }
 

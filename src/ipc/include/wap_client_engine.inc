@@ -136,7 +136,7 @@ struct _client_args_t {
     zlist_t *block_ids;
     uint64_t start_height;
     zchunk_t *tx_as_hex;
-    char *tx_id;
+    zchunk_t *tx_id;
     uint64_t outs_count;
     zframe_t *amounts;
     char *address;
@@ -281,7 +281,7 @@ s_client_destroy (s_client_t **self_p)
         zstr_free (&self->args.identity);
         zlist_destroy (&self->args.block_ids);
         zchunk_destroy (&self->args.tx_as_hex);
-        zstr_free (&self->args.tx_id);
+        zchunk_destroy (&self->args.tx_id);
         zframe_destroy (&self->args.amounts);
         zstr_free (&self->args.address);
         client_terminate (&self->client);
@@ -1450,8 +1450,8 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "GET")) {
-        zstr_free (&self->args.tx_id);
-        zsock_recv (self->cmdpipe, "s", &self->args.tx_id);
+        zchunk_destroy (&self->args.tx_id);
+        zsock_recv (self->cmdpipe, "p", &self->args.tx_id);
         s_client_execute (self, get_event);
     }
     else
@@ -1460,8 +1460,8 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "OUTPUT INDEXES")) {
-        zstr_free (&self->args.tx_id);
-        zsock_recv (self->cmdpipe, "s", &self->args.tx_id);
+        zchunk_destroy (&self->args.tx_id);
+        zsock_recv (self->cmdpipe, "p", &self->args.tx_id);
         s_client_execute (self, output_indexes_event);
     }
     else
@@ -1855,11 +1855,12 @@ wap_client_put (wap_client_t *self, zchunk_t **tx_as_hex_p)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_get (wap_client_t *self, const char *tx_id)
+wap_client_get (wap_client_t *self, zchunk_t **tx_id_p)
 {
     assert (self);
 
-    zsock_send (self->actor, "ss", "GET", tx_id);
+    zsock_send (self->actor, "sp", "GET", *tx_id_p);
+    *tx_id_p = NULL;            //  Take ownership of tx_id
     if (s_accept_reply (self, "GET OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1887,11 +1888,12 @@ wap_client_save (wap_client_t *self)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_output_indexes (wap_client_t *self, const char *tx_id)
+wap_client_output_indexes (wap_client_t *self, zchunk_t **tx_id_p)
 {
     assert (self);
 
-    zsock_send (self->actor, "ss", "OUTPUT INDEXES", tx_id);
+    zsock_send (self->actor, "sp", "OUTPUT INDEXES", *tx_id_p);
+    *tx_id_p = NULL;            //  Take ownership of tx_id
     if (s_accept_reply (self, "OUTPUT INDEXES OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;

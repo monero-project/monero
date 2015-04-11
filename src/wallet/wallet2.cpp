@@ -185,11 +185,9 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
         "transactions outputs size=" + std::to_string(tx.vout.size()) +
         " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));*/
 
-      char *size_prepended_tx_id = new char[crypto::HASH_SIZE + 1];
-      size_prepended_tx_id[0] = crypto::HASH_SIZE;
-      memcpy(size_prepended_tx_id + 1, tx_id.data, crypto::HASH_SIZE);
-      int rc = wap_client_output_indexes(ipc_client, size_prepended_tx_id);
-      delete size_prepended_tx_id;
+      zchunk_t *tx_id_chunk = zchunk_new(tx_id.data, crypto::HASH_SIZE);
+      int rc = wap_client_output_indexes(ipc_client, &tx_id_chunk);
+
       THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_output_indexes");
       uint64_t status = wap_client_status(ipc_client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_output_indexes");
@@ -1178,7 +1176,6 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
   // failsafe split attempt counter
   size_t attempt_count = 0;
 
-std::cout << "a\n";
   for(attempt_count = 1; ;attempt_count++)
   {
     auto split_values = split_amounts(dsts, attempt_count);
@@ -1198,14 +1195,11 @@ std::cout << "a\n";
         cryptonote::transaction tx;
         pending_tx ptx;
 
-std::cout << "b\n";
 	// loop until fee is met without increasing tx size to next KB boundary.
 	uint64_t needed_fee = 0;
 	do
 	{
-std::cout << "c\n";
 	  transfer(dst_vector, fake_outs_count, unlock_time, needed_fee, extra, tx, ptx);
-std::cout << "d\n";
 	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
 	  uint64_t txSize = txBlob.size();
 	  uint64_t numKB = txSize / 1024;

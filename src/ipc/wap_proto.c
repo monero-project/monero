@@ -49,7 +49,7 @@ struct _wap_proto_t {
     // Transaction as hex
     zchunk_t *tx_as_hex;
     // Transaction ID
-    char tx_id [256];
+    zchunk_t *tx_id;
     // Output Indexes
     zframe_t *o_indexes;
     // Outs count
@@ -245,6 +245,7 @@ wap_proto_destroy (wap_proto_t **self_p)
             zlist_destroy (&self->block_ids);
         zmsg_destroy (&self->block_data);
         zchunk_destroy (&self->tx_as_hex);
+        zchunk_destroy (&self->tx_id);
         zframe_destroy (&self->o_indexes);
         zframe_destroy (&self->amounts);
         zframe_destroy (&self->random_outputs);
@@ -367,7 +368,17 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES:
-            GET_STRING (self->tx_id);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: tx_id is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->tx_id);
+                self->tx_id = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES_OK:
@@ -404,7 +415,17 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET:
-            GET_STRING (self->tx_id);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: tx_id is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->tx_id);
+                self->tx_id = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
             break;
 
         case WAP_PROTO_GET_OK:
@@ -520,7 +541,9 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  status
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
-            frame_size += 1 + strlen (self->tx_id);
+            frame_size += 4;            //  Size is 4 octets
+            if (self->tx_id)
+                frame_size += zchunk_size (self->tx_id);
             break;
         case WAP_PROTO_OUTPUT_INDEXES_OK:
             frame_size += 8;            //  status
@@ -532,7 +555,9 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  status
             break;
         case WAP_PROTO_GET:
-            frame_size += 1 + strlen (self->tx_id);
+            frame_size += 4;            //  Size is 4 octets
+            if (self->tx_id)
+                frame_size += zchunk_size (self->tx_id);
             break;
         case WAP_PROTO_GET_OK:
             frame_size += 4;            //  Size is 4 octets
@@ -606,7 +631,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES:
-            PUT_STRING (self->tx_id);
+            if (self->tx_id) {
+                PUT_NUMBER4 (zchunk_size (self->tx_id));
+                memcpy (self->needle,
+                        zchunk_data (self->tx_id),
+                        zchunk_size (self->tx_id));
+                self->needle += zchunk_size (self->tx_id);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES_OK:
@@ -625,7 +658,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET:
-            PUT_STRING (self->tx_id);
+            if (self->tx_id) {
+                PUT_NUMBER4 (zchunk_size (self->tx_id));
+                memcpy (self->needle,
+                        zchunk_data (self->tx_id),
+                        zchunk_size (self->tx_id));
+                self->needle += zchunk_size (self->tx_id);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             break;
 
         case WAP_PROTO_GET_OK:
@@ -757,10 +798,7 @@ wap_proto_print (wap_proto_t *self)
 
         case WAP_PROTO_OUTPUT_INDEXES:
             zsys_debug ("WAP_PROTO_OUTPUT_INDEXES:");
-            if (self->tx_id)
-                zsys_debug ("    tx_id='%s'", self->tx_id);
-            else
-                zsys_debug ("    tx_id=");
+            zsys_debug ("    tx_id=[ ... ]");
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES_OK:
@@ -795,10 +833,7 @@ wap_proto_print (wap_proto_t *self)
 
         case WAP_PROTO_GET:
             zsys_debug ("WAP_PROTO_GET:");
-            if (self->tx_id)
-                zsys_debug ("    tx_id='%s'", self->tx_id);
-            else
-                zsys_debug ("    tx_id=");
+            zsys_debug ("    tx_id=[ ... ]");
             break;
 
         case WAP_PROTO_GET_OK:
@@ -1159,24 +1194,35 @@ wap_proto_set_tx_as_hex (wap_proto_t *self, zchunk_t **chunk_p)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the tx_id field
+//  Get the tx_id field without transferring ownership
 
-const char *
+zchunk_t *
 wap_proto_tx_id (wap_proto_t *self)
 {
     assert (self);
     return self->tx_id;
 }
 
+//  Get the tx_id field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_tx_id (wap_proto_t *self)
+{
+    zchunk_t *tx_id = self->tx_id;
+    self->tx_id = NULL;
+    return tx_id;
+}
+
+//  Set the tx_id field, transferring ownership from caller
+
 void
-wap_proto_set_tx_id (wap_proto_t *self, const char *value)
+wap_proto_set_tx_id (wap_proto_t *self, zchunk_t **chunk_p)
 {
     assert (self);
-    assert (value);
-    if (value == self->tx_id)
-        return;
-    strncpy (self->tx_id, value, 255);
-    self->tx_id [255] = 0;
+    assert (chunk_p);
+    zchunk_destroy (&self->tx_id);
+    self->tx_id = *chunk_p;
+    *chunk_p = NULL;
 }
 
 
@@ -1521,7 +1567,8 @@ wap_proto_test (bool verbose)
     }
     wap_proto_set_id (self, WAP_PROTO_OUTPUT_INDEXES);
 
-    wap_proto_set_tx_id (self, "Life is short but Now lasts for ever");
+    zchunk_t *output_indexes_tx_id = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_tx_id (self, &output_indexes_tx_id);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -1529,7 +1576,8 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
-        assert (streq (wap_proto_tx_id (self), "Life is short but Now lasts for ever"));
+        assert (memcmp (zchunk_data (wap_proto_tx_id (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&output_indexes_tx_id);
     }
     wap_proto_set_id (self, WAP_PROTO_OUTPUT_INDEXES_OK);
 
@@ -1581,7 +1629,8 @@ wap_proto_test (bool verbose)
     }
     wap_proto_set_id (self, WAP_PROTO_GET);
 
-    wap_proto_set_tx_id (self, "Life is short but Now lasts for ever");
+    zchunk_t *get_tx_id = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_tx_id (self, &get_tx_id);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -1589,7 +1638,8 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
-        assert (streq (wap_proto_tx_id (self), "Life is short but Now lasts for ever"));
+        assert (memcmp (zchunk_data (wap_proto_tx_id (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&get_tx_id);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_OK);
 

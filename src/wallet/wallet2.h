@@ -87,24 +87,9 @@ namespace tools
       ipc_client = wap_client_new();
       wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
       if (!ipc_client) {
-std::cout << "Couldn't connect to daemon\n\n";
+        std::cout << "Couldn't connect to daemon\n\n";
         // TODO: Daemon not up.
       }
-      /*zlist_t *list = zlist_new();
-      char cheese[32];
-      const char *foo = "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148";
-      for (int i = 0; i < 63; i += 2) {
-        std::string x = "";
-        x += foo[i];
-        x += foo[i + 1];
-        cheese[i / 2] = (char)stoi(x, NULL, 16);
-      }
-      zlist_append(list, cheese);
-      uint64_t start_height = 1;
-      int rc = wap_client_blocks(client, &list, start_height);
-      // int rc = wap_client_start(client, 25);
-      // std::cout << "\n\n Response: " << (int)wap_client_curr_height(client) << std::endl;
-      assert (rc == 0);*/
     };
     struct transfer_details
     {
@@ -505,16 +490,14 @@ namespace tools
       zframe_t *outputs_frame = wap_client_random_outputs(ipc_client);
       uint64_t frame_size = zframe_size(outputs_frame);
       char *frame_data = reinterpret_cast<char*>(zframe_data(outputs_frame));
-std::string tmp(frame_data, frame_size);
-std::cout << tmp << std::endl;
       rapidjson::Document json;
       THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data, frame_size).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
       for (rapidjson::SizeType i = 0; i < json["outputs"].Size(); i++) {
         COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount output;
-        output.amount = json["outputs"][i]["amount"].GetInt();
+        output.amount = json["outputs"][i]["amount"].GetInt64();
         for (rapidjson::SizeType j = 0; j < json["outputs"][i]["outs"].Size(); j++) {
           COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry entry;
-          entry.global_amount_index = json["outputs"][i]["outs"][j]["global_amount_index"].GetInt();
+          entry.global_amount_index = json["outputs"][i]["outs"][j]["global_amount_index"].GetInt64();
           std::string out_key(json["outputs"][i]["outs"][j]["out_key"].GetString(), json["outputs"][i]["outs"][j]["out_key"].GetStringLength());
           memcpy(entry.out_key.data, out_key.c_str(), 32);
           output.outs.push_back(entry);

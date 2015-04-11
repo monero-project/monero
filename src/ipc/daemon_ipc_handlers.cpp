@@ -216,10 +216,11 @@ namespace IPC
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
       }
-      const char *tx_id = wap_proto_tx_id(message);
+      zchunk_t *tx_id = wap_proto_tx_id(message);
       crypto::hash hash;
-      memcpy(hash.data, tx_id + 1, crypto::HASH_SIZE);
+      memcpy(hash.data, zchunk_data(tx_id), crypto::HASH_SIZE);
       std::vector<uint64_t> output_indexes;
+
       bool r = core->get_tx_outputs_gindexs(hash, output_indexes);
       if (!r)
       {
@@ -249,6 +250,7 @@ namespace IPC
       for (unsigned int i = 0; i < amounts_count; i++) {
         req.amounts.push_back(amounts[i]);
       }
+
       cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response res;
       if (!core->get_random_outs_for_amounts(req, res))
       {
@@ -286,8 +288,6 @@ namespace IPC
       rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
       result_json.Accept(writer);
       std::string block_string = buffer.GetString();
-
-std::cout << block_string << std::endl;
 
       zframe_t *frame = zframe_new(block_string.c_str(), block_string.length());
       wap_proto_set_random_outputs(message, &frame);

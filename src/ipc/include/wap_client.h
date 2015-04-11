@@ -80,7 +80,7 @@ WAP_EXPORT int
 //  Request a set of blocks from the server.                                        
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_get (wap_client_t *self, const char *tx_id);
+    wap_client_get (wap_client_t *self, zchunk_t **tx_id_p);
 
 //  Request a set of blocks from the server.                                        
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -90,7 +90,7 @@ WAP_EXPORT int
 //  Ask for tx output indexes.                                                      
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_output_indexes (wap_client_t *self, const char *tx_id);
+    wap_client_output_indexes (wap_client_t *self, zchunk_t **tx_id_p);
 
 //  Ask for tx output indexes.                                                      
 //  Returns >= 0 if successful, -1 if interrupted.
