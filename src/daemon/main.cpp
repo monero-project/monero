@@ -232,7 +232,7 @@ int main(int argc, char const * argv[])
       else if (epee::log_space::get_set_log_detalisation_level(false) != new_log_level)
       {
         epee::log_space::get_set_log_detalisation_level(true, new_log_level);
-        int otshell_utils_log_level = 100 - (new_log_level * 25);
+        int otshell_utils_log_level = 100 - (new_log_level * 20);
         gCurrentLogger.setDebugLevel(otshell_utils_log_level);
         LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
       }

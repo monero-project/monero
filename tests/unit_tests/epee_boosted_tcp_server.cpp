@@ -85,7 +85,7 @@ namespace
 
 TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
 {
-  test_tcp_server srv;
+  test_tcp_server srv(epee::net_utils::e_connection_type_RPC); // RPC disables network limit for unit tests
   ASSERT_TRUE(srv.init_server(test_server_port, test_server_host));
 
   std::mutex mtx;

@@ -35,6 +35,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include <boost/format.hpp>
 #include <ctime>
+#include <string>
 
 namespace daemonize {
 
@@ -374,7 +375,7 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
     }
   }
 
-  tools::success_msg_writer() << "Log level is now " << boost::lexical_cast<std::string>(level);
+  tools::success_msg_writer() << "Log level is now " << std::to_string(level);
 
   return true;
 }

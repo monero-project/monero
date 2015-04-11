@@ -186,6 +186,11 @@ namespace
 
   class net_load_test_clt : public ::testing::Test
   {
+  public:
+    net_load_test_clt()
+    : m_tcp_server(epee::net_utils::e_connection_type_RPC) // RPC disables network limit for unit tests
+    {
+	}
   protected:
     virtual void SetUp()
     {
@@ -237,7 +242,7 @@ namespace
     {
       // Stop server
       test_levin_commands_handler commands_handler;
-      test_tcp_server tcp_server;
+      test_tcp_server tcp_server(epee::net_utils::e_connection_type_NET);
       tcp_server.get_config_object().m_pcommands_handler = &commands_handler;
       tcp_server.get_config_object().m_invoke_timeout = CONNECTION_TIMEOUT;
 

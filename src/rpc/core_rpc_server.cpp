@@ -392,6 +392,8 @@ namespace cryptonote
     else
     {
       epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
+      int otshell_utils_log_level = 100 - (req.level * 20);
+      gCurrentLogger.setDebugLevel(otshell_utils_log_level);
       res.status = CORE_RPC_STATUS_OK;
     }
     return true;

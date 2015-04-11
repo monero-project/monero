@@ -167,7 +167,7 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   ub_ctx_hosts(m_data->m_ub_context, NULL);
 
 	#ifdef DEVELOPER_LIBUNBOUND_OLD
-		#warning "Using the work around for old libunbound"
+		#pragma message "Using the work around for old libunbound"
 		{ // work around for bug https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=515 needed for it to compile on e.g. Debian 7
 			char * ds_copy = NULL; // this will be the writable copy of string that bugged version of libunbound requires
 			try {
