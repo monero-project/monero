@@ -84,11 +84,11 @@ namespace tools
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet) {
-      ipc_client = wap_client_new();
-      wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
+      connect_to_daemon();
       if (!ipc_client) {
         std::cout << "Couldn't connect to daemon\n\n";
-        // TODO: Daemon not up.
+        // Let ipc_client remain null. All request sending code will verify that
+        // it's not null and otherwise throw.
       }
     };
     struct transfer_details
@@ -290,6 +290,7 @@ namespace tools
     void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void check_genesis(const crypto::hash& genesis_hash); //throws
+    void connect_to_daemon();
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -458,8 +459,8 @@ namespace tools
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
     if(fake_outputs_count)
     {
-      // COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
-      // req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
+      connect_to_daemon();
+      THROW_WALLET_EXCEPTION_IF(ipc_client == NULL, error::no_connection_to_daemon, "get_random_outs");
       uint64_t outs_count = fake_outputs_count + 1;
       std::vector<uint64_t> amounts;
       BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
@@ -472,13 +473,6 @@ namespace tools
 
       zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
       int rc = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
-      /*bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != selected_transfers.size(), error::wallet_internal_error,
-        "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
-        std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));*/
 
       uint64_t status = wap_client_status(ipc_client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");

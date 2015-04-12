@@ -171,19 +171,14 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     if(!outs.empty() && tx_money_got_in_outs)
     {
+      connect_to_daemon();
+      THROW_WALLET_EXCEPTION_IF(ipc_client == NULL, error::no_connection_to_daemon, "get_output_indexes");
+
       //good news - got money! take care about it
       //usually we have only one transfer for user in transaction
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
       crypto::hash tx_id = get_transaction_hash(tx);
-      //req.txid = get_transaction_hash(tx);
-      /*bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
-      THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
-      THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
-      THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
-        "transactions outputs size=" + std::to_string(tx.vout.size()) +
-        " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));*/
 
       zchunk_t *tx_id_chunk = zchunk_new(tx_id.data, crypto::HASH_SIZE);
       int rc = wap_client_output_indexes(ipc_client, &tx_id_chunk);
@@ -354,6 +349,8 @@ void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_c
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
 {
+  connect_to_daemon();
+  THROW_WALLET_EXCEPTION_IF(ipc_client == NULL, error::no_connection_to_daemon, "get_blocks");
   blocks_added = 0;
   std::list<crypto::hash> block_ids;
   get_short_chain_history(block_ids);
@@ -373,12 +370,12 @@ void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
     delete *it;
   }
   zlist_destroy(&list);
-  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "getblocks");
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_blocks");
 
   uint64_t status = wap_client_status(ipc_client);
-  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getblocks");
-  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "getblocks");
-  THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "getblocks");
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_blocks");
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_blocks");
+  THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "get_blocks");
   std::list<block_complete_entry> blocks;
   zmsg_t *msg = wap_client_block_data(ipc_client); 
   get_blocks_from_zmq_msg(msg, blocks);
@@ -1127,19 +1124,14 @@ std::string wallet2::address_from_txt_record(const std::string& s)
 void wallet2::commit_tx(pending_tx& ptx)
 {
   using namespace cryptonote;
-  /*COMMAND_RPC_SEND_RAW_TX::request req;
-  req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
-  COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
-  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);*/
 
+  connect_to_daemon();
+  THROW_WALLET_EXCEPTION_IF(ipc_client == NULL, error::no_connection_to_daemon, "send_raw_transaction");
   std::string tx_as_hex_string = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
   zchunk_t *tx_as_hex = zchunk_new((void*)tx_as_hex_string.c_str(), tx_as_hex_string.length());
   int rc = wap_client_put(ipc_client, &tx_as_hex);
   uint64_t status = wap_client_status(ipc_client);
-  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "sendrawtransaction");
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "send_raw_transaction");
   THROW_WALLET_EXCEPTION_IF((status == IPC::STATUS_INVALID_TX) || (status == IPC::STATUS_TX_VERIFICATION_FAILED) ||
     (status == IPC::STATUS_TX_NOT_RELAYED), error::tx_rejected, ptx.tx, status);
 
@@ -1281,6 +1273,17 @@ void wallet2::generate_genesis(cryptonote::block& b) {
 }
 
 void wallet2::stop_ipc_client() {
-  wap_client_destroy(&ipc_client);
+  if (ipc_client) {
+    wap_client_destroy(&ipc_client);
+  }
+}
+
+void wallet2::connect_to_daemon() {
+  if (ipc_client) {
+    // TODO: Instead, check if daemon is reachable.
+    return;
+  }
+  ipc_client = wap_client_new();
+  wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
 }
 }
