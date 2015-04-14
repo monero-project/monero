@@ -1,6 +1,6 @@
 /* mdb_load.c - memory-mapped database load tool */
 /*
- * Copyright 2011-2014 Howard Chu, Symas Corp.
+ * Copyright 2011-2015 Howard Chu, Symas Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -176,7 +176,7 @@ static int unhex(unsigned char *c2)
 static int readline(MDB_val *out, MDB_val *buf)
 {
 	unsigned char *c1, *c2, *end;
-	size_t len;
+	size_t len, l2;
 	int c;
 
 	if (!(mode & NOHDR)) {
@@ -206,6 +206,7 @@ badend:
 
 	c1 = buf->mv_data;
 	len = strlen((char *)c1);
+	l2 = len;
 
 	/* Is buffer too short? */
 	while (c1[len-1] != '\n') {
@@ -217,17 +218,18 @@ badend:
 			return EOF;
 		}
 		c1 = buf->mv_data;
-		c1 += buf->mv_size;
-		if (fgets((char *)c1, buf->mv_size, stdin) == NULL) {
+		c1 += l2;
+		if (fgets((char *)c1, buf->mv_size+1, stdin) == NULL) {
 			Eof = 1;
 			badend();
 			return EOF;
 		}
 		buf->mv_size *= 2;
 		len = strlen((char *)c1);
+		l2 += len;
 	}
 	c1 = c2 = buf->mv_data;
-	len = strlen((char *)c1);
+	len = l2;
 	c1[--len] = '\0';
 	end = c1 + len;
 

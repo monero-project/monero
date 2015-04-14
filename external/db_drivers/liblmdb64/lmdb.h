@@ -49,15 +49,11 @@
  *	  stale locks can block further operation.
  *
  *	  Fix: Check for stale readers periodically, using the
- *	  #mdb_reader_check function or the \ref mdb_stat_1 "mdb_stat" tool.
- *	  Stale writers will be cleared automatically on most systems:
- *	  - Windows - automatic
- *	  - BSD, systems using SysV semaphores - automatic
- *	  - Linux, systems using POSIX mutexes with Robust option - automatic
- *	  Otherwise just make all programs using the database close it;
- *	  the lockfile is always reset on first open of the environment.
+ *	  #mdb_reader_check function or the \ref mdb_stat_1 "mdb_stat" tool. Or just
+ *	  make all programs using the database close it; the lockfile
+ *	  is always reset on first open of the environment.
  *
- *	- On BSD systems or others configured with MDB_USE_SYSV_SEM,
+ *	- On BSD systems or others configured with MDB_USE_POSIX_SEM,
  *	  startup can fail due to semaphores owned by another userid.
  *
  *	  Fix: Open and close the database as the user which owns the
@@ -110,9 +106,6 @@
  *	  for stale readers is performed or the lockfile is reset,
  *	  since the process may not remove it from the lockfile.
  *
- *	  This does not apply to write transactions if the system clears
- *	  stale writers, see above.
- *
  *	- If you do that anyway, do a periodic check for stale readers. Or
  *	  close the environment once in a while, so the lockfile can get reset.
  *
@@ -126,7 +119,7 @@
  *
  *	@author	Howard Chu, Symas Corporation.
  *
- *	@copyright Copyright 2011-2014 Howard Chu, Symas Corp. All rights reserved.
+ *	@copyright Copyright 2011-2015 Howard Chu, Symas Corp. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
@@ -398,7 +391,7 @@ typedef enum MDB_cursor_op {
 #define MDB_PAGE_NOTFOUND	(-30797)
 	/** Located page was wrong type */
 #define MDB_CORRUPTED	(-30796)
-	/** Update of meta page failed or environment had fatal error */
+	/** Update of meta page failed, probably I/O error */
 #define MDB_PANIC		(-30795)
 	/** Environment version mismatch */
 #define MDB_VERSION_MISMATCH	(-30794)
@@ -736,7 +729,6 @@ void mdb_env_close(MDB_env *env);
 	 * This may be used to set some flags in addition to those from
 	 * #mdb_env_open(), or to unset these flags.  If several threads
 	 * change the flags at the same time, the result is undefined.
-	 * Most flags cannot be changed after #mdb_env_open().
 	 * @param[in] env An environment handle returned by #mdb_env_create()
 	 * @param[in] flags The flags to change, bitwise OR'ed together
 	 * @param[in] onoff A non-zero value sets the flags, zero clears them.
@@ -953,17 +945,6 @@ int  mdb_txn_begin(MDB_env *env, MDB_txn *parent, unsigned int flags, MDB_txn **
 	 * @param[in] txn A transaction handle returned by #mdb_txn_begin()
 	 */
 MDB_env *mdb_txn_env(MDB_txn *txn);
-
-	/** @brief Return the transaction's ID.
-	 *
-	 * This returns the identifier associated with this transaction. For a
-	 * read-only transaction, this corresponds to the snapshot being read;
-	 * concurrent readers will frequently have the same transaction ID.
-	 *
-	 * @param[in] txn A transaction handle returned by #mdb_txn_begin()
-	 * @return A transaction ID, valid if input is an active transaction.
-	 */
-size_t mdb_txn_id(MDB_txn *txn);
 
 	/** @brief Commit all the operations of a transaction into the database.
 	 *
