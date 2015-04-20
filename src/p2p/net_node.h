@@ -89,6 +89,8 @@ namespace nodetool
       , m_hide_my_port(false)
       , m_network_id(std::move(network_id))
     {}
+    virtual ~node_server()
+    {}
 
     static void init_options(boost::program_options::options_description& desc);
 
