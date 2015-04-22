@@ -100,6 +100,8 @@ namespace cryptonote
   {
     if (m_testnet) return true;
 
+    if (m_checkpoints_updating.test_and_set()) return true;
+
     bool res = true;
     if (time(NULL) - m_last_dns_checkpoints_update >= 3600)
     {
@@ -112,6 +114,8 @@ namespace cryptonote
       res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, false);
       m_last_json_checkpoints_update = time(NULL);
     }
+
+    m_checkpoints_updating.clear();
 
     // if anything fishy happened getting new checkpoints, bring down the house
     if (!res)

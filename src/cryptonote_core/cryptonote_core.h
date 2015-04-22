@@ -189,6 +189,8 @@ namespace cryptonote
      std::string m_checkpoints_path;
      time_t m_last_dns_checkpoints_update;
      time_t m_last_json_checkpoints_update;
+
+     std::atomic_flag m_checkpoints_updating;
    };
 }
 

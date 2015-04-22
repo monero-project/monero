@@ -35,6 +35,30 @@
 #include <random>
 #include "storages/portable_storage_template_helper.h" // epee json include
 
+namespace
+{
+  bool dns_records_match(const std::vector<std::string>& a, const std::vector<std::string>& b)
+  {
+    if (a.size() != b.size()) return false;
+
+    for (const auto& record_in_a : a)
+    {
+      bool ok = false;
+      for (const auto& record_in_b : b)
+      {
+	if (record_in_a == record_in_b)
+	{
+	  ok = true;
+	  break;
+	}
+      }
+      if (!ok) return false;
+    }
+
+    return true;
+  }
+} // anonymous namespace
+
 namespace cryptonote
 {
 
@@ -127,14 +151,16 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
 							   , "testpoints.moneropulse.net"
 							   , "testpoints.moneropulse.co"
   };
-  bool avail, valid;
-  std::vector<std::string> records;
+
+  std::vector<std::vector<std::string> > records;
+  records.resize(dns_urls.size());
 
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<int> dis(0, dns_urls.size() - 1);
   size_t first_index = dis(gen);
 
+  bool avail, valid;
   size_t cur_index = first_index;
   do
   {
@@ -148,7 +174,7 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
       url = dns_urls[cur_index];
     }
 
-    records = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
+    records[cur_index] = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
     if (!avail)
     {
       LOG_PRINT_L2("DNSSEC not available for checkpoint update at URL: " << url << ", skipping.");
@@ -158,26 +184,58 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
       LOG_PRINT_L2("DNSSEC validation failed for checkpoint update at URL: " << url << ", skipping.");
     }
 
-    if (records.size() == 0 || !avail || !valid)
+    if (records[cur_index].size() == 0 || !avail || !valid)
     {
       cur_index++;
       if (cur_index == dns_urls.size())
       {
 	cur_index = 0;
       }
-      records.clear();
+      records[cur_index].clear();
       continue;
     }
     break;
   } while (cur_index != first_index);
 
-  if (records.size() == 0)
+  size_t num_valid_records = 0;
+
+  for( const auto& record_set : records)
   {
-    LOG_PRINT_L0("WARNING: All MoneroPulse checkpoint URLs failed DNSSEC validation and/or returned no records");
+    if (record_set.size() != 0)
+    {
+      num_valid_records++;
+    }
+  }
+
+  if (num_valid_records < 2)
+  {
+    LOG_PRINT_L0("WARNING: no two valid MoneroPulse DNS checkpoint records were received");
     return true;
   }
 
-  for (auto& record : records)
+  int good_records_index = -1;
+  for (size_t i = 0; i < records.size() - 1; ++i)
+  {
+    if (records[i].size() == 0) continue;
+
+    for (size_t j = i + 1; j < records.size(); ++j)
+    {
+      if (dns_records_match(records[i], records[j]))
+      {
+	good_records_index = i;
+	break;
+      }
+    }
+    if (good_records_index >= 0) break;
+  }
+
+  if (good_records_index < 0)
+  {
+    LOG_PRINT_L0("WARNING: no two MoneroPulse DNS checkpoint records matched");
+    return true;
+  }
+
+  for (auto& record : records[good_records_index])
   {
     auto pos = record.find(":");
     if (pos != std::string::npos)
