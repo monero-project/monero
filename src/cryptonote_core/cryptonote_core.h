@@ -108,6 +108,7 @@ namespace cryptonote
      void set_enforce_dns_checkpoints(bool enforce_dns);
 
      bool get_pool_transactions(std::list<transaction>& txs);
+     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
      size_t get_pool_transactions_count();
      size_t get_blockchain_total_transactions();
      //bool get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys);

@@ -43,6 +43,7 @@
 #include "cryptonote_basic_impl.h"
 #include "verification_context.h"
 #include "crypto/hash.h"
+#include "rpc/core_rpc_server_commands_defs.h"
 
 namespace cryptonote
 {
@@ -81,6 +82,7 @@ namespace cryptonote
     bool deinit();
     bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee);
     void get_transactions(std::list<transaction>& txs) const;
+    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
     bool get_transaction(const crypto::hash& h, transaction& tx) const;
     size_t get_transactions_count() const;
     std::string print_pool(bool short_format) const;
