@@ -34,6 +34,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 #include <boost/serialization/version.hpp>
 #include <boost/utility.hpp>
 
@@ -130,6 +131,12 @@ namespace cryptonote
     transactions_container m_transactions;
     key_images_container m_spent_key_images;
     epee::math_helper::once_a_time_seconds<30> m_remove_stuck_tx_interval;
+
+    typedef std::unordered_map<crypto::hash, double> tx_by_fee_entry;
+
+    //TODO: add fee_per_kb element to type tx_details and replace this
+    //functionality by just making m_transactions a std::set
+    std::set<tx_by_fee_entry> m_txs_by_fee;
 
     //transactions_container m_alternative_transactions;
 
