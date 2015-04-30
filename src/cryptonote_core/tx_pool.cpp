@@ -488,12 +488,12 @@ namespace cryptonote
     }
 
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
-      auto it2 = it++;
-      if (it2->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
-        LOG_PRINT_L1("Transaction " << get_transaction_hash(it2->second.tx) << " is too big (" << it2->second.blob_size << " bytes), removing it from pool");
-        remove_transaction_keyimages(it2->second.tx);
-        m_transactions.erase(it2);
+      if (it->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
+        LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
+        remove_transaction_keyimages(it->second.tx);
+        m_transactions.erase(it);
       }
+      it++;
     }
 
     // Ignore deserialization error
