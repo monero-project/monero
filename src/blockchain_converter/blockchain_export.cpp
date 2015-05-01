@@ -382,7 +382,22 @@ int main(int argc, char* argv[])
   Blockchain* core_storage = NULL;
   tx_memory_pool m_mempool(*core_storage);
   core_storage = new Blockchain(m_mempool);
-  r = core_storage->init(m_config_folder, opt_testnet);
+
+  BlockchainDB* db = new BlockchainLMDB();
+  boost::filesystem::path folder(m_config_folder);
+  folder /= db->get_db_name();
+  LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
+  const std::string filename = folder.string();
+  try
+  {
+    db->open(filename);
+  }
+  catch (const std::exception& e)
+  {
+    LOG_PRINT_L0("Error opening database: " << e.what());
+    throw;
+  }
+  r = core_storage->init(db, opt_testnet);
 #endif
 
   CHECK_AND_ASSERT_MES(r, false, "Failed to initialize source blockchain storage");
