@@ -1425,31 +1425,31 @@ void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount,
             max = index;
     }
 
-  // ??? might be a bug, don't always treat as uint64_t
-  #define DBT_VALUE(dbt) v.get_size() == sizeof(uint64_t) ? \
-    *((uint64_t *)v.get_data()) : *((uint32_t *)v.get_data()) \
-
-  // get returned keypairs count
-  #define DB_COUNT_RECORDS(dbt, cnt) \
-  do { \
-    uint32_t *_p = (uint32_t *) ((uint8_t *)(dbt)->data + \
-    (dbt)->ulen - sizeof(uint32_t)); \
-    cnt = 0; \
-    while(*_p != (uint32_t) -1) { \
-    _p -= 2; \
-    ++cnt; \
-    } \
-  } while(0); \
-
-  Dbt_copy<uint64_t> k(amount);
+    // ??? might be a bug, don't always treat as uint64_t
+    #define DBT_VALUE(dbt) v.get_size() == sizeof(uint64_t) ? \
+        *((uint64_t *)v.get_data()) : *((uint32_t *)v.get_data()) \
+ 
+    // get returned keypairs count
+    #define DB_COUNT_RECORDS(dbt, cnt) \
+      do { \
+        uint32_t *_p = (uint32_t *) ((uint8_t *)(dbt)->data + \
+        (dbt)->ulen - sizeof(uint32_t)); \
+        cnt = 0; \
+        while(*_p != (uint32_t) -1) { \
+        _p -= 2; \
+        ++cnt; \
+        } \
+      } while(0); \
+ 
+    Dbt_copy<uint64_t> k(amount);
     Dbt_copy<uint64_t> v;
     uint64_t buflen = 0;
-  uint64_t t_dbmul = 0;
-  uint64_t t_dbscan = 0;
+    uint64_t t_dbmul = 0;
+    uint64_t t_dbscan = 0;
     TIME_MEASURE_START(db2);
     if(max <= 1)
     {
-      for (const uint64_t& index : offsets)
+        for (const uint64_t& index : offsets)
         {
             TIME_MEASURE_START(t_seek);
 
@@ -1481,28 +1481,28 @@ void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount,
     }
     else
     {
-    // setup a 256KB minimum buffer size
-    uint32_t pagesize = 256 * 1024;
+        // setup a 256KB minimum buffer size
+        uint32_t pagesize = 256 * 1024;
 
-    // Retrieve only a suitable portion of the kvp data, up to somewhere near
-    // the maximum offset value being retrieved
-    buflen = (max + 1) * 4 * sizeof(uint64_t);
-    buflen = ((buflen / pagesize) + ((buflen % pagesize) > 0 ? 1 : 0)) * pagesize;
-    bool singlebuff = buflen <= BUFFER_LENGTH;
-    buflen = buflen < BUFFER_LENGTH ? buflen : BUFFER_LENGTH;
+        // Retrieve only a suitable portion of the kvp data, up to somewhere near
+        // the maximum offset value being retrieved
+        buflen = (max + 1) * 4 * sizeof(uint64_t);
+        buflen = ((buflen / pagesize) + ((buflen % pagesize) > 0 ? 1 : 0)) * pagesize;
+        bool singlebuff = buflen <= BUFFER_LENGTH;
+        buflen = buflen < BUFFER_LENGTH ? buflen : BUFFER_LENGTH;
 
-    Dbt data;
-    data.set_data(m_buffer);
-    data.set_ulen(buflen);
-    data.set_size(buflen);
-    data.set_flags(DB_DBT_USERMEM);
+        Dbt data;
+        data.set_data(m_buffer);
+        data.set_ulen(buflen);
+        data.set_size(buflen);
+        data.set_flags(DB_DBT_USERMEM);
 
-    uint32_t curcount = 0;
-      uint32_t blockstart = 0;
+        uint32_t curcount = 0;
+        uint32_t blockstart = 0;
         for (const uint64_t& index : offsets)
         {
-        // fixme! for whatever reason, the first call to DB_MULTIPLE | DB_SET does not
-      // retrieve the first value.
+            // fixme! for whatever reason, the first call to DB_MULTIPLE | DB_SET does not
+            // retrieve the first value.
             if(index <= 1)
             {
                 auto result = cur->get(&k, &v, DB_SET);
@@ -1521,40 +1521,40 @@ void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount,
             }
             else
             {
-        while(index >= curcount)
-        {
-          TIME_MEASURE_START(t_db1);
-          try
-          {
-            cur->get(&k, &data, DB_MULTIPLE | (curcount == 0 ? DB_SET : DB_NEXT_DUP));
-            blockstart = curcount;
-            // skip counting if using single buffer, it actually adds some overhead on some systems.
-            if(!singlebuff)
-            {
-              int count = 0;
-              DB_COUNT_RECORDS((DBT *) &data, count);
-              curcount += count;
-            }
-          }
-          catch (const std::exception &e)
-          {
-            LOG_PRINT_L0("DB_EXCEPTION: " << e.what());
-          }
+                while(index >= curcount)
+                {
+                    TIME_MEASURE_START(t_db1);
+                    try
+                    {
+                        cur->get(&k, &data, DB_MULTIPLE | (curcount == 0 ? DB_SET : DB_NEXT_DUP));
+                        blockstart = curcount;
+                        // skip counting if using single buffer, it actually adds some overhead on some systems.
+                        if(!singlebuff)
+                        {
+                            int count = 0;
+                            DB_COUNT_RECORDS((DBT *) &data, count);
+                            curcount += count;
+                        }
+                    }
+                    catch (const std::exception &e)
+                    {
+                        LOG_PRINT_L0("DB_EXCEPTION: " << e.what());
+                    }
 
-          TIME_MEASURE_FINISH(t_db1);
-          t_dbmul += t_db1;
-          if(singlebuff)
-            break;
-        }
+                    TIME_MEASURE_FINISH(t_db1);
+                    t_dbmul += t_db1;
+                    if(singlebuff)
+                        break;
+                }
 
-        LOG_PRINT_L1("Records returned: " << curcount << " Index: " << index);
-        TIME_MEASURE_START(t_db2);
-        DBT *pdata = (DBT *) &data;
+                LOG_PRINT_L1("Records returned: " << curcount << " Index: " << index);
+                TIME_MEASURE_START(t_db2);
+                DBT *pdata = (DBT *) &data;
 
                 uint8_t *value;
                 uint64_t dlen = 0;
 
-        void *pbase = ((uint8_t *)(pdata->data)) + pdata->ulen - sizeof(uint32_t);
+                void *pbase = ((uint8_t *)(pdata->data)) + pdata->ulen - sizeof(uint32_t);
                 uint32_t *p = (uint32_t *) pbase;
                 if (*p == (uint32_t) -1)
                 {
@@ -1574,9 +1574,9 @@ void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount,
                     v = dlen == sizeof(uint64_t) ?  *((uint64_t *) value)
                         : *((uint32_t *) value);
                 }
-              TIME_MEASURE_FINISH(t_db2);
-        t_dbscan += t_db2;
-      }
+                TIME_MEASURE_FINISH(t_db2);
+                t_dbscan += t_db2;
+            }
 
             uint64_t glob_index = DBT_VALUE(v);
 
