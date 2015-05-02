@@ -39,6 +39,7 @@
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/berkeleydb/db_bdb.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
@@ -159,7 +160,13 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
   // #1 plus relative offset #2.
   // TODO: Investigate if this is necessary / why this is done.
   std::vector<uint64_t> absolute_offsets = relative_output_offsets_to_absolute(tx_in_to_key.key_offsets);
+  std::vector<tx_out_index> indices;
 
+  // if(typeid(*m_db) == typeid(BlockchainBDB))
+  if(m_db->has_bulk_indices())
+  {
+	  m_db->get_output_tx_and_index(tx_in_to_key.amount, absolute_offsets, indices);
+  }
 
   //std::vector<std::pair<crypto::hash, size_t> >& amount_outs_vec = it->second;
   size_t count = 0;
@@ -168,7 +175,12 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
     try
     {
       // get tx hash and output index for output
-      auto output_index = m_db->get_output_tx_and_index(tx_in_to_key.amount, i);
+      tx_out_index output_index;
+
+      if(indices.size() == absolute_offsets.size())
+    	  output_index = indices.at(count);
+      else
+    	  output_index = m_db->get_output_tx_and_index(tx_in_to_key.amount, i);
 
       // get tx that output is from
       auto tx = m_db->get_tx(output_index.first);
@@ -2103,6 +2115,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   key_images_container keys;
 
   uint64_t fee_summary = 0;
+  uint64_t t_checktx = 0;
 
   // Iterate over the block's transaction hashes, grabbing each
   // from the tx_pool and validating them.  Each is then added
@@ -2133,6 +2146,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     // taken from the tx_pool back to it if the block fails verification.
     txs.push_back(tx);
 
+    TIME_MEASURE_START(aa);
     // validate that transaction inputs and the keys spending them are correct.
     if(!check_tx_inputs(tx))
     {
@@ -2144,6 +2158,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
       bvc.m_verifivation_failed = true;
       break;
     }
+    TIME_MEASURE_FINISH(aa);
+    t_checktx += aa;
 
     if (!check_for_double_spend(tx, keys))
     {
@@ -2220,6 +2236,9 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size
     << ", " << block_processing_time << "("<< target_calculating_time << "/" << longhash_calculating_time << ")ms");
 
+  LOG_PRINT_L0("Height: " << new_height << " blob: " << coinbase_blob_size <<
+		  " cumm: " << cumulative_block_size << " p/t: " << block_processing_time
+		  << " ("<< target_calculating_time << "/" << longhash_calculating_time << "/" << t_checktx << ")ms");
   bvc.m_added_to_main_chain = true;
 
   // appears to be a NOP *and* is called elsewhere.  wat?

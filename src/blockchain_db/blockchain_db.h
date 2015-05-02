@@ -472,6 +472,8 @@ public:
   // returns the transaction-local reference for the output with <amount> at <index>
   // return type is pair of tx hash and index
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const = 0;
+  virtual void get_output_tx_and_index(const uint64_t& amount, std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const = 0;
+  virtual bool  has_bulk_indices() const = 0;
 
   // return a vector of indices corresponding to the global output index for
   // each output in the transaction with hash <h>
