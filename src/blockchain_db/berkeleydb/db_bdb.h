@@ -177,6 +177,7 @@ public:
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
 
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const;
+  virtual void get_output_tx_and_index(const uint64_t& amount, std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const;
 
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const;
   virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const;
@@ -197,6 +198,7 @@ public:
   virtual void batch_abort();
 
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
+  virtual bool has_bulk_indices() const { return true; }
 
 private:
   virtual void add_block( const block& blk
@@ -254,6 +256,7 @@ private:
   uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index) const;
 
   void check_open() const;
+  void *m_buffer;
 
   DbEnv* m_env;
 

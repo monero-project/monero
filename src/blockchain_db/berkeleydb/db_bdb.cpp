@@ -105,6 +105,8 @@ const char* const BDB_OUTPUT_KEYS = "output_keys";
 
 const char* const BDB_SPENT_KEYS = "spent_keys";
 
+const int BUFFER_LENGTH	= 32 * 1024 * 1024;
+
 template<typename T>
 struct Dbt_copy: public Dbt
 {
@@ -575,7 +577,9 @@ void BlockchainBDB::check_open() const
 BlockchainBDB::~BlockchainBDB()
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
-
+    if(m_buffer != NULL)
+        free(m_buffer);
+    m_buffer = NULL;
   if (m_open)
   {
     close();
@@ -584,6 +588,7 @@ BlockchainBDB::~BlockchainBDB()
 
 BlockchainBDB::BlockchainBDB(bool batch_transactions)
 {
+    m_buffer = malloc(BUFFER_LENGTH);
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   // initialize folder to something "safe" just in case
   // someone accidentally misuses this class...
@@ -1389,7 +1394,9 @@ tx_out BlockchainBDB::get_output(const uint64_t& index) const
   return tx_out();
 }
 
-tx_out_index BlockchainBDB::get_output_tx_and_index_from_global(const uint64_t& index) const
+void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount,
+        std::vector<uint64_t> &offsets,
+        std::vector<tx_out_index> &indices) const
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   check_open();
@@ -1398,27 +1405,181 @@ tx_out_index BlockchainBDB::get_output_tx_and_index_from_global(const uint64_t& 
   if (m_env->txn_begin(NULL, txn, 0))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
 
-  Dbt_copy<uint32_t> k(index);
-  Dbt_copy<crypto::hash > v;
+    bdb_cur cur(txn, m_output_amounts);
+    uint64_t max = 0;
+    for(const uint64_t& index : offsets)
+    {
+        if(index > max)
+            max = index;
+    }
 
-  auto get_result = m_output_txs->get(txn, &k, &v, 0);
-  if (get_result == DB_NOTFOUND)
-    throw1(OUTPUT_DNE("output with given index not in db"));
-  else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch output tx hash"));
+	// ??? might be a bug, don't always treat as uint64_t
+	#define DBT_VALUE(dbt) v.get_size() == sizeof(uint64_t) ? \
+		*((uint64_t *)v.get_data()) : *((uint32_t *)v.get_data()) \
 
-  crypto::hash tx_hash = v;
+	// get returned keypairs count
+	#define	DB_COUNT_RECORDS(dbt, cnt) \
+	do { \
+		uint32_t *_p = (uint32_t *) ((uint8_t *)(dbt)->data + \
+		(dbt)->ulen - sizeof(uint32_t)); \
+		cnt = 0; \
+		while(*_p != (uint32_t) -1) { \
+		_p -= 2; \
+		++cnt; \
+		} \
+	} while(0); \
 
-  Dbt_copy<uint64_t> result;
-  get_result = m_output_indices->get(txn, &k, &result, 0);
-  if (get_result == DB_NOTFOUND)
-    throw1(OUTPUT_DNE("output with given index not in db"));
-  else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch output tx index"));
+	Dbt_copy<uint64_t> k(amount);
+    Dbt_copy<uint64_t> v;
+    uint64_t buflen = 0;
+	uint64_t t_dbmul = 0;
+	uint64_t t_dbscan = 0;
+    TIME_MEASURE_START(db2);
+    if(max <= 1)
+    {
+    	for (const uint64_t& index : offsets)
+        {
+            TIME_MEASURE_START(t_seek);
 
+            auto result = cur->get(&k, &v, DB_SET);
+            if (result == DB_NOTFOUND)
+                throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
+            else if (result)
+                throw0(DB_ERROR("DB error attempting to get an output"));
+
+            db_recno_t num_elems = 0;
+            cur->count(&num_elems, 0);
+
+            if (num_elems <= index)
+                throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but output not found"));
+
+            for (uint64_t i = 0; i < index; ++i)
+            {
+                cur->get(&k, &v, DB_NEXT_DUP);
+            }
+
+            uint64_t glob_index = DBT_VALUE(v);
+
+            LOG_PRINT_L1("L0->v: " << glob_index);
+            tx_out_index res =  get_output_tx_and_index_from_global(glob_index);
+            indices.push_back(res);
+
+            TIME_MEASURE_FINISH(t_seek);
+        }
+    }
+    else
+    {
+		// setup a 256KB minimum buffer size
+		uint32_t pagesize = 256 * 1024;
+
+		// Retrieve only a suitable portion of the kvp data, up to somewhere near
+		// the maximum offset value being retrieved
+		buflen = (max + 1) * 4 * sizeof(uint64_t);
+		buflen = ((buflen / pagesize) + ((buflen % pagesize) > 0 ? 1 : 0)) * pagesize;
+		bool singlebuff = buflen <= BUFFER_LENGTH;
+		buflen = buflen < BUFFER_LENGTH ? buflen : BUFFER_LENGTH;
+
+		Dbt data;
+		data.set_data(m_buffer);
+		data.set_ulen(buflen);
+		data.set_size(buflen);
+		data.set_flags(DB_DBT_USERMEM);
+
+		uint32_t curcount = 0;
+    	uint32_t blockstart = 0;
+        for (const uint64_t& index : offsets)
+        {
+    		// fixme! for whatever reason, the first call to DB_MULTIPLE | DB_SET does not
+			// retrieve the first value.
+            if(index <= 1)
+            {
+                auto result = cur->get(&k, &v, DB_SET);
+                if (result == DB_NOTFOUND)
+                    throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
+                else if (result)
+                    throw0(DB_ERROR("DB error attempting to get an output"));
+
+                db_recno_t num_elems = 0;
+                cur->count(&num_elems, 0);
+
+                if (num_elems <= index)
+                    throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but output not found"));
+                if(index > 0)
+                    cur->get(&k, &v, DB_NEXT_DUP);
+            }
+            else
+            {
+				while(index >= curcount)
+				{
+					TIME_MEASURE_START(t_db1);
+					try
+					{
+						cur->get(&k, &data, DB_MULTIPLE | (curcount == 0 ? DB_SET : DB_NEXT_DUP));
+						blockstart = curcount;
+						// skip counting if using single buffer, it actually adds some overhead on some systems.
+						if(!singlebuff)
+						{
+							int count = 0;
+							DB_COUNT_RECORDS((DBT *) &data, count);
+							curcount += count;
+						}
+					}
+					catch (const std::exception &e)
+					{
+						LOG_PRINT_L0("DB_EXCEPTION: " << e.what());
+					}
+
+					TIME_MEASURE_FINISH(t_db1);
+					t_dbmul += t_db1;
+					if(singlebuff)
+						break;
+				}
+
+				LOG_PRINT_L1("Records returned: " << curcount << " Index: " << index);
+				TIME_MEASURE_START(t_db2);
+				DBT *pdata = (DBT *) &data;
+
+                uint8_t *value;
+                uint64_t dlen = 0;
+
+				void *pbase = ((uint8_t *)(pdata->data)) + pdata->ulen - sizeof(uint32_t);
+                uint32_t *p = (uint32_t *) pbase;
+                if (*p == (uint32_t) -1)
+                {
+                    value = NULL;
+                }
+                else
+                {
+                    p -= (index - blockstart) * 2; // index * 4 + 2; <- if DB_MULTIPLE_KEY
+                    value = (uint8_t *) pdata->data + *p--;
+                    dlen = *p--;
+                    if (value == (uint8_t *) pdata->data)
+                        value = NULL;
+                }
+
+                if (value != NULL)
+                {
+                    v = dlen == sizeof(uint64_t) ?  *((uint64_t *) value)
+                    		: *((uint32_t *) value);
+                }
+	            TIME_MEASURE_FINISH(t_db2);
+				t_dbscan += t_db2;
+			}
+
+            uint64_t glob_index = DBT_VALUE(v);
+
+            LOG_PRINT_L1("L1->v: " << glob_index);
+            tx_out_index res =  get_output_tx_and_index_from_global(glob_index);
+            indices.push_back(res);
+        }
+    }
+
+    TIME_MEASURE_FINISH(db2);
+
+    LOG_PRINT_L1("blen: " << buflen  << " db1: " << t_dbmul << " db2: " << t_dbscan);
+
+    cur.close();
   txn.commit();
-
-  return tx_out_index(tx_hash, result);
 }
 
 tx_out_index BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const
@@ -1571,6 +1732,37 @@ std::vector<uint64_t> BlockchainBDB::get_tx_amount_output_indices(const crypto::
 }
 
 
+tx_out_index BlockchainBDB::get_output_tx_and_index_from_global(const uint64_t& index) const
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    bdb_txn_safe txn;
+    if (m_env->txn_begin(NULL, txn, 0))
+        throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+    Dbt_copy<uint32_t> k(index);
+    Dbt_copy<crypto::hash > v;
+
+    auto get_result = m_output_txs->get(txn, &k, &v, 0);
+    if (get_result == DB_NOTFOUND)
+        throw1(OUTPUT_DNE("output with given index not in db"));
+    else if (get_result)
+        throw0(DB_ERROR("DB error attempting to fetch output tx hash"));
+
+    crypto::hash tx_hash = v;
+
+    Dbt_copy<uint64_t> result;
+    get_result = m_output_indices->get(txn, &k, &result, 0);
+    if (get_result == DB_NOTFOUND)
+        throw1(OUTPUT_DNE("output with given index not in db"));
+    else if (get_result)
+        throw0(DB_ERROR("DB error attempting to fetch output tx index"));
+
+    txn.commit();
+
+    return tx_out_index(tx_hash, result);
+}
 
 bool BlockchainBDB::has_key_image(const crypto::key_image& img) const
 {
