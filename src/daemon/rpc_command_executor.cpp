@@ -523,20 +523,58 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
     }
   }
 
-  if (res.transactions.empty())
+  if (res.transactions.empty() && res.spent_key_images.empty())
   {
     tools::msg_writer() << "Pool is empty" << std::endl;
   }
-  for (auto & tx_info : res.transactions)
+  if (! res.transactions.empty())
   {
-    tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                        << "blob_size: " << tx_info.blob_size << std::endl
-                        << "fee: " << tx_info.fee << std::endl
-                        << "kept_by_block: " << tx_info.kept_by_block << std::endl
-                        << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                        << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
-                        << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                        << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    tools::msg_writer() << "Transactions: ";
+    for (auto & tx_info : res.transactions)
+    {
+      tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
+                          << tx_info.tx_json << std::endl
+                          << "blob_size: " << tx_info.blob_size << std::endl
+                          << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
+                          << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
+                          << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
+                          << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
+                          << "last_failed_height: " << tx_info.last_failed_height << std::endl
+                          << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    }
+    if (res.spent_key_images.empty())
+    {
+      tools::msg_writer() << "WARNING: Inconsistent pool state - no spent key images";
+    }
+  }
+  if (! res.spent_key_images.empty())
+  {
+    tools::msg_writer() << ""; // one newline
+    tools::msg_writer() << "Spent key images: ";
+    for (const cryptonote::spent_key_image_info& kinfo : res.spent_key_images)
+    {
+      tools::msg_writer() << "key image: " << kinfo.id_hash;
+      if (kinfo.txs_hashes.size() == 1)
+      {
+        tools::msg_writer() << "  tx: " << kinfo.txs_hashes[0];
+      }
+      else if (kinfo.txs_hashes.size() == 0)
+      {
+        tools::msg_writer() << "  WARNING: spent key image has no txs associated";
+      }
+      else
+      {
+        tools::msg_writer() << "  NOTE: key image for multiple txs: " << kinfo.txs_hashes.size();
+        for (const std::string& tx_id : kinfo.txs_hashes)
+        {
+          tools::msg_writer() << "  tx: " << tx_id;
+        }
+      }
+    }
+    if (res.transactions.empty())
+    {
+      tools::msg_writer() << "WARNING: Inconsistent pool state - no transactions";
+    }
   }
 
   return true;
@@ -571,10 +609,9 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   for (auto & tx_info : res.transactions)
   {
     tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                        <<  tx_info.tx_json << std::endl
                         << "blob_size: " << tx_info.blob_size << std::endl
-                        << "fee: " << tx_info.fee << std::endl
-                        << "kept_by_block: " << tx_info.kept_by_block << std::endl
+                        << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
+                        << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
                         << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                         << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
                         << "last_failed_height: " << tx_info.last_failed_height << std::endl

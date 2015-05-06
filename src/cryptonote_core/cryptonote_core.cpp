@@ -658,6 +658,11 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
+  {
+    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids)
   {
     return m_blockchain_storage.get_short_chain_history(ids);

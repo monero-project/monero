@@ -257,6 +257,7 @@ namespace cryptonote
          (tx_age > CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && it->second.kept_by_block) )
       {
         LOG_PRINT_L1("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
+        remove_transaction_keyimages(it->second.tx);
         m_transactions.erase(it++);
       }else
         ++it;
@@ -275,6 +276,40 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     BOOST_FOREACH(const auto& tx_vt, m_transactions)
       txs.push_back(tx_vt.second.tx);
+  }
+  //------------------------------------------------------------------
+  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    for (const auto& tx_vt : m_transactions)
+    {
+      tx_info txi;
+      const tx_details& txd = tx_vt.second;
+      txi.id_hash = epee::string_tools::pod_to_hex(tx_vt.first);
+      txi.tx_json = obj_to_json_str(*const_cast<transaction*>(&txd.tx));
+      txi.blob_size = txd.blob_size;
+      txi.fee = txd.fee;
+      txi.kept_by_block = txd.kept_by_block;
+      txi.max_used_block_height = txd.max_used_block_height;
+      txi.max_used_block_id_hash = epee::string_tools::pod_to_hex(txd.max_used_block_id);
+      txi.last_failed_height = txd.last_failed_height;
+      txi.last_failed_id_hash = epee::string_tools::pod_to_hex(txd.last_failed_id);
+      txi.receive_time = txd.receive_time;
+      tx_infos.push_back(txi);
+    }
+
+    for (const key_images_container::value_type& kee : m_spent_key_images) {
+      const crypto::key_image& k_image = kee.first;
+      const std::unordered_set<crypto::hash>& kei_image_set = kee.second;
+      spent_key_image_info ki;
+      ki.id_hash = epee::string_tools::pod_to_hex(k_image);
+      for (const crypto::hash& tx_id_hash : kei_image_set)
+      {
+        ki.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_id_hash));
+      }
+      key_image_infos.push_back(ki);
+    }
+    return true;
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::get_transaction(const crypto::hash& id, transaction& tx) const
