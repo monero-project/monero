@@ -82,15 +82,16 @@ namespace nodetool
 
     node_server(t_payload_net_handler& payload_handler)
 		:m_payload_handler(payload_handler),
+    m_current_number_of_out_peers(0),
 		m_allow_local_ip(false),
-		m_no_igd(false),
 		m_hide_my_port(false),
+    m_no_igd(false),
+    m_save_graph(false),
+    is_closing(false),
 		m_net_server( epee::net_utils::e_connection_type_P2P ) // this is a P2P connection of the main p2p node server, because this is class node_server<>
-    {
-		m_current_number_of_out_peers = 0;
-		m_save_graph = false;
-		is_closing = false;
-	}
+    {}
+    virtual ~node_server()
+    {}
 
     static void init_options(boost::program_options::options_description& desc);
 
