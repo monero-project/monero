@@ -659,7 +659,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   if (boost::filesystem::exists(old_files / "data.mdb") ||
       boost::filesystem::exists(old_files / "lock.mdb"))
   {
-    LOG_PRINT_L0("Found existing LMDB files in " << old_files.c_str());
+    LOG_PRINT_L0("Found existing LMDB files in " << old_files.string());
     LOG_PRINT_L0("Move data.mdb and/or lock.mdb to " << filename << ", or delete them, and then restart");
     throw DB_ERROR("Database could not be opened");
   }
