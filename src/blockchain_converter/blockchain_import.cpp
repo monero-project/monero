@@ -119,6 +119,52 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_engine, in
 }
 
 
+template <typename FakeCore>
+int pop_blocks(FakeCore& simple_core, int num_blocks)
+{
+  bool use_batch = false;
+  if (opt_batch)
+  {
+    if (simple_core.support_batch)
+      use_batch = true;
+    else
+      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database engine - ignoring");
+  }
+
+  if (use_batch)
+    simple_core.batch_start();
+
+  int quit = 0;
+  block popped_block;
+  std::vector<transaction> popped_txs;
+  for (int i=0; i < num_blocks; ++i)
+  {
+    // simple_core.m_storage.pop_block_from_blockchain() is private, so call directly through db
+    simple_core.m_storage.get_db().pop_block(popped_block, popped_txs);
+    quit = 1;
+  }
+
+
+
+  if (use_batch)
+  {
+    if (quit > 1)
+    {
+      // There was an error, so don't commit pending data.
+      // Destructor will abort write txn.
+    }
+    else
+    {
+      simple_core.batch_stop();
+    }
+#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
+    simple_core.m_storage.get_db().show_stats();
+#endif
+  }
+
+  return num_blocks;
+}
+
 int count_blocks(std::string& import_file_path)
 {
   boost::filesystem::path raw_file_path(import_file_path);
@@ -549,6 +595,7 @@ int main(int argc, char* argv[])
 #endif
 
   uint32_t log_level = LOG_LEVEL_0;
+  uint64_t num_blocks = 0;
   std::string dirname;
   std::string db_arg_str;
 
@@ -559,6 +606,7 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<uint32_t> arg_log_level   =  {"log-level",  "", log_level};
   const command_line::arg_descriptor<uint64_t> arg_batch_size  =  {"batch-size", "", db_batch_size};
+  const command_line::arg_descriptor<uint64_t> arg_pop_blocks  =  {"pop-blocks", "", num_blocks};
   const command_line::arg_descriptor<bool>     arg_testnet_on  = {
     "testnet"
       , "Run on testnet."
@@ -584,6 +632,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_batch_size);
+  command_line::add_arg(desc_cmd_sett, arg_pop_blocks);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_database);
 
@@ -732,6 +781,15 @@ int main(int argc, char* argv[])
 #else
   fake_core_memory simple_core(dirname, opt_testnet);
 #endif
+
+  if (! vm["pop-blocks"].defaulted())
+  {
+    num_blocks = command_line::get_arg(vm, arg_pop_blocks);
+    LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
+    pop_blocks(simple_core, num_blocks);
+    LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
+    exit(0);
+  }
 
   import_from_file(simple_core, import_file_path);
 #endif
