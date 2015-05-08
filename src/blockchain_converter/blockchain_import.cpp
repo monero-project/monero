@@ -94,21 +94,15 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_engine, in
       continue;
     LOG_PRINT_L1("LMDB flag: " << it);
     if (it == "nosync")
-    {
       mdb_flags |= MDB_NOSYNC;
-    }
     else if (it == "nometasync")
-    {
       mdb_flags |= MDB_NOMETASYNC;
-    }
     else if (it == "writemap")
-    {
       mdb_flags |= MDB_WRITEMAP;
-    }
     else if (it == "mapasync")
-    {
       mdb_flags |= MDB_MAPASYNC;
-    }
+    else if (it == "nordahead")
+      mdb_flags |= MDB_NORDAHEAD;
     else
     {
       std::cerr << "unrecognized database flag: " << it << ENDL;
