@@ -9,7 +9,7 @@ This is also the default compile setting on the blockchain branch.
 
 By default, the exporter will use the original in-memory database (blockchain.bin) as its source.
 This default is to make migrating to an LMDB database easy, without having to recompile anything.
-To change the source, adjust `SOURCE_DB` in `src/blockchain_converter/blockchain_export.h` according to the comments.
+To change the source, adjust `SOURCE_DB` in `src/blockchain_converter/bootstrap_file.h` according to the comments.
 
 # Usage:
 
