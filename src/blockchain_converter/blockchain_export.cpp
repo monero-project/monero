@@ -206,18 +206,11 @@ void BlockchainExport::write_block(block& block)
   {
 #if SOURCE_DB == DB_MEMORY
     size_t block_size = m_blockchain_storage->get_block_size(block_height);
-#else
-    size_t block_size = m_blockchain_storage->get_db().get_block_size(block_height);
-#endif
-#if SOURCE_DB == DB_MEMORY
     difficulty_type cumulative_difficulty = m_blockchain_storage->get_block_cumulative_difficulty(block_height);
-#else
-    difficulty_type cumulative_difficulty = m_blockchain_storage->get_db().get_block_cumulative_difficulty(block_height);
-#endif
-#if SOURCE_DB == DB_MEMORY
     uint64_t coins_generated = m_blockchain_storage->get_block_coins_generated(block_height);
 #else
-    // TODO TEST to verify that this is the equivalent. make sure no off-by-one error with block height vs block number
+    size_t block_size = m_blockchain_storage->get_db().get_block_size(block_height);
+    difficulty_type cumulative_difficulty = m_blockchain_storage->get_db().get_block_cumulative_difficulty(block_height);
     uint64_t coins_generated = m_blockchain_storage->get_db().get_block_already_generated_coins(block_height);
 #endif
 
