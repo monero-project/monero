@@ -1528,13 +1528,11 @@ void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount,
                     {
                         cur->get(&k, &data, DB_MULTIPLE | (curcount == 0 ? DB_SET : DB_NEXT_DUP));
                         blockstart = curcount;
-                        // skip counting if using single buffer, it actually adds some overhead on some systems.
-                        if(!singlebuff)
-                        {
-                            int count = 0;
-                            DB_COUNT_RECORDS((DBT *) &data, count);
-                            curcount += count;
-                        }
+                        
+                        int count = 0;
+                        // fixme! this might be slow on some systems.
+                        DB_COUNT_RECORDS((DBT *) &data, count);
+                        curcount += count;
                     }
                     catch (const std::exception &e)
                     {
