@@ -97,7 +97,6 @@ namespace nodetool
     
     const command_line::arg_descriptor<bool>		arg_save_graph			= {"save-graph", "Save data for dr monero", false};
   }
-
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::init_options(boost::program_options::options_description& desc)
@@ -116,9 +115,9 @@ namespace nodetool
     command_line::add_arg(desc, arg_out_peers);
     command_line::add_arg(desc, arg_tos_flag);
     command_line::add_arg(desc, arg_limit_rate_up);
-  	command_line::add_arg(desc, arg_limit_rate_down);
-  	command_line::add_arg(desc, arg_limit_rate);
-  	command_line::add_arg(desc, arg_save_graph);
+    command_line::add_arg(desc, arg_limit_rate_down);
+    command_line::add_arg(desc, arg_limit_rate);
+    command_line::add_arg(desc, arg_save_graph);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
