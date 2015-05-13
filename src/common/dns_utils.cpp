@@ -205,12 +205,14 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url, bool& dns
   dnssec_valid = false;
   char urlC[1000];  // waaaay too big, but just in case...
 
-  strncpy(urlC, url.c_str(), 999);
-  urlC[999] = '\0';
-  if (!check_address_syntax(urlC))
+  std::string url_copy{url};
+  if (!check_address_syntax(url_copy))
   {
     return addresses;
   }
+
+  strncpy(urlC, url_copy.c_str(), 999);
+  urlC[999] = '\0';
 
   // destructor takes care of cleanup
   ub_result_ptr result;
@@ -239,13 +241,14 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url, bool& dns
   dnssec_valid = false;
   char urlC[1000];  // waaaay too big, but just in case...
 
-  strncpy(urlC, url.c_str(), 999);
-  urlC[999] = '\0';
-
-  if (!check_address_syntax(urlC))
+  std::string url_copy{url};
+  if (!check_address_syntax(url_copy))
   {
     return addresses;
   }
+
+  strncpy(urlC, url_copy.c_str(), 999);
+  urlC[999] = '\0';
 
   ub_result_ptr result;
 
@@ -273,13 +276,14 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, boo
   dnssec_valid = false;
   char urlC[1000];  // waaaay too big, but just in case...
 
-  strncpy(urlC, url.c_str(), 999);
-  urlC[999] = '\0';
-
-  if (!check_address_syntax(urlC))
+  std::string url_copy{url};
+  if (!check_address_syntax(url_copy))
   {
     return records;
   }
+
+  strncpy(urlC, url_copy.c_str(), 999);
+  urlC[999] = '\0';
 
   ub_result_ptr result;
 
@@ -314,13 +318,17 @@ DNSResolver& DNSResolver::instance()
   return *staticInstance;
 }
 
-bool DNSResolver::check_address_syntax(const std::string& addr)
+bool DNSResolver::check_address_syntax(std::string& addr)
 {
   // if string doesn't contain a dot, we won't consider it a url for now.
-  if (addr.find(".") == std::string::npos)
+  auto first_dot = addr.find(".");
+  if (first_dot == std::string::npos)
   {
     return false;
   }
+
+  // allow name@domain.tld to work
+  addr.replace(first_dot, 1, "@");
   return true;
 }
 

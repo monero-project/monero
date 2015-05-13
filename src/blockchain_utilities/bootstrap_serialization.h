@@ -28,10 +28,61 @@
 
 #pragma once
 
-// TODO: bounds checking is done before writing to buffer, but buffer size
-// should be a sensible maximum
-#define BUFFER_SIZE 1000000
-#define NUM_BLOCKS_PER_CHUNK 1
-#define STR_LENGTH_OF_INT 9
-#define STR_FORMAT_OF_INT "%09d"
-#define BLOCKCHAIN_RAW "blockchain.raw"
+#include "cryptonote_core/cryptonote_boost_serialization.h"
+#include "cryptonote_core/difficulty.h"
+
+
+namespace cryptonote
+{
+  namespace bootstrap
+  {
+
+    struct file_info
+    {
+      uint8_t  major_version;
+      uint8_t  minor_version;
+      uint32_t header_size;
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(major_version);
+        FIELD(minor_version);
+        VARINT_FIELD(header_size);
+      END_SERIALIZE()
+    };
+
+    struct blocks_info
+    {
+      // block heights of file's first and last blocks, zero-based indexes
+      uint64_t block_first;
+      uint64_t block_last;
+
+      // file position, for directly reading last block
+      uint64_t block_last_pos;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VARINT_FIELD(block_first);
+        VARINT_FIELD(block_last);
+        VARINT_FIELD(block_last_pos);
+      END_SERIALIZE()
+    };
+
+    struct block_package
+    {
+      cryptonote::block block;
+      std::vector<transaction> txs;
+      size_t block_size;
+      difficulty_type cumulative_difficulty;
+      uint64_t coins_generated;
+
+      BEGIN_SERIALIZE()
+        FIELD(block)
+        FIELD(txs)
+        VARINT_FIELD(block_size)
+        VARINT_FIELD(cumulative_difficulty)
+        VARINT_FIELD(coins_generated)
+      END_SERIALIZE()
+    };
+
+  }
+
+}

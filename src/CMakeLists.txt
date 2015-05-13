@@ -102,4 +102,4 @@ add_subdirectory(simplewallet)
 add_subdirectory(daemonizer)
 add_subdirectory(daemon)
 
-add_subdirectory(blockchain_converter)
+add_subdirectory(blockchain_utilities)

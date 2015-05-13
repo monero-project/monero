@@ -28,15 +28,27 @@
 
 #pragma once
 
-#include <boost/archive/binary_oarchive.hpp>
 #include <boost/iostreams/stream_buffer.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
+
+#include <boost/iostreams/filtering_streambuf.hpp>
+
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/blockchain_storage.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <fstream>
+#include <boost/iostreams/copy.hpp>
+#include <atomic>
+
+#include "common/command_line.h"
+#include "version.h"
+
 
 // CONFIG: choose one of the three #define's
 //
@@ -49,11 +61,24 @@
 // to use global compile-time setting (DB_MEMORY or DB_LMDB):
 // #define SOURCE_DB BLOCKCHAIN_DB
 
+
+// bounds checking is done before writing to buffer, but buffer size
+// should be a sensible maximum
+#define BUFFER_SIZE 1000000
+#define NUM_BLOCKS_PER_CHUNK 1
+#define BLOCKCHAIN_RAW "blockchain.raw"
+
+
 using namespace cryptonote;
 
-class BlockchainExport
+
+class BootstrapFile
 {
 public:
+
+  uint64_t count_blocks(const std::string& dir_path);
+  uint64_t seek_to_first_chunk(std::ifstream& import_file);
+
 #if SOURCE_DB == DB_MEMORY
   bool store_blockchain_raw(cryptonote::blockchain_storage* cs, cryptonote::tx_memory_pool* txp,
       boost::filesystem::path& output_dir, uint64_t use_block_height=0);
@@ -63,6 +88,7 @@ public:
 #endif
 
 protected:
+
 #if SOURCE_DB == DB_MEMORY
   blockchain_storage* m_blockchain_storage;
 #else
@@ -72,16 +98,19 @@ protected:
   tx_memory_pool* m_tx_pool;
   typedef std::vector<char> buffer_type;
   std::ofstream * m_raw_data_file;
-  boost::archive::binary_oarchive * m_raw_archive;
   buffer_type m_buffer;
   boost::iostreams::stream<boost::iostreams::back_insert_device<buffer_type>>* m_output_stream;
 
   // open export file for write
-  bool open(const boost::filesystem::path& dir_path);
+  bool open_writer(const boost::filesystem::path& dir_path);
+  bool initialize_file();
   bool close();
   void write_block(block& block);
-  void serialize_block_to_text_buffer(const block& block);
-  void buffer_serialize_tx(const transaction& tx);
-  void buffer_write_num_txs(const std::list<transaction> txs);
   void flush_chunk();
+
+private:
+
+  uint64_t m_height;
+  uint64_t m_cur_height; // tracks current height during export
+  uint32_t m_max_chunk;
 };
