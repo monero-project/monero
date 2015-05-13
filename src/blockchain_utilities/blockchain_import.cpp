@@ -32,34 +32,43 @@
 #include <fstream>
 
 #include <boost/filesystem.hpp>
-#include <boost/iostreams/stream.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-#include "cryptonote_core/cryptonote_basic.h"
+#include "bootstrap_file.h"
+#include "bootstrap_serialization.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
-#include "cryptonote_core/cryptonote_boost_serialization.h"
+#include "serialization/binary_utils.h" // dump_binary(), parse_binary()
 #include "serialization/json_utils.h" // dump_json()
 #include "include_base_utils.h"
-#include "common/command_line.h"
-#include "version.h"
 
 #include <lmdb.h> // for db flag arguments
 
-#include "import.h"
 #include "fake_core.h"
 
 unsigned int epee::g_test_dbg_lock_sleep = 0;
 
+namespace
+{
 // CONFIG
-static bool opt_batch   = true;
-static bool opt_verify  = true; // use add_new_block, which does verification before calling add_block
-static bool opt_resume  = true;
-static bool opt_testnet = true;
+bool opt_batch   = true;
+bool opt_verify  = true; // use add_new_block, which does verification before calling add_block
+bool opt_resume  = true;
+bool opt_testnet = true;
 
 // number of blocks per batch transaction
 // adjustable through command-line argument according to available RAM
-static uint64_t db_batch_size = 20000;
+#if !defined(WIN32)
+uint64_t db_batch_size = 20000;
+#else
+// set a lower default batch size, pending possible LMDB issue with large transaction size
+uint64_t db_batch_size = 1000;
+#endif
 
-static std::string refresh_string = "\r                                    \r";
+// when verifying, use a smaller default batch size so progress is more
+// frequently saved
+uint64_t db_batch_size_verify = 5000;
+
+std::string refresh_string = "\r                                    \r";
+}
+
 
 
 namespace po = boost::program_options;
@@ -94,21 +103,15 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_engine, in
       continue;
     LOG_PRINT_L1("LMDB flag: " << it);
     if (it == "nosync")
-    {
       mdb_flags |= MDB_NOSYNC;
-    }
     else if (it == "nometasync")
-    {
       mdb_flags |= MDB_NOMETASYNC;
-    }
     else if (it == "writemap")
-    {
       mdb_flags |= MDB_WRITEMAP;
-    }
     else if (it == "mapasync")
-    {
       mdb_flags |= MDB_MAPASYNC;
-    }
+    else if (it == "nordahead")
+      mdb_flags |= MDB_NORDAHEAD;
     else
     {
       std::cerr << "unrecognized database flag: " << it << ENDL;
@@ -119,95 +122,54 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_engine, in
 }
 
 
-int count_blocks(std::string& import_file_path)
+template <typename FakeCore>
+int pop_blocks(FakeCore& simple_core, int num_blocks)
 {
-  boost::filesystem::path raw_file_path(import_file_path);
-  boost::system::error_code ec;
-  if (!boost::filesystem::exists(raw_file_path, ec))
+  bool use_batch = false;
+  if (opt_batch)
   {
-    LOG_PRINT_L0("import file not found: " << raw_file_path);
-    throw std::runtime_error("Aborting");
-  }
-  std::ifstream import_file;
-  import_file.open(import_file_path, std::ios_base::binary | std::ifstream::in);
-
-  uint64_t h = 0;
-  if (import_file.fail())
-  {
-    LOG_PRINT_L0("import_file.open() fail");
-    throw std::runtime_error("Aborting");
-  }
-  LOG_PRINT_L0("Scanning blockchain from import file...");
-  char buffer1[STR_LENGTH_OF_INT + 1];
-  block b;
-  transaction tx;
-  bool quit = false;
-  uint64_t bytes_read = 0;
-  int progress_interval = 10;
-
-  while (! quit)
-  {
-    int chunk_size;
-    import_file.read(buffer1, STR_LENGTH_OF_INT);
-    if (!import_file) {
-      std::cout << refresh_string;
-      LOG_PRINT_L1("End of import file reached");
-      quit = true;
-      break;
-    }
-    h += NUM_BLOCKS_PER_CHUNK;
-    if (h % progress_interval == 0)
-    {
-      std::cout << refresh_string << "block height: " << h <<
-        std::flush;
-    }
-    bytes_read += STR_LENGTH_OF_INT;
-    buffer1[STR_LENGTH_OF_INT] = '\0';
-    chunk_size = atoi(buffer1);
-    if (chunk_size > BUFFER_SIZE)
-    {
-      std::cout << refresh_string;
-      LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE
-          << "  height: " << h);
-      throw std::runtime_error("Aborting: chunk size exceeds buffer size");
-    }
-    if (chunk_size > 100000)
-    {
-      std::cout << refresh_string;
-      LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > 100000" << "  height: "
-          << h);
-    }
-    else if (chunk_size <= 0) {
-      std::cout << refresh_string;
-      LOG_PRINT_L0("ERROR: chunk_size " << chunk_size << " <= 0" << "  height: " << h);
-      throw std::runtime_error("Aborting");
-    }
-    // skip to next expected block size value
-    import_file.seekg(chunk_size, std::ios_base::cur);
-    if (! import_file) {
-      std::cout << refresh_string;
-      LOG_PRINT_L0("ERROR: unexpected end of import file: bytes read before error: "
-          << import_file.gcount() << " of chunk_size " << chunk_size);
-      throw std::runtime_error("Aborting");
-    }
-    bytes_read += chunk_size;
-    std::cout << refresh_string;
-
-    LOG_PRINT_L3("Total bytes scanned: " << bytes_read);
+    if (simple_core.support_batch)
+      use_batch = true;
+    else
+      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database engine - ignoring");
   }
 
-  import_file.close();
+  if (use_batch)
+    simple_core.batch_start();
 
-  std::cout << ENDL;
-  std::cout << "Done scanning import file" << ENDL;
-  std::cout << "Total bytes scanned: " << bytes_read << ENDL;
-  std::cout << "Height: " << h << ENDL;
+  int quit = 0;
+  block popped_block;
+  std::vector<transaction> popped_txs;
+  for (int i=0; i < num_blocks; ++i)
+  {
+    // simple_core.m_storage.pop_block_from_blockchain() is private, so call directly through db
+    simple_core.m_storage.get_db().pop_block(popped_block, popped_txs);
+    quit = 1;
+  }
 
-  return h;
+
+
+  if (use_batch)
+  {
+    if (quit > 1)
+    {
+      // There was an error, so don't commit pending data.
+      // Destructor will abort write txn.
+    }
+    else
+    {
+      simple_core.batch_stop();
+    }
+#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
+    simple_core.m_storage.get_db().show_stats();
+#endif
+  }
+
+  return num_blocks;
 }
 
 template <typename FakeCore>
-int import_from_file(FakeCore& simple_core, std::string& import_file_path)
+int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint64_t stop_height=0)
 {
 #if !defined(BLOCKCHAIN_DB)
   static_assert(std::is_same<fake_core_memory, FakeCore>::value || std::is_same<fake_core_lmdb, FakeCore>::value,
@@ -226,23 +188,35 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
   boost::system::error_code ec;
   if (!boost::filesystem::exists(raw_file_path, ec))
   {
-    LOG_PRINT_L0("import file not found: " << raw_file_path);
+    LOG_PRINT_L0("bootstrap file not found: " << raw_file_path);
     return false;
   }
 
-  uint64_t source_height = count_blocks(import_file_path);
-  LOG_PRINT_L0("import file blockchain height: " << source_height);
+  BootstrapFile bootstrap;
+  // BootstrapFile bootstrap(import_file_path);
+  uint64_t total_source_blocks = bootstrap.count_blocks(import_file_path);
+  LOG_PRINT_L0("bootstrap file last block number: " << total_source_blocks-1 << " (zero-based height)  total blocks: " << total_source_blocks);
+
+  std::cout << ENDL;
+  std::cout << "Preparing to read blocks..." << ENDL;
+  std::cout << ENDL;
 
   std::ifstream import_file;
   import_file.open(import_file_path, std::ios_base::binary | std::ifstream::in);
 
   uint64_t h = 0;
+  uint64_t num_imported = 0;
   if (import_file.fail())
   {
     LOG_PRINT_L0("import_file.open() fail");
     return false;
   }
-  char buffer1[STR_LENGTH_OF_INT + 1];
+
+  // 4 byte magic + (currently) 1024 byte header structures
+  bootstrap.seek_to_first_chunk(import_file);
+
+  std::string str1;
+  char buffer1[1024];
   char buffer_block[BUFFER_SIZE];
   block b;
   transaction tx;
@@ -253,17 +227,17 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
   if (opt_resume)
     start_height = simple_core.m_storage.get_current_blockchain_height();
 
-  // Note that a new blockchain will start with a height of 1 (block number 0)
+  // Note that a new blockchain will start with block number 0 (total blocks: 1)
   // due to genesis block being added at initialization.
 
-  // CONFIG
-  // TODO: can expand on this, e.g. with --block-number option
-  uint64_t stop_height = source_height;
+  if (! stop_height)
+  {
+    stop_height = total_source_blocks - 1;
+  }
 
   // These are what we'll try to use, and they don't have to be a determination
-  // from source and destination blockchains, but those are the current
-  // defaults.
-  LOG_PRINT_L0("start height: " << start_height << "  stop height: " <<
+  // from source and destination blockchains, but those are the defaults.
+  LOG_PRINT_L0("start block: " << start_height << "  stop block: " <<
       stop_height);
 
   bool use_batch = false;
@@ -278,7 +252,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
   if (use_batch)
     simple_core.batch_start();
 
-  LOG_PRINT_L0("Reading blockchain from import file...");
+  LOG_PRINT_L0("Reading blockchain from bootstrap file...");
   std::cout << ENDL;
 
   // Within the loop, we skip to start_height before we start adding.
@@ -287,17 +261,24 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
   // at start_height.
   while (! quit)
   {
-    int chunk_size;
-    import_file.read(buffer1, STR_LENGTH_OF_INT);
+    uint32_t chunk_size;
+    import_file.read(buffer1, sizeof(chunk_size));
+    // TODO: bootstrap.read_chunk();
     if (! import_file) {
       std::cout << refresh_string;
-      LOG_PRINT_L0("End of import file reached");
+      LOG_PRINT_L0("End of file reached");
       quit = 1;
       break;
     }
-    bytes_read += STR_LENGTH_OF_INT;
-    buffer1[STR_LENGTH_OF_INT] = '\0';
-    chunk_size = atoi(buffer1);
+    bytes_read += sizeof(chunk_size);
+
+    str1.assign(buffer1, sizeof(chunk_size));
+    if (! ::serialization::parse_binary(str1, chunk_size))
+    {
+      throw std::runtime_error("Error in deserialization of chunk size");
+    }
+    LOG_PRINT_L1("chunk_size: " << chunk_size);
+
     if (chunk_size > BUFFER_SIZE)
     {
       LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE);
@@ -305,7 +286,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     }
     if (chunk_size > 100000)
     {
-      LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > 100000");
+      LOG_PRINT_L0("NOTE: chunk_size " << chunk_size << " > 100000");
     }
     else if (chunk_size < 0) {
       LOG_PRINT_L0("ERROR: chunk_size " << chunk_size << " < 0");
@@ -313,7 +294,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     }
     import_file.read(buffer_block, chunk_size);
     if (! import_file) {
-      LOG_PRINT_L0("ERROR: unexpected end of import file: bytes read before error: "
+      LOG_PRINT_L0("ERROR: unexpected end of file: bytes read before error: "
           << import_file.gcount() << " of chunk_size " << chunk_size);
       return 2;
     }
@@ -327,77 +308,79 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     }
     if (h > stop_height)
     {
-      LOG_PRINT_L0("Specified height reached - stopping.  height: " << h << "  block: " << h-1);
+      std::cout << refresh_string << "block " << h-1
+        << " / " << stop_height
+        << std::flush;
+      std::cout << ENDL << ENDL;
+      LOG_PRINT_L0("Specified block number reached - stopping.  block: " << h-1 << "  total blocks: " << h);
       quit = 1;
       break;
     }
 
     try
     {
-      boost::iostreams::basic_array_source<char> device(buffer_block, chunk_size);
-      boost::iostreams::stream<boost::iostreams::basic_array_source<char>> s(device);
-      boost::archive::binary_iarchive a(s);
+      str1.assign(buffer_block, chunk_size);
+      bootstrap::block_package bp;
+      if (! ::serialization::parse_binary(str1, bp))
+        throw std::runtime_error("Error in deserialization of chunk");
 
       int display_interval = 1000;
       int progress_interval = 10;
-      for (int chunk_ind = 0; chunk_ind < NUM_BLOCKS_PER_CHUNK; chunk_ind++)
+      // NOTE: use of NUM_BLOCKS_PER_CHUNK is a placeholder in case multi-block chunks are later supported.
+      for (int chunk_ind = 0; chunk_ind < NUM_BLOCKS_PER_CHUNK; ++chunk_ind)
       {
-        h++;
-        if (h % display_interval == 0)
+        ++h;
+        if ((h-1) % display_interval == 0)
         {
           std::cout << refresh_string;
-          LOG_PRINT_L0("loading block height " << h);
+          LOG_PRINT_L0("loading block number " << h-1);
         }
         else
         {
-          LOG_PRINT_L3("loading block height " << h);
+          LOG_PRINT_L3("loading block number " << h-1);
         }
-        try {
-          a >> b;
-        }
-        catch (const std::exception& e)
-        {
-          std::cout << refresh_string;
-          LOG_PRINT_RED_L0("exception while de-archiving block, height=" << h);
-          quit = 1;
-          break;
-        }
+        b = bp.block;
         LOG_PRINT_L2("block prev_id: " << b.prev_id << ENDL);
 
-        if (h % progress_interval == 0)
+        if ((h-1) % progress_interval == 0)
         {
           std::cout << refresh_string << "block " << h-1
+            << " / " << stop_height
             << std::flush;
         }
 
         std::vector<transaction> txs;
+        std::vector<transaction> archived_txs;
 
-        int num_txs;
-        try
+        archived_txs = bp.txs;
+
+        // std::cout << refresh_string;
+        // LOG_PRINT_L1("txs: " << archived_txs.size());
+
+        // if archived_txs is invalid
+        // {
+        //   std::cout << refresh_string;
+        //   LOG_PRINT_RED_L0("exception while de-archiving txs, height=" << h);
+        //   quit = 1;
+        //   break;
+        // }
+
+        // tx number 1: coinbase tx
+        // tx number 2 onwards: archived_txs
+        unsigned int tx_num = 1;
+        for (const transaction& tx : archived_txs)
         {
-          a >> num_txs;
-        }
-        catch (const std::exception& e)
-        {
-          std::cout << refresh_string;
-          LOG_PRINT_RED_L0("exception while de-archiving tx-num, height=" << h);
-          quit = 1;
-          break;
-        }
-        for(int tx_num = 1; tx_num <= num_txs; tx_num++)
-        {
-          try {
-                a >> tx;
-          }
-          catch (const std::exception& e)
-          {
-            LOG_PRINT_RED_L0("exception while de-archiving tx, height=" << h <<", tx_num=" << tx_num);
-            quit = 1;
-            break;
-          }
-          // if (tx_num == 1) {
-          //   std::cout << "coinbase transaction" << ENDL;
+          ++tx_num;
+          // if tx is invalid
+          // {
+          //   LOG_PRINT_RED_L0("exception while indexing tx from txs, height=" << h <<", tx_num=" << tx_num);
+          //   quit = 1;
+          //   break;
           // }
+
+          // std::cout << refresh_string;
+          // LOG_PRINT_L1("tx hash: " << get_transaction_hash(tx));
+
           // crypto::hash hsh = null_hash;
           // size_t blob_size = 0;
           // NOTE: all tx hashes except for coinbase tx are available in the block data
@@ -409,9 +392,6 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
           // for Blockchain and blockchain_storage add_new_block().
           if (opt_verify)
           {
-            if (tx_num == 1) {
-              continue; // coinbase transaction. no need to insert to tx_pool.
-            }
             // crypto::hash hsh = null_hash;
             // size_t blob_size = 0;
             // get_transaction_hash(tx, hsh, blob_size);
@@ -433,10 +413,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
             // because add_block() calls
             // add_transaction(blk_hash, blk.miner_tx) first, and
             // then a for loop for the transactions in txs.
-            if (tx_num > 1)
-            {
-              txs.push_back(tx);
-            }
+            txs.push_back(tx);
           }
         }
 
@@ -448,7 +425,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
           if (bvc.m_verifivation_failed)
           {
             LOG_PRINT_L0("Failed to add block to blockchain, verification failed, height = " << h);
-            LOG_PRINT_L0("skipping rest of import file");
+            LOG_PRINT_L0("skipping rest of file");
             // ok to commit previously batched data because it failed only in
             // verification of potential new block with nothing added to batch
             // yet
@@ -458,7 +435,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
           if (! bvc.m_added_to_main_chain)
           {
             LOG_PRINT_L0("Failed to add block to blockchain, height = " << h);
-            LOG_PRINT_L0("skipping rest of import file");
+            LOG_PRINT_L0("skipping rest of file");
             // make sure we don't commit partial block data
             quit = 2;
             break;
@@ -470,14 +447,14 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
           difficulty_type cumulative_difficulty;
           uint64_t coins_generated;
 
-          a >> block_size;
-          a >> cumulative_difficulty;
-          a >> coins_generated;
+          block_size = bp.block_size;
+          cumulative_difficulty = bp.cumulative_difficulty;
+          coins_generated = bp.coins_generated;
 
-          std::cout << refresh_string;
-          LOG_PRINT_L2("block_size: " << block_size);
-          LOG_PRINT_L2("cumulative_difficulty: " << cumulative_difficulty);
-          LOG_PRINT_L2("coins_generated: " << coins_generated);
+          // std::cout << refresh_string;
+          // LOG_PRINT_L2("block_size: " << block_size);
+          // LOG_PRINT_L2("cumulative_difficulty: " << cumulative_difficulty);
+          // LOG_PRINT_L2("coins_generated: " << coins_generated);
 
           try
           {
@@ -491,13 +468,15 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
             break;
           }
         }
+        ++num_imported;
 
         if (use_batch)
         {
-          if (h % db_batch_size == 0)
+          if ((h-1) % db_batch_size == 0)
           {
             std::cout << refresh_string;
-            std::cout << ENDL << "[- batch commit at height " << h << " -]" << ENDL;
+            // zero-based height
+            std::cout << ENDL << "[- batch commit at height " << h-1 << " -]" << ENDL;
             simple_core.batch_stop();
             simple_core.batch_start();
             std::cout << ENDL;
@@ -511,7 +490,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
     catch (const std::exception& e)
     {
       std::cout << refresh_string;
-      LOG_PRINT_RED_L0("exception while reading from import file, height=" << h);
+      LOG_PRINT_RED_L0("exception while reading from file, height=" << h);
       return 2;
     }
   } // while
@@ -532,8 +511,10 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path)
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
     simple_core.m_storage.get_db().show_stats();
 #endif
+    LOG_PRINT_L0("Number of blocks imported: " << num_imported)
     if (h > 0)
-      LOG_PRINT_L0("Finished at height: " << h << "  block: " << h-1);
+      // TODO: if there was an error, the last added block is probably at zero-based height h-2
+      LOG_PRINT_L0("Finished at block: " << h-1 << "  total blocks: " << h);
   }
   std::cout << ENDL;
   return 0;
@@ -549,6 +530,8 @@ int main(int argc, char* argv[])
 #endif
 
   uint32_t log_level = LOG_LEVEL_0;
+  uint64_t num_blocks = 0;
+  uint64_t block_height = 0;
   std::string dirname;
   std::string db_arg_str;
 
@@ -558,7 +541,9 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<uint32_t> arg_log_level   =  {"log-level",  "", log_level};
+  const command_line::arg_descriptor<uint64_t> arg_block_height = {"block-number", "stop at block number", block_height};
   const command_line::arg_descriptor<uint64_t> arg_batch_size  =  {"batch-size", "", db_batch_size};
+  const command_line::arg_descriptor<uint64_t> arg_pop_blocks  =  {"pop-blocks", "", num_blocks};
   const command_line::arg_descriptor<bool>     arg_testnet_on  = {
     "testnet"
       , "Run on testnet."
@@ -566,7 +551,7 @@ int main(int argc, char* argv[])
   };
   const command_line::arg_descriptor<bool>     arg_count_blocks = {
     "count-blocks"
-      , "Count blocks in import file and exit"
+      , "Count blocks in bootstrap file and exit"
       , false
   };
   const command_line::arg_descriptor<std::string> arg_database = {
@@ -583,7 +568,9 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
   command_line::add_arg(desc_cmd_sett, arg_log_level);
+  command_line::add_arg(desc_cmd_sett, arg_block_height);
   command_line::add_arg(desc_cmd_sett, arg_batch_size);
+  command_line::add_arg(desc_cmd_sett, arg_pop_blocks);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_database);
 
@@ -615,6 +602,7 @@ int main(int argc, char* argv[])
   opt_verify    = command_line::get_arg(vm, arg_verify);
   opt_batch     = command_line::get_arg(vm, arg_batch);
   opt_resume    = command_line::get_arg(vm, arg_resume);
+  block_height  = command_line::get_arg(vm, arg_block_height);
   db_batch_size = command_line::get_arg(vm, arg_batch_size);
 
   if (command_line::get_arg(vm, command_line::arg_help))
@@ -634,6 +622,23 @@ int main(int argc, char* argv[])
     std::cerr << "Error: batch-size must be > 0" << ENDL;
     exit(1);
   }
+  if (opt_verify && vm["batch-size"].defaulted())
+  {
+    // usually want batch size default lower if verify on, so progress can be
+    // frequently saved.
+    //
+    // currently, with Windows, default batch size is low, so ignore
+    // default db_batch_size_verify unless it's even lower
+    if (db_batch_size > db_batch_size_verify)
+    {
+      db_batch_size = db_batch_size_verify;
+    }
+  }
+  uint64_t stop_height = 0;
+  if (! vm["block-number"].defaulted())
+  {
+    stop_height = block_height;
+  }
 
   std::vector<std::string> db_engines {"memory", "lmdb"};
 
@@ -651,10 +656,10 @@ int main(int argc, char* argv[])
   std::string import_file_path;
 
   import_file_path = (file_path / "export" / import_filename).string();
-
   if (command_line::has_arg(vm, arg_count_blocks))
   {
-    count_blocks(import_file_path);
+    BootstrapFile bootstrap;
+    bootstrap.count_blocks(import_file_path);
     exit(0);
   }
 
@@ -689,8 +694,8 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("resume:  " << std::boolalpha << opt_resume  << std::noboolalpha);
   LOG_PRINT_L0("testnet: " << std::boolalpha << opt_testnet << std::noboolalpha);
 
-  std::cout << "import file path: " << import_file_path << ENDL;
-  std::cout << "database path:    " << file_path.string() << ENDL;
+  LOG_PRINT_L0("bootstrap file path: " << import_file_path);
+  LOG_PRINT_L0("database path:       " << file_path.string());
 
   try
   {
@@ -707,12 +712,12 @@ int main(int argc, char* argv[])
   if (db_engine == "lmdb")
   {
     fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch, mdb_flags);
-    import_from_file(simple_core, import_file_path);
+    import_from_file(simple_core, import_file_path, stop_height);
   }
   else if (db_engine == "memory")
   {
     fake_core_memory simple_core(dirname, opt_testnet);
-    import_from_file(simple_core, import_file_path);
+    import_from_file(simple_core, import_file_path, stop_height);
   }
   else
   {
@@ -733,7 +738,16 @@ int main(int argc, char* argv[])
   fake_core_memory simple_core(dirname, opt_testnet);
 #endif
 
-  import_from_file(simple_core, import_file_path);
+  if (! vm["pop-blocks"].defaulted())
+  {
+    num_blocks = command_line::get_arg(vm, arg_pop_blocks);
+    LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
+    pop_blocks(simple_core, num_blocks);
+    LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
+    exit(0);
+  }
+
+  import_from_file(simple_core, import_file_path, stop_height);
 #endif
 
   }

@@ -1,0 +1,154 @@
+// Copyright (c) 2014-2015, The Monero Project
+//
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#include "bootstrap_file.h"
+#include "common/command_line.h"
+#include "version.h"
+
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
+namespace po = boost::program_options;
+using namespace epee; // log_space
+
+int main(int argc, char* argv[])
+{
+  uint32_t log_level = 0;
+  uint64_t block_height = 0;
+  std::string import_filename = BLOCKCHAIN_RAW;
+
+  boost::filesystem::path default_data_path {tools::get_default_data_dir()};
+  boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
+
+  po::options_description desc_cmd_only("Command line options");
+  po::options_description desc_cmd_sett("Command line options and settings options");
+  const command_line::arg_descriptor<uint32_t> arg_log_level   =  {"log-level",  "", log_level};
+  const command_line::arg_descriptor<uint64_t> arg_block_height =  {"block-number", "", block_height};
+  const command_line::arg_descriptor<bool>     arg_testnet_on  = {
+    "testnet"
+      , "Run on testnet."
+      , false
+  };
+
+
+  command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
+  command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
+  command_line::add_arg(desc_cmd_sett, arg_log_level);
+  command_line::add_arg(desc_cmd_sett, arg_block_height);
+  command_line::add_arg(desc_cmd_sett, arg_testnet_on);
+
+  command_line::add_arg(desc_cmd_only, command_line::arg_help);
+
+  po::options_description desc_options("Allowed options");
+  desc_options.add(desc_cmd_only).add(desc_cmd_sett);
+
+  po::variables_map vm;
+  bool r = command_line::handle_error_helper(desc_options, [&]()
+  {
+    po::store(po::parse_command_line(argc, argv, desc_options), vm);
+    po::notify(vm);
+    return true;
+  });
+  if (! r)
+    return 1;
+
+  if (command_line::get_arg(vm, command_line::arg_help))
+  {
+    std::cout << CRYPTONOTE_NAME << " v" << MONERO_VERSION_FULL << ENDL << ENDL;
+    std::cout << desc_options << std::endl;
+    return 1;
+  }
+
+  log_level    = command_line::get_arg(vm, arg_log_level);
+  block_height = command_line::get_arg(vm, arg_block_height);
+
+  log_space::get_set_log_detalisation_level(true, log_level);
+  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  LOG_PRINT_L0("Starting...");
+  LOG_PRINT_L0("Setting log level = " << log_level);
+
+  bool opt_testnet = command_line::get_arg(vm, arg_testnet_on);
+
+  std::string m_config_folder;
+
+  auto data_dir_arg = opt_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+  m_config_folder = command_line::get_arg(vm, data_dir_arg);
+  boost::filesystem::path output_dir {m_config_folder};
+  output_dir /= "export";
+  LOG_PRINT_L0("Export directory: " << output_dir.string());
+
+  // If we wanted to use the memory pool, we would set up a fake_core.
+
+#if SOURCE_DB == DB_MEMORY
+  // blockchain_storage* core_storage = NULL;
+  // tx_memory_pool m_mempool(*core_storage); // is this fake anyway? just passing in NULL! so m_mempool can't be used anyway, right?
+  // core_storage = new blockchain_storage(&m_mempool);
+
+  blockchain_storage* core_storage = new blockchain_storage(NULL);
+  LOG_PRINT_L0("Initializing source blockchain (in-memory database)");
+  r = core_storage->init(m_config_folder, opt_testnet);
+#else
+  // Use Blockchain instead of lower-level BlockchainDB for two reasons:
+  // 1. Blockchain has the init() method for easy setup
+  // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
+  //
+  // cannot match blockchain_storage setup above with just one line,
+  // e.g.
+  //   Blockchain* core_storage = new Blockchain(NULL);
+  // because unlike blockchain_storage constructor, which takes a pointer to
+  // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
+  LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
+  Blockchain* core_storage = NULL;
+  tx_memory_pool m_mempool(*core_storage);
+  core_storage = new Blockchain(m_mempool);
+
+  BlockchainDB* db = new BlockchainLMDB();
+  boost::filesystem::path folder(m_config_folder);
+  folder /= db->get_db_name();
+  LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
+  const std::string filename = folder.string();
+  try
+  {
+    db->open(filename);
+  }
+  catch (const std::exception& e)
+  {
+    LOG_PRINT_L0("Error opening database: " << e.what());
+    throw;
+  }
+  r = core_storage->init(db, opt_testnet);
+#endif
+
+  CHECK_AND_ASSERT_MES(r, false, "Failed to initialize source blockchain storage");
+  LOG_PRINT_L0("Source blockchain storage initialized OK");
+  LOG_PRINT_L0("Exporting blockchain raw data...");
+
+  BootstrapFile bootstrap;
+  r = bootstrap.store_blockchain_raw(core_storage, NULL, output_dir, block_height);
+  CHECK_AND_ASSERT_MES(r, false, "Failed to export blockchain raw data");
+  LOG_PRINT_L0("Blockchain raw data exported OK");
+}
