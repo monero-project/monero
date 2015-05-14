@@ -57,6 +57,22 @@ namespace cryptonote
   /*                                                                      */
   /************************************************************************/
 
+  typedef std::pair<double, crypto::hash> tx_by_fee_entry;
+  class txCompare
+  {
+  public:
+    bool operator()(const tx_by_fee_entry& a, const tx_by_fee_entry& b)
+    {
+      // sort by greatest first, not least
+      if (a.first > b.first) return true;
+      else if (a.first < b.first) return false;
+      else if (a.second != b.second) return true;
+      else return false;
+    }
+  };
+
+  typedef std::set<tx_by_fee_entry, txCompare> sorted_tx_container;
+
   class tx_memory_pool: boost::noncopyable
   {
   public:
@@ -134,11 +150,11 @@ namespace cryptonote
     key_images_container m_spent_key_images;
     epee::math_helper::once_a_time_seconds<30> m_remove_stuck_tx_interval;
 
-    typedef std::unordered_map<crypto::hash, double> tx_by_fee_entry;
-
     //TODO: add fee_per_kb element to type tx_details and replace this
     //functionality by just making m_transactions a std::set
-    std::set<tx_by_fee_entry> m_txs_by_fee;
+    sorted_tx_container m_txs_by_fee;
+
+    sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id) const;
 
     //transactions_container m_alternative_transactions;
 
