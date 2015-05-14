@@ -187,7 +187,7 @@ namespace cryptonote
 
     tvc.m_verifivation_failed = false;
 
-    m_txs_by_fee.emplace(id, (double)blob_size / fee);
+    m_txs_by_fee.emplace((double)blob_size / fee, id);
     //succeed
     return true;
   }
@@ -234,7 +234,8 @@ namespace cryptonote
     if(it == m_transactions.end())
       return false;
 
-    auto sorted_it = m_txs_by_fee.find(id);
+    auto sorted_it = find_tx_in_sorted_container(id);
+
     if (sorted_it == m_txs_by_fee.end())
       return false;
 
@@ -252,6 +253,15 @@ namespace cryptonote
     m_remove_stuck_tx_interval.do_call([this](){return remove_stuck_transactions();});
   }
   //---------------------------------------------------------------------------------
+  sorted_tx_container::iterator tx_memory_pool::find_tx_in_sorted_container(const crypto::hash& id) const
+  {
+    return std::find_if( m_txs_by_fee.begin(), m_txs_by_fee.end()
+                       , [&](const sorted_tx_container::value_type& a){
+                         return a.second == id;
+                       }
+    );
+  }
+  //---------------------------------------------------------------------------------
   //proper tx_pool handling courtesy of CryptoZoidberg and Boolberry
   bool tx_memory_pool::remove_stuck_transactions()
   {
@@ -265,9 +275,16 @@ namespace cryptonote
       {
         LOG_PRINT_L1("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
         remove_transaction_keyimages(it->second.tx);
-        auto sorted_it = m_txs_by_fee.find(it->first);
+        auto sorted_it = find_tx_in_sorted_container(it->first);
+        if (sorted_it == m_txs_by_fee.end())
+        {
+          LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
+        }
+        else
+        {
+          m_txs_by_fee.erase(sorted_it);
+        }
         m_transactions.erase(it++);
-        m_txs_by_fee.erase(sorted_it);
       }else
         ++it;
     }
@@ -479,13 +496,13 @@ namespace cryptonote
     size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
 
-    m_txs_by_fee::const_iterator sorted_it = m_txs_by_fee.begin();
+    auto sorted_it = m_txs_by_fee.begin();
     while (sorted_it != m_txs_by_fee.end())
     {
-      m_transactions::const_iterator tx_it = m_transactions.find(sorted_it->first);
+      auto tx_it = m_transactions.find(sorted_it->second);
 
       // Can not exceed maximum block size
-      if (max_total_size < total_size + tx_it->second->blob_size)
+      if (max_total_size < total_size + tx_it->second.blob_size)
         continue;
 
       // If adding this tx will make the block size
@@ -504,7 +521,7 @@ namespace cryptonote
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
-      if (!is_transaction_ready_to_go(tx.second) || have_key_images(k_images, tx.second.tx))
+      if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
         continue;
 
       bl.tx_hashes.push_back(tx_it->first);
@@ -532,6 +549,7 @@ namespace cryptonote
       LOG_PRINT_L1("Failed to load memory pool from file " << state_file_path);
 
       m_transactions.clear();
+      m_txs_by_fee.clear();
       m_spent_key_images.clear();
     }
 
@@ -539,8 +557,6 @@ namespace cryptonote
       if (it->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
         LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
         remove_transaction_keyimages(it->second.tx);
-        auto sorted_it = m_txs_by_fee.find(it->first);
-        m_txs_by_fee.erase(sorted_it);
         m_transactions.erase(it);
       }
       it++;
@@ -549,7 +565,7 @@ namespace cryptonote
     // no need to store queue of sorted transactions, as it's easy to generate.
     for (const auto& tx : m_transactions)
     {
-      m_txs_by_fee.emplace(tx.first, (double)tx.second.blob_size / tx.second.fee);
+      m_txs_by_fee.emplace((double)tx.second.blob_size / tx.second.fee, tx.first);
     }
 
     // Ignore deserialization error
