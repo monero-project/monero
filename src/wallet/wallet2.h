@@ -84,12 +84,16 @@ namespace tools
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
   public:
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet) {
+      ipc_client = NULL;
       connect_to_daemon();
       if (!ipc_client) {
         std::cout << "Couldn't connect to daemon\n\n";
         // Let ipc_client remain null. All request sending code will verify that
         // it's not null and otherwise throw.
       }
+    };
+    ~wallet2() {
+      stop_ipc_client();
     };
     struct transfer_details
     {
@@ -261,6 +265,9 @@ namespace tools
     static std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
 
     static std::string address_from_txt_record(const std::string& s);
+
+    uint64_t start_mining(const std::string &address, uint64_t thread_count);
+    uint64_t stop_mining();
   private:
     /*!
      * \brief  Stores wallet information to wallet file.

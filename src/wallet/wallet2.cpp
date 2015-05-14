@@ -762,18 +762,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::check_connection()
 {
-  if(m_http_client.is_connected())
-    return true;
-
-  net_utils::http::url_content u;
-  net_utils::parse_url(m_daemon_address, u);
-
-  if(!u.port)
-  {
-    u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
-  }
-
-  return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
+  return ipc_client && wap_client_connected(ipc_client);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::load(const std::string& wallet_, const std::string& password)
@@ -1285,5 +1274,19 @@ void wallet2::connect_to_daemon() {
   }
   ipc_client = wap_client_new();
   wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
+}
+
+uint64_t wallet2::start_mining(const std::string &address, uint64_t thread_count) {
+  zchunk_t *address_chunk = zchunk_new((void*)address.c_str(), address.length());
+  int rc = wap_client_start(ipc_client, &address_chunk, thread_count);
+  zchunk_destroy(&address_chunk);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "start_mining");
+  return wap_client_status(ipc_client);
+}
+
+uint64_t wallet2::stop_mining() {
+  int rc = wap_client_stop(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "stop_mining");
+  return wap_client_status(ipc_client);
 }
 }

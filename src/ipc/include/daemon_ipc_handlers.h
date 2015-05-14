@@ -64,9 +64,11 @@ namespace IPC
   const uint64_t STATUS_TX_VERIFICATION_FAILED = 7;
   const uint64_t STATUS_TX_NOT_RELAYED = 8;
   const uint64_t STATUS_RANDOM_OUTS_FAILED = 9;
+  const uint64_t STATUS_MINING_NOT_STOPPED = 10;
   namespace Daemon
   {
     void start_mining(wap_proto_t *message);
+    void stop_mining(wap_proto_t *message);
     void retrieve_blocks(wap_proto_t *message);
     void send_raw_transaction(wap_proto_t *message);
     void get_output_indexes(wap_proto_t *message);

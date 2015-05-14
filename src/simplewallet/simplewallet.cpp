@@ -756,20 +756,24 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
     return true;
 
   COMMAND_RPC_START_MINING::request req;
-  req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  // req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  std::string miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  uint64_t threads_count;
 
   bool ok = true;
   size_t max_mining_threads_count = (std::max)(std::thread::hardware_concurrency(), static_cast<unsigned>(2));
   if (0 == args.size())
   {
-    req.threads_count = 1;
+    // req.threads_count = 1;
+    threads_count = 1;
   }
   else if (1 == args.size())
   {
     uint16_t num = 1;
     ok = string_tools::get_xtype_from_string(num, args[0]);
     ok = ok && (1 <= num && num <= max_mining_threads_count);
-    req.threads_count = num;
+    // req.threads_count = num;
+    threads_count = num;
   }
   else
   {
@@ -783,13 +787,16 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
     return true;
   }
 
-  COMMAND_RPC_START_MINING::response res;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/start_mining", req, res, m_http_client);
-  std::string err = interpret_rpc_response(r, res.status);
-  if (err.empty())
+  // COMMAND_RPC_START_MINING::response res;
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/start_mining", req, res, m_http_client);
+  // std::string err = interpret_rpc_response(r, res.status);
+
+  uint64_t status = m_wallet->start_mining(miner_address, threads_count);
+  // res has to be true since we have checked before.
+  if (status == IPC::STATUS_OK)
     success_msg_writer() << "Mining started in daemon";
   else
-    fail_msg_writer() << "mining has NOT been started: " << err;
+    fail_msg_writer() << "mining has NOT been started: " << status;
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -798,14 +805,15 @@ bool simple_wallet::stop_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  COMMAND_RPC_STOP_MINING::request req;
-  COMMAND_RPC_STOP_MINING::response res;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/stop_mining", req, res, m_http_client);
-  std::string err = interpret_rpc_response(r, res.status);
-  if (err.empty())
+  // COMMAND_RPC_STOP_MINING::request req;
+  // COMMAND_RPC_STOP_MINING::response res;
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/stop_mining", req, res, m_http_client);
+  // std::string err = interpret_rpc_response(r, res.status);
+  uint64_t status = m_wallet->stop_mining();
+  if (status == IPC::STATUS_OK)
     success_msg_writer() << "Mining stopped in daemon";
   else
-    fail_msg_writer() << "mining has NOT been stopped: " << err;
+    fail_msg_writer() << "mining has NOT been stopped: " << status;
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1069,9 +1077,8 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer(const std::vector<std::string> &args_)
 {
-  // TODO: Find a way to check if daemon is connectible via 0MQ.
-  /*if (!try_connect_to_daemon())
-    return true;*/
+  if (!try_connect_to_daemon())
+    return true;
 
   std::vector<std::string> local_args = args_;
 

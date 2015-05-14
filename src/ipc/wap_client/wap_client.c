@@ -179,7 +179,7 @@ signal_have_blocks_ok (client_t *self)
 static void
 prepare_start_command (client_t *self)
 {
-    wap_proto_set_address (self->message, self->args->address);
+    wap_proto_set_address (self->message, &self->args->address);
     wap_proto_set_thread_count (self->message, self->args->thread_count);
 }
 

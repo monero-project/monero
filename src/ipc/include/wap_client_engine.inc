@@ -139,7 +139,7 @@ struct _client_args_t {
     zchunk_t *tx_id;
     uint64_t outs_count;
     zframe_t *amounts;
-    char *address;
+    zchunk_t *address;
     uint64_t thread_count;
 };
 
@@ -283,7 +283,7 @@ s_client_destroy (s_client_t **self_p)
         zchunk_destroy (&self->args.tx_as_hex);
         zchunk_destroy (&self->args.tx_id);
         zframe_destroy (&self->args.amounts);
-        zstr_free (&self->args.address);
+        zchunk_destroy (&self->args.address);
         client_terminate (&self->client);
         wap_proto_destroy (&self->message);
         zsock_destroy (&self->msgpipe);
@@ -403,6 +403,7 @@ s_satisfy_pedantic_compilers (void)
     engine_set_timeout (NULL, 0);
     engine_set_wakeup_event (NULL, 0, NULL_event);
     engine_handle_socket (NULL, 0, NULL);
+    engine_set_connected (NULL, 0);
 }
 
 
@@ -1472,8 +1473,8 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "START")) {
-        zstr_free (&self->args.address);
-        zsock_recv (self->cmdpipe, "s8", &self->args.address, &self->args.thread_count);
+        zchunk_destroy (&self->args.address);
+        zsock_recv (self->cmdpipe, "p8", &self->args.address, &self->args.thread_count);
         s_client_execute (self, start_event);
     }
     else
@@ -1694,10 +1695,10 @@ bool
 wap_client_connected (wap_client_t *self)
 {
     assert (self);
-    bool connected;
+    int connected;
     zsock_send (self->actor, "s", "$CONNECTED");
     zsock_recv (self->actor, "i", &connected);
-    return connected;
+    return (bool) connected;
 }
 
 
@@ -1922,11 +1923,12 @@ wap_client_random_outs (wap_client_t *self, uint64_t outs_count, zframe_t **amou
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_start (wap_client_t *self, const char *address, uint64_t thread_count)
+wap_client_start (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count)
 {
     assert (self);
 
-    zsock_send (self->actor, "ss8", "START", address, thread_count);
+    zsock_send (self->actor, "sp8", "START", *address_p, thread_count);
+    *address_p = NULL;          //  Take ownership of address
     if (s_accept_reply (self, "START OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;

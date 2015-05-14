@@ -76,8 +76,11 @@ namespace IPC
         return;
       }
       cryptonote::account_public_address adr;
-      const char *address = wap_proto_address(message);
-      if (!get_account_address_from_str(adr, testnet, std::string(address)))
+      zchunk_t *address_chunk = wap_proto_address(message);
+      char *address = (char*)zchunk_data(address_chunk);
+      std::string address_string(address, zchunk_size(address_chunk));
+
+      if (!get_account_address_from_str(adr, testnet, std::string(address_string)))
       {
         wap_proto_set_status(message, STATUS_WRONG_ADDRESS);
         return;
@@ -86,10 +89,20 @@ namespace IPC
       boost::thread::attributes attrs;
       attrs.set_stack_size(THREAD_STACK_SIZE);
 
-      uint64_t threads_count = wap_proto_thread_count(message);
-      if (!core->get_miner().start(adr, static_cast<size_t>(threads_count), attrs))
+      uint64_t thread_count = wap_proto_thread_count(message);
+      if (!core->get_miner().start(adr, static_cast<size_t>(thread_count), attrs))
       {
         wap_proto_set_status(message, STATUS_MINING_NOT_STARTED);
+        return;
+      }
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void stop_mining(wap_proto_t *message)
+    {
+      if (!core->get_miner().stop())
+      {
+        wap_proto_set_status(message, STATUS_MINING_NOT_STOPPED);
         return;
       }
       wap_proto_set_status(message, STATUS_OK);

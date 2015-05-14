@@ -34,38 +34,22 @@ struct _wap_proto_t {
     int id;                             //  wap_proto message ID
     byte *needle;                       //  Read/write pointer for serialization
     byte *ceiling;                      //  Valid upper limit for read pointer
-    // Wallet identity
-    char identity [256];
-    // block_ids
-    zlist_t *block_ids;
-    // start_height
-    uint64_t start_height;
-    // status
-    uint64_t status;
-    // curr_height
-    uint64_t curr_height;
-    // Frames of block data
-    zmsg_t *block_data;
-    // Transaction as hex
-    zchunk_t *tx_as_hex;
-    // Transaction ID
-    zchunk_t *tx_id;
-    // Output Indexes
-    zframe_t *o_indexes;
-    // Outs count
-    uint64_t outs_count;
-    // Amounts
-    zframe_t *amounts;
-    // Outputs
-    zframe_t *random_outputs;
-    // Transaction data
-    zchunk_t *tx_data;
-    // address
-    char address [256];
-    // thread_count
-    uint64_t thread_count;
-    // Printable explanation
-    char reason [256];
+    char identity [256];                //  Wallet identity
+    zlist_t *block_ids;                 //  block_ids
+    uint64_t start_height;              //  start_height
+    uint64_t status;                    //  status
+    uint64_t curr_height;               //  curr_height
+    zmsg_t *block_data;                 //  Frames of block data
+    zchunk_t *tx_as_hex;                //  Transaction as hex
+    zchunk_t *tx_id;                    //  Transaction ID
+    zframe_t *o_indexes;                //  Output Indexes
+    uint64_t outs_count;                //  Outs count
+    zframe_t *amounts;                  //  Amounts
+    zframe_t *random_outputs;           //  Outputs
+    zchunk_t *tx_data;                  //  Transaction data
+    zchunk_t *address;                  //  address
+    uint64_t thread_count;              //  thread_count
+    char reason [256];                  //  Printable explanation
 };
 
 //  --------------------------------------------------------------------------
@@ -250,6 +234,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zframe_destroy (&self->amounts);
         zframe_destroy (&self->random_outputs);
         zchunk_destroy (&self->tx_data);
+        zchunk_destroy (&self->address);
 
         //  Free object itself
         free (self);
@@ -449,7 +434,17 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_START:
-            GET_STRING (self->address);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: address is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->address);
+                self->address = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
             GET_NUMBER8 (self->thread_count);
             break;
 
@@ -565,7 +560,9 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->tx_data);
             break;
         case WAP_PROTO_START:
-            frame_size += 1 + strlen (self->address);
+            frame_size += 4;            //  Size is 4 octets
+            if (self->address)
+                frame_size += zchunk_size (self->address);
             frame_size += 8;            //  thread_count
             break;
         case WAP_PROTO_START_OK:
@@ -582,7 +579,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
     self->needle = (byte *) zmq_msg_data (&frame);
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
-    bool send_block_data = false;
+    bool have_block_data = false;
     size_t nbr_frames = 1;              //  Total number of frames to send
 
     switch (self->id) {
@@ -611,7 +608,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->start_height);
             PUT_NUMBER8 (self->curr_height);
             nbr_frames += self->block_data? zmsg_size (self->block_data): 1;
-            send_block_data = true;
+            have_block_data = true;
             break;
 
         case WAP_PROTO_PUT:
@@ -682,7 +679,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_START:
-            PUT_STRING (self->address);
+            if (self->address) {
+                PUT_NUMBER4 (zchunk_size (self->address));
+                memcpy (self->needle,
+                        zchunk_data (self->address),
+                        zchunk_size (self->address));
+                self->needle += zchunk_size (self->address);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             PUT_NUMBER8 (self->thread_count);
             break;
 
@@ -724,7 +729,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
     //  Now send the block_data if necessary
-    if (send_block_data) {
+    if (have_block_data) {
         if (self->block_data) {
             zframe_t *frame = zmsg_first (self->block_data);
             while (frame) {
@@ -751,10 +756,7 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("WAP_PROTO_OPEN:");
             zsys_debug ("    protocol=wap");
             zsys_debug ("    version=1");
-            if (self->identity)
-                zsys_debug ("    identity='%s'", self->identity);
-            else
-                zsys_debug ("    identity=");
+            zsys_debug ("    identity='%s'", self->identity);
             break;
 
         case WAP_PROTO_OPEN_OK:
@@ -851,10 +853,7 @@ wap_proto_print (wap_proto_t *self)
 
         case WAP_PROTO_START:
             zsys_debug ("WAP_PROTO_START:");
-            if (self->address)
-                zsys_debug ("    address='%s'", self->address);
-            else
-                zsys_debug ("    address=");
+            zsys_debug ("    address=[ ... ]");
             zsys_debug ("    thread_count=%ld", (long) self->thread_count);
             break;
 
@@ -890,10 +889,7 @@ wap_proto_print (wap_proto_t *self)
         case WAP_PROTO_ERROR:
             zsys_debug ("WAP_PROTO_ERROR:");
             zsys_debug ("    status=%ld", (long) self->status);
-            if (self->reason)
-                zsys_debug ("    reason='%s'", self->reason);
-            else
-                zsys_debug ("    reason=");
+            zsys_debug ("    reason='%s'", self->reason);
             break;
 
     }
@@ -1377,24 +1373,35 @@ wap_proto_set_tx_data (wap_proto_t *self, zchunk_t **chunk_p)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the address field
+//  Get the address field without transferring ownership
 
-const char *
+zchunk_t *
 wap_proto_address (wap_proto_t *self)
 {
     assert (self);
     return self->address;
 }
 
+//  Get the address field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_address (wap_proto_t *self)
+{
+    zchunk_t *address = self->address;
+    self->address = NULL;
+    return address;
+}
+
+//  Set the address field, transferring ownership from caller
+
 void
-wap_proto_set_address (wap_proto_t *self, const char *value)
+wap_proto_set_address (wap_proto_t *self, zchunk_t **chunk_p)
 {
     assert (self);
-    assert (value);
-    if (value == self->address)
-        return;
-    strncpy (self->address, value, 255);
-    self->address [255] = 0;
+    assert (chunk_p);
+    zchunk_destroy (&self->address);
+    self->address = *chunk_p;
+    *chunk_p = NULL;
 }
 
 
@@ -1455,7 +1462,6 @@ wap_proto_test (bool verbose)
     wap_proto_t *self = wap_proto_new ();
     assert (self);
     wap_proto_destroy (&self);
-
     //  Create pair of sockets we can send through
     //  We must bind before connect if we wish to remain compatible with ZeroMQ < v4
     zsock_t *output = zsock_new (ZMQ_DEALER);
@@ -1467,6 +1473,7 @@ wap_proto_test (bool verbose)
     assert (input);
     rc = zsock_connect (input, "inproc://selftest-wap_proto");
     assert (rc == 0);
+
 
     //  Encode/send/decode and verify each message type
     int instance;
@@ -1677,7 +1684,8 @@ wap_proto_test (bool verbose)
     }
     wap_proto_set_id (self, WAP_PROTO_START);
 
-    wap_proto_set_address (self, "Life is short but Now lasts for ever");
+    zchunk_t *start_address = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_address (self, &start_address);
     wap_proto_set_thread_count (self, 123);
     //  Send twice
     wap_proto_send (self, output);
@@ -1686,7 +1694,8 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
-        assert (streq (wap_proto_address (self), "Life is short but Now lasts for ever"));
+        assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&start_address);
         assert (wap_proto_thread_count (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_START_OK);

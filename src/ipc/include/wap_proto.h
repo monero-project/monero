@@ -76,7 +76,7 @@ with GET-OK, or ERROR.
 
     START - Wallet asks daemon to start mining. Daemon replies with START-OK, or
 ERROR.
-        address             string      
+        address             chunk       
         thread_count        number 8    
 
     START_OK - Daemon replies to a start mining request.
@@ -295,11 +295,15 @@ zchunk_t *
 void
     wap_proto_set_tx_data (wap_proto_t *self, zchunk_t **chunk_p);
 
-//  Get/set the address field
-const char *
+//  Get a copy of the address field
+zchunk_t *
     wap_proto_address (wap_proto_t *self);
+//  Get the address field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_address (wap_proto_t *self);
+//  Set the address field, transferring ownership from caller
 void
-    wap_proto_set_address (wap_proto_t *self, const char *value);
+    wap_proto_set_address (wap_proto_t *self, zchunk_t **chunk_p);
 
 //  Get/set the thread_count field
 uint64_t
