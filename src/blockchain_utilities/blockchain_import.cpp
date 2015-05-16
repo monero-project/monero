@@ -288,8 +288,8 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
     {
       LOG_PRINT_L0("NOTE: chunk_size " << chunk_size << " > 100000");
     }
-    else if (chunk_size < 0) {
-      LOG_PRINT_L0("ERROR: chunk_size " << chunk_size << " < 0");
+    else if (chunk_size == 0) {
+      LOG_PRINT_L0("ERROR: chunk_size == 0");
       return 2;
     }
     import_file.read(buffer_block, chunk_size);
