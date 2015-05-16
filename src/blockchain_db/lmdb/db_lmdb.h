@@ -36,63 +36,16 @@ namespace cryptonote
 
 struct mdb_txn_safe
 {
-  mdb_txn_safe() : m_txn(NULL) { }
-  ~mdb_txn_safe()
-  {
-    LOG_PRINT_L3("mdb_txn_safe: destructor");
-    if (m_txn != NULL)
-    {
-      if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
-      {
-        LOG_PRINT_L0("WARNING: mdb_txn_safe: m_txn is a batch txn and it's not NULL in destructor - calling mdb_txn_abort()");
-      }
-      else
-      {
-        // Example of when this occurs: a lookup fails, so a read-only txn is
-        // aborted through this destructor. However, successful read-only txns
-        // ideally should have been committed when done and not end up here.
-        //
-        // NOTE: not sure if this is ever reached for a non-batch write
-        // transaction, but it's probably not ideal if it did.
-        LOG_PRINT_L3("mdb_txn_safe: m_txn not NULL in destructor - calling mdb_txn_abort()");
-      }
-      mdb_txn_abort(m_txn);
-    }
-  }
+  mdb_txn_safe();
+  ~mdb_txn_safe();
 
-  void commit(std::string message = "")
-  {
-    if (message.size() == 0)
-    {
-      message = "Failed to commit a transaction to the db";
-    }
-
-    if (mdb_txn_commit(m_txn))
-    {
-      m_txn = NULL;
-      LOG_PRINT_L0(message);
-      throw DB_ERROR(message.c_str());
-    }
-    m_txn = NULL;
-  }
+  void commit(std::string message = "");
 
   // This should only be needed for batch transaction which must be ensured to
   // be aborted before mdb_env_close, not after. So we can't rely on
   // BlockchainLMDB destructor to call mdb_txn_safe destructor, as that's too late
   // to properly abort, since mdb_env_close would have been called earlier.
-  void abort()
-  {
-    LOG_PRINT_L3("mdb_txn_safe: abort()");
-    if(m_txn != NULL)
-    {
-      mdb_txn_abort(m_txn);
-      m_txn = NULL;
-    }
-    else
-    {
-      LOG_PRINT_L0("WARNING: mdb_txn_safe: abort() called, but m_txn is NULL");
-    }
-  }
+  void abort();
 
   operator MDB_txn*()
   {
