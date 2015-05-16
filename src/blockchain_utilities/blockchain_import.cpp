@@ -169,7 +169,7 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
 }
 
 template <typename FakeCore>
-int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint64_t stop_height=0)
+int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint64_t block_stop=0)
 {
 #if !defined(BLOCKCHAIN_DB)
   static_assert(std::is_same<fake_core_memory, FakeCore>::value || std::is_same<fake_core_lmdb, FakeCore>::value,
@@ -230,15 +230,15 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
   // Note that a new blockchain will start with block number 0 (total blocks: 1)
   // due to genesis block being added at initialization.
 
-  if (! stop_height)
+  if (! block_stop)
   {
-    stop_height = total_source_blocks - 1;
+    block_stop = total_source_blocks - 1;
   }
 
   // These are what we'll try to use, and they don't have to be a determination
   // from source and destination blockchains, but those are the defaults.
   LOG_PRINT_L0("start block: " << start_height << "  stop block: " <<
-      stop_height);
+      block_stop);
 
   bool use_batch = false;
   if (opt_batch)
@@ -277,7 +277,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
     {
       throw std::runtime_error("Error in deserialization of chunk size");
     }
-    LOG_PRINT_L1("chunk_size: " << chunk_size);
+    LOG_PRINT_L3("chunk_size: " << chunk_size);
 
     if (chunk_size > BUFFER_SIZE)
     {
@@ -306,10 +306,10 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
       h += NUM_BLOCKS_PER_CHUNK;
       continue;
     }
-    if (h > stop_height)
+    if (h > block_stop)
     {
       std::cout << refresh_string << "block " << h-1
-        << " / " << stop_height
+        << " / " << block_stop
         << std::flush;
       std::cout << ENDL << ENDL;
       LOG_PRINT_L0("Specified block number reached - stopping.  block: " << h-1 << "  total blocks: " << h);
@@ -345,7 +345,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
         if ((h-1) % progress_interval == 0)
         {
           std::cout << refresh_string << "block " << h-1
-            << " / " << stop_height
+            << " / " << block_stop
             << std::flush;
         }
 
@@ -531,7 +531,7 @@ int main(int argc, char* argv[])
 
   uint32_t log_level = LOG_LEVEL_0;
   uint64_t num_blocks = 0;
-  uint64_t block_height = 0;
+  uint64_t block_stop = 0;
   std::string dirname;
   std::string db_arg_str;
 
@@ -540,10 +540,10 @@ int main(int argc, char* argv[])
 
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
-  const command_line::arg_descriptor<uint32_t> arg_log_level   =  {"log-level",  "", log_level};
-  const command_line::arg_descriptor<uint64_t> arg_block_height = {"block-number", "stop at block number", block_height};
-  const command_line::arg_descriptor<uint64_t> arg_batch_size  =  {"batch-size", "", db_batch_size};
-  const command_line::arg_descriptor<uint64_t> arg_pop_blocks  =  {"pop-blocks", "", num_blocks};
+  const command_line::arg_descriptor<uint32_t> arg_log_level   = {"log-level",  "", log_level};
+  const command_line::arg_descriptor<uint64_t> arg_block_stop  = {"block-stop", "Stop at block number", block_stop};
+  const command_line::arg_descriptor<uint64_t> arg_batch_size  = {"batch-size", "", db_batch_size};
+  const command_line::arg_descriptor<uint64_t> arg_pop_blocks  = {"pop-blocks", "Remove blocks from end of blockchain", num_blocks};
   const command_line::arg_descriptor<bool>     arg_testnet_on  = {
     "testnet"
       , "Run on testnet."
@@ -567,14 +567,14 @@ int main(int argc, char* argv[])
 
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
-  command_line::add_arg(desc_cmd_sett, arg_log_level);
-  command_line::add_arg(desc_cmd_sett, arg_block_height);
-  command_line::add_arg(desc_cmd_sett, arg_batch_size);
-  command_line::add_arg(desc_cmd_sett, arg_pop_blocks);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
+  command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_database);
+  command_line::add_arg(desc_cmd_sett, arg_batch_size);
+  command_line::add_arg(desc_cmd_sett, arg_block_stop);
 
   command_line::add_arg(desc_cmd_only, arg_count_blocks);
+  command_line::add_arg(desc_cmd_only, arg_pop_blocks);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
   // call add_options() directly for these arguments since
@@ -602,7 +602,7 @@ int main(int argc, char* argv[])
   opt_verify    = command_line::get_arg(vm, arg_verify);
   opt_batch     = command_line::get_arg(vm, arg_batch);
   opt_resume    = command_line::get_arg(vm, arg_resume);
-  block_height  = command_line::get_arg(vm, arg_block_height);
+  block_stop    = command_line::get_arg(vm, arg_block_stop);
   db_batch_size = command_line::get_arg(vm, arg_batch_size);
 
   if (command_line::get_arg(vm, command_line::arg_help))
@@ -633,11 +633,6 @@ int main(int argc, char* argv[])
     {
       db_batch_size = db_batch_size_verify;
     }
-  }
-  uint64_t stop_height = 0;
-  if (! vm["block-number"].defaulted())
-  {
-    stop_height = block_height;
   }
 
   std::vector<std::string> db_engines {"memory", "lmdb"};
@@ -712,12 +707,12 @@ int main(int argc, char* argv[])
   if (db_engine == "lmdb")
   {
     fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch, mdb_flags);
-    import_from_file(simple_core, import_file_path, stop_height);
+    import_from_file(simple_core, import_file_path, block_stop);
   }
   else if (db_engine == "memory")
   {
     fake_core_memory simple_core(dirname, opt_testnet);
-    import_from_file(simple_core, import_file_path, stop_height);
+    import_from_file(simple_core, import_file_path, block_stop);
   }
   else
   {
@@ -747,7 +742,7 @@ int main(int argc, char* argv[])
     exit(0);
   }
 
-  import_from_file(simple_core, import_file_path, stop_height);
+  import_from_file(simple_core, import_file_path, block_stop);
 #endif
 
   }

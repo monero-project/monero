@@ -286,9 +286,9 @@ bool BootstrapFile::close()
 
 
 #if SOURCE_DB == DB_MEMORY
-bool BootstrapFile::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_height)
+bool BootstrapFile::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_stop)
 #else
-bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_height)
+bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_stop)
 #endif
 {
   uint64_t num_blocks_written = 0;
@@ -303,20 +303,24 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
     return false;
   }
   block b;
-  uint64_t height_start = m_height; // height_start uses 0-based height, m_height uses 1-based height. so height_start doesn't need to add 1 here, as it's already at the next height
-  uint64_t height_stop = 0;
+
+  // block_start, block_stop use 0-based height. m_height uses 1-based height. So to resume export
+  // from last exported block, block_start doesn't need to add 1 here, as it's already at the next
+  // height.
+  uint64_t block_start = m_height;
+  uint64_t block_stop = 0;
   LOG_PRINT_L0("source blockchain height: " <<  m_blockchain_storage->get_current_blockchain_height()-1);
-  if ((requested_block_height > 0) && (requested_block_height < m_blockchain_storage->get_current_blockchain_height()))
+  if ((requested_block_stop > 0) && (requested_block_stop < m_blockchain_storage->get_current_blockchain_height()))
   {
-    LOG_PRINT_L0("Using requested block height: " << requested_block_height);
-    height_stop = requested_block_height;
+    LOG_PRINT_L0("Using requested block height: " << requested_block_stop);
+    block_stop = requested_block_stop;
   }
   else
   {
-    height_stop = m_blockchain_storage->get_current_blockchain_height() - 1;
-    LOG_PRINT_L0("Using block height of source blockchain: " << height_stop);
+    block_stop = m_blockchain_storage->get_current_blockchain_height() - 1;
+    LOG_PRINT_L0("Using block height of source blockchain: " << block_stop);
   }
-  for (m_cur_height = height_start; m_cur_height <= height_stop; ++m_cur_height)
+  for (m_cur_height = block_start; m_cur_height <= block_stop; ++m_cur_height)
   {
     // this method's height refers to 0-based height (genesis block = height 0)
     crypto::hash hash = m_blockchain_storage->get_block_id_by_height(m_cur_height);
@@ -328,7 +332,7 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
     }
     if (m_cur_height % progress_interval == 0) {
       std::cout << refresh_string;
-      std::cout << "block " << m_cur_height << "/" << height_stop << std::flush;
+      std::cout << "block " << m_cur_height << "/" << block_stop << std::flush;
     }
   }
   // NOTE: use of NUM_BLOCKS_PER_CHUNK is a placeholder in case multi-block chunks are later supported.
@@ -338,7 +342,7 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   }
   // print message for last block, which may not have been printed yet due to progress_interval
   std::cout << refresh_string;
-  std::cout << "block " << m_cur_height-1 << "/" << height_stop << ENDL;
+  std::cout << "block " << m_cur_height-1 << "/" << block_stop << ENDL;
 
   LOG_PRINT_L0("Number of blocks exported: " << num_blocks_written);
   if (num_blocks_written > 0)

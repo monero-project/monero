@@ -38,7 +38,7 @@ using namespace epee; // log_space
 int main(int argc, char* argv[])
 {
   uint32_t log_level = 0;
-  uint64_t block_height = 0;
+  uint64_t block_stop = 0;
   std::string import_filename = BLOCKCHAIN_RAW;
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
@@ -46,9 +46,9 @@ int main(int argc, char* argv[])
 
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
-  const command_line::arg_descriptor<uint32_t> arg_log_level   =  {"log-level",  "", log_level};
-  const command_line::arg_descriptor<uint64_t> arg_block_height =  {"block-number", "", block_height};
-  const command_line::arg_descriptor<bool>     arg_testnet_on  = {
+  const command_line::arg_descriptor<uint32_t> arg_log_level  = {"log-level",  "", log_level};
+  const command_line::arg_descriptor<uint64_t> arg_block_stop = {"block-stop", "Stop at block number", block_stop};
+  const command_line::arg_descriptor<bool>     arg_testnet_on = {
     "testnet"
       , "Run on testnet."
       , false
@@ -57,9 +57,9 @@ int main(int argc, char* argv[])
 
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
-  command_line::add_arg(desc_cmd_sett, arg_log_level);
-  command_line::add_arg(desc_cmd_sett, arg_block_height);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
+  command_line::add_arg(desc_cmd_sett, arg_log_level);
+  command_line::add_arg(desc_cmd_sett, arg_block_stop);
 
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
   }
 
   log_level    = command_line::get_arg(vm, arg_log_level);
-  block_height = command_line::get_arg(vm, arg_block_height);
+  block_stop = command_line::get_arg(vm, arg_block_stop);
 
   log_space::get_set_log_detalisation_level(true, log_level);
   log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Exporting blockchain raw data...");
 
   BootstrapFile bootstrap;
-  r = bootstrap.store_blockchain_raw(core_storage, NULL, output_dir, block_height);
+  r = bootstrap.store_blockchain_raw(core_storage, NULL, output_dir, block_stop);
   CHECK_AND_ASSERT_MES(r, false, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
 }
