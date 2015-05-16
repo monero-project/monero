@@ -129,11 +129,14 @@ int main(int argc, char* argv[])
   BlockchainDB* db = new BlockchainLMDB();
   boost::filesystem::path folder(m_config_folder);
   folder /= db->get_db_name();
-  LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
+  int lmdb_flags = 0;
+  lmdb_flags |= MDB_RDONLY;
   const std::string filename = folder.string();
+
+  LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
   try
   {
-    db->open(filename);
+    db->open(filename, lmdb_flags);
   }
   catch (const std::exception& e)
   {

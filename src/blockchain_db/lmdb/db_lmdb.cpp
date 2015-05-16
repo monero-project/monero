@@ -678,9 +678,13 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   if (auto result = mdb_env_open(m_env, filename.c_str(), mdb_flags, 0644))
     throw0(DB_ERROR(std::string("Failed to open lmdb environment: ").append(mdb_strerror(result)).c_str()));
 
-  // get a read/write MDB_txn
+  int txn_flags = 0;
+  if (mdb_flags & MDB_RDONLY)
+    txn_flags |= MDB_RDONLY;
+
+  // get a read/write MDB_txn, depending on mdb_flags
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, 0, txn))
+  if (mdb_txn_begin(m_env, NULL, txn_flags, txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
 
   // open necessary databases, and set properties as needed
