@@ -203,7 +203,7 @@ uint64_t connection_basic::get_rate_up_limit() {
     uint64_t limit;
     {
          CRITICAL_REGION_LOCAL( network_throttle_manager::m_lock_get_global_throttle_out );
-         limit = network_throttle_manager::get_global_throttle_out().get_terget_speed();
+         limit = network_throttle_manager::get_global_throttle_out().get_target_speed();
 	}
     return limit;
 }
@@ -212,7 +212,7 @@ uint64_t connection_basic::get_rate_down_limit() {
     uint64_t limit;
     {
          CRITICAL_REGION_LOCAL( network_throttle_manager::m_lock_get_global_throttle_in );
-         limit = network_throttle_manager::get_global_throttle_in().get_terget_speed();
+         limit = network_throttle_manager::get_global_throttle_in().get_target_speed();
 	}
     return limit;
 }
@@ -224,12 +224,12 @@ void connection_basic::save_limit_to_file(int limit) {
 
     {
          CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_out );
-               epee::net_utils::data_logger::get_instance().add_data("upload_limit", network_throttle_manager::get_global_throttle_out().get_terget_speed() / 1024);
+               epee::net_utils::data_logger::get_instance().add_data("upload_limit", network_throttle_manager::get_global_throttle_out().get_target_speed() / 1024);
 	}
 	
     {
          CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_in );
-               epee::net_utils::data_logger::get_instance().add_data("download_limit", network_throttle_manager::get_global_throttle_in().get_terget_speed() / 1024);
+               epee::net_utils::data_logger::get_instance().add_data("download_limit", network_throttle_manager::get_global_throttle_in().get_target_speed() / 1024);
 	}
 }
  

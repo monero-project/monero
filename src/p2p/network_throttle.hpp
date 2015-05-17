@@ -147,7 +147,7 @@ class i_network_throttle {
 		virtual void set_name(const std::string &name)=0;
 		virtual void set_target_speed( network_speed_kbps target )=0;
 		virtual void set_real_target_speed(network_speed_kbps real_target)=0;
-		virtual network_speed_kbps get_terget_speed()=0;
+		virtual network_speed_kbps get_target_speed()=0;
 
 		virtual void handle_trafic_exact(size_t packet_size) =0; // count the new traffic/packet; the size is exact considering all network costs
 		virtual void handle_trafic_tcp(size_t packet_size) =0; // count the new traffic/packet; the size is as TCP, we will consider MTU etc
