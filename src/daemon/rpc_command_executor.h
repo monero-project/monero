@@ -99,6 +99,12 @@ public:
 
   bool print_status();
 
+  bool get_limit();
+
+  bool get_limit_up();
+
+  bool get_limit_down();
+
   bool set_limit(int limit);
 
   bool set_limit_up(int limit);
