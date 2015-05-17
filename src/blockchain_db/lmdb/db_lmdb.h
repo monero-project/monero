@@ -26,6 +26,8 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
+#include <atomic>
+
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_protocol/blobdatatype.h" // for type blobdata
 
@@ -57,11 +59,34 @@ struct mdb_txn_safe
     return &m_txn;
   }
 
+  uint64_t num_active_tx();
+
+  static void prevent_new_txns();
+  static void wait_no_active_txns();
+  static void allow_new_txns();
+
   MDB_txn* m_txn;
   bool m_batch_txn = false;
+  static std::atomic<uint64_t> num_active_txns;
+
+  // could use a mutex here, but this should be sufficient.
+  static std::atomic_flag creation_gate;
 };
 
 
+// If m_batch_active is set, a batch transaction exists beyond this class, such
+// as a batch import with verification enabled, or possibly (later) a batch
+// network sync.
+//
+// For some of the lookup methods, such as get_block_timestamp(), tx_exists(),
+// and get_tx(), when m_batch_active is set, the lookup uses the batch
+// transaction. This isn't only because the transaction is available, but it's
+// necessary so that lookups include the database updates only present in the
+// current batch write.
+//
+// A regular network sync without batch writes is expected to open a new read
+// transaction, as those lookups are part of the validation done prior to the
+// write for block and tx data, so no write transaction is open at the time.
 class BlockchainLMDB : public BlockchainDB
 {
 public:
@@ -174,6 +199,10 @@ public:
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
 private:
+  void do_resize();
+
+  bool need_resize();
+
   virtual void add_block( const block& blk
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
@@ -258,10 +287,14 @@ private:
   uint64_t m_num_outputs;
   std::string m_folder;
   mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
-  mdb_txn_safe m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
+  mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
 
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
+
+  constexpr static uint64_t DEFAULT_MAPSIZE = 1 << 30;
+  constexpr static float RESIZE_PERCENT = 0.8f;
+  constexpr static float RESIZE_FACTOR = 1.5f;
 };
 
 }  // namespace cryptonote
