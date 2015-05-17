@@ -142,8 +142,12 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
   std::vector<transaction> popped_txs;
   for (int i=0; i < num_blocks; ++i)
   {
+#if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
+    simple_core.m_storage.debug_pop_block_from_blockchain();
+#else
     // simple_core.m_storage.pop_block_from_blockchain() is private, so call directly through db
     simple_core.m_storage.get_db().pop_block(popped_block, popped_txs);
+#endif
     quit = 1;
   }
 
@@ -615,12 +619,12 @@ int main(int argc, char* argv[])
   if (! opt_batch && ! vm["batch-size"].defaulted())
   {
     std::cerr << "Error: batch-size set, but batch option not enabled" << ENDL;
-    exit(1);
+    return 1;
   }
   if (! db_batch_size)
   {
     std::cerr << "Error: batch-size must be > 0" << ENDL;
-    exit(1);
+    return 1;
   }
   if (opt_verify && vm["batch-size"].defaulted())
   {
@@ -655,7 +659,7 @@ int main(int argc, char* argv[])
   {
     BootstrapFile bootstrap;
     bootstrap.count_blocks(import_file_path);
-    exit(0);
+    return 0;
   }
 
 
@@ -666,13 +670,13 @@ int main(int argc, char* argv[])
   if (res)
   {
     std::cerr << "Error parsing database argument(s)" << ENDL;
-    exit(1);
+    return 1;
   }
 
   if (std::find(db_engines.begin(), db_engines.end(), db_engine) == db_engines.end())
   {
     std::cerr << "Invalid database engine: " << db_engine << std::endl;
-    exit(1);
+    return 1;
   }
 
   LOG_PRINT_L0("database: " << db_engine);
@@ -717,7 +721,7 @@ int main(int argc, char* argv[])
   else
   {
     std::cerr << "database engine unrecognized" << ENDL;
-    exit(1);
+    return 1;
   }
 
   // for multi_db_compile:
@@ -725,7 +729,7 @@ int main(int argc, char* argv[])
   if (db_engine != default_db_engine)
   {
     std::cerr << "Invalid database engine for compiled version: " << db_engine << std::endl;
-    exit(1);
+    return 1;
   }
 #if BLOCKCHAIN_DB == DB_LMDB
   fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch, mdb_flags);
@@ -739,7 +743,7 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
     pop_blocks(simple_core, num_blocks);
     LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
-    exit(0);
+    return 0;
   }
 
   import_from_file(simple_core, import_file_path, block_stop);
@@ -749,7 +753,7 @@ int main(int argc, char* argv[])
   catch (const DB_ERROR& e)
   {
     std::cout << std::string("Error loading blockchain db: ") + e.what() + " -- shutting down now" << ENDL;
-    exit(1);
+    return 1;
   }
 
   // destructors called at exit:
@@ -762,4 +766,5 @@ int main(int argc, char* argv[])
   // LMDB fake_core, it calls Blockchain::deinit() on its object, which in turn
   // calls delete on its BlockchainDB derived class' object, which closes its
   // files.
+  return 0;
 }
