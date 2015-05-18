@@ -1884,7 +1884,7 @@ uint64_t BlockchainLMDB::add_block( const block& blk
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  if (m_height % 10 == 0)
+  if (m_height % 1000 == 0)
   {
     if (need_resize())
     {
