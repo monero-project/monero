@@ -760,6 +760,7 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
 
   m_batch_transactions = batch_transactions;
   m_write_txn = nullptr;
+  m_write_batch_txn = nullptr;
   m_batch_active = false;
   m_height = 0;
 }
@@ -1791,10 +1792,8 @@ void BlockchainLMDB::batch_start()
     throw0(DB_ERROR("batch transaction attempted, but m_write_txn already in use"));
   check_open();
 
-  if (m_write_batch_txn == nullptr)
-  {
-    m_write_batch_txn = new mdb_txn_safe();
-  }
+  m_write_batch_txn = new mdb_txn_safe();
+
   // NOTE: need to make sure it's destroyed properly when done
   if (mdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
@@ -1846,6 +1845,7 @@ void BlockchainLMDB::batch_stop()
   // for destruction of batch transaction
   m_write_txn = nullptr;
   delete m_write_batch_txn;
+  m_write_batch_txn = nullptr;
   m_batch_active = false;
   LOG_PRINT_L3("batch transaction: end");
 }
@@ -1863,6 +1863,7 @@ void BlockchainLMDB::batch_abort()
   // explicitly call in case mdb_env_close() (BlockchainLMDB::close()) called before BlockchainLMDB destructor called.
   m_write_batch_txn->abort();
   m_batch_active = false;
+  m_write_batch_txn = nullptr;
   LOG_PRINT_L3("batch transaction: aborted");
 }
 
