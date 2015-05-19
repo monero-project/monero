@@ -148,4 +148,12 @@ TEST(DNSResolver, GetTXTRecord)
   {
     std::cout << "TXT record for donate.getmonero.org: " << rec << std::endl;
   }
+
+  // replace first @ with .
+  std::string addr = tools::DNSResolver::instance().get_dns_format_from_oa_address("donate@getmonero.org");
+  EXPECT_STREQ("donate.getmonero.org", addr.c_str());
+
+  // no change
+  addr = tools::DNSResolver::instance().get_dns_format_from_oa_address("donate.getmonero.org");
+  EXPECT_STREQ("donate.getmonero.org", addr.c_str());
 }

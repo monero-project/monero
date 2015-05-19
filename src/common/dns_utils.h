@@ -101,6 +101,18 @@ public:
    std::vector<std::string> get_txt_record(const std::string& url, bool& dnssec_available, bool& dnssec_valid);
 
   /**
+   * @brief Gets a DNS address from OpenAlias format
+   *
+   * If the address looks good, but contains one @ symbol, replace that with a .
+   * e.g. donate@getmonero.org becomes donate.getmonero.org
+   *
+   * @param oa_addr  OpenAlias address
+   *
+   * @return dns_addr  DNS address
+   */
+  std::string get_dns_format_from_oa_address(const std::string& oa_addr);
+
+  /**
    * @brief Gets the singleton instance of DNSResolver
    *
    * @return returns a pointer to the singleton

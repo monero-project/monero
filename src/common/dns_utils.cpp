@@ -304,6 +304,19 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, boo
   return records;
 }
 
+std::string DNSResolver::get_dns_format_from_oa_address(const std::string& oa_addr)
+{
+  std::string addr(oa_addr);
+  auto first_at = addr.find("@");
+  if (first_at == std::string::npos)
+    return addr;
+
+  // convert name@domain.tld to name.domain.tld
+  addr.replace(first_at, 1, ".");
+
+  return addr;
+}
+
 DNSResolver& DNSResolver::instance()
 {
   static DNSResolver* staticInstance = NULL;
