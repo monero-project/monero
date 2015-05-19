@@ -112,14 +112,11 @@ private:
   /**
    * @brief Checks a string to see if it looks like a URL
    *
-   * If the address looks good, but contains one @ symbol, replace that with a .
-   * e.g. donate@getmonero.org becomes donate.getmonero.org
-   *
    * @param addr the string to be checked
    *
    * @return true if it looks enough like a URL, false if not
    */
-  bool check_address_syntax(std::string& addr);
+  bool check_address_syntax(const std::string& addr);
 
   DNSResolverData *m_data;
 }; // class DNSResolver
