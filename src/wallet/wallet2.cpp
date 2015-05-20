@@ -1016,7 +1016,8 @@ std::vector<std::string> wallet2::addresses_from_url(const std::string& url, boo
   std::vector<std::string> addresses;
   // get txt records
   bool dnssec_available, dnssec_isvalid;
-  auto records = tools::DNSResolver::instance().get_txt_record(url, dnssec_available, dnssec_isvalid);
+  std::string oa_addr = tools::DNSResolver::instance().get_dns_format_from_oa_address(url);
+  auto records = tools::DNSResolver::instance().get_txt_record(oa_addr, dnssec_available, dnssec_isvalid);
 
   // TODO: update this to allow for conveying that dnssec was not available
   if (dnssec_available && dnssec_isvalid)

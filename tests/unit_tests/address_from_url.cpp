@@ -93,6 +93,14 @@ TEST(AddressFromURL, Success)
   {
     EXPECT_STREQ(addr.c_str(), addresses[0].c_str());
   }
+
+  // OpenAlias address with an @ instead of first .
+  addresses = tools::wallet2::addresses_from_url("donate@getmonero.org", dnssec_result);
+  EXPECT_EQ(1, addresses.size());
+  if (addresses.size() == 1)
+  {
+    EXPECT_STREQ(addr.c_str(), addresses[0].c_str());
+  }
 }
 
 TEST(AddressFromURL, Failure)
