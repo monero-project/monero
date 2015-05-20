@@ -190,6 +190,9 @@ namespace cryptonote
     difficulty_type get_block_cumulative_difficulty(uint64_t height) const { return m_blocks[height].cumulative_difficulty; }
     uint64_t get_block_coins_generated(uint64_t height) const { return m_blocks[height].already_generated_coins; }
 
+    // use for testing only
+    bool debug_pop_block_from_blockchain() { return pop_block_from_blockchain(); }
+
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
     typedef std::unordered_map<crypto::hash, transaction_chain_entry> transactions_container;
