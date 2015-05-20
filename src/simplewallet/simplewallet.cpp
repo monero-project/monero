@@ -208,6 +208,13 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
   return true;
 }
 
+bool simple_wallet::spendkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  success_msg_writer() << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key) << std::endl;
+
+  return true;
+}
+
 bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success =  false;
@@ -288,6 +295,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), "Get viewkey");
+  m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), "Get spendkey");
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), "Get deterministic seed");
   m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), "available options: seed language - Set wallet seed langage");
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), "Show this help");
