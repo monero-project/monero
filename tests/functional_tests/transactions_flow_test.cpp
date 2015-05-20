@@ -112,7 +112,7 @@ uint64_t get_money_in_first_transfers(const tools::wallet2::transfer_container& 
 
 bool transactions_flow_test(std::string& working_folder,
   std::string path_source_wallet,
-  std::string path_terget_wallet,
+  std::string path_target_wallet,
   std::string& daemon_addr_a,
   std::string& daemon_addr_b,
   uint64_t amount_to_transfer, size_t mix_in_factor, size_t transactions_count, size_t transactions_per_second)
@@ -122,14 +122,14 @@ bool transactions_flow_test(std::string& working_folder,
   if(path_source_wallet.empty())
     path_source_wallet = generate_random_wallet_name();
 
-  if(path_terget_wallet.empty())
-    path_terget_wallet = generate_random_wallet_name();
+  if(path_target_wallet.empty())
+    path_target_wallet = generate_random_wallet_name();
 
 
   try
   {
     w1.generate(working_folder + "/" + path_source_wallet, "");
-    w2.generate(working_folder + "/" + path_terget_wallet, "");
+    w2.generate(working_folder + "/" + path_target_wallet, "");
   }
   catch (const std::exception& e)
   {
@@ -152,7 +152,7 @@ bool transactions_flow_test(std::string& working_folder,
 
   LOG_PRINT_GREEN("Using wallets: " << ENDL
     << "Source:  " << w1.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
-    << "Target:  " << w2.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_terget_wallet, LOG_LEVEL_1);
+    << "Target:  " << w2.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_target_wallet, LOG_LEVEL_1);
 
   //lets do some money
   epee::net_utils::http::http_simple_client http_client;

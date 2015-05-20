@@ -172,7 +172,7 @@ void network_throttle::set_real_target_speed( network_speed_kbps real_target )
 	m_real_target_speed = real_target * 1024;
 }
 
-network_speed_kbps network_throttle::get_terget_speed()
+network_speed_kbps network_throttle::get_target_speed()
 {
 	return m_real_target_speed / 1024;
 }

@@ -251,7 +251,10 @@ bool t_command_parser_executor::print_status(const std::vector<std::string>& arg
 
 bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
 {
-  if(args.size()!=1) return false;
+  if(args.size()>1) return false;
+  if(args.size()==0) {
+    return m_executor.get_limit();
+  }
   int limit;
   try {
       limit = std::stoi(args[0]);
@@ -267,7 +270,10 @@ bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
 
 bool t_command_parser_executor::set_limit_up(const std::vector<std::string>& args)
 {
-  if(args.size()!=1) return false;
+  if(args.size()>1) return false;
+  if(args.size()==0) {
+    return m_executor.get_limit_up();
+  }
   int limit;
   try {
       limit = std::stoi(args[0]);
@@ -283,7 +289,10 @@ bool t_command_parser_executor::set_limit_up(const std::vector<std::string>& arg
 
 bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& args)
 {
-  if(args.size()!=1) return false;
+  if(args.size()>1) return false;
+  if(args.size()==0) {
+    return m_executor.get_limit_down();
+  }
   int limit;
   try {
       limit = std::stoi(args[0]);

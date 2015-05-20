@@ -81,7 +81,7 @@ class network_throttle : public i_network_throttle {
 		virtual void set_name(const std::string &name);
 		virtual void set_target_speed( network_speed_kbps target );
 		virtual void set_real_target_speed( network_speed_kbps real_target ); // only for throttle_out
-		virtual network_speed_kbps get_terget_speed();
+		virtual network_speed_kbps get_target_speed();
 
 		// add information about events:
 		virtual void handle_trafic_exact(size_t packet_size); ///< count the new traffic/packet; the size is exact considering all network costs
