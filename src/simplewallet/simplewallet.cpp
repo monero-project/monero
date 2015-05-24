@@ -755,7 +755,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  COMMAND_RPC_START_MINING::request req;
+  // COMMAND_RPC_START_MINING::request req;
   // req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   std::string miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   uint64_t threads_count;
@@ -822,14 +822,15 @@ bool simple_wallet::save_bc(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  COMMAND_RPC_SAVE_BC::request req;
-  COMMAND_RPC_SAVE_BC::response res;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/save_bc", req, res, m_http_client);
-  std::string err = interpret_rpc_response(r, res.status);
-  if (err.empty())
+  // COMMAND_RPC_SAVE_BC::request req;
+  // COMMAND_RPC_SAVE_BC::response res;
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/save_bc", req, res, m_http_client);
+  // std::string err = interpret_rpc_response(r, res.status);
+  uint64_t status = m_wallet->save_bc();
+  if (status == IPC::STATUS_OK)
     success_msg_writer() << "Blockchain saved";
   else
-    fail_msg_writer() << "Blockchain can't be saved: " << err;
+    fail_msg_writer() << "Blockchain can't be saved: " << status;
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1053,11 +1054,18 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 uint64_t simple_wallet::get_daemon_blockchain_height(std::string& err)
 {
-  COMMAND_RPC_GET_HEIGHT::request req;
-  COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
-  err = interpret_rpc_response(r, res.status);
-  return res.height;
+  // COMMAND_RPC_GET_HEIGHT::request req;
+  // COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
+  // err = interpret_rpc_response(r, res.status);
+  uint64_t height;
+  uint64_t status = m_wallet->get_height(height);
+  // res has to be true since we have checked before.
+  if (status != IPC::STATUS_OK) {
+    // TODO: map proper error messages to codes.
+    err = "Couldn't get blockchain height.";
+  }
+  return height;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)

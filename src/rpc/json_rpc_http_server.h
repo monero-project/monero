@@ -33,6 +33,7 @@ namespace RPC
     void poll();
     std::string m_ip; /*!< IP address where its listening */
     std::string m_port; /*!< Port where its listening */
+    std::string m_path; /*!< Path */
     bool m_is_running; /*!< Whether the server is currently running */
     void (*m_ev_handler)(struct ns_connection *nc, int ev, void *ev_data); /*!< Server event handler function pointer */
   public:
@@ -43,7 +44,7 @@ namespace RPC
      * \param port Port number to bind
      * \param ev_handler Event handler function pointer
      */
-    Json_rpc_http_server(const std::string &ip, const std::string &port,
+    Json_rpc_http_server(const std::string &ip, const std::string &port, const std::string &path,
       void (*ev_handler)(struct ns_connection *nc, int ev, void *ev_data));
 
     /**

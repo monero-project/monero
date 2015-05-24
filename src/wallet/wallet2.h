@@ -268,6 +268,8 @@ namespace tools
 
     uint64_t start_mining(const std::string &address, uint64_t thread_count);
     uint64_t stop_mining();
+    uint64_t get_height(uint64_t &height);
+    uint64_t save_bc();
   private:
     /*!
      * \brief  Stores wallet information to wallet file.

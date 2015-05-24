@@ -27,15 +27,17 @@ typedef enum {
     expect_blocks_ok_state = 4,
     expect_get_ok_state = 5,
     expect_put_ok_state = 6,
-    expect_save_ok_state = 7,
+    expect_save_bc_ok_state = 7,
     expect_start_ok_state = 8,
     expect_stop_ok_state = 9,
     expect_output_indexes_ok_state = 10,
     expect_random_outs_ok_state = 11,
-    expect_close_ok_state = 12,
-    defaults_state = 13,
-    have_error_state = 14,
-    reexpect_open_ok_state = 15
+    expect_get_height_ok_state = 12,
+    expect_get_info_ok_state = 13,
+    expect_close_ok_state = 14,
+    defaults_state = 15,
+    have_error_state = 16,
+    reexpect_open_ok_state = 17
 } state_t;
 
 typedef enum {
@@ -47,26 +49,30 @@ typedef enum {
     blocks_event = 5,
     get_event = 6,
     put_event = 7,
-    save_event = 8,
+    save_bc_event = 8,
     start_event = 9,
     stop_event = 10,
     output_indexes_event = 11,
     random_outs_event = 12,
-    destructor_event = 13,
-    blocks_ok_event = 14,
-    get_ok_event = 15,
-    put_ok_event = 16,
-    save_ok_event = 17,
-    start_ok_event = 18,
-    stop_ok_event = 19,
-    output_indexes_ok_event = 20,
-    random_outs_ok_event = 21,
-    close_ok_event = 22,
-    ping_ok_event = 23,
-    error_event = 24,
-    exception_event = 25,
-    command_invalid_event = 26,
-    other_event = 27
+    get_height_event = 13,
+    get_info_event = 14,
+    destructor_event = 15,
+    blocks_ok_event = 16,
+    get_ok_event = 17,
+    put_ok_event = 18,
+    save_bc_ok_event = 19,
+    start_ok_event = 20,
+    stop_ok_event = 21,
+    output_indexes_ok_event = 22,
+    random_outs_ok_event = 23,
+    get_height_ok_event = 24,
+    get_info_ok_event = 25,
+    close_ok_event = 26,
+    ping_ok_event = 27,
+    error_event = 28,
+    exception_event = 29,
+    command_invalid_event = 30,
+    other_event = 31
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -79,11 +85,13 @@ s_state_name [] = {
     "expect blocks ok",
     "expect get ok",
     "expect put ok",
-    "expect save ok",
+    "expect save bc ok",
     "expect start ok",
     "expect stop ok",
     "expect output indexes ok",
     "expect random outs ok",
+    "expect get height ok",
+    "expect get info ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -100,20 +108,24 @@ s_event_name [] = {
     "BLOCKS",
     "GET",
     "PUT",
-    "SAVE",
+    "SAVE_BC",
     "START",
     "STOP",
     "OUTPUT_INDEXES",
     "RANDOM_OUTS",
+    "GET_HEIGHT",
+    "GET_INFO",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
     "PUT_OK",
-    "SAVE_OK",
+    "SAVE_BC_OK",
     "START_OK",
     "STOP_OK",
     "OUTPUT_INDEXES_OK",
     "RANDOM_OUTS_OK",
+    "GET_HEIGHT_OK",
+    "GET_INFO_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -199,8 +211,6 @@ static void
 static void
     prepare_put_command (client_t *self);
 static void
-    prepare_save_command (client_t *self);
-static void
     prepare_start_command (client_t *self);
 static void
     prepare_get_output_indexes_command (client_t *self);
@@ -215,7 +225,7 @@ static void
 static void
     signal_have_put_ok (client_t *self);
 static void
-    signal_have_save_ok (client_t *self);
+    signal_have_save_bc_ok (client_t *self);
 static void
     signal_have_start_ok (client_t *self);
 static void
@@ -224,6 +234,10 @@ static void
     signal_have_output_indexes_ok (client_t *self);
 static void
     signal_have_random_outs_ok (client_t *self);
+static void
+    signal_have_get_height_ok (client_t *self);
+static void
+    signal_have_get_info_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -443,23 +457,35 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_RANDOM_OUTS_OK:
             return random_outs_ok_event;
             break;
+        case WAP_PROTO_GET_HEIGHT:
+            return get_height_event;
+            break;
+        case WAP_PROTO_GET_HEIGHT_OK:
+            return get_height_ok_event;
+            break;
         case WAP_PROTO_GET:
             return get_event;
             break;
         case WAP_PROTO_GET_OK:
             return get_ok_event;
             break;
-        case WAP_PROTO_SAVE:
-            return save_event;
+        case WAP_PROTO_SAVE_BC:
+            return save_bc_event;
             break;
-        case WAP_PROTO_SAVE_OK:
-            return save_ok_event;
+        case WAP_PROTO_SAVE_BC_OK:
+            return save_bc_ok_event;
             break;
         case WAP_PROTO_START:
             return start_event;
             break;
         case WAP_PROTO_START_OK:
             return start_ok_event;
+            break;
+        case WAP_PROTO_GET_INFO:
+            return get_info_event;
+            break;
+        case WAP_PROTO_GET_INFO_OK:
+            return get_info_ok_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -681,22 +707,16 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = expect_put_ok_state;
                 }
                 else
-                if (self->event == save_event) {
+                if (self->event == save_bc_event) {
                     if (!self->exception) {
-                        //  prepare save command
+                        //  send SAVE_BC
                         if (wap_client_verbose)
-                            zsys_debug ("wap_client:            $ prepare save command");
-                        prepare_save_command (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send SAVE
-                        if (wap_client_verbose)
-                            zsys_debug ("wap_client:            $ send SAVE");
-                        wap_proto_set_id (self->message, WAP_PROTO_SAVE);
+                            zsys_debug ("wap_client:            $ send SAVE_BC");
+                        wap_proto_set_id (self->message, WAP_PROTO_SAVE_BC);
                         wap_proto_send (self->message, self->dealer);
                     }
                     if (!self->exception)
-                        self->state = expect_save_ok_state;
+                        self->state = expect_save_bc_ok_state;
                 }
                 else
                 if (self->event == start_event) {
@@ -763,6 +783,30 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_random_outs_ok_state;
+                }
+                else
+                if (self->event == get_height_event) {
+                    if (!self->exception) {
+                        //  send GET_HEIGHT
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send GET_HEIGHT");
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_HEIGHT);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_height_ok_state;
+                }
+                else
+                if (self->event == get_info_event) {
+                    if (!self->exception) {
+                        //  send GET_INFO
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send GET_INFO");
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_INFO);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_info_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -961,13 +1005,13 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
-            case expect_save_ok_state:
-                if (self->event == save_ok_event) {
+            case expect_save_bc_ok_state:
+                if (self->event == save_bc_ok_event) {
                     if (!self->exception) {
-                        //  signal have save ok
+                        //  signal have save bc ok
                         if (wap_client_verbose)
-                            zsys_debug ("wap_client:            $ signal have save ok");
-                        signal_have_save_ok (&self->client);
+                            zsys_debug ("wap_client:            $ signal have save bc ok");
+                        signal_have_save_bc_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -1148,6 +1192,96 @@ s_client_execute (s_client_t *self, event_t event)
                         if (wap_client_verbose)
                             zsys_debug ("wap_client:            $ signal have random outs ok");
                         signal_have_random_outs_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ client is connected");
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ exception");
+                }
+                else {
+                    //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
+                }
+                break;
+
+            case expect_get_height_ok_state:
+                if (self->event == get_height_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get height ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have get height ok");
+                        signal_have_get_height_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ client is connected");
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ exception");
+                }
+                else {
+                    //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
+                }
+                break;
+
+            case expect_get_info_ok_state:
+                if (self->event == get_info_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get info ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have get info ok");
+                        signal_have_get_info_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -1456,8 +1590,8 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, get_event);
     }
     else
-    if (streq (method, "SAVE")) {
-        s_client_execute (self, save_event);
+    if (streq (method, "SAVE BC")) {
+        s_client_execute (self, save_bc_event);
     }
     else
     if (streq (method, "OUTPUT INDEXES")) {
@@ -1470,6 +1604,14 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         zframe_destroy (&self->args.amounts);
         zsock_recv (self->cmdpipe, "8p", &self->args.outs_count, &self->args.amounts);
         s_client_execute (self, random_outs_event);
+    }
+    else
+    if (streq (method, "GET HEIGHT")) {
+        s_client_execute (self, get_height_event);
+    }
+    else
+    if (streq (method, "GET INFO")) {
+        s_client_execute (self, get_info_event);
     }
     else
     if (streq (method, "START")) {
@@ -1601,6 +1743,16 @@ struct _wap_client_t {
     zchunk_t *tx_data;          //  Returned by actor reply
     zframe_t *o_indexes;        //  Returned by actor reply
     zframe_t *random_outputs;   //  Returned by actor reply
+    uint64_t height;            //  Returned by actor reply
+    uint64_t target_height;     //  Returned by actor reply
+    uint64_t difficulty;        //  Returned by actor reply
+    uint64_t tx_count;          //  Returned by actor reply
+    uint64_t tx_pool_size;      //  Returned by actor reply
+    uint64_t alt_blocks_count;  //  Returned by actor reply
+    uint64_t outgoing_connections_count;  //  Returned by actor reply
+    uint64_t incoming_connections_count;  //  Returned by actor reply
+    uint64_t white_peerlist_size;  //  Returned by actor reply
+    uint64_t grey_peerlist_size;  //  Returned by actor reply
 };
 
 
@@ -1745,8 +1897,8 @@ s_accept_reply (wap_client_t *self, ...)
                     zsock_recv (self->actor, "ip", &self->status, &self->tx_data);
                 }
                 else
-                if (streq (reply, "SAVE OK")) {
-                    zsock_recv (self->actor, "i", &self->status);
+                if (streq (reply, "SAVE BC OK")) {
+                    zsock_recv (self->actor, "8", &self->status);
                 }
                 else
                 if (streq (reply, "OUTPUT INDEXES OK")) {
@@ -1757,6 +1909,14 @@ s_accept_reply (wap_client_t *self, ...)
                 if (streq (reply, "RANDOM OUTS OK")) {
                     zframe_destroy (&self->random_outputs);
                     zsock_recv (self->actor, "8p", &self->status, &self->random_outputs);
+                }
+                else
+                if (streq (reply, "GET HEIGHT OK")) {
+                    zsock_recv (self->actor, "88", &self->status, &self->height);
+                }
+                else
+                if (streq (reply, "GET INFO OK")) {
+                    zsock_recv (self->actor, "88888888888", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size);
                 }
                 else
                 if (streq (reply, "START OK")) {
@@ -1873,12 +2033,12 @@ wap_client_get (wap_client_t *self, zchunk_t **tx_id_p)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_save (wap_client_t *self)
+wap_client_save_bc (wap_client_t *self)
 {
     assert (self);
 
-    zsock_send (self->actor, "s", "SAVE");
-    if (s_accept_reply (self, "SAVE OK", "FAILURE", NULL))
+    zsock_send (self->actor, "s", "SAVE BC");
+    if (s_accept_reply (self, "SAVE BC OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
@@ -1913,6 +2073,38 @@ wap_client_random_outs (wap_client_t *self, uint64_t outs_count, zframe_t **amou
     zsock_send (self->actor, "s8p", "RANDOM OUTS", outs_count, *amounts_p);
     *amounts_p = NULL;          //  Take ownership of amounts
     if (s_accept_reply (self, "RANDOM OUTS OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Ask for height.                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_height (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "GET HEIGHT");
+    if (s_accept_reply (self, "GET HEIGHT OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Ask for height.                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_info (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "GET INFO");
+    if (s_accept_reply (self, "GET INFO OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
@@ -2036,4 +2228,114 @@ wap_client_random_outputs (wap_client_t *self)
 {
     assert (self);
     return self->random_outputs;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received height
+
+uint64_t 
+wap_client_height (wap_client_t *self)
+{
+    assert (self);
+    return self->height;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received target_height
+
+uint64_t 
+wap_client_target_height (wap_client_t *self)
+{
+    assert (self);
+    return self->target_height;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received difficulty
+
+uint64_t 
+wap_client_difficulty (wap_client_t *self)
+{
+    assert (self);
+    return self->difficulty;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received tx_count
+
+uint64_t 
+wap_client_tx_count (wap_client_t *self)
+{
+    assert (self);
+    return self->tx_count;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received tx_pool_size
+
+uint64_t 
+wap_client_tx_pool_size (wap_client_t *self)
+{
+    assert (self);
+    return self->tx_pool_size;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received alt_blocks_count
+
+uint64_t 
+wap_client_alt_blocks_count (wap_client_t *self)
+{
+    assert (self);
+    return self->alt_blocks_count;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received outgoing_connections_count
+
+uint64_t 
+wap_client_outgoing_connections_count (wap_client_t *self)
+{
+    assert (self);
+    return self->outgoing_connections_count;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received incoming_connections_count
+
+uint64_t 
+wap_client_incoming_connections_count (wap_client_t *self)
+{
+    assert (self);
+    return self->incoming_connections_count;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received white_peerlist_size
+
+uint64_t 
+wap_client_white_peerlist_size (wap_client_t *self)
+{
+    assert (self);
+    return self->white_peerlist_size;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received grey_peerlist_size
+
+uint64_t 
+wap_client_grey_peerlist_size (wap_client_t *self)
+{
+    assert (self);
+    return self->grey_peerlist_size;
 }

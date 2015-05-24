@@ -320,5 +320,47 @@ namespace IPC
       LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: " << ENDL << s);
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    void get_height(wap_proto_t *message) {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      wap_proto_set_height(message, core->get_current_blockchain_height());
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void save_bc(wap_proto_t *message) {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      if (!core->get_blockchain_storage().store_blockchain()) {
+        wap_proto_set_status(message, STATUS_ERROR_STORING_BLOCKCHAIN);
+        return;
+      }
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void get_info(wap_proto_t *message) {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      uint64_t height = core->get_current_blockchain_height();
+      wap_proto_set_height(message, height);
+      wap_proto_set_target_height(message, core->get_target_blockchain_height());
+      wap_proto_set_difficulty(message, core->get_blockchain_storage().get_difficulty_for_next_block());
+      wap_proto_set_tx_count(message, core->get_blockchain_storage().get_total_transactions() - height);
+      wap_proto_set_tx_pool_size(message, core->get_pool_transactions_count());
+      wap_proto_set_alt_blocks_count(message, core->get_blockchain_storage().get_alternative_blocks_count());
+      uint64_t outgoing_connections_count = p2p->get_outgoing_connections_count();
+      wap_proto_set_outgoing_connections_count(message, outgoing_connections_count);
+      uint64_t total_connections = p2p->get_connections_count();
+      wap_proto_set_incoming_connections_count(message, total_connections - outgoing_connections_count);
+      wap_proto_set_white_peerlist_size(message, p2p->get_peerlist_manager().get_white_peers_count());
+      wap_proto_set_grey_peerlist_size(message, p2p->get_peerlist_manager().get_gray_peers_count());
+      wap_proto_set_status(message, STATUS_OK);
+    }
   }
 }

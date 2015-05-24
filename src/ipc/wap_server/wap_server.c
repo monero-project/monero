@@ -270,3 +270,33 @@ random_outs (client_t *self)
 {
     IPC::Daemon::get_random_outs(self->message);
 }
+
+//  ---------------------------------------------------------------------------
+//  height
+//
+
+static void
+height (client_t *self)
+{
+    IPC::Daemon::get_height(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  save_bc
+//
+
+static void
+save_bc (client_t *self)
+{
+    IPC::Daemon::save_bc(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  getinfo
+//
+
+static void
+getinfo (client_t *self)
+{
+    IPC::Daemon::get_info(self->message);
+}

@@ -65,6 +65,7 @@ namespace IPC
   const uint64_t STATUS_TX_NOT_RELAYED = 8;
   const uint64_t STATUS_RANDOM_OUTS_FAILED = 9;
   const uint64_t STATUS_MINING_NOT_STOPPED = 10;
+  const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 11;
   namespace Daemon
   {
     void start_mining(wap_proto_t *message);
@@ -73,6 +74,9 @@ namespace IPC
     void send_raw_transaction(wap_proto_t *message);
     void get_output_indexes(wap_proto_t *message);
     void get_random_outs(wap_proto_t *message);
+    void get_height(wap_proto_t *message);
+    void save_bc(wap_proto_t *message);
+    void get_info(wap_proto_t *message);
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet);

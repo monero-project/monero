@@ -63,6 +63,12 @@ PUT-OK, or ERROR.
         status              number 8    Status
         random_outputs      frame       Outputs
 
+    GET_HEIGHT - Get height.
+
+    GET_HEIGHT_OK - Daemon returns height.
+        status              number 8    Status
+        height              number 8    Height
+
     GET - Wallet requests transaction data from the daemon. Daemon replies
 with GET-OK, or ERROR.
         tx_id               chunk       Transaction ID
@@ -70,9 +76,10 @@ with GET-OK, or ERROR.
     GET_OK - Daemon replies with transaction data.
         tx_data             chunk       Transaction data
 
-    SAVE - save_bc command. Details tbd.
+    SAVE_BC - save_bc command. Details tbd.
 
-    SAVE_OK - Daemon replies to a save_bc command.
+    SAVE_BC_OK - Daemon replies to a save_bc command.
+        status              number 8    Status
 
     START - Wallet asks daemon to start mining. Daemon replies with START-OK, or
 ERROR.
@@ -82,7 +89,22 @@ ERROR.
     START_OK - Daemon replies to a start mining request.
         status              number 8    
 
-    STOP - Wallet asks daemon to start mining. Daemon replies with START-OK, or
+    GET_INFO - getinfo IPC
+
+    GET_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        height              number 8    Height
+        target_height       number 8    Target Height
+        difficulty          number 8    Difficulty
+        tx_count            number 8    TX Count
+        tx_pool_size        number 8    TX Pool Size
+        alt_blocks_count    number 8    Alt Blocks Count
+        outgoing_connections_count  number 8  Outgoing Connections Count
+        incoming_connections_count  number 8  Incoming Connections Count
+        white_peerlist_size  number 8   White Peerlist Size
+        grey_peerlist_size  number 8    Grey Peerlist Size
+
+    STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
 ERROR.
 
     STOP_OK - Daemon replies to a stop mining request.
@@ -123,19 +145,23 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_OUTPUT_INDEXES_OK         8
 #define WAP_PROTO_RANDOM_OUTS               9
 #define WAP_PROTO_RANDOM_OUTS_OK            10
-#define WAP_PROTO_GET                       11
-#define WAP_PROTO_GET_OK                    12
-#define WAP_PROTO_SAVE                      13
-#define WAP_PROTO_SAVE_OK                   14
-#define WAP_PROTO_START                     15
-#define WAP_PROTO_START_OK                  16
-#define WAP_PROTO_STOP                      17
-#define WAP_PROTO_STOP_OK                   18
-#define WAP_PROTO_CLOSE                     19
-#define WAP_PROTO_CLOSE_OK                  20
-#define WAP_PROTO_PING                      21
-#define WAP_PROTO_PING_OK                   22
-#define WAP_PROTO_ERROR                     23
+#define WAP_PROTO_GET_HEIGHT                11
+#define WAP_PROTO_GET_HEIGHT_OK             12
+#define WAP_PROTO_GET                       13
+#define WAP_PROTO_GET_OK                    14
+#define WAP_PROTO_SAVE_BC                   15
+#define WAP_PROTO_SAVE_BC_OK                16
+#define WAP_PROTO_START                     17
+#define WAP_PROTO_START_OK                  18
+#define WAP_PROTO_GET_INFO                  19
+#define WAP_PROTO_GET_INFO_OK               20
+#define WAP_PROTO_STOP                      21
+#define WAP_PROTO_STOP_OK                   22
+#define WAP_PROTO_CLOSE                     23
+#define WAP_PROTO_CLOSE_OK                  24
+#define WAP_PROTO_PING                      25
+#define WAP_PROTO_PING_OK                   26
+#define WAP_PROTO_ERROR                     27
 
 #include <czmq.h>
 
@@ -285,6 +311,12 @@ zframe_t *
 void
     wap_proto_set_random_outputs (wap_proto_t *self, zframe_t **frame_p);
 
+//  Get/set the height field
+uint64_t
+    wap_proto_height (wap_proto_t *self);
+void
+    wap_proto_set_height (wap_proto_t *self, uint64_t height);
+
 //  Get a copy of the tx_data field
 zchunk_t *
     wap_proto_tx_data (wap_proto_t *self);
@@ -310,6 +342,60 @@ uint64_t
     wap_proto_thread_count (wap_proto_t *self);
 void
     wap_proto_set_thread_count (wap_proto_t *self, uint64_t thread_count);
+
+//  Get/set the target_height field
+uint64_t
+    wap_proto_target_height (wap_proto_t *self);
+void
+    wap_proto_set_target_height (wap_proto_t *self, uint64_t target_height);
+
+//  Get/set the difficulty field
+uint64_t
+    wap_proto_difficulty (wap_proto_t *self);
+void
+    wap_proto_set_difficulty (wap_proto_t *self, uint64_t difficulty);
+
+//  Get/set the tx_count field
+uint64_t
+    wap_proto_tx_count (wap_proto_t *self);
+void
+    wap_proto_set_tx_count (wap_proto_t *self, uint64_t tx_count);
+
+//  Get/set the tx_pool_size field
+uint64_t
+    wap_proto_tx_pool_size (wap_proto_t *self);
+void
+    wap_proto_set_tx_pool_size (wap_proto_t *self, uint64_t tx_pool_size);
+
+//  Get/set the alt_blocks_count field
+uint64_t
+    wap_proto_alt_blocks_count (wap_proto_t *self);
+void
+    wap_proto_set_alt_blocks_count (wap_proto_t *self, uint64_t alt_blocks_count);
+
+//  Get/set the outgoing_connections_count field
+uint64_t
+    wap_proto_outgoing_connections_count (wap_proto_t *self);
+void
+    wap_proto_set_outgoing_connections_count (wap_proto_t *self, uint64_t outgoing_connections_count);
+
+//  Get/set the incoming_connections_count field
+uint64_t
+    wap_proto_incoming_connections_count (wap_proto_t *self);
+void
+    wap_proto_set_incoming_connections_count (wap_proto_t *self, uint64_t incoming_connections_count);
+
+//  Get/set the white_peerlist_size field
+uint64_t
+    wap_proto_white_peerlist_size (wap_proto_t *self);
+void
+    wap_proto_set_white_peerlist_size (wap_proto_t *self, uint64_t white_peerlist_size);
+
+//  Get/set the grey_peerlist_size field
+uint64_t
+    wap_proto_grey_peerlist_size (wap_proto_t *self);
+void
+    wap_proto_set_grey_peerlist_size (wap_proto_t *self, uint64_t grey_peerlist_size);
 
 //  Get/set the reason field
 const char *

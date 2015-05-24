@@ -85,7 +85,7 @@ WAP_EXPORT int
 //  Request a set of blocks from the server.                                        
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_save (wap_client_t *self);
+    wap_client_save_bc (wap_client_t *self);
 
 //  Ask for tx output indexes.                                                      
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -96,6 +96,16 @@ WAP_EXPORT int
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
     wap_client_random_outs (wap_client_t *self, uint64_t outs_count, zframe_t **amounts_p);
+
+//  Ask for height.                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_height (wap_client_t *self);
+
+//  Ask for height.                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_info (wap_client_t *self);
 
 //  Send start command to server.                                                   
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -138,6 +148,46 @@ WAP_EXPORT zframe_t *
 //  Return last received random_outputs
 WAP_EXPORT zframe_t *
     wap_client_random_outputs (wap_client_t *self);
+
+//  Return last received height
+WAP_EXPORT uint64_t 
+    wap_client_height (wap_client_t *self);
+
+//  Return last received target_height
+WAP_EXPORT uint64_t 
+    wap_client_target_height (wap_client_t *self);
+
+//  Return last received difficulty
+WAP_EXPORT uint64_t 
+    wap_client_difficulty (wap_client_t *self);
+
+//  Return last received tx_count
+WAP_EXPORT uint64_t 
+    wap_client_tx_count (wap_client_t *self);
+
+//  Return last received tx_pool_size
+WAP_EXPORT uint64_t 
+    wap_client_tx_pool_size (wap_client_t *self);
+
+//  Return last received alt_blocks_count
+WAP_EXPORT uint64_t 
+    wap_client_alt_blocks_count (wap_client_t *self);
+
+//  Return last received outgoing_connections_count
+WAP_EXPORT uint64_t 
+    wap_client_outgoing_connections_count (wap_client_t *self);
+
+//  Return last received incoming_connections_count
+WAP_EXPORT uint64_t 
+    wap_client_incoming_connections_count (wap_client_t *self);
+
+//  Return last received white_peerlist_size
+WAP_EXPORT uint64_t 
+    wap_client_white_peerlist_size (wap_client_t *self);
+
+//  Return last received grey_peerlist_size
+WAP_EXPORT uint64_t 
+    wap_client_grey_peerlist_size (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

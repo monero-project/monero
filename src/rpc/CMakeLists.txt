@@ -28,8 +28,7 @@
 
 set(rpc_sources
   core_rpc_server.cpp
-  json_rpc_http_server.cpp
-  daemon_json_rpc_handlers.cpp)
+  json_rpc_http_server.cpp)
 
 set(rpc_headers)
 
@@ -55,3 +54,24 @@ target_link_libraries(rpc
     ${EXTRA_LIBRARIES})
 add_dependencies(rpc
   version)
+
+set(translator_rpc_sources
+  daemon_deprecated_rpc.cpp
+  json_rpc_http_server.cpp
+  json_rpc.cpp)
+bitmonero_add_executable(rpc_translator
+  ${translator_rpc_sources}
+)
+target_link_libraries(rpc_translator
+  LINK_PRIVATE
+    client_ipc
+    cryptonote_core
+    cryptonote_protocol
+    ${EXTRA_LIBRARIES}
+    ${NET_SKELETON_LIBRARY}
+    ${ZMQ_LIB}
+    ${CZMQ_LIB}
+    ${CMAKE_THREAD_LIBS_INIT})
+set_property(TARGET rpc_translator
+  PROPERTY
+    OUTPUT_NAME "monero-rpc-deprecated")

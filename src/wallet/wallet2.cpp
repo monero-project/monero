@@ -1268,8 +1268,7 @@ void wallet2::stop_ipc_client() {
 }
 
 void wallet2::connect_to_daemon() {
-  if (ipc_client) {
-    // TODO: Instead, check if daemon is reachable.
+  if (check_connection()) {
     return;
   }
   ipc_client = wap_client_new();
@@ -1287,6 +1286,19 @@ uint64_t wallet2::start_mining(const std::string &address, uint64_t thread_count
 uint64_t wallet2::stop_mining() {
   int rc = wap_client_stop(ipc_client);
   THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "stop_mining");
+  return wap_client_status(ipc_client);
+}
+
+uint64_t wallet2::get_height(uint64_t &height) {
+  int rc = wap_client_get_height(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_height");
+  height = wap_client_height(ipc_client);
+  return wap_client_status(ipc_client);
+}
+
+uint64_t wallet2::save_bc() {
+  int rc = wap_client_save_bc(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "save_bc");
   return wap_client_status(ipc_client);
 }
 }

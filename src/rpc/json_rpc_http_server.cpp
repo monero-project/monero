@@ -13,10 +13,6 @@
  */
 namespace RPC
 {
-  int Json_rpc_http_server::parse_error = -32700;
-  int Json_rpc_http_server::invalid_request = -32600;
-  int Json_rpc_http_server::invalid_params = -32602;
-  int Json_rpc_http_server::internal_error = -32603;
 
   /**
    * \brief Constructor
@@ -25,10 +21,11 @@ namespace RPC
    * \param ev_handler Event handler function pointer
    */
   Json_rpc_http_server::Json_rpc_http_server(const std::string &ip, const std::string &port,
-    void (*ev_handler)(struct ns_connection *nc, int ev, void *ev_data))
+    const std::string &path, void (*ev_handler)(struct ns_connection *nc, int ev, void *ev_data))
   {
     m_ip = ip;
     m_port = port;
+    m_path = path;
     m_is_running = false;
     m_ev_handler = ev_handler;
   }
@@ -53,7 +50,7 @@ namespace RPC
     }
     m_is_running = true;
     ns_mgr_init(&mgr, NULL);
-    nc = ns_bind(&mgr, (m_ip + ":" + m_port).c_str(), m_ev_handler);
+    nc = ns_bind(&mgr, (m_ip + ":" + m_port + "/" + m_path).c_str(), m_ev_handler);
     if (!nc)
     {
       return false;

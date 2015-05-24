@@ -34,16 +34,18 @@ typedef enum {
     blocks_event = 3,
     put_event = 4,
     get_event = 5,
-    save_event = 6,
+    save_bc_event = 6,
     start_event = 7,
     stop_event = 8,
     output_indexes_event = 9,
     random_outs_event = 10,
-    close_event = 11,
-    ping_event = 12,
-    expired_event = 13,
-    exception_event = 14,
-    settled_event = 15
+    get_height_event = 11,
+    get_info_event = 12,
+    close_event = 13,
+    ping_event = 14,
+    expired_event = 15,
+    exception_event = 16,
+    settled_event = 17
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -64,11 +66,13 @@ s_event_name [] = {
     "BLOCKS",
     "PUT",
     "GET",
-    "SAVE",
+    "SAVE_BC",
     "START",
     "STOP",
     "OUTPUT_INDEXES",
     "RANDOM_OUTS",
+    "GET_HEIGHT",
+    "GET_INFO",
     "CLOSE",
     "PING",
     "expired",
@@ -145,6 +149,8 @@ static void
 static void
     retrieve_transaction (client_t *self);
 static void
+    save_bc (client_t *self);
+static void
     start_mining_process (client_t *self);
 static void
     stop_mining_process (client_t *self);
@@ -152,6 +158,10 @@ static void
     output_indexes (client_t *self);
 static void
     random_outs (client_t *self);
+static void
+    height (client_t *self);
+static void
+    getinfo (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -351,14 +361,20 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_RANDOM_OUTS:
             return random_outs_event;
             break;
+        case WAP_PROTO_GET_HEIGHT:
+            return get_height_event;
+            break;
         case WAP_PROTO_GET:
             return get_event;
             break;
-        case WAP_PROTO_SAVE:
-            return save_event;
+        case WAP_PROTO_SAVE_BC:
+            return save_bc_event;
             break;
         case WAP_PROTO_START:
             return start_event;
+            break;
+        case WAP_PROTO_GET_INFO:
+            return get_info_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -632,13 +648,19 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == save_event) {
+                if (self->event == save_bc_event) {
                     if (!self->exception) {
-                        //  send SAVE_OK
+                        //  save bc
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send SAVE_OK",
+                            zsys_debug ("%s:         $ save bc", self->log_prefix);
+                        save_bc (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SAVE_BC_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send SAVE_BC_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_SAVE_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SAVE_BC_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }
@@ -711,6 +733,42 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send RANDOM_OUTS_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_RANDOM_OUTS_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_height_event) {
+                    if (!self->exception) {
+                        //  height
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ height", self->log_prefix);
+                        height (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_HEIGHT_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_HEIGHT_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_HEIGHT_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_info_event) {
+                    if (!self->exception) {
+                        //  getinfo
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ getinfo", self->log_prefix);
+                        getinfo (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_INFO_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_INFO_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_INFO_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

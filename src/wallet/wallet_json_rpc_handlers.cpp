@@ -39,7 +39,7 @@ namespace
   void construct_response_string(struct ns_rpc_request *req, rapidjson::Value &result_json,
     rapidjson::Document &response_json, std::string &response)
   {
-    response_json.SetObject();
+    /*response_json.SetObject();
     rapidjson::Value string_value(rapidjson::kStringType);
     // If ID was present in request use it else use "null".
     if (req->id != NULL)
@@ -58,7 +58,7 @@ namespace
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     response_json.Accept(writer);
     // Write string to `response`.
-    response = buffer.GetString();
+    response = buffer.GetString();*/
   }
 
   /*!
@@ -70,7 +70,7 @@ namespace
    */
   int getbalance(char *buf, int len, struct ns_rpc_request *req)
   {
-    uint64_t balance, unlocked_balance;
+    /*uint64_t balance, unlocked_balance;
     try
     {
       balance = wallet->balance();
@@ -91,7 +91,7 @@ namespace
     construct_response_string(req, result_json, response_json, response);
     size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
     strncpy(buf, response.c_str(), copy_length);
-    return response.length();
+    return response.length();*/
   }
 
   /*!
@@ -103,7 +103,7 @@ namespace
    */
   int getaddress(char *buf, int len, struct ns_rpc_request *req)
   {
-    std::string address;
+    /*std::string address;
     try
     {
       address = wallet->get_account().get_public_address_str(wallet->testnet());
@@ -124,7 +124,7 @@ namespace
     construct_response_string(req, result_json, response_json, response);
     size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
     strncpy(buf, response.c_str(), copy_length);
-    return response.length();
+    return response.length();*/
   }
 
   // Contains a list of method names.
