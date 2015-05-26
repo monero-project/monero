@@ -1194,6 +1194,10 @@ namespace nodetool
       std::string port_=port;
       peerid_type pr_ = pr;
       auto cb_ = cb;*/
+
+      // GCC 5.1.0 gives error with second use of uint64_t (peerid_type) variable.
+      peerid_type pr_ = pr;
+
       bool inv_call_res = epee::net_utils::async_invoke_remote_command2<COMMAND_PING::response>(ping_context.m_connection_id, COMMAND_PING::ID, req, m_net_server.get_config_object(),
         [=](int code, const COMMAND_PING::response& rsp, p2p_connection_context& context)
       {
@@ -1205,7 +1209,7 @@ namespace nodetool
 
         if(rsp.status != PING_OK_RESPONSE_STATUS_TEXT || pr != rsp.peer_id)
         {
-          LOG_PRINT_CC_L2(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << ip << ":" << port << ", hsh_peer_id=" << pr << ", rsp.peer_id=" << rsp.peer_id);
+          LOG_PRINT_CC_L2(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << ip << ":" << port << ", hsh_peer_id=" << pr_ << ", rsp.peer_id=" << rsp.peer_id);
           return;
         }
         m_net_server.get_config_object().close(ping_context.m_connection_id);
