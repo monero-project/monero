@@ -284,15 +284,16 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
+    std::set<std::string> full_addrs;
     bool testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
 
     if (testnet)
     {
       memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
-      append_net_address(m_seed_nodes, "197.242.158.240:28080");
-      append_net_address(m_seed_nodes, "107.152.130.98:28080");
-      append_net_address(m_seed_nodes, "5.9.25.103:28080");
-      append_net_address(m_seed_nodes, "5.9.55.70:28080");
+      full_addrs.insert("197.242.158.240:28080");
+      full_addrs.insert("107.152.130.98:28080");
+      full_addrs.insert("5.9.25.103:28080");
+      full_addrs.insert("5.9.55.70:28080");
     }
     else
     {
@@ -360,41 +361,45 @@ namespace nodetool
         if (result.size())
         {
           for (const auto& addr_string : result)
-          {
-            append_net_address(m_seed_nodes, addr_string + ":18080");
-          }
+            full_addrs.insert(addr_string + ":18080");
         }
         ++i;
       }
 
-      if (!m_seed_nodes.size())
+      if (!full_addrs.size())
       {
         LOG_PRINT_L0("DNS seed node lookup either timed out or failed, falling back to defaults");
-        append_net_address(m_seed_nodes, "46.165.232.77:18080");
-        append_net_address(m_seed_nodes, "63.141.254.186:18080");
-        append_net_address(m_seed_nodes, ":18080");
-        append_net_address(m_seed_nodes, "119.81.118.164:18080");
-        append_net_address(m_seed_nodes, "60.191.33.112:18080");
-        append_net_address(m_seed_nodes, "198.74.231.92:18080");
-        append_net_address(m_seed_nodes, "5.9.55.70:18080");
-        append_net_address(m_seed_nodes, "119.81.118.165:18080");
-        append_net_address(m_seed_nodes, "202.112.0.100:18080");
-        append_net_address(m_seed_nodes, "84.106.163.174:18080");
-        append_net_address(m_seed_nodes, "178.206.94.87:18080");
-        append_net_address(m_seed_nodes, "119.81.118.163:18080");
-        append_net_address(m_seed_nodes, "95.37.217.253:18080");
-        append_net_address(m_seed_nodes, "161.67.132.39:18080");
-        append_net_address(m_seed_nodes, "119.81.48.114:18080");
-        append_net_address(m_seed_nodes, "119.81.118.166:18080");
-        append_net_address(m_seed_nodes, "93.120.240.209:18080");
-        append_net_address(m_seed_nodes, "46.183.145.69:18080");
-        append_net_address(m_seed_nodes, "108.170.123.66:18080");
-        append_net_address(m_seed_nodes, "5.9.83.204:18080");
-        append_net_address(m_seed_nodes, "104.130.19.193:18080");
-        append_net_address(m_seed_nodes, "119.81.48.115:18080");
-        append_net_address(m_seed_nodes, "80.71.13.36:18080");
+        full_addrs.insert("46.165.232.77:18080");
+        full_addrs.insert("63.141.254.186:18080");
+        full_addrs.insert("119.81.118.164:18080");
+        full_addrs.insert("60.191.33.112:18080");
+        full_addrs.insert("198.74.231.92:18080");
+        full_addrs.insert("5.9.55.70:18080");
+        full_addrs.insert("119.81.118.165:18080");
+        full_addrs.insert("202.112.0.100:18080");
+        full_addrs.insert("84.106.163.174:18080");
+        full_addrs.insert("178.206.94.87:18080");
+        full_addrs.insert("119.81.118.163:18080");
+        full_addrs.insert("95.37.217.253:18080");
+        full_addrs.insert("161.67.132.39:18080");
+        full_addrs.insert("119.81.48.114:18080");
+        full_addrs.insert("119.81.118.166:18080");
+        full_addrs.insert("93.120.240.209:18080");
+        full_addrs.insert("46.183.145.69:18080");
+        full_addrs.insert("108.170.123.66:18080");
+        full_addrs.insert("5.9.83.204:18080");
+        full_addrs.insert("104.130.19.193:18080");
+        full_addrs.insert("119.81.48.115:18080");
+        full_addrs.insert("80.71.13.36:18080");
       }
     }
+
+    for (const auto& full_addr : full_addrs)
+    {
+      LOG_PRINT_L2("Seed node: " << full_addr);
+      append_net_address(m_seed_nodes, full_addr);
+    }
+    LOG_PRINT_L1("Number of seed nodes: " << m_seed_nodes.size());
 
     bool res = handle_command_line(vm, testnet);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
