@@ -148,20 +148,149 @@ inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi
 
 namespace cryptonote
 {
+std::atomic<uint64_t> mdb_txn_safe::num_active_txns{0};
+std::atomic_flag mdb_txn_safe::creation_gate = ATOMIC_FLAG_INIT;
 
-// If m_batch_active is set, a batch transaction exists beyond this class, such
-// as a batch import with verification enabled, or possibly (later) a batch
-// network sync.
-//
-// For some of the lookup methods, such as get_block_timestamp(), tx_exists(),
-// and get_tx(), when m_batch_active is set, the lookup uses the batch
-// transaction. This isn't only because the transaction is available, but it's
-// necessary so that lookups include the database updates only present in the
-// current batch write.
-//
-// A regular network sync without batch writes is expected to open a new read
-// transaction, as those lookups are part of the validation done prior to the
-// write for block and tx data, so no write transaction is open at the time.
+mdb_txn_safe::mdb_txn_safe() : m_txn(NULL)
+{
+  while (creation_gate.test_and_set());
+  num_active_txns++;
+  creation_gate.clear();
+}
+
+mdb_txn_safe::~mdb_txn_safe()
+{
+  LOG_PRINT_L3("mdb_txn_safe: destructor");
+  if (m_txn != NULL)
+  {
+    if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
+    {
+      LOG_PRINT_L0("WARNING: mdb_txn_safe: m_txn is a batch txn and it's not NULL in destructor - calling mdb_txn_abort()");
+    }
+    else
+    {
+      // Example of when this occurs: a lookup fails, so a read-only txn is
+      // aborted through this destructor. However, successful read-only txns
+      // ideally should have been committed when done and not end up here.
+      //
+      // NOTE: not sure if this is ever reached for a non-batch write
+      // transaction, but it's probably not ideal if it did.
+      LOG_PRINT_L3("mdb_txn_safe: m_txn not NULL in destructor - calling mdb_txn_abort()");
+    }
+    mdb_txn_abort(m_txn);
+  }
+  num_active_txns--;
+}
+
+void mdb_txn_safe::commit(std::string message)
+{
+  if (message.size() == 0)
+  {
+    message = "Failed to commit a transaction to the db";
+  }
+
+  if (mdb_txn_commit(m_txn))
+  {
+    m_txn = NULL;
+    LOG_PRINT_L0(message);
+    throw DB_ERROR(message.c_str());
+  }
+  m_txn = NULL;
+}
+
+void mdb_txn_safe::abort()
+{
+  LOG_PRINT_L3("mdb_txn_safe: abort()");
+  if(m_txn != NULL)
+  {
+    mdb_txn_abort(m_txn);
+    m_txn = NULL;
+  }
+  else
+  {
+    LOG_PRINT_L0("WARNING: mdb_txn_safe: abort() called, but m_txn is NULL");
+  }
+}
+
+uint64_t mdb_txn_safe::num_active_tx()
+{
+  return num_active_txns;
+}
+
+void mdb_txn_safe::prevent_new_txns()
+{
+  while (creation_gate.test_and_set());
+}
+
+void mdb_txn_safe::wait_no_active_txns()
+{
+  while (num_active_txns > 0);
+}
+
+void mdb_txn_safe::allow_new_txns()
+{
+  creation_gate.clear();
+}
+
+
+
+void BlockchainLMDB::do_resize()
+{
+  MDB_envinfo mei;
+
+  mdb_env_info(m_env, &mei);
+
+  MDB_stat mst;
+
+  mdb_env_stat(m_env, &mst);
+
+  uint64_t new_mapsize = (double)mei.me_mapsize * RESIZE_FACTOR;
+
+  new_mapsize += (new_mapsize % mst.ms_psize);
+
+  mdb_txn_safe::prevent_new_txns();
+
+  if (m_write_txn != nullptr)
+  {
+    if (m_batch_active)
+    {
+      throw0(DB_ERROR("lmdb resizing not yet supported when batch transactions enabled!"));
+    }
+    else
+    {
+      throw0(DB_ERROR("attempting resize with write transaction in progress, this should not happen!"));
+    }
+  }
+
+  mdb_txn_safe::wait_no_active_txns();
+
+  mdb_env_set_mapsize(m_env, new_mapsize);
+
+  LOG_PRINT_L0("LMDB Mapsize increased."
+      << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB"
+      << ", New: " << new_mapsize / (1024 * 1024) << "MiB");
+
+  mdb_txn_safe::allow_new_txns();
+}
+
+bool BlockchainLMDB::need_resize()
+{
+  MDB_envinfo mei;
+
+  mdb_env_info(m_env, &mei);
+
+  MDB_stat mst;
+
+  mdb_env_stat(m_env, &mst);
+
+  uint64_t size_used = mst.ms_psize * mei.me_last_pgno;
+
+  if ((double)size_used / mei.me_mapsize  > 0.8)
+  {
+    return true;
+  }
+  return false;
+}
 
 void BlockchainLMDB::add_block( const block& blk
               , const size_t& block_size
@@ -631,6 +760,7 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
 
   m_batch_transactions = batch_transactions;
   m_write_txn = nullptr;
+  m_write_batch_txn = nullptr;
   m_batch_active = false;
   m_height = 0;
 }
@@ -672,7 +802,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   if (mdb_env_set_maxdbs(m_env, 20))
     throw0(DB_ERROR("Failed to set max number of dbs"));
 
-  size_t mapsize = 1LL << 34;
+  size_t mapsize = DEFAULT_MAPSIZE;
   if (auto result = mdb_env_set_mapsize(m_env, mapsize))
     throw0(DB_ERROR(std::string("Failed to set max memory map size: ").append(mdb_strerror(result)).c_str()));
   if (auto result = mdb_env_open(m_env, filename.c_str(), mdb_flags, 0644))
@@ -1660,16 +1790,21 @@ void BlockchainLMDB::batch_start()
     throw0(DB_ERROR("batch transactions not enabled"));
   if (m_batch_active)
     throw0(DB_ERROR("batch transaction already in progress"));
+  if (m_write_batch_txn != nullptr)
+    throw0(DB_ERROR("batch transaction already in progress"));
   if (m_write_txn)
     throw0(DB_ERROR("batch transaction attempted, but m_write_txn already in use"));
   check_open();
+
+  m_write_batch_txn = new mdb_txn_safe();
+
   // NOTE: need to make sure it's destroyed properly when done
-  if (mdb_txn_begin(m_env, NULL, 0, m_write_batch_txn))
+  if (mdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
   // indicates this transaction is for batch transactions, but not whether it's
   // active
-  m_write_batch_txn.m_batch_txn = true;
-  m_write_txn = &m_write_batch_txn;
+  m_write_batch_txn->m_batch_txn = true;
+  m_write_txn = m_write_batch_txn;
   m_batch_active = true;
   LOG_PRINT_L3("batch transaction: begin");
 }
@@ -1681,7 +1816,10 @@ void BlockchainLMDB::batch_commit()
     throw0(DB_ERROR("batch transactions not enabled"));
   if (! m_batch_active)
     throw0(DB_ERROR("batch transaction not in progress"));
+  if (m_write_batch_txn == nullptr)
+    throw0(DB_ERROR("batch transaction not in progress"));
   check_open();
+
   LOG_PRINT_L3("batch transaction: committing...");
   TIME_MEASURE_START(time1);
   m_write_txn->commit();
@@ -1689,11 +1827,8 @@ void BlockchainLMDB::batch_commit()
   time_commit1 += time1;
   LOG_PRINT_L3("batch transaction: committed");
 
-  if (mdb_txn_begin(m_env, NULL, 0, m_write_batch_txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
-  if (! m_write_batch_txn.m_batch_txn)
-    throw0(DB_ERROR("m_write_batch_txn not marked as a batch transaction"));
-  m_write_txn = &m_write_batch_txn;
+  m_write_txn = nullptr;
+  delete m_write_batch_txn;
 }
 
 void BlockchainLMDB::batch_stop()
@@ -1703,6 +1838,8 @@ void BlockchainLMDB::batch_stop()
     throw0(DB_ERROR("batch transactions not enabled"));
   if (! m_batch_active)
     throw0(DB_ERROR("batch transaction not in progress"));
+  if (m_write_batch_txn == nullptr)
+    throw0(DB_ERROR("batch transaction not in progress"));
   check_open();
   LOG_PRINT_L3("batch transaction: committing...");
   TIME_MEASURE_START(time1);
@@ -1711,6 +1848,8 @@ void BlockchainLMDB::batch_stop()
   time_commit1 += time1;
   // for destruction of batch transaction
   m_write_txn = nullptr;
+  delete m_write_batch_txn;
+  m_write_batch_txn = nullptr;
   m_batch_active = false;
   LOG_PRINT_L3("batch transaction: end");
 }
@@ -1726,8 +1865,9 @@ void BlockchainLMDB::batch_abort()
   // for destruction of batch transaction
   m_write_txn = nullptr;
   // explicitly call in case mdb_env_close() (BlockchainLMDB::close()) called before BlockchainLMDB destructor called.
-  m_write_batch_txn.abort();
+  m_write_batch_txn->abort();
   m_batch_active = false;
+  m_write_batch_txn = nullptr;
   LOG_PRINT_L3("batch transaction: aborted");
 }
 
@@ -1747,6 +1887,15 @@ uint64_t BlockchainLMDB::add_block( const block& blk
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
+
+  if (m_height % 1000 == 0)
+  {
+    if (need_resize())
+    {
+      LOG_PRINT_L0("LMDB memory map needs resized, doing that now.");
+      do_resize();
+    }
+  }
 
   mdb_txn_safe txn;
   if (! m_batch_active)
