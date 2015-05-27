@@ -330,7 +330,7 @@ public:
   virtual void open(const std::string& filename, const int db_flags = 0) = 0;
 
   // returns true of the db is open/ready, else false
-  bool is_open();
+  bool is_open() const;
 
   // close and sync the db
   virtual void close() = 0;

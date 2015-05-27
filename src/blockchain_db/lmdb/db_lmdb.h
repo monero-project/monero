@@ -59,7 +59,7 @@ struct mdb_txn_safe
     return &m_txn;
   }
 
-  uint64_t num_active_tx();
+  uint64_t num_active_tx() const;
 
   static void prevent_new_txns();
   static void wait_no_active_txns();
@@ -201,7 +201,7 @@ public:
 private:
   void do_resize();
 
-  bool need_resize();
+  bool need_resize() const;
 
   virtual void add_block( const block& blk
                 , const size_t& block_size
@@ -236,7 +236,7 @@ private:
    *
    * @return the resultant blob
    */
-  blobdata output_to_blob(const tx_out& output);
+  blobdata output_to_blob(const tx_out& output) const;
 
   /**
    * @brief convert a tx output blob to a tx output

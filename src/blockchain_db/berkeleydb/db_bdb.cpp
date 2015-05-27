@@ -502,7 +502,7 @@ void BlockchainBDB::remove_spent_key(const crypto::key_image& k_image)
       throw1(DB_ERROR("Error adding removal of key image to db transaction"));
 }
 
-blobdata BlockchainBDB::output_to_blob(const tx_out& output)
+blobdata BlockchainBDB::output_to_blob(const tx_out& output) const
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   blobdata b;
