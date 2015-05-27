@@ -157,8 +157,9 @@ namespace tools
     /*!
      * \brief verifies given password is correct for default wallet keys file
      */
-    bool verify_password(const std::string& password);
+    bool verify_password(const std::string& password) const;
     cryptonote::account_base& get_account(){return m_account;}
+    const cryptonote::account_base& get_account()const{return m_account;}
 
     // upper_transaction_size_limit as defined below is set to 
     // approximately 125% of the fixed minimum allowable penalty
@@ -176,12 +177,12 @@ namespace tools
     /*!
      * \brief Checks if deterministic wallet
      */
-    bool is_deterministic();
-    bool get_seed(std::string& electrum_words);
+    bool is_deterministic() const;
+    bool get_seed(std::string& electrum_words) const;
     /*!
      * \brief Gets the seed language
      */
-    const std::string get_seed_language();
+    const std::string &get_seed_language() const;
     /*!
      * \brief Sets the seed language
      */
@@ -195,11 +196,11 @@ namespace tools
     void refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money);
     bool refresh(size_t & blocks_fetched, bool& received_money, bool& ok);
 
-    bool testnet() { return m_testnet; }
+    bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
 
-    uint64_t balance();
-    uint64_t unlocked_balance();
+    uint64_t balance() const;
+    uint64_t unlocked_balance() const;
     template<typename T>
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy);
     template<typename T>
@@ -267,7 +268,7 @@ namespace tools
     void process_new_transaction(const cryptonote::transaction& tx, uint64_t height);
     void process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
-    void get_short_chain_history(std::list<crypto::hash>& ids);
+    void get_short_chain_history(std::list<crypto::hash>& ids) const;
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
@@ -277,7 +278,7 @@ namespace tools
     void process_unconfirmed(const cryptonote::transaction& tx);
     void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
-    void check_genesis(const crypto::hash& genesis_hash); //throws
+    void check_genesis(const crypto::hash& genesis_hash) const; //throws
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
