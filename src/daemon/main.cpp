@@ -155,6 +155,12 @@ int main(int argc, char const * argv[])
 
     auto data_dir_arg = testnet_mode ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
 
+    // data_dir
+    //   default: e.g. ~/.bitmonero/ or ~/.bitmonero/testnet
+    //   if data-dir argument given:
+    //     absolute path
+    //     relative path: relative to cwd
+
     // Create data dir if it doesn't exist
     boost::filesystem::path data_dir = boost::filesystem::absolute(
         command_line::get_arg(vm, data_dir_arg));
@@ -238,9 +244,18 @@ int main(int argc, char const * argv[])
       }
     }
 
+    // log_file_path
+    //   default: <data_dir>/<CRYPTONOTE_NAME>.log
+    //   if log-file argument given:
+    //     absolute path
+    //     relative path: relative to data_dir
+
     // Set log file
     {
-      bf::path log_file_path{bf::absolute(command_line::get_arg(vm, daemon_args::arg_log_file), relative_path_base)};
+      bf::path log_file_path {data_dir / std::string(CRYPTONOTE_NAME ".log")};
+      if (! vm["log-file"].defaulted())
+        log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
+      log_file_path = bf::absolute(log_file_path, relative_path_base);
 
       epee::log_space::log_singletone::add_logger(
           LOGGER_FILE
