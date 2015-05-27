@@ -203,14 +203,16 @@ std::string simple_wallet::get_commands_str()
 
 bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  success_msg_writer() << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << std::endl;
+  // don't log
+  std::cout << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << std::endl;
 
   return true;
 }
 
 bool simple_wallet::spendkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  success_msg_writer() << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key) << std::endl;
+  // don't log
+  std::cout << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key) << std::endl;
 
   return true;
 }
@@ -423,6 +425,7 @@ void simple_wallet::print_seed(std::string seed)
     "your email or on file storage services outside of your immediate control.\n";
   boost::replace_nth(seed, " ", 15, "\n");
   boost::replace_nth(seed, " ", 7, "\n");
+  // don't log
   std::cout << seed << std::endl;
 }
 
@@ -624,8 +627,8 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   {
     recovery_val = m_wallet->generate(wallet_file, password, recovery_key, recover, two_random);
     message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: "
-      << m_wallet->get_account().get_public_address_str(m_wallet->testnet()) << std::endl << "view key: "
-      << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+    std::cout << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
   }
   catch (const std::exception& e)
   {
