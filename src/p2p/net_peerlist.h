@@ -204,7 +204,7 @@ namespace nodetool
     return true;
   }
   //--------------------------------------------------------------------------------------------------
-  inline void peerlist_manager::trim_white_peerlist()
+  inline void peerlist_manager::trim_gray_peerlist()
   {
     while(m_peers_gray.size() > P2P_LOCAL_GRAY_PEERLIST_LIMIT)
     {
@@ -213,7 +213,7 @@ namespace nodetool
     }
   }
   //--------------------------------------------------------------------------------------------------
-  inline void peerlist_manager::trim_gray_peerlist()
+  inline void peerlist_manager::trim_white_peerlist()
   {
     while(m_peers_white.size() > P2P_LOCAL_WHITE_PEERLIST_LIMIT)
     {
