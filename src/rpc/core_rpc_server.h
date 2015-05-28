@@ -67,6 +67,7 @@ namespace cryptonote
     bool init(
         const boost::program_options::variables_map& vm
       );
+    bool is_testnet() const { return m_testnet; }
 
     CHAIN_HTTP_TO_MAP2(connection_context); //forward http requests to uri map
 
