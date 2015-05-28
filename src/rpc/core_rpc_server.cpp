@@ -349,10 +349,10 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res)
   {
-    /*
     std::list<nodetool::peerlist_entry> white_list;
     std::list<nodetool::peerlist_entry> gray_list;
-    m_p2p.get_peerlist(white_list, gray_list);
+    m_p2p.get_peerlist_manager().get_peerlist_full(white_list, gray_list);
+
 
     for (auto & entry : white_list)
     {
@@ -364,7 +364,6 @@ namespace cryptonote
       res.gray_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
     }
 
-    */
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
