@@ -621,11 +621,10 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   return true;
 }
 
-// TODO: update this for testnet
 bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads) {
   cryptonote::COMMAND_RPC_START_MINING::request req;
   cryptonote::COMMAND_RPC_START_MINING::response res;
-  req.miner_address = cryptonote::get_account_address_as_str(false, address);
+  req.miner_address = cryptonote::get_account_address_as_str(m_rpc_server->is_testnet(), address);
   req.threads_count = num_threads;
 
   std::string fail_message = "Mining did not start";
