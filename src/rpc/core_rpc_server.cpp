@@ -291,6 +291,7 @@ namespace cryptonote
     if(!get_account_address_from_str(adr, m_testnet, req.miner_address))
     {
       res.status = "Failed, wrong address";
+      LOG_PRINT_L0(res.status);
       return true;
     }
 
@@ -300,6 +301,7 @@ namespace cryptonote
     if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs))
     {
       res.status = "Failed, mining not started";
+      LOG_PRINT_L0(res.status);
       return true;
     }
     res.status = CORE_RPC_STATUS_OK;
@@ -311,6 +313,7 @@ namespace cryptonote
     if(!m_core.get_miner().stop())
     {
       res.status = "Failed, mining not stopped";
+      LOG_PRINT_L0(res.status);
       return true;
     }
     res.status = CORE_RPC_STATUS_OK;
