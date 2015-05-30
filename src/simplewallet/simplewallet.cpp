@@ -295,6 +295,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), "payments <payment_id_1> [<payment_id_2> ... <payment_id_N>] - Show payments <payment_id_1>, ... <payment_id_N>");
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), "Show blockchain height");
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), "transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of transactions yours is indistinguishable from (from 0 to maximum available)");
+  m_cmd_binder.set_handler("sweep_dust", boost::bind(&simple_wallet::sweep_dust, this, _1), "Send all dust outputs to the same address with mixin 0");
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
@@ -942,7 +943,8 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_balance(const std::vector<std::string>& args/* = std::vector<std::string>()*/)
 {
-  success_msg_writer() << "balance: " << print_money(m_wallet->balance()) << ", unlocked balance: " << print_money(m_wallet->unlocked_balance());
+  success_msg_writer() << "balance: " << print_money(m_wallet->balance()) << ", unlocked balance: " << print_money(m_wallet->unlocked_balance()) 
+    << ", including unlocked dust: " << print_money(m_wallet->unlocked_dust_balance(tools::tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD)));
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1219,6 +1221,131 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
           // and I don't know what returning false might adversely affect.  *sigh*
           return true; 
         }
+    }
+
+    // actually commit the transactions
+    while (!ptx_vector.empty())
+    {
+      auto & ptx = ptx_vector.back();
+      m_wallet->commit_tx(ptx);
+      success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(ptx.tx);
+
+      // if no exception, remove element from vector
+      ptx_vector.pop_back();
+    }
+  }
+  catch (const tools::error::daemon_busy&)
+  {
+    fail_msg_writer() << "daemon is busy. Please try later";
+  }
+  catch (const tools::error::no_connection_to_daemon&)
+  {
+    fail_msg_writer() << "no connection to daemon. Please, make sure daemon is running.";
+  }
+  catch (const tools::error::wallet_rpc_error& e)
+  {
+    LOG_ERROR("Unknown RPC error: " << e.to_string());
+    fail_msg_writer() << "RPC error \"" << e.what() << '"';
+  }
+  catch (const tools::error::get_random_outs_error&)
+  {
+    fail_msg_writer() << "failed to get random outputs to mix";
+  }
+  catch (const tools::error::not_enough_money& e)
+  {
+    fail_msg_writer() << "not enough money to transfer, available only " << print_money(e.available()) <<
+      ", transaction amount " << print_money(e.tx_amount() + e.fee()) << " = " << print_money(e.tx_amount()) <<
+      " + " << print_money(e.fee()) << " (fee)";
+  }
+  catch (const tools::error::not_enough_outs_to_mix& e)
+  {
+    auto writer = fail_msg_writer();
+    writer << "not enough outputs for specified mixin_count = " << e.mixin_count() << ":";
+    for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs())
+    {
+      writer << "\noutput amount = " << print_money(outs_for_amount.amount) << ", fount outputs to mix = " << outs_for_amount.outs.size();
+    }
+  }
+  catch (const tools::error::tx_not_constructed&)
+  {
+    fail_msg_writer() << "transaction was not constructed";
+  }
+  catch (const tools::error::tx_rejected& e)
+  {
+    fail_msg_writer() << "transaction " << get_transaction_hash(e.tx()) << " was rejected by daemon with status \"" << e.status() << '"';
+  }
+  catch (const tools::error::tx_sum_overflow& e)
+  {
+    fail_msg_writer() << e.what();
+  }
+  catch (const tools::error::zero_destination&)
+  {
+    fail_msg_writer() << "one of destinations is zero";
+  }
+  catch (const tools::error::tx_too_big& e)
+  {
+    fail_msg_writer() << "Failed to find a suitable way to split transactions";
+  }
+  catch (const tools::error::transfer_error& e)
+  {
+    LOG_ERROR("unknown transfer error: " << e.to_string());
+    fail_msg_writer() << "unknown transfer error: " << e.what();
+  }
+  catch (const tools::error::wallet_internal_error& e)
+  {
+    LOG_ERROR("internal error: " << e.to_string());
+    fail_msg_writer() << "internal error: " << e.what();
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("unexpected error: " << e.what());
+    fail_msg_writer() << "unexpected error: " << e.what();
+  }
+  catch (...)
+  {
+    LOG_ERROR("Unknown error");
+    fail_msg_writer() << "unknown error";
+  }
+
+  return true;
+}
+
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
+{
+  if (!try_connect_to_daemon())
+    return true;
+
+  try
+  {
+    uint64_t total_dust = m_wallet->unlocked_dust_balance(tools::tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD));
+
+    // figure out what tx will be necessary
+    auto ptx_vector = m_wallet->create_dust_sweep_transactions();
+
+    // give user total and fee, and prompt to confirm
+    uint64_t total_fee = 0;
+    for (size_t n = 0; n < ptx_vector.size(); ++n)
+    {
+      total_fee += ptx_vector[n].fee;
+    }
+
+    std::string prompt_str = "Sweeping " + print_money(total_dust);
+    if (ptx_vector.size() > 1) {
+      prompt_str += " in ";
+      prompt_str += std::to_string(ptx_vector.size());
+      prompt_str += " transactions";
+    }
+    prompt_str += " for a total fee of " + print_money(total_fee);
+    prompt_str += ".  Is this okay?  (Y/Yes/N/No)";
+    std::string accepted = command_line::input_line(prompt_str);
+    if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+    {
+      fail_msg_writer() << "Transaction cancelled.";
+
+      // would like to return false, because no tx made, but everything else returns true
+      // and I don't know what returning false might adversely affect.  *sigh*
+      return true;
     }
 
     // actually commit the transactions
