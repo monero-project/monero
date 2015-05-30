@@ -129,7 +129,7 @@ void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
   }
 }
 
-bool BlockchainDB::is_open()
+bool BlockchainDB::is_open() const
 {
   return m_open;
 }

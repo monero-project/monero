@@ -212,7 +212,7 @@ void mdb_txn_safe::abort()
   }
 }
 
-uint64_t mdb_txn_safe::num_active_tx()
+uint64_t mdb_txn_safe::num_active_tx() const
 {
   return num_active_txns;
 }
@@ -273,7 +273,7 @@ void BlockchainLMDB::do_resize()
   mdb_txn_safe::allow_new_txns();
 }
 
-bool BlockchainLMDB::need_resize()
+bool BlockchainLMDB::need_resize() const
 {
   MDB_envinfo mei;
 
@@ -668,7 +668,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
       throw1(DB_ERROR("Error adding removal of key image to db transaction"));
 }
 
-blobdata BlockchainLMDB::output_to_blob(const tx_out& output)
+blobdata BlockchainLMDB::output_to_blob(const tx_out& output) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   blobdata b;

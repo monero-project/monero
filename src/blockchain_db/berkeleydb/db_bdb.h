@@ -232,7 +232,7 @@ private:
    *
    * @return the resultant blob
    */
-  blobdata output_to_blob(const tx_out& output);
+  blobdata output_to_blob(const tx_out& output) const;
 
   /**
    * @brief convert a tx output blob to a tx output

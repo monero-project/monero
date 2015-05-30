@@ -89,7 +89,7 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
   m_daemon_address = daemon_address;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::is_deterministic()
+bool wallet2::is_deterministic() const
 {
   crypto::secret_key second;
   keccak((uint8_t *)&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
@@ -98,7 +98,7 @@ bool wallet2::is_deterministic()
   return keys_deterministic;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::get_seed(std::string& electrum_words)
+bool wallet2::get_seed(std::string& electrum_words) const
 {
   bool keys_deterministic = is_deterministic();
   if (!keys_deterministic)
@@ -119,7 +119,7 @@ bool wallet2::get_seed(std::string& electrum_words)
 /*!
  * \brief Gets the seed language
  */
-const std::string wallet2::get_seed_language()
+const std::string &wallet2::get_seed_language() const
 {
   return seed_language;
 }
@@ -287,7 +287,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonot
     m_callback->on_new_block(height, b);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_short_chain_history(std::list<crypto::hash>& ids)
+void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
 {
   size_t i = 0;
   size_t current_multiplier = 1;
@@ -580,7 +580,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const std::string& password)
+bool wallet2::verify_password(const std::string& password) const
 {
   const std::string keys_file_name = m_keys_file;
   wallet2::keys_file_data keys_file_data;
@@ -765,7 +765,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   m_local_bc_height = m_blockchain.size();
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::check_genesis(const crypto::hash& genesis_hash) {
+void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
   std::string what("Genesis block missmatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
 
   THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
@@ -777,17 +777,17 @@ void wallet2::store()
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::unlocked_balance()
+uint64_t wallet2::unlocked_balance() const
 {
   uint64_t amount = 0;
-  BOOST_FOREACH(transfer_details& td, m_transfers)
+  BOOST_FOREACH(const transfer_details& td, m_transfers)
     if(!td.m_spent && is_transfer_unlocked(td))
       amount += td.amount();
 
   return amount;
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::balance()
+uint64_t wallet2::balance() const
 {
   uint64_t amount = 0;
   BOOST_FOREACH(auto& td, m_transfers)
