@@ -822,10 +822,28 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
     throw0(DB_ERROR("Failed to set max number of dbs"));
 
   size_t mapsize = DEFAULT_MAPSIZE;
-  if (auto result = mdb_env_set_mapsize(m_env, mapsize))
-    throw0(DB_ERROR(std::string("Failed to set max memory map size: ").append(mdb_strerror(result)).c_str()));
+
   if (auto result = mdb_env_open(m_env, filename.c_str(), mdb_flags, 0644))
     throw0(DB_ERROR(std::string("Failed to open lmdb environment: ").append(mdb_strerror(result)).c_str()));
+
+  MDB_envinfo mei;
+  mdb_env_info(m_env, &mei);
+  uint64_t cur_mapsize = (double)mei.me_mapsize;
+
+  if (cur_mapsize < mapsize)
+  {
+    if (auto result = mdb_env_set_mapsize(m_env, mapsize))
+      throw0(DB_ERROR(std::string("Failed to set max memory map size: ").append(mdb_strerror(result)).c_str()));
+    mdb_env_info(m_env, &mei);
+    cur_mapsize = (double)mei.me_mapsize;
+    LOG_PRINT_L1("LMDB memory map size: " << cur_mapsize);
+  }
+
+  if (need_resize())
+  {
+    LOG_PRINT_L0("LMDB memory map needs resized, doing that now.");
+    do_resize();
+  }
 
   int txn_flags = 0;
   if (mdb_flags & MDB_RDONLY)
