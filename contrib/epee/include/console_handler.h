@@ -58,6 +58,9 @@ namespace epee
       if (!start_read())
         return false;
 
+      if (state_eos == m_read_status)
+        return false;
+
       std::unique_lock<std::mutex> lock(m_response_mutex);
       while (state_init == m_read_status)
       {
@@ -71,10 +74,13 @@ namespace epee
         res = true;
       }
 
-      m_read_status = state_init;
+      if (!eos())
+        m_read_status = state_init;
 
       return res;
     }
+
+    bool eos() const { return m_read_status == state_eos; }
 
     void stop()
     {
@@ -167,7 +173,12 @@ namespace epee
         {
           read_ok = false;
         }
-
+        if (std::cin.eof()) {
+          m_read_status = state_eos;
+          m_response_cv.notify_one();
+          break;
+        }
+        else
         {
           std::unique_lock<std::mutex> lock(m_response_mutex);
           if (m_run.load(std::memory_order_relaxed))
@@ -189,7 +200,8 @@ namespace epee
       state_init,
       state_success,
       state_error,
-      state_cancelled
+      state_cancelled,
+      state_eos
     };
 
   private:
@@ -265,6 +277,10 @@ namespace epee
         if(!m_stdin_reader.get_line(command))
         {
           LOG_PRINT("Failed to read line.", LOG_LEVEL_0);
+        }
+        if (m_stdin_reader.eos())
+        {
+          break;
         }
         string_tools::trim(command);
 
