@@ -146,6 +146,24 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_SWEEP_DUST
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<std::string> tx_hash_list;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash_list)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_STORE
   {
     struct request
