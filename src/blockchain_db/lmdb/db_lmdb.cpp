@@ -189,11 +189,10 @@ void mdb_txn_safe::commit(std::string message)
     message = "Failed to commit a transaction to the db";
   }
 
-  if (mdb_txn_commit(m_txn))
+  if (auto result = mdb_txn_commit(m_txn))
   {
     m_txn = NULL;
-    LOG_PRINT_L0(message);
-    throw DB_ERROR(message.c_str());
+    throw0(DB_ERROR((message + ": ").append(mdb_strerror(result)).c_str()));
   }
   m_txn = NULL;
 }
@@ -285,7 +284,7 @@ bool BlockchainLMDB::need_resize() const
 
   uint64_t size_used = mst.ms_psize * mei.me_last_pgno;
 
-  if ((double)size_used / mei.me_mapsize  > 0.8)
+  if ((double)size_used / mei.me_mapsize  > RESIZE_PERCENT)
   {
     return true;
   }
@@ -322,34 +321,42 @@ void BlockchainLMDB::add_block( const block& blk
       throw0(BLOCK_PARENT_DNE("Top block is not new block's parent"));
   }
 
+  int result = 0;
+
   MDB_val_copy<uint64_t> key(m_height);
 
   MDB_val_copy<blobdata> blob(block_to_blob(blk));
-  auto res = mdb_put(*m_write_txn, m_blocks, &key, &blob, 0);
-  if (res)
-    throw0(DB_ERROR(std::string("Failed to add block blob to db transaction: ").append(mdb_strerror(res)).c_str()));
+  result = mdb_put(*m_write_txn, m_blocks, &key, &blob, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add block blob to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<size_t> sz(block_size);
-  if (mdb_put(*m_write_txn, m_block_sizes, &key, &sz, 0))
-    throw0(DB_ERROR("Failed to add block size to db transaction"));
+  result = mdb_put(*m_write_txn, m_block_sizes, &key, &sz, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add block size to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<uint64_t> ts(blk.timestamp);
-  if (mdb_put(*m_write_txn, m_block_timestamps, &key, &ts, 0))
-    throw0(DB_ERROR("Failed to add block timestamp to db transaction"));
+  result = mdb_put(*m_write_txn, m_block_timestamps, &key, &ts, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add block timestamp to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<difficulty_type> diff(cumulative_difficulty);
-  if (mdb_put(*m_write_txn, m_block_diffs, &key, &diff, 0))
-    throw0(DB_ERROR("Failed to add block cumulative difficulty to db transaction"));
+  result = mdb_put(*m_write_txn, m_block_diffs, &key, &diff, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add block cumulative difficulty to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<uint64_t> coinsgen(coins_generated);
-  if (mdb_put(*m_write_txn, m_block_coins, &key, &coinsgen, 0))
-    throw0(DB_ERROR("Failed to add block total generated coins to db transaction"));
+  result = mdb_put(*m_write_txn, m_block_coins, &key, &coinsgen, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add block total generated coins to db transaction: ").append(mdb_strerror(result)).c_str()));
 
-  if (mdb_put(*m_write_txn, m_block_heights, &val_h, &key, 0))
-    throw0(DB_ERROR("Failed to add block height by hash to db transaction"));
+  result = mdb_put(*m_write_txn, m_block_heights, &val_h, &key, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add block height by hash to db transaction: ").append(mdb_strerror(result)).c_str()));
 
-  if (mdb_put(*m_write_txn, m_block_hashes, &key, &val_h, 0))
-    throw0(DB_ERROR("Failed to add block hash to db transaction"));
+  result = mdb_put(*m_write_txn, m_block_hashes, &key, &val_h, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add block hash to db transaction: ").append(mdb_strerror(result)).c_str()));
 
 }
 
@@ -393,22 +400,27 @@ void BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, const tr
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  int result = 0;
+
   MDB_val_copy<crypto::hash> val_h(tx_hash);
   MDB_val unused;
   if (mdb_get(*m_write_txn, m_txs, &val_h, &unused) == 0)
       throw1(TX_EXISTS("Attempting to add transaction that's already in the db"));
 
   MDB_val_copy<blobdata> blob(tx_to_blob(tx));
-  if (mdb_put(*m_write_txn, m_txs, &val_h, &blob, 0))
-    throw0(DB_ERROR("Failed to add tx blob to db transaction"));
+  result = mdb_put(*m_write_txn, m_txs, &val_h, &blob, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add tx blob to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<uint64_t> height(m_height);
-  if (mdb_put(*m_write_txn, m_tx_heights, &val_h, &height, 0))
-    throw0(DB_ERROR("Failed to add tx block height to db transaction"));
+  result = mdb_put(*m_write_txn, m_tx_heights, &val_h, &height, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add tx block height to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<uint64_t> unlock_time(tx.unlock_time);
-  if (mdb_put(*m_write_txn, m_tx_unlocks, &val_h, &unlock_time, 0))
-    throw0(DB_ERROR("Failed to add tx unlock time to db transaction"));
+  result = mdb_put(*m_write_txn, m_tx_unlocks, &val_h, &unlock_time, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add tx unlock time to db transaction: ").append(mdb_strerror(result)).c_str()));
 }
 
 void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx)
@@ -440,27 +452,34 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  int result = 0;
+
   MDB_val_copy<uint64_t> k(m_num_outputs);
   MDB_val_copy<crypto::hash> v(tx_hash);
 
-  if (mdb_put(*m_write_txn, m_output_txs, &k, &v, 0))
-    throw0(DB_ERROR("Failed to add output tx hash to db transaction"));
-  if (mdb_put(*m_write_txn, m_tx_outputs, &v, &k, 0))
-    throw0(DB_ERROR("Failed to add tx output index to db transaction"));
+  result = mdb_put(*m_write_txn, m_output_txs, &k, &v, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add output tx hash to db transaction: ").append(mdb_strerror(result)).c_str()));
+  result = mdb_put(*m_write_txn, m_tx_outputs, &v, &k, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add <tx hash, global output index> to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<uint64_t> val_local_index(local_index);
-  if (mdb_put(*m_write_txn, m_output_indices, &k, &val_local_index, 0))
-    throw0(DB_ERROR("Failed to add tx output index to db transaction"));
+  result = mdb_put(*m_write_txn, m_output_indices, &k, &val_local_index, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add tx output index to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   MDB_val_copy<uint64_t> val_amount(tx_output.amount);
-  if (auto result = mdb_put(*m_write_txn, m_output_amounts, &val_amount, &k, 0))
-    throw0(DB_ERROR(std::string("Failed to add output amount to db transaction").append(mdb_strerror(result)).c_str()));
+  result = mdb_put(*m_write_txn, m_output_amounts, &val_amount, &k, 0);
+  if (result)
+    throw0(DB_ERROR(std::string("Failed to add output amount to db transaction: ").append(mdb_strerror(result)).c_str()));
 
   if (tx_output.target.type() == typeid(txout_to_key))
   {
     MDB_val_copy<crypto::public_key> val_pubkey(boost::get<txout_to_key>(tx_output.target).key);
-    if (mdb_put(*m_write_txn, m_output_keys, &k, &val_pubkey, 0))
-      throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
+    result = mdb_put(*m_write_txn, m_output_keys, &k, &val_pubkey, 0);
+    if (result)
+      throw0(DB_ERROR(std::string("Failed to add output pubkey to db transaction: ").append(mdb_strerror(result)).c_str()));
   }
 
 
@@ -803,10 +822,28 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
     throw0(DB_ERROR("Failed to set max number of dbs"));
 
   size_t mapsize = DEFAULT_MAPSIZE;
-  if (auto result = mdb_env_set_mapsize(m_env, mapsize))
-    throw0(DB_ERROR(std::string("Failed to set max memory map size: ").append(mdb_strerror(result)).c_str()));
+
   if (auto result = mdb_env_open(m_env, filename.c_str(), mdb_flags, 0644))
     throw0(DB_ERROR(std::string("Failed to open lmdb environment: ").append(mdb_strerror(result)).c_str()));
+
+  MDB_envinfo mei;
+  mdb_env_info(m_env, &mei);
+  uint64_t cur_mapsize = (double)mei.me_mapsize;
+
+  if (cur_mapsize < mapsize)
+  {
+    if (auto result = mdb_env_set_mapsize(m_env, mapsize))
+      throw0(DB_ERROR(std::string("Failed to set max memory map size: ").append(mdb_strerror(result)).c_str()));
+    mdb_env_info(m_env, &mei);
+    cur_mapsize = (double)mei.me_mapsize;
+    LOG_PRINT_L1("LMDB memory map size: " << cur_mapsize);
+  }
+
+  if (need_resize())
+  {
+    LOG_PRINT_L0("LMDB memory map needs resized, doing that now.");
+    do_resize();
+  }
 
   int txn_flags = 0;
   if (mdb_flags & MDB_RDONLY)
@@ -890,7 +927,7 @@ void BlockchainLMDB::sync()
   // MDB_NOMETASYNC. Force flush to be synchronous.
   if (auto result = mdb_env_sync(m_env, true))
   {
-    throw0(DB_ERROR(std::string("Failed to sync database").append(mdb_strerror(result)).c_str()));
+    throw0(DB_ERROR(std::string("Failed to sync database: ").append(mdb_strerror(result)).c_str()));
   }
 }
 
