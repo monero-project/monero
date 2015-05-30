@@ -64,6 +64,7 @@ using namespace epee;
 using namespace cryptonote;
 using boost::lexical_cast;
 namespace po = boost::program_options;
+namespace bf = boost::filesystem;
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
@@ -82,7 +83,8 @@ namespace
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", "Recover wallet using electrum-style mnemonic", false};
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", "creates non-deterministic view and spend keys", false};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of 8081", 0};
-  const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
+  const command_line::arg_descriptor<uint32_t> arg_log_level = {"log-level", "", LOG_LEVEL_0};
+  const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", "Specify log file", ""};
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", "Used to deploy test nets. The daemon must be launched with --testnet flag", false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", "Restricts RPC to view only commands", false};
 
@@ -203,14 +205,16 @@ std::string simple_wallet::get_commands_str()
 
 bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  success_msg_writer() << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << std::endl;
+  // don't log
+  std::cout << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << std::endl;
 
   return true;
 }
 
 bool simple_wallet::spendkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  success_msg_writer() << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key) << std::endl;
+  // don't log
+  std::cout << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key) << std::endl;
 
   return true;
 }
@@ -423,6 +427,7 @@ void simple_wallet::print_seed(std::string seed)
     "your email or on file storage services outside of your immediate control.\n";
   boost::replace_nth(seed, " ", 15, "\n");
   boost::replace_nth(seed, " ", 7, "\n");
+  // don't log
   std::cout << seed << std::endl;
 }
 
@@ -624,8 +629,8 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   {
     recovery_val = m_wallet->generate(wallet_file, password, recovery_key, recover, two_random);
     message_writer(epee::log_space::console_color_white, true) << "Generated new wallet: "
-      << m_wallet->get_account().get_public_address_str(m_wallet->testnet()) << std::endl << "view key: "
-      << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+    std::cout << "view key: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
   }
   catch (const std::exception& e)
   {
@@ -1349,6 +1354,12 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_daemon_port);
   command_line::add_arg(desc_params, arg_command);
   command_line::add_arg(desc_params, arg_log_level);
+
+  bf::path default_log {log_space::log_singletone::get_default_log_folder()};
+  default_log /= log_space::log_singletone::get_default_log_file();
+  std::cout << "default_log: " << default_log << ENDL;
+  command_line::add_arg(desc_params, arg_log_file, default_log.string());
+
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
   command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );
@@ -1388,20 +1399,32 @@ int main(int argc, char* argv[])
   if (!r)
     return 0;
 
-  //set up logging options
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
+  // log_file_path
+  //   default: <simplewallet_path>/simplewallet.log
+  //   if log-file argument given:
+  //     absolute path
+  //     relative path: relative to cwd
+
+  // Set log file
+  bf::path log_file_path {bf::absolute(command_line::get_arg(vm, arg_log_file))};
+
+  // Set up logging options
+  int log_level = LOG_LEVEL_2;
+  log_space::get_set_log_detalisation_level(true, log_level);
   //log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
   log_space::log_singletone::add_logger(LOGGER_FILE,
-    log_space::log_singletone::get_default_log_file().c_str(),
-    log_space::log_singletone::get_default_log_folder().c_str(), LOG_LEVEL_4);
+    log_file_path.filename().string().c_str(),
+    log_file_path.parent_path().string().c_str(),
+    LOG_LEVEL_4
+    );
 
   message_writer(epee::log_space::console_color_white, true) << CRYPTONOTE_NAME << " wallet v" << MONERO_VERSION_FULL;
 
   if(command_line::has_arg(vm, arg_log_level))
-  {
-    LOG_PRINT_L0("Setting log level = " << command_line::get_arg(vm, arg_log_level));
-    log_space::get_set_log_detalisation_level(true, command_line::get_arg(vm, arg_log_level));
-  }
+    log_level = command_line::get_arg(vm, arg_log_level);
+  LOG_PRINT_L0("Setting log level = " << log_level);
+  message_writer(epee::log_space::console_color_white, true) << "Logging at log level " << log_level << " to " << log_file_path.string();
+  log_space::get_set_log_detalisation_level(true, log_level);
 
   if(command_line::has_arg(vm, tools::wallet_rpc_server::arg_rpc_bind_port))
   {
