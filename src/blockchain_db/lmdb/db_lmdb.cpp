@@ -284,7 +284,7 @@ bool BlockchainLMDB::need_resize()
 
   uint64_t size_used = mst.ms_psize * mei.me_last_pgno;
 
-  if ((double)size_used / mei.me_mapsize  > 0.8)
+  if ((double)size_used / mei.me_mapsize  > RESIZE_PERCENT)
   {
     return true;
   }
