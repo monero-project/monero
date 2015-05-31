@@ -40,6 +40,7 @@
  */
 #include "config.h"
 #include "sldns/rrdef.h"
+#include "sldns/str2wire.h"
 #include "services/cache/infra.h"
 #include "util/storage/slabhash.h"
 #include "util/storage/lookup3.h"
@@ -56,6 +57,9 @@
  * even if another type has completely rtt maxed it, the different type
  * can do this number of packets (until those all timeout too) */
 #define TIMEOUT_COUNT_MAX 3
+
+/** ratelimit value for delegation point */
+int infra_dp_ratelimit = 0;
 
 size_t 
 infra_sizefunc(void* k, void* ATTR_UNUSED(d))
@@ -99,6 +103,114 @@ infra_deldatafunc(void* d, void* ATTR_UNUSED(arg))
 	free(data);
 }
 
+size_t 
+rate_sizefunc(void* k, void* ATTR_UNUSED(d))
+{
+	struct rate_key* key = (struct rate_key*)k;
+	return sizeof(*key) + sizeof(struct rate_data) + key->namelen
+		+ lock_get_mem(&key->entry.lock);
+}
+
+int 
+rate_compfunc(void* key1, void* key2)
+{
+	struct rate_key* k1 = (struct rate_key*)key1;
+	struct rate_key* k2 = (struct rate_key*)key2;
+	if(k1->namelen != k2->namelen) {
+		if(k1->namelen < k2->namelen)
+			return -1;
+		return 1;
+	}
+	return query_dname_compare(k1->name, k2->name);
+}
+
+void 
+rate_delkeyfunc(void* k, void* ATTR_UNUSED(arg))
+{
+	struct rate_key* key = (struct rate_key*)k;
+	if(!key)
+		return;
+	lock_rw_destroy(&key->entry.lock);
+	free(key->name);
+	free(key);
+}
+
+void 
+rate_deldatafunc(void* d, void* ATTR_UNUSED(arg))
+{
+	struct rate_data* data = (struct rate_data*)d;
+	free(data);
+}
+
+/** find or create element in domainlimit tree */
+static struct domain_limit_data* domain_limit_findcreate(
+	struct infra_cache* infra, char* name)
+{
+	uint8_t* nm;
+	int labs;
+	size_t nmlen;
+	struct domain_limit_data* d;
+
+	/* parse name */
+	nm = sldns_str2wire_dname(name, &nmlen);
+	if(!nm) {
+		log_err("could not parse %s", name);
+		return NULL;
+	}
+	labs = dname_count_labels(nm);
+
+	/* can we find it? */
+	d = (struct domain_limit_data*)name_tree_find(&infra->domain_limits,
+		nm, nmlen, labs, LDNS_RR_CLASS_IN);
+	if(d) {
+		free(nm);
+		return d;
+	}
+	
+	/* create it */
+	d = (struct domain_limit_data*)calloc(1, sizeof(*d));
+	if(!d) {
+		free(nm);
+		return NULL;
+	}
+	d->node.node.key = &d->node;
+	d->node.name = nm;
+	d->node.len = nmlen;
+	d->node.labs = labs;
+	d->node.dclass = LDNS_RR_CLASS_IN;
+	d->lim = -1;
+	d->below = -1;
+	if(!name_tree_insert(&infra->domain_limits, &d->node, nm, nmlen,
+		labs, LDNS_RR_CLASS_IN)) {
+		log_err("duplicate element in domainlimit tree");
+		free(nm);
+		free(d);
+		return NULL;
+	}
+	return d;
+}
+
+/** insert rate limit configuration into lookup tree */
+static int infra_ratelimit_cfg_insert(struct infra_cache* infra,
+	struct config_file* cfg)
+{
+	struct config_str2list* p;
+	struct domain_limit_data* d;
+	for(p = cfg->ratelimit_for_domain; p; p = p->next) {
+		d = domain_limit_findcreate(infra, p->str);
+		if(!d)
+			return 0;
+		d->lim = atoi(p->str2);
+	}
+	for(p = cfg->ratelimit_below_domain; p; p = p->next) {
+		d = domain_limit_findcreate(infra, p->str);
+		if(!d)
+			return 0;
+		d->below = atoi(p->str2);
+	}
+	return 1;
+}
+
 struct infra_cache* 
 infra_create(struct config_file* cfg)
 {
@@ -114,7 +226,34 @@ infra_create(struct config_file* cfg)
 		return NULL;
 	}
 	infra->host_ttl = cfg->host_ttl;
+	name_tree_init(&infra->domain_limits);
+	infra_dp_ratelimit = cfg->ratelimit;
+	if(cfg->ratelimit != 0) {
+		infra->domain_rates = slabhash_create(cfg->ratelimit_slabs,
+			INFRA_HOST_STARTSIZE, cfg->ratelimit_size,
+			&rate_sizefunc, &rate_compfunc, &rate_delkeyfunc,
+			&rate_deldatafunc, NULL);
+		if(!infra->domain_rates) {
+			infra_delete(infra);
+			return NULL;
+		}
+		/* insert config data into ratelimits */
+		if(!infra_ratelimit_cfg_insert(infra, cfg)) {
+			infra_delete(infra);
+			return NULL;
+		}
+		name_tree_init_parents(&infra->domain_limits);
+	}
 	return infra;
+}
+
+/** delete domain_limit entries */
+static void domain_limit_free(rbnode_t* n, void* ATTR_UNUSED(arg))
+{
+	if(n) {
+		free(((struct domain_limit_data*)n)->node.name);
+		free(n);
+	}
 }
 
 void 
@@ -123,6 +262,8 @@ infra_delete(struct infra_cache* infra)
 	if(!infra)
 		return;
 	slabhash_delete(infra->hosts);
+	slabhash_delete(infra->domain_rates);
+	traverse_postorder(&infra->domain_limits, domain_limit_free, NULL);
 	free(infra);
 }
 
@@ -562,8 +703,178 @@ infra_get_lame_rtt(struct infra_cache* infra,
 	return 1;
 }
 
+int infra_find_ratelimit(struct infra_cache* infra, uint8_t* name,
+	size_t namelen)
+{
+	int labs = dname_count_labels(name);
+	struct domain_limit_data* d = (struct domain_limit_data*)
+		name_tree_lookup(&infra->domain_limits, name, namelen, labs,
+		LDNS_RR_CLASS_IN);
+	if(!d) return infra_dp_ratelimit;
+
+	if(d->node.labs == labs && d->lim != -1)
+		return d->lim; /* exact match */
+
+	/* find 'below match' */
+	if(d->node.labs == labs)
+		d = (struct domain_limit_data*)d->node.parent;
+	while(d) {
+		if(d->below != -1)
+			return d->below;
+		d = (struct domain_limit_data*)d->node.parent;
+	}
+	return infra_dp_ratelimit;
+}
+
+/** find data item in array, for write access, caller unlocks */
+static struct lruhash_entry* infra_find_ratedata(struct infra_cache* infra,
+	uint8_t* name, size_t namelen, int wr)
+{
+	struct rate_key key;
+	hashvalue_t h = dname_query_hash(name, 0xab);
+	memset(&key, 0, sizeof(key));
+	key.name = name;
+	key.namelen = namelen;
+	key.entry.hash = h;
+	return slabhash_lookup(infra->domain_rates, h, &key, wr);
+}
+
+/** create rate data item for name, number 1 in now */
+static void infra_create_ratedata(struct infra_cache* infra,
+	uint8_t* name, size_t namelen, time_t timenow)
+{
+	hashvalue_t h = dname_query_hash(name, 0xab);
+	struct rate_key* k = (struct rate_key*)calloc(1, sizeof(*k));
+	struct rate_data* d = (struct rate_data*)calloc(1, sizeof(*d));
+	if(!k || !d) {
+		free(k);
+		free(d);
+		return; /* alloc failure */
+	}
+	k->namelen = namelen;
+	k->name = memdup(name, namelen);
+	if(!k->name) {
+		free(k);
+		free(d);
+		return; /* alloc failure */
+	}
+	lock_rw_init(&k->entry.lock);
+	k->entry.hash = h;
+	k->entry.key = k;
+	k->entry.data = d;
+	d->qps[0] = 1;
+	d->timestamp[0] = timenow;
+	slabhash_insert(infra->domain_rates, h, &k->entry, d, NULL);
+}
+
+/** find the second and return its rate counter, if none, remove oldest */
+static int* infra_rate_find_second(void* data, time_t t)
+{
+	struct rate_data* d = (struct rate_data*)data;
+	int i, oldest;
+	for(i=0; i<RATE_WINDOW; i++) {
+		if(d->timestamp[i] == t)
+			return &(d->qps[i]);
+	}
+	/* remove oldest timestamp, and insert it at t with 0 qps */
+	oldest = 0;
+	for(i=0; i<RATE_WINDOW; i++) {
+		if(d->timestamp[i] < d->timestamp[oldest])
+			oldest = i;
+	}
+	d->timestamp[oldest] = t;
+	d->qps[oldest] = 0;
+	return &(d->qps[oldest]);
+}
+
+int infra_rate_max(void* data, time_t now)
+{
+	struct rate_data* d = (struct rate_data*)data;
+	int i, max = 0;
+	for(i=0; i<RATE_WINDOW; i++) {
+		if(now-d->timestamp[i] <= RATE_WINDOW) {
+			if(d->qps[i] > max)
+				max = d->qps[i];
+		}
+	}
+	return max;
+}
+
+int infra_ratelimit_inc(struct infra_cache* infra, uint8_t* name,
+	size_t namelen, time_t timenow)
+{
+	int lim, max;
+	struct lruhash_entry* entry;
+
+	if(!infra_dp_ratelimit)
+		return 1; /* not enabled */
+
+	/* find ratelimit */
+	lim = infra_find_ratelimit(infra, name, namelen);
+	
+	/* find or insert ratedata */
+	entry = infra_find_ratedata(infra, name, namelen, 1);
+	if(entry) {
+		int premax = infra_rate_max(entry->data, timenow);
+		int* cur = infra_rate_find_second(entry->data, timenow);
+		(*cur)++;
+		max = infra_rate_max(entry->data, timenow);
+		lock_rw_unlock(&entry->lock);
+
+		if(premax < lim && max >= lim) {
+			char buf[257];
+			dname_str(name, buf);
+			verbose(VERB_OPS, "ratelimit exceeded %s %d", buf, lim);
+		}
+		return (max < lim);
+	}
+
+	/* create */
+	infra_create_ratedata(infra, name, namelen, timenow);
+	return (1 < lim);
+}
+
+void infra_ratelimit_dec(struct infra_cache* infra, uint8_t* name,
+	size_t namelen, time_t timenow)
+{
+	struct lruhash_entry* entry;
+	int* cur;
+	if(!infra_dp_ratelimit)
+		return; /* not enabled */
+	entry = infra_find_ratedata(infra, name, namelen, 1);
+	if(!entry) return; /* not cached */
+	cur = infra_rate_find_second(entry->data, timenow);
+	if((*cur) > 0)
+		(*cur)--;
+	lock_rw_unlock(&entry->lock);
+}
+
+int infra_ratelimit_exceeded(struct infra_cache* infra, uint8_t* name,
+	size_t namelen, time_t timenow)
+{
+	struct lruhash_entry* entry;
+	int lim, max;
+	if(!infra_dp_ratelimit)
+		return 0; /* not enabled */
+
+	/* find ratelimit */
+	lim = infra_find_ratelimit(infra, name, namelen);
+
+	/* find current rate */
+	entry = infra_find_ratedata(infra, name, namelen, 0);
+	if(!entry)
+		return 0; /* not cached */
+	max = infra_rate_max(entry->data, timenow);
+	lock_rw_unlock(&entry->lock);
+
+	return (max >= lim);
+}
+
 size_t 
 infra_get_mem(struct infra_cache* infra)
 {
-	return sizeof(*infra) + slabhash_get_mem(infra->hosts);
+	size_t s = sizeof(*infra) + slabhash_get_mem(infra->hosts);
+	if(infra->domain_rates) s += slabhash_get_mem(infra->domain_rates);
+	/* ignore domain_limits because walk through tree is big */
+	return s;
 }

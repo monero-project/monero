@@ -139,6 +139,9 @@ server:
 	# cache. Items are not cached for longer. In seconds.
 	# cache-max-ttl: 86400
 
+	# the time to live (TTL) value cap for negative responses in the cache
+	# cache-max-negative-ttl: 3600
+
 	# the time to live (TTL) value for cached roundtrip times, lameness and
 	# EDNS version information for hosts. In seconds.
 	# infra-host-ttl: 900
@@ -296,6 +299,10 @@ server:
 	# Use 0x20-encoded random bits in the query to foil spoof attempts.
 	# This feature is an experimental implementation of draft dns-0x20.
 	# use-caps-for-id: no
+	
+	# Domains (and domains in them) without support for dns-0x20 and
+	# the fallback fails because they keep sending different answers.
+	# caps-whitelist: "licdn.com"
 
 	# Enforce privacy of these addresses. Strips them away from answers. 
 	# It may cause DNSSEC validation to additionally mark it as bogus. 
@@ -358,7 +365,7 @@ server:
 
 	# File with DLV trusted keys. Same format as trust-anchor-file.
 	# There can be only one DLV configured, it is trusted from root down.
-	# Download http://ftp.isc.org/www/dlv/dlv.isc.org.key
+	# DLV is going to be decommissioned.  Please do not use it any more.
 	# dlv-anchor-file: "dlv.isc.org.key"
 
 	# File with trusted keys for validation. Specify more than one file
@@ -510,6 +517,7 @@ server:
 	# o nodefault can be used to normally resolve AS112 zones.
 	# o typetransparent resolves normally for other types and other names
 	# o inform resolves normally, but logs client IP address
+	# o inform_deny drops queries and logs client IP address
 	#
 	# defaults are localhost address, reverse for 127.0.0.1 and ::1
 	# and nxdomain for AS112 zones. If you configure one of these zones
@@ -550,6 +558,26 @@ server:
 	# DNS64 prefix. Must be specified when DNS64 is use.
 	# Enable dns64 in module-config.  Used to synthesize IPv6 from IPv4.
 	# dns64-prefix: 64:ff9b::0/96
+
+	# ratelimit for uncached, new queries, this limits recursion effort.
+	# ratelimiting is experimental, and may help against randomqueryflood.
+	# if 0(default) it is disabled, otherwise state qps allowed per zone.
+	# ratelimit: 0
+
+	# ratelimits are tracked in a cache, size in bytes of cache (or k,m).
+	# ratelimit-size: 4m
+	# ratelimit cache slabs, reduces lock contention if equal to cpucount.
+	# ratelimit-slabs: 4
+	
+	# 0 blocks when ratelimited, otherwise let 1/xth traffic through
+	# ratelimit-factor: 10
+
+	# override the ratelimit for a specific domain name.
+	# give this setting multiple times to have multiple overrides.
+	# ratelimit-for-domain: example.com 1000
+	# override the ratelimits for all domains below a domain name
+	# can give this multiple times, the name closest to the zone is used.
+	# ratelimit-below-domain: example 1000
 
 # Python config section. To enable:
 # o use --with-pythonmodule to configure before compiling.

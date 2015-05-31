@@ -75,25 +75,6 @@ section "Root anchor - DNSSEC" SectionRootKey
 	AddSize 2
 sectionEnd
 
-# the /o means it is not selected by default.
-section /o "DLV - dlv.isc.org" SectionDLV
-	# add estimated size for key (Kb)
-	AddSize 2
-	SetOutPath $INSTDIR
-
-	# libgcc exception lib used by NSISdl plugin (in crosscompile).
-	File /nonfatal "/oname=$PLUGINSDIR\libgcc_s_sjlj-1.dll" "/usr/i686-w64-mingw32/sys-root/mingw/bin/libgcc_s_sjlj-1.dll"
-
-	NSISdl::download "http://ftp.isc.org/www/dlv/dlv.isc.org.key" "$INSTDIR\dlv.isc.org.key"
-	Pop $R0 # result from Inetc::get
-	${If} $R0 != "success"
-		MessageBox MB_OK|MB_ICONEXCLAMATION "Download error (ftp.isc.org: $R0), click OK to abort installation" /SD IDOK
-		SetOutPath "C:\"
-		RMDir "$INSTDIR"  # doesnt work directory in use by us ...
-		Abort
-	${EndIf}
-sectionEnd
-
 section "-hidden.postinstall"
 	# copy files
 	setOutPath $INSTDIR
@@ -128,25 +109,10 @@ section "-hidden.postinstall"
 		WriteRegStr HKLM "Software\Unbound" "RootAnchor" ""
 	${EndIf}
 
-	# Store DLV choice
-	SectionGetFlags ${SectionDLV} $R0
-	IntOp $R0 $R0 & ${SF_SELECTED}
-	${If} $R0 == ${SF_SELECTED}
-		ClearErrors
-		FileOpen $R1 "$INSTDIR\service.conf" a
-		IfErrors done_dlv
-		FileSeek $R1 0 END
-		FileWrite $R1 "$\nserver: dlv-anchor-file: $\"$INSTDIR\dlv.isc.org.key$\"$\n"
-		FileClose $R1
-	  done_dlv:
-		WriteRegStr HKLM "Software\Unbound" "CronAction" "$\"$INSTDIR\anchor-update.exe$\" dlv.isc.org $\"$INSTDIR\dlv.isc.org.key$\""
-	${Else}
-		WriteRegStr HKLM "Software\Unbound" "CronAction" ""
-	${EndIf}
-
 	# store installation folder
 	WriteRegStr HKLM "Software\Unbound" "InstallLocation" "$INSTDIR"
 	WriteRegStr HKLM "Software\Unbound" "ConfigFile" "$INSTDIR\service.conf"
+	WriteRegStr HKLM "Software\Unbound" "CronAction" ""
 	WriteRegDWORD HKLM "Software\Unbound" "CronTime" 86400
 
 	# uninstaller
@@ -177,12 +143,10 @@ sectionEnd
 # set section descriptions
 LangString DESC_unbound ${LANG_ENGLISH} "The base unbound DNS(SEC) validating caching resolver. $\r$\n$\r$\nStarted at boot from the Services control panel, logs to the Application Log, and the config file is its Program Files folder."
 LangString DESC_rootkey ${LANG_ENGLISH} "Set up to use the DNSSEC root trust anchor. It is automatically updated. $\r$\n$\r$\nThis provides the main key that is used for security verification."
-LangString DESC_dlv ${LANG_ENGLISH} "Set up to use DLV with dlv.isc.org. Downloads the key during install. $\r$\n$\r$\nIt fetches additional public keys that are used for security verification by querying the isc.org server with names encountered."
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SectionUnbound} $(DESC_unbound)
   !insertmacro MUI_DESCRIPTION_TEXT ${SectionRootKey} $(DESC_rootkey)
-  !insertmacro MUI_DESCRIPTION_TEXT ${SectionDLV} $(DESC_dlv)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 # setup macros for uninstall functions.
@@ -214,7 +178,6 @@ section "un.Unbound"
 	Delete "$INSTDIR\unbound-website.url"
 	Delete "$INSTDIR\service.conf"
 	Delete "$INSTDIR\example.conf"
-	Delete "$INSTDIR\dlv.isc.org.key"
 	Delete "$INSTDIR\root.key"
 	RMDir "$INSTDIR"
 

@@ -29,15 +29,15 @@
    #include "iterator/iter_delegpt.h"
    #include "iterator/iter_hints.h"
    #include "iterator/iter_utils.h"
-   #include "ldns/wire2str.h"
-   #include "ldns/str2wire.h"
-   #include "ldns/pkthdr.h"
+   #include "sldns/wire2str.h"
+   #include "sldns/str2wire.h"
+   #include "sldns/pkthdr.h"
 %}
 
 %include "stdint.i" // uint_16_t can be known type now
 
 %inline %{
-   //converts [len][data][len][data][0] string to a List of labels (PyStrings)
+   //converts [len][data][len][data][0] string to a List of labels (PyBytes)
    PyObject* GetNameAsLabelList(const char* name, int len) {
      PyObject* list;
      int cnt=0, i;
@@ -79,8 +79,8 @@ struct query_info {
 %inline %{
    enum enum_rr_class  { 
       RR_CLASS_IN = 1,
-      RR_CLASS_CH	= 3,
-      RR_CLASS_HS	= 4,
+      RR_CLASS_CH = 3,
+      RR_CLASS_HS = 4,
       RR_CLASS_NONE = 254,
       RR_CLASS_ANY = 255,
    };
@@ -164,7 +164,7 @@ struct query_info {
        char buf[LDNS_MAX_DOMAINLEN+1];
        buf[0] = '\0';
        dname_str((uint8_t*)dname, buf);
-       return PyString_FromString(buf);
+       return PyBytes_FromString(buf);
    }
 %}
 
@@ -440,7 +440,7 @@ struct comm_reply {
      reply_addr2str(reply, dest, 64);
      if (dest[0] == 0)
         return Py_None;
-     return PyString_FromString(dest);
+     return PyBytes_FromString(dest);
   }
 
   PyObject* _comm_reply_family_get(struct comm_reply* reply) {
@@ -448,9 +448,9 @@ struct comm_reply {
         int af = (int)((struct sockaddr_in*) &(reply->addr))->sin_family;
 
         switch(af) {
-           case AF_INET: return PyString_FromString("ip4");
-           case AF_INET6: return PyString_FromString("ip6"); 
-           case AF_UNIX: return PyString_FromString("unix");
+           case AF_INET: return PyBytes_FromString("ip4");
+           case AF_INET6: return PyBytes_FromString("ip6");
+           case AF_UNIX: return PyBytes_FromString("unix");
         }
 
         return Py_None;
@@ -711,13 +711,13 @@ struct delegpt {
 
 %inline %{
    PyObject* _get_dp_dname(struct delegpt* dp) {
-      return PyString_FromStringAndSize((char*)dp->name, dp->namelen);
+      return PyBytes_FromStringAndSize((char*)dp->name, dp->namelen);
    } 
    PyObject* _get_dp_dname_components(struct delegpt* dp) {
       return GetNameAsLabelList((char*)dp->name, dp->namelen);
    }
    PyObject* _get_dpns_dname(struct delegpt_ns* dpns) {
-      return PyString_FromStringAndSize((char*)dpns->name, dpns->namelen);
+      return PyBytes_FromStringAndSize((char*)dpns->name, dpns->namelen);
    }
    PyObject* _get_dpns_dname_components(struct delegpt_ns* dpns) {
       return GetNameAsLabelList((char*)dpns->name, dpns->namelen);
@@ -728,7 +728,7 @@ struct delegpt {
      delegpt_addr_addr2str(target, dest, 64);
      if (dest[0] == 0)
         return Py_None;
-     return PyString_FromString(dest);
+     return PyBytes_FromString(dest);
   }
 
 %}
@@ -842,7 +842,7 @@ int checkList(PyObject *l)
        for (i=0; i < PyList_Size(l); i++) 
        {
            item = PyList_GetItem(l, i);
-           if (!PyString_Check(item))
+           if (!PyBytes_Check(item))
               return 0;
        }
        return 1;
@@ -864,12 +864,12 @@ int pushRRList(sldns_buffer* qb, PyObject *l, uint32_t default_ttl, int qsec,
 
         len = sldns_buffer_remaining(qb);
         if(qsec) {
-                if(sldns_str2wire_rr_question_buf(PyString_AsString(item),
+                if(sldns_str2wire_rr_question_buf(PyBytes_AsString(item),
                         sldns_buffer_current(qb), &len, NULL, NULL, 0, NULL, 0)
                         != 0)
                         return 0;
         } else {
-                if(sldns_str2wire_rr_buf(PyString_AsString(item),
+                if(sldns_str2wire_rr_buf(PyBytes_AsString(item),
                         sldns_buffer_current(qb), &len, NULL, default_ttl,
                         NULL, 0, NULL, 0) != 0)
                         return 0;

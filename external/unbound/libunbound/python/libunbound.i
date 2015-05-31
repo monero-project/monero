@@ -60,7 +60,11 @@
 %}
 
 //%include "doc.i"
+#if PY_MAJOR_VERSION >= 3
+%include "file_py3.i" // python 3 FILE *
+#else
 %include "file.i"
+#endif
 
 %feature("docstring") strerror "Convert error value to a human readable string."
 

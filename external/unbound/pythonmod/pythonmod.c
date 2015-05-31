@@ -133,7 +133,13 @@ int pythonmod_init(struct module_env* env, int id)
    /* Initialize Python libraries */
    if (!Py_IsInitialized()) 
    {
-      Py_SetProgramName("unbound");
+#if PY_MAJOR_VERSION >= 3
+      wchar_t progname[8];
+      mbstowcs(progname, "unbound", 8);
+#else
+      char *progname = "unbound";
+#endif
+      Py_SetProgramName(progname);
       Py_NoSiteFlag = 1;
       Py_Initialize();
       PyEval_InitThreads();
