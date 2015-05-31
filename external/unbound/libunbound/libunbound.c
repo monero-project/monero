@@ -1028,6 +1028,7 @@ ub_ctx_hosts(struct ub_ctx* ctx, const char* fname)
 					"\\hosts");
 				retval=ub_ctx_hosts(ctx, buf);
 			}
+			free(name);
 			return retval;
 		}
 		return UB_READFILE;
@@ -1052,6 +1053,8 @@ ub_ctx_hosts(struct ub_ctx* ctx, const char* fname)
 		/* skip addr */
 		while(isxdigit((unsigned char)*parse) || *parse == '.' || *parse == ':')
 			parse++;
+		if(*parse == '\r')
+			parse++;
 		if(*parse == '\n' || *parse == 0)
 			continue;
 		if(*parse == '%') 
@@ -1065,7 +1068,8 @@ ub_ctx_hosts(struct ub_ctx* ctx, const char* fname)
 		*parse++ = 0; /* end delimiter for addr ... */
 		/* go to names and add them */
 		while(*parse) {
-			while(*parse == ' ' || *parse == '\t' || *parse=='\n')
+			while(*parse == ' ' || *parse == '\t' || *parse=='\n'
+				|| *parse=='\r')
 				parse++;
 			if(*parse == 0 || *parse == '#')
 				break;

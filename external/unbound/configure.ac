@@ -475,6 +475,8 @@ if test x_$ub_test_python != x_no; then
 		AC_ERROR([Python version >= 2.4.0 is required])
 	fi
 
+      PY_MAJOR_VERSION="`$PYTHON -c "import sys; print(sys.version_info.major)"`"
+      AC_SUBST(PY_MAJOR_VERSION)
       # Have Python
       AC_DEFINE(HAVE_PYTHON,1,[Define if you have Python libraries and header files.])
       LIBS="$PYTHON_LDFLAGS $LIBS"

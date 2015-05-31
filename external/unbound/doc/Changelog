@@ -1,3 +1,81 @@
+29 May 2015: Wouter
+	- Fix that unparseable error responses are ratelimited.
+	- SOA negative TTL is capped at minimumttl in its rdata section.
+	- cache-max-negative-ttl config option, default 3600.
+
+26 May 2015: Wouter
+	- Document that ratelimit works with unbound-control set_option.
+
+21 May 2015: Wouter
+	- iana portlist update.
+	- documentation proposes ratelimit of 1000 (closer to what upstream
+	  servers expect from us).
+
+20 May 2015: Wouter
+	- DLV is going to be decommissioned.  Advice to stop using it, and
+	  put text in the example configuration and man page to that effect.
+
+10 May 2015: Wouter
+	- Change syntax of particular validator error to be easier for
+	  machine parse, swap rrset and ip adres info so it looks like:
+	  validation failure <www.example.nl. TXT IN>: signature crypto
+	  failed from 2001:DB8:7:bba4::53 for <*.example.nl. NSEC IN>
+
+1 May 2015: Wouter
+	- caps-whitelist in unbound.conf allows whitelist of loadbalancers
+	  that cannot work with caps-for-id or its fallback.
+
+30 April 2015: Wouter
+	- Unit test for type ANY synthesis.
+
+22 April 2015: Wouter
+	- Removed contrib/unbound_unixsock.diff, because it has been
+	  integrated, use control-interface: /path in unbound.conf.
+	- iana portlist update.
+
+17 April 2015: Wouter
+	- Synthesize ANY responses from cache.  Does not search exhaustively,
+	  but MX,A,AAAA,SOA,NS also CNAME.
+	- Fix leaked dns64prefix configuration string.
+
+16 April 2015: Wouter
+	- Add local-zone type inform_deny, that logs query and drops answer.
+	- Ratelimit does not apply to prefetched queries, and ratelimit-factor
+	  is default 10.  Repeated normal queries get resolved and with
+	  prefetch stay in the cache.
+	- Fix bug#664: libunbound python3 related fixes (from Tomas Hozza)
+	  Use print_function also for Python2.
+	  libunbound examples: produce sorted output.
+	  libunbound-Python: libldns is not used anymore.
+	  Fix issue with Python 3 mapping of FILE* using file_py3.i from ldns.
+
+10 April 2015: Wouter
+	- unbound-control ratelimit_list lists high rate domains.
+	- ratelimit feature, ratelimit: 100, or some sensible qps, can be
+	  used to turn it on.  It ratelimits recursion effort per zone.
+	  For particular names you can configure exceptions in unbound.conf.
+	- Fix that get_option for cache-sizes does not print double newline.
+	- Fix#663: ssl handshake fails when using unix socket because dh size
+	  is too small.
+
+8 April 2015: Wouter
+	- Fix crash in dnstap: Do not try to log TCP responses after timeout.
+
+7 April 2015: Wouter
+	- Libunbound skips dos-line-endings from etc/hosts.
+	- Unbound exits with a fatal error when the auto-trust-anchor-file
+	  fails to be writable.  This is seconds after startup.  You can
+	  load a readonly auto-trust-anchor-file with trust-anchor-file.
+	  The file has to be writable to notice the trust anchor change,
+	  without it, a trust anchor change will be unnoticed and the system
+	  will then become inoperable.
+	- unbound-control list_insecure command shows the negative trust
+	  anchors currently configured, patch from Jelte Jansen.
+
+2 April 2015: Wouter
+	- Fix #660: Fix interface-automatic broken in the presence of
+	  asymmetric routing.
+
 26 March 2015: Wouter
 	- remote.c probedelay line is easier to read.
 	- rename ldns subdirectory to sldns to avoid name collision.

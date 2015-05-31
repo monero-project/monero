@@ -498,12 +498,16 @@ comm_point_send_udp_msg_if(struct comm_point *c, sldns_buffer* packet,
 	cmsg = CMSG_FIRSTHDR(&msg);
 	if(r->srctype == 4) {
 #ifdef IP_PKTINFO
+		void* cmsg_data;
 		msg.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
 		log_assert(msg.msg_controllen <= sizeof(control));
 		cmsg->cmsg_level = IPPROTO_IP;
 		cmsg->cmsg_type = IP_PKTINFO;
 		memmove(CMSG_DATA(cmsg), &r->pktinfo.v4info,
 			sizeof(struct in_pktinfo));
+		/* unset the ifindex to not bypass the routing tables */
+		cmsg_data = CMSG_DATA(cmsg);
+		((struct in_pktinfo *) cmsg_data)->ipi_ifindex = 0;
 		cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 #elif defined(IP_SENDSRCADDR)
 		msg.msg_controllen = CMSG_SPACE(sizeof(struct in_addr));
@@ -518,12 +522,16 @@ comm_point_send_udp_msg_if(struct comm_point *c, sldns_buffer* packet,
 		msg.msg_control = NULL;
 #endif /* IP_PKTINFO or IP_SENDSRCADDR */
 	} else if(r->srctype == 6) {
+		void* cmsg_data;
 		msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
 		log_assert(msg.msg_controllen <= sizeof(control));
 		cmsg->cmsg_level = IPPROTO_IPV6;
 		cmsg->cmsg_type = IPV6_PKTINFO;
 		memmove(CMSG_DATA(cmsg), &r->pktinfo.v6info,
 			sizeof(struct in6_pktinfo));
+		/* unset the ifindex to not bypass the routing tables */
+		cmsg_data = CMSG_DATA(cmsg);
+		((struct in6_pktinfo *) cmsg_data)->ipi6_ifindex = 0;
 		cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
 	} else {
 		/* try to pass all 0 to use default route */

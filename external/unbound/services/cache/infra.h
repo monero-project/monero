@@ -42,6 +42,7 @@
 #ifndef SERVICES_CACHE_INFRA_H
 #define SERVICES_CACHE_INFRA_H
 #include "util/storage/lruhash.h"
+#include "util/storage/dnstree.h"
 #include "util/rtt.h"
 struct slabhash;
 struct config_file;
@@ -108,6 +109,55 @@ struct infra_cache {
 	struct slabhash* hosts;
 	/** TTL value for host information, in seconds */
 	int host_ttl;
+	/** hash table with query rates per name: rate_key, rate_data */
+	struct slabhash* domain_rates;
+	/** ratelimit settings for domains, struct domain_limit_data */
+	rbtree_t domain_limits;
+};
+
+/** ratelimit, unless overridden by domain_limits, 0 is off */
+extern int infra_dp_ratelimit;
+
+/**
+ * ratelimit settings for domains
+ */
+struct domain_limit_data {
+	/** key for rbtree, must be first in struct, name of domain */
+	struct name_tree_node node;
+	/** ratelimit for exact match with this name, -1 if not set */
+	int lim;
+	/** ratelimit for names below this name, -1 if not set */
+	int below;
+};
+
+/**
+ * key for ratelimit lookups, a domain name
+ */
+struct rate_key {
+	/** lruhash key entry */
+	struct lruhash_entry entry;
+	/** domain name in uncompressed wireformat */
+	uint8_t* name;
+	/** length of name */
+	size_t namelen;
+};
+
+/** number of seconds to track qps rate */
+#define RATE_WINDOW 2
+
+/**
+ * Data for ratelimits per domain name
+ * It is incremented when a non-cache-lookup happens for that domain name.
+ * The name is the delegation point we have for the name.
+ * If a new delegation point is found (a referral reply), the previous
+ * delegation point is decremented, and the new one is charged with the query.
+ */
+struct rate_data {
+	/** queries counted, for that second. 0 if not in use. */
+	int qps[RATE_WINDOW];
+	/** what the timestamp is of the qps array members, counter is
+	 * valid for that timestamp.  Usually now and now-1. */
+	time_t timestamp[RATE_WINDOW];
 };
 
 /** infra host cache default hash lookup size */
@@ -287,6 +337,51 @@ long long infra_get_host_rto(struct infra_cache* infra,
 	int* tA, int* tAAAA, int* tother);
 
 /**
+ * Increment the query rate counter for a delegation point.
+ * @param infra: infra cache.
+ * @param name: zone name
+ * @param namelen: zone name length
+ * @param timenow: what time it is now.
+ * @return 1 if it could be incremented. 0 if the increment overshot the
+ * ratelimit or if in the previous second the ratelimit was exceeded.
+ * Failures like alloc failures are not returned (probably as 1).
+ */
+int infra_ratelimit_inc(struct infra_cache* infra, uint8_t* name,
+	size_t namelen, time_t timenow);
+
+/**
+ * Decrement the query rate counter for a delegation point.
+ * Because the reply received for the delegation point was pleasant,
+ * we do not charge this delegation point with it (i.e. it was a referral).
+ * Should call it with same second as when inc() was called.
+ * @param infra: infra cache.
+ * @param name: zone name
+ * @param namelen: zone name length
+ * @param timenow: what time it is now.
+ */
+void infra_ratelimit_dec(struct infra_cache* infra, uint8_t* name,
+	size_t namelen, time_t timenow);
+
+/**
+ * See if the query rate counter for a delegation point is exceeded.
+ * So, no queries are going to be allowed.
+ * @param infra: infra cache.
+ * @param name: zone name
+ * @param namelen: zone name length
+ * @param timenow: what time it is now.
+ * @return true if exceeded.
+ */
+int infra_ratelimit_exceeded(struct infra_cache* infra, uint8_t* name,
+	size_t namelen, time_t timenow);
+
+/** find the maximum rate stored, not too old. 0 if no information. */
+int infra_rate_max(void* data, time_t now);
+
+/** find the ratelimit in qps for a domain */
+int infra_find_ratelimit(struct infra_cache* infra, uint8_t* name,
+	size_t namelen);
+
+/**
  * Get memory used by the infra cache.
  * @param infra: infrastructure cache.
  * @return memory in use in bytes.
@@ -305,5 +400,17 @@ void infra_delkeyfunc(void* k, void* arg);
 
 /** delete data and destroy the lameness hashtable */
 void infra_deldatafunc(void* d, void* arg);
+
+/** calculate size for the hashtable */
+size_t rate_sizefunc(void* k, void* d);
+
+/** compare two names, returns -1, 0, or +1 */
+int rate_compfunc(void* key1, void* key2);
+
+/** delete key, and destroy the lock */
+void rate_delkeyfunc(void* k, void* arg);
+
+/** delete data */
+void rate_deldatafunc(void* d, void* arg);
 
 #endif /* SERVICES_CACHE_INFRA_H */

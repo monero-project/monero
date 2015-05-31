@@ -179,6 +179,8 @@ struct config_file {
 	int harden_algo_downgrade;
 	/** use 0x20 bits in query as random ID bits */
 	int use_caps_bits_for_id;
+	/** 0x20 whitelist, domains that do not use capsforid */
+	struct config_strlist* caps_whitelist;
 	/** strip away these private addrs from answers, no DNS Rebinding */
 	struct config_strlist* private_address;
 	/** allow domain (and subdomains) to use private address space */
@@ -189,6 +191,8 @@ struct config_file {
 	int max_ttl;
 	/** the number of seconds minimum TTL used for RRsets and messages */
 	int min_ttl;
+	/** the number of seconds maximal negative TTL for SOA in auth */
+	int max_negative_ttl;
 	/** if prefetching of messages should be performed. */
 	int prefetch;
 	/** if prefetching of DNSKEYs should be performed. */
@@ -345,6 +349,19 @@ struct config_file {
 	int dnstap_log_forwarder_query_messages;
 	/** true to log dnstap FORWARDER_RESPONSE message events */
 	int dnstap_log_forwarder_response_messages;
+
+	/** ratelimit 0 is off, otherwise qps (unless overridden) */
+	int ratelimit;
+	/** number of slabs for ratelimit cache */
+	size_t ratelimit_slabs;
+	/** memory size in bytes for ratelimit cache */
+	size_t ratelimit_size;
+	/** ratelimits for domain (exact match) */
+	struct config_str2list* ratelimit_for_domain;
+	/** ratelimits below domain */
+	struct config_str2list* ratelimit_below_domain;
+	/** ratelimit factor, 0 blocks all, 10 allows 1/10 of traffic */
+	int ratelimit_factor;
 };
 
 /** from cfg username, after daemonise setup performed */

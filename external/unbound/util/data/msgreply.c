@@ -57,6 +57,8 @@
 time_t MAX_TTL = 3600 * 24 * 10; /* ten days */
 /** MIN TTL default for messages and rrsets */
 time_t MIN_TTL = 0;
+/** MAX Negative TTL, for SOA records in authority section */
+time_t MAX_NEG_TTL = 3600; /* one hour */
 
 /** allocate qinfo, return 0 on error */
 static int
@@ -153,10 +155,23 @@ repinfo_alloc_rrset_keys(struct reply_info* rep, struct alloc_cache* alloc,
 	return 1;
 }
 
+/** find the minimumttl in the rdata of SOA record */
+static time_t
+soa_find_minttl(struct rr_parse* rr)
+{
+	uint16_t rlen = sldns_read_uint16(rr->ttl_data+4);
+	if(rlen < 20)
+		return 0; /* rdata too small for SOA (dname, dname, 5*32bit) */
+	/* minimum TTL is the last 32bit value in the rdata of the record */
+	/* at position ttl_data + 4(ttl) + 2(rdatalen) + rdatalen - 4(timeval)*/
+	return (time_t)sldns_read_uint32(rr->ttl_data+6+rlen-4);
+}
+
 /** do the rdata copy */
 static int
 rdata_copy(sldns_buffer* pkt, struct packed_rrset_data* data, uint8_t* to, 
-	struct rr_parse* rr, time_t* rr_ttl, uint16_t type)
+	struct rr_parse* rr, time_t* rr_ttl, uint16_t type,
+	sldns_pkt_section section)
 {
 	uint16_t pkt_len;
 	const sldns_rr_descriptor* desc;
@@ -165,6 +180,14 @@ rdata_copy(sldns_buffer* pkt, struct packed_rrset_data* data, uint8_t* to,
 	/* RFC 2181 Section 8. if msb of ttl is set treat as if zero. */
 	if(*rr_ttl & 0x80000000U)
 		*rr_ttl = 0;
+	if(type == LDNS_RR_TYPE_SOA && section == LDNS_SECTION_AUTHORITY) {
+		/* negative response. see if TTL of SOA record larger than the
+		 * minimum-ttl in the rdata of the SOA record */
+		if(*rr_ttl > soa_find_minttl(rr))
+			*rr_ttl = soa_find_minttl(rr);
+		if(*rr_ttl > MAX_NEG_TTL)
+			*rr_ttl = MAX_NEG_TTL;
+	}
 	if(*rr_ttl < MIN_TTL)
 		*rr_ttl = MIN_TTL;
 	if(*rr_ttl < data->ttl)
@@ -254,7 +277,7 @@ parse_rr_copy(sldns_buffer* pkt, struct rrset_parse* pset,
 		data->rr_data[i] = nextrdata;
 		nextrdata += rr->size;
 		if(!rdata_copy(pkt, data, data->rr_data[i], rr, 
-			&data->rr_ttl[i], pset->type))
+			&data->rr_ttl[i], pset->type, pset->section))
 			return 0;
 		rr = rr->next;
 	}
@@ -265,7 +288,7 @@ parse_rr_copy(sldns_buffer* pkt, struct rrset_parse* pset,
 		data->rr_data[i] = nextrdata;
 		nextrdata += rr->size;
 		if(!rdata_copy(pkt, data, data->rr_data[i], rr, 
-			&data->rr_ttl[i], LDNS_RR_TYPE_RRSIG))
+			&data->rr_ttl[i], LDNS_RR_TYPE_RRSIG, pset->section))
 			return 0;
 		rr = rr->next;
 	}

@@ -61,6 +61,7 @@
 #include "util/data/msgencode.h"
 #include "util/fptr_wlist.h"
 #include "util/config_file.h"
+#include "util/random.h"
 #include "sldns/rrdef.h"
 #include "sldns/wire2str.h"
 #include "sldns/parseutil.h"
@@ -83,6 +84,16 @@ iter_init(struct module_env* env, int id)
 	return 1;
 }
 
+/** delete caps_whitelist element */
+static void
+caps_free(struct rbnode_t* n, void* ATTR_UNUSED(d))
+{
+	if(n) {
+		free(((struct name_tree_node*)n)->name);
+		free(n);
+	}
+}
+
 void 
 iter_deinit(struct module_env* env, int id)
 {
@@ -93,6 +104,10 @@ iter_deinit(struct module_env* env, int id)
 	free(iter_env->target_fetch_policy);
 	priv_delete(iter_env->priv);
 	donotq_delete(iter_env->donotq);
+	if(iter_env->caps_white) {
+		traverse_postorder(iter_env->caps_white, caps_free, NULL);
+		free(iter_env->caps_white);
+	}
 	free(iter_env);
 	env->modinfo[id] = NULL;
 }
@@ -120,6 +135,7 @@ iter_new(struct module_qstate* qstate, int id)
 	iq->query_restart_count = 0;
 	iq->referral_count = 0;
 	iq->sent_count = 0;
+	iq->ratelimit_ok = 0;
 	iq->target_count = NULL;
 	iq->wait_priming_stub = 0;
 	iq->refetch_glue = 0;
@@ -455,6 +471,16 @@ handle_cname_response(struct module_qstate* qstate, struct iter_qstate* iq,
 		}
 	}
 	return 1;
+}
+
+/** see if target name is caps-for-id whitelisted */
+static int
+is_caps_whitelisted(struct iter_env* ie, struct iter_qstate* iq)
+{
+	if(!ie->caps_white) return 0; /* no whitelist, or no capsforid */
+	return name_tree_lookup(ie->caps_white, iq->qchase.qname,
+		iq->qchase.qname_len, dname_count_labels(iq->qchase.qname),
+		iq->qchase.qclass) != NULL;
 }
 
 /** create target count structure for this query */
@@ -1124,6 +1150,32 @@ processInitRequest(struct module_qstate* qstate, struct iter_qstate* iq,
 			 * this event will stop until reactivated by the 
 			 * results of priming. */
 			return 0;
+		}
+		if(!iq->ratelimit_ok && qstate->prefetch_leeway)
+			iq->ratelimit_ok = 1; /* allow prefetches, this keeps
+			otherwise valid data in the cache */
+		if(!iq->ratelimit_ok && infra_ratelimit_exceeded(
+			qstate->env->infra_cache, iq->dp->name,
+			iq->dp->namelen, *qstate->env->now)) {
+			/* and increment the rate, so that the rate for time
+			 * now will also exceed the rate, keeping cache fresh */
+			(void)infra_ratelimit_inc(qstate->env->infra_cache,
+				iq->dp->name, iq->dp->namelen,
+				*qstate->env->now);
+			/* see if we are passed through with slip factor */
+			if(qstate->env->cfg->ratelimit_factor != 0 &&
+				ub_random_max(qstate->env->rnd,
+				    qstate->env->cfg->ratelimit_factor) == 1) {
+				iq->ratelimit_ok = 1;
+				log_nametypeclass(VERB_ALGO, "ratelimit allowed through for "
+					"delegation point", iq->dp->name,
+					LDNS_RR_TYPE_NS, LDNS_RR_CLASS_IN);
+			} else {
+				log_nametypeclass(VERB_ALGO, "ratelimit exceeded with "
+					"delegation point", iq->dp->name,
+					LDNS_RR_TYPE_NS, LDNS_RR_CLASS_IN);
+				return error_response(qstate, id, LDNS_RCODE_SERVFAIL);
+			}
 		}
 
 		/* see if this dp not useless.
@@ -1914,6 +1966,15 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 		return 0;
 	}
 
+	/* if not forwarding, check ratelimits per delegationpoint name */
+	if(!(iq->chase_flags & BIT_RD) && !iq->ratelimit_ok) {
+		if(!infra_ratelimit_inc(qstate->env->infra_cache, iq->dp->name,
+			iq->dp->namelen, *qstate->env->now)) {
+			verbose(VERB_ALGO, "query exceeded ratelimits");
+			return error_response(qstate, id, LDNS_RCODE_SERVFAIL);
+		}
+	}
+
 	/* We have a valid target. */
 	if(verbosity >= VERB_QUERY) {
 		log_query_info(VERB_QUERY, "sending query:", &iq->qchase);
@@ -1928,11 +1989,15 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 		iq->qchase.qname, iq->qchase.qname_len, 
 		iq->qchase.qtype, iq->qchase.qclass, 
 		iq->chase_flags | (iq->chase_to_rd?BIT_RD:0), EDNS_DO|BIT_CD, 
-		iq->dnssec_expected, iq->caps_fallback, &target->addr,
-		target->addrlen, iq->dp->name, iq->dp->namelen, qstate);
+		iq->dnssec_expected, iq->caps_fallback || is_caps_whitelisted(
+		ie, iq), &target->addr, target->addrlen, iq->dp->name,
+		iq->dp->namelen, qstate);
 	if(!outq) {
 		log_addr(VERB_DETAIL, "error sending query to auth server", 
 			&target->addr, target->addrlen);
+		if(!(iq->chase_flags & BIT_RD) && !iq->ratelimit_ok)
+		    infra_ratelimit_dec(qstate->env->infra_cache, iq->dp->name,
+			iq->dp->namelen, *qstate->env->now);
 		return next_state(iq, QUERYTARGETS_STATE);
 	}
 	outbound_list_insert(&iq->outlist, outq);
@@ -2082,6 +2147,14 @@ processQueryResponse(struct module_qstate* qstate, struct iter_qstate* iq,
 		/* REFERRAL type responses get a reset of the 
 		 * delegation point, and back to the QUERYTARGETS_STATE. */
 		verbose(VERB_DETAIL, "query response was REFERRAL");
+
+		if(!(iq->chase_flags & BIT_RD) && !iq->ratelimit_ok) {
+			/* we have a referral, no ratelimit, we can send
+			 * our queries to the given name */
+			infra_ratelimit_dec(qstate->env->infra_cache,
+				iq->dp->name, iq->dp->namelen,
+				*qstate->env->now);
+		}
 
 		/* if hardened, only store referral if we asked for it */
 		if(!qstate->env->cfg->harden_referral_path ||

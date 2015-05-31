@@ -103,6 +103,10 @@ struct worker {
 	struct comm_point* cmd_com;
 	/** timer for statistics */
 	struct comm_timer* stat_timer;
+	/** ratelimit for errors, time value */
+	time_t err_limit_time;
+	/** ratelimit for errors, packet count */
+	unsigned int err_limit_count;
 
 	/** random() table for this worker. */
 	struct ub_randstate* rndstate;

@@ -33,6 +33,7 @@
  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  POSSIBILITY OF SUCH DAMAGE.
 '''
+from __future__ import print_function
 import unbound
 import locale
 
@@ -45,18 +46,18 @@ status, result = ctx.resolve(u"www.háčkyčárky.cz", unbound.RR_TYPE_A, unboun
 if status == 0 and result.havedata:
     print("Result:")
     print("      raw data:", result.data)
-    for k in result.data.address_list:
+    for k in sorted(result.data.address_list):
         print("      address:%s" % k)
 
 status, result = ctx.resolve(u"háčkyčárky.cz", unbound.RR_TYPE_MX, unbound.RR_CLASS_IN)
 if status == 0 and result.havedata:
     print("Result:")
     print("      raw data:", result.data)
-    for k in result.data.mx_list_idn:
+    for k in sorted(result.data.mx_list_idn):
         print("      priority:%d address:%s" % k)
 
 status, result = ctx.resolve(unbound.reverse('217.31.204.66')+'.in-addr.arpa', unbound.RR_TYPE_PTR, unbound.RR_CLASS_IN)
 if status == 0 and result.havedata:
     print("Result.data:", result.data)
-    for k in result.data.domain_list_idn:
+    for k in sorted(result.data.domain_list_idn):
         print("      dname:%s" % k)
