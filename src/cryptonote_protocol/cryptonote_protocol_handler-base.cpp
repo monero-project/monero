@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief This is the place to implement our handlers for protocol network actions, e.g. for ratelimit for download-requests
 
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -80,7 +80,7 @@ using namespace nOT::nUtils;
 
 // ################################################################################################
 // ################################################################################################
-// the "header part". Not separeted out for .hpp because point of this modification is 
+// the "header part". Not separated out for .hpp because point of this modification is 
 // to rebuild just 1 translation unit while working on this code.
 // (But maybe common parts will be separated out later though - if needed)
 // ################################################################################################

@@ -41,7 +41,7 @@ The Bitcoin donation address is: 1FhnVJi2V1k4MqXm2nHoEbY5LV7FPai7bb
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
-[![MyMonero](http://i.imgur.com/xdp7mNG.png?)](https://mymonero.com) [![Dome9](http://i.imgur.com/THVVafx.png)](http://dome9.com)
+[![MyMonero](https://static.getmonero.org/images/sponsors/mymonero.png)](https://mymonero.com) [![Kitware](https://static.getmonero.org/images/sponsors/kitware.png?1)](http://kitware.com) [![Dome9](https://static.getmonero.org/images/sponsors/dome9.png)](http://dome9.com) [![Araxis](https://static.getmonero.org/images/sponsors/araxis.png)](http://araxis.com) [![JetBrains](https://static.getmonero.org/images/sponsors/jetbrains.png)](http://www.jetbrains.com/) [![Navicat](https://static.getmonero.org/images/sponsors/navicat.png)](http://www.navicat.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
@@ -65,14 +65,15 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 
 ## Compiling Monero
 
-### On Unix and Linux:
+### Overview:
 
 Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
 Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, bison or yacc
 
 **Basic Process:**
 
-* To build, change to the root of the source code directory, and run `make`.
+* Install the dependencies (see below for more detailed instructions for your OS)
+* To build, change to the root of the source code directory, and run `make`. Please note that Windows systems follow a slightly different process, outlined below.
 * The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.
 
 **Advanced options:**
@@ -81,7 +82,20 @@ Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, 
 * Statically linked release build: run `make release-static`.
 * Debug build: run `make debug`.
 * Test suite: run `make release-test` to run tests in addition to building. Running `make debug-test` will do the same to the debug version.
-* Building with Clang: it may be possible to use Clang instead of GCC, but this may not work everywhere. To build, run `export CC=clang CXX=clang++` before running `make`.
+
+**Makefile Targets for Static Builds:**
+
+For static builds there are a number of Makefile targets to make the build process easier.
+
+* ```make release-static-win64``` builds statically for 64-bit Windows systems
+* ```make release-static-win32``` builds statically for 32-bit Windows systems
+* ```make release-static-64``` the default, builds statically for 64-bit non-Windows systems
+* ```make release-static-32``` builds statically for 32-bit non-Windows systems
+* ```make release-static-arm6``` builds statically for ARMv6 devices, such as the Raspberry Pi
+
+### On Linux:
+
+The instructions above should provide enough detail.
 
 ### On OS X:
 
@@ -95,8 +109,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)).
-Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later
+Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
 
 **Preparing the Build Environment**
 
@@ -121,11 +134,11 @@ cd build
 ```
 * If you are on a 64-bit system, run:
 ```
-cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=../cmake/64-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys64 ..
+cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="x86_64" -D BUILD_64=ON -D CMAKE_TOOLCHAIN_FILE=../cmake/64-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys64 ..
 ```
 * If you are on a 32-bit system, run:
 ```
-cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ..
+cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="i686" -D BUILD_64=OFF -D CMAKE_TOOLCHAIN_FILE=../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ..
 ```
 * You can now run `make` to have it build
 * The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.

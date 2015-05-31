@@ -29,7 +29,7 @@
 set(unit_tests_sources
   address_from_url.cpp
   base58.cpp
-  BlockchainDB.cpp
+  blockchain_db.cpp
   block_reward.cpp
   chacha8.cpp
   checkpoints.cpp
