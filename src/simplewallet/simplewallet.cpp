@@ -299,6 +299,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
+  m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), "Save watch only keys file");
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), "Get viewkey");
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), "Get spendkey");
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), "Get deterministic seed");
@@ -680,7 +681,8 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
   try
   {
     m_wallet->load(m_wallet_file, password);
-    message_writer(epee::log_space::console_color_white, true) << "Opened wallet: "
+    std::string wallet_type = m_wallet->watch_only() ? "watch-only wallet" : "wallet";
+    message_writer(epee::log_space::console_color_white, true) << "Opened " << wallet_type << ": "
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     // If the wallet file is deprecated, we should ask for mnemonic language again and store
     // everything in the new format.
@@ -760,6 +762,30 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 
   return true;
 }
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  tools::password_container pwd_container;
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << "failed to read wallet password";
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << "invalid password";
+    return true;
+  }
+
+  m_wallet->write_watch_only_wallet(m_wallet_file, pwd_container.password());
+  return true;
+}
+
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::start_mining(const std::vector<std::string>& args)
 {
@@ -1104,6 +1130,12 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
      return true;
   }
 
+  if(m_wallet->watch_only())
+  {
+     fail_msg_writer() << "This is a watch only wallet";
+     return true;
+  }
+
   std::vector<uint8_t> extra;
   if (1 == local_args.size() % 2)
   {
@@ -1315,6 +1347,12 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
     return true;
+
+  if(m_wallet->watch_only())
+  {
+     fail_msg_writer() << "This is a watch only wallet";
+     return true;
+  }
 
   try
   {
