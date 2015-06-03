@@ -1028,7 +1028,6 @@ ub_ctx_hosts(struct ub_ctx* ctx, const char* fname)
 					"\\hosts");
 				retval=ub_ctx_hosts(ctx, buf);
 			}
-			free(name);
 			return retval;
 		}
 		return UB_READFILE;
