@@ -196,11 +196,11 @@ bool t_command_server::process_command_vec(const std::vector<std::string>& cmd)
   return result;
 }
 
-bool t_command_server::start_handling()
+bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 {
   if (m_is_rpc) return false;
 
-  m_command_lookup.start_handling("", get_commands_str());
+  m_command_lookup.start_handling("", get_commands_str(), exit_handler);
 
   return true;
 }

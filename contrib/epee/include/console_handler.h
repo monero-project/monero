@@ -240,9 +240,9 @@ namespace epee
     }
 
     template<class chain_handler>
-    bool run(chain_handler ch_handler, const std::string& prompt = "#", const std::string& usage = "")
+    bool run(chain_handler ch_handler, const std::string& prompt = "#", const std::string& usage = "", std::function<void(void)> exit_handler = NULL)
     {
-      return run(prompt, usage, [&](const std::string& cmd) { return ch_handler(cmd); }, [] { });
+      return run(prompt, usage, [&](const std::string& cmd) { return ch_handler(cmd); }, exit_handler);
     }
 
     void stop()
@@ -252,8 +252,8 @@ namespace epee
     }
 
   private:
-    template<typename t_cmd_handler, typename t_exit_handler>
-    bool run(const std::string& prompt, const std::string& usage, const t_cmd_handler& cmd_handler, const t_exit_handler& exit_handler)
+    template<typename t_cmd_handler>
+    bool run(const std::string& prompt, const std::string& usage, const t_cmd_handler& cmd_handler, std::function<void(void)> exit_handler)
     {
       TRY_ENTRY();
       bool continue_handle = true;
@@ -429,9 +429,9 @@ namespace epee
     std::unique_ptr<boost::thread> m_console_thread;
     async_console_handler m_console_handler;
   public:
-    bool start_handling(const std::string& prompt, const std::string& usage_string = "")
+    bool start_handling(const std::string& prompt, const std::string& usage_string = "", std::function<void(void)> exit_handler = NULL)
     {
-      m_console_thread.reset(new boost::thread(boost::bind(&console_handlers_binder::run_handling, this, prompt, usage_string)));
+      m_console_thread.reset(new boost::thread(boost::bind(&console_handlers_binder::run_handling, this, prompt, usage_string, exit_handler)));
       m_console_thread->detach();
       return true;
     }
@@ -441,9 +441,9 @@ namespace epee
       m_console_handler.stop();
     }
 
-    bool run_handling(const std::string& prompt, const std::string& usage_string)
+    bool run_handling(const std::string& prompt, const std::string& usage_string, std::function<void(void)> exit_handler = NULL)
     {
-      return m_console_handler.run(boost::bind(&console_handlers_binder::process_command_str, this, _1), prompt, usage_string);
+      return m_console_handler.run(boost::bind(&console_handlers_binder::process_command_str, this, _1), prompt, usage_string, exit_handler);
     }
   };
 

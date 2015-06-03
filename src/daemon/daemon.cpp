@@ -126,7 +126,7 @@ bool t_daemon::run(bool interactive)
     if (interactive)
     {
       rpc_commands = new daemonize::t_command_server(0, 0, false, mp_internals->rpc.get_server());
-      rpc_commands->start_handling();
+      rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop, this));
     }
 
     mp_internals->p2p.run(); // blocks until p2p goes down
