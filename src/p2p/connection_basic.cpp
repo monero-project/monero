@@ -169,6 +169,7 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, std::ato
 
 connection_basic::~connection_basic() {
 	string remote_addr_str = "?";
+	m_ref_sock_count--;
 	try { remote_addr_str = socket_.remote_endpoint().address().to_string(); } catch(...){} ;
 	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
 }
