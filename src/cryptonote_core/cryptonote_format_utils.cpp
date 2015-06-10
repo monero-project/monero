@@ -321,7 +321,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
+  bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, bool deterministic)
   {
     tx.vin.clear();
     tx.vout.clear();
@@ -331,7 +331,31 @@ namespace cryptonote
     tx.unlock_time = unlock_time;
 
     tx.extra = extra;
-    keypair txkey = keypair::generate();
+
+    keypair txkey;
+    if (deterministic)
+    {
+      // We want to generate the one time key deterministically, so that the
+      // holder of the view key is able to generate these too, and thus able
+      // to decrypt the transactions further information from the holder of
+      // the spend key.
+      // I think a good way might be to use a function of both the view secret key and
+      // the public key of one of the inputs. This means the view key holder has to scan
+      // with several possible one time keys, but they only scale linearly with the amount
+      // of inputs the spender received, and does not require information exchange between
+      // any of the sender's wallets. Moreover, since that one time key is a derivation from
+      // the view key and input public keys, a third party can't tell (needs reviewing by
+      // a crytographer to ensure this is actually correct).
+      crypto::key_derivation txkey_derivation;
+      crypto::generate_key_derivation(sources.front().real_out_tx_key, sender_account_keys.m_view_secret_key, txkey_derivation);
+      crypto::secret_key txkey_derivation_secret_key;
+      crypto::derive_secret_key(txkey_derivation, 0, sender_account_keys.m_view_secret_key, txkey_derivation_secret_key);
+      txkey = keypair::generate_deterministic(txkey_derivation_secret_key);
+    }
+    else
+    {
+      txkey = keypair::generate();
+    }
     add_tx_pub_key_to_extra(tx, txkey.pub);
 
     struct input_generation_context_data

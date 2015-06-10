@@ -336,6 +336,12 @@ namespace cryptonote
       generate_keys(k.pub, k.sec);
       return k;
     }
+    static inline keypair generate_deterministic(const crypto::secret_key &key)
+    {
+      keypair k;
+      generate_keys(k.pub, k.sec, key, true);
+      return k;
+    }
   };
   //---------------------------------------------------------------
 

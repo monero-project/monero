@@ -34,6 +34,7 @@
 #include <boost/serialization/list.hpp>
 #include <boost/serialization/vector.hpp>
 #include <atomic>
+#include <unordered_set>
 
 #include "include_base_utils.h"
 #include "cryptonote_core/account.h"
@@ -46,6 +47,7 @@
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/chacha8.h"
 #include "crypto/hash.h"
+#include "crypto/crypto.h"
 
 #include "wallet_errors.h"
 
@@ -61,6 +63,7 @@ namespace tools
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
     virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
+    virtual void on_money_spent_view(uint64_t height, const cryptonote::transaction& tx, uint64_t amount) {}
     virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
   };
 
@@ -207,7 +210,7 @@ namespace tools
     template<typename T>
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy);
     template<typename T>
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx& ptx);
+    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx& ptx, bool deterministic = true);
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra);
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx);
     template<typename T>
@@ -287,6 +290,10 @@ namespace tools
     void generate_genesis(cryptonote::block& b);
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
 
+    void add_deterministic_tx_key_pubkey(const transfer_details &td);
+    void create_deterministic_tx_key_pubkeys();
+    bool is_known_deterministic_pubkey(const crypto::public_key &pub) const;
+
     cryptonote::account_base m_account;
     std::string m_daemon_address;
     std::string m_wallet_file;
@@ -310,6 +317,8 @@ namespace tools
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
     bool m_watch_only; /*!< no spend key */
+    // should be std::unordered_set<crypto::public_key> if anyone can make it compile
+    std::vector<crypto::public_key> m_deterministic_tx_pubkeys;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)
@@ -425,7 +434,7 @@ namespace tools
 
   template<typename T>
   void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx)
+    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx, bool deterministic)
   {
     using namespace cryptonote;
     // throw if attempting a transaction with no destinations
@@ -543,7 +552,7 @@ namespace tools
       splitted_dsts.push_back(cryptonote::tx_destination_entry(dust, dust_policy.addr_for_dust));
     }
 
-    bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
+    bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, deterministic);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
     THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
 
