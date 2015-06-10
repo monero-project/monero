@@ -41,11 +41,12 @@ typedef enum {
     random_outs_event = 10,
     get_height_event = 11,
     get_info_event = 12,
-    close_event = 13,
-    ping_event = 14,
-    expired_event = 15,
-    exception_event = 16,
-    settled_event = 17
+    get_peer_list_event = 13,
+    close_event = 14,
+    ping_event = 15,
+    expired_event = 16,
+    exception_event = 17,
+    settled_event = 18
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -73,6 +74,7 @@ s_event_name [] = {
     "RANDOM_OUTS",
     "GET_HEIGHT",
     "GET_INFO",
+    "GET_PEER_LIST",
     "CLOSE",
     "PING",
     "expired",
@@ -162,6 +164,8 @@ static void
     height (client_t *self);
 static void
     getinfo (client_t *self);
+static void
+    get_peer_list (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -375,6 +379,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_GET_INFO:
             return get_info_event;
+            break;
+        case WAP_PROTO_GET_PEER_LIST:
+            return get_peer_list_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -769,6 +776,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_INFO_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_INFO_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_peer_list_event) {
+                    if (!self->exception) {
+                        //  get peer list
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get peer list", self->log_prefix);
+                        get_peer_list (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_PEER_LIST_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_PEER_LIST_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_PEER_LIST_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

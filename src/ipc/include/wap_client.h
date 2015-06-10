@@ -117,6 +117,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_stop (wap_client_t *self);
 
+//  Get peer list                                                                   
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_peer_list (wap_client_t *self);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -188,6 +193,14 @@ WAP_EXPORT uint64_t
 //  Return last received grey_peerlist_size
 WAP_EXPORT uint64_t 
     wap_client_grey_peerlist_size (wap_client_t *self);
+
+//  Return last received white_list
+WAP_EXPORT zframe_t *
+    wap_client_white_list (wap_client_t *self);
+
+//  Return last received gray_list
+WAP_EXPORT zframe_t *
+    wap_client_gray_list (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

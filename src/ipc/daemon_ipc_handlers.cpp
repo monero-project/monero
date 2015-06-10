@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+//TODO: Recheck memory leaks
+
 #include "daemon_ipc_handlers.h"
 
 #include <iostream>
@@ -360,6 +362,58 @@ namespace IPC
       wap_proto_set_incoming_connections_count(message, total_connections - outgoing_connections_count);
       wap_proto_set_white_peerlist_size(message, p2p->get_peerlist_manager().get_white_peers_count());
       wap_proto_set_grey_peerlist_size(message, p2p->get_peerlist_manager().get_gray_peers_count());
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void get_peer_list(wap_proto_t *message) {
+      std::list<nodetool::peerlist_entry> white_list;
+      std::list<nodetool::peerlist_entry> gray_list;
+      p2p->get_peerlist_manager().get_peerlist_full(white_list, gray_list);
+
+      rapidjson::Document white_list_json;
+      white_list_json.SetObject();
+      rapidjson::Document::AllocatorType &white_list_allocator = white_list_json.GetAllocator();
+      rapidjson::Value white_peers(rapidjson::kArrayType);
+
+      for (auto & entry : white_list) {
+        rapidjson::Value output(rapidjson::kObjectType);
+        output.AddMember("id", entry.id, white_list_allocator);
+        output.AddMember("ip", entry.adr.ip, white_list_allocator);
+        output.AddMember("port", entry.adr.port, white_list_allocator);
+        output.AddMember("last_seen", entry.last_seen, white_list_allocator);
+        white_peers.PushBack(output, white_list_allocator);
+      }
+      white_list_json.AddMember("peers", white_peers, white_list_allocator);
+
+      rapidjson::Document gray_list_json;
+      gray_list_json.SetObject();
+      rapidjson::Document::AllocatorType &gray_list_allocator = gray_list_json.GetAllocator();
+      rapidjson::Value gray_peers(rapidjson::kArrayType);
+
+      for (auto & entry : gray_list) {
+        rapidjson::Value output(rapidjson::kObjectType);
+        output.AddMember("id", entry.id, gray_list_allocator);
+        output.AddMember("ip", entry.adr.ip, gray_list_allocator);
+        output.AddMember("port", entry.adr.port, gray_list_allocator);
+        output.AddMember("last_seen", entry.last_seen, gray_list_allocator);
+        gray_peers.PushBack(output, gray_list_allocator);
+      }
+      gray_list_json.AddMember("peers", gray_peers, gray_list_allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      white_list_json.Accept(writer);
+      std::string white_list_string = buffer.GetString();
+
+      zframe_t *white_list_frame = zframe_new(white_list_string.c_str(), white_list_string.length());
+
+      buffer.Clear();
+      gray_list_json.Accept(writer);
+      std::string gray_list_string = buffer.GetString();
+      zframe_t *gray_list_frame = zframe_new(gray_list_string.c_str(), gray_list_string.length());
+
+      wap_proto_set_white_list(message, &white_list_frame);
+      wap_proto_set_gray_list(message, &gray_list_frame);
       wap_proto_set_status(message, STATUS_OK);
     }
   }

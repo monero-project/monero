@@ -104,6 +104,13 @@ ERROR.
         white_peerlist_size  number 8   White Peerlist Size
         grey_peerlist_size  number 8    Grey Peerlist Size
 
+    GET_PEER_LIST - get_peer_list IPC
+
+    GET_PEER_LIST_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        white_list          frame       White list
+        gray_list           frame       Gray list
+
     STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
 ERROR.
 
@@ -155,13 +162,15 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_START_OK                  18
 #define WAP_PROTO_GET_INFO                  19
 #define WAP_PROTO_GET_INFO_OK               20
-#define WAP_PROTO_STOP                      21
-#define WAP_PROTO_STOP_OK                   22
-#define WAP_PROTO_CLOSE                     23
-#define WAP_PROTO_CLOSE_OK                  24
-#define WAP_PROTO_PING                      25
-#define WAP_PROTO_PING_OK                   26
-#define WAP_PROTO_ERROR                     27
+#define WAP_PROTO_GET_PEER_LIST             21
+#define WAP_PROTO_GET_PEER_LIST_OK          22
+#define WAP_PROTO_STOP                      23
+#define WAP_PROTO_STOP_OK                   24
+#define WAP_PROTO_CLOSE                     25
+#define WAP_PROTO_CLOSE_OK                  26
+#define WAP_PROTO_PING                      27
+#define WAP_PROTO_PING_OK                   28
+#define WAP_PROTO_ERROR                     29
 
 #include <czmq.h>
 
@@ -396,6 +405,26 @@ uint64_t
     wap_proto_grey_peerlist_size (wap_proto_t *self);
 void
     wap_proto_set_grey_peerlist_size (wap_proto_t *self, uint64_t grey_peerlist_size);
+
+//  Get a copy of the white_list field
+zframe_t *
+    wap_proto_white_list (wap_proto_t *self);
+//  Get the white_list field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_white_list (wap_proto_t *self);
+//  Set the white_list field, transferring ownership from caller
+void
+    wap_proto_set_white_list (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get a copy of the gray_list field
+zframe_t *
+    wap_proto_gray_list (wap_proto_t *self);
+//  Get the gray_list field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_gray_list (wap_proto_t *self);
+//  Set the gray_list field, transferring ownership from caller
+void
+    wap_proto_set_gray_list (wap_proto_t *self, zframe_t **frame_p);
 
 //  Get/set the reason field
 const char *

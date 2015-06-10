@@ -396,3 +396,16 @@ signal_have_get_info_ok (client_t *self)
         wap_proto_white_peerlist_size (self->message),
         wap_proto_grey_peerlist_size (self->message));
 }
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_get_peer_list_ok
+//
+
+static void
+signal_have_get_peer_list_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8pp", "GET PEER LIST OK",
+        wap_proto_status (self->message),
+        wap_proto_get_white_list (self->message),
+        wap_proto_get_gray_list (self->message));
+}

@@ -300,3 +300,13 @@ getinfo (client_t *self)
 {
     IPC::Daemon::get_info(self->message);
 }
+
+//  ---------------------------------------------------------------------------
+//  get_peer_list
+//
+
+static void
+get_peer_list (client_t *self)
+{
+    IPC::Daemon::get_peer_list(self->message);
+}

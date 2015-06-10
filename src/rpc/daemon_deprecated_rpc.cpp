@@ -18,7 +18,7 @@
 #include "daemon_deprecated_rpc.h"
 #include <stdexcept>
 
-#define MAX_RESPONSE_SIZE 2000
+#define MAX_RESPONSE_SIZE 100000
 
 /*!
  * \namespace
@@ -56,7 +56,7 @@ namespace
    * It also adds boilerplate properties like id, method.
    * \param req           net_skeleton request object
    * \param result_json   rapidjson result object
-   * \param response_json Root rapidjson document that will eventually have the whole response
+   * \param response_json "Root" rapidjson document that will eventually have the whole response
    * \param response      Response as a string gets written here.
    */
   void construct_response_string(struct ns_rpc_request *req, rapidjson::Value &result_json,
@@ -246,12 +246,64 @@ namespace
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getpeerlist' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getpeerlist(char *buf, int len, struct ns_rpc_request *req)
+  {
+    connect_to_daemon();
+    int rc = wap_client_get_peer_list(ipc_client);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+
+    rapidjson::Document response_json;
+    rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
+    rapidjson::Value result_json;
+    result_json.SetObject();
+
+    zframe_t *white_list_frame = wap_client_white_list(ipc_client);
+    rapidjson::Document white_list_json;
+    char *data = reinterpret_cast<char*>(zframe_data(white_list_frame));
+    size_t size = zframe_size(white_list_frame);
+
+    if (white_list_json.Parse(data, size).HasParseError()) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Couldn't parse JSON sent by daemon.", "{}");
+    }
+
+    result_json.AddMember("white_list", white_list_json["peers"], allocator);
+
+    zframe_t *gray_list_frame = wap_client_gray_list(ipc_client);
+    rapidjson::Document gray_list_json;
+    data = reinterpret_cast<char*>(zframe_data(gray_list_frame));
+    size = zframe_size(gray_list_frame);
+
+    if (gray_list_json.Parse(data, size).HasParseError()) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Couldn't parse JSON sent by daemon.", "{}");
+    }
+    result_json.AddMember("gray_list", gray_list_json["peers"], allocator);
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
     "startmining",
     "stopmining",
     "getinfo",
+    "getpeerlist",
     NULL
   };
 
@@ -261,6 +313,7 @@ namespace
     startmining,
     stopmining,
     getinfo,
+    getpeerlist,
     NULL
   };
 
