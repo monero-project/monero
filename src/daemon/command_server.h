@@ -62,7 +62,7 @@ public:
 
   bool process_command_vec(const std::vector<std::string>& cmd);
 
-  bool start_handling();
+  bool start_handling(std::function<void(void)> exit_handler = NULL);
 
   void stop_handling();
 
