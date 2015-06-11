@@ -111,6 +111,15 @@ ERROR.
         white_list          frame       White list
         gray_list           frame       Gray list
 
+    GET_MINING_STATUS - get_mining_status IPC
+
+    GET_MINING_STATUS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        active              number 1    Active
+        speed               number 8    Speed
+        thread_count        number 8    Threads count
+        address             chunk       Address
+
     STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
 ERROR.
 
@@ -164,13 +173,15 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_INFO_OK               20
 #define WAP_PROTO_GET_PEER_LIST             21
 #define WAP_PROTO_GET_PEER_LIST_OK          22
-#define WAP_PROTO_STOP                      23
-#define WAP_PROTO_STOP_OK                   24
-#define WAP_PROTO_CLOSE                     25
-#define WAP_PROTO_CLOSE_OK                  26
-#define WAP_PROTO_PING                      27
-#define WAP_PROTO_PING_OK                   28
-#define WAP_PROTO_ERROR                     29
+#define WAP_PROTO_GET_MINING_STATUS         23
+#define WAP_PROTO_GET_MINING_STATUS_OK      24
+#define WAP_PROTO_STOP                      25
+#define WAP_PROTO_STOP_OK                   26
+#define WAP_PROTO_CLOSE                     27
+#define WAP_PROTO_CLOSE_OK                  28
+#define WAP_PROTO_PING                      29
+#define WAP_PROTO_PING_OK                   30
+#define WAP_PROTO_ERROR                     31
 
 #include <czmq.h>
 
@@ -425,6 +436,18 @@ zframe_t *
 //  Set the gray_list field, transferring ownership from caller
 void
     wap_proto_set_gray_list (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the active field
+byte
+    wap_proto_active (wap_proto_t *self);
+void
+    wap_proto_set_active (wap_proto_t *self, byte active);
+
+//  Get/set the speed field
+uint64_t
+    wap_proto_speed (wap_proto_t *self);
+void
+    wap_proto_set_speed (wap_proto_t *self, uint64_t speed);
 
 //  Get/set the reason field
 const char *

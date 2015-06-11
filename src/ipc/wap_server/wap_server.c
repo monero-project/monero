@@ -310,3 +310,13 @@ get_peer_list (client_t *self)
 {
     IPC::Daemon::get_peer_list(self->message);
 }
+
+//  ---------------------------------------------------------------------------
+//  get_mining_status
+//
+
+static void
+get_mining_status (client_t *self)
+{
+    IPC::Daemon::get_mining_status(self->message);
+}

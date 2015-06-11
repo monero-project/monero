@@ -297,6 +297,42 @@ namespace
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getminingstatus' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getminingstatus(char *buf, int len, struct ns_rpc_request *req)
+  {
+    connect_to_daemon();
+    int rc = wap_client_get_mining_status(ipc_client);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+
+    rapidjson::Document response_json;
+    rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
+    rapidjson::Value result_json;
+    result_json.SetObject();
+
+    result_json.AddMember("speed", wap_client_speed(ipc_client), allocator);
+    result_json.AddMember("active", (wap_client_active(ipc_client) == 1), allocator);
+    result_json.AddMember("threads_count", wap_client_thread_count(ipc_client), allocator);
+    zchunk_t *address_chunk = wap_client_address(ipc_client);
+    rapidjson::Value string_value(rapidjson::kStringType);
+    string_value.SetString((char*)(zchunk_data(address_chunk)), zchunk_size(address_chunk));
+    result_json.AddMember("address", string_value, allocator);
+
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -304,6 +340,7 @@ namespace
     "stopmining",
     "getinfo",
     "getpeerlist",
+    "getminingstatus",
     NULL
   };
 
@@ -314,6 +351,7 @@ namespace
     stopmining,
     getinfo,
     getpeerlist,
+    getminingstatus,
     NULL
   };
 

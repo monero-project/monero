@@ -122,6 +122,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_peer_list (wap_client_t *self);
 
+//  Get mining status                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_mining_status (wap_client_t *self);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -201,6 +206,22 @@ WAP_EXPORT zframe_t *
 //  Return last received gray_list
 WAP_EXPORT zframe_t *
     wap_client_gray_list (wap_client_t *self);
+
+//  Return last received active
+WAP_EXPORT uint8_t 
+    wap_client_active (wap_client_t *self);
+
+//  Return last received speed
+WAP_EXPORT uint64_t 
+    wap_client_speed (wap_client_t *self);
+
+//  Return last received thread_count
+WAP_EXPORT uint64_t 
+    wap_client_thread_count (wap_client_t *self);
+
+//  Return last received address
+WAP_EXPORT zchunk_t *
+    wap_client_address (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

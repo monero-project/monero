@@ -61,6 +61,8 @@ struct _wap_proto_t {
     uint64_t grey_peerlist_size;        //  Grey Peerlist Size
     zframe_t *white_list;               //  White list
     zframe_t *gray_list;                //  Gray list
+    byte active;                        //  Active
+    uint64_t speed;                     //  Speed
     char reason [256];                  //  Printable explanation
 };
 
@@ -513,6 +515,27 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             self->gray_list = zframe_recv (input);
             break;
 
+        case WAP_PROTO_GET_MINING_STATUS:
+            break;
+
+        case WAP_PROTO_GET_MINING_STATUS_OK:
+            GET_NUMBER8 (self->status);
+            GET_NUMBER1 (self->active);
+            GET_NUMBER8 (self->speed);
+            GET_NUMBER8 (self->thread_count);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: address is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->address);
+                self->address = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            break;
+
         case WAP_PROTO_STOP:
             break;
 
@@ -651,6 +674,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
         case WAP_PROTO_GET_PEER_LIST_OK:
             frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_GET_MINING_STATUS_OK:
+            frame_size += 8;            //  status
+            frame_size += 1;            //  active
+            frame_size += 8;            //  speed
+            frame_size += 8;            //  thread_count
+            frame_size += 4;            //  Size is 4 octets
+            if (self->address)
+                frame_size += zchunk_size (self->address);
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -806,6 +838,22 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->status);
             nbr_frames++;
             nbr_frames++;
+            break;
+
+        case WAP_PROTO_GET_MINING_STATUS_OK:
+            PUT_NUMBER8 (self->status);
+            PUT_NUMBER1 (self->active);
+            PUT_NUMBER8 (self->speed);
+            PUT_NUMBER8 (self->thread_count);
+            if (self->address) {
+                PUT_NUMBER4 (zchunk_size (self->address));
+                memcpy (self->needle,
+                        zchunk_data (self->address),
+                        zchunk_size (self->address));
+                self->needle += zchunk_size (self->address);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             break;
 
         case WAP_PROTO_ERROR:
@@ -1037,6 +1085,19 @@ wap_proto_print (wap_proto_t *self)
                 zsys_debug ("(NULL)");
             break;
 
+        case WAP_PROTO_GET_MINING_STATUS:
+            zsys_debug ("WAP_PROTO_GET_MINING_STATUS:");
+            break;
+
+        case WAP_PROTO_GET_MINING_STATUS_OK:
+            zsys_debug ("WAP_PROTO_GET_MINING_STATUS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    active=%ld", (long) self->active);
+            zsys_debug ("    speed=%ld", (long) self->speed);
+            zsys_debug ("    thread_count=%ld", (long) self->thread_count);
+            zsys_debug ("    address=[ ... ]");
+            break;
+
         case WAP_PROTO_STOP:
             zsys_debug ("WAP_PROTO_STOP:");
             break;
@@ -1179,6 +1240,12 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_GET_PEER_LIST_OK:
             return ("GET_PEER_LIST_OK");
+            break;
+        case WAP_PROTO_GET_MINING_STATUS:
+            return ("GET_MINING_STATUS");
+            break;
+        case WAP_PROTO_GET_MINING_STATUS_OK:
+            return ("GET_MINING_STATUS_OK");
             break;
         case WAP_PROTO_STOP:
             return ("STOP");
@@ -1863,6 +1930,42 @@ wap_proto_set_gray_list (wap_proto_t *self, zframe_t **frame_p)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the active field
+
+byte
+wap_proto_active (wap_proto_t *self)
+{
+    assert (self);
+    return self->active;
+}
+
+void
+wap_proto_set_active (wap_proto_t *self, byte active)
+{
+    assert (self);
+    self->active = active;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the speed field
+
+uint64_t
+wap_proto_speed (wap_proto_t *self)
+{
+    assert (self);
+    return self->speed;
+}
+
+void
+wap_proto_set_speed (wap_proto_t *self, uint64_t speed)
+{
+    assert (self);
+    self->speed = speed;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -2246,6 +2349,38 @@ wap_proto_test (bool verbose)
         zframe_destroy (&get_peer_list_ok_white_list);
         assert (zframe_streq (wap_proto_gray_list (self), "Captcha Diem"));
         zframe_destroy (&get_peer_list_ok_gray_list);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_MINING_STATUS);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_MINING_STATUS_OK);
+
+    wap_proto_set_status (self, 123);
+    wap_proto_set_active (self, 123);
+    wap_proto_set_speed (self, 123);
+    wap_proto_set_thread_count (self, 123);
+    zchunk_t *get_mining_status_ok_address = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_address (self, &get_mining_status_ok_address);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (wap_proto_active (self) == 123);
+        assert (wap_proto_speed (self) == 123);
+        assert (wap_proto_thread_count (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&get_mining_status_ok_address);
     }
     wap_proto_set_id (self, WAP_PROTO_STOP);
 

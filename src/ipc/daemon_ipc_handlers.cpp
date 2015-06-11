@@ -49,6 +49,14 @@ namespace
     }
     return true;
   }
+  bool check_core_ready()
+  {
+    if (p2p->get_payload_object().is_synchronized())
+    {
+      return false;
+    }
+    return check_core_busy();
+  }
 }
 
 namespace IPC
@@ -414,6 +422,26 @@ namespace IPC
 
       wap_proto_set_white_list(message, &white_list_frame);
       wap_proto_set_gray_list(message, &gray_list_frame);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void get_mining_status(wap_proto_t *message) {
+      if (!check_core_ready()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      const cryptonote::miner& lMiner = core->get_miner();
+      wap_proto_set_active(message, lMiner.is_mining() ? 1 : 0);
+
+      if (lMiner.is_mining()) {
+        wap_proto_set_speed(message, lMiner.get_speed());
+        wap_proto_set_thread_count(message, lMiner.get_threads_count());
+        const cryptonote::account_public_address& lMiningAdr = lMiner.get_mining_address();
+        std::string address = get_account_address_as_str(testnet, lMiningAdr);
+        zchunk_t *address_chunk = zchunk_new((void*)address.c_str(), address.length());
+        wap_proto_set_address(message, &address_chunk);
+      }
+
       wap_proto_set_status(message, STATUS_OK);
     }
   }

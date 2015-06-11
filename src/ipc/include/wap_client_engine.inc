@@ -35,10 +35,11 @@ typedef enum {
     expect_get_height_ok_state = 12,
     expect_get_info_ok_state = 13,
     expect_get_peer_list_ok_state = 14,
-    expect_close_ok_state = 15,
-    defaults_state = 16,
-    have_error_state = 17,
-    reexpect_open_ok_state = 18
+    expect_get_mining_status_ok_state = 15,
+    expect_close_ok_state = 16,
+    defaults_state = 17,
+    have_error_state = 18,
+    reexpect_open_ok_state = 19
 } state_t;
 
 typedef enum {
@@ -58,24 +59,26 @@ typedef enum {
     get_height_event = 13,
     get_info_event = 14,
     get_peer_list_event = 15,
-    destructor_event = 16,
-    blocks_ok_event = 17,
-    get_ok_event = 18,
-    put_ok_event = 19,
-    save_bc_ok_event = 20,
-    start_ok_event = 21,
-    stop_ok_event = 22,
-    output_indexes_ok_event = 23,
-    random_outs_ok_event = 24,
-    get_height_ok_event = 25,
-    get_info_ok_event = 26,
-    get_peer_list_ok_event = 27,
-    close_ok_event = 28,
-    ping_ok_event = 29,
-    error_event = 30,
-    exception_event = 31,
-    command_invalid_event = 32,
-    other_event = 33
+    get_mining_status_event = 16,
+    destructor_event = 17,
+    blocks_ok_event = 18,
+    get_ok_event = 19,
+    put_ok_event = 20,
+    save_bc_ok_event = 21,
+    start_ok_event = 22,
+    stop_ok_event = 23,
+    output_indexes_ok_event = 24,
+    random_outs_ok_event = 25,
+    get_height_ok_event = 26,
+    get_info_ok_event = 27,
+    get_peer_list_ok_event = 28,
+    get_mining_status_ok_event = 29,
+    close_ok_event = 30,
+    ping_ok_event = 31,
+    error_event = 32,
+    exception_event = 33,
+    command_invalid_event = 34,
+    other_event = 35
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -96,6 +99,7 @@ s_state_name [] = {
     "expect get height ok",
     "expect get info ok",
     "expect get peer list ok",
+    "expect get mining status ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -120,6 +124,7 @@ s_event_name [] = {
     "GET_HEIGHT",
     "GET_INFO",
     "GET_PEER_LIST",
+    "GET_MINING_STATUS",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
@@ -132,6 +137,7 @@ s_event_name [] = {
     "GET_HEIGHT_OK",
     "GET_INFO_OK",
     "GET_PEER_LIST_OK",
+    "GET_MINING_STATUS_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -246,6 +252,8 @@ static void
     signal_have_get_info_ok (client_t *self);
 static void
     signal_have_get_peer_list_ok (client_t *self);
+static void
+    signal_have_get_mining_status_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -500,6 +508,12 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_GET_PEER_LIST_OK:
             return get_peer_list_ok_event;
+            break;
+        case WAP_PROTO_GET_MINING_STATUS:
+            return get_mining_status_event;
+            break;
+        case WAP_PROTO_GET_MINING_STATUS_OK:
+            return get_mining_status_ok_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -833,6 +847,18 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_peer_list_ok_state;
+                }
+                else
+                if (self->event == get_mining_status_event) {
+                    if (!self->exception) {
+                        //  send GET_MINING_STATUS
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send GET_MINING_STATUS");
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_MINING_STATUS);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_mining_status_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -1391,6 +1417,51 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_get_mining_status_ok_state:
+                if (self->event == get_mining_status_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get mining status ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have get mining status ok");
+                        signal_have_get_mining_status_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ client is connected");
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ exception");
+                }
+                else {
+                    //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -1698,6 +1769,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (streq (method, "GET PEER LIST")) {
         s_client_execute (self, get_peer_list_event);
     }
+    else
+    if (streq (method, "GET MINING STATUS")) {
+        s_client_execute (self, get_mining_status_event);
+    }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
         zsys_error ("wap_client: trailing API command frames (%s)", method);
@@ -1830,6 +1905,10 @@ struct _wap_client_t {
     uint64_t grey_peerlist_size;  //  Returned by actor reply
     zframe_t *white_list;       //  Returned by actor reply
     zframe_t *gray_list;        //  Returned by actor reply
+    uint8_t active;             //  Returned by actor reply
+    uint64_t speed;             //  Returned by actor reply
+    uint64_t thread_count;      //  Returned by actor reply
+    zchunk_t *address;          //  Returned by actor reply
 };
 
 
@@ -1884,6 +1963,7 @@ wap_client_destroy (wap_client_t **self_p)
         zframe_destroy (&self->random_outputs);
         zframe_destroy (&self->white_list);
         zframe_destroy (&self->gray_list);
+        zchunk_destroy (&self->address);
         free (self);
         *self_p = NULL;
     }
@@ -2010,6 +2090,11 @@ s_accept_reply (wap_client_t *self, ...)
                     zframe_destroy (&self->white_list);
                     zframe_destroy (&self->gray_list);
                     zsock_recv (self->actor, "8pp", &self->status, &self->white_list, &self->gray_list);
+                }
+                else
+                if (streq (reply, "GET MINING STATUS OK")) {
+                    zchunk_destroy (&self->address);
+                    zsock_recv (self->actor, "8188p", &self->status, &self->active, &self->speed, &self->thread_count, &self->address);
                 }
                 break;
             }
@@ -2245,6 +2330,22 @@ wap_client_get_peer_list (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  Get mining status                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_mining_status (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "GET MINING STATUS");
+    if (s_accept_reply (self, "GET MINING STATUS OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Return last received status
 
 int 
@@ -2461,4 +2562,48 @@ wap_client_gray_list (wap_client_t *self)
 {
     assert (self);
     return self->gray_list;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received active
+
+uint8_t 
+wap_client_active (wap_client_t *self)
+{
+    assert (self);
+    return self->active;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received speed
+
+uint64_t 
+wap_client_speed (wap_client_t *self)
+{
+    assert (self);
+    return self->speed;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received thread_count
+
+uint64_t 
+wap_client_thread_count (wap_client_t *self)
+{
+    assert (self);
+    return self->thread_count;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received address
+
+zchunk_t *
+wap_client_address (wap_client_t *self)
+{
+    assert (self);
+    return self->address;
 }

@@ -78,6 +78,7 @@ namespace IPC
     void save_bc(wap_proto_t *message);
     void get_info(wap_proto_t *message);
     void get_peer_list(wap_proto_t *message);
+    void get_mining_status(wap_proto_t *message);
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet);
