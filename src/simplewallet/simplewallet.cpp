@@ -298,7 +298,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("sweep_dust", boost::bind(&simple_wallet::sweep_dust, this, _1), "Send all dust outputs to the same address with mixin 0");
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
-  m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), "Show an integrated address for the current wallet public address and a payment id");
+  m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), "Convert a payment ID to an integrated address for the current wallet public address (no arguments use a random payment ID), or display standard addres and payment ID corresponding to an integrated addres");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
   m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), "Save watch only keys file");
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), "Get viewkey");
@@ -1519,12 +1519,19 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_integrated_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  if (args.size() != 1)
+  crypto::hash payment_id;
+  if (args.size() > 1)
   {
-    fail_msg_writer() << "Missing payment id or address";
+    fail_msg_writer() << "integrated_address only takes one or zero arguments";
     return true;
   }
-  crypto::hash payment_id;
+  if (args.size() == 0)
+  {
+    crypto::generate_random_bytes(32, payment_id.data);
+    success_msg_writer() << "Random payment ID: " << payment_id;
+    success_msg_writer() << "Matching integrated address: " << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
+    return true;
+  }
   if(tools::wallet2::parse_payment_id(args.back(), payment_id))
   {
     success_msg_writer() << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
