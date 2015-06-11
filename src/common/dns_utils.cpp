@@ -138,19 +138,34 @@ std::string ipv6_to_string(const char* src)
 
 // custom smart pointer.
 // TODO: see if std::auto_ptr and the like support custom destructors
-class ub_result_ptr
+template<typename type, void (*freefunc)(type*)>
+class scoped_ptr
 {
 public:
-  ub_result_ptr()
+  scoped_ptr():
+    ptr(nullptr)
   {
-    ptr = nullptr;
   }
-  ~ub_result_ptr()
+  scoped_ptr(type *p):
+    ptr(p)
   {
-    ub_resolve_free(ptr);
   }
-  ub_result* ptr;
+  ~scoped_ptr()
+  {
+    freefunc(ptr);
+  }
+  operator type *() { return ptr; }
+  type **operator &() { return &ptr; }
+  type *operator->() { return ptr; }
+  operator const type*() const { return &ptr; }
+
+private:
+  type* ptr;
 };
+
+typedef class scoped_ptr<ub_result,ub_resolve_free> ub_result_ptr;
+static void freestring(char *ptr) { free(ptr); }
+typedef class scoped_ptr<char,freestring> string_ptr;
 
 struct DNSResolverData
 {
@@ -203,10 +218,8 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url, bool& dns
   std::vector<std::string> addresses;
   dnssec_available = false;
   dnssec_valid = false;
-  char urlC[1000];  // waaaay too big, but just in case...
 
-  strncpy(urlC, url.c_str(), 999);
-  urlC[999] = '\0';
+  string_ptr urlC(strdup(url.c_str()));
   if (!check_address_syntax(urlC))
   {
     return addresses;
@@ -216,15 +229,15 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url, bool& dns
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_A, DNS_CLASS_IN, &(result.ptr)))
+  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_A, DNS_CLASS_IN, &result))
   {
-    dnssec_available = (result.ptr->secure || (!result.ptr->secure && result.ptr->bogus));
-    dnssec_valid = !result.ptr->bogus;
-    if (result.ptr->havedata)
+    dnssec_available = (result->secure || (!result->secure && result->bogus));
+    dnssec_valid = !result->bogus;
+    if (result->havedata)
     {
-      for (size_t i=0; result.ptr->data[i] != NULL; i++)
+      for (size_t i=0; result->data[i] != NULL; i++)
       {
-        addresses.push_back(ipv4_to_string(result.ptr->data[i]));
+        addresses.push_back(ipv4_to_string(result->data[i]));
       }
     }
   }
@@ -237,11 +250,8 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url, bool& dns
   std::vector<std::string> addresses;
   dnssec_available = false;
   dnssec_valid = false;
-  char urlC[1000];  // waaaay too big, but just in case...
 
-  strncpy(urlC, url.c_str(), 999);
-  urlC[999] = '\0';
-
+  string_ptr urlC(strdup(url.c_str()));
   if (!check_address_syntax(urlC))
   {
     return addresses;
@@ -250,15 +260,15 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url, bool& dns
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_AAAA, DNS_CLASS_IN, &(result.ptr)))
+  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_AAAA, DNS_CLASS_IN, &result))
   {
-    dnssec_available = (result.ptr->secure || (!result.ptr->secure && result.ptr->bogus));
-    dnssec_valid = !result.ptr->bogus;
-    if (result.ptr->havedata)
+    dnssec_available = (result->secure || (!result->secure && result->bogus));
+    dnssec_valid = !result->bogus;
+    if (result->havedata)
     {
-      for (size_t i=0; result.ptr->data[i] != NULL; i++)
+      for (size_t i=0; result->data[i] != NULL; i++)
       {
-        addresses.push_back(ipv6_to_string(result.ptr->data[i]));
+        addresses.push_back(ipv6_to_string(result->data[i]));
       }
     }
   }
@@ -271,11 +281,8 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, boo
   std::vector<std::string> records;
   dnssec_available = false;
   dnssec_valid = false;
-  char urlC[1000];  // waaaay too big, but just in case...
 
-  strncpy(urlC, url.c_str(), 999);
-  urlC[999] = '\0';
-
+  string_ptr urlC(strdup(url.c_str()));
   if (!check_address_syntax(urlC))
   {
     return records;
@@ -284,18 +291,18 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, boo
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_TXT, DNS_CLASS_IN, &(result.ptr)))
+  if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_TXT, DNS_CLASS_IN, &result))
   {
-    dnssec_available = (result.ptr->secure || (!result.ptr->secure && result.ptr->bogus));
-    dnssec_valid = !result.ptr->bogus;
-    if (result.ptr->havedata)
+    dnssec_available = (result->secure || (!result->secure && result->bogus));
+    dnssec_valid = !result->bogus;
+    if (result->havedata)
     {
-      for (size_t i=0; result.ptr->data[i] != NULL; i++)
+      for (size_t i=0; result->data[i] != NULL; i++)
       {
       	// plz fix this, but this does NOT work and spills over into parts of memory it shouldn't: records.push_back(result.ptr->data[i]);
         char *restxt;
-        restxt = (char*) calloc(result.ptr->len[i]+1, 1);
-        memcpy(restxt, result.ptr->data[i]+1, result.ptr->len[i]-1);
+        restxt = (char*) calloc(result->len[i]+1, 1);
+        memcpy(restxt, result->data[i]+1, result->len[i]-1);
         records.push_back(restxt);
       }
     }
@@ -327,10 +334,10 @@ DNSResolver& DNSResolver::instance()
   return *staticInstance;
 }
 
-bool DNSResolver::check_address_syntax(const std::string& addr)
+bool DNSResolver::check_address_syntax(const char *addr)
 {
   // if string doesn't contain a dot, we won't consider it a url for now.
-  if (addr.find(".") == std::string::npos)
+  if (strchr(addr,'.') == NULL)
   {
     return false;
   }
