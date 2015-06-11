@@ -472,12 +472,17 @@ bool wallet2::clear()
  * \brief Stores wallet information to wallet file.
  * \param  keys_file_name Name of wallet file
  * \param  password       Password of wallet file
+ * \param  watch_only     true to save only view key, false to save both spend and view keys
  * \return                Whether it was successful.
  */
-bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password)
+bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password, bool watch_only)
 {
   std::string account_data;
-  bool r = epee::serialization::store_t_to_binary(m_account, account_data);
+  cryptonote::account_base account = m_account;
+
+  if (watch_only)
+    account.forget_spend_key();
+  bool r = epee::serialization::store_t_to_binary(account, account_data);
   CHECK_AND_ASSERT_MES(r, false, "failed to serialize wallet keys");
   wallet2::keys_file_data keys_file_data = boost::value_initialized<wallet2::keys_file_data>();
 
@@ -492,6 +497,10 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
     value.SetString(seed_language.c_str(), seed_language.length());
     json.AddMember("seed_language", value, json.GetAllocator());
   }
+
+  rapidjson::Value value2(rapidjson::kNumberType);
+  value2.SetInt(watch_only ? 1 :0); // WTF ? JSON has different true and false types, and not boolean ??
+  json.AddMember("watch_only", value2, json.GetAllocator());
 
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
@@ -552,6 +561,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
   {
     is_old_file_format = true;
+    m_watch_only = false;
   }
   else
   {
@@ -562,12 +572,21 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
       set_seed_language(std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
         json["seed_language"].GetStringLength()));
     }
+    if (json.HasMember("watch_only"))
+    {
+      m_watch_only = json["watch_only"].GetInt() != 0;
+    }
+    else
+    {
+      m_watch_only = false;
+    }
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
   r = epee::serialization::load_t_from_binary(m_account, account_data);
   r = r && verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
-  r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
+  if(!m_watch_only)
+    r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
 }
 
@@ -642,7 +661,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
 
   m_account_public_address = m_account.get_keys().m_account_address;
 
-  bool r = store_keys(m_keys_file, password);
+  bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
   r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
@@ -666,8 +685,23 @@ void wallet2::rewrite(const std::string& wallet_name, const std::string& passwor
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
   THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_keys_file, ignored_ec), error::file_not_found, m_keys_file);
-  bool r = store_keys(m_keys_file, password);
+  bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+}
+/*!
+ * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
+ * \param wallet_name Name of wallet file (should exist)
+ * \param password    Password for wallet file
+ */
+void wallet2::write_watch_only_wallet(const std::string& wallet_name, const std::string& password)
+{
+  prepare_file_names(wallet_name);
+  boost::system::error_code ignored_ec;
+  std::string filename = m_keys_file + "-watchonly";
+  bool watch_only_keys_file_exists = boost::filesystem::exists(filename, ignored_ec);
+  THROW_WALLET_EXCEPTION_IF(watch_only_keys_file_exists, error::file_save_error, filename);
+  bool r = store_keys(filename, password, true);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, filename);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)

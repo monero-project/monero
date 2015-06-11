@@ -67,6 +67,8 @@ namespace cryptonote
     bool load(const std::string& file_path);
     bool store(const std::string& file_path);
 
+    void forget_spend_key();
+
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int /*ver*/)
     {

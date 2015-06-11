@@ -151,6 +151,7 @@ namespace tools
      * \param password    Password for wallet file
      */
     void rewrite(const std::string& wallet_name, const std::string& password);
+    void write_watch_only_wallet(const std::string& wallet_name, const std::string& password);
     void load(const std::string& wallet, const std::string& password);
     void store();
 
@@ -198,6 +199,7 @@ namespace tools
 
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
+    bool watch_only() const { return m_watch_only; }
 
     uint64_t balance() const;
     uint64_t unlocked_balance() const;
@@ -260,9 +262,10 @@ namespace tools
      * \brief  Stores wallet information to wallet file.
      * \param  keys_file_name Name of wallet file
      * \param  password       Password of wallet file
+     * \param  watch_only     true to save only view key, false to save both spend and view keys
      * \return                Whether it was successful.
      */
-    bool store_keys(const std::string& keys_file_name, const std::string& password);
+    bool store_keys(const std::string& keys_file_name, const std::string& password, bool watch_only = false);
     /*!
      * \brief Load wallet information from wallet file.
      * \param keys_file_name Name of wallet file
@@ -306,6 +309,7 @@ namespace tools
     bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
+    bool m_watch_only; /*!< no spend key */
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)
