@@ -158,6 +158,10 @@ The project can be built from scratch by following instructions for Unix and Lin
 
 We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
+## Converting the blockchain from older versions
+
+If you have an in-memory blockchain from older version of Monero, see src/blockchain_utilities/README.md for how to use the import/export tools to convert it for use with this version of Monero.
+
 ## Building Documentation
 
 Monero developer documentation uses Doxygen, and is currently a work-in-progress.
