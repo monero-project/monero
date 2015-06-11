@@ -56,6 +56,13 @@ namespace cryptonote {
     account_public_address m_address;
     uint8_t check_sum;
   };
+  struct public_integrated_address_outer_blob
+  {
+    uint8_t m_ver;
+    account_public_address m_address;
+    crypto::hash payment_id;
+    uint8_t check_sum;
+  };
 #pragma pack (pop)
 
 
@@ -66,10 +73,25 @@ namespace cryptonote {
   size_t get_max_tx_size();
   bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t &reward);
   uint8_t get_account_address_checksum(const public_address_outer_blob& bl);
+  uint8_t get_account_integrated_address_checksum(const public_integrated_address_outer_blob& bl);
 
   std::string get_account_address_as_str(
       bool testnet
     , const account_public_address& adr
+    );
+
+  std::string get_account_integrated_address_as_str(
+      bool testnet
+    , const account_public_address& adr
+    , const crypto::hash& payment_id
+    );
+
+  bool get_account_integrated_address_from_str(
+      account_public_address& adr
+    , bool& has_payment_id
+    , crypto::hash& payment_id
+    , bool testnet
+    , const std::string& str
     );
 
   bool get_account_address_from_str(

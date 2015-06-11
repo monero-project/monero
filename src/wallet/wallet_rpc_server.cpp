@@ -117,12 +117,15 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, const std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
   {
+    crypto::hash integrated_payment_id = cryptonote::null_hash;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
       cryptonote::tx_destination_entry de;
-      if(!get_account_address_from_str(de.addr, m_wallet.testnet(), it->address))
+      bool has_payment_id;
+      crypto::hash new_payment_id;
+      if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet.testnet(), it->address))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;
@@ -130,6 +133,17 @@ namespace tools
       }
       de.amount = it->amount;
       dsts.push_back(de);
+
+      if (has_payment_id)
+      {
+        if (!payment_id.empty() || integrated_payment_id != cryptonote::null_hash)
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "A single payment id is allowed per transaction";
+          return false;
+        }
+        integrated_payment_id = new_payment_id;
+      }
     }
 
     if (!payment_id.empty())

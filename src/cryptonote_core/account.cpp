@@ -104,4 +104,10 @@ DISABLE_VS_WARNINGS(4244 4345)
     return get_account_address_as_str(testnet, m_keys.m_account_address);
   }
   //-----------------------------------------------------------------
+  std::string account_base::get_public_integrated_address_str(const crypto::hash &payment_id, bool testnet)
+  {
+    //TODO: change this code into base 58
+    return get_account_integrated_address_as_str(testnet, m_keys.m_account_address, payment_id);
+  }
+  //-----------------------------------------------------------------
 }

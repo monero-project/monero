@@ -121,6 +121,7 @@ namespace config
   std::string const P2P_REMOTE_DEBUG_TRUSTED_PUB_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
 
   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 18;
+  uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 19;
   uint16_t const P2P_DEFAULT_PORT = 18080;
   uint16_t const RPC_DEFAULT_PORT = 18081;
   boost::uuids::uuid const NETWORK_ID = { {
@@ -132,6 +133,7 @@ namespace config
   namespace testnet
   {
     uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 53;
+    uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 54;
     uint16_t const P2P_DEFAULT_PORT = 28080;
     uint16_t const RPC_DEFAULT_PORT = 28081;
     boost::uuids::uuid const NETWORK_ID = { {

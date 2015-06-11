@@ -60,6 +60,7 @@ namespace cryptonote
     crypto::secret_key generate(const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false);
     const account_keys& get_keys() const;
     std::string get_public_address_str(bool testnet);
+    std::string get_public_integrated_address_str(const crypto::hash &payment_id, bool testnet);
 
     uint64_t get_createtime() const { return m_creation_timestamp; }
     void set_createtime(uint64_t val) { m_creation_timestamp = val; }
