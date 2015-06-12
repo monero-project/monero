@@ -767,18 +767,23 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
 {
   bool success = false;
   tools::password_container pwd_container;
-  success = pwd_container.read_password();
+
+  success = pwd_container.read_password("Password for the new watch-only wallet");
   if (!success)
   {
     fail_msg_writer() << "failed to read wallet password";
     return true;
   }
-
-  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-  success = m_wallet->verify_password(pwd_container.password());
+  std::string password = pwd_container.password();
+  success = pwd_container.read_password("Enter new password again");
   if (!success)
   {
-    fail_msg_writer() << "invalid password";
+    fail_msg_writer() << "failed to read wallet password";
+    return true;
+  }
+  if (password != pwd_container.password())
+  {
+    fail_msg_writer() << "passwords do not match";
     return true;
   }
 
