@@ -320,3 +320,25 @@ get_mining_status (client_t *self)
 {
     IPC::Daemon::get_mining_status(self->message);
 }
+
+//  ---------------------------------------------------------------------------
+//  set_log_hash_rate
+//
+
+static void
+set_log_hash_rate (client_t *self)
+{
+    IPC::Daemon::set_log_hash_rate(self->message);
+}
+
+
+
+//  ---------------------------------------------------------------------------
+//  set_log_level
+//
+
+static void
+set_log_level (client_t *self)
+{
+    IPC::Daemon::set_log_level(self->message);
+}

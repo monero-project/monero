@@ -444,5 +444,34 @@ namespace IPC
 
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    void set_log_hash_rate(wap_proto_t *message) {
+      if (core->get_miner().is_mining())
+      {
+        core->get_miner().do_print_hashrate(wap_proto_visible(message));
+        wap_proto_set_status(message, STATUS_OK);
+      }
+      else
+      {
+        wap_proto_set_status(message, STATUS_NOT_MINING);
+      }
+    }
+
+    void set_log_level(wap_proto_t *message) {
+      // zproto supports only unsigned integers afaik. so the log level is sent as
+      // one and casted to signed int here.
+      int8_t level = (int8_t)wap_proto_level(message);
+      if (level < LOG_LEVEL_MIN || level > LOG_LEVEL_MAX)
+      {
+        wap_proto_set_status(message, STATUS_INVALID_LOG_LEVEL);
+      }
+      else
+      {
+        epee::log_space::log_singletone::get_set_log_detalisation_level(true, level);
+        int otshell_utils_log_level = 100 - (level * 20);
+        gCurrentLogger.setDebugLevel(otshell_utils_log_level);
+        wap_proto_set_status(message, STATUS_OK);
+      }
+    }
   }
 }

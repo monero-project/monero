@@ -36,10 +36,12 @@ typedef enum {
     expect_get_info_ok_state = 13,
     expect_get_peer_list_ok_state = 14,
     expect_get_mining_status_ok_state = 15,
-    expect_close_ok_state = 16,
-    defaults_state = 17,
-    have_error_state = 18,
-    reexpect_open_ok_state = 19
+    expect_set_log_hash_rate_ok_state = 16,
+    expect_set_log_level_ok_state = 17,
+    expect_close_ok_state = 18,
+    defaults_state = 19,
+    have_error_state = 20,
+    reexpect_open_ok_state = 21
 } state_t;
 
 typedef enum {
@@ -60,25 +62,29 @@ typedef enum {
     get_info_event = 14,
     get_peer_list_event = 15,
     get_mining_status_event = 16,
-    destructor_event = 17,
-    blocks_ok_event = 18,
-    get_ok_event = 19,
-    put_ok_event = 20,
-    save_bc_ok_event = 21,
-    start_ok_event = 22,
-    stop_ok_event = 23,
-    output_indexes_ok_event = 24,
-    random_outs_ok_event = 25,
-    get_height_ok_event = 26,
-    get_info_ok_event = 27,
-    get_peer_list_ok_event = 28,
-    get_mining_status_ok_event = 29,
-    close_ok_event = 30,
-    ping_ok_event = 31,
-    error_event = 32,
-    exception_event = 33,
-    command_invalid_event = 34,
-    other_event = 35
+    set_log_hash_rate_event = 17,
+    set_log_level_event = 18,
+    destructor_event = 19,
+    blocks_ok_event = 20,
+    get_ok_event = 21,
+    put_ok_event = 22,
+    save_bc_ok_event = 23,
+    start_ok_event = 24,
+    stop_ok_event = 25,
+    output_indexes_ok_event = 26,
+    random_outs_ok_event = 27,
+    get_height_ok_event = 28,
+    get_info_ok_event = 29,
+    get_peer_list_ok_event = 30,
+    get_mining_status_ok_event = 31,
+    set_log_hash_rate_ok_event = 32,
+    set_log_level_ok_event = 33,
+    close_ok_event = 34,
+    ping_ok_event = 35,
+    error_event = 36,
+    exception_event = 37,
+    command_invalid_event = 38,
+    other_event = 39
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -100,6 +106,8 @@ s_state_name [] = {
     "expect get info ok",
     "expect get peer list ok",
     "expect get mining status ok",
+    "expect set log hash rate ok",
+    "expect set log level ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -125,6 +133,8 @@ s_event_name [] = {
     "GET_INFO",
     "GET_PEER_LIST",
     "GET_MINING_STATUS",
+    "SET_LOG_HASH_RATE",
+    "SET_LOG_LEVEL",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
@@ -138,6 +148,8 @@ s_event_name [] = {
     "GET_INFO_OK",
     "GET_PEER_LIST_OK",
     "GET_MINING_STATUS_OK",
+    "SET_LOG_HASH_RATE_OK",
+    "SET_LOG_LEVEL_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -165,6 +177,8 @@ struct _client_args_t {
     zframe_t *amounts;
     zchunk_t *address;
     uint64_t thread_count;
+    uint8_t visible;
+    uint8_t level;
 };
 
 typedef struct {
@@ -229,6 +243,10 @@ static void
 static void
     prepare_get_random_outs_command (client_t *self);
 static void
+    prepare_set_log_hash_rate_command (client_t *self);
+static void
+    prepare_set_log_level_command (client_t *self);
+static void
     check_if_connection_is_dead (client_t *self);
 static void
     signal_have_blocks_ok (client_t *self);
@@ -254,6 +272,10 @@ static void
     signal_have_get_peer_list_ok (client_t *self);
 static void
     signal_have_get_mining_status_ok (client_t *self);
+static void
+    signal_have_set_log_hash_rate_ok (client_t *self);
+static void
+    signal_have_set_log_level_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -514,6 +536,18 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_GET_MINING_STATUS_OK:
             return get_mining_status_ok_event;
+            break;
+        case WAP_PROTO_SET_LOG_HASH_RATE:
+            return set_log_hash_rate_event;
+            break;
+        case WAP_PROTO_SET_LOG_HASH_RATE_OK:
+            return set_log_hash_rate_ok_event;
+            break;
+        case WAP_PROTO_SET_LOG_LEVEL:
+            return set_log_level_event;
+            break;
+        case WAP_PROTO_SET_LOG_LEVEL_OK:
+            return set_log_level_ok_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -859,6 +893,42 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_mining_status_ok_state;
+                }
+                else
+                if (self->event == set_log_hash_rate_event) {
+                    if (!self->exception) {
+                        //  prepare set log hash rate command
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ prepare set log hash rate command");
+                        prepare_set_log_hash_rate_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_LOG_HASH_RATE
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send SET_LOG_HASH_RATE");
+                        wap_proto_set_id (self->message, WAP_PROTO_SET_LOG_HASH_RATE);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_set_log_hash_rate_ok_state;
+                }
+                else
+                if (self->event == set_log_level_event) {
+                    if (!self->exception) {
+                        //  prepare set log level command
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ prepare set log level command");
+                        prepare_set_log_level_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_LOG_LEVEL
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send SET_LOG_LEVEL");
+                        wap_proto_set_id (self->message, WAP_PROTO_SET_LOG_LEVEL);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_set_log_level_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -1462,6 +1532,96 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_set_log_hash_rate_ok_state:
+                if (self->event == set_log_hash_rate_ok_event) {
+                    if (!self->exception) {
+                        //  signal have set log hash rate ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have set log hash rate ok");
+                        signal_have_set_log_hash_rate_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ client is connected");
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ exception");
+                }
+                else {
+                    //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
+                }
+                break;
+
+            case expect_set_log_level_ok_state:
+                if (self->event == set_log_level_ok_event) {
+                    if (!self->exception) {
+                        //  signal have set log level ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have set log level ok");
+                        signal_have_set_log_level_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ client is connected");
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ exception");
+                }
+                else {
+                    //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -1772,6 +1932,16 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "GET MINING STATUS")) {
         s_client_execute (self, get_mining_status_event);
+    }
+    else
+    if (streq (method, "SET LOG HASH RATE")) {
+        zsock_recv (self->cmdpipe, "1", &self->args.visible);
+        s_client_execute (self, set_log_hash_rate_event);
+    }
+    else
+    if (streq (method, "SET LOG LEVEL")) {
+        zsock_recv (self->cmdpipe, "1", &self->args.level);
+        s_client_execute (self, set_log_level_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -2096,6 +2266,14 @@ s_accept_reply (wap_client_t *self, ...)
                     zchunk_destroy (&self->address);
                     zsock_recv (self->actor, "8188p", &self->status, &self->active, &self->speed, &self->thread_count, &self->address);
                 }
+                else
+                if (streq (reply, "SET LOG HASH RATE OK")) {
+                    zsock_recv (self->actor, "8", &self->status);
+                }
+                else
+                if (streq (reply, "SET LOG LEVEL OK")) {
+                    zsock_recv (self->actor, "8", &self->status);
+                }
                 break;
             }
             filter = va_arg (args, char *);
@@ -2340,6 +2518,38 @@ wap_client_get_mining_status (wap_client_t *self)
 
     zsock_send (self->actor, "s", "GET MINING STATUS");
     if (s_accept_reply (self, "GET MINING STATUS OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Set log hash rate                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_set_log_hash_rate (wap_client_t *self, uint8_t visible)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s1", "SET LOG HASH RATE", visible);
+    if (s_accept_reply (self, "SET LOG HASH RATE OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Set log hash rate                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_set_log_level (wap_client_t *self, uint8_t level)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s1", "SET LOG LEVEL", level);
+    if (s_accept_reply (self, "SET LOG LEVEL OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }

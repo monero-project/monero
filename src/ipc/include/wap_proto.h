@@ -120,6 +120,18 @@ ERROR.
         thread_count        number 8    Threads count
         address             chunk       Address
 
+    SET_LOG_HASH_RATE - set_log_hash_rate IPC
+        visible             number 1    Visible
+
+    SET_LOG_HASH_RATE_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+
+    SET_LOG_LEVEL - set_log_level IPC
+        level               number 1    Level
+
+    SET_LOG_LEVEL_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+
     STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
 ERROR.
 
@@ -175,13 +187,17 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_PEER_LIST_OK          22
 #define WAP_PROTO_GET_MINING_STATUS         23
 #define WAP_PROTO_GET_MINING_STATUS_OK      24
-#define WAP_PROTO_STOP                      25
-#define WAP_PROTO_STOP_OK                   26
-#define WAP_PROTO_CLOSE                     27
-#define WAP_PROTO_CLOSE_OK                  28
-#define WAP_PROTO_PING                      29
-#define WAP_PROTO_PING_OK                   30
-#define WAP_PROTO_ERROR                     31
+#define WAP_PROTO_SET_LOG_HASH_RATE         25
+#define WAP_PROTO_SET_LOG_HASH_RATE_OK      26
+#define WAP_PROTO_SET_LOG_LEVEL             27
+#define WAP_PROTO_SET_LOG_LEVEL_OK          28
+#define WAP_PROTO_STOP                      29
+#define WAP_PROTO_STOP_OK                   30
+#define WAP_PROTO_CLOSE                     31
+#define WAP_PROTO_CLOSE_OK                  32
+#define WAP_PROTO_PING                      33
+#define WAP_PROTO_PING_OK                   34
+#define WAP_PROTO_ERROR                     35
 
 #include <czmq.h>
 
@@ -448,6 +464,18 @@ uint64_t
     wap_proto_speed (wap_proto_t *self);
 void
     wap_proto_set_speed (wap_proto_t *self, uint64_t speed);
+
+//  Get/set the visible field
+byte
+    wap_proto_visible (wap_proto_t *self);
+void
+    wap_proto_set_visible (wap_proto_t *self, byte visible);
+
+//  Get/set the level field
+byte
+    wap_proto_level (wap_proto_t *self);
+void
+    wap_proto_set_level (wap_proto_t *self, byte level);
 
 //  Get/set the reason field
 const char *

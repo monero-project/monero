@@ -424,3 +424,45 @@ signal_have_get_mining_status_ok (client_t *self)
         wap_proto_thread_count (self->message),
         wap_proto_get_address (self->message));
 }
+
+//  ---------------------------------------------------------------------------
+//  prepare_set_hash_log_rate_command
+//
+
+static void
+prepare_set_log_hash_rate_command (client_t *self)
+{
+        wap_proto_set_visible (self->message, self->args->visible);
+}
+
+//  ---------------------------------------------------------------------------
+//  signal_have_set_log_hash_rate_ok
+//
+
+static void
+signal_have_set_log_hash_rate_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8", "SET LOG HASH RATE OK",
+        wap_proto_status (self->message));
+}
+
+//  ---------------------------------------------------------------------------
+//  prepare_set_log_level_command
+//
+
+static void
+prepare_set_log_level_command (client_t *self)
+{
+        wap_proto_set_level (self->message, self->args->level);
+}
+
+//  ---------------------------------------------------------------------------
+//  signal_have_set_log_level_ok
+//
+
+static void
+signal_have_set_log_level_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8", "SET LOG LEVEL OK",
+        wap_proto_status (self->message));
+}

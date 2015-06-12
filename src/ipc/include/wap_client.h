@@ -127,6 +127,16 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_mining_status (wap_client_t *self);
 
+//  Set log hash rate                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_set_log_hash_rate (wap_client_t *self, uint8_t visible);
+
+//  Set log hash rate                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_set_log_level (wap_client_t *self, uint8_t level);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);

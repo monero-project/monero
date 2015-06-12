@@ -31,6 +31,7 @@ namespace
   int invalid_request = -32600;
   int invalid_params = -32602;
   int internal_error = -32603;
+  int not_mining_error = -32604;
 
   RPC::Json_rpc_http_server *server = NULL;
   wap_client_t *ipc_client = NULL;
@@ -238,6 +239,7 @@ namespace
       response_json.GetAllocator());
     result_json.AddMember("grey_peerlist_size", wap_client_grey_peerlist_size(ipc_client),
       response_json.GetAllocator());
+    result_json.AddMember("status", "OK", response_json.GetAllocator());
 
     std::string response;
     construct_response_string(req, result_json, response_json, response);
@@ -289,6 +291,7 @@ namespace
         "Couldn't parse JSON sent by daemon.", "{}");
     }
     result_json.AddMember("gray_list", gray_list_json["peers"], allocator);
+    result_json.AddMember("status", "OK", allocator);
 
     std::string response;
     construct_response_string(req, result_json, response_json, response);
@@ -325,12 +328,108 @@ namespace
     rapidjson::Value string_value(rapidjson::kStringType);
     string_value.SetString((char*)(zchunk_data(address_chunk)), zchunk_size(address_chunk));
     result_json.AddMember("address", string_value, allocator);
+    result_json.AddMember("status", "OK", allocator);
 
     std::string response;
     construct_response_string(req, result_json, response_json, response);
     size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
     strncpy(buf, response.c_str(), copy_length);
     return response.length();
+  }
+
+  /*!
+   * \brief Implementation of 'setloghashrate' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int setloghashrate(char *buf, int len, struct ns_rpc_request *req)
+  {
+    connect_to_daemon();
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Parameters missing.", "{}");
+    }
+
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, parse_error,
+        "Invalid JSON passed", "{}");
+    }
+
+    if (!request_json.HasMember("visible") || !request_json["visible"].IsBool())
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Incorrect 'visible' field", "{}");
+    }
+
+    bool visible = request_json["visible"].GetBool();
+    // 0MQ server expects an integer. 1 is true, 0 is false.
+    int rc = wap_client_set_log_hash_rate(ipc_client, visible ? 1 : 0);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+
+    if (wap_client_status(ipc_client) == IPC::STATUS_NOT_MINING) {
+      return ns_rpc_create_error(buf, len, req, not_mining_error,
+        "Not mining", "{}");
+    }
+
+    return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", STATUS_OK);
+  }
+
+  /*!
+   * \brief Implementation of 'setloglevel' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int setloglevel(char *buf, int len, struct ns_rpc_request *req)
+  {
+    connect_to_daemon();
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Parameters missing.", "{}");
+    }
+
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, parse_error,
+        "Invalid JSON passed", "{}");
+    }
+
+    if (!request_json.HasMember("level") || !request_json["level"].IsNumber())
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Incorrect 'level' field", "{}");
+    }
+
+    int level = request_json["level"].GetInt();
+    int rc = wap_client_set_log_level(ipc_client, level);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+
+    if (wap_client_status(ipc_client) == IPC::STATUS_INVALID_LOG_LEVEL) {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Invalid log level", "{}");
+    }
+
+    return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", STATUS_OK);
   }
 
   // Contains a list of method names.
@@ -341,6 +440,8 @@ namespace
     "getinfo",
     "getpeerlist",
     "getminingstatus",
+    "setloghashrate",
+    "setloglevel",
     NULL
   };
 
@@ -352,6 +453,8 @@ namespace
     getinfo,
     getpeerlist,
     getminingstatus,
+    setloghashrate,
+    setloglevel,
     NULL
   };
 
@@ -414,11 +517,9 @@ namespace RPC
         server->stop();
         delete server;
       }
-      std::cout << "HTTP done\n\n";
       if (ipc_client) {
         wap_client_destroy(&ipc_client);
       }
-      std::cout << "IPC done\n\n";
     }
   }
 }

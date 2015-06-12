@@ -43,11 +43,13 @@ typedef enum {
     get_info_event = 12,
     get_peer_list_event = 13,
     get_mining_status_event = 14,
-    close_event = 15,
-    ping_event = 16,
-    expired_event = 17,
-    exception_event = 18,
-    settled_event = 19
+    set_log_hash_rate_event = 15,
+    set_log_level_event = 16,
+    close_event = 17,
+    ping_event = 18,
+    expired_event = 19,
+    exception_event = 20,
+    settled_event = 21
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -77,6 +79,8 @@ s_event_name [] = {
     "GET_INFO",
     "GET_PEER_LIST",
     "GET_MINING_STATUS",
+    "SET_LOG_HASH_RATE",
+    "SET_LOG_LEVEL",
     "CLOSE",
     "PING",
     "expired",
@@ -170,6 +174,10 @@ static void
     get_peer_list (client_t *self);
 static void
     get_mining_status (client_t *self);
+static void
+    set_log_hash_rate (client_t *self);
+static void
+    set_log_level (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -389,6 +397,12 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_GET_MINING_STATUS:
             return get_mining_status_event;
+            break;
+        case WAP_PROTO_SET_LOG_HASH_RATE:
+            return set_log_hash_rate_event;
+            break;
+        case WAP_PROTO_SET_LOG_LEVEL:
+            return set_log_level_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -819,6 +833,42 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_MINING_STATUS_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_MINING_STATUS_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == set_log_hash_rate_event) {
+                    if (!self->exception) {
+                        //  set log hash rate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set log hash rate", self->log_prefix);
+                        set_log_hash_rate (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_LOG_HASH_RATE_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send SET_LOG_HASH_RATE_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SET_LOG_HASH_RATE_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == set_log_level_event) {
+                    if (!self->exception) {
+                        //  set log level
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set log level", self->log_prefix);
+                        set_log_level (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_LOG_LEVEL_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send SET_LOG_LEVEL_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SET_LOG_LEVEL_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

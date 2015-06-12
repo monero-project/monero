@@ -63,6 +63,8 @@ struct _wap_proto_t {
     zframe_t *gray_list;                //  Gray list
     byte active;                        //  Active
     uint64_t speed;                     //  Speed
+    byte visible;                       //  Visible
+    byte level;                         //  Level
     char reason [256];                  //  Printable explanation
 };
 
@@ -536,6 +538,22 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             }
             break;
 
+        case WAP_PROTO_SET_LOG_HASH_RATE:
+            GET_NUMBER1 (self->visible);
+            break;
+
+        case WAP_PROTO_SET_LOG_HASH_RATE_OK:
+            GET_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_SET_LOG_LEVEL:
+            GET_NUMBER1 (self->level);
+            break;
+
+        case WAP_PROTO_SET_LOG_LEVEL_OK:
+            GET_NUMBER8 (self->status);
+            break;
+
         case WAP_PROTO_STOP:
             break;
 
@@ -683,6 +701,18 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  Size is 4 octets
             if (self->address)
                 frame_size += zchunk_size (self->address);
+            break;
+        case WAP_PROTO_SET_LOG_HASH_RATE:
+            frame_size += 1;            //  visible
+            break;
+        case WAP_PROTO_SET_LOG_HASH_RATE_OK:
+            frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_SET_LOG_LEVEL:
+            frame_size += 1;            //  level
+            break;
+        case WAP_PROTO_SET_LOG_LEVEL_OK:
+            frame_size += 8;            //  status
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -854,6 +884,22 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
+            break;
+
+        case WAP_PROTO_SET_LOG_HASH_RATE:
+            PUT_NUMBER1 (self->visible);
+            break;
+
+        case WAP_PROTO_SET_LOG_HASH_RATE_OK:
+            PUT_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_SET_LOG_LEVEL:
+            PUT_NUMBER1 (self->level);
+            break;
+
+        case WAP_PROTO_SET_LOG_LEVEL_OK:
+            PUT_NUMBER8 (self->status);
             break;
 
         case WAP_PROTO_ERROR:
@@ -1098,6 +1144,26 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    address=[ ... ]");
             break;
 
+        case WAP_PROTO_SET_LOG_HASH_RATE:
+            zsys_debug ("WAP_PROTO_SET_LOG_HASH_RATE:");
+            zsys_debug ("    visible=%ld", (long) self->visible);
+            break;
+
+        case WAP_PROTO_SET_LOG_HASH_RATE_OK:
+            zsys_debug ("WAP_PROTO_SET_LOG_HASH_RATE_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
+        case WAP_PROTO_SET_LOG_LEVEL:
+            zsys_debug ("WAP_PROTO_SET_LOG_LEVEL:");
+            zsys_debug ("    level=%ld", (long) self->level);
+            break;
+
+        case WAP_PROTO_SET_LOG_LEVEL_OK:
+            zsys_debug ("WAP_PROTO_SET_LOG_LEVEL_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
         case WAP_PROTO_STOP:
             zsys_debug ("WAP_PROTO_STOP:");
             break;
@@ -1246,6 +1312,18 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_GET_MINING_STATUS_OK:
             return ("GET_MINING_STATUS_OK");
+            break;
+        case WAP_PROTO_SET_LOG_HASH_RATE:
+            return ("SET_LOG_HASH_RATE");
+            break;
+        case WAP_PROTO_SET_LOG_HASH_RATE_OK:
+            return ("SET_LOG_HASH_RATE_OK");
+            break;
+        case WAP_PROTO_SET_LOG_LEVEL:
+            return ("SET_LOG_LEVEL");
+            break;
+        case WAP_PROTO_SET_LOG_LEVEL_OK:
+            return ("SET_LOG_LEVEL_OK");
             break;
         case WAP_PROTO_STOP:
             return ("STOP");
@@ -1966,6 +2044,42 @@ wap_proto_set_speed (wap_proto_t *self, uint64_t speed)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the visible field
+
+byte
+wap_proto_visible (wap_proto_t *self)
+{
+    assert (self);
+    return self->visible;
+}
+
+void
+wap_proto_set_visible (wap_proto_t *self, byte visible)
+{
+    assert (self);
+    self->visible = visible;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the level field
+
+byte
+wap_proto_level (wap_proto_t *self)
+{
+    assert (self);
+    return self->level;
+}
+
+void
+wap_proto_set_level (wap_proto_t *self, byte level)
+{
+    assert (self);
+    self->level = level;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -2381,6 +2495,54 @@ wap_proto_test (bool verbose)
         assert (wap_proto_thread_count (self) == 123);
         assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
         zchunk_destroy (&get_mining_status_ok_address);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_LOG_HASH_RATE);
+
+    wap_proto_set_visible (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_visible (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_LOG_HASH_RATE_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_LOG_LEVEL);
+
+    wap_proto_set_level (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_level (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_LOG_LEVEL_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_STOP);
 
