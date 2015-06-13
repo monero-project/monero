@@ -331,6 +331,70 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_integrated_address(const wallet_rpc::COMMAND_RPC_MAKE_INTEGRATED_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_MAKE_INTEGRATED_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      crypto::hash payment_id;
+      if (req.payment_id.empty())
+      {
+        crypto::generate_random_bytes(32, payment_id.data);
+      }
+      else
+      {
+        if (!tools::wallet2::parse_payment_id(req.payment_id,payment_id))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Invalid payment ID";
+          return false;
+        }
+      }
+
+      res.integrated_address = m_wallet.get_account().get_public_integrated_address_str(payment_id, m_wallet.testnet());
+      return true;
+    }
+    catch (std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_split_integrated_address(const wallet_rpc::COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      cryptonote::account_public_address address;
+      crypto::hash payment_id;
+      bool has_payment_id;
+
+      if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet.testnet(), req.integrated_address))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+        er.message = "Invalid address";
+        return false;
+      }
+      if(!has_payment_id)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+        er.message = "Address is not an integrated address";
+        return false;
+      }
+      res.standard_address = get_account_address_as_str(m_wallet.testnet(),address);
+      res.payment_id = boost::lexical_cast<std::string>(payment_id);
+      return true;
+    }
+    catch (std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_store(const wallet_rpc::COMMAND_RPC_STORE::request& req, wallet_rpc::COMMAND_RPC_STORE::response& res, epee::json_rpc::error& er)
   {
     if (m_wallet.restricted())
