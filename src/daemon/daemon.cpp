@@ -126,7 +126,7 @@ bool t_daemon::run(bool interactive)
     if (interactive)
     {
       rpc_commands = new daemonize::t_command_server(0, 0, false, mp_internals->rpc.get_server());
-      rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop, this));
+      rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
     mp_internals->p2p.run(); // blocks until p2p goes down
@@ -161,6 +161,15 @@ void t_daemon::stop()
   mp_internals->p2p.stop();
   mp_internals->rpc.stop();
   mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
+}
+
+void t_daemon::stop_p2p()
+{
+  if (nullptr == mp_internals)
+  {
+    throw std::runtime_error{"Can't send stop signal to a stopped daemon"};
+  }
+  mp_internals->p2p.get().send_stop_signal();
 }
 
 } // namespace daemonize
