@@ -45,11 +45,13 @@ typedef enum {
     get_mining_status_event = 14,
     set_log_hash_rate_event = 15,
     set_log_level_event = 16,
-    close_event = 17,
-    ping_event = 18,
-    expired_event = 19,
-    exception_event = 20,
-    settled_event = 21
+    start_save_graph_event = 17,
+    stop_save_graph_event = 18,
+    close_event = 19,
+    ping_event = 20,
+    expired_event = 21,
+    exception_event = 22,
+    settled_event = 23
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -81,6 +83,8 @@ s_event_name [] = {
     "GET_MINING_STATUS",
     "SET_LOG_HASH_RATE",
     "SET_LOG_LEVEL",
+    "START_SAVE_GRAPH",
+    "STOP_SAVE_GRAPH",
     "CLOSE",
     "PING",
     "expired",
@@ -178,6 +182,10 @@ static void
     set_log_hash_rate (client_t *self);
 static void
     set_log_level (client_t *self);
+static void
+    start_save_graph (client_t *self);
+static void
+    stop_save_graph (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -403,6 +411,12 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_SET_LOG_LEVEL:
             return set_log_level_event;
+            break;
+        case WAP_PROTO_START_SAVE_GRAPH:
+            return start_save_graph_event;
+            break;
+        case WAP_PROTO_STOP_SAVE_GRAPH:
+            return stop_save_graph_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -869,6 +883,42 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send SET_LOG_LEVEL_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_SET_LOG_LEVEL_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == start_save_graph_event) {
+                    if (!self->exception) {
+                        //  start save graph
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ start save graph", self->log_prefix);
+                        start_save_graph (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send START_SAVE_GRAPH_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send START_SAVE_GRAPH_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_START_SAVE_GRAPH_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == stop_save_graph_event) {
+                    if (!self->exception) {
+                        //  stop save graph
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ stop save graph", self->log_prefix);
+                        stop_save_graph (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send STOP_SAVE_GRAPH_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send STOP_SAVE_GRAPH_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_STOP_SAVE_GRAPH_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

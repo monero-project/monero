@@ -83,6 +83,8 @@ namespace IPC
     void get_mining_status(wap_proto_t *message);
     void set_log_hash_rate(wap_proto_t *message);
     void set_log_level(wap_proto_t *message);
+    void start_save_graph(wap_proto_t *message);
+    void stop_save_graph(wap_proto_t *message);
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet);

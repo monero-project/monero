@@ -132,6 +132,16 @@ ERROR.
     SET_LOG_LEVEL_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 8    Status
 
+    START_SAVE_GRAPH - start_save_graph IPC
+
+    START_SAVE_GRAPH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+
+    STOP_SAVE_GRAPH - stop_save_graph IPC
+
+    STOP_SAVE_GRAPH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+
     STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
 ERROR.
 
@@ -191,13 +201,17 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_SET_LOG_HASH_RATE_OK      26
 #define WAP_PROTO_SET_LOG_LEVEL             27
 #define WAP_PROTO_SET_LOG_LEVEL_OK          28
-#define WAP_PROTO_STOP                      29
-#define WAP_PROTO_STOP_OK                   30
-#define WAP_PROTO_CLOSE                     31
-#define WAP_PROTO_CLOSE_OK                  32
-#define WAP_PROTO_PING                      33
-#define WAP_PROTO_PING_OK                   34
-#define WAP_PROTO_ERROR                     35
+#define WAP_PROTO_START_SAVE_GRAPH          29
+#define WAP_PROTO_START_SAVE_GRAPH_OK       30
+#define WAP_PROTO_STOP_SAVE_GRAPH           31
+#define WAP_PROTO_STOP_SAVE_GRAPH_OK        32
+#define WAP_PROTO_STOP                      33
+#define WAP_PROTO_STOP_OK                   34
+#define WAP_PROTO_CLOSE                     35
+#define WAP_PROTO_CLOSE_OK                  36
+#define WAP_PROTO_PING                      37
+#define WAP_PROTO_PING_OK                   38
+#define WAP_PROTO_ERROR                     39
 
 #include <czmq.h>
 

@@ -473,5 +473,15 @@ namespace IPC
         wap_proto_set_status(message, STATUS_OK);
       }
     }
+
+    void start_save_graph(wap_proto_t *message) {
+      p2p->set_save_graph(true);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void stop_save_graph(wap_proto_t *message) {
+      p2p->set_save_graph(false);
+      wap_proto_set_status(message, STATUS_OK);
+    }
   }
 }

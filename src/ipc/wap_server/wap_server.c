@@ -342,3 +342,23 @@ set_log_level (client_t *self)
 {
     IPC::Daemon::set_log_level(self->message);
 }
+
+//  ---------------------------------------------------------------------------
+//  start_save_graph
+//
+
+static void
+start_save_graph (client_t *self)
+{
+    IPC::Daemon::start_save_graph(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  stop_save_graph
+//
+
+static void
+stop_save_graph (client_t *self)
+{
+    IPC::Daemon::stop_save_graph(self->message);
+}

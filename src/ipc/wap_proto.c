@@ -554,6 +554,20 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->status);
             break;
 
+        case WAP_PROTO_START_SAVE_GRAPH:
+            break;
+
+        case WAP_PROTO_START_SAVE_GRAPH_OK:
+            GET_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_STOP_SAVE_GRAPH:
+            break;
+
+        case WAP_PROTO_STOP_SAVE_GRAPH_OK:
+            GET_NUMBER8 (self->status);
+            break;
+
         case WAP_PROTO_STOP:
             break;
 
@@ -712,6 +726,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 1;            //  level
             break;
         case WAP_PROTO_SET_LOG_LEVEL_OK:
+            frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_START_SAVE_GRAPH_OK:
+            frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_STOP_SAVE_GRAPH_OK:
             frame_size += 8;            //  status
             break;
         case WAP_PROTO_ERROR:
@@ -899,6 +919,14 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_SET_LOG_LEVEL_OK:
+            PUT_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_START_SAVE_GRAPH_OK:
+            PUT_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_STOP_SAVE_GRAPH_OK:
             PUT_NUMBER8 (self->status);
             break;
 
@@ -1164,6 +1192,24 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
+        case WAP_PROTO_START_SAVE_GRAPH:
+            zsys_debug ("WAP_PROTO_START_SAVE_GRAPH:");
+            break;
+
+        case WAP_PROTO_START_SAVE_GRAPH_OK:
+            zsys_debug ("WAP_PROTO_START_SAVE_GRAPH_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
+        case WAP_PROTO_STOP_SAVE_GRAPH:
+            zsys_debug ("WAP_PROTO_STOP_SAVE_GRAPH:");
+            break;
+
+        case WAP_PROTO_STOP_SAVE_GRAPH_OK:
+            zsys_debug ("WAP_PROTO_STOP_SAVE_GRAPH_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
         case WAP_PROTO_STOP:
             zsys_debug ("WAP_PROTO_STOP:");
             break;
@@ -1324,6 +1370,18 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_SET_LOG_LEVEL_OK:
             return ("SET_LOG_LEVEL_OK");
+            break;
+        case WAP_PROTO_START_SAVE_GRAPH:
+            return ("START_SAVE_GRAPH");
+            break;
+        case WAP_PROTO_START_SAVE_GRAPH_OK:
+            return ("START_SAVE_GRAPH_OK");
+            break;
+        case WAP_PROTO_STOP_SAVE_GRAPH:
+            return ("STOP_SAVE_GRAPH");
+            break;
+        case WAP_PROTO_STOP_SAVE_GRAPH_OK:
+            return ("STOP_SAVE_GRAPH_OK");
             break;
         case WAP_PROTO_STOP:
             return ("STOP");
@@ -2533,6 +2591,50 @@ wap_proto_test (bool verbose)
         assert (wap_proto_level (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_SET_LOG_LEVEL_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_START_SAVE_GRAPH);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_START_SAVE_GRAPH_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_STOP_SAVE_GRAPH);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_STOP_SAVE_GRAPH_OK);
 
     wap_proto_set_status (self, 123);
     //  Send twice

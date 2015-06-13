@@ -432,6 +432,69 @@ namespace
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", STATUS_OK);
   }
 
+  /*!
+   * \brief Implementation of 'getblockcount' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getblockcount(char *buf, int len, struct ns_rpc_request *req)
+  {
+    connect_to_daemon();
+    int rc = wap_client_get_height(ipc_client);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    uint64_t count = wap_client_height(ipc_client);
+    rapidjson::Document response_json;
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    result_json.AddMember("count", count, response_json.GetAllocator());
+    result_json.AddMember("status", "OK", response_json.GetAllocator());
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
+  /*!
+   * \brief Implementation of 'startsavegraph' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int startsavegraph(char *buf, int len, struct ns_rpc_request *req)
+  {
+    connect_to_daemon();
+    int rc = wap_client_start_save_graph(ipc_client);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", STATUS_OK);
+  }
+
+  /*!
+   * \brief Implementation of 'stopsavegraph' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int stopsavegraph(char *buf, int len, struct ns_rpc_request *req)
+  {
+    connect_to_daemon();
+    int rc = wap_client_stop_save_graph(ipc_client);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", STATUS_OK);
+  }
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -442,6 +505,9 @@ namespace
     "getminingstatus",
     "setloghashrate",
     "setloglevel",
+    "getblockcount",
+    "startsavegraph",
+    "stopsavegraph",
     NULL
   };
 
@@ -455,6 +521,9 @@ namespace
     getminingstatus,
     setloghashrate,
     setloglevel,
+    getblockcount,
+    startsavegraph,
+    stopsavegraph,
     NULL
   };
 

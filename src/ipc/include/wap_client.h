@@ -137,6 +137,16 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_set_log_level (wap_client_t *self, uint8_t level);
 
+//  Start save graph                                                                
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_start_save_graph (wap_client_t *self);
+
+//  Stop save graph                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_stop_save_graph (wap_client_t *self);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
