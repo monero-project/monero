@@ -81,14 +81,15 @@ namespace tools
     m_empty = true;
   }
 
-  bool password_container::read_password()
+  bool password_container::read_password(const char *message)
   {
     clear();
 
     bool r;
     if (is_cin_tty())
     {
-      std::cout << "password: ";
+      if (message)
+        std::cout << message << ": ";
       r = read_from_tty();
     }
     else
