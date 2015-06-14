@@ -177,24 +177,21 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
     records[cur_index] = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
     if (!avail)
     {
+      records[cur_index].clear();
       LOG_PRINT_L2("DNSSEC not available for checkpoint update at URL: " << url << ", skipping.");
     }
     if (!valid)
     {
+      records[cur_index].clear();
       LOG_PRINT_L2("DNSSEC validation failed for checkpoint update at URL: " << url << ", skipping.");
     }
 
-    if (records[cur_index].size() == 0 || !avail || !valid)
+    cur_index++;
+    if (cur_index == dns_urls.size())
     {
-      cur_index++;
-      if (cur_index == dns_urls.size())
-      {
-	cur_index = 0;
-      }
-      records[cur_index].clear();
-      continue;
+      cur_index = 0;
     }
-    break;
+    records[cur_index].clear();
   } while (cur_index != first_index);
 
   size_t num_valid_records = 0;
