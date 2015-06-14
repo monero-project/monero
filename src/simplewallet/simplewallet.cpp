@@ -298,6 +298,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("sweep_dust", boost::bind(&simple_wallet::sweep_dust, this, _1), "Send all dust outputs to the same address with mixin 0");
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
+  m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), "Convert a payment ID to an integrated address for the current wallet public address (no arguments use a random payment ID), or display standard addres and payment ID corresponding to an integrated addres");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
   m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), "Save watch only keys file");
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), "Get viewkey");
@@ -1137,6 +1138,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   }
 
   std::vector<uint8_t> extra;
+  bool payment_id_seen = false;
   if (1 == local_args.size() % 2)
   {
     std::string payment_id_str = local_args.back();
@@ -1156,13 +1158,17 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
       fail_msg_writer() << "payment id has invalid format: \"" << payment_id_str << "\", expected 64-character string";
       return true;
     }
+    payment_id_seen = true;
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
+  crypto::hash payment_id = null_hash;
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
     cryptonote::tx_destination_entry de;
-    if(!get_account_address_from_str(de.addr, m_wallet->testnet(), local_args[i]))
+    bool has_payment_id;
+    crypto::hash new_payment_id;
+    if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[i]))
     {
       // if treating as an address fails, try as url
       bool dnssec_ok = false;
@@ -1174,7 +1180,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
       // for now, move on only if one address found
       if (addresses_from_dns.size() == 1)
       {
-        if (get_account_address_from_str(de.addr, m_wallet->testnet(), addresses_from_dns[0]))
+        if (get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), addresses_from_dns[0]))
         {
           // if it was an address, prompt user for confirmation.
           // inform user of DNSSEC validation status as well.
@@ -1218,6 +1224,26 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
       {
         fail_msg_writer() << "Wrong address: " << local_args[i];
         return true;
+      }
+    }
+
+    if (has_payment_id) {
+      if (payment_id_seen && payment_id != new_payment_id) {
+        fail_msg_writer() << "A single transaction cannot use more than one payment id: " << local_args[i];
+        return true;
+      }
+
+      if (!payment_id_seen)
+      {
+        std::string extra_nonce;
+        set_payment_id_to_tx_extra_nonce(extra_nonce, new_payment_id);
+        bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+        if(!r)
+        {
+          fail_msg_writer() << "Failed to set up payment id, though it was decoded correctly";
+          return true;
+        }
+        payment_id = new_payment_id;
       }
     }
 
@@ -1488,6 +1514,47 @@ void simple_wallet::stop()
 bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::print_integrated_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  crypto::hash payment_id;
+  if (args.size() > 1)
+  {
+    fail_msg_writer() << "integrated_address only takes one or zero arguments";
+    return true;
+  }
+  if (args.size() == 0)
+  {
+    crypto::generate_random_bytes(32, payment_id.data);
+    success_msg_writer() << "Random payment ID: " << payment_id;
+    success_msg_writer() << "Matching integrated address: " << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
+    return true;
+  }
+  if(tools::wallet2::parse_payment_id(args.back(), payment_id))
+  {
+    success_msg_writer() << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
+    return true;
+  }
+  else {
+    bool has_payment_id;
+    crypto::hash payment_id;
+    account_public_address addr;
+    if(get_account_integrated_address_from_str(addr, has_payment_id, payment_id, m_wallet->testnet(), args.back()))
+    {
+      if (has_payment_id)
+      {
+        success_msg_writer() << "Integrated address: account " << get_account_address_as_str(m_wallet->testnet(),addr) << ", payment id " << payment_id;
+      }
+      else
+      {
+        success_msg_writer() << "Standard address: account " << get_account_address_as_str(m_wallet->testnet(),addr);
+      }
+      return true;
+    }
+  }
+  fail_msg_writer() << "Failed to parse payment id or address";
   return true;
 }
 //----------------------------------------------------------------------------------------------------

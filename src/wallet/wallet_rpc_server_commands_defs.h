@@ -299,6 +299,51 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_MAKE_INTEGRATED_ADDRESS
+  {
+    struct request
+    {
+      std::string payment_id;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string integrated_address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(integrated_address)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS
+  {
+    struct request
+    {
+      std::string integrated_address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(integrated_address)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string standard_address;
+      std::string payment_id;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(standard_address)
+        KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
 
