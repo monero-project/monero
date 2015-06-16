@@ -205,15 +205,25 @@ namespace cryptonote {
         return false;
       }
 
-      integrated_address iadr;
-      if (!::serialization::parse_binary(data, iadr))
+      if (has_payment_id)
       {
-        LOG_PRINT_L1("Account public address keys can't be parsed");
-        return false;
+        integrated_address iadr;
+        if (!::serialization::parse_binary(data, iadr))
+        {
+          LOG_PRINT_L1("Account public address keys can't be parsed");
+          return false;
+        }
+        adr = iadr.adr;
+        payment_id = iadr.payment_id;
       }
-
-      adr = iadr.adr;
-      payment_id = iadr.payment_id;
+      else
+      {
+        if (!::serialization::parse_binary(data, adr))
+        {
+          LOG_PRINT_L1("Account public address keys can't be parsed");
+          return false;
+        }
+      }
 
       if (!crypto::check_key(adr.m_spend_public_key) || !crypto::check_key(adr.m_view_public_key))
       {
