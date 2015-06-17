@@ -1146,10 +1146,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 
   for(attempt_count = 1; ;attempt_count++)
   {
-    auto split_values = split_amounts(dsts, attempt_count);
+    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
+
+    auto split_values = split_amounts(dsts, num_tx);
 
     // Throw if split_amounts comes back with a vector of size different than it should
-    if (split_values.size() != attempt_count)
+    if (split_values.size() != num_tx)
     {
       throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
     }
