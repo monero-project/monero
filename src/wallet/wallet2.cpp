@@ -1357,13 +1357,14 @@ std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
 
   for(attempt_count = 1; ;attempt_count++)
   {
-    size_t num_outputs_per_tx = (num_dust_outputs + attempt_count - 1) / attempt_count;
+    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
+    size_t num_outputs_per_tx = (num_dust_outputs + num_tx - 1) / num_tx;
 
     std::vector<pending_tx> ptx_vector;
     try
     {
       // for each new tx
-      for (size_t i=0; i<attempt_count;++i)
+      for (size_t i=0; i<num_tx;++i)
       {
         cryptonote::transaction tx;
         pending_tx ptx;
