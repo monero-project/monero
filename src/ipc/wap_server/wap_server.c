@@ -362,3 +362,23 @@ stop_save_graph (client_t *self)
 {
     IPC::Daemon::stop_save_graph(self->message);
 }
+
+//  ---------------------------------------------------------------------------
+//  get_block_hash
+//
+
+static void
+get_block_hash (client_t *self)
+{
+    IPC::Daemon::get_block_hash(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  get_block_template
+//
+
+static void
+get_block_template (client_t *self)
+{
+    IPC::Daemon::get_block_template(self->message);
+}

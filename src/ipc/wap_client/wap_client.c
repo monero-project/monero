@@ -16,9 +16,6 @@
 */
 
 #include "wap_classes.h"
-//  TODO: Change these to match your project's needs
-#include "../include/wap_proto.h"
-#include "../include/wap_client.h"
 
 //  Forward reference to method arguments structure
 typedef struct _client_args_t client_args_t;
@@ -98,6 +95,7 @@ use_connect_timeout (client_t *self)
     engine_set_timeout (self, self->args->timeout);
 }
 
+
 //  ---------------------------------------------------------------------------
 //  client_is_connected
 //
@@ -109,6 +107,7 @@ client_is_connected (client_t *self)
     engine_set_connected (self, true);
     engine_set_timeout (self, self->heartbeat_timer);
 }
+
 
 //  ---------------------------------------------------------------------------
 //  check_if_connection_is_dead
@@ -125,17 +124,6 @@ check_if_connection_is_dead (client_t *self)
     }
 }
 
-//  ---------------------------------------------------------------------------
-//  use_heartbeat_timer
-//
-
-static void
-use_heartbeat_timer (client_t *self)
-{
-    engine_set_timeout (self, self->heartbeat_timer);
-}
-
-
 
 //  ---------------------------------------------------------------------------
 //  prepare_blocks_command
@@ -148,15 +136,6 @@ prepare_blocks_command (client_t *self)
     wap_proto_set_start_height (self->message, self->args->start_height);
 }
 
-// ---------------------------------------------------------------------------
-// prepare_get_output_indexes_command
-//
-
-static void
-prepare_get_output_indexes_command (client_t *self)
-{
-    wap_proto_set_tx_id (self->message, &self->args->tx_id);
-}
 
 //  ---------------------------------------------------------------------------
 //  signal_have_blocks_ok
@@ -165,10 +144,13 @@ prepare_get_output_indexes_command (client_t *self)
 static void
 signal_have_blocks_ok (client_t *self)
 {
+    zmsg_t *msg = wap_proto_get_block_data (self->message);
+    assert(msg != 0);
+    printf("%p <--\n", (void*)msg);
     zsock_send (self->cmdpipe, "s888p", "BLOCKS OK", wap_proto_status(self->message),
                 wap_proto_start_height (self->message),
                 wap_proto_curr_height (self->message),
-                wap_proto_get_block_data (self->message));
+                msg);
 }
 
 
@@ -201,8 +183,8 @@ prepare_put_command (client_t *self)
 static void
 signal_have_put_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8s", "PUT OK", wap_proto_status(self->message),
-                wap_proto_tx_id (self->message));
+    zsock_send (self->cmdpipe, "s8", "PUT OK",
+                wap_proto_status (self->message));
 }
 
 
@@ -224,8 +206,19 @@ prepare_get_command (client_t *self)
 static void
 signal_have_get_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8p", "GET OK", 0, 
+    zsock_send (self->cmdpipe, "sip", "GET OK", 0, 
                 wap_proto_get_tx_data (self->message));
+}
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_height_ok
+//
+
+static void
+signal_have_get_height_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "si8", "GET HEIGHT OK", 0, 
+                wap_proto_height (self->message));
 }
 
 
@@ -258,31 +251,9 @@ signal_have_start_ok (client_t *self)
 static void
 signal_have_stop_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "STOP OK", 0);
+    zsock_send (self->cmdpipe, "si", "STOP OK", 0);
 }
 
-//  ---------------------------------------------------------------------------
-//  signal_have_get_height_ok
-//
-
-static void
-signal_have_get_height_ok (client_t *self)
-{
-    zsock_send (self->cmdpipe, "si8", "GET HEIGHT OK", 0, 
-                wap_proto_height (self->message));
-}
-
-//  ---------------------------------------------------------------------------
-//  signal_have_output_indexes_ok
-//
-
-static void
-signal_have_output_indexes_ok (client_t *self)
-{
-    zsock_send (self->cmdpipe, "s8p", "OUTPUT INDEXES OK",
-        wap_proto_status (self->message),
-        wap_proto_get_o_indexes (self->message));
-}
 
 //  ---------------------------------------------------------------------------
 //  signal_success
@@ -352,6 +323,37 @@ signal_server_not_present (client_t *self)
     zsock_send (self->cmdpipe, "sis", "FAILURE", -1, "Server is not reachable");
 }
 
+
+
+
+//  ---------------------------------------------------------------------------
+//  prepare_get_output_indexes_command
+//
+
+static void
+prepare_get_output_indexes_command (client_t *self)
+{
+    wap_proto_set_tx_id (self->message, &self->args->tx_id);
+}
+
+//  ---------------------------------------------------------------------------
+//  signal_have_output_indexes_ok
+//
+
+static void
+signal_have_output_indexes_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8p", "OUTPUT INDEXES OK",
+        wap_proto_status (self->message),
+        wap_proto_get_o_indexes (self->message));
+}
+
+void wap_client_test(bool verbose) {
+}
+
+
+
+
 //  ---------------------------------------------------------------------------
 //  prepare_get_random_outs_command
 //
@@ -359,7 +361,6 @@ signal_server_not_present (client_t *self)
 static void
 prepare_get_random_outs_command (client_t *self)
 {
-    wap_proto_set_outs_count(self->message, self->args->outs_count);
     wap_proto_set_amounts (self->message, &self->args->amounts);
 }
 
@@ -375,6 +376,8 @@ signal_have_random_outs_ok (client_t *self)
         wap_proto_status (self->message),
         wap_proto_get_random_outputs (self->message));
 }
+
+
 
 //  ---------------------------------------------------------------------------
 //  signal_have_get_info_ok
@@ -397,8 +400,9 @@ signal_have_get_info_ok (client_t *self)
         wap_proto_grey_peerlist_size (self->message));
 }
 
+
 //  ---------------------------------------------------------------------------
-//  signal_have_get_get_peer_list_ok
+//  signal_have_get_peer_list_ok
 //
 
 static void
@@ -432,7 +436,7 @@ signal_have_get_mining_status_ok (client_t *self)
 static void
 prepare_set_log_hash_rate_command (client_t *self)
 {
-        wap_proto_set_visible (self->message, self->args->visible);
+		wap_proto_set_visible (self->message, self->args->visible);
 }
 
 //  ---------------------------------------------------------------------------
@@ -453,7 +457,7 @@ signal_have_set_log_hash_rate_ok (client_t *self)
 static void
 prepare_set_log_level_command (client_t *self)
 {
-        wap_proto_set_level (self->message, self->args->level);
+		wap_proto_set_level (self->message, self->args->level);
 }
 
 //  ---------------------------------------------------------------------------
@@ -488,3 +492,52 @@ signal_have_stop_save_graph_ok (client_t *self)
     zsock_send (self->cmdpipe, "s8", "STOP SAVE GRAPH OK",
         wap_proto_status (self->message));
 }
+
+//  ---------------------------------------------------------------------------
+//  prepare_get_block_hash_command
+//
+
+static void
+prepare_get_block_hash_command (client_t *self)
+{
+		wap_proto_set_height (self->message, self->args->height);
+}
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_block_hash_ok
+//
+
+static void
+signal_have_get_block_hash_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8p", "GET BLOCK HASH OK",
+        wap_proto_status (self->message), wap_proto_get_hash (self->message));
+}
+
+//  ---------------------------------------------------------------------------
+//  prepare_get_block_template_command
+//
+
+static void
+prepare_get_block_template_command (client_t *self)
+{
+		wap_proto_set_reserve_size (self->message, self->args->reserve_size);
+		wap_proto_set_address (self->message, &self->args->address);
+}
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_block_template_ok
+//
+
+static void
+signal_have_get_block_template_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8888pp", "GET BLOCK TEMPLATE OK",
+        wap_proto_status (self->message), 
+        wap_proto_reserved_offset (self->message),
+        wap_proto_height (self->message),
+        wap_proto_difficulty (self->message),
+        wap_proto_get_prev_hash (self->message),
+        wap_proto_get_block_template_blob (self->message));
+}
+

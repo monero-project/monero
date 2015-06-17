@@ -57,6 +57,25 @@ namespace
     }
     return check_core_busy();
   }
+
+  //------------------------------------------------------------------------------------------------------------------------------
+  // equivalent of strstr, but with arbitrary bytes (ie, NULs)
+  // This does not differentiate between "not found" and "found at offset 0"
+  // (taken straight from core_rpc_server.cpp)
+  uint64_t slow_memmem(const void *start_buff, size_t buflen, const void *pat, size_t patlen)
+  {
+    const void *buf = start_buff;
+    const void *end = (const char*)buf + buflen;
+    if (patlen > buflen || patlen == 0) return 0;
+    while (buflen > 0 && (buf = memchr(buf, ((const char*)pat)[0], buflen-patlen + 1)))
+    {
+      if (memcmp(buf,pat,patlen) == 0)
+        return (const char*)buf - (const char*)start_buff;
+      buf = (const char*)buf + 1;
+      buflen = (const char*)end - (const char*)buf;
+    }
+    return 0;
+  }
 }
 
 namespace IPC
@@ -481,6 +500,90 @@ namespace IPC
 
     void stop_save_graph(wap_proto_t *message) {
       p2p->set_save_graph(false);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void get_block_hash(wap_proto_t *message) {
+      if (!check_core_busy())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      uint64_t height = wap_proto_height(message);
+      if (core->get_current_blockchain_height() <= height)
+      {
+        wap_proto_set_status(message, STATUS_HEIGHT_TOO_BIG);
+        return;
+      }
+      std::string hash = string_tools::pod_to_hex(core->get_block_id_by_height(height));
+      zchunk_t *hash_chunk = zchunk_new((void*)(hash.c_str()), hash.length());
+      wap_proto_set_hash(message, &hash_chunk);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void get_block_template(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      uint64_t reserve_size = wap_proto_reserve_size(message);
+      if (reserve_size > 255)
+      {
+        wap_proto_set_status(message, STATUS_RESERVE_SIZE_TOO_BIG);
+        return;
+      }
+
+      cryptonote::account_public_address acc = AUTO_VAL_INIT(acc);
+
+      zchunk_t *address_chunk = wap_proto_address(message);
+      std::string address((char*)zchunk_data(address_chunk), zchunk_size(address_chunk));
+      if (!address.size() || !cryptonote::get_account_address_from_str(acc, testnet, address))
+      {
+        wap_proto_set_status(message, STATUS_WRONG_ADDRESS);
+        return;
+      }
+
+      cryptonote::block b = AUTO_VAL_INIT(b);
+      cryptonote::blobdata blob_reserve;
+      blob_reserve.resize(reserve_size, 0);
+      uint64_t difficulty = wap_proto_difficulty(message);
+      uint64_t height;
+      if (!core->get_block_template(b, acc, difficulty, height, blob_reserve))
+      {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+      cryptonote::blobdata block_blob = t_serializable_object_to_blob(b);
+      crypto::public_key tx_pub_key = cryptonote::get_tx_pub_key_from_extra(b.miner_tx);
+      if (tx_pub_key == cryptonote::null_pkey)
+      {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+      uint64_t reserved_offset = slow_memmem((void*)block_blob.data(), block_blob.size(), &tx_pub_key, sizeof(tx_pub_key));
+      if (!reserved_offset)
+      {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+      reserved_offset += sizeof(tx_pub_key) + 3; // 3 bytes: tag for TX_EXTRA_TAG_PUBKEY(1 byte), tag for TX_EXTRA_NONCE(1 byte), counter in TX_EXTRA_NONCE(1 byte)
+      if (reserved_offset + reserve_size > block_blob.size())
+      {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+      wap_proto_set_height(message, height);
+      wap_proto_set_difficulty(message, difficulty);
+      wap_proto_set_reserved_offset(message, reserved_offset);
+      std::string prev_hash = string_tools::pod_to_hex(b.prev_id);
+      zchunk_t *prev_hash_chunk = zchunk_new((void*)prev_hash.c_str(), prev_hash.length());
+      wap_proto_set_prev_hash(message, &prev_hash_chunk);
+
+      cryptonote::blobdata blocktemplate_blob = string_tools::buff_to_hex_nodelimer(block_blob);
+      zchunk_t *blob_chunk = zchunk_new((void*)blocktemplate_blob.c_str(), blocktemplate_blob.length());
+      wap_proto_set_block_template_blob(message, &blob_chunk);
       wap_proto_set_status(message, STATUS_OK);
     }
   }

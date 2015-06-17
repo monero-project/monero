@@ -40,10 +40,12 @@ typedef enum {
     expect_set_log_level_ok_state = 17,
     expect_start_save_graph_ok_state = 18,
     expect_stop_save_graph_ok_state = 19,
-    expect_close_ok_state = 20,
-    defaults_state = 21,
-    have_error_state = 22,
-    reexpect_open_ok_state = 23
+    expect_get_block_hash_ok_state = 20,
+    expect_get_block_template_ok_state = 21,
+    expect_close_ok_state = 22,
+    defaults_state = 23,
+    have_error_state = 24,
+    reexpect_open_ok_state = 25
 } state_t;
 
 typedef enum {
@@ -68,29 +70,33 @@ typedef enum {
     set_log_level_event = 18,
     start_save_graph_event = 19,
     stop_save_graph_event = 20,
-    destructor_event = 21,
-    blocks_ok_event = 22,
-    get_ok_event = 23,
-    put_ok_event = 24,
-    save_bc_ok_event = 25,
-    start_ok_event = 26,
-    stop_ok_event = 27,
-    output_indexes_ok_event = 28,
-    random_outs_ok_event = 29,
-    get_height_ok_event = 30,
-    get_info_ok_event = 31,
-    get_peer_list_ok_event = 32,
-    get_mining_status_ok_event = 33,
-    set_log_hash_rate_ok_event = 34,
-    set_log_level_ok_event = 35,
-    start_save_graph_ok_event = 36,
-    stop_save_graph_ok_event = 37,
-    close_ok_event = 38,
-    ping_ok_event = 39,
-    error_event = 40,
-    exception_event = 41,
-    command_invalid_event = 42,
-    other_event = 43
+    get_block_hash_event = 21,
+    get_block_template_event = 22,
+    destructor_event = 23,
+    blocks_ok_event = 24,
+    get_ok_event = 25,
+    put_ok_event = 26,
+    save_bc_ok_event = 27,
+    start_ok_event = 28,
+    stop_ok_event = 29,
+    output_indexes_ok_event = 30,
+    random_outs_ok_event = 31,
+    get_height_ok_event = 32,
+    get_info_ok_event = 33,
+    get_peer_list_ok_event = 34,
+    get_mining_status_ok_event = 35,
+    set_log_hash_rate_ok_event = 36,
+    set_log_level_ok_event = 37,
+    start_save_graph_ok_event = 38,
+    stop_save_graph_ok_event = 39,
+    get_block_hash_ok_event = 40,
+    get_block_template_ok_event = 41,
+    close_ok_event = 42,
+    ping_ok_event = 43,
+    error_event = 44,
+    exception_event = 45,
+    command_invalid_event = 46,
+    other_event = 47
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -116,6 +122,8 @@ s_state_name [] = {
     "expect set log level ok",
     "expect start save graph ok",
     "expect stop save graph ok",
+    "expect get block hash ok",
+    "expect get block template ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -145,6 +153,8 @@ s_event_name [] = {
     "SET_LOG_LEVEL",
     "START_SAVE_GRAPH",
     "STOP_SAVE_GRAPH",
+    "GET_BLOCK_HASH",
+    "GET_BLOCK_TEMPLATE",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
@@ -162,6 +172,8 @@ s_event_name [] = {
     "SET_LOG_LEVEL_OK",
     "START_SAVE_GRAPH_OK",
     "STOP_SAVE_GRAPH_OK",
+    "GET_BLOCK_HASH_OK",
+    "GET_BLOCK_TEMPLATE_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -191,6 +203,8 @@ struct _client_args_t {
     uint64_t thread_count;
     uint8_t visible;
     uint8_t level;
+    uint64_t height;
+    uint64_t reserve_size;
 };
 
 typedef struct {
@@ -259,6 +273,10 @@ static void
 static void
     prepare_set_log_level_command (client_t *self);
 static void
+    prepare_get_block_hash_command (client_t *self);
+static void
+    prepare_get_block_template_command (client_t *self);
+static void
     check_if_connection_is_dead (client_t *self);
 static void
     signal_have_blocks_ok (client_t *self);
@@ -292,6 +310,10 @@ static void
     signal_have_start_save_graph_ok (client_t *self);
 static void
     signal_have_stop_save_graph_ok (client_t *self);
+static void
+    signal_have_get_block_hash_ok (client_t *self);
+static void
+    signal_have_get_block_template_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -576,6 +598,18 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_STOP_SAVE_GRAPH_OK:
             return stop_save_graph_ok_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_HASH:
+            return get_block_hash_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_HASH_OK:
+            return get_block_hash_ok_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_TEMPLATE:
+            return get_block_template_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
+            return get_block_template_ok_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -981,6 +1015,42 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_stop_save_graph_ok_state;
+                }
+                else
+                if (self->event == get_block_hash_event) {
+                    if (!self->exception) {
+                        //  prepare get block hash command
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ prepare get block hash command");
+                        prepare_get_block_hash_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_HASH
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send GET_BLOCK_HASH");
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_BLOCK_HASH);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_block_hash_ok_state;
+                }
+                else
+                if (self->event == get_block_template_event) {
+                    if (!self->exception) {
+                        //  prepare get block template command
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ prepare get block template command");
+                        prepare_get_block_template_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_TEMPLATE
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ send GET_BLOCK_TEMPLATE");
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_BLOCK_TEMPLATE);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_block_template_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -1764,6 +1834,96 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_get_block_hash_ok_state:
+                if (self->event == get_block_hash_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get block hash ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have get block hash ok");
+                        signal_have_get_block_hash_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ client is connected");
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ exception");
+                }
+                else {
+                    //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
+                }
+                break;
+
+            case expect_get_block_template_ok_state:
+                if (self->event == get_block_template_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get block template ok
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ signal have get block template ok");
+                        signal_have_get_block_template_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ client is connected");
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ check status code");
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ exception");
+                }
+                else {
+                    //  Handle unexpected protocol events
+                        //  No action - just logging
+                        if (wap_client_verbose)
+                            zsys_debug ("wap_client:            $ *");
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2093,6 +2253,17 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (streq (method, "STOP SAVE GRAPH")) {
         s_client_execute (self, stop_save_graph_event);
     }
+    else
+    if (streq (method, "GET BLOCK HASH")) {
+        zsock_recv (self->cmdpipe, "8", &self->args.height);
+        s_client_execute (self, get_block_hash_event);
+    }
+    else
+    if (streq (method, "GET BLOCK TEMPLATE")) {
+        zchunk_destroy (&self->args.address);
+        zsock_recv (self->cmdpipe, "8p", &self->args.reserve_size, &self->args.address);
+        s_client_execute (self, get_block_template_event);
+    }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
         zsys_error ("wap_client: trailing API command frames (%s)", method);
@@ -2229,6 +2400,10 @@ struct _wap_client_t {
     uint64_t speed;             //  Returned by actor reply
     uint64_t thread_count;      //  Returned by actor reply
     zchunk_t *address;          //  Returned by actor reply
+    zchunk_t *hash;             //  Returned by actor reply
+    uint64_t reserved_offset;   //  Returned by actor reply
+    zchunk_t *prev_hash;        //  Returned by actor reply
+    zchunk_t *block_template_blob;  //  Returned by actor reply
 };
 
 
@@ -2284,6 +2459,9 @@ wap_client_destroy (wap_client_t **self_p)
         zframe_destroy (&self->white_list);
         zframe_destroy (&self->gray_list);
         zchunk_destroy (&self->address);
+        zchunk_destroy (&self->hash);
+        zchunk_destroy (&self->prev_hash);
+        zchunk_destroy (&self->block_template_blob);
         free (self);
         *self_p = NULL;
     }
@@ -2431,6 +2609,17 @@ s_accept_reply (wap_client_t *self, ...)
                 else
                 if (streq (reply, "STOP SAVE GRAPH OK")) {
                     zsock_recv (self->actor, "8", &self->status);
+                }
+                else
+                if (streq (reply, "GET BLOCK HASH OK")) {
+                    zchunk_destroy (&self->hash);
+                    zsock_recv (self->actor, "8p", &self->status, &self->hash);
+                }
+                else
+                if (streq (reply, "GET BLOCK TEMPLATE OK")) {
+                    zchunk_destroy (&self->prev_hash);
+                    zchunk_destroy (&self->block_template_blob);
+                    zsock_recv (self->actor, "8888pp", &self->status, &self->reserved_offset, &self->height, &self->difficulty, &self->prev_hash, &self->block_template_blob);
                 }
                 break;
             }
@@ -2746,6 +2935,39 @@ wap_client_stop_save_graph (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  Get block hash                                                                  
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_block_hash (wap_client_t *self, uint64_t height)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s8", "GET BLOCK HASH", height);
+    if (s_accept_reply (self, "GET BLOCK HASH OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Get block template                                                              
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_block_template (wap_client_t *self, uint64_t reserve_size, zchunk_t **address_p)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s8p", "GET BLOCK TEMPLATE", reserve_size, *address_p);
+    *address_p = NULL;          //  Take ownership of address
+    if (s_accept_reply (self, "GET BLOCK TEMPLATE OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Return last received status
 
 int 
@@ -3006,4 +3228,48 @@ wap_client_address (wap_client_t *self)
 {
     assert (self);
     return self->address;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received hash
+
+zchunk_t *
+wap_client_hash (wap_client_t *self)
+{
+    assert (self);
+    return self->hash;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received reserved_offset
+
+uint64_t 
+wap_client_reserved_offset (wap_client_t *self)
+{
+    assert (self);
+    return self->reserved_offset;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received prev_hash
+
+zchunk_t *
+wap_client_prev_hash (wap_client_t *self)
+{
+    assert (self);
+    return self->prev_hash;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received block_template_blob
+
+zchunk_t *
+wap_client_block_template_blob (wap_client_t *self)
+{
+    assert (self);
+    return self->block_template_blob;
 }

@@ -15,6 +15,8 @@
 // Trivial and error responses may be returned with ns_create_rpc_reply and ns_create_rpc_error
 // respectively.
 
+// TODO: Add core busy checks to all methods here
+
 #include "daemon_deprecated_rpc.h"
 #include <stdexcept>
 
@@ -26,6 +28,7 @@
  */
 namespace
 {
+  // TODO: put right error codes here
   int daemon_connection_error = -326701;
   int parse_error = -32700;
   int invalid_request = -32600;
@@ -43,26 +46,21 @@ namespace
     return ipc_client && wap_client_connected(ipc_client);
   }
 
-  void connect_to_daemon() {
+  bool connect_to_daemon() {
     if (check_connection_to_daemon()) {
-      return;
+      return true;
     }
     ipc_client = wap_client_new();
     wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
+    return check_connection_to_daemon();
   }
 
   /*!
-   * \brief Constructs a response string given a result JSON object.
-   * 
-   * It also adds boilerplate properties like id, method.
+   * \brief Initializes a rapidjson response object
    * \param req           net_skeleton request object
-   * \param result_json   rapidjson result object
-   * \param response_json "Root" rapidjson document that will eventually have the whole response
-   * \param response      Response as a string gets written here.
+   * \param response_json           net_skeleton request object to fill
    */
-  void construct_response_string(struct ns_rpc_request *req, rapidjson::Value &result_json,
-    rapidjson::Document &response_json, std::string &response)
-  {
+  void init_response_object(struct ns_rpc_request *req, rapidjson::Document &response_json) {
     response_json.SetObject();
     response_json.AddMember("jsonrpc", "2.0" , response_json.GetAllocator());
     rapidjson::Value string_value(rapidjson::kStringType);
@@ -78,6 +76,21 @@ namespace
     response_json.AddMember("id", string_value, response_json.GetAllocator());
     string_value.SetString(req->method[0].ptr, req->method[0].len);
     response_json.AddMember("method", string_value, response_json.GetAllocator());
+  }
+  
+  /*!
+   * \brief Constructs a response string given a result JSON object.
+   * 
+   * It also adds boilerplate properties like id, method.
+   * \param req           net_skeleton request object
+   * \param result_json   rapidjson result object
+   * \param response_json "Root" rapidjson document that will eventually have the whole response
+   * \param response      Response as a string gets written here.
+   */
+  void construct_response_string(struct ns_rpc_request *req, rapidjson::Value &result_json,
+    rapidjson::Document &response_json, std::string &response)
+  {
+    init_response_object(req, response_json);
     response_json.AddMember("result", result_json, response_json.GetAllocator());
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -85,6 +98,30 @@ namespace
     // Write string to `response`.
     response = buffer.GetString();
   }
+
+  /*!
+   * \brief Constructs a response string given a result string.
+   * 
+   * It also adds boilerplate properties like id, method.
+   * \param req           net_skeleton request object
+   * \param result   rapidjson result object
+   * \param response_json "Root" rapidjson document that will eventually have the whole response
+   * \param response      Response as a string gets written here.
+   */
+  void construct_response_string(struct ns_rpc_request *req, const std::string &result,
+    rapidjson::Document &response_json, std::string &response)
+  {
+    init_response_object(req, response_json);
+    rapidjson::Value string_value(rapidjson::kStringType);
+    string_value.SetString(result.c_str(), result.length());
+    response_json.AddMember("result", string_value, response_json.GetAllocator());
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    response_json.Accept(writer);
+    // Write string to `response`.
+    response = buffer.GetString();
+  }
+
   /*!
    * \brief Implementation of 'getheight' method.
    * \param  buf Buffer to fill in response.
@@ -94,11 +131,19 @@ namespace
    */
   int getheight(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_get_height(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
+    }
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
     }
     uint64_t height = wap_client_height(ipc_client);
     rapidjson::Document response_json;
@@ -122,7 +167,10 @@ namespace
    */
   int startmining(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     if (req->params == NULL)
     {
       return ns_rpc_create_error(buf, len, req, invalid_params,
@@ -160,7 +208,10 @@ namespace
         "Couldn't connect to daemon.", "{}");
     }
     uint64_t status = wap_client_status(ipc_client);
-
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
     if (status == IPC::STATUS_WRONG_ADDRESS)
     {
       return ns_rpc_create_error(buf, len, req, invalid_params,
@@ -183,11 +234,19 @@ namespace
    */
   int stopmining(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_stop(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
+    }
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
     }
     if (wap_client_status(ipc_client) != IPC::STATUS_OK)
     {
@@ -206,13 +265,21 @@ namespace
    */
   int getinfo(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_get_info(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    if (wap_client_status(ipc_client) != IPC::STATUS_OK)
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
+    if (status != IPC::STATUS_OK)
     {
       return ns_rpc_create_error(buf, len, req, invalid_request,
         "Failed to get info", "{}");
@@ -257,7 +324,10 @@ namespace
    */
   int getpeerlist(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_get_peer_list(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
@@ -309,13 +379,20 @@ namespace
    */
   int getminingstatus(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_get_mining_status(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
     rapidjson::Document response_json;
     rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
     rapidjson::Value result_json;
@@ -346,7 +423,10 @@ namespace
    */
   int setloghashrate(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     if (req->params == NULL)
     {
       return ns_rpc_create_error(buf, len, req, invalid_params,
@@ -376,8 +456,12 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-
-    if (wap_client_status(ipc_client) == IPC::STATUS_NOT_MINING) {
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
+    if (status == IPC::STATUS_NOT_MINING) {
       return ns_rpc_create_error(buf, len, req, not_mining_error,
         "Not mining", "{}");
     }
@@ -394,7 +478,10 @@ namespace
    */
   int setloglevel(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     if (req->params == NULL)
     {
       return ns_rpc_create_error(buf, len, req, invalid_params,
@@ -423,8 +510,12 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-
-    if (wap_client_status(ipc_client) == IPC::STATUS_INVALID_LOG_LEVEL) {
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
+    if (status == IPC::STATUS_INVALID_LOG_LEVEL) {
       return ns_rpc_create_error(buf, len, req, invalid_params,
         "Invalid log level", "{}");
     }
@@ -441,11 +532,19 @@ namespace
    */
   int getblockcount(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_get_height(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
+    }
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
     }
     uint64_t count = wap_client_height(ipc_client);
     rapidjson::Document response_json;
@@ -469,7 +568,10 @@ namespace
    */
   int startsavegraph(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_start_save_graph(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
@@ -487,7 +589,10 @@ namespace
    */
   int stopsavegraph(char *buf, int len, struct ns_rpc_request *req)
   {
-    connect_to_daemon();
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
     int rc = wap_client_stop_save_graph(ipc_client);
     if (rc < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
@@ -495,6 +600,152 @@ namespace
     }
     return ns_rpc_create_reply(buf, len, req, "{s:s}", "status", STATUS_OK);
   }
+
+  /*!
+   * \brief Implementation of 'getblockhash' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getblockhash(char *buf, int len, struct ns_rpc_request *req)
+  {
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Parameters missing.", "{}");
+    }
+
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, parse_error,
+        "Invalid JSON passed", "{}");
+    }
+
+    if (!request_json.IsArray() || request_json.Size() < 1 || !request_json[(unsigned int)0].IsNumber())
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Incorrect 'height' field", "{}");
+    }
+
+
+    int height = request_json[(unsigned int)0].GetUint();
+    int rc = wap_client_get_block_hash(ipc_client, height);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
+    if (status == IPC::STATUS_HEIGHT_TOO_BIG) {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Height too big.", "{}");
+    }
+    zchunk_t *hash_chunk = wap_client_hash(ipc_client);
+    std::string hash((char*)zchunk_data(hash_chunk), zchunk_size(hash_chunk));
+    std::string response;
+    rapidjson::Document response_json;
+    construct_response_string(req, hash, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
+  /*!
+   * \brief Implementation of 'getblocktemplate' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getblocktemplate(char *buf, int len, struct ns_rpc_request *req)
+  {
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Parameters missing.", "{}");
+    }
+
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, parse_error,
+        "Invalid JSON passed", "{}");
+    }
+
+    if (!request_json.HasMember("reserve_size") || !request_json["reserve_size"].IsNumber())
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Incorrect 'reserve_size' field", "{}");
+    }
+    if (!request_json.HasMember("wallet_address") || !request_json["wallet_address"].IsString())
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Incorrect 'wallet_address' field", "{}");
+    }
+
+    uint64_t reserve_size = request_json["reserve_size"].GetUint();
+    std::string wallet_address = request_json["wallet_address"].GetString();
+    zchunk_t *address_chunk = zchunk_new((void*)wallet_address.c_str(), wallet_address.length());
+    int rc = wap_client_get_block_template(ipc_client, reserve_size, &address_chunk);
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
+    if (status == IPC::STATUS_RESERVE_SIZE_TOO_BIG) {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Reserve size too big.", "{}");
+    }
+    if (status == IPC::STATUS_WRONG_ADDRESS) {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Wrong address.", "{}");
+    }
+
+    rapidjson::Document response_json;
+    rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    result_json.AddMember("difficulty", wap_client_difficulty(ipc_client), allocator);
+    result_json.AddMember("height", wap_client_height(ipc_client), allocator);
+    result_json.AddMember("reserved_offset", wap_client_reserved_offset(ipc_client), allocator);
+    zchunk_t *prev_hash_chunk = wap_client_prev_hash(ipc_client);
+    rapidjson::Value string_value(rapidjson::kStringType);
+    string_value.SetString((char*)zchunk_data(prev_hash_chunk), zchunk_size(prev_hash_chunk));
+    result_json.AddMember("prev_hash", string_value, allocator);
+    zchunk_t *block_template_chunk = wap_client_prev_hash(ipc_client);
+    string_value.SetString((char*)zchunk_data(block_template_chunk), zchunk_size(block_template_chunk));
+    result_json.AddMember("blocktemplate_blob", string_value, allocator);
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -508,6 +759,8 @@ namespace
     "getblockcount",
     "startsavegraph",
     "stopsavegraph",
+    "getblockhash",
+    "getblocktemplate",
     NULL
   };
 
@@ -524,6 +777,8 @@ namespace
     getblockcount,
     startsavegraph,
     stopsavegraph,
+    getblockhash,
+    getblocktemplate,
     NULL
   };
 

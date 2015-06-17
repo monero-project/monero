@@ -47,11 +47,13 @@ typedef enum {
     set_log_level_event = 16,
     start_save_graph_event = 17,
     stop_save_graph_event = 18,
-    close_event = 19,
-    ping_event = 20,
-    expired_event = 21,
-    exception_event = 22,
-    settled_event = 23
+    get_block_hash_event = 19,
+    get_block_template_event = 20,
+    close_event = 21,
+    ping_event = 22,
+    expired_event = 23,
+    exception_event = 24,
+    settled_event = 25
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -85,6 +87,8 @@ s_event_name [] = {
     "SET_LOG_LEVEL",
     "START_SAVE_GRAPH",
     "STOP_SAVE_GRAPH",
+    "GET_BLOCK_HASH",
+    "GET_BLOCK_TEMPLATE",
     "CLOSE",
     "PING",
     "expired",
@@ -186,6 +190,10 @@ static void
     start_save_graph (client_t *self);
 static void
     stop_save_graph (client_t *self);
+static void
+    get_block_hash (client_t *self);
+static void
+    get_block_template (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -417,6 +425,12 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_STOP_SAVE_GRAPH:
             return stop_save_graph_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_HASH:
+            return get_block_hash_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_TEMPLATE:
+            return get_block_template_event;
             break;
         case WAP_PROTO_STOP:
             return stop_event;
@@ -919,6 +933,42 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send STOP_SAVE_GRAPH_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_STOP_SAVE_GRAPH_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_block_hash_event) {
+                    if (!self->exception) {
+                        //  get block hash
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get block hash", self->log_prefix);
+                        get_block_hash (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_HASH_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_HASH_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_HASH_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_block_template_event) {
+                    if (!self->exception) {
+                        //  get block template
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get block template", self->log_prefix);
+                        get_block_template (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_TEMPLATE_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_TEMPLATE_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_TEMPLATE_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

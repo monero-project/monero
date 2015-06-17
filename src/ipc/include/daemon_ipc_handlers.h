@@ -66,8 +66,10 @@ namespace IPC
   const uint64_t STATUS_RANDOM_OUTS_FAILED = 9;
   const uint64_t STATUS_MINING_NOT_STOPPED = 10;
   const uint64_t STATUS_NOT_MINING = 11;
-  const uint64_t STATUS_INVALID_LOG_LEVEL = 11;
-  const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 11;
+  const uint64_t STATUS_INVALID_LOG_LEVEL = 12;
+  const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 13;
+  const uint64_t STATUS_HEIGHT_TOO_BIG = 13;
+  const uint64_t STATUS_RESERVE_SIZE_TOO_BIG = 14;
   namespace Daemon
   {
     void start_mining(wap_proto_t *message);
@@ -85,6 +87,8 @@ namespace IPC
     void set_log_level(wap_proto_t *message);
     void start_save_graph(wap_proto_t *message);
     void stop_save_graph(wap_proto_t *message);
+    void get_block_hash(wap_proto_t *message);
+    void get_block_template(wap_proto_t *message);
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet);

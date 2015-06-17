@@ -142,6 +142,25 @@ ERROR.
     STOP_SAVE_GRAPH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 8    Status
 
+    GET_BLOCK_HASH - get_block_hash IPC
+        height              number 8    Height
+
+    GET_BLOCK_HASH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        hash                chunk       Hash
+
+    GET_BLOCK_TEMPLATE - get_block_template IPC
+        reserve_size        number 8    Reserve size
+        address             chunk       Address
+
+    GET_BLOCK_TEMPLATE_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        reserved_offset     number 8    Rservered Offset
+        height              number 8    Height
+        difficulty          number 8    Difficulty
+        prev_hash           chunk       Previous Hash
+        block_template_blob  chunk      Block template blob
+
     STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
 ERROR.
 
@@ -205,13 +224,17 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_START_SAVE_GRAPH_OK       30
 #define WAP_PROTO_STOP_SAVE_GRAPH           31
 #define WAP_PROTO_STOP_SAVE_GRAPH_OK        32
-#define WAP_PROTO_STOP                      33
-#define WAP_PROTO_STOP_OK                   34
-#define WAP_PROTO_CLOSE                     35
-#define WAP_PROTO_CLOSE_OK                  36
-#define WAP_PROTO_PING                      37
-#define WAP_PROTO_PING_OK                   38
-#define WAP_PROTO_ERROR                     39
+#define WAP_PROTO_GET_BLOCK_HASH            33
+#define WAP_PROTO_GET_BLOCK_HASH_OK         34
+#define WAP_PROTO_GET_BLOCK_TEMPLATE        35
+#define WAP_PROTO_GET_BLOCK_TEMPLATE_OK     36
+#define WAP_PROTO_STOP                      37
+#define WAP_PROTO_STOP_OK                   38
+#define WAP_PROTO_CLOSE                     39
+#define WAP_PROTO_CLOSE_OK                  40
+#define WAP_PROTO_PING                      41
+#define WAP_PROTO_PING_OK                   42
+#define WAP_PROTO_ERROR                     43
 
 #include <czmq.h>
 
@@ -490,6 +513,48 @@ byte
     wap_proto_level (wap_proto_t *self);
 void
     wap_proto_set_level (wap_proto_t *self, byte level);
+
+//  Get a copy of the hash field
+zchunk_t *
+    wap_proto_hash (wap_proto_t *self);
+//  Get the hash field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_hash (wap_proto_t *self);
+//  Set the hash field, transferring ownership from caller
+void
+    wap_proto_set_hash (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get/set the reserve_size field
+uint64_t
+    wap_proto_reserve_size (wap_proto_t *self);
+void
+    wap_proto_set_reserve_size (wap_proto_t *self, uint64_t reserve_size);
+
+//  Get/set the reserved_offset field
+uint64_t
+    wap_proto_reserved_offset (wap_proto_t *self);
+void
+    wap_proto_set_reserved_offset (wap_proto_t *self, uint64_t reserved_offset);
+
+//  Get a copy of the prev_hash field
+zchunk_t *
+    wap_proto_prev_hash (wap_proto_t *self);
+//  Get the prev_hash field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_prev_hash (wap_proto_t *self);
+//  Set the prev_hash field, transferring ownership from caller
+void
+    wap_proto_set_prev_hash (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get a copy of the block_template_blob field
+zchunk_t *
+    wap_proto_block_template_blob (wap_proto_t *self);
+//  Get the block_template_blob field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_block_template_blob (wap_proto_t *self);
+//  Set the block_template_blob field, transferring ownership from caller
+void
+    wap_proto_set_block_template_blob (wap_proto_t *self, zchunk_t **chunk_p);
 
 //  Get/set the reason field
 const char *

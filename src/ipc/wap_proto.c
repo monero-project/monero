@@ -65,6 +65,11 @@ struct _wap_proto_t {
     uint64_t speed;                     //  Speed
     byte visible;                       //  Visible
     byte level;                         //  Level
+    zchunk_t *hash;                     //  Hash
+    uint64_t reserve_size;              //  Reserve size
+    uint64_t reserved_offset;           //  Rservered Offset
+    zchunk_t *prev_hash;                //  Previous Hash
+    zchunk_t *block_template_blob;      //  Block template blob
     char reason [256];                  //  Printable explanation
 };
 
@@ -253,6 +258,9 @@ wap_proto_destroy (wap_proto_t **self_p)
         zchunk_destroy (&self->address);
         zframe_destroy (&self->white_list);
         zframe_destroy (&self->gray_list);
+        zchunk_destroy (&self->hash);
+        zchunk_destroy (&self->prev_hash);
+        zchunk_destroy (&self->block_template_blob);
 
         //  Free object itself
         free (self);
@@ -568,6 +576,69 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->status);
             break;
 
+        case WAP_PROTO_GET_BLOCK_HASH:
+            GET_NUMBER8 (self->height);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_HASH_OK:
+            GET_NUMBER8 (self->status);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->hash);
+                self->hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            break;
+
+        case WAP_PROTO_GET_BLOCK_TEMPLATE:
+            GET_NUMBER8 (self->reserve_size);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: address is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->address);
+                self->address = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            break;
+
+        case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
+            GET_NUMBER8 (self->status);
+            GET_NUMBER8 (self->reserved_offset);
+            GET_NUMBER8 (self->height);
+            GET_NUMBER8 (self->difficulty);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: prev_hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->prev_hash);
+                self->prev_hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: block_template_blob is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->block_template_blob);
+                self->block_template_blob = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            break;
+
         case WAP_PROTO_STOP:
             break;
 
@@ -733,6 +804,33 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
         case WAP_PROTO_STOP_SAVE_GRAPH_OK:
             frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_GET_BLOCK_HASH:
+            frame_size += 8;            //  height
+            break;
+        case WAP_PROTO_GET_BLOCK_HASH_OK:
+            frame_size += 8;            //  status
+            frame_size += 4;            //  Size is 4 octets
+            if (self->hash)
+                frame_size += zchunk_size (self->hash);
+            break;
+        case WAP_PROTO_GET_BLOCK_TEMPLATE:
+            frame_size += 8;            //  reserve_size
+            frame_size += 4;            //  Size is 4 octets
+            if (self->address)
+                frame_size += zchunk_size (self->address);
+            break;
+        case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
+            frame_size += 8;            //  status
+            frame_size += 8;            //  reserved_offset
+            frame_size += 8;            //  height
+            frame_size += 8;            //  difficulty
+            frame_size += 4;            //  Size is 4 octets
+            if (self->prev_hash)
+                frame_size += zchunk_size (self->prev_hash);
+            frame_size += 4;            //  Size is 4 octets
+            if (self->block_template_blob)
+                frame_size += zchunk_size (self->block_template_blob);
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -928,6 +1026,61 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
 
         case WAP_PROTO_STOP_SAVE_GRAPH_OK:
             PUT_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_HASH:
+            PUT_NUMBER8 (self->height);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_HASH_OK:
+            PUT_NUMBER8 (self->status);
+            if (self->hash) {
+                PUT_NUMBER4 (zchunk_size (self->hash));
+                memcpy (self->needle,
+                        zchunk_data (self->hash),
+                        zchunk_size (self->hash));
+                self->needle += zchunk_size (self->hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            break;
+
+        case WAP_PROTO_GET_BLOCK_TEMPLATE:
+            PUT_NUMBER8 (self->reserve_size);
+            if (self->address) {
+                PUT_NUMBER4 (zchunk_size (self->address));
+                memcpy (self->needle,
+                        zchunk_data (self->address),
+                        zchunk_size (self->address));
+                self->needle += zchunk_size (self->address);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            break;
+
+        case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
+            PUT_NUMBER8 (self->status);
+            PUT_NUMBER8 (self->reserved_offset);
+            PUT_NUMBER8 (self->height);
+            PUT_NUMBER8 (self->difficulty);
+            if (self->prev_hash) {
+                PUT_NUMBER4 (zchunk_size (self->prev_hash));
+                memcpy (self->needle,
+                        zchunk_data (self->prev_hash),
+                        zchunk_size (self->prev_hash));
+                self->needle += zchunk_size (self->prev_hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            if (self->block_template_blob) {
+                PUT_NUMBER4 (zchunk_size (self->block_template_blob));
+                memcpy (self->needle,
+                        zchunk_data (self->block_template_blob),
+                        zchunk_size (self->block_template_blob));
+                self->needle += zchunk_size (self->block_template_blob);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             break;
 
         case WAP_PROTO_ERROR:
@@ -1210,6 +1363,33 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
+        case WAP_PROTO_GET_BLOCK_HASH:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_HASH:");
+            zsys_debug ("    height=%ld", (long) self->height);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_HASH_OK:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_HASH_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    hash=[ ... ]");
+            break;
+
+        case WAP_PROTO_GET_BLOCK_TEMPLATE:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_TEMPLATE:");
+            zsys_debug ("    reserve_size=%ld", (long) self->reserve_size);
+            zsys_debug ("    address=[ ... ]");
+            break;
+
+        case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_TEMPLATE_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    reserved_offset=%ld", (long) self->reserved_offset);
+            zsys_debug ("    height=%ld", (long) self->height);
+            zsys_debug ("    difficulty=%ld", (long) self->difficulty);
+            zsys_debug ("    prev_hash=[ ... ]");
+            zsys_debug ("    block_template_blob=[ ... ]");
+            break;
+
         case WAP_PROTO_STOP:
             zsys_debug ("WAP_PROTO_STOP:");
             break;
@@ -1382,6 +1562,18 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_STOP_SAVE_GRAPH_OK:
             return ("STOP_SAVE_GRAPH_OK");
+            break;
+        case WAP_PROTO_GET_BLOCK_HASH:
+            return ("GET_BLOCK_HASH");
+            break;
+        case WAP_PROTO_GET_BLOCK_HASH_OK:
+            return ("GET_BLOCK_HASH_OK");
+            break;
+        case WAP_PROTO_GET_BLOCK_TEMPLATE:
+            return ("GET_BLOCK_TEMPLATE");
+            break;
+        case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
+            return ("GET_BLOCK_TEMPLATE_OK");
             break;
         case WAP_PROTO_STOP:
             return ("STOP");
@@ -2138,6 +2330,141 @@ wap_proto_set_level (wap_proto_t *self, byte level)
 
 
 //  --------------------------------------------------------------------------
+//  Get the hash field without transferring ownership
+
+zchunk_t *
+wap_proto_hash (wap_proto_t *self)
+{
+    assert (self);
+    return self->hash;
+}
+
+//  Get the hash field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_hash (wap_proto_t *self)
+{
+    zchunk_t *hash = self->hash;
+    self->hash = NULL;
+    return hash;
+}
+
+//  Set the hash field, transferring ownership from caller
+
+void
+wap_proto_set_hash (wap_proto_t *self, zchunk_t **chunk_p)
+{
+    assert (self);
+    assert (chunk_p);
+    zchunk_destroy (&self->hash);
+    self->hash = *chunk_p;
+    *chunk_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the reserve_size field
+
+uint64_t
+wap_proto_reserve_size (wap_proto_t *self)
+{
+    assert (self);
+    return self->reserve_size;
+}
+
+void
+wap_proto_set_reserve_size (wap_proto_t *self, uint64_t reserve_size)
+{
+    assert (self);
+    self->reserve_size = reserve_size;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the reserved_offset field
+
+uint64_t
+wap_proto_reserved_offset (wap_proto_t *self)
+{
+    assert (self);
+    return self->reserved_offset;
+}
+
+void
+wap_proto_set_reserved_offset (wap_proto_t *self, uint64_t reserved_offset)
+{
+    assert (self);
+    self->reserved_offset = reserved_offset;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get the prev_hash field without transferring ownership
+
+zchunk_t *
+wap_proto_prev_hash (wap_proto_t *self)
+{
+    assert (self);
+    return self->prev_hash;
+}
+
+//  Get the prev_hash field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_prev_hash (wap_proto_t *self)
+{
+    zchunk_t *prev_hash = self->prev_hash;
+    self->prev_hash = NULL;
+    return prev_hash;
+}
+
+//  Set the prev_hash field, transferring ownership from caller
+
+void
+wap_proto_set_prev_hash (wap_proto_t *self, zchunk_t **chunk_p)
+{
+    assert (self);
+    assert (chunk_p);
+    zchunk_destroy (&self->prev_hash);
+    self->prev_hash = *chunk_p;
+    *chunk_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get the block_template_blob field without transferring ownership
+
+zchunk_t *
+wap_proto_block_template_blob (wap_proto_t *self)
+{
+    assert (self);
+    return self->block_template_blob;
+}
+
+//  Get the block_template_blob field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_block_template_blob (wap_proto_t *self)
+{
+    zchunk_t *block_template_blob = self->block_template_blob;
+    self->block_template_blob = NULL;
+    return block_template_blob;
+}
+
+//  Set the block_template_blob field, transferring ownership from caller
+
+void
+wap_proto_set_block_template_blob (wap_proto_t *self, zchunk_t **chunk_p)
+{
+    assert (self);
+    assert (chunk_p);
+    zchunk_destroy (&self->block_template_blob);
+    self->block_template_blob = *chunk_p;
+    *chunk_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -2645,6 +2972,76 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_HASH);
+
+    wap_proto_set_height (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_height (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_HASH_OK);
+
+    wap_proto_set_status (self, 123);
+    zchunk_t *get_block_hash_ok_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_hash (self, &get_block_hash_ok_hash);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_hash (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&get_block_hash_ok_hash);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_TEMPLATE);
+
+    wap_proto_set_reserve_size (self, 123);
+    zchunk_t *get_block_template_address = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_address (self, &get_block_template_address);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_reserve_size (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&get_block_template_address);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_TEMPLATE_OK);
+
+    wap_proto_set_status (self, 123);
+    wap_proto_set_reserved_offset (self, 123);
+    wap_proto_set_height (self, 123);
+    wap_proto_set_difficulty (self, 123);
+    zchunk_t *get_block_template_ok_prev_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_prev_hash (self, &get_block_template_ok_prev_hash);
+    zchunk_t *get_block_template_ok_block_template_blob = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_block_template_blob (self, &get_block_template_ok_block_template_blob);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (wap_proto_reserved_offset (self) == 123);
+        assert (wap_proto_height (self) == 123);
+        assert (wap_proto_difficulty (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_prev_hash (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&get_block_template_ok_prev_hash);
+        assert (memcmp (zchunk_data (wap_proto_block_template_blob (self)), "Captcha Diem", 12) == 0);
+        zchunk_destroy (&get_block_template_ok_block_template_blob);
     }
     wap_proto_set_id (self, WAP_PROTO_STOP);
 

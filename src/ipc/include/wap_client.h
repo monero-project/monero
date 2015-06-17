@@ -147,6 +147,16 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_stop_save_graph (wap_client_t *self);
 
+//  Get block hash                                                                  
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_block_hash (wap_client_t *self, uint64_t height);
+
+//  Get block template                                                              
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_block_template (wap_client_t *self, uint64_t reserve_size, zchunk_t **address_p);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -242,6 +252,22 @@ WAP_EXPORT uint64_t
 //  Return last received address
 WAP_EXPORT zchunk_t *
     wap_client_address (wap_client_t *self);
+
+//  Return last received hash
+WAP_EXPORT zchunk_t *
+    wap_client_hash (wap_client_t *self);
+
+//  Return last received reserved_offset
+WAP_EXPORT uint64_t 
+    wap_client_reserved_offset (wap_client_t *self);
+
+//  Return last received prev_hash
+WAP_EXPORT zchunk_t *
+    wap_client_prev_hash (wap_client_t *self);
+
+//  Return last received block_template_blob
+WAP_EXPORT zchunk_t *
+    wap_client_block_template_blob (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void
