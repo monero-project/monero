@@ -109,7 +109,8 @@ TEST(AddressFromURL, Failure)
 
   std::vector<std::string> addresses = tools::wallet2::addresses_from_url("example.invalid", dnssec_result);
 
-  ASSERT_FALSE(dnssec_result);
+  // for a non-existing domain such as "example.invalid", the non-existence is proved with NSEC records
+  ASSERT_TRUE(dnssec_result);
 
   ASSERT_EQ(0, addresses.size());
 }
