@@ -224,6 +224,11 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
   bool success =  false;
   std::string electrum_words;
 
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << "This wallet is watch-only and cannot have a seed.";
+    return true;
+  }
   if (m_wallet->is_deterministic())
   {
     if (m_wallet->get_seed_language().empty())
@@ -249,6 +254,11 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
 bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << "This wallet is watch-only and doesn't have a seed.";
+    return true;
+  }
   if (!m_wallet->is_deterministic())
   {
     fail_msg_writer() << "This wallet is non-deterministic and doesn't have a seed.";
