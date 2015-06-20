@@ -689,8 +689,8 @@ void wallet2::rewrite(const std::string& wallet_name, const std::string& passwor
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 }
 /*!
- * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
- * \param wallet_name Name of wallet file (should exist)
+ * \brief Writes to a file named based on the normal wallet (doesn't generate key, assumes it's already there)
+ * \param wallet_name Base name of wallet file
  * \param password    Password for wallet file
  */
 void wallet2::write_watch_only_wallet(const std::string& wallet_name, const std::string& password)
