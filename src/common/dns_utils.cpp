@@ -232,7 +232,7 @@ std::vector<std::string> DNSResolver::get_ipv4(const std::string& url, bool& dns
   if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_A, DNS_CLASS_IN, &result))
   {
     dnssec_available = (result->secure || (!result->secure && result->bogus));
-    dnssec_valid = !result->bogus;
+    dnssec_valid = result->secure && !result->bogus;
     if (result->havedata)
     {
       for (size_t i=0; result->data[i] != NULL; i++)
@@ -263,7 +263,7 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url, bool& dns
   if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_AAAA, DNS_CLASS_IN, &result))
   {
     dnssec_available = (result->secure || (!result->secure && result->bogus));
-    dnssec_valid = !result->bogus;
+    dnssec_valid = result->secure && !result->bogus;
     if (result->havedata)
     {
       for (size_t i=0; result->data[i] != NULL; i++)
@@ -294,7 +294,7 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, boo
   if (!ub_resolve(m_data->m_ub_context, urlC, DNS_TYPE_TXT, DNS_CLASS_IN, &result))
   {
     dnssec_available = (result->secure || (!result->secure && result->bogus));
-    dnssec_valid = !result->bogus;
+    dnssec_valid = result->secure && !result->bogus;
     if (result->havedata)
     {
       for (size_t i=0; result->data[i] != NULL; i++)
