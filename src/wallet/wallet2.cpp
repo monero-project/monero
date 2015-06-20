@@ -676,6 +676,40 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
 }
 
 /*!
+* \brief Creates a watch only wallet from a public address and a view secret key.
+* \param  wallet_        Name of wallet file
+* \param  password       Password of wallet file
+* \param  viewkey        view secret key
+*/
+void wallet2::generate(const std::string& wallet_, const std::string& password,
+  const cryptonote::account_public_address &account_public_address,
+  const crypto::secret_key& viewkey)
+{
+  clear();
+  prepare_file_names(wallet_);
+
+  boost::system::error_code ignored_ec;
+  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+
+  m_account.create_from_viewkey(account_public_address, viewkey);
+  m_account_public_address = account_public_address;
+  m_watch_only = true;
+
+  bool r = store_keys(m_keys_file, password, true);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+
+  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+  if(!r) LOG_PRINT_RED_L0("String with address text not saved");
+
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
+
+  store();
+}
+
+/*!
  * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
  * \param wallet_name Name of wallet file (should exist)
  * \param password    Password for wallet file
@@ -689,8 +723,8 @@ void wallet2::rewrite(const std::string& wallet_name, const std::string& passwor
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 }
 /*!
- * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
- * \param wallet_name Name of wallet file (should exist)
+ * \brief Writes to a file named based on the normal wallet (doesn't generate key, assumes it's already there)
+ * \param wallet_name Base name of wallet file
  * \param password    Password for wallet file
  */
 void wallet2::write_watch_only_wallet(const std::string& wallet_name, const std::string& password)

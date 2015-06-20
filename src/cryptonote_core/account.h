@@ -58,6 +58,7 @@ namespace cryptonote
   public:
     account_base();
     crypto::secret_key generate(const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false);
+    void create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey);
     const account_keys& get_keys() const;
     std::string get_public_address_str(bool testnet) const;
     std::string get_public_integrated_address_str(const crypto::hash &payment_id, bool testnet) const;
