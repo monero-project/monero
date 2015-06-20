@@ -1146,10 +1146,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 
   for(attempt_count = 1; ;attempt_count++)
   {
-    auto split_values = split_amounts(dsts, attempt_count);
+    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
+
+    auto split_values = split_amounts(dsts, num_tx);
 
     // Throw if split_amounts comes back with a vector of size different than it should
-    if (split_values.size() != attempt_count)
+    if (split_values.size() != num_tx)
     {
       throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
     }
@@ -1357,13 +1359,14 @@ std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
 
   for(attempt_count = 1; ;attempt_count++)
   {
-    size_t num_outputs_per_tx = (num_dust_outputs + attempt_count - 1) / attempt_count;
+    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
+    size_t num_outputs_per_tx = (num_dust_outputs + num_tx - 1) / num_tx;
 
     std::vector<pending_tx> ptx_vector;
     try
     {
       // for each new tx
-      for (size_t i=0; i<attempt_count;++i)
+      for (size_t i=0; i<num_tx;++i)
       {
         cryptonote::transaction tx;
         pending_tx ptx;
