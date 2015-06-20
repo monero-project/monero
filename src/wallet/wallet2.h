@@ -146,6 +146,15 @@ namespace tools
       const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false,
       bool two_random = false);
     /*!
+     * \brief Creates a watch only wallet from a public address and a view secret key.
+     * \param  wallet_        Name of wallet file
+     * \param  password       Password of wallet file
+     * \param  viewkey        view secret key
+     */
+    void generate(const std::string& wallet, const std::string& password,
+      const cryptonote::account_public_address &account_public_address,
+      const crypto::secret_key& viewkey = crypto::secret_key());
+    /*!
      * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
      * \param wallet_name Name of wallet file (should exist)
      * \param password    Password for wallet file
