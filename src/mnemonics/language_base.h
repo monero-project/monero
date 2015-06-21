@@ -46,6 +46,26 @@
 namespace Language
 {
   /*!
+   * \brief Returns a string made of (at most) the first count characters in s.
+   *        Assumes well formedness. No check is made for this.
+   * \param  s               The string from which to return the first count characters.
+   * \param  count           How many characters to return.
+   * \return                 A string consisting of the first count characters in s.
+   */
+  std::string utf8prefix(const std::string &s, size_t count)
+  {
+    std::string prefix = "";
+    const char *ptr = s.c_str();
+    while (count-- && *ptr)
+    {
+      prefix += *ptr++;
+      while (((*ptr) & 0xc0) == 0x80)
+        prefix += *ptr++;
+    }
+    return prefix;
+  }
+
+  /*!
    * \class Base
    * \brief A base language class which all languages have to inherit from for
    * Polymorphism.
@@ -70,7 +90,7 @@ namespace Language
         (*word_map)[*it] = ii;
         if (it->length() > unique_prefix_length)
         {
-          (*trimmed_word_map)[it->substr(0, unique_prefix_length)] = ii;
+          (*trimmed_word_map)[utf8prefix(*it, unique_prefix_length)] = ii;
         }
         else
         {

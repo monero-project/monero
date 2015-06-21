@@ -99,7 +99,7 @@ namespace
       {
         if (has_checksum)
         {
-          trimmed_word = it2->substr(0, (*it1)->get_unique_prefix_length());
+          trimmed_word = Language::utf8prefix(*it2, (*it1)->get_unique_prefix_length());
           // Use the trimmed words and map
           if (trimmed_word_map.count(trimmed_word) == 0)
           {
@@ -144,7 +144,7 @@ namespace
     {
       if (it->length() > unique_prefix_length)
       {
-        trimmed_words += it->substr(0, unique_prefix_length);
+        trimmed_words += Language::utf8prefix(*it, unique_prefix_length);
       }
       else
       {
@@ -170,9 +170,9 @@ namespace
 
     std::string checksum = seed[create_checksum_index(seed, unique_prefix_length)];
 
-    std::string trimmed_checksum = checksum.length() > unique_prefix_length ? checksum.substr(0, unique_prefix_length) :
+    std::string trimmed_checksum = checksum.length() > unique_prefix_length ? Language::utf8prefix(checksum, unique_prefix_length) :
       checksum;
-    std::string trimmed_last_word = last_word.length() > unique_prefix_length ? last_word.substr(0, unique_prefix_length) :
+    std::string trimmed_last_word = last_word.length() > unique_prefix_length ? Language::utf8prefix(last_word, unique_prefix_length) :
       last_word;
     return trimmed_checksum == trimmed_last_word;
   }
