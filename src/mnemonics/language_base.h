@@ -52,7 +52,7 @@ namespace Language
    * \param  count           How many characters to return.
    * \return                 A string consisting of the first count characters in s.
    */
-  std::string utf8prefix(const std::string &s, size_t count)
+  inline std::string utf8prefix(const std::string &s, size_t count)
   {
     std::string prefix = "";
     const char *ptr = s.c_str();
