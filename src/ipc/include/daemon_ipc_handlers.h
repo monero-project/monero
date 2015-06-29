@@ -28,6 +28,11 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file daemon_ipc_handlers.h
+ * \brief Header for Daemon IPC handlers
+ */
+
 #ifndef DAEMON_IPC_HANDLERS_H
 #define DAEMON_IPC_HANDLERS_H
 
@@ -52,8 +57,13 @@ using namespace epee;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
+/*!
+ * \namespace IPC
+ * \brief Namespace pertaining to IPC.
+ */
 namespace IPC
 {
+  // A bunch of response statuses and error codes
   const uint64_t STATUS_OK = 0;
   const uint64_t STATUS_CORE_BUSY = 1;
   const uint64_t STATUS_WRONG_ADDRESS = 2;
@@ -70,16 +80,15 @@ namespace IPC
   const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 13;
   const uint64_t STATUS_HEIGHT_TOO_BIG = 13;
   const uint64_t STATUS_RESERVE_SIZE_TOO_BIG = 14;
+  /*!
+   * \namespace Daemon
+   * \brief Namespace pertaining to Daemon IPC.
+   */
   namespace Daemon
   {
+    void get_height(wap_proto_t *message);
     void start_mining(wap_proto_t *message);
     void stop_mining(wap_proto_t *message);
-    void retrieve_blocks(wap_proto_t *message);
-    void send_raw_transaction(wap_proto_t *message);
-    void get_output_indexes(wap_proto_t *message);
-    void get_random_outs(wap_proto_t *message);
-    void get_height(wap_proto_t *message);
-    void save_bc(wap_proto_t *message);
     void get_info(wap_proto_t *message);
     void get_peer_list(wap_proto_t *message);
     void get_mining_status(wap_proto_t *message);
@@ -89,9 +98,31 @@ namespace IPC
     void stop_save_graph(wap_proto_t *message);
     void get_block_hash(wap_proto_t *message);
     void get_block_template(wap_proto_t *message);
+    void retrieve_blocks(wap_proto_t *message);
+    void send_raw_transaction(wap_proto_t *message);
+    void get_output_indexes(wap_proto_t *message);
+    void get_random_outs(wap_proto_t *message);
+    void save_bc(wap_proto_t *message);
+
+    /*!
+     * \brief initializes it with objects necessary to handle IPC requests and starts
+     *        IPC server
+     * 
+     * \param p_core cryptonote core object
+     * \param p_p2p  p2p object
+     * \param p_testnet testnet mode or not
+     */
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet);
+
+    /*!
+     * \brief stops the IPC server
+     * 
+     * \param p_core cryptonote core object
+     * \param p_p2p  p2p object
+     * \param p_testnet testnet mode or not
+     */
     void stop();
   }
 }

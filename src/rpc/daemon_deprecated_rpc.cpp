@@ -1,6 +1,36 @@
+// Copyright (c) 2014, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+
 /*!
- * \file rpc_translator.cpp
- * \brief Implementations of JSON RPC handlers (Daemon)
+ * \file daemon_deprecated_rpc.cpp
+ * \brief Implementations of old JSON RPC handlers (Daemon)
  */
 
 // NOTE: 
@@ -41,11 +71,19 @@ namespace
 
   const char* STATUS_OK = "OK";
 
+  /*!
+   * \brief Checks if daemon can be reached via IPC
+   * \return true if daemon can be reached
+   */
   bool check_connection_to_daemon()
   {
     return ipc_client && wap_client_connected(ipc_client);
   }
 
+  /*!
+   * \brief Checks if daemon can be reached and if not tries to connect to it.
+   * \return true if daemon is reachable at the end of the function
+   */
   bool connect_to_daemon() {
     if (check_connection_to_daemon()) {
       return true;
@@ -746,6 +784,125 @@ namespace
     return response.length();
   }
 
+  /*!
+   * \brief Implementation of 'getblocks' method.
+   * \param  buf Buffer to fill in response.
+   * \param  len Max length of response.
+   * \param  req net_skeleton RPC request
+   * \return     Actual response length.
+   */
+  int getblocks(char *buf, int len, struct ns_rpc_request *req)
+  {
+    if (!connect_to_daemon()) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    if (req->params == NULL)
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Parameters missing.", "{}");
+    }
+
+    rapidjson::Document request_json;
+    char request_buf[1000];
+    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
+    request_buf[req->params[0].len] = '\0';
+    if (request_json.Parse(request_buf).HasParseError())
+    {
+      return ns_rpc_create_error(buf, len, req, parse_error,
+        "Invalid JSON passed", "{}");
+    }
+
+    if (!request_json.HasMember("start_height") || !request_json["start_height"].IsNumber())
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Incorrect 'start_height' field", "{}");
+    }
+    if (!request_json.HasMember("block_ids") || !request_json["block_ids"].IsArray())
+    {
+      return ns_rpc_create_error(buf, len, req, invalid_params,
+        "Incorrect 'block_ids' field", "{}");
+    }
+
+    uint64_t start_height = request_json["start_height"].GetUint();
+    uint64_t block_count = request_json["blocks_ids"].Size();
+    zlist_t *list = zlist_new();
+    for (int i = 0; i < block_count; i++) {
+      if (!request_json["blocks_ids"][i].IsString()) {
+        zlist_destroy(&list);
+        return ns_rpc_create_error(buf, len, req, invalid_params,
+          "Incorrect block_id", "{}");
+      }
+      std::string block_id = request_json["blocks_ids"][i].GetString();
+      char *size_prepended_block_id = new char[block_id.length() + 1];
+      size_prepended_block_id[0] = crypto::HASH_SIZE;
+      memcpy(size_prepended_block_id + 1, block_id.c_str(), crypto::HASH_SIZE);
+      zlist_append(list, size_prepended_block_id);
+    }
+    int rc = wap_client_blocks(ipc_client, &list, start_height);
+    zlist_destroy(&list);
+
+    if (rc < 0) {
+      return ns_rpc_create_error(buf, len, req, daemon_connection_error,
+        "Couldn't connect to daemon.", "{}");
+    }
+    
+    uint64_t status = wap_client_status(ipc_client);
+    if (status == IPC::STATUS_CORE_BUSY) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Core busy.", "{}");
+    }
+    if (status == IPC::STATUS_INTERNAL_ERROR) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Internal error.", "{}");
+    }
+
+    rapidjson::Document response_json;
+    rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
+    rapidjson::Value result_json;
+    result_json.SetObject();
+    rapidjson::Value blocks(rapidjson::kArrayType);
+
+    zframe_t *frame = zmsg_first(wap_client_block_data(ipc_client));
+    if (!frame) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Internal error.", "{}");
+    }
+    size_t size = zframe_size(frame);
+    char *block_data = reinterpret_cast<char*>(zframe_data(frame));
+
+    rapidjson::Document json;
+    if (json.Parse(block_data, size).HasParseError()) {
+      return ns_rpc_create_error(buf, len, req, internal_error,
+        "Internal error.", "{}");
+    }
+    for (rapidjson::SizeType i = 0; i < json["blocks"].Size(); i++) {
+      rapidjson::Value block_entry(rapidjson::kObjectType);
+      std::string block_string(json["blocks"][i]["block"].GetString(), json["blocks"][i]["block"].GetStringLength());
+      rapidjson::Value block_string_json(rapidjson::kStringType);
+      block_string_json.SetString(block_string.c_str(), block_string.length());
+      block_entry.AddMember("block", block_string_json, allocator);
+      rapidjson::Value txs(rapidjson::kArrayType);
+      for (rapidjson::SizeType j = 0; j < json["blocks"][i]["txs"].Size(); j++) {
+        rapidjson::Value txs_json(rapidjson::kStringType);
+        std::string txs_string(json["blocks"][i]["txs"][j].GetString(), json["blocks"][i]["txs"][j].GetStringLength());
+        txs_json.SetString(txs_string.c_str(), txs_string.length());
+        txs.PushBack(txs_json, allocator);
+      }
+      block_entry.AddMember("txs", txs, allocator);
+      blocks.PushBack(block_entry, allocator);
+    }
+
+    result_json.AddMember("start_height", wap_client_start_height(ipc_client), allocator);
+    result_json.AddMember("current_height", wap_client_curr_height(ipc_client), allocator);
+    result_json.AddMember("blocks", blocks, allocator);
+    std::string response;
+    construct_response_string(req, result_json, response_json, response);
+    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
+    strncpy(buf, response.c_str(), copy_length);
+    return response.length();
+  }
+
   // Contains a list of method names.
   const char *method_names[] = {
     "getheight",
@@ -761,6 +918,7 @@ namespace
     "stopsavegraph",
     "getblockhash",
     "getblocktemplate",
+    "getblocks",
     NULL
   };
 
@@ -779,6 +937,7 @@ namespace
     stopsavegraph,
     getblockhash,
     getblocktemplate,
+    getblocks,
     NULL
   };
 
@@ -816,12 +975,17 @@ namespace
 namespace RPC
 {
   /*!
-   * \namespace Daemon
-   * \brief RPC relevant to daemon
+   * \namespace DaemonDeprecated
+   * \brief DaemonDeprecated RPC stuff
    */
   namespace DaemonDeprecated
   {
 
+    /*!
+     * \brief Starts an HTTP server that listens to old style JSON RPC requests
+     *        and creates an IPC client to be able to talk to the daemon
+     * \return status code
+     */
     int start() {
       server = new RPC::Json_rpc_http_server("127.0.0.1", "9997", "daemon_json_rpc", &ev_handler);
       if (!server->start()) {
@@ -836,6 +1000,9 @@ namespace RPC
       return SUCCESS;
     }
 
+    /*!
+     * \brief Stops the HTTP server and destroys the IPC client
+     */
     void stop() {
       if (server) {
         server->stop();

@@ -28,19 +28,36 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+/*!
+ * \file daemon_ipc_handlers.cpp
+ * \brief Implementation of Daemon IPC handlers
+ * 
+ * Most of this code is borrowed from core_rpc_server.cpp but changed to use 0MQ objects.
+ */
+
 //TODO: Recheck memory leaks
 
 #include "daemon_ipc_handlers.h"
 
 #include <iostream>
 
+/*!
+ * \namespace IPC
+ * \brief Anonymous namepsace to keep things in the scope of this file
+ */
 namespace
 {
   cryptonote::core *core; /*!< Pointer to the core */
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p2p;
     /*!< Pointer to p2p node server */
-  zactor_t *server;
-  bool testnet;
+  zactor_t *server; /*!< 0MQ server */
+  bool testnet; /*!< testnet mode or not */
+
+  /*!
+   * \brief Checks if core is busy
+   * 
+   * \return true if core is busy
+   */
   bool check_core_busy()
   {
     if (p2p->get_payload_object().get_core().get_blockchain_storage().is_storing_blockchain())
@@ -49,6 +66,12 @@ namespace
     }
     return true;
   }
+
+  /*!
+   * \brief Checks if core is ready
+   * 
+   * \return true if core is ready
+   */
   bool check_core_ready()
   {
     if (p2p->get_payload_object().is_synchronized())
@@ -58,10 +81,11 @@ namespace
     return check_core_busy();
   }
 
-  //------------------------------------------------------------------------------------------------------------------------------
-  // equivalent of strstr, but with arbitrary bytes (ie, NULs)
-  // This does not differentiate between "not found" and "found at offset 0"
-  // (taken straight from core_rpc_server.cpp)
+  /*!
+   * \brief equivalent of strstr, but with arbitrary bytes (ie, NULs)
+   * This does not differentiate between "not found" and "found at offset 0"
+   * (taken straight from core_rpc_server.cpp)
+   */
   uint64_t slow_memmem(const void *start_buff, size_t buflen, const void *pat, size_t patlen)
   {
     const void *buf = start_buff;
@@ -78,10 +102,26 @@ namespace
   }
 }
 
+/*!
+ * \namespace IPC
+ * \brief Namespace pertaining to IPC.
+ */
 namespace IPC
 {
+  /*!
+   * \namespace Daemon
+   * \brief Namespace pertaining to Daemon IPC.
+   */
   namespace Daemon
   {
+    /*!
+     * \brief initializes it with objects necessary to handle IPC requests and starts
+     *        IPC server
+     * 
+     * \param p_core cryptonote core object
+     * \param p_p2p  p2p object
+     * \param p_testnet testnet mode or not
+     */
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet)
@@ -94,10 +134,22 @@ namespace IPC
       zsock_send (server, "sss", "SET", "server/timeout", "5000");
     }
 
+    /*!
+     * \brief stops the IPC server
+     * 
+     * \param p_core cryptonote core object
+     * \param p_p2p  p2p object
+     * \param p_testnet testnet mode or not
+     */
     void stop() {
       zactor_destroy(&server);
     }
 
+    /*!
+     * \brief start_mining IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void start_mining(wap_proto_t *message)
     {
       if (!check_core_busy()) {
@@ -127,6 +179,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief stop_mining IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void stop_mining(wap_proto_t *message)
     {
       if (!core->get_miner().stop())
@@ -137,6 +194,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_blocks IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void retrieve_blocks(wap_proto_t *message)
     {
       if (!check_core_busy()) {
@@ -165,6 +227,11 @@ namespace IPC
         return;
       }
 
+      // We are using JSON to encode blocks. The JSON string will sit in a 
+      // 0MQ frame which gets sent in a zmsg_t object. One could put each block
+      // a different frame too.
+
+      // First create a rapidjson object and then stringify it.
       rapidjson::Document result_json;
       result_json.SetObject();
       rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
@@ -196,6 +263,7 @@ namespace IPC
       result_json.Accept(writer);
       std::string block_string = buffer.GetString();
       zmsg_t *block_data = zmsg_new();
+      // Put the JSON string in a frame.
       zframe_t *frame = zframe_new(block_string.c_str(), block_string.length());
       zmsg_prepend(block_data, &frame);
       wap_proto_set_start_height(message, result_start_height);
@@ -205,6 +273,11 @@ namespace IPC
 
     }
 
+    /*!
+     * \brief send_raw_transaction IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void send_raw_transaction(wap_proto_t *message)
     {
       if (!check_core_busy()) {
@@ -248,10 +321,15 @@ namespace IPC
       cryptonote::NOTIFY_NEW_TRANSACTIONS::request r;
       r.txs.push_back(tx_blob);
       core->get_protocol()->relay_transactions(r, fake_context);
-      //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
+      // TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_output_indexes IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_output_indexes(wap_proto_t *message)
     {
       if (!check_core_busy()) {
@@ -276,6 +354,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_random_outputs IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_random_outs(wap_proto_t *message) {
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
@@ -299,7 +382,7 @@ namespace IPC
         wap_proto_set_status(message, STATUS_RANDOM_OUTS_FAILED);
       }
 
-      // We have to convert the result into a JSON string.
+      // We convert the result into a JSON string and put it into a 0MQ frame.
       rapidjson::Document result_json;
       result_json.SetObject();
       rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
@@ -350,6 +433,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_height IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_height(wap_proto_t *message) {
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
@@ -359,6 +447,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief save_bc IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void save_bc(wap_proto_t *message) {
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
@@ -371,6 +464,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_info IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_info(wap_proto_t *message) {
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
@@ -392,10 +490,19 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_peer_list IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_peer_list(wap_proto_t *message) {
       std::list<nodetool::peerlist_entry> white_list;
       std::list<nodetool::peerlist_entry> gray_list;
       p2p->get_peerlist_manager().get_peerlist_full(white_list, gray_list);
+
+      // The response is of non-trivial type and so is encoded as JSON.
+      // Each peer list is going to look like this:
+      // {"peers": [{"id": ....}, ...]}
 
       rapidjson::Document white_list_json;
       white_list_json.SetObject();
@@ -403,6 +510,7 @@ namespace IPC
       rapidjson::Value white_peers(rapidjson::kArrayType);
 
       for (auto & entry : white_list) {
+        // Each peer object is encoded as JSON
         rapidjson::Value output(rapidjson::kObjectType);
         output.AddMember("id", entry.id, white_list_allocator);
         output.AddMember("ip", entry.adr.ip, white_list_allocator);
@@ -418,6 +526,7 @@ namespace IPC
       rapidjson::Value gray_peers(rapidjson::kArrayType);
 
       for (auto & entry : gray_list) {
+        // Each peer object is encoded as JSON
         rapidjson::Value output(rapidjson::kObjectType);
         output.AddMember("id", entry.id, gray_list_allocator);
         output.AddMember("ip", entry.adr.ip, gray_list_allocator);
@@ -444,6 +553,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_mining_status IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_mining_status(wap_proto_t *message) {
       if (!check_core_ready()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
@@ -464,6 +578,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief set_log_hash_rate IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void set_log_hash_rate(wap_proto_t *message) {
       if (core->get_miner().is_mining())
       {
@@ -476,6 +595,11 @@ namespace IPC
       }
     }
 
+    /*!
+     * \brief set_log_hash_rate IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void set_log_level(wap_proto_t *message) {
       // zproto supports only unsigned integers afaik. so the log level is sent as
       // one and casted to signed int here.
@@ -493,16 +617,31 @@ namespace IPC
       }
     }
 
+    /*!
+     * \brief start_save_graph IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void start_save_graph(wap_proto_t *message) {
       p2p->set_save_graph(true);
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief stop_save_graph IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void stop_save_graph(wap_proto_t *message) {
       p2p->set_save_graph(false);
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_block_hash IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_block_hash(wap_proto_t *message) {
       if (!check_core_busy())
       {
@@ -521,6 +660,11 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief get_block_template IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
     void get_block_template(wap_proto_t *message) {
       if (!check_core_ready())
       {
