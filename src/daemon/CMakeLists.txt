@@ -42,7 +42,6 @@ set(daemon_private_headers
   command_server.h
   core.h
   daemon.h
-  daemon_commands_handler.h
   executor.h
   p2p.h
   protocol.h
@@ -75,6 +74,7 @@ target_link_libraries(daemon
   LINK_PRIVATE
     rpc
     server_ipc
+    blockchain_db
     cryptonote_core
     crypto
     common

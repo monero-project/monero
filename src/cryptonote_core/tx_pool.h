@@ -34,6 +34,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 #include <boost/serialization/version.hpp>
 #include <boost/utility.hpp>
 
@@ -43,19 +44,43 @@
 #include "cryptonote_basic_impl.h"
 #include "verification_context.h"
 #include "crypto/hash.h"
-
+#include "rpc/core_rpc_server_commands_defs.h"
 
 namespace cryptonote
 {
+#if BLOCKCHAIN_DB == DB_LMDB
+  class Blockchain;
+#else
   class blockchain_storage;
+#endif
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
 
+  typedef std::pair<double, crypto::hash> tx_by_fee_entry;
+  class txCompare
+  {
+  public:
+    bool operator()(const tx_by_fee_entry& a, const tx_by_fee_entry& b)
+    {
+      // sort by greatest first, not least
+      if (a.first > b.first) return true;
+      else if (a.first < b.first) return false;
+      else if (a.second != b.second) return true;
+      else return false;
+    }
+  };
+
+  typedef std::set<tx_by_fee_entry, txCompare> sorted_tx_container;
+
   class tx_memory_pool: boost::noncopyable
   {
   public:
+#if BLOCKCHAIN_DB == DB_LMDB
+    tx_memory_pool(Blockchain& bchs);
+#else
     tx_memory_pool(blockchain_storage& bchs);
+#endif
     bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
     bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
     //gets tx and remove it from pool
@@ -74,6 +99,7 @@ namespace cryptonote
     bool deinit();
     bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee);
     void get_transactions(std::list<transaction>& txs) const;
+    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
     bool get_transaction(const crypto::hash& h, transaction& tx) const;
     size_t get_transactions_count() const;
     std::string print_pool(bool short_format) const;
@@ -124,10 +150,20 @@ namespace cryptonote
     key_images_container m_spent_key_images;
     epee::math_helper::once_a_time_seconds<30> m_remove_stuck_tx_interval;
 
+    //TODO: add fee_per_kb element to type tx_details and replace this
+    //functionality by just making m_transactions a std::set
+    sorted_tx_container m_txs_by_fee;
+
+    sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id) const;
+
     //transactions_container m_alternative_transactions;
 
     std::string m_config_folder;
+#if BLOCKCHAIN_DB == DB_LMDB
+    Blockchain& m_blockchain;
+#else
     blockchain_storage& m_blockchain;
+#endif
     /************************************************************************/
     /*                                                                      */
     /************************************************************************/
@@ -170,8 +206,11 @@ namespace cryptonote
       uint64_t operator()(const txin_to_scripthash& tx) const {return 0;}
     };
 
+#if BLOCKCHAIN_DB == DB_LMDB
+#else
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
     friend class blockchain_storage;
+#endif
 #endif
   };
 }

@@ -58,14 +58,18 @@ namespace cryptonote
   public:
     account_base();
     crypto::secret_key generate(const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false);
+    void create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey);
     const account_keys& get_keys() const;
-    std::string get_public_address_str(bool testnet);
+    std::string get_public_address_str(bool testnet) const;
+    std::string get_public_integrated_address_str(const crypto::hash &payment_id, bool testnet) const;
 
     uint64_t get_createtime() const { return m_creation_timestamp; }
     void set_createtime(uint64_t val) { m_creation_timestamp = val; }
 
     bool load(const std::string& file_path);
     bool store(const std::string& file_path);
+
+    void forget_spend_key();
 
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int /*ver*/)

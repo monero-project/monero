@@ -619,7 +619,18 @@ namespace cryptonote
       KV_SERIALIZE(receive_time)
     END_KV_SERIALIZE_MAP()
   };
-  
+
+  struct spent_key_image_info
+  {
+    std::string id_hash;
+    std::vector<std::string> txs_hashes;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(id_hash)
+      KV_SERIALIZE(txs_hashes)
+    END_KV_SERIALIZE_MAP()
+  };
+
   struct COMMAND_RPC_GET_TRANSACTION_POOL
   {
     struct request
@@ -632,10 +643,12 @@ namespace cryptonote
     {
       std::string status;
       std::vector<tx_info> transactions;
+      std::vector<spent_key_image_info> spent_key_images;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(transactions)
+        KV_SERIALIZE(spent_key_images)
       END_KV_SERIALIZE_MAP()
     };
   };

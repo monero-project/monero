@@ -76,6 +76,8 @@ struct regional;
 extern time_t MAX_TTL;
 /** Minimum TTL that is allowed. */
 extern time_t MIN_TTL;
+/** Maximum Negative TTL that is allowed */
+extern time_t MAX_NEG_TTL;
 /** Negative cache time (for entries without any RRs.) */
 #define NORR_TTL 5 /* seconds */
 

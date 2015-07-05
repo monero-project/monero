@@ -90,7 +90,7 @@ void wallet2::init(const std::string& daemon_address,
   m_daemon_address = daemon_address;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::is_deterministic()
+bool wallet2::is_deterministic() const
 {
   crypto::secret_key second;
   keccak((uint8_t *)&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
@@ -99,7 +99,7 @@ bool wallet2::is_deterministic()
   return keys_deterministic;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::get_seed(std::string& electrum_words)
+bool wallet2::get_seed(std::string& electrum_words) const
 {
   bool keys_deterministic = is_deterministic();
   if (!keys_deterministic)
@@ -120,7 +120,7 @@ bool wallet2::get_seed(std::string& electrum_words)
 /*!
  * \brief Gets the seed language
  */
-const std::string wallet2::get_seed_language()
+const std::string &wallet2::get_seed_language() const
 {
   return seed_language;
 }
@@ -302,7 +302,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonot
     m_callback->on_new_block(height, b);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_short_chain_history(std::list<crypto::hash>& ids)
+void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
 {
   size_t i = 0;
   size_t current_multiplier = 1;
@@ -528,12 +528,17 @@ bool wallet2::clear()
  * \brief Stores wallet information to wallet file.
  * \param  keys_file_name Name of wallet file
  * \param  password       Password of wallet file
+ * \param  watch_only     true to save only view key, false to save both spend and view keys
  * \return                Whether it was successful.
  */
-bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password)
+bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password, bool watch_only)
 {
   std::string account_data;
-  bool r = epee::serialization::store_t_to_binary(m_account, account_data);
+  cryptonote::account_base account = m_account;
+
+  if (watch_only)
+    account.forget_spend_key();
+  bool r = epee::serialization::store_t_to_binary(account, account_data);
   CHECK_AND_ASSERT_MES(r, false, "failed to serialize wallet keys");
   wallet2::keys_file_data keys_file_data = boost::value_initialized<wallet2::keys_file_data>();
 
@@ -548,6 +553,10 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
     value.SetString(seed_language.c_str(), seed_language.length());
     json.AddMember("seed_language", value, json.GetAllocator());
   }
+
+  rapidjson::Value value2(rapidjson::kNumberType);
+  value2.SetInt(watch_only ? 1 :0); // WTF ? JSON has different true and false types, and not boolean ??
+  json.AddMember("watch_only", value2, json.GetAllocator());
 
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
@@ -608,6 +617,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
   {
     is_old_file_format = true;
+    m_watch_only = false;
   }
   else
   {
@@ -618,12 +628,21 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
       set_seed_language(std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
         json["seed_language"].GetStringLength()));
     }
+    if (json.HasMember("watch_only"))
+    {
+      m_watch_only = json["watch_only"].GetInt() != 0;
+    }
+    else
+    {
+      m_watch_only = false;
+    }
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
   r = epee::serialization::load_t_from_binary(m_account, account_data);
   r = r && verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
-  r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
+  if(!m_watch_only)
+    r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
 }
 
@@ -636,7 +655,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const std::string& password)
+bool wallet2::verify_password(const std::string& password) const
 {
   const std::string keys_file_name = m_keys_file;
   wallet2::keys_file_data keys_file_data;
@@ -698,7 +717,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
 
   m_account_public_address = m_account.get_keys().m_account_address;
 
-  bool r = store_keys(m_keys_file, password);
+  bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
   r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
@@ -713,6 +732,40 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
 }
 
 /*!
+* \brief Creates a watch only wallet from a public address and a view secret key.
+* \param  wallet_        Name of wallet file
+* \param  password       Password of wallet file
+* \param  viewkey        view secret key
+*/
+void wallet2::generate(const std::string& wallet_, const std::string& password,
+  const cryptonote::account_public_address &account_public_address,
+  const crypto::secret_key& viewkey)
+{
+  clear();
+  prepare_file_names(wallet_);
+
+  boost::system::error_code ignored_ec;
+  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+
+  m_account.create_from_viewkey(account_public_address, viewkey);
+  m_account_public_address = account_public_address;
+  m_watch_only = true;
+
+  bool r = store_keys(m_keys_file, password, true);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+
+  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+  if(!r) LOG_PRINT_RED_L0("String with address text not saved");
+
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
+
+  store();
+}
+
+/*!
  * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
  * \param wallet_name Name of wallet file (should exist)
  * \param password    Password for wallet file
@@ -722,8 +775,23 @@ void wallet2::rewrite(const std::string& wallet_name, const std::string& passwor
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
   THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_keys_file, ignored_ec), error::file_not_found, m_keys_file);
-  bool r = store_keys(m_keys_file, password);
+  bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+}
+/*!
+ * \brief Writes to a file named based on the normal wallet (doesn't generate key, assumes it's already there)
+ * \param wallet_name Base name of wallet file
+ * \param password    Password for wallet file
+ */
+void wallet2::write_watch_only_wallet(const std::string& wallet_name, const std::string& password)
+{
+  prepare_file_names(wallet_name);
+  boost::system::error_code ignored_ec;
+  std::string filename = m_keys_file + "-watchonly";
+  bool watch_only_keys_file_exists = boost::filesystem::exists(filename, ignored_ec);
+  THROW_WALLET_EXCEPTION_IF(watch_only_keys_file_exists, error::file_save_error, filename);
+  bool r = store_keys(filename, password, true);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, filename);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
@@ -810,7 +878,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   m_local_bc_height = m_blockchain.size();
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::check_genesis(const crypto::hash& genesis_hash) {
+void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
   std::string what("Genesis block missmatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
 
   THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
@@ -822,17 +890,17 @@ void wallet2::store()
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::unlocked_balance()
+uint64_t wallet2::unlocked_balance() const
 {
   uint64_t amount = 0;
-  BOOST_FOREACH(transfer_details& td, m_transfers)
+  BOOST_FOREACH(const transfer_details& td, m_transfers)
     if(!td.m_spent && is_transfer_unlocked(td))
       amount += td.amount();
 
   return amount;
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::balance()
+uint64_t wallet2::balance() const
 {
   uint64_t amount = 0;
   BOOST_FOREACH(auto& td, m_transfers)
@@ -1061,7 +1129,8 @@ std::vector<std::string> wallet2::addresses_from_url(const std::string& url, boo
   std::vector<std::string> addresses;
   // get txt records
   bool dnssec_available, dnssec_isvalid;
-  auto records = tools::DNSResolver::instance().get_txt_record(url, dnssec_available, dnssec_isvalid);
+  std::string oa_addr = tools::DNSResolver::instance().get_dns_format_from_oa_address(url);
+  auto records = tools::DNSResolver::instance().get_txt_record(oa_addr, dnssec_available, dnssec_isvalid);
 
   // TODO: update this to allow for conveying that dnssec was not available
   if (dnssec_available && dnssec_isvalid)
@@ -1159,10 +1228,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 
   for(attempt_count = 1; ;attempt_count++)
   {
-    auto split_values = split_amounts(dsts, attempt_count);
+    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
+
+    auto split_values = split_amounts(dsts, num_tx);
 
     // Throw if split_amounts comes back with a vector of size different than it should
-    if (split_values.size() != attempt_count)
+    if (split_values.size() != num_tx)
     {
       throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
     }
@@ -1190,6 +1261,218 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 	  }
 	  needed_fee = numKB * FEE_PER_KB;
 	} while (ptx.fee < needed_fee);
+
+        ptx_vector.push_back(ptx);
+
+        // mark transfers to be used as "spent"
+        BOOST_FOREACH(transfer_container::iterator it, ptx.selected_transfers)
+          it->m_spent = true;
+      }
+
+      // if we made it this far, we've selected our transactions.  committing them will mark them spent,
+      // so this is a failsafe in case they don't go through
+      // unmark pending tx transfers as spent
+      for (auto & ptx : ptx_vector)
+      {
+        // mark transfers to be used as not spent
+        BOOST_FOREACH(transfer_container::iterator it2, ptx.selected_transfers)
+          it2->m_spent = false;
+
+      }
+
+      // if we made it this far, we're OK to actually send the transactions
+      return ptx_vector;
+
+    }
+    // only catch this here, other exceptions need to pass through to the calling function
+    catch (const tools::error::tx_too_big& e)
+    {
+
+      // unmark pending tx transfers as spent
+      for (auto & ptx : ptx_vector)
+      {
+        // mark transfers to be used as not spent
+        BOOST_FOREACH(transfer_container::iterator it2, ptx.selected_transfers)
+          it2->m_spent = false;
+
+      }
+
+      if (attempt_count >= MAX_SPLIT_ATTEMPTS)
+      {
+        throw;
+      }
+    }
+    catch (...)
+    {
+      // in case of some other exception, make sure any tx in queue are marked unspent again
+
+      // unmark pending tx transfers as spent
+      for (auto & ptx : ptx_vector)
+      {
+        // mark transfers to be used as not spent
+        BOOST_FOREACH(transfer_container::iterator it2, ptx.selected_transfers)
+          it2->m_spent = false;
+
+      }
+
+      throw;
+    }
+  }
+}
+
+uint64_t wallet2::unlocked_dust_balance(const tx_dust_policy &dust_policy) const
+{
+  uint64_t money = 0;
+  std::list<transfer_container::iterator> selected_transfers;
+  for (transfer_container::const_iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)
+  {
+    const transfer_details& td = *i;
+    if (!td.m_spent && td.amount() < dust_policy.dust_threshold && is_transfer_unlocked(td))
+    {
+      money += td.amount();
+    }
+  }
+  return money;
+}
+
+template<typename T>
+void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t needed_fee, T destination_split_strategy, const tx_dust_policy& dust_policy, const std::vector<uint8_t> &extra, cryptonote::transaction& tx, pending_tx &ptx)
+{
+  using namespace cryptonote;
+
+  // select all dust inputs for transaction
+  // throw if there are none
+  uint64_t money = 0;
+  std::list<transfer_container::iterator> selected_transfers;
+  for (transfer_container::iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)
+  {
+    const transfer_details& td = *i;
+    if (!td.m_spent && td.amount() < dust_policy.dust_threshold && is_transfer_unlocked(td))
+    {
+      selected_transfers.push_back (i);
+      money += td.amount();
+      if (selected_transfers.size() >= num_outputs)
+        break;
+    }
+  }
+
+  // we don't allow no output to self, easier, but one may want to burn the dust if = fee
+  THROW_WALLET_EXCEPTION_IF(money <= needed_fee, error::not_enough_money, money, needed_fee, needed_fee);
+
+  typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
+
+  //prepare inputs
+  size_t i = 0;
+  std::vector<cryptonote::tx_source_entry> sources;
+  BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
+  {
+    sources.resize(sources.size()+1);
+    cryptonote::tx_source_entry& src = sources.back();
+    transfer_details& td = *it;
+    src.amount = td.amount();
+
+    //paste real transaction to the random index
+    auto it_to_insert = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
+    {
+      return a.first >= td.m_global_output_index;
+    });
+    tx_output_entry real_oe;
+    real_oe.first = td.m_global_output_index;
+    real_oe.second = boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key;
+    auto interted_it = src.outputs.insert(it_to_insert, real_oe);
+    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx);
+    src.real_output = interted_it - src.outputs.begin();
+    src.real_output_in_tx_index = td.m_internal_output_index;
+    detail::print_source_entry(src);
+    ++i;
+  }
+
+  cryptonote::tx_destination_entry change_dts = AUTO_VAL_INIT(change_dts);
+
+  std::vector<cryptonote::tx_destination_entry> dsts;
+  uint64_t money_back = money - needed_fee;
+  if (dust_policy.dust_threshold > 0)
+    money_back = money_back - money_back % dust_policy.dust_threshold;
+  dsts.push_back(cryptonote::tx_destination_entry(money_back, m_account_public_address));
+  uint64_t dust = 0;
+  std::vector<cryptonote::tx_destination_entry> splitted_dsts;
+  destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust);
+  THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < dust, error::wallet_internal_error, "invalid dust value: dust = " +
+    std::to_string(dust) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
+
+  bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
+  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
+  THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
+
+  std::string key_images;
+  bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool
+  {
+    CHECKED_GET_SPECIFIC_VARIANT(s_e, const txin_to_key, in, false);
+    key_images += boost::to_string(in.k_image) + " ";
+    return true;
+  });
+  THROW_WALLET_EXCEPTION_IF(!all_are_txin_to_key, error::unexpected_txin_type, tx);
+
+  ptx.key_images = key_images;
+  ptx.fee = money - money_back;
+  ptx.dust = dust;
+  ptx.tx = tx;
+  ptx.change_dts = change_dts;
+  ptx.selected_transfers = selected_transfers;
+}
+
+//----------------------------------------------------------------------------------------------------
+std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
+{
+  tx_dust_policy dust_policy(::config::DEFAULT_DUST_THRESHOLD);
+
+  size_t num_dust_outputs = 0;
+  for (transfer_container::const_iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)
+  {
+    const transfer_details& td = *i;
+    if (!td.m_spent && td.amount() < dust_policy.dust_threshold && is_transfer_unlocked(td))
+    {
+      num_dust_outputs++;
+    }
+  }
+
+  // failsafe split attempt counter
+  size_t attempt_count = 0;
+
+  for(attempt_count = 1; ;attempt_count++)
+  {
+    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
+    size_t num_outputs_per_tx = (num_dust_outputs + num_tx - 1) / num_tx;
+
+    std::vector<pending_tx> ptx_vector;
+    try
+    {
+      // for each new tx
+      for (size_t i=0; i<num_tx;++i)
+      {
+        cryptonote::transaction tx;
+        pending_tx ptx;
+        std::vector<uint8_t> extra;
+
+	// loop until fee is met without increasing tx size to next KB boundary.
+	uint64_t needed_fee = 0;
+	if (1)
+	{
+	  transfer_dust(num_outputs_per_tx, (uint64_t)0 /* unlock_time */, 0, detail::digit_split_strategy, dust_policy, extra, tx, ptx);
+	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
+	  uint64_t txSize = txBlob.size();
+	  uint64_t numKB = txSize / 1024;
+	  if (txSize % 1024)
+	  {
+	    numKB++;
+	  }
+	  needed_fee = numKB * FEE_PER_KB;
+
+          // reroll the tx with the actual amount minus the fee
+          // if there's not enough for the fee, it'll throw
+	  transfer_dust(num_outputs_per_tx, (uint64_t)0 /* unlock_time */, needed_fee, detail::digit_split_strategy, dust_policy, extra, tx, ptx);
+	  txBlob = t_serializable_object_to_blob(ptx.tx);
+	}
 
         ptx_vector.push_back(ptx);
 

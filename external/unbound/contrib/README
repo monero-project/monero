@@ -15,8 +15,6 @@ distribution but may be helpful.
 	a local-zone and local-data include file for unbound.conf.
 * unbound-host.nagios.patch: makes unbound-host return status that fits right
 	in with the nagios monitoring framework.  Contributed by Migiel de Vos.
-* unbound_unixsock.diff: Add Unix socket support for unbound-control. 
-	Contributed by Ilya Bakulin, 2012-08-28.
 * patch_rsamd5_enable.diff: this patch enables RSAMD5 validation (otherwise
   it is treated as insecure).  The RSAMD5 algorithm is deprecated (RFC6725).
 * create_unbound_ad_servers.sh: shell script to enter anti-ad server lists.

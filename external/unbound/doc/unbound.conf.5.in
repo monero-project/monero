@@ -302,6 +302,10 @@ Zero makes sure the data in the cache is as the domain owner intended,
 higher values, especially more than an hour or so, can lead to trouble as 
 the data in the cache does not match up with the actual data any more.
 .TP
+.B cache\-max\-negative\-ttl: \fI<seconds>
+Time to live maximum for negative responses, these have a SOA in the
+authority section that is limited in time.  Default is 3600.
+.TP
 .B infra\-host\-ttl: \fI<seconds>
 Time to live for entries in the host cache. The host cache contains 
 roundtrip timing, lameness and EDNS support information. Default is 900.
@@ -574,6 +578,12 @@ authority servers and checks if the reply still has the correct casing.
 Disabled by default. 
 This feature is an experimental implementation of draft dns\-0x20.
 .TP
+.B caps\-whitelist: \fI<domain>
+Whitelist the domain so that it does not receive caps\-for\-id perturbed
+queries.  For domains that do not support 0x20 and also fail with fallback
+because they keep sending different answers, like some load balancers.
+Can be given multiple times, for different domains.
+.TP
 .B private\-address: \fI<IP address or subnet>
 Give IPv4 of IPv6 addresses or classless subnets. These are addresses
 on your private network, and are not allowed to be returned for public
@@ -674,14 +684,19 @@ It is possible to use wildcards with this statement, the wildcard is
 expanded on start and on reload.
 .TP
 .B dlv\-anchor\-file: \fI<filename>
+This option was used during early days DNSSEC deployment when no parent-side
+DS record registrations were easily available.  Nowadays, it is best to have
+DS records registered with the parent zone (many top level zones are signed).
 File with trusted keys for DLV (DNSSEC Lookaside Validation). Both DS and
 DNSKEY entries can be used in the file, in the same format as for
 \fItrust\-anchor\-file:\fR statements. Only one DLV can be configured, more
 would be slow. The DLV configured is used as a root trusted DLV, this 
 means that it is a lookaside for the root. Default is "", or no dlv anchor file.
+DLV is going to be decommissioned.  Please do not use it any more.
 .TP
 .B dlv\-anchor: \fI<"Resource Record">
 Much like trust\-anchor, this is a DLV anchor with the DS or DNSKEY inline.
+DLV is going to be decommissioned.  Please do not use it any more.
 .TP
 .B domain\-insecure: \fI<domain name>
 Sets domain name to be insecure, DNSSEC chain of trust is ignored towards
@@ -815,10 +830,10 @@ data leakage about the local network to the upstream DNS servers.
 .B local\-zone: \fI<zone> <type>
 Configure a local zone. The type determines the answer to give if
 there is no match from local\-data. The types are deny, refuse, static,
-transparent, redirect, nodefault, typetransparent, inform, and are explained
-below. After that the default settings are listed. Use local\-data: to
-enter data into the local zone. Answers for local zones are authoritative
-DNS answers. By default the zones are class IN.
+transparent, redirect, nodefault, typetransparent, inform, inform_deny,
+and are explained below. After that the default settings are listed. Use
+local\-data: to enter data into the local zone. Answers for local zones
+are authoritative DNS answers. By default the zones are class IN.
 .IP
 If you need more complicated authoritative data, with referrals, wildcards,
 CNAME/DNAME support, or DNSSEC authoritative service, setup a stub\-zone for
@@ -871,6 +886,10 @@ is printed to the logfile.  The log message is: timestamp, unbound-pid,
 info: zonename inform IP@port queryname type class.  This option can be
 used for normal resolution, but machines looking up infected names are
 logged, eg. to run antivirus on them.
+.TP 10
+\h'5'\fIinform_deny\fR 
+The query is dropped, like 'deny', and logged, like 'inform'.  Ie. find
+infected machines without answering the queries.
 .TP 10
 \h'5'\fInodefault\fR 
 Used to turn off default contents for AS112 zones. The other types
@@ -978,6 +997,51 @@ it as detailed in the stub zone section below.
 Configure local data shorthand for a PTR record with the reversed IPv4 or
 IPv6 address and the host name.  For example "192.0.2.4 www.example.com".
 TTL can be inserted like this: "2001:DB8::4 7200 www.example.com"
+.TP 5
+.B ratelimit: \fI<number or 0>
+Enable ratelimiting of queries sent to nameserver for performing recursion.
+If 0, the default, it is disabled.  This option is experimental at this time.
+The ratelimit is in queries per second that are allowed.  More queries are
+turned away with an error (servfail).  This stops recursive floods, eg. random
+query names, but not spoofed reflection floods.  Cached responses are not
+ratelimited by this setting.  The zone of the query is determined by examining
+the nameservers for it, the zone name is used to keep track of the rate.
+For example, 1000 may be a suitable value to stop the server from being
+overloaded with random names, and keeps unbound from sending traffic to the
+nameservers for those zones.
+.TP 5
+.B ratelimit\-size: \fI<memory size>
+Give the size of the data structure in which the current ongoing rates are
+kept track in.  Default 4m.  In bytes or use m(mega), k(kilo), g(giga).
+The ratelimit structure is small, so this data structure likely does
+not need to be large.
+.TP 5
+.B ratelimit\-slabs: \fI<number>
+Give power of 2 number of slabs, this is used to reduce lock contention
+in the ratelimit tracking data structure.  Close to the number of cpus is
+a fairly good setting.
+.TP 5
+.B ratelimit\-factor: \fI<number>
+Set the amount of queries to rate limit when the limit is exceeded.
+If set to 0, all queries are dropped for domains where the limit is
+exceeded.  If set to another value, 1 in that number is allowed through
+to complete.  Default is 10, allowing 1/10 traffic to flow normally.
+This can make ordinary queries complete (if repeatedly queried for),
+and enter the cache, whilst also mitigiting the traffic flow by the
+factor given.
+.TP 5
+.B ratelimit\-for\-domain: \fI<domain> <number qps>
+Override the global ratelimit for an exact match domain name with the listed
+number.  You can give this for any number of names.  For example, for
+a top\-level\-domain you may want to have a higher limit than other names.
+.TP 5
+.B ratelimit\-below\-domain: \fI<domain> <number qps>
+Override the global ratelimit for a domain name that ends in this name.
+You can give this multiple times, it then describes different settings
+in different parts of the namespace.  The closest matching suffix is used
+to determine the qps limit.  The rate for the exact matching domain name
+is not changed, use ratelimit\-for\-domain to set that, you might want
+to use different settings for a top\-level\-domain and subdomains.
 .SS "Remote Control Options"
 In the
 .B remote\-control:

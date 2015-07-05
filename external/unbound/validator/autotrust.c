@@ -1184,7 +1184,7 @@ void autr_write_file(struct module_env* env, struct trust_anchor* tp)
 	verbose(VERB_ALGO, "autotrust: write to disk: %s", tempf);
 	out = fopen(tempf, "w");
 	if(!out) {
-		log_err("could not open autotrust file for writing, %s: %s",
+		fatal_exit("could not open autotrust file for writing, %s: %s",
 			tempf, strerror(errno));
 		return;
 	}
@@ -1192,11 +1192,11 @@ void autr_write_file(struct module_env* env, struct trust_anchor* tp)
 		/* failed to write contents (completely) */
 		fclose(out);
 		unlink(tempf);
-		log_err("could not completely write: %s", fname);
+		fatal_exit("could not completely write: %s", fname);
 		return;
 	}
 	if(fclose(out) != 0) {
-		log_err("could not complete write: %s: %s",
+		fatal_exit("could not complete write: %s: %s",
 			fname, strerror(errno));
 		unlink(tempf);
 		return;
@@ -1207,7 +1207,7 @@ void autr_write_file(struct module_env* env, struct trust_anchor* tp)
 	(void)unlink(fname); /* windows does not replace file with rename() */
 #endif
 	if(rename(tempf, fname) < 0) {
-		log_err("rename(%s to %s): %s", tempf, fname, strerror(errno));
+		fatal_exit("rename(%s to %s): %s", tempf, fname, strerror(errno));
 	}
 }
 

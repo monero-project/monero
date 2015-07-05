@@ -497,9 +497,11 @@ testfromdrillfile(sldns_buffer* pkt, struct alloc_cache* alloc,
 
 void msgparse_test(void)
 {
+	time_t origttl = MAX_NEG_TTL;
 	sldns_buffer* pkt = sldns_buffer_new(65553);
 	sldns_buffer* out = sldns_buffer_new(65553);
 	struct alloc_cache super_a, alloc;
+	MAX_NEG_TTL = 86400;
 	/* init */
 	alloc_init(&super_a, NULL, 0);
 	alloc_init(&alloc, &super_a, 2);
@@ -536,4 +538,5 @@ void msgparse_test(void)
 	alloc_clear(&super_a);
 	sldns_buffer_free(pkt);
 	sldns_buffer_free(out);
+	MAX_NEG_TTL = origttl;
 }

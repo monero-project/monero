@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from unbound import ub_ctx, RR_TYPE_A, RR_TYPE_RRSIG, RR_TYPE_NSEC, RR_TYPE_NSEC3
 import ldns
 
@@ -12,16 +13,16 @@ def dnssecParse(domain, rrType=RR_TYPE_A):
         raise RuntimeError("Error parsing DNS packet")
 
     rrsigs = pkt.rr_list_by_type(RR_TYPE_RRSIG, ldns.LDNS_SECTION_ANSWER)
-    print("RRSIGs from answer:", rrsigs)
+    print("RRSIGs from answer:", sorted(rrsigs))
     
     rrsigs = pkt.rr_list_by_type(RR_TYPE_RRSIG, ldns.LDNS_SECTION_AUTHORITY)
-    print("RRSIGs from authority:", rrsigs)
+    print("RRSIGs from authority:", sorted(rrsigs))
     
     nsecs = pkt.rr_list_by_type(RR_TYPE_NSEC, ldns.LDNS_SECTION_AUTHORITY)
-    print("NSECs:", nsecs)
+    print("NSECs:", sorted(nsecs))
     
     nsec3s = pkt.rr_list_by_type(RR_TYPE_NSEC3, ldns.LDNS_SECTION_AUTHORITY)
-    print("NSEC3s:", nsec3s)
+    print("NSEC3s:", sorted(nsec3s))
     
     print("---")
 

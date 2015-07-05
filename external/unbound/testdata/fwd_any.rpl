@@ -1,0 +1,161 @@
+; This is a comment.
+; config options go here.
+forward-zone: name: "." forward-addr: 216.0.0.1
+CONFIG_END
+
+SCENARIO_BEGIN Test query and cache with type ANY
+RANGE_BEGIN 0 1000
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR RD RA NOERROR
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+www.example.com. IN A 10.20.30.40
+SECTION AUTHORITY
+www.example.com. IN NS ns.example.com.
+SECTION ADDITIONAL
+ns.example.com. IN A 10.20.30.50
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR RD RA NOERROR
+SECTION QUESTION
+www.example.com. IN ANY
+SECTION ANSWER
+;; different type in this answer.
+www.example.com. IN TXT "text"
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR RD RA NOERROR
+SECTION QUESTION
+www.example.com. IN AAAA
+SECTION ANSWER
+www.example.com. IN AAAA ::5
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode qname qtype
+ADJUST copy_id
+REPLY QR RD RA NOERROR
+SECTION QUESTION
+www.foo.com. IN ANY
+SECTION ANSWER
+www.foo.com. IN A 1.2.3.77
+www.foo.com. IN AAAA ::77
+ENTRY_END
+
+RANGE_END
+
+STEP 10 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN A
+ENTRY_END
+; unneccesary nothing steps.
+STEP 20 NOTHING
+STEP 30 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH opcode qname qtype
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+www.example.com. IN A 10.20.30.40
+ENTRY_END
+
+; test cache synthesis
+STEP 40 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN ANY
+ENTRY_END
+STEP 50 NOTHING
+STEP 60 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH opcode qname qtype
+SECTION QUESTION
+www.example.com. IN ANY
+SECTION ANSWER
+www.example.com. IN A 10.20.30.40
+ENTRY_END
+
+; and again
+; the synthesized result itself is not added to the cache
+STEP 62 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN ANY
+ENTRY_END
+STEP 63 NOTHING
+STEP 64 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH opcode qname qtype
+SECTION QUESTION
+www.example.com. IN ANY
+SECTION ANSWER
+www.example.com. IN A 10.20.30.40
+ENTRY_END
+
+; AAAA lookup to add more data in cache
+STEP 70 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN AAAA
+ENTRY_END
+STEP 80 NOTHING
+STEP 90 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH opcode qname qtype
+SECTION QUESTION
+www.example.com. IN AAAA
+SECTION ANSWER
+www.example.com. IN AAAA ::5
+ENTRY_END
+
+; test cache synthesis of AAAA, and two rrsets.
+STEP 100 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN ANY
+ENTRY_END
+STEP 110 NOTHING
+STEP 120 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH opcode qname qtype
+SECTION QUESTION
+www.example.com. IN ANY
+SECTION ANSWER
+www.example.com. IN A 10.20.30.40
+www.example.com. IN AAAA ::5
+ENTRY_END
+
+; test query that is not synthesized from cache.
+STEP 130 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.foo.com. IN ANY
+ENTRY_END
+STEP 140 NOTHING
+STEP 150 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH opcode qname qtype
+SECTION QUESTION
+www.foo.com. IN ANY
+SECTION ANSWER
+www.foo.com. IN A 1.2.3.77
+www.foo.com. IN AAAA ::77
+ENTRY_END
+
+SCENARIO_END

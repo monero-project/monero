@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief implementaion for throttling of connection (count and rate-limit speed etc)
 
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -172,7 +172,7 @@ void network_throttle::set_real_target_speed( network_speed_kbps real_target )
 	m_real_target_speed = real_target * 1024;
 }
 
-network_speed_kbps network_throttle::get_terget_speed()
+network_speed_kbps network_throttle::get_target_speed()
 {
 	return m_real_target_speed / 1024;
 }

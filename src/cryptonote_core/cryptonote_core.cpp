@@ -44,6 +44,11 @@ using namespace epee;
 #include <csignal>
 #include "daemon/command_line_args.h"
 #include "cryptonote_core/checkpoints_create.h"
+#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/lmdb/db_lmdb.h"
+#ifndef STATICLIB
+#include "blockchain_db/berkeleydb/db_bdb.h"
+#endif
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -53,7 +58,11 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
+#if BLOCKCHAIN_DB == DB_LMDB
               m_blockchain_storage(m_mempool),
+#else
+              m_blockchain_storage(&m_mempool),
+#endif
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()), 
               m_starter_message_showed(false),
@@ -89,6 +98,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints()
   {
+    if (m_testnet) return true;
+
+    if (m_checkpoints_updating.test_and_set()) return true;
+
     bool res = true;
     if (time(NULL) - m_last_dns_checkpoints_update >= 3600)
     {
@@ -101,6 +114,8 @@ namespace cryptonote
       res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, false);
       m_last_json_checkpoints_update = time(NULL);
     }
+
+    m_checkpoints_updating.clear();
 
     // if anything fishy happened getting new checkpoints, bring down the house
     if (!res)
@@ -195,7 +210,50 @@ namespace cryptonote
     r = m_mempool.init(m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
+#if BLOCKCHAIN_DB == DB_LMDB
+    std::string db_type = command_line::get_arg(vm, daemon_args::arg_db_type);
+
+    BlockchainDB* db = nullptr;
+    if (db_type == "lmdb")
+    {
+      db = new BlockchainLMDB();
+    }
+    else if (db_type == "berkeley")
+    {
+#ifndef STATICLIB
+      db = new BlockchainBDB();
+#else
+      LOG_ERROR("BlockchainBDB not supported on STATIC builds");
+      return false;
+#endif
+    }
+    else
+    {
+      LOG_ERROR("Attempted to use non-existant database type");
+      return false;
+    }
+
+    boost::filesystem::path folder(m_config_folder);
+
+    folder /= db->get_db_name();
+
+    LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
+
+    const std::string filename = folder.string();
+    try
+    {
+      db->open(filename);
+    }
+    catch (const DB_ERROR& e)
+    {
+      LOG_PRINT_L0("Error opening database: " << e.what());
+      return false;
+    }
+
+    r = m_blockchain_storage.init(db, m_testnet);
+#else
     r = m_blockchain_storage.init(m_config_folder, m_testnet);
+#endif
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     // load json & DNS checkpoints, and verify them
@@ -363,9 +421,9 @@ namespace cryptonote
       return false;
     }
 
-    if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
+    if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_cumulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
     {
-      LOG_PRINT_RED_L1("tx is too large " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_comulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+      LOG_PRINT_RED_L1("tx is too large " << get_object_blobsize(tx) << ", expected not bigger than " << m_blockchain_storage.get_current_cumulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
       return false;
     }
 
@@ -600,6 +658,11 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
+  {
+    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids)
   {
     return m_blockchain_storage.get_short_chain_history(ids);
@@ -650,7 +713,11 @@ namespace cryptonote
       m_starter_message_showed = true;
     }
 
+#if BLOCKCHAIN_DB == DB_LMDB
+    m_store_blockchain_interval.do_call(boost::bind(&Blockchain::store_blockchain, &m_blockchain_storage));
+#else
     m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
+#endif
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;

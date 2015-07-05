@@ -1,0 +1,273 @@
+; config options
+server:
+	target-fetch-policy: "0 0 0 0 0"
+
+stub-zone:
+	name: "."
+	stub-addr: 193.0.14.129 	# K.ROOT-SERVERS.NET.
+CONFIG_END
+
+SCENARIO_BEGIN Test resolver with a domain sale
+; and the old operator is nasty, keeps running his server with the old data.
+; and lots of lookups keep going towards the domain.
+; eventually, the NS record has to timeout.
+
+; K.ROOT-SERVERS.NET.
+RANGE_BEGIN 0 100
+	ADDRESS 193.0.14.129 
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR NOERROR
+SECTION QUESTION
+. IN NS
+SECTION ANSWER
+. IN NS	K.ROOT-SERVERS.NET.
+SECTION ADDITIONAL
+K.ROOT-SERVERS.NET.	IN	A	193.0.14.129
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode subdomain
+ADJUST copy_id copy_query
+REPLY QR NOERROR
+SECTION QUESTION
+com. IN A
+SECTION AUTHORITY
+com.	IN NS	a.gtld-servers.net.
+SECTION ADDITIONAL
+a.gtld-servers.net.	IN 	A	192.5.6.30
+ENTRY_END
+RANGE_END
+
+; a.gtld-servers.net. (before sale of domain)
+RANGE_BEGIN 0 20
+	ADDRESS 192.5.6.30
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR NOERROR
+SECTION QUESTION
+com. IN NS
+SECTION ANSWER
+com.	IN NS	a.gtld-servers.net.
+SECTION ADDITIONAL
+a.gtld-servers.net.	IN 	A	192.5.6.30
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode subdomain
+ADJUST copy_id copy_query
+REPLY QR NOERROR
+SECTION QUESTION
+example.com. IN A
+SECTION AUTHORITY
+example.com.	IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.		IN 	A	1.2.3.4
+ENTRY_END
+RANGE_END
+
+; a.gtld-servers.net. (after sale of domain)
+RANGE_BEGIN 30 200
+	ADDRESS 192.5.6.30
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR NOERROR
+SECTION QUESTION
+com. IN NS
+SECTION ANSWER
+com.	IN NS	a.gtld-servers.net.
+SECTION ADDITIONAL
+a.gtld-servers.net.	IN 	A	192.5.6.30
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode subdomain
+ADJUST copy_id copy_query
+REPLY QR NOERROR
+SECTION QUESTION
+example.com. IN A
+SECTION AUTHORITY
+example.com.	IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.		IN 	A	8.8.8.8
+ENTRY_END
+RANGE_END
+
+; ns.example.com. first owner
+RANGE_BEGIN 0 200
+	ADDRESS 1.2.3.4
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR AA NOERROR
+SECTION QUESTION
+example.com. IN NS
+SECTION ANSWER
+example.com.	IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.		IN 	A	1.2.3.4
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode qname
+ADJUST copy_id copy_query
+REPLY QR AA NOERROR
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+www.example.com. 3600 IN A	10.20.30.40
+SECTION AUTHORITY
+example.com.	3600 IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.	3600 	IN 	A	1.2.3.4
+ENTRY_END
+
+; nxdomains for any name,type
+; last in RANGE so that it matches everything left over.
+; it includes the NS record.
+ENTRY_BEGIN
+MATCH opcode
+ADJUST copy_id copy_query
+REPLY QR AA NXDOMAIN
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+SECTION AUTHORITY
+example.com.	3600 IN SOA	a. b. 1 2 3 4 5
+example.com.	3600 IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.	3600 	IN 	A	1.2.3.4
+ENTRY_END
+RANGE_END
+
+; ns.example.com. new owner
+RANGE_BEGIN 0 200
+	ADDRESS 8.8.8.8
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR AA NOERROR
+SECTION QUESTION
+example.com. IN NS
+SECTION ANSWER
+example.com.	IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.		IN 	A	8.8.8.8
+ENTRY_END
+
+ENTRY_BEGIN
+MATCH opcode qtype qname
+ADJUST copy_id
+REPLY QR AA NOERROR
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+www.example.com. 3600 IN A	88.88.88.88
+SECTION AUTHORITY
+example.com.	3600 IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.	3600 	IN 	A	8.8.8.8
+ENTRY_END
+RANGE_END
+
+; Fetch the old record from the old owner.
+STEP 1 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN A
+ENTRY_END
+; recursion happens here.
+STEP 5 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH all ttl
+REPLY QR RD RA NOERROR
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+www.example.com. 3600 IN A	10.20.30.40
+SECTION AUTHORITY
+example.com.	3600 IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.	3600 	IN 	A	1.2.3.4
+ENTRY_END
+
+; the domain is sold (right at this time).
+; but the information stays in the cache.
+
+; after 1800 secs still the cached answer
+STEP 20 TIME_PASSES ELAPSE 1800
+
+STEP 30 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN A
+ENTRY_END
+; recursion happens here.
+STEP 40 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH all ttl
+REPLY QR RD RA NOERROR
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+www.example.com. 1800 IN A	10.20.30.40
+SECTION AUTHORITY
+example.com.	1800 IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.	1800 	IN 	A	1.2.3.4
+ENTRY_END
+
+; and ask another query
+STEP 50 QUERY 
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+nx1.example.com. IN A
+ENTRY_END
+; recursion happens here.
+STEP 60 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH all ttl
+REPLY QR RD RA NXDOMAIN
+SECTION QUESTION
+nx1.example.com. IN A
+SECTION ANSWER
+SECTION AUTHORITY
+; at TTL 5 because TTL is capped at min-ttl of 5 in rdata of SOA
+example.com.	5 IN SOA	a. b. 1 2 3 4 5
+example.com.	1800 IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.	1800 	IN 	A	1.2.3.4
+ENTRY_END
+
+; after another 1900 seconds the domain must have timed out.
+STEP 70 TIME_PASSES ELAPSE 1900
+
+; the NS record should have timed out.
+STEP 80 QUERY
+ENTRY_BEGIN
+REPLY RD
+SECTION QUESTION
+www.example.com. IN A
+ENTRY_END
+; recursion happens here.
+STEP 90 CHECK_ANSWER
+ENTRY_BEGIN
+MATCH all ttl
+REPLY QR RD RA NOERROR
+SECTION QUESTION
+www.example.com. IN A
+SECTION ANSWER
+www.example.com. 3600 IN A	88.88.88.88
+SECTION AUTHORITY
+example.com.	3600 IN NS	ns.example.com.
+SECTION ADDITIONAL
+ns.example.com.	3600 	IN 	A	8.8.8.8
+ENTRY_END
+
+SCENARIO_END

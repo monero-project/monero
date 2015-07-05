@@ -18,7 +18,6 @@ Source2: unbound.conf
 Source3: unbound.munin
 Source4: unbound_munin_
 Source5: root.key
-Source6: dlv.isc.org.key
 Patch1: unbound-1.2-glob.patch
 
 Group: System Environment/Daemons
@@ -140,7 +139,6 @@ rm -rf ${RPM_BUILD_ROOT}
 %attr(0755,root,root) %dir %{_sysconfdir}/%{name}
 %ghost %attr(0755,unbound,unbound) %dir %{_localstatedir}/run/%{name}
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/unbound.conf
-%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/dlv.isc.org.key
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/root.key
 %{_sbindir}/*
 %{_mandir}/*/*
@@ -178,11 +176,6 @@ exit 0
 
 %post
 /sbin/chkconfig --add %{name}
-# dnssec-conf used to contain our DLV key, but now we include it via unbound
-# If unbound had previously been configured with dnssec-configure, we need
-# to migrate the location of the DLV key file (to keep DLV enabled, and because
-# unbound won't start with a bad location for a DLV key file.
-sed -i "s:/etc/pki/dnssec-keys[/]*dlv:/etc/unbound:" %{_sysconfdir}/unbound/unbound.conf
 
 %post libs -p /sbin/ldconfig
 

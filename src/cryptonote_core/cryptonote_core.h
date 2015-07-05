@@ -39,7 +39,11 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "tx_pool.h"
+#if BLOCKCHAIN_DB == DB_LMDB
+#include "blockchain.h"
+#else
 #include "blockchain_storage.h"
+#endif
 #include "miner.h"
 #include "connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
@@ -104,6 +108,7 @@ namespace cryptonote
      void set_enforce_dns_checkpoints(bool enforce_dns);
 
      bool get_pool_transactions(std::list<transaction>& txs);
+     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
      size_t get_pool_transactions_count();
      size_t get_blockchain_total_transactions();
      //bool get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys);
@@ -118,7 +123,11 @@ namespace cryptonote
      bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res);
      void pause_mine();
      void resume_mine();
+#if BLOCKCHAIN_DB == DB_LMDB
+     Blockchain& get_blockchain_storage(){return m_blockchain_storage;}
+#else
      blockchain_storage& get_blockchain_storage(){return m_blockchain_storage;}
+#endif
      //debug functions
      void print_blockchain(uint64_t start_index, uint64_t end_index);
      void print_blockchain_index();
@@ -159,7 +168,11 @@ namespace cryptonote
 	 uint64_t m_test_drop_download_height = 0;
 
      tx_memory_pool m_mempool;
+#if BLOCKCHAIN_DB == DB_LMDB
+     Blockchain m_blockchain_storage;
+#else
      blockchain_storage m_blockchain_storage;
+#endif
      i_cryptonote_protocol* m_pprotocol;
      epee::critical_section m_incoming_tx_lock;
      //m_miner and m_miner_addres are probably temporary here
@@ -177,6 +190,8 @@ namespace cryptonote
      std::string m_checkpoints_path;
      time_t m_last_dns_checkpoints_update;
      time_t m_last_json_checkpoints_update;
+
+     std::atomic_flag m_checkpoints_updating;
    };
 }
 

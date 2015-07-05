@@ -1,21 +1,21 @@
-// Copyright (c) 2014, The Monero Project
-//
+// Copyright (c) 2014-2015, The Monero Project
+// 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-//
+// 
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-//
+// 
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-//
+// 
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-//
+// 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -35,6 +35,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include <boost/format.hpp>
 #include <ctime>
+#include <string>
 
 namespace daemonize {
 
@@ -374,7 +375,7 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
     }
   }
 
-  tools::success_msg_writer() << "Log level is now " << boost::lexical_cast<std::string>(level);
+  tools::success_msg_writer() << "Log level is now " << std::to_string(level);
 
   return true;
 }
@@ -522,20 +523,58 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
     }
   }
 
-  if (res.transactions.empty())
+  if (res.transactions.empty() && res.spent_key_images.empty())
   {
     tools::msg_writer() << "Pool is empty" << std::endl;
   }
-  for (auto & tx_info : res.transactions)
+  if (! res.transactions.empty())
   {
-    tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                        << "blob_size: " << tx_info.blob_size << std::endl
-                        << "fee: " << tx_info.fee << std::endl
-                        << "kept_by_block: " << tx_info.kept_by_block << std::endl
-                        << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                        << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
-                        << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                        << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    tools::msg_writer() << "Transactions: ";
+    for (auto & tx_info : res.transactions)
+    {
+      tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
+                          << tx_info.tx_json << std::endl
+                          << "blob_size: " << tx_info.blob_size << std::endl
+                          << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
+                          << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
+                          << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
+                          << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
+                          << "last_failed_height: " << tx_info.last_failed_height << std::endl
+                          << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    }
+    if (res.spent_key_images.empty())
+    {
+      tools::msg_writer() << "WARNING: Inconsistent pool state - no spent key images";
+    }
+  }
+  if (! res.spent_key_images.empty())
+  {
+    tools::msg_writer() << ""; // one newline
+    tools::msg_writer() << "Spent key images: ";
+    for (const cryptonote::spent_key_image_info& kinfo : res.spent_key_images)
+    {
+      tools::msg_writer() << "key image: " << kinfo.id_hash;
+      if (kinfo.txs_hashes.size() == 1)
+      {
+        tools::msg_writer() << "  tx: " << kinfo.txs_hashes[0];
+      }
+      else if (kinfo.txs_hashes.size() == 0)
+      {
+        tools::msg_writer() << "  WARNING: spent key image has no txs associated";
+      }
+      else
+      {
+        tools::msg_writer() << "  NOTE: key image for multiple txs: " << kinfo.txs_hashes.size();
+        for (const std::string& tx_id : kinfo.txs_hashes)
+        {
+          tools::msg_writer() << "  tx: " << tx_id;
+        }
+      }
+    }
+    if (res.transactions.empty())
+    {
+      tools::msg_writer() << "WARNING: Inconsistent pool state - no transactions";
+    }
   }
 
   return true;
@@ -570,10 +609,9 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   for (auto & tx_info : res.transactions)
   {
     tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                        <<  tx_info.tx_json << std::endl
                         << "blob_size: " << tx_info.blob_size << std::endl
-                        << "fee: " << tx_info.fee << std::endl
-                        << "kept_by_block: " << tx_info.kept_by_block << std::endl
+                        << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
+                        << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
                         << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                         << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
                         << "last_failed_height: " << tx_info.last_failed_height << std::endl
@@ -583,17 +621,30 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   return true;
 }
 
-// TODO: update this for testnet
 bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads) {
   cryptonote::COMMAND_RPC_START_MINING::request req;
   cryptonote::COMMAND_RPC_START_MINING::response res;
-  req.miner_address = cryptonote::get_account_address_as_str(false, address);
+  req.miner_address = cryptonote::get_account_address_as_str(m_rpc_server->is_testnet(), address);
   req.threads_count = num_threads;
 
-  if (m_rpc_client->rpc_request(req, res, "/start_mining", "Mining did not start"))
+  std::string fail_message = "Mining did not start";
+
+  if (m_is_rpc)
   {
-    tools::success_msg_writer() << "Mining started";
+    if (m_rpc_client->rpc_request(req, res, "/start_mining", fail_message.c_str()))
+    {
+      tools::success_msg_writer() << "Mining started";
+    }
   }
+  else
+  {
+    if (!m_rpc_server->on_start_mining(req, res))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
   return true;
 }
 
@@ -685,6 +736,15 @@ bool t_rpc_command_executor::print_status()
   return true;
 }
 
+bool t_rpc_command_executor::get_limit()
+{
+    int limit_down = epee::net_utils::connection_basic::get_rate_down_limit( );
+    int limit_up = epee::net_utils::connection_basic::get_rate_up_limit( );
+    std::cout << "limit-down is " << limit_down/1024 << " kB/s" << std::endl;
+    std::cout << "limit-up is " << limit_up/1024 << " kB/s" << std::endl;
+    return true;
+}
+
 bool t_rpc_command_executor::set_limit(int limit)
 {
     epee::net_utils::connection_basic::set_rate_down_limit( limit );
@@ -694,10 +754,24 @@ bool t_rpc_command_executor::set_limit(int limit)
     return true;
 }
 
+bool t_rpc_command_executor::get_limit_up()
+{
+    int limit_up = epee::net_utils::connection_basic::get_rate_up_limit( );
+    std::cout << "limit-up is " << limit_up/1024 << " kB/s" << std::endl;
+    return true;
+}
+
 bool t_rpc_command_executor::set_limit_up(int limit)
 {
     epee::net_utils::connection_basic::set_rate_up_limit( limit );
     std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
+    return true;
+}
+
+bool t_rpc_command_executor::get_limit_down()
+{
+    int limit_down = epee::net_utils::connection_basic::get_rate_down_limit( );
+    std::cout << "limit-down is " << limit_down/1024 << " kB/s" << std::endl;
     return true;
 }
 

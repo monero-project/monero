@@ -34,7 +34,6 @@
 #include "daemon/core.h"
 #include "daemon/p2p.h"
 #include "daemon/protocol.h"
-// #include "daemon/rpc.h"
 #include "daemon/command_server.h"
 #include "misc_log_ex.h"
 #include "version.h"
@@ -57,7 +56,6 @@ private:
 public:
   t_core core;
   t_p2p p2p;
-  // t_rpc rpc;
   bool testnet_mode;
 
   t_internals(
@@ -66,7 +64,6 @@ public:
     : core{vm}
     , protocol{vm, core}
     , p2p{vm, protocol}
-    // , rpc{vm, core, p2p}
   {
     // Handle circular dependencies
     protocol.set_p2p_endpoint(p2p.get());
@@ -79,7 +76,6 @@ void t_daemon::init_options(boost::program_options::options_description & option
 {
   t_core::init_options(option_spec);
   t_p2p::init_options(option_spec);
-  // t_rpc::init_options(option_spec);
 }
 
 t_daemon::t_daemon(
@@ -122,15 +118,9 @@ bool t_daemon::run(bool interactive)
   try
   {
     mp_internals->core.run();
-    // mp_internals->rpc.run();
-
-    // daemonize::t_command_server* rpc_commands;
 
     if (interactive)
     {
-      // rpc_commands = new daemonize::t_command_server(0, 0, false, mp_internals->rpc.get_server());
-      // rpc_commands->start_handling();
-
       IPC::Daemon::init(mp_internals->core.get(), mp_internals->p2p.get(), mp_internals->testnet_mode);
     }
 
@@ -138,11 +128,9 @@ bool t_daemon::run(bool interactive)
 
     if (interactive)
     {
-      // rpc_commands->stop_handling();
       IPC::Daemon::stop();
     }
 
-    // mp_internals->rpc.stop();
     LOG_PRINT("Node stopped.", LOG_LEVEL_0);
     return true;
   }
@@ -165,8 +153,16 @@ void t_daemon::stop()
     throw std::runtime_error{"Can't stop stopped daemon"};
   }
   mp_internals->p2p.stop();
-  // mp_internals->rpc.stop();
   mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
+}
+
+void t_daemon::stop_p2p()
+{
+  if (nullptr == mp_internals)
+  {
+    throw std::runtime_error{"Can't send stop signal to a stopped daemon"};
+  }
+  mp_internals->p2p.get().send_stop_signal();
 }
 
 } // namespace daemonize

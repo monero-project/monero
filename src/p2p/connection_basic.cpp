@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief base for connection, contains e.g. the ratelimit hooks
 
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -94,6 +94,18 @@ namespace epee
 namespace net_utils
 {
 
+  std::string to_string(t_connection_type type)
+  {
+	  if (type == e_connection_type_NET)
+		return std::string("NET");
+	  else if (type == e_connection_type_RPC)
+	    return std::string("RPC");
+	  else if (type == e_connection_type_P2P)
+	    return std::string("P2P");
+	  
+	  return std::string("UNKNOWN");
+  }
+
 
 /* ============================================================================ */
 
@@ -157,6 +169,7 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, std::ato
 
 connection_basic::~connection_basic() {
 	string remote_addr_str = "?";
+	m_ref_sock_count--;
 	try { remote_addr_str = socket_.remote_endpoint().address().to_string(); } catch(...){} ;
 	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
 }
@@ -187,6 +200,23 @@ void connection_basic::set_rate_down_limit(uint64_t limit) {
     save_limit_to_file(limit);
 }
 
+uint64_t connection_basic::get_rate_up_limit() {
+    uint64_t limit;
+    {
+         CRITICAL_REGION_LOCAL( network_throttle_manager::m_lock_get_global_throttle_out );
+         limit = network_throttle_manager::get_global_throttle_out().get_target_speed();
+	}
+    return limit;
+}
+
+uint64_t connection_basic::get_rate_down_limit() {
+    uint64_t limit;
+    {
+         CRITICAL_REGION_LOCAL( network_throttle_manager::m_lock_get_global_throttle_in );
+         limit = network_throttle_manager::get_global_throttle_in().get_target_speed();
+	}
+    return limit;
+}
 
 void connection_basic::save_limit_to_file(int limit) {
     // saving limit to file
@@ -195,12 +225,12 @@ void connection_basic::save_limit_to_file(int limit) {
 
     {
          CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_out );
-               epee::net_utils::data_logger::get_instance().add_data("upload_limit", network_throttle_manager::get_global_throttle_out().get_terget_speed() / 1024);
+               epee::net_utils::data_logger::get_instance().add_data("upload_limit", network_throttle_manager::get_global_throttle_out().get_target_speed() / 1024);
 	}
 	
     {
          CRITICAL_REGION_LOCAL(        network_throttle_manager::m_lock_get_global_throttle_in );
-               epee::net_utils::data_logger::get_instance().add_data("download_limit", network_throttle_manager::get_global_throttle_in().get_terget_speed() / 1024);
+               epee::net_utils::data_logger::get_instance().add_data("download_limit", network_throttle_manager::get_global_throttle_in().get_target_speed() / 1024);
 	}
 }
  

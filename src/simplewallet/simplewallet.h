@@ -76,10 +76,13 @@ namespace cryptonote
 
     bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, bool testnet, const std::string &old_language);
+    bool new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
+        const crypto::secret_key& viewkey, bool testnet);
     bool open_wallet(const std::string &wallet_file, const std::string& password, bool testnet);
     bool close_wallet();
 
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
+    bool spendkey(const std::vector<std::string> &args = std::vector<std::string>());
     bool seed(const std::vector<std::string> &args = std::vector<std::string>());
 
     /*!
@@ -102,11 +105,14 @@ namespace cryptonote
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
+    bool sweep_dust(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
         std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits
     );
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
+    bool print_integrated_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
+    bool save_watch_only(const std::vector<std::string> &args);
     bool set_variable(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
 
@@ -190,6 +196,7 @@ namespace cryptonote
   private:
     std::string m_wallet_file;
     std::string m_generate_new;
+    std::string m_generate_from_view_key;
     std::string m_import_path;
 
     std::string m_electrum_seed;  // electrum-style seed parameter

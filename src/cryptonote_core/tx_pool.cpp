@@ -37,7 +37,11 @@
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
+#if BLOCKCHAIN_DB == DB_LMDB
+#include "blockchain.h"
+#else
 #include "blockchain_storage.h"
+#endif
 #include "common/boost_serialization_helper.h"
 #include "common/int-util.h"
 #include "misc_language.h"
@@ -52,12 +56,19 @@ namespace cryptonote
   {
     size_t const TRANSACTION_SIZE_LIMIT = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
   }
-
   //---------------------------------------------------------------------------------
+#if BLOCKCHAIN_DB == DB_LMDB
+  //---------------------------------------------------------------------------------
+  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs)
+  {
+
+  }
+#else
   tx_memory_pool::tx_memory_pool(blockchain_storage& bchs): m_blockchain(bchs)
   {
 
   }
+#endif
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block)
   {
@@ -175,6 +186,8 @@ namespace cryptonote
     }
 
     tvc.m_verifivation_failed = false;
+
+    m_txs_by_fee.emplace((double)blob_size / fee, id);
     //succeed
     return true;
   }
@@ -221,17 +234,32 @@ namespace cryptonote
     if(it == m_transactions.end())
       return false;
 
+    auto sorted_it = find_tx_in_sorted_container(id);
+
+    if (sorted_it == m_txs_by_fee.end())
+      return false;
+
     tx = it->second.tx;
     blob_size = it->second.blob_size;
     fee = it->second.fee;
     remove_transaction_keyimages(it->second.tx);
     m_transactions.erase(it);
+    m_txs_by_fee.erase(sorted_it);
     return true;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::on_idle()
   {
     m_remove_stuck_tx_interval.do_call([this](){return remove_stuck_transactions();});
+  }
+  //---------------------------------------------------------------------------------
+  sorted_tx_container::iterator tx_memory_pool::find_tx_in_sorted_container(const crypto::hash& id) const
+  {
+    return std::find_if( m_txs_by_fee.begin(), m_txs_by_fee.end()
+                       , [&](const sorted_tx_container::value_type& a){
+                         return a.second == id;
+                       }
+    );
   }
   //---------------------------------------------------------------------------------
   //proper tx_pool handling courtesy of CryptoZoidberg and Boolberry
@@ -246,6 +274,16 @@ namespace cryptonote
          (tx_age > CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && it->second.kept_by_block) )
       {
         LOG_PRINT_L1("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
+        remove_transaction_keyimages(it->second.tx);
+        auto sorted_it = find_tx_in_sorted_container(it->first);
+        if (sorted_it == m_txs_by_fee.end())
+        {
+          LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
+        }
+        else
+        {
+          m_txs_by_fee.erase(sorted_it);
+        }
         m_transactions.erase(it++);
       }else
         ++it;
@@ -264,6 +302,40 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     BOOST_FOREACH(const auto& tx_vt, m_transactions)
       txs.push_back(tx_vt.second.tx);
+  }
+  //------------------------------------------------------------------
+  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    for (const auto& tx_vt : m_transactions)
+    {
+      tx_info txi;
+      const tx_details& txd = tx_vt.second;
+      txi.id_hash = epee::string_tools::pod_to_hex(tx_vt.first);
+      txi.tx_json = obj_to_json_str(*const_cast<transaction*>(&txd.tx));
+      txi.blob_size = txd.blob_size;
+      txi.fee = txd.fee;
+      txi.kept_by_block = txd.kept_by_block;
+      txi.max_used_block_height = txd.max_used_block_height;
+      txi.max_used_block_id_hash = epee::string_tools::pod_to_hex(txd.max_used_block_id);
+      txi.last_failed_height = txd.last_failed_height;
+      txi.last_failed_id_hash = epee::string_tools::pod_to_hex(txd.last_failed_id);
+      txi.receive_time = txd.receive_time;
+      tx_infos.push_back(txi);
+    }
+
+    for (const key_images_container::value_type& kee : m_spent_key_images) {
+      const crypto::key_image& k_image = kee.first;
+      const std::unordered_set<crypto::hash>& kei_image_set = kee.second;
+      spent_key_image_info ki;
+      ki.id_hash = epee::string_tools::pod_to_hex(k_image);
+      for (const crypto::hash& tx_id_hash : kei_image_set)
+      {
+        ki.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_id_hash));
+      }
+      key_image_infos.push_back(ki);
+    }
+    return true;
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::get_transaction(const crypto::hash& id, transaction& tx) const
@@ -424,10 +496,13 @@ namespace cryptonote
     size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
 
-    BOOST_FOREACH(transactions_container::value_type& tx, m_transactions)
+    auto sorted_it = m_txs_by_fee.begin();
+    while (sorted_it != m_txs_by_fee.end())
     {
+      auto tx_it = m_transactions.find(sorted_it->second);
+
       // Can not exceed maximum block size
-      if (max_total_size < total_size + tx.second.blob_size)
+      if (max_total_size < total_size + tx_it->second.blob_size)
         continue;
 
       // If adding this tx will make the block size
@@ -435,7 +510,7 @@ namespace cryptonote
       // _BLOCK_SIZE bytes, reject the tx; this will 
       // keep block sizes from becoming too unwieldly
       // to propagate at 60s block times.
-      if ( (total_size + tx.second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
+      if ( (total_size + tx_it->second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
         continue;
 
       // If we've exceeded the penalty free size,
@@ -446,13 +521,14 @@ namespace cryptonote
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
-      if (!is_transaction_ready_to_go(tx.second) || have_key_images(k_images, tx.second.tx))
+      if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
         continue;
 
-      bl.tx_hashes.push_back(tx.first);
-      total_size += tx.second.blob_size;
-      fee += tx.second.fee;
-      append_key_images(k_images, tx.second.tx);
+      bl.tx_hashes.push_back(tx_it->first);
+      total_size += tx_it->second.blob_size;
+      fee += tx_it->second.fee;
+      append_key_images(k_images, tx_it->second.tx);
+      sorted_it++;
     }
 
     return true;
@@ -473,16 +549,23 @@ namespace cryptonote
       LOG_PRINT_L1("Failed to load memory pool from file " << state_file_path);
 
       m_transactions.clear();
+      m_txs_by_fee.clear();
       m_spent_key_images.clear();
     }
 
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
-      auto it2 = it++;
-      if (it2->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
-        LOG_PRINT_L1("Transaction " << get_transaction_hash(it2->second.tx) << " is too big (" << it2->second.blob_size << " bytes), removing it from pool");
-        remove_transaction_keyimages(it2->second.tx);
-        m_transactions.erase(it2);
+      if (it->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
+        LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
+        remove_transaction_keyimages(it->second.tx);
+        m_transactions.erase(it);
       }
+      it++;
+    }
+
+    // no need to store queue of sorted transactions, as it's easy to generate.
+    for (const auto& tx : m_transactions)
+    {
+      m_txs_by_fee.emplace((double)tx.second.blob_size / tx.second.fee, tx.first);
     }
 
     // Ignore deserialization error

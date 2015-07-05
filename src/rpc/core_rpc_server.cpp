@@ -291,6 +291,7 @@ namespace cryptonote
     if(!get_account_address_from_str(adr, m_testnet, req.miner_address))
     {
       res.status = "Failed, wrong address";
+      LOG_PRINT_L0(res.status);
       return true;
     }
 
@@ -300,6 +301,7 @@ namespace cryptonote
     if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs))
     {
       res.status = "Failed, mining not started";
+      LOG_PRINT_L0(res.status);
       return true;
     }
     res.status = CORE_RPC_STATUS_OK;
@@ -311,6 +313,7 @@ namespace cryptonote
     if(!m_core.get_miner().stop())
     {
       res.status = "Failed, mining not stopped";
+      LOG_PRINT_L0(res.status);
       return true;
     }
     res.status = CORE_RPC_STATUS_OK;
@@ -349,10 +352,10 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res)
   {
-    /*
     std::list<nodetool::peerlist_entry> white_list;
     std::list<nodetool::peerlist_entry> gray_list;
-    m_p2p.get_peerlist(white_list, gray_list);
+    m_p2p.get_peerlist_manager().get_peerlist_full(white_list, gray_list);
+
 
     for (auto & entry : white_list)
     {
@@ -364,7 +367,6 @@ namespace cryptonote
       res.gray_list.emplace_back(entry.id, entry.adr.ip, entry.adr.port, entry.last_seen);
     }
 
-    */
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -392,6 +394,8 @@ namespace cryptonote
     else
     {
       epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
+      int otshell_utils_log_level = 100 - (req.level * 20);
+      gCurrentLogger.setDebugLevel(otshell_utils_log_level);
       res.status = CORE_RPC_STATUS_OK;
     }
     return true;
@@ -399,10 +403,8 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res)
   {
-    /*
     CHECK_CORE_BUSY();
-    res.transactions = m_core.transaction_pool_info();
-    */
+    m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

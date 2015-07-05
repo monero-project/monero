@@ -223,7 +223,7 @@ int main(int argc, char** argv)
 
   size_t thread_count = (std::max)(min_thread_count, std::thread::hardware_concurrency() / 2);
 
-  test_tcp_server tcp_server;
+  test_tcp_server tcp_server(epee::net_utils::e_connection_type_RPC);
   if (!tcp_server.init_server(srv_port, "127.0.0.1"))
     return 1;
 

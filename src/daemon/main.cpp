@@ -1,21 +1,21 @@
-// Copyright (c) 2014, The Monero Project
-//
+// Copyright (c) 2014-2015, The Monero Project
+// 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-//
+// 
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-//
+// 
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-//
+// 
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-//
+// 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -42,6 +42,7 @@
 #include "rpc/core_rpc_server.h"
 #include <boost/program_options.hpp>
 #include "daemon/command_line_args.h"
+#include "blockchain_db/db_types.h"
 
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;
@@ -84,6 +85,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_log_level);
       command_line::add_arg(core_settings, daemon_args::arg_testnet_on);
       command_line::add_arg(core_settings, daemon_args::arg_dns_checkpoints);
+      command_line::add_arg(core_settings, daemon_args::arg_db_type);
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
 
@@ -141,9 +143,28 @@ int main(int argc, char const * argv[])
     
     epee::g_test_dbg_lock_sleep = command_line::get_arg(vm, command_line::arg_test_dbg_lock_sleep);
 
+    std::string db_type = command_line::get_arg(vm, daemon_args::arg_db_type);
+
+    // verify that blockchaindb type is valid
+    if(cryptonote::blockchain_db_types.count(db_type) == 0)
+    {
+      std::cout << "Invalid database type (" << db_type << "), available types are:" << std::endl;
+      for (const auto& type : cryptonote::blockchain_db_types)
+      {
+        std::cout << "\t" << type << std::endl;
+      }
+      return 0;
+    }
+
     bool testnet_mode = command_line::get_arg(vm, daemon_args::arg_testnet_on);
 
     auto data_dir_arg = testnet_mode ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+
+    // data_dir
+    //   default: e.g. ~/.bitmonero/ or ~/.bitmonero/testnet
+    //   if data-dir argument given:
+    //     absolute path
+    //     relative path: relative to cwd
 
     // Create data dir if it doesn't exist
     boost::filesystem::path data_dir = boost::filesystem::absolute(
@@ -222,15 +243,24 @@ int main(int argc, char const * argv[])
       else if (epee::log_space::get_set_log_detalisation_level(false) != new_log_level)
       {
         epee::log_space::get_set_log_detalisation_level(true, new_log_level);
-        int otshell_utils_log_level = 100 - (new_log_level * 25);
+        int otshell_utils_log_level = 100 - (new_log_level * 20);
         gCurrentLogger.setDebugLevel(otshell_utils_log_level);
         LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
       }
     }
 
+    // log_file_path
+    //   default: <data_dir>/<CRYPTONOTE_NAME>.log
+    //   if log-file argument given:
+    //     absolute path
+    //     relative path: relative to data_dir
+
     // Set log file
     {
-      bf::path log_file_path{bf::absolute(command_line::get_arg(vm, daemon_args::arg_log_file), relative_path_base)};
+      bf::path log_file_path {data_dir / std::string(CRYPTONOTE_NAME ".log")};
+      if (! vm["log-file"].defaulted())
+        log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
+      log_file_path = bf::absolute(log_file_path, relative_path_base);
 
       epee::log_space::log_singletone::add_logger(
           LOGGER_FILE

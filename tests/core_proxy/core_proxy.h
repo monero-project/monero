@@ -34,6 +34,7 @@
 
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "cryptonote_core/verification_context.h"
+#include "cryptonote_core/blockchain_storage.h"
 #include <unordered_map>
 
 namespace tests

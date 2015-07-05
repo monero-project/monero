@@ -8,7 +8,7 @@
 // ! (how ever if in some wonderful juristdictions that is not the case, then why not make another sub-class withat that members and licence it as epee part)
 // ! Working on above premise, IF this is valid in your juristdictions, then consider this code as released as:
 
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -35,7 +35,6 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
 
 /* rfree: place for hanlers for the non-template base, can be used by connection<> template class in abstract_tcp_server2 file  */
 
@@ -75,6 +74,14 @@ namespace net_utils
 
 class connection_basic_pimpl; // PIMPL for this class
 
+  enum t_connection_type { // type of the connection (of this server), e.g. so that we will know how to limit it
+	  e_connection_type_NET = 0, // default (not used?)
+	  e_connection_type_RPC = 1, // the rpc commands  (probably not rate limited, not chunked, etc)
+	  e_connection_type_P2P = 2  // to other p2p node (probably limited)
+  };
+  
+  std::string to_string(t_connection_type type);
+
 class connection_basic { // not-templated base class for rapid developmet of some code parts
 	public:
 		std::unique_ptr< connection_basic_pimpl > mI; // my Implementation
@@ -111,6 +118,8 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		
 		static void set_rate_up_limit(uint64_t limit);
 		static void set_rate_down_limit(uint64_t limit);
+		static uint64_t get_rate_up_limit();
+		static uint64_t get_rate_down_limit();
 
 		// config misc
 		static void set_tos_flag(int tos); // ToS / QoS flag

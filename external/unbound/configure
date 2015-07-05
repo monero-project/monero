@@ -677,6 +677,7 @@ WITH_PYTHONMODULE
 swig
 SWIG_LIB
 SWIG
+PY_MAJOR_VERSION
 PYTHON_SITE_PKG
 PYTHON_LDFLAGS
 PYTHON_CPPFLAGS
@@ -16099,6 +16100,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 	if test `$PYTHON -c "print('$PYTHON_VERSION' >= '2.4.0')"` = "False"; then
 		as_fn_error $? "Python version >= 2.4.0 is required" "$LINENO" 5
 	fi
+
+      PY_MAJOR_VERSION="`$PYTHON -c "import sys; print(sys.version_info.major)"`"
 
       # Have Python
 

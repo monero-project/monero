@@ -177,7 +177,8 @@ harden\-glue, harden\-dnssec\-stripped, harden\-below\-nxdomain,
 harden\-referral\-path, prefetch, prefetch\-key, log\-queries,
 hide\-identity, hide\-version, identity, version, val\-log\-level,
 val\-log\-squelch, ignore\-cd\-flag, add\-holddown, del\-holddown,
-keep\-missing, tcp\-upstream, ssl\-upstream, max\-udp\-size.
+keep\-missing, tcp\-upstream, ssl\-upstream, max\-udp\-size, ratelimit,
+cache\-max\-ttl, cache\-min\-ttl, cache\-max\-negative\-ttl.
 .TP
 .B get_option \fIopt
 Get the value of the option.  Give the option name without a trailing ':'.
@@ -196,6 +197,9 @@ This includes the root hints in use.
 .TP
 .B list_forwards
 List the forward zones in use.  These are printed zone by zone to the output.
+.TP
+.B list_insecure
+List the zones with domain\-insecure.
 .TP
 .B list_local_zones
 List the local zones in use.  These are printed one per line with zone type.
@@ -252,6 +256,13 @@ port number can be set explicitly (default port is 53 (DNS)).
 By default the forwarder information from the config file for the root "." is
 used.  The config file is not changed, so after a reload these changes are
 gone.  Other forward zones from the config file are not affected by this command.
+.TP
+.B ratelimit_list \fR[\fI+a\fR]
+List the domains that are ratelimited.  Printed one per line with current
+estimated qps and qps limit from config.  With +a it prints all domains, not
+just the ratelimited domains, with their estimated qps.  The ratelimited
+domains return an error for uncached (new) queries, but cached queries work
+as normal.
 .SH "EXIT CODE"
 The unbound\-control program exits with status code 1 on error, 0 on success.
 .SH "SET UP"

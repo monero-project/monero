@@ -1,0 +1,112 @@
+LMDB 0.9 Change Log
+
+LMDB 0.9.14 Release (2014/09/20)
+	Fix to support 64K page size (ITS#7713)
+	Fix to persist decreased as well as increased mapsizes (ITS#7789)
+	Fix cursor bug when deleting last node of a DUPSORT key
+	Fix mdb_env_info to return FIXEDMAP address
+	Fix ambiguous error code from writing to closed DBI (ITS#7825)
+	Fix mdb_copy copying past end of file (ITS#7886)
+	Fix cursor bugs from page_merge/rebalance
+	Fix to dirty fewer pages in deletes (mdb_page_loose())
+	Fix mdb_dbi_open creating subDBs (ITS#7917)
+	Fix mdb_cursor_get(_DUP) with single value (ITS#7913)
+	Fix Windows compat issues in mtests (ITS#7879)
+	Add compacting variant of mdb_copy
+	Add BigEndian integer key compare code
+	Add mdb_dump/mdb_load utilities
+
+LMDB 0.9.13 Release (2014/06/18)
+	Fix mdb_page_alloc unlimited overflow page search
+	Documentation
+		Re-fix MDB_CURRENT doc (ITS#7793)
+		Fix MDB_GET_MULTIPLE/MDB_NEXT_MULTIPLE doc
+
+LMDB 0.9.12 Release (2014/06/13)
+	Fix MDB_GET_BOTH regression (ITS#7875,#7681)
+	Fix MDB_MULTIPLE writing multiple keys (ITS#7834)
+	Fix mdb_rebalance (ITS#7829)
+	Fix mdb_page_split (ITS#7815)
+	Fix md_entries count (ITS#7861,#7828,#7793)
+	Fix MDB_CURRENT (ITS#7793)
+	Fix possible crash on Windows DLL detach
+	Misc code cleanup
+	Documentation
+		mdb_cursor_put: cursor moves on error (ITS#7771)
+
+
+LMDB 0.9.11 Release (2014/01/15)
+	Add mdb_env_set_assert() (ITS#7775)
+	Fix: invalidate txn on page allocation errors (ITS#7377)
+	Fix xcursor tracking in mdb_cursor_del0() (ITS#7771)
+	Fix corruption from deletes (ITS#7756)
+	Fix Windows/MSVC build issues
+	Raise safe limit of max MDB_MAXKEYSIZE
+	Misc code cleanup
+	Documentation
+		Remove spurious note about non-overlapping flags (ITS#7665)
+
+LMDB 0.9.10 Release (2013/11/12)
+	Add MDB_NOMEMINIT option
+	Fix mdb_page_split() again (ITS#7589)
+	Fix MDB_NORDAHEAD definition (ITS#7734)
+	Fix mdb_cursor_del() positioning (ITS#7733)
+	Partial fix for larger page sizes (ITS#7713)
+	Fix Windows64/MSVC build issues
+
+LMDB 0.9.9 Release (2013/10/24)
+	Add mdb_env_get_fd()
+	Add MDB_NORDAHEAD option
+	Add MDB_NOLOCK option
+	Avoid wasting space in mdb_page_split() (ITS#7589)
+	Fix mdb_page_merge() cursor fixup (ITS#7722)
+	Fix mdb_cursor_del() on last delete (ITS#7718)
+	Fix adding WRITEMAP on existing env (ITS#7715)
+	Fix nested txns (ITS#7515)
+	Fix mdb_env_copy() O_DIRECT bug (ITS#7682)
+	Fix mdb_cursor_set(SET_RANGE) return code (ITS#7681)
+	Fix mdb_rebalance() cursor fixup (ITS#7701)
+	Misc code cleanup
+	Documentation
+		Note that by default, readers need write access
+
+
+LMDB 0.9.8 Release (2013/09/09)
+	Allow mdb_env_set_mapsize() on an open environment
+	Fix mdb_dbi_flags() (ITS#7672)
+	Fix mdb_page_unspill() in nested txns
+	Fix mdb_cursor_get(CURRENT|NEXT) after a delete
+	Fix mdb_cursor_get(DUP) to always return key (ITS#7671)
+	Fix mdb_cursor_del() to always advance to next item (ITS#7670)
+	Fix mdb_cursor_set(SET_RANGE) for tree with single page (ITS#7681)
+	Fix mdb_env_copy() retry open if O_DIRECT fails (ITS#7682)
+	Tweak mdb_page_spill() to be less aggressive
+	Documentation
+		Update caveats since mdb_reader_check() added in 0.9.7
+
+LMDB 0.9.7 Release (2013/08/17)
+	Don't leave stale lockfile on failed RDONLY open (ITS#7664)
+	Fix mdb_page_split() ref beyond cursor depth
+	Fix read txn data race (ITS#7635)
+	Fix mdb_rebalance (ITS#7536, #7538)
+	Fix mdb_drop() (ITS#7561)
+	Misc DEBUG macro fixes
+	Add MDB_NOTLS envflag
+	Add mdb_env_copyfd()
+	Add mdb_txn_env() (ITS#7660)
+	Add mdb_dbi_flags() (ITS#7661)
+	Add mdb_env_get_maxkeysize()
+	Add mdb_env_reader_list()/mdb_env_reader_check()
+	Add mdb_page_spill/unspill, remove hard txn size limit
+	Use shorter names for semaphores (ITS#7615)
+	Build
+		Fix install target (ITS#7656)
+	Documentation
+		Misc updates for cursors, DB handles, data lifetime
+
+LMDB 0.9.6 Release (2013/02/25)
+	Many fixes/enhancements
+
+LMDB 0.9.5 Release (2012/11/30)
+	Renamed from libmdb to liblmdb
+	Many fixes/enhancements

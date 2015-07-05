@@ -427,7 +427,7 @@ namespace epee
       TRY_ENTRY();
       CHECK_AND_ASSERT(hsec_array, false);
       if(hsec_array->type() != typeid(array_entry_t<section>))
-        return nullptr;
+        return false;
       array_entry_t<section>& sec_array = boost::get<array_entry_t<section>>(*hsec_array);
       h_child_section = sec_array.get_next_val();
       if(!h_child_section)

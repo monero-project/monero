@@ -73,7 +73,9 @@ enum localzone_type {
 	 * nodefault is used in config not during service. */
 	local_zone_nodefault,
 	/** log client address, but no block (transparent) */
-	local_zone_inform
+	local_zone_inform,
+	/** log client address, and block (drop) */
+	local_zone_inform_deny
 };
 
 /**

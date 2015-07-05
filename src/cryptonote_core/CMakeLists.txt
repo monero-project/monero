@@ -29,6 +29,7 @@
 set(cryptonote_core_sources
   account.cpp
   blockchain_storage.cpp
+  blockchain.cpp
   checkpoints.cpp
   checkpoints_create.cpp
   cryptonote_basic_impl.cpp
@@ -45,6 +46,7 @@ set(cryptonote_core_private_headers
   account_boost_serialization.h
   blockchain_storage.h
   blockchain_storage_boost_serialization.h
+  blockchain.h
   checkpoints.h
   checkpoints_create.h
   connection_context.h
@@ -71,6 +73,7 @@ target_link_libraries(cryptonote_core
     common
     crypto
     otshell_utils
+    blockchain_db
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}

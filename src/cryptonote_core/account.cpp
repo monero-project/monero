@@ -59,6 +59,11 @@ DISABLE_VS_WARNINGS(4244 4345)
     m_keys = account_keys();
   }
   //-----------------------------------------------------------------
+  void account_base::forget_spend_key()
+  {
+    m_keys.m_spend_secret_key = crypto::secret_key();
+  }
+  //-----------------------------------------------------------------
   crypto::secret_key account_base::generate(const crypto::secret_key& recovery_key, bool recover, bool two_random)
   {
     crypto::secret_key first = generate_keys(m_keys.m_account_address.m_spend_public_key, m_keys.m_spend_secret_key, recovery_key, recover);
@@ -88,15 +93,37 @@ DISABLE_VS_WARNINGS(4244 4345)
     return first;
   }
   //-----------------------------------------------------------------
+  void account_base::create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey)
+  {
+    m_keys.m_account_address = address;
+    m_keys.m_view_secret_key = viewkey;
+
+    struct tm timestamp;
+    timestamp.tm_year = 2014 - 1900;  // year 2014
+    timestamp.tm_mon = 4 - 1;  // month april
+    timestamp.tm_mday = 15;  // 15th of april
+    timestamp.tm_hour = 0;
+    timestamp.tm_min = 0;
+    timestamp.tm_sec = 0;
+
+    m_creation_timestamp = mktime(&timestamp);
+  }
+  //-----------------------------------------------------------------
   const account_keys& account_base::get_keys() const
   {
     return m_keys;
   }
   //-----------------------------------------------------------------
-  std::string account_base::get_public_address_str(bool testnet)
+  std::string account_base::get_public_address_str(bool testnet) const
   {
     //TODO: change this code into base 58
     return get_account_address_as_str(testnet, m_keys.m_account_address);
+  }
+  //-----------------------------------------------------------------
+  std::string account_base::get_public_integrated_address_str(const crypto::hash &payment_id, bool testnet) const
+  {
+    //TODO: change this code into base 58
+    return get_account_integrated_address_as_str(testnet, m_keys.m_account_address, payment_id);
   }
   //-----------------------------------------------------------------
 }

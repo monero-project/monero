@@ -36,10 +36,12 @@ namespace
    * \param response_json Root rapidjson document that will eventually have the whole response
    * \param response      Response as a string gets written here.
    */
+/*
   void construct_response_string(struct ns_rpc_request *req, rapidjson::Value &result_json,
     rapidjson::Document &response_json, std::string &response)
   {
-    /*response_json.SetObject();
+    //TODO: uncomment and use this function
+    response_json.SetObject();
     rapidjson::Value string_value(rapidjson::kStringType);
     // If ID was present in request use it else use "null".
     if (req->id != NULL)
@@ -58,8 +60,9 @@ namespace
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     response_json.Accept(writer);
     // Write string to `response`.
-    response = buffer.GetString();*/
+    response = buffer.GetString();
   }
+*/
 
   /*!
    * \brief Implementation of 'getbalance' method.
@@ -70,6 +73,8 @@ namespace
    */
   int getbalance(char *buf, int len, struct ns_rpc_request *req)
   {
+    //TODO: uncomment and use this function
+    return 0;
     /*uint64_t balance, unlocked_balance;
     try
     {
@@ -103,6 +108,8 @@ namespace
    */
   int getaddress(char *buf, int len, struct ns_rpc_request *req)
   {
+    //TODO: uncomment and use this function
+    return 0;
     /*std::string address;
     try
     {
