@@ -44,6 +44,9 @@ Batch size refers to number of blocks and can be adjusted for performance based 
 
 Verification should only be turned off if importing from a trusted blockchain.
 
+If you encounter an error like "resizing not supported in batch mode", you can just re-run
+the `blockchain_import` command again, and it will restart from where it left off.
+
 ```bash
 ## use default settings to import blockchain.raw into database
 $ blockchain_import
