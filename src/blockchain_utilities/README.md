@@ -4,13 +4,19 @@ Copyright (c) 2014-2015, The Monero Project
 
 ## Introduction
 
+The blockchain utilities allow one to convert an old style blockchain.bin file
+to a new style database. There are two ways to upgrade an old style blockchain:
+The recommended way is to run a `blockchain_export`, then `blockchain_import`.
+The other way is to run `blockchain_converter`. In both cases, you will be left
+with a new style blockchain.
+
 For importing into the LMDB database, compile with `DATABASE=lmdb`
 
 e.g.
 
 `DATABASE=lmdb make release`
 
-This is also the default compile setting on the blockchain branch.
+This is also the default compile setting on the master branch.
 
 By default, the exporter will use the original in-memory database (blockchain.bin) as its source.
 This default is to make migrating to an LMDB database easy, without having to recompile anything.
