@@ -970,6 +970,15 @@ void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transactio
   m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
+void simple_wallet::on_money_spent_view(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+{
+  message_writer(epee::log_space::console_color_magenta, false) <<
+    "Height " << height <<
+    ", transaction " << get_transaction_hash(tx) <<
+    ", spent " << print_money(amount);
+  m_refresh_progress_reporter.update(height, true);
+}
+//----------------------------------------------------------------------------------------------------
 void simple_wallet::on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
 {
   message_writer(epee::log_space::console_color_red, true) <<
@@ -1065,7 +1074,11 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
   bool available = false;
   if (!args.empty())
   {
-    if (args[0] == "available")
+    if (m_wallet->watch_only())
+    {
+      message_writer() << "Watch only wallet: all transfers shown";
+    }
+    else if (args[0] == "available")
     {
       filter = true;
       available = true;
@@ -1092,7 +1105,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
       }
       message_writer(td.m_spent ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
         std::setw(21) << print_money(td.amount()) << '\t' <<
-        std::setw(3) << (td.m_spent ? 'T' : 'F') << "  \t" <<
+        std::setw(3) << (m_wallet->watch_only() ? '?' : td.m_spent ? 'T' : 'F') << "  \t" <<
         std::setw(12) << td.m_global_output_index << '\t' <<
         get_transaction_hash(td.m_tx);
     }

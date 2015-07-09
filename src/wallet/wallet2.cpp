@@ -139,11 +139,58 @@ bool wallet2::is_deprecated() const
   return is_old_file_format;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::add_deterministic_tx_key_pubkey(const transfer_details &td)
+{
+  std::vector<tx_extra_field> own_tx_extra_fields;
+  if(!parse_tx_extra(td.m_tx.extra, own_tx_extra_fields))
+  {
+    // Extra may only be partially parsed, it's OK if tx_extra_fields contains public key
+    LOG_PRINT_L0("Own transaction extra has unsupported format: " << get_transaction_hash(td.m_tx));
+    return;
+  }
+  tx_extra_pub_key own_tx_pub_key_field;
+  if(!find_tx_extra_field_by_type(own_tx_extra_fields, own_tx_pub_key_field))
+  {
+    LOG_PRINT_L0("Public key wasn't found in own transaction. " << get_transaction_hash(td.m_tx));
+    return;
+  }
+  crypto::public_key own_tx_pub_key = own_tx_pub_key_field.pub_key;
+
+  crypto::key_derivation txkey_derivation;
+  crypto::generate_key_derivation(own_tx_pub_key, m_account.get_keys().m_view_secret_key, txkey_derivation);
+  crypto::secret_key txkey_derivation_secret_key;
+  crypto::derive_secret_key(txkey_derivation, 0, m_account.get_keys().m_view_secret_key, txkey_derivation_secret_key);
+  keypair deterministic_keypair = keypair::generate_deterministic(txkey_derivation_secret_key);
+
+  m_deterministic_tx_pubkeys.push_back(deterministic_keypair.pub);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::create_deterministic_tx_key_pubkeys()
+{
+  std::list<transfer_container::iterator> transfers;
+  std::unordered_set<crypto::hash> own_hashes;
+  for (transfer_container::const_iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)
+  {
+    const transfer_details& td = *i;
+    crypto::hash hash = get_transaction_hash(td.m_tx);
+    if (own_hashes.find(hash) != own_hashes.end())
+      continue;
+    own_hashes.insert(hash);
+    add_deterministic_tx_key_pubkey(td);
+  }
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::is_known_deterministic_pubkey(const crypto::public_key &pub) const
+{
+  return std::find(m_deterministic_tx_pubkeys.begin(),m_deterministic_tx_pubkeys.end(),pub)!=m_deterministic_tx_pubkeys.end();
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height)
 {
   process_unconfirmed(tx);
   std::vector<size_t> outs;
   uint64_t tx_money_got_in_outs = 0;
+  uint64_t tx_money_spent_in_ins = 0;
 
   std::vector<tx_extra_field> tx_extra_fields;
   if(!parse_tx_extra(tx.extra, tx_extra_fields))
@@ -201,28 +248,62 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 				  error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
 	m_key_images[td.m_key_image] = m_transfers.size()-1;
-	LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
+        add_deterministic_tx_key_pubkey(td);
+	LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx) << ", key image " << td.m_key_image);
 	if (0 != m_callback)
 	  m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
       }
     }
+
+    // view key bits for detecting outgoing transactions using deterministic tx key
+    // Only if watch only wallet since we can match key images with the spend key
+    // in the code below
+    if (m_watch_only)
+    {
+      if (is_known_deterministic_pubkey(tx_pub_key))
+      {
+        // we can't tell which actual outputs are spent when mixin > 0, just amounts
+        uint64_t change;
+        std::vector<size_t> change_outs;
+        r = lookup_acc_outs(m_account.get_keys(), tx, tx_pub_key, change_outs, change);
+        THROW_WALLET_EXCEPTION_IF(!r, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
+
+        uint64_t total_out = 0;
+        BOOST_FOREACH(const auto& out, tx.vout) { total_out += out.amount; }
+        uint64_t total_in = 0;
+        BOOST_FOREACH(const auto& in, tx.vin) { total_in += boost::get<cryptonote::txin_to_key>(in).amount; }
+
+        LOG_PRINT_L0("Outgoing TX " << get_transaction_hash(tx) << " for " << print_money(total_out-change)
+          << ", change: " << print_money(change) << ", fee " << print_money(total_out - total_in));
+
+        if (0 != m_callback)
+          m_callback->on_money_spent_view(height, tx, total_out);
+      }
+    }
   }
 
-  uint64_t tx_money_spent_in_ins = 0;
   // check all outputs for spending (compare key images)
-  BOOST_FOREACH(auto& in, tx.vin)
+  // will only work with the spend key, view key version is above
+  if (!m_watch_only)
   {
-    if(in.type() != typeid(cryptonote::txin_to_key))
-      continue;
-    auto it = m_key_images.find(boost::get<cryptonote::txin_to_key>(in).k_image);
-    if(it != m_key_images.end())
+    BOOST_FOREACH(auto& in, tx.vin)
     {
-      LOG_PRINT_L0("Spent money: " << print_money(boost::get<cryptonote::txin_to_key>(in).amount) << ", with tx: " << get_transaction_hash(tx));
-      tx_money_spent_in_ins += boost::get<cryptonote::txin_to_key>(in).amount;
-      transfer_details& td = m_transfers[it->second];
-      td.m_spent = true;
-      if (0 != m_callback)
-        m_callback->on_money_spent(height, td.m_tx, td.m_internal_output_index, tx);
+      LOG_PRINT_L0("Looking at input for " << get_transaction_hash(tx));
+      if(in.type() != typeid(cryptonote::txin_to_key)) {
+        LOG_PRINT_L0("Not right type, continue");
+        continue;
+      }
+      LOG_PRINT_L0("Key image being " << boost::get<cryptonote::txin_to_key>(in).k_image);
+      auto it = m_key_images.find(boost::get<cryptonote::txin_to_key>(in).k_image);
+      if(it != m_key_images.end())
+      {
+        LOG_PRINT_L0("Spent money: " << print_money(boost::get<cryptonote::txin_to_key>(in).amount) << ", with tx: " << get_transaction_hash(tx));
+        tx_money_spent_in_ins += boost::get<cryptonote::txin_to_key>(in).amount;
+        transfer_details& td = m_transfers[it->second];
+        td.m_spent = true;
+        if (0 != m_callback)
+          m_callback->on_money_spent(height, td.m_tx, td.m_internal_output_index, tx);
+      }
     }
   }
 
