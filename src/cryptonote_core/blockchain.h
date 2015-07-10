@@ -56,6 +56,13 @@ namespace cryptonote
 {
   class tx_memory_pool;
 
+  enum blockchain_db_sync_mode
+  {
+  	  db_sync, 
+  	  db_async,
+  	  db_nosync
+  };
+  
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -94,6 +101,8 @@ namespace cryptonote
     crypto::hash get_block_id_by_height(uint64_t height) const;
     bool get_block_by_hash(const crypto::hash &h, block &blk) const;
     void get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid) const;
+    bool prepare_handle_incoming_blocks(const std::list<block_complete_entry>  &blocks);
+    bool cleanup_handle_incoming_blocks(bool force_sync = false);
 
     template<class archive_t>
     void serialize(archive_t & ar, const unsigned int version);
@@ -102,16 +111,13 @@ namespace cryptonote
     bool have_tx_keyimges_as_spent(const transaction &tx) const;
     bool have_tx_keyimg_as_spent(const crypto::key_image &key_im) const;
 
-    template<class visitor_t>
-    bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t& vis, uint64_t* pmax_related_block_height = NULL) const;
-
     uint64_t get_current_blockchain_height() const;
     crypto::hash get_tail_id() const;
     crypto::hash get_tail_id(uint64_t& height) const;
-    difficulty_type get_difficulty_for_next_block() const;
+    difficulty_type get_difficulty_for_next_block();
     bool add_new_block(const block& bl_, block_verification_context& bvc);
     bool reset_and_set_genesis_block(const block& b);
-    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, const blobdata& ex_nonce) const;
+    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, const blobdata& ex_nonce);
     bool have_block(const crypto::hash& id) const;
     size_t get_total_transactions() const;
     bool get_short_chain_history(std::list<crypto::hash>& ids) const;
@@ -123,9 +129,8 @@ namespace cryptonote
     bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const;
     bool store_blockchain();
-    bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, uint64_t* pmax_related_block_height = NULL) const;
-    bool check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height = NULL) const;
-    bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id) const;
+
+    bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, bool kept_by_block = false);
     uint64_t get_current_cumulative_blocksize_limit() const;
     bool is_storing_blockchain()const{return m_is_blockchain_storing;}
     uint64_t block_difficulty(uint64_t i) const;
@@ -145,11 +150,23 @@ namespace cryptonote
     void set_enforce_dns_checkpoints(bool enforce);
     bool update_checkpoints(const std::string& file_path, bool check_dns);
 
+    // user options, must be called before calling init()
+    void set_user_options(uint64_t block_threads, uint64_t blocks_per_sync,
+    		blockchain_db_sync_mode sync_mode, bool fast_sync);
+
+    void set_show_time_stats(bool stats) { m_show_time_stats = stats; }
+    
     BlockchainDB& get_db()
     {
       return *m_db;
     }
 
+	void output_scan_worker(const uint64_t amount,const std::vector<uint64_t> &offsets, 
+		std::vector<output_data_t> &outputs, std::unordered_map<crypto::hash, 
+		cryptonote::transaction> &txs) const;
+
+	void block_longhash_worker(const uint64_t height, const std::vector<block> &blocks,
+			std::unordered_map<crypto::hash, crypto::hash> &map) const;
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
     typedef std::unordered_map<crypto::hash, transaction_chain_entry> transactions_container;
@@ -171,6 +188,29 @@ namespace cryptonote
     key_images_container m_spent_keys;
     size_t m_current_block_cumul_sz_limit;
 
+    std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
+    std::unordered_map<crypto::hash, std::pair<bool, uint64_t>> m_check_tx_inputs_table;
+    std::unordered_map<crypto::hash, crypto::hash> m_blocks_longhash_table;
+
+    // SHA-3 hashes for each block and for fast pow checking
+    std::vector<crypto::hash> m_blocks_hash_check;
+    std::vector<crypto::hash> m_blocks_txs_check;
+	
+	blockchain_db_sync_mode m_db_sync_mode;
+	bool m_fast_sync;
+	bool m_show_time_stats;
+	uint64_t m_db_blocks_per_sync;
+	uint64_t m_max_prepare_blocks_threads;
+    uint64_t m_fake_pow_calc_time;
+    uint64_t m_fake_scan_time;
+	uint64_t m_sync_counter;
+	std::vector<uint64_t> m_timestamps;
+	std::vector<difficulty_type> m_difficulties;
+	uint64_t m_timestamps_and_difficulties_height;
+
+	boost::asio::io_service m_async_service;
+	boost::thread_group m_async_pool;
+	std::unique_ptr<boost::asio::io_service::work> m_async_work_idle;
 
     // all alternative chains
     blocks_ext_by_hash m_alternative_chains; // crypto::hash -> block_extended_info
@@ -184,6 +224,11 @@ namespace cryptonote
     std::atomic<bool> m_is_in_checkpoint_zone;
     std::atomic<bool> m_is_blockchain_storing;
     bool m_enforce_dns_checkpoints;
+
+    template<class visitor_t>
+    inline bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
+    bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, std::vector<crypto::public_key> &output_keys, uint64_t* pmax_related_block_height);
+    bool check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height = NULL);
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     block pop_block_from_blockchain();
@@ -213,6 +258,9 @@ namespace cryptonote
     bool update_next_cumulative_size_limit();
 
     bool check_for_double_spend(const transaction& tx, key_images_container& keys_this_block) const;
+    void get_timestamp_and_difficulty(uint64_t &timestamp, difficulty_type &difficulty, const int offset) const;
+    void check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image,
+    		const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
   };
 
 

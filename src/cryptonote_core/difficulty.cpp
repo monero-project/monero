@@ -45,10 +45,7 @@ namespace cryptonote {
   using std::uint64_t;
   using std::vector;
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
-#include <windows.h>
-#include <winnt.h>
-
+#if defined(__x86_64__)
   static inline void mul(uint64_t a, uint64_t b, uint64_t &low, uint64_t &high) {
     low = mul128(a, b, &high);
   }

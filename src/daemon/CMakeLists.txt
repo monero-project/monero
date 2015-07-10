@@ -26,6 +26,12 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+set(blocksdat "")
+if(APPLE AND PER_BLOCK_CHECKPOINT)
+    add_custom_command(OUTPUT blocksdat.o COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_C_COMPILER} -o stub.o -c stub.c COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ld -r -sectcreate __DATA __blocks_dat ../blocks/blocks.dat -o ${CMAKE_CURRENT_BINARY_DIR}/blocksdat.o stub.o)
+    set(blocksdat "blocksdat.o")
+endif()
+
 set(daemon_sources
   command_parser_executor.cpp
   command_server.cpp
@@ -69,7 +75,9 @@ bitmonero_private_headers(daemon
 bitmonero_add_executable(daemon
   ${daemon_sources}
   ${daemon_headers}
-  ${daemon_private_headers})
+  ${daemon_private_headers}
+  ${blocksdat}
+)
 target_link_libraries(daemon
   LINK_PRIVATE
     rpc
@@ -90,8 +98,7 @@ target_link_libraries(daemon
     ${CMAKE_THREAD_LIBS_INIT}
     ${UPNP_LIBRARIES}
     ${EXTRA_LIBRARIES})
-add_dependencies(daemon
-  version)
+add_dependencies(daemon version)
 set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "bitmonerod")

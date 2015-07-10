@@ -58,6 +58,14 @@ release-all:
 	mkdir -p build/release
 	cd build/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
 
+release-arm6:
+	mkdir -p build/release
+	cd build/release && cmake -D BUILD_TESTS=OFF -D ARCH="armv6zk" -D BUILD_64=OFF -D NO_AES=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
+
+release-arm7:
+	mkdir -p build/release
+	cd build/release && cmake -D BUILD_TESTS=OFF -D ARCH="armv7-a" -D BUILD_64=OFF -D NO_AES=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
+	
 release-static: release-static-64
 
 release-static-64:
@@ -67,10 +75,6 @@ release-static-64:
 release-static-32:
 	mkdir -p build/release
 	cd build/release && cmake -D STATIC=ON -D ARCH="i686" -D BUILD_64=OFF -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
-
-release-static-arm6:
-	mkdir -p build/release
-	cd build/release && cmake -D STATIC=ON -D ARCH="armv6zk" -D BUILD_64=OFF -D NO_AES=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
 
 release-static-win64:
 	mkdir -p build/release

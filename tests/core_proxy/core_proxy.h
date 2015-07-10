@@ -85,5 +85,7 @@ namespace tests
     cryptonote::blockchain_storage &get_blockchain_storage() { throw std::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class proxy_core."); }
     bool get_test_drop_download() {return true;}
     bool get_test_drop_download_height() {return true;}
+    bool prepare_handle_incoming_blocks(const std::list<cryptonote::block_complete_entry>  &blocks) { return true; }
+    bool cleanup_handle_incoming_blocks(bool force_sync = false) { return true; }
   };
 }

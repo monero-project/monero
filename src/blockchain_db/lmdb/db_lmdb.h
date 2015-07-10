@@ -33,6 +33,8 @@
 
 #include <lmdb.h>
 
+#define ENABLE_AUTO_RESIZE
+
 namespace cryptonote
 {
 
@@ -159,7 +161,9 @@ public:
 
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
 
-  virtual crypto::public_key get_output_key(const uint64_t& amount, const uint64_t& index) const;
+  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index);
+  virtual output_data_t get_output_key(const uint64_t& global_index) const;
+  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs);
 
   virtual tx_out get_output(const crypto::hash& h, const uint64_t& index) const;
 
@@ -175,12 +179,12 @@ public:
   tx_out get_output(const uint64_t& index) const;
 
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
+  virtual void get_output_tx_and_index_from_global(const std::vector<uint64_t> &global_indices,
+		  std::vector<tx_out_index> &tx_out_indices) const;
 
-  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const;
-  virtual void get_output_tx_and_index(const uint64_t& amount, std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const
-  {
-	  // do nothing
-  };
+  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index);
+  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices);
+  virtual void get_output_global_indices(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<uint64_t> &indices);
 
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const;
   virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const;
@@ -202,7 +206,7 @@ public:
 
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
-  virtual bool has_bulk_indices() const { return false; }
+  virtual bool can_thread_bulk_indices() const { return true; }
 private:
   void do_resize(uint64_t size_increase=0);
 
@@ -223,7 +227,7 @@ private:
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
-  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index);
+  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time);
 
   virtual void remove_output(const tx_out& tx_output);
 
@@ -262,7 +266,7 @@ private:
    *
    * @return the global index of the desired output
    */
-  uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index) const;
+  uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
 
   void check_open() const;
 
@@ -299,9 +303,18 @@ private:
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
 
-  constexpr static uint64_t DEFAULT_MAPSIZE = 1 << 30;
+#if defined(__arm__)
+  // force a value so it can compile with 32-bit ARM
+  constexpr static uint64_t DEFAULT_MAPSIZE = 1LL << 31;
+#else
+#if defined(ENABLE_AUTO_RESIZE)
+  constexpr static uint64_t DEFAULT_MAPSIZE = 1LL << 30;
+#else
+  constexpr static uint64_t DEFAULT_MAPSIZE = 1LL << 33;
+#endif
+#endif
+
   constexpr static float RESIZE_PERCENT = 0.8f;
-  constexpr static float RESIZE_FACTOR = 1.5f;
 };
 
 }  // namespace cryptonote

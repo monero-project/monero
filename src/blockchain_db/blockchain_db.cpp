@@ -64,7 +64,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   {
     for (uint64_t i = 0; i < tx.vout.size(); ++i)
     {
-      add_output(tx_hash, tx.vout[i], i);
+      add_output(tx_hash, tx.vout[i], i, tx.unlock_time);
     }
 
     for (const txin_v& tx_input : tx.vin)

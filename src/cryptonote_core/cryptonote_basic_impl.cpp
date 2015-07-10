@@ -99,7 +99,11 @@ namespace cryptonote {
     assert(current_block_size < std::numeric_limits<uint32_t>::max());
 
     uint64_t product_hi;
-    uint64_t product_lo = mul128(base_reward, current_block_size * (2 * median_size - current_block_size), &product_hi);
+	// BUGFIX: 32-bit saturation bug (e.g. ARM7), the result was being
+	// treated as 32-bit by default.
+    uint64_t multiplicand = 2 * median_size - current_block_size;
+    multiplicand *= current_block_size;
+    uint64_t product_lo = mul128(base_reward, multiplicand, &product_hi);
 
     uint64_t reward_hi;
     uint64_t reward_lo;

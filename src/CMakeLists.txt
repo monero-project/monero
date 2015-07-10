@@ -103,3 +103,7 @@ add_subdirectory(daemonizer)
 add_subdirectory(daemon)
 
 add_subdirectory(blockchain_utilities)
+
+if(PER_BLOCK_CHECKPOINT)
+	add_subdirectory(blocks)
+endif()
