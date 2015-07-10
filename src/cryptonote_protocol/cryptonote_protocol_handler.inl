@@ -314,10 +314,10 @@ namespace cryptonote
     LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_BLOCK (hop " << arg.hop << ")");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
-
-	std::list<block_complete_entry> blocks;
-	blocks.push_back(arg.b);
-	m_core.prepare_handle_incoming_blocks(blocks);
+    m_core.pause_mine();
+    std::list<block_complete_entry> blocks;
+    blocks.push_back(arg.b);
+    m_core.prepare_handle_incoming_blocks(blocks);
     for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -327,13 +327,12 @@ namespace cryptonote
         LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
         m_p2p->drop_connection(context);
         m_core.cleanup_handle_incoming_blocks();
+        m_core.resume_mine();
         return 1;
       }
     }
 
-
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
-    m_core.pause_mine();
     m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block 
     m_core.cleanup_handle_incoming_blocks(true);
     m_core.resume_mine();
