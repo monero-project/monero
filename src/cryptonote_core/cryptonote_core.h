@@ -66,6 +66,9 @@ namespace cryptonote
      bool on_idle();
      bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block);
      bool handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate = true);
+     bool prepare_handle_incoming_blocks(const std::list<block_complete_entry>  &blocks);
+     bool cleanup_handle_incoming_blocks(bool force_sync = false);
+     	     	
      bool check_incoming_block_size(const blobdata& block_blob);
      i_cryptonote_protocol* get_protocol(){return m_pprotocol;}
 
