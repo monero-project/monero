@@ -31,7 +31,7 @@ set(blockchain_db_sources
   lmdb/db_lmdb.cpp
   )
 
-if (NOT STATIC)
+if (BERKELEY_DB)
   set(blockchain_db_sources
   ${blockchain_db_sources}
   berkeleydb/db_bdb.cpp
@@ -46,7 +46,7 @@ set(blockchain_db_private_headers
   lmdb/db_lmdb.h
   )
 
-if (NOT STATIC)
+if (BERKELEY_DB)
   set(blockchain_db_private_headers
   ${blockchain_db_private_headers}
   berkeleydb/db_bdb.h

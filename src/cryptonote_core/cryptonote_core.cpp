@@ -46,7 +46,7 @@ using namespace epee;
 #include "cryptonote_core/checkpoints_create.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
-#ifndef STATICLIB
+#if defined(BERKELEY_DB)
 #include "blockchain_db/berkeleydb/db_bdb.h"
 #endif
 
@@ -212,18 +212,27 @@ namespace cryptonote
 
 #if BLOCKCHAIN_DB == DB_LMDB
     std::string db_type = command_line::get_arg(vm, daemon_args::arg_db_type);
+    std::string db_sync_mode = command_line::get_arg(vm, daemon_args::arg_db_sync_mode);
+    bool fast_sync = command_line::get_arg(vm, daemon_args::arg_fast_block_sync) != 0;
+    uint64_t blocks_threads = command_line::get_arg(vm, daemon_args::arg_prep_blocks_threads);
 
     BlockchainDB* db = nullptr;
+    uint64_t BDB_FAST_MODE = 0;
+    uint64_t BDB_FASTEST_MODE = 0;
+    uint64_t BDB_SAFE_MODE = 0;
     if (db_type == "lmdb")
     {
       db = new BlockchainLMDB();
     }
     else if (db_type == "berkeley")
     {
-#ifndef STATICLIB
+#if defined(BERKELEY_DB)
       db = new BlockchainBDB();
+      BDB_FAST_MODE = DB_TXN_WRITE_NOSYNC;
+      BDB_FASTEST_MODE = DB_TXN_NOSYNC;
+      BDB_SAFE_MODE = DB_TXN_SYNC;
 #else
-      LOG_ERROR("BlockchainBDB not supported on STATIC builds");
+      LOG_ERROR("BerkeleyDB support disabled.");
       return false;
 #endif
     }
@@ -240,9 +249,71 @@ namespace cryptonote
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
 
     const std::string filename = folder.string();
+    // temporarily default to fastest:async:1000
+    blockchain_db_sync_mode sync_mode = db_async;
+    uint64_t blocks_per_sync = 1000;
+
     try
     {
-      db->open(filename);
+      uint64_t db_flags = 0;
+      bool islmdb = db_type == "lmdb";
+
+      std::vector<std::string> options;
+      boost::trim(db_sync_mode);
+      boost::split(options, db_sync_mode, boost::is_any_of(" :"));
+
+      for(const auto &option : options)
+        LOG_PRINT_L0("option: " << option);
+
+      // temporarily default to fastest:async:1000
+      uint64_t DEFAULT_FLAGS = islmdb ? MDB_WRITEMAP | MDB_MAPASYNC | MDB_NORDAHEAD | MDB_NOMETASYNC | MDB_NOSYNC :
+          BDB_FASTEST_MODE;
+
+      if(options.size() == 0)
+      {
+        // temporarily default to fastest:async:1000
+        db_flags = DEFAULT_FLAGS;
+      }
+
+      bool safemode = false;
+      if(options.size() >= 1)
+      {
+        if(options[0] == "safe")
+        {
+          safemode = true;
+          db_flags = islmdb ? MDB_NORDAHEAD : BDB_SAFE_MODE;
+          sync_mode = db_nosync;
+        }
+        else if(options[0] == "fast")
+          db_flags = islmdb ? MDB_NOMETASYNC | MDB_NOSYNC | MDB_NORDAHEAD : BDB_FAST_MODE;
+        else if(options[0] == "fastest")
+          db_flags = islmdb ? MDB_WRITEMAP | MDB_MAPASYNC | MDB_NORDAHEAD | MDB_NOMETASYNC | MDB_NOSYNC : BDB_FASTEST_MODE;
+        else
+          db_flags = DEFAULT_FLAGS;
+      }
+
+      if(options.size() >= 2 && !safemode)
+      {
+        if(options[1] == "sync")
+          sync_mode = db_sync;
+        else if(options[1] == "async")
+          sync_mode = db_async;
+      }
+
+      if(options.size() >= 3 && !safemode)
+      {
+        blocks_per_sync = atoll(options[2].c_str());
+        if(blocks_per_sync > 5000)
+          blocks_per_sync = 5000;
+        if(blocks_per_sync == 0)
+          blocks_per_sync = 1;
+      }
+
+      bool auto_remove_logs = command_line::get_arg(vm, daemon_args::arg_db_auto_remove_logs) != 0;
+      db->set_auto_remove_logs(auto_remove_logs);
+      db->open(filename, db_flags);
+      if(!db->m_open)
+    	  return false;
     }
     catch (const DB_ERROR& e)
     {
@@ -250,7 +321,13 @@ namespace cryptonote
       return false;
     }
 
+    m_blockchain_storage.set_user_options(blocks_threads,
+        blocks_per_sync, sync_mode, fast_sync);
+
     r = m_blockchain_storage.init(db, m_testnet);
+
+    bool show_time_stats = command_line::get_arg(vm, daemon_args::arg_show_time_stats) != 0;
+    m_blockchain_storage.set_show_time_stats(show_time_stats);
 #else
     r = m_blockchain_storage.init(m_config_folder, m_testnet);
 #endif
@@ -587,6 +664,25 @@ namespace cryptonote
   {
     return m_blockchain_storage.add_new_block(b, bvc);
   }
+
+  //-----------------------------------------------------------------------------------------------
+  bool core::prepare_handle_incoming_blocks(const std::list<block_complete_entry> &blocks)
+  {
+#if BLOCKCHAIN_DB == DB_LMDB
+    m_blockchain_storage.prepare_handle_incoming_blocks(blocks);
+#endif
+    return true;
+  }
+
+  //-----------------------------------------------------------------------------------------------
+  bool core::cleanup_handle_incoming_blocks(bool force_sync)
+  {
+#if BLOCKCHAIN_DB == DB_LMDB
+    m_blockchain_storage.cleanup_handle_incoming_blocks(force_sync);
+#endif
+    return true;
+  }
+
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate)
   {
@@ -678,7 +774,8 @@ namespace cryptonote
     return m_blockchain_storage.get_block_id_by_height(height);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_by_hash(const crypto::hash &h, block &blk) {
+  bool core::get_block_by_hash(const crypto::hash &h, block &blk)
+  {
     return m_blockchain_storage.get_block_by_hash(h, blk);
   }
   //-----------------------------------------------------------------------------------------------
@@ -723,11 +820,13 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  void core::set_target_blockchain_height(uint64_t target_blockchain_height) {
+  void core::set_target_blockchain_height(uint64_t target_blockchain_height)
+  {
     m_target_blockchain_height = target_blockchain_height;
   }
   //-----------------------------------------------------------------------------------------------
-  uint64_t core::get_target_blockchain_height() const {
+  uint64_t core::get_target_blockchain_height() const
+  {
     return m_target_blockchain_height;
   }
   //-----------------------------------------------------------------------------------------------

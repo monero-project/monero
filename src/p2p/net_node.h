@@ -209,11 +209,12 @@ namespace nodetool
 	
 	bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
   	bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
-  	bool set_rate_limit(const boost::program_options::variables_map& vm, uint64_t limit);
+  	bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
     void kill() { ///< will be called e.g. from deinit()
 			_info("Killing the net_node");
 			is_closing = true;
+			if(mPeersLoggerThread != nullptr)
 			mPeersLoggerThread->join(); // make sure the thread finishes
 			_info("Joined extra background net_node threads");
 		}
