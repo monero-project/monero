@@ -1820,7 +1820,7 @@ bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
   return false;
 }
 
-void BlockchainLMDB::batch_start()
+void BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (! m_batch_transactions)

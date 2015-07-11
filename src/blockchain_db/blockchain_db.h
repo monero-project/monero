@@ -357,7 +357,7 @@ public:
   // release db lock
   virtual void unlock() = 0;
 
-  virtual void batch_start() = 0;
+  virtual void batch_start(uint64_t batch_num_blocks=0) = 0;
   virtual void batch_stop() = 0;
   virtual void set_batch_transactions(bool) = 0;
 
