@@ -30,6 +30,7 @@
 #include <boost/filesystem.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
+#include <random>
 
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "crypto/crypto.h"

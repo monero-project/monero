@@ -35,3 +35,4 @@ else()
     set_target_properties(blocks PROPERTIES LINKER_LANGUAGE C)
 endif()
 
+
