@@ -27,8 +27,12 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(blocksdat "")
-if(APPLE AND PER_BLOCK_CHECKPOINT)
-    add_custom_command(OUTPUT blocksdat.o COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_C_COMPILER} -o stub.o -c stub.c COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ld -r -sectcreate __DATA __blocks_dat ../blocks/blocks.dat -o ${CMAKE_CURRENT_BINARY_DIR}/blocksdat.o stub.o)
+if(PER_BLOCK_CHECKPOINT)
+	if(APPLE)
+	    add_custom_command(OUTPUT blocksdat.o COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && touch stub.c && ${CMAKE_C_COMPILER} -o stub.o -c stub.c COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ld -r -sectcreate __DATA __blocks_dat ../blocks/checkpoints.dat -o ${CMAKE_CURRENT_BINARY_DIR}/blocksdat.o stub.o && rm -f stub.*)
+	else()
+	    add_custom_command(OUTPUT blocksdat.o COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && cp ../blocks/checkpoints.dat blocks.dat && ld -r -b binary -o ${CMAKE_CURRENT_BINARY_DIR}/blocksdat.o blocks.dat && rm -f blocks.dat)
+	endif()
     set(blocksdat "blocksdat.o")
 endif()
 

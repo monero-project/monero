@@ -510,7 +510,10 @@ namespace cryptonote
 
       // Can not exceed maximum block size
       if (max_total_size < total_size + tx_it->second.blob_size)
-        continue;
+      {
+    	sorted_it++;
+    	continue;
+      }
 
       // If adding this tx will make the block size
       // greater than CRYPTONOTE_GETBLOCKTEMPLATE_MAX
@@ -518,7 +521,10 @@ namespace cryptonote
       // keep block sizes from becoming too unwieldly
       // to propagate at 60s block times.
       if ( (total_size + tx_it->second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
-        continue;
+      {
+    	sorted_it++;
+    	continue;
+      }
 
       // If we've exceeded the penalty free size,
       // stop including more tx
@@ -529,7 +535,10 @@ namespace cryptonote
       // included into the blockchain or that are
       // missing key images
       if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
-        continue;
+      {
+    	sorted_it++;
+    	continue;
+      }
 
       bl.tx_hashes.push_back(tx_it->first);
       total_size += tx_it->second.blob_size;

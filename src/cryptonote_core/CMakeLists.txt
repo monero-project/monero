@@ -84,7 +84,7 @@ target_link_libraries(cryptonote_core
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
   LINK_PRIVATE
-    ${Blocks} 
+    ${Blocks}  
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
