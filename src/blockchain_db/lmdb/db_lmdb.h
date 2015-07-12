@@ -199,9 +199,11 @@ public:
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
 private:
-  void do_resize();
+  void do_resize(uint64_t size_increase=0);
 
-  bool need_resize() const;
+  bool need_resize(uint64_t threshold_size=0) const;
+  void check_and_resize_for_batch(uint64_t batch_num_blocks);
+  uint64_t get_estimated_batch_size(uint64_t batch_num_blocks) const;
 
   virtual void add_block( const block& blk
                 , const size_t& block_size
