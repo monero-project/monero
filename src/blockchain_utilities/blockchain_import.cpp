@@ -254,7 +254,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
   }
 
   if (use_batch)
-    simple_core.batch_start();
+    simple_core.batch_start(db_batch_size);
 
   LOG_PRINT_L0("Reading blockchain from bootstrap file...");
   std::cout << ENDL;
@@ -482,7 +482,7 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
             // zero-based height
             std::cout << ENDL << "[- batch commit at height " << h-1 << " -]" << ENDL;
             simple_core.batch_stop();
-            simple_core.batch_start();
+            simple_core.batch_start(db_batch_size);
             std::cout << ENDL;
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
             simple_core.m_storage.get_db().show_stats();

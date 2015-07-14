@@ -454,7 +454,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
     str1.assign(buf1, sizeof(chunk_size));
     if (! ::serialization::parse_binary(str1, chunk_size))
       throw std::runtime_error("Error in deserialization of chunk_size");
-    LOG_PRINT_L1("chunk_size: " << chunk_size);
+    LOG_PRINT_L3("chunk_size: " << chunk_size);
 
     if (chunk_size > BUFFER_SIZE)
     {

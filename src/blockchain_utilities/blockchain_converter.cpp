@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
   }
 
   if (opt_batch)
-    blockchain->batch_start();
+    blockchain->batch_start(db_batch_size);
   uint64_t i = 0;
   for (i = start_block; i < end_block + 1; ++i)
   {
@@ -277,7 +277,7 @@ int main(int argc, char* argv[])
           std::cout << "\r                   \r";
           std::cout << "[- batch commit at height " << i + 1 << " -]" << ENDL;
           blockchain->batch_stop();
-          blockchain->batch_start();
+          blockchain->batch_start(db_batch_size);
           std::cout << ENDL;
           blockchain->show_stats();
         }
