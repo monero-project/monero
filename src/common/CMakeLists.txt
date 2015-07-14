@@ -30,7 +30,8 @@ set(common_sources
   base58.cpp
   command_line.cpp
   dns_utils.cpp
-  util.cpp)
+  util.cpp
+  i18n.cpp)
 
 set(common_headers)
 
@@ -46,7 +47,8 @@ set(common_private_headers
   scoped_message_writer.h
   unordered_containers_boost_serialization.h
   util.h
-  varint.h)
+  varint.h
+  i18n.h)
 
 bitmonero_private_headers(common
   ${common_private_headers})

@@ -167,3 +167,8 @@ Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
 * To build, change to the root of the source code directory, and run `doxygen Doxyfile`
 * If you have installed Graphviz, you can also generate in-doc diagrams by instead running `HAVE_DOT=YES doxygen Doxyfile`
 * The output will be built in doc/html/
+
+## Internationalization
+
+See README.i18n
+
