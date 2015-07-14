@@ -58,6 +58,9 @@ namespace cryptonote
   class simple_wallet : public tools::i_wallet2_callback
   {
   public:
+    static const char *tr(const char *str) { return i18n_translate(str, "cryptonote::simple_wallet"); }
+
+  public:
     typedef std::vector<std::string> command_type;
 
     simple_wallet();
@@ -165,7 +168,7 @@ namespace cryptonote
 
         if (std::chrono::milliseconds(1) < current_time - m_print_time || force)
         {
-          std::cout << "Height " << height << " of " << m_blockchain_height << '\r';
+          std::cout << QT_TRANSLATE_NOOP("Height ", "cryptonote::simple_wallet") << height << " / " << m_blockchain_height << '\r';
           m_print_time = current_time;
         }
       }
