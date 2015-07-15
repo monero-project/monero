@@ -1990,6 +1990,14 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         return true;
     }
 
+	auto it = m_check_txin_table.find(tx_prefix_hash);
+	if(it == m_check_txin_table.end())
+	{
+		m_check_txin_table.emplace(tx_prefix_hash, std::unordered_map<crypto::key_image, bool>());
+		it = m_check_txin_table.find(tx_prefix_hash);
+		assert(it != m_check_txin_table.end());
+	}
+
     uint64_t t_t1 = 0;
     std::vector<std::vector<crypto::public_key>> pubkeys(tx.vin.size());
     std::vector < uint64_t > results;
@@ -2027,11 +2035,28 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         // basically, make sure number of inputs == number of signatures
         CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
 
+#if defined(CACHE_VIN_RESULTS)
+		auto itk = it->second.find(in_to_key.k_image);
+		if(itk != it->second.end())
+		{
+			if(!itk->second)
+			{
+				LOG_PRINT_L1("Failed ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+				return false;
+			}
+
+			// txin has been verified already, skip
+			sig_index++;
+			continue;
+		}
+#endif
+
         // make sure that output being spent matches up correctly with the
         // signature spending it.
         TIME_MEASURE_START(aa);
         if (!check_tx_input(in_to_key, tx_prefix_hash, tx.signatures[sig_index], pubkeys[sig_index], pmax_used_block_height))
         {
+        	it->second[in_to_key.k_image] = false;
             LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
             if (pmax_used_block_height) // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
             {
@@ -2054,6 +2079,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
             check_ring_signature(tx_prefix_hash, in_to_key.k_image, pubkeys[sig_index], tx.signatures[sig_index], results[sig_index]);
             if (!results[sig_index])
             {
+            	it->second[in_to_key.k_image] = false;
                 LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
 
                 if (pmax_used_block_height)  // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
@@ -2064,6 +2090,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
                 KILL_IOSERVICE();
                 return false;
             }
+        	it->second[in_to_key.k_image] = true;
         }
 
         sig_index++;
@@ -2073,13 +2100,20 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
 
     if (threads > 1)
     {
-        for (size_t i = 0; i < tx.vin.size(); i++)
+    	// save results to table, passed or otherwise
+    	bool failed = false;
+    	for (size_t i = 0; i < tx.vin.size(); i++)
+    	{
+    		const txin_to_key& in_to_key = boost::get<txin_to_key>(tx.vin[i]);
+    		it->second[in_to_key.k_image] = results[i];
+    		if(!failed && !results[i])
+    			failed = true;
+    	}
+
+        if (failed)
         {
-            if (!results[i])
-            {
-                LOG_PRINT_L1("Failed to check ring signatures!");
-                return false;
-            }
+        	LOG_PRINT_L1("Failed to check ring signatures!, t_loop: " << t_t1);
+            return false;
         }
     }
     LOG_PRINT_L1("t_loop: " << t_t1);
@@ -2714,6 +2748,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
     m_scan_table.clear();
     m_check_tx_inputs_table.clear();
     m_blocks_txs_check.clear();
+    m_check_txin_table.clear();
 
     return true;
 }
@@ -2859,6 +2894,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
 
     m_scan_table.clear();
     m_check_tx_inputs_table.clear();
+    m_check_txin_table.clear();
 
     TIME_MEASURE_FINISH(prepare);
     m_fake_pow_calc_time = prepare / blocks_entry.size();

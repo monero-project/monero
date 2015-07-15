@@ -191,6 +191,7 @@ namespace cryptonote
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
     std::unordered_map<crypto::hash, std::pair<bool, uint64_t>> m_check_tx_inputs_table;
     std::unordered_map<crypto::hash, crypto::hash> m_blocks_longhash_table;
+    std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, bool>> m_check_txin_table;
 
     // SHA-3 hashes for each block and for fast pow checking
     std::vector<crypto::hash> m_blocks_hash_check;

@@ -811,7 +811,7 @@ namespace cryptonote
     }
 
 #if BLOCKCHAIN_DB == DB_LMDB
-    m_store_blockchain_interval.do_call(boost::bind(&Blockchain::store_blockchain, &m_blockchain_storage));
+    // m_store_blockchain_interval.do_call(boost::bind(&Blockchain::store_blockchain, &m_blockchain_storage));
 #else
     m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
 #endif
