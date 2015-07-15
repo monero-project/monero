@@ -290,15 +290,14 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
 
   mdb_env_stat(m_env, &mst);
 
-  uint64_t new_mapsize = (double)mei.me_mapsize * RESIZE_FACTOR;
+  // add 1Gb per resize, instead of doing a percentage increase
+  uint64_t new_mapsize = (double) mei.me_mapsize + add_size;
+
   // If given, use increase_size intead of above way of resizing.
   // This is currently used for increasing by an estimated size at start of new
   // batch txn.
   if (increase_size > 0)
     new_mapsize = mei.me_mapsize + increase_size;
-
-  // add 1Gb per resize, instead of doing a percentage increase
-  // uint64_t new_mapsize = (double) mei.me_mapsize + add_size;
 
   new_mapsize += (new_mapsize % mst.ms_psize);
 
