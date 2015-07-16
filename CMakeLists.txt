@@ -230,6 +230,7 @@ add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
   find_package(Threads)
 endif()
 
@@ -410,7 +411,7 @@ elseif(APPLE OR FREEBSD)
   set(EXTRA_LIBRARIES "")
 elseif(NOT MSVC)
   find_library(RT rt)
-  set(EXTRA_LIBRARIES ${RT} ${PTHREAD} ${DL})
+  set(EXTRA_LIBRARIES ${RT} ${DL})
 endif()
 
 include(version.cmake)
