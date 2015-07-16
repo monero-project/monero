@@ -2880,7 +2880,7 @@ mdb_txn_reset0(MDB_txn *txn, const char *act)
 		unsigned i, n = txn->mt_rpages[0].mid;
 		for (i = 1; i <= n; i++) {
 #ifdef _WIN32
-			UnmapViewOfFile(txn->mt_rpages[i].mptr);)
+			UnmapViewOfFile(txn->mt_rpages[i].mptr);
 #else
 			MDB_page *mp = txn->mt_rpages[i].mptr;
 			int size = txn->mt_env->me_psize;
