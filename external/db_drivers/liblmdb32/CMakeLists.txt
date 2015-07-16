@@ -30,6 +30,9 @@ if(FREEBSD)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMDB_DSYNC=O_SYNC")
 endif()
 
+# pass the VL32 flag so that we actually invoke the VL32 extensions
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DVL32")
+
 set (lmdb_sources
 mdb.c
 midl.c)

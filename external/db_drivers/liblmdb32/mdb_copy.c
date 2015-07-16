@@ -1,6 +1,6 @@
 /* mdb_copy.c - memory-mapped database backup tool */
 /*
- * Copyright 2012 Howard Chu, Symas Corp.
+ * Copyright 2012-2015 Howard Chu, Symas Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,7 +64,7 @@ int main(int argc,char * argv[])
 	act = "opening environment";
 	rc = mdb_env_create(&env);
 	if (rc == MDB_SUCCESS) {
-		rc = mdb_env_open(env, argv[1], flags, 0664);
+		rc = mdb_env_open(env, argv[1], flags, 0600);
 	}
 	if (rc == MDB_SUCCESS) {
 		act = "copying";

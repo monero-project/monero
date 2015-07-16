@@ -11,7 +11,7 @@
 /* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2014 The OpenLDAP Foundation.
+ * Copyright 2000-2015 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,7 +58,7 @@ typedef MDB_ID *MDB_IDL;
 #ifdef VL32
 #define	MDB_IDL_LOGN	10	/* DB_SIZE is 2^10, UM_SIZE is 2^11 */
 #else
-#define	MDB_IDL_LOGN	16	/* DB_SIZE is 2^16, UM_SIZE is 2^17 */
+ #define	MDB_IDL_LOGN	16	/* DB_SIZE is 2^16, UM_SIZE is 2^17 */
 #endif
 #define MDB_IDL_DB_SIZE		(1<<MDB_IDL_LOGN)
 #define MDB_IDL_UM_SIZE		(1<<(MDB_IDL_LOGN+1))
