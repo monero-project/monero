@@ -446,12 +446,17 @@ static txnid_t mdb_debug_start;
 	/**	The version number for a database's lockfile format. */
 #define MDB_LOCK_VERSION	 1
 
-	/**	@brief The max size of a key we can write, or 0 for dynamic max.
+	/**	@brief The max size of a key we can write, or 0 for computed max.
 	 *
-	 *	Define this as 0 to compute the max from the page size.  511
-	 *	is default for backwards compat: liblmdb <= 0.9.10 can break
-	 *	when modifying a DB with keys/dupsort data bigger than its max.
-	 *	#MDB_DEVEL sets the default to 0.
+	 *	This macro should normally be left alone or set to 0.
+	 *	Note that a database with big keys or dupsort data cannot be
+	 *	reliably modified by a liblmdb which uses a smaller max.
+	 *	The default is 511 for backwards compat, or 0 when #MDB_DEVEL.
+	 *
+	 *	Other values are allowed, for backwards compat.  However:
+	 *	A value bigger than the computed max can break if you do not
+	 *	know what you are doing, and liblmdb <= 0.9.10 can break when
+	 *	modifying a DB with keys/dupsort data bigger than its max.
 	 *
 	 *	Data items in an #MDB_DUPSORT database are also limited to
 	 *	this size, since they're actually keys of a sub-DB.  Keys and
@@ -1245,6 +1250,13 @@ static void mdb_default_cmp(MDB_txn *txn, MDB_dbi dbi);
 static MDB_cmp_func	mdb_cmp_memn, mdb_cmp_memnr, mdb_cmp_int, mdb_cmp_cint, mdb_cmp_long;
 /** @endcond */
 
+/** Compare two items pointing at size_t's of unknown alignment. */
+#ifdef MISALIGNED_OK
+# define mdb_cmp_clong mdb_cmp_long
+#else
+# define mdb_cmp_clong mdb_cmp_cint
+#endif
+
 #ifdef _WIN32
 static SECURITY_DESCRIPTOR mdb_null_sd;
 static SECURITY_ATTRIBUTES mdb_all_sa;
@@ -1558,7 +1570,12 @@ mdb_cmp(MDB_txn *txn, MDB_dbi dbi, const MDB_val *a, const MDB_val *b)
 int
 mdb_dcmp(MDB_txn *txn, MDB_dbi dbi, const MDB_val *a, const MDB_val *b)
 {
-	return txn->mt_dbxs[dbi].md_dcmp(a, b);
+	MDB_cmp_func *dcmp = txn->mt_dbxs[dbi].md_dcmp;
+#if UINT_MAX < SIZE_MAX
+	if (dcmp == mdb_cmp_int && a->mv_size == sizeof(size_t))
+		dcmp = mdb_cmp_clong;
+#endif
+	return dcmp(a, b);
 }
 
 /** Allocate memory for a page.
@@ -2486,14 +2503,11 @@ mdb_txn_renew0(MDB_txn *txn)
 	MDB_env *env = txn->mt_env;
 	MDB_txninfo *ti = env->me_txns;
 	MDB_meta *meta;
-	unsigned int i, nr;
+	unsigned int i, nr, flags = txn->mt_flags;
 	uint16_t x;
 	int rc, new_notls = 0;
 
-	if (txn->mt_flags & MDB_TXN_RDONLY) {
-		/* Setup db info */
-		txn->mt_numdbs = env->me_numdbs;
-		txn->mt_dbxs = env->me_dbxs;	/* mostly static anyway */
+	if ((flags &= MDB_TXN_RDONLY) != 0) {
 		if (!ti) {
 			meta = env->me_metas[ mdb_env_pick_meta(env) ];
 			txn->mt_txnid = meta->mm_txnid;
@@ -2546,6 +2560,7 @@ mdb_txn_renew0(MDB_txn *txn)
 			txn->mt_u.reader = r;
 			meta = env->me_metas[txn->mt_txnid & 1];
 		}
+		txn->mt_dbxs = env->me_dbxs;	/* mostly static anyway */
 	} else {
 		if (ti) {
 			LOCK_MUTEX_W(env);
@@ -2556,14 +2571,11 @@ mdb_txn_renew0(MDB_txn *txn)
 			meta = env->me_metas[ mdb_env_pick_meta(env) ];
 			txn->mt_txnid = meta->mm_txnid;
 		}
-		/* Setup db info */
-		txn->mt_numdbs = env->me_numdbs;
 		txn->mt_txnid++;
 #if MDB_DEBUG
 		if (txn->mt_txnid == mdb_debug_start)
 			mdb_debug = 1;
 #endif
-		txn->mt_flags = 0;
 		txn->mt_child = NULL;
 		txn->mt_loose_pgs = NULL;
 		txn->mt_loose_count = 0;
@@ -2583,6 +2595,10 @@ mdb_txn_renew0(MDB_txn *txn)
 	/* Moved to here to avoid a data race in read TXNs */
 	txn->mt_next_pgno = meta->mm_last_pg+1;
 
+	txn->mt_flags = flags;
+
+	/* Setup db info */
+	txn->mt_numdbs = env->me_numdbs;
 	for (i=2; i<txn->mt_numdbs; i++) {
 		x = env->me_dbflags[i];
 		txn->mt_dbs[i].md_flags = x & PERSISTENT_FLAGS;
@@ -3132,6 +3148,7 @@ mdb_page_flush(MDB_txn *txn, int keep)
 		/* Write up to MDB_COMMIT_PAGES dirty pages at a time. */
 		if (pos!=next_pos || n==MDB_COMMIT_PAGES || wsize+size>MAX_WRITE) {
 			if (n) {
+retry_write:
 				/* Write previous page(s) */
 #ifdef MDB_USE_PWRITEV
 				wres = pwritev(env->me_fd, iov, n, wpos);
@@ -3139,8 +3156,11 @@ mdb_page_flush(MDB_txn *txn, int keep)
 				if (n == 1) {
 					wres = pwrite(env->me_fd, iov[0].iov_base, wsize, wpos);
 				} else {
+retry_seek:
 					if (lseek(env->me_fd, wpos, SEEK_SET) == -1) {
 						rc = ErrCode();
+						if (rc == EINTR)
+							goto retry_seek;
 						DPRINTF(("lseek: %s", strerror(rc)));
 						return rc;
 					}
@@ -3150,6 +3170,8 @@ mdb_page_flush(MDB_txn *txn, int keep)
 				if (wres != wsize) {
 					if (wres < 0) {
 						rc = ErrCode();
+						if (rc == EINTR)
+							goto retry_write;
 						DPRINTF(("Write error: %s", strerror(rc)));
 					} else {
 						rc = EIO; /* TODO: Use which error code? */
@@ -3519,7 +3541,8 @@ mdb_env_init_meta(MDB_env *env, MDB_meta *meta)
 	int len;
 #define DO_PWRITE(rc, fd, ptr, size, len, pos)	do { \
 	len = pwrite(fd, ptr, size, pos);	\
-	rc = (len >= 0); } while(0)
+	if (len == -1 && ErrCode() == EINTR) continue; \
+	rc = (len >= 0); break; } while(1)
 #endif
 
 	DPUTS("writing new meta page");
@@ -3624,6 +3647,7 @@ mdb_env_write_meta(MDB_txn *txn)
 	/* Write to the SYNC fd */
 	mfd = env->me_flags & (MDB_NOSYNC|MDB_NOMETASYNC) ?
 		env->me_fd : env->me_mfd;
+retry_write:
 #ifdef _WIN32
 	{
 		memset(&ov, 0, sizeof(ov));
@@ -3636,6 +3660,8 @@ mdb_env_write_meta(MDB_txn *txn)
 #endif
 	if (rc != len) {
 		rc = rc < 0 ? ErrCode() : EIO;
+		if (rc == EINTR)
+			goto retry_write;
 		DPUTS("write failed, disk error?");
 		/* On a failure, the pagecache still contains the new data.
 		 * Write some old data back, to prevent it from being used.
@@ -4761,7 +4787,11 @@ mdb_cmp_long(const MDB_val *a, const MDB_val *b)
 		*(size_t *)a->mv_data > *(size_t *)b->mv_data;
 }
 
-/** Compare two items pointing at aligned unsigned int's */
+/** Compare two items pointing at aligned unsigned int's.
+ *
+ *	This is also set as #MDB_INTEGERDUP|#MDB_DUPFIXED's #MDB_dbx.%md_dcmp,
+ *	but #mdb_cmp_clong() is called instead if the data type is size_t.
+ */
 static int
 mdb_cmp_int(const MDB_val *a, const MDB_val *b)
 {
@@ -4798,13 +4828,6 @@ mdb_cmp_cint(const MDB_val *a, const MDB_val *b)
 	return x;
 #endif
 }
-
-/** Compare two items pointing at size_t's of unknown alignment. */
-#ifdef MISALIGNED_OK
-# define mdb_cmp_clong mdb_cmp_long
-#else
-# define mdb_cmp_clong mdb_cmp_cint
-#endif
 
 /** Compare two items lexically */
 static int
@@ -5741,15 +5764,21 @@ set1:
 					return rc;
 			}
 		} else if (op == MDB_GET_BOTH || op == MDB_GET_BOTH_RANGE) {
-			MDB_val d2;
-			if ((rc = mdb_node_read(mc->mc_txn, leaf, &d2)) != MDB_SUCCESS)
+			MDB_val olddata;
+			MDB_cmp_func *dcmp;
+			if ((rc = mdb_node_read(mc->mc_txn, leaf, &olddata)) != MDB_SUCCESS)
 				return rc;
-			rc = mc->mc_dbx->md_dcmp(data, &d2);
+			dcmp = mc->mc_dbx->md_dcmp;
+#if UINT_MAX < SIZE_MAX
+			if (dcmp == mdb_cmp_int && olddata.mv_size == sizeof(size_t))
+				dcmp = mdb_cmp_clong;
+#endif
+			rc = dcmp(data, &olddata);
 			if (rc) {
 				if (op == MDB_GET_BOTH || rc > 0)
 					return MDB_NOTFOUND;
 				rc = 0;
-				*data = d2;
+				*data = olddata;
 			}
 
 		} else {
@@ -6259,16 +6288,17 @@ more:
 
 			/* Was a single item before, must convert now */
 			if (!F_ISSET(leaf->mn_flags, F_DUPDATA)) {
+				MDB_cmp_func *dcmp;
 				/* Just overwrite the current item */
 				if (flags == MDB_CURRENT)
 					goto current;
-
+				dcmp = mc->mc_dbx->md_dcmp;
 #if UINT_MAX < SIZE_MAX
-				if (mc->mc_dbx->md_dcmp == mdb_cmp_int && olddata.mv_size == sizeof(size_t))
-					mc->mc_dbx->md_dcmp = mdb_cmp_clong;
+				if (dcmp == mdb_cmp_int && olddata.mv_size == sizeof(size_t))
+					dcmp = mdb_cmp_clong;
 #endif
 				/* does data match? */
-				if (!mc->mc_dbx->md_dcmp(data, &olddata)) {
+				if (!dcmp(data, &olddata)) {
 					if (flags & MDB_NODUPDATA)
 						return MDB_KEYEXIST;
 					/* overwrite it */
@@ -7088,6 +7118,7 @@ mdb_cursor_init(MDB_cursor *mc, MDB_txn *txn, MDB_dbi dbi, MDB_xcursor *mx)
 	mc->mc_snum = 0;
 	mc->mc_top = 0;
 	mc->mc_pg[0] = 0;
+	mc->mc_ki[0] = 0;
 	mc->mc_flags = 0;
 	if (txn->mt_dbs[dbi].md_flags & MDB_DUPSORT) {
 		mdb_tassert(txn, mx != NULL);
@@ -7717,12 +7748,12 @@ mdb_rebalance(MDB_cursor *mc)
 						m3 = m2;
 					if (m3 == mc || m3->mc_snum < mc->mc_snum) continue;
 					if (m3->mc_pg[0] == mp) {
-						m3->mc_snum--;
-						m3->mc_top--;
 						for (i=0; i<m3->mc_snum; i++) {
 							m3->mc_pg[i] = m3->mc_pg[i+1];
 							m3->mc_ki[i] = m3->mc_ki[i+1];
 						}
+						m3->mc_snum--;
+						m3->mc_top--;
 					}
 				}
 			}
@@ -7790,9 +7821,23 @@ mdb_rebalance(MDB_cursor *mc)
 		if (mc->mc_ki[ptop] == 0) {
 			rc = mdb_page_merge(&mn, mc);
 		} else {
+			MDB_cursor dummy;
 			oldki += NUMKEYS(mn.mc_pg[mn.mc_top]);
 			mn.mc_ki[mn.mc_top] += mc->mc_ki[mn.mc_top] + 1;
+			/* We want mdb_rebalance to find mn when doing fixups */
+			if (mc->mc_flags & C_SUB) {
+				dummy.mc_next = mc->mc_txn->mt_cursors[mc->mc_dbi];
+				mc->mc_txn->mt_cursors[mc->mc_dbi] = &dummy;
+				dummy.mc_xcursor = (MDB_xcursor *)&mn;
+			} else {
+				mn.mc_next = mc->mc_txn->mt_cursors[mc->mc_dbi];
+				mc->mc_txn->mt_cursors[mc->mc_dbi] = &mn;
+			}
 			rc = mdb_page_merge(mc, &mn);
+			if (mc->mc_flags & C_SUB)
+				mc->mc_txn->mt_cursors[mc->mc_dbi] = dummy.mc_next;
+			else
+				mc->mc_txn->mt_cursors[mc->mc_dbi] = mn.mc_next;
 			mdb_cursor_copy(&mn, mc);
 		}
 		mc->mc_flags &= ~C_EOF;
@@ -7818,6 +7863,13 @@ mdb_cursor_del0(MDB_cursor *mc)
 	if (rc == MDB_SUCCESS) {
 		MDB_cursor *m2, *m3;
 		MDB_dbi dbi = mc->mc_dbi;
+
+		/* DB is totally empty now, just bail out.
+		 * Other cursors adjustments were already done
+		 * by mdb_rebalance and aren't needed here.
+		 */
+		if (!mc->mc_snum)
+			return rc;
 
 		mp = mc->mc_pg[mc->mc_top];
 		nkeys = NUMKEYS(mp);
