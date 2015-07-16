@@ -2293,16 +2293,21 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
 
 	if (global_indices.size() > 0)
 	{
-		mdb_txn_safe txn;
-		if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-			throw0(DB_ERROR("Failed to create a transaction for the db"));
-
+    mdb_txn_safe txn;
+    mdb_txn_safe* txn_ptr = &txn;
+    if (m_batch_active)
+      txn_ptr = m_write_txn;
+    else
+    {
+      if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+        throw0(DB_ERROR("Failed to create a transaction for the db"));
+    }
 		for (const uint64_t &index : global_indices)
 		{
 			MDB_val_copy<uint64_t> k(index);
 			MDB_val v;
 
-			auto get_result = mdb_get(txn, m_output_keys, &k, &v);
+			auto get_result = mdb_get(*txn_ptr, m_output_keys, &k, &v);
 			if (get_result != 0)
 				throw0(DB_ERROR("Attempting to get output pubkey by global index, but key does not exist"));
 			else if (get_result)
@@ -2312,7 +2317,8 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
 			outputs.push_back(data);
 		}
 
-		txn.commit();
+    if (!m_batch_active)
+      txn.commit();
 	}
 
 	TIME_MEASURE_FINISH(db3);
