@@ -184,7 +184,7 @@ typedef int mdb_filehandle_t;
 /** Library minor version */
 #define MDB_VERSION_MINOR	9
 /** Library patch version */
-#define MDB_VERSION_PATCH	14
+#define MDB_VERSION_PATCH	15
 
 /** Combine args a,b,c into a single integer for easy version comparisons */
 #define MDB_VERINT(a,b,c)	(((a) << 24) | ((b) << 16) | (c))
@@ -194,7 +194,7 @@ typedef int mdb_filehandle_t;
 	MDB_VERINT(MDB_VERSION_MAJOR,MDB_VERSION_MINOR,MDB_VERSION_PATCH)
 
 /** The release date of this library version */
-#define MDB_VERSION_DATE	"September 20, 2014"
+#define MDB_VERSION_DATE	"June 19, 2015"
 
 /** A stringifier for the version info */
 #define MDB_VERSTR(a,b,c,d)	"LMDB " #a "." #b "." #c ": (" d ")"
@@ -296,12 +296,12 @@ typedef void (MDB_rel_func)(MDB_val *item, void *oldptr, void *newptr, void *rel
 #define MDB_REVERSEKEY	0x02
 	/** use sorted duplicates */
 #define MDB_DUPSORT		0x04
-	/** numeric keys in native byte order.
+	/** numeric keys in native byte order: either unsigned int or size_t.
 	 *  The keys must all be of the same size. */
 #define MDB_INTEGERKEY	0x08
 	/** with #MDB_DUPSORT, sorted dup items have fixed size */
 #define MDB_DUPFIXED	0x10
-	/** with #MDB_DUPSORT, dups are numeric in native byte order */
+	/** with #MDB_DUPSORT, dups are #MDB_INTEGERKEY-style integers */
 #define MDB_INTEGERDUP	0x20
 	/** with #MDB_DUPSORT, use reverse string dups */
 #define MDB_REVERSEDUP	0x40
@@ -588,8 +588,8 @@ int  mdb_env_create(MDB_env **env);
 	 *		reserved in that case.
 	 *		This flag may be changed at any time using #mdb_env_set_flags().
 	 * </ul>
-	 * @param[in] mode The UNIX permissions to set on created files. This parameter
-	 * is ignored on Windows.
+	 * @param[in] mode The UNIX permissions to set on created files and semaphores.
+	 * This parameter is ignored on Windows.
 	 * @return A non-zero error value on failure and 0 on success. Some possible
 	 * errors are:
 	 * <ul>
@@ -1021,14 +1021,16 @@ int  mdb_txn_renew(MDB_txn *txn);
 	 * The database handle may be discarded by calling #mdb_dbi_close().
 	 * The old database handle is returned if the database was already open.
 	 * The handle may only be closed once.
+	 *
 	 * The database handle will be private to the current transaction until
 	 * the transaction is successfully committed. If the transaction is
 	 * aborted the handle will be closed automatically.
-	 * After a successful commit the
-	 * handle will reside in the shared environment, and may be used
-	 * by other transactions. This function must not be called from
-	 * multiple concurrent transactions in the same process. A transaction
-	 * that uses this function must finish (either commit or abort) before
+	 * After a successful commit the handle will reside in the shared
+	 * environment, and may be used by other transactions.
+	 *
+	 * This function must not be called from multiple concurrent
+	 * transactions in the same process. A transaction that uses
+	 * this function must finish (either commit or abort) before
 	 * any other transaction in the process may use this function.
 	 *
 	 * To use named databases (with name != NULL), #mdb_env_set_maxdbs()
@@ -1050,9 +1052,9 @@ int  mdb_txn_renew(MDB_txn *txn);
 	 *		keys may have multiple data items, stored in sorted order.) By default
 	 *		keys must be unique and may have only a single data item.
 	 *	<li>#MDB_INTEGERKEY
-	 *		Keys are binary integers in native byte order. Setting this option
-	 *		requires all keys to be the same size, typically sizeof(int)
-	 *		or sizeof(size_t).
+	 *		Keys are binary integers in native byte order, either unsigned int
+	 *		or size_t, and will be sorted as such.
+	 *		The keys must all be of the same size.
 	 *	<li>#MDB_DUPFIXED
 	 *		This flag may only be used in combination with #MDB_DUPSORT. This option
 	 *		tells the library that the data items for this database are all the same
@@ -1060,8 +1062,8 @@ int  mdb_txn_renew(MDB_txn *txn);
 	 *		all data items are the same size, the #MDB_GET_MULTIPLE and #MDB_NEXT_MULTIPLE
 	 *		cursor operations may be used to retrieve multiple items at once.
 	 *	<li>#MDB_INTEGERDUP
-	 *		This option specifies that duplicate data items are also integers, and
-	 *		should be sorted as such.
+	 *		This option specifies that duplicate data items are binary integers,
+	 *		similar to #MDB_INTEGERKEY keys.
 	 *	<li>#MDB_REVERSEDUP
 	 *		This option specifies that duplicate data items should be compared as
 	 *		strings in reverse order.
@@ -1450,7 +1452,7 @@ int  mdb_cursor_get(MDB_cursor *cursor, MDB_val *key, MDB_val *data,
 	 * <ul>
 	 *	<li>#MDB_MAP_FULL - the database is full, see #mdb_env_set_mapsize().
 	 *	<li>#MDB_TXN_FULL - the transaction has too many dirty pages.
-	 *	<li>EACCES - an attempt was made to modify a read-only database.
+	 *	<li>EACCES - an attempt was made to write in a read-only transaction.
 	 *	<li>EINVAL - an invalid parameter was specified.
 	 * </ul>
 	 */
@@ -1470,7 +1472,7 @@ int  mdb_cursor_put(MDB_cursor *cursor, MDB_val *key, MDB_val *data,
 	 * @return A non-zero error value on failure and 0 on success. Some possible
 	 * errors are:
 	 * <ul>
-	 *	<li>EACCES - an attempt was made to modify a read-only database.
+	 *	<li>EACCES - an attempt was made to write in a read-only transaction.
 	 *	<li>EINVAL - an invalid parameter was specified.
 	 * </ul>
 	 */

@@ -32,7 +32,7 @@ int main(int argc,char * argv[])
 	rc = mdb_env_create(&env);
 	rc = mdb_env_open(env, "./testdb", 0, 0664);
 	rc = mdb_txn_begin(env, NULL, 0, &txn);
-	rc = mdb_open(txn, NULL, 0, &dbi);
+	rc = mdb_dbi_open(txn, NULL, 0, &dbi);
 
 	key.mv_size = sizeof(int);
 	key.mv_data = sval;
@@ -56,7 +56,7 @@ int main(int argc,char * argv[])
 	mdb_cursor_close(cursor);
 	mdb_txn_abort(txn);
 leave:
-	mdb_close(env, dbi);
+	mdb_dbi_close(env, dbi);
 	mdb_env_close(env);
 	return 0;
 }

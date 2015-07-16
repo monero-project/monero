@@ -1,6 +1,6 @@
 /* mtest2.c - memory-mapped database tester/toy */
 /*
- * Copyright 2011-2014 Howard Chu, Symas Corp.
+ * Copyright 2011-2015 Howard Chu, Symas Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,20 +47,22 @@ int main(int argc,char * argv[])
 	}
 
 	E(mdb_env_create(&env));
+	E(mdb_env_set_maxreaders(env, 1));
 	E(mdb_env_set_mapsize(env, 10485760));
 	E(mdb_env_set_maxdbs(env, 4));
 	E(mdb_env_open(env, "./testdb", MDB_FIXEDMAP|MDB_NOSYNC, 0664));
+
 	E(mdb_txn_begin(env, NULL, 0, &txn));
-	E(mdb_open(txn, "id1", MDB_CREATE, &dbi));
+	E(mdb_dbi_open(txn, "id1", MDB_CREATE, &dbi));
    
 	key.mv_size = sizeof(int);
 	key.mv_data = sval;
-	data.mv_size = sizeof(sval);
-	data.mv_data = sval;
 
 	printf("Adding %d values\n", count);
 	for (i=0;i<count;i++) {	
 		sprintf(sval, "%03x %d foo bar", values[i], values[i]);
+		data.mv_size = sizeof(sval);
+		data.mv_data = sval;
 		if (RES(MDB_KEYEXIST, mdb_put(txn, dbi, &key, &data, MDB_NOOVERWRITE)))
 			j++;
 	}
@@ -68,7 +70,7 @@ int main(int argc,char * argv[])
 	E(mdb_txn_commit(txn));
 	E(mdb_env_stat(env, &mst));
 
-	E(mdb_txn_begin(env, NULL, 1, &txn));
+	E(mdb_txn_begin(env, NULL, MDB_RDONLY, &txn));
 	E(mdb_cursor_open(txn, dbi, &cursor));
 	while ((rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT)) == 0) {
 		printf("key: %p %.*s, data: %p %.*s\n",
@@ -97,7 +99,7 @@ int main(int argc,char * argv[])
 	printf("Deleted %d values\n", j);
 
 	E(mdb_env_stat(env, &mst));
-	E(mdb_txn_begin(env, NULL, 1, &txn));
+	E(mdb_txn_begin(env, NULL, MDB_RDONLY, &txn));
 	E(mdb_cursor_open(txn, dbi, &cursor));
 	printf("Cursor next\n");
 	while ((rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT)) == 0) {
@@ -114,10 +116,9 @@ int main(int argc,char * argv[])
 	}
 	CHECK(rc == MDB_NOTFOUND, "mdb_cursor_get");
 	mdb_cursor_close(cursor);
-	mdb_close(env, dbi);
-
 	mdb_txn_abort(txn);
-	mdb_env_close(env);
 
+	mdb_dbi_close(env, dbi);
+	mdb_env_close(env);
 	return 0;
 }
