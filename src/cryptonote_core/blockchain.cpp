@@ -2009,11 +2009,14 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
     boost::thread_group threadpool;
 
     std::auto_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
-    for (int i = 0; i < threads; i++)
-    {
-        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-    }
-
+	if(threads > 1)
+	{
+	    for (int i = 0; i < threads; i++)
+	    {
+	        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
+	    }
+	}
+	
 #define KILL_IOSERVICE()  \
         if(threads > 1) \
         { \
