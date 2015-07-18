@@ -37,6 +37,7 @@
 #include <thread>
 #include <iostream>
 #include <sstream>
+#include <ctype.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
@@ -193,6 +194,20 @@ namespace
   {
     return message_writer(epee::log_space::console_color_red, true, sw::tr("Error: "), LOG_LEVEL_0);
   }
+
+  bool is_it_true(std::string s)
+  {
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    if (s == "true")
+      return true;
+    if (s == "1")
+      return true;
+    if (s == "y" || s == "yes")
+      return true;
+    if (s == sw::tr("yes"))
+      return true;
+    return false;
+  }
 }
 
 
@@ -290,6 +305,35 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
   return true;
 }
 
+bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("This wallet is watch-only and cannot transfer.");
+    return true;
+  }
+  tools::password_container pwd_container;
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << tr("failed to read wallet password");
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << tr("invalid password");
+    return true;
+  }
+
+  m_wallet->always_confirm_transfers(is_it_true(args[1]));
+  m_wallet->rewrite(m_wallet_file, pwd_container.password());
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -318,7 +362,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Get viewkey"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -326,7 +370,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 {
   if (args.empty())
   {
-    fail_msg_writer() << tr("set: needs an argument. available options: seed");
+    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers");
     return true;
   }
   else
@@ -343,6 +387,21 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
         seed_set_language(local_args);
+        return true;
+      }
+    }
+    else if (args[0] == "always-confirm-transfers")
+    {
+      if (args.size() <= 1)
+      {
+        fail_msg_writer() << tr("set always-confirm-transfers: needs an argument (0 or 1)");
+        return true;
+      }
+      else
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        set_always_confirm_transfers(local_args);
         return true;
       }
     }
@@ -1354,11 +1413,17 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     auto ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
 
     // if more than one tx necessary, prompt user to confirm
-    if (ptx_vector.size() > 1)
+    if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
     {
+        uint64_t total_fee = 0;
+        for (size_t n = 0; n < ptx_vector.size(); ++n)
+        {
+          total_fee += ptx_vector[n].fee;
+        }
+
         std::string prompt_str = (boost::format(tr("Your transaction needs to be split into %u transactions.  "
-          "This will result in a transaction fee being applied to each transaction.  Is this okay?  (Y/Yes/N/No)")) %
-          ptx_vector.size()).str();
+          "This will result in a transaction fee being applied to each transaction, for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+          ptx_vector.size() % print_money(total_fee)).str();
         std::string accepted = command_line::input_line(prompt_str);
         if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
         {

@@ -502,6 +502,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(watch_only ? 1 :0); // WTF ? JSON has different true and false types, and not boolean ??
   json.AddMember("watch_only", value2, json.GetAllocator());
 
+  value2.SetInt(m_always_confirm_transfers ? 1 :0);
+  json.AddMember("always_confirm_transfers", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -562,6 +565,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   {
     is_old_file_format = true;
     m_watch_only = false;
+    m_always_confirm_transfers = false;
   }
   else
   {
@@ -580,6 +584,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     {
       m_watch_only = false;
     }
+    m_always_confirm_transfers = json.HasMember("always_confirm_transfers") && (json["always_confirm_transfers"].GetInt() != 0);
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();

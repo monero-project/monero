@@ -80,7 +80,7 @@ namespace tools
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false) {};
   public:
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false) {};
     struct transfer_details
@@ -266,6 +266,10 @@ namespace tools
     static std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
 
     static std::string address_from_txt_record(const std::string& s);
+
+    bool always_confirm_transfers() const { return m_always_confirm_transfers; }
+    void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -319,6 +323,7 @@ namespace tools
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
     bool m_watch_only; /*!< no spend key */
+    bool m_always_confirm_transfers;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)
