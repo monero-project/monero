@@ -1356,7 +1356,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     // if more than one tx necessary, prompt user to confirm
     if (ptx_vector.size() > 1)
     {
-        std::string prompt_str = (boost::format(tr("Your transaction needs to be split into %zu transactions. "
+        std::string prompt_str = (boost::format(tr("Your transaction needs to be split into %u transactions.  "
           "This will result in a transaction fee being applied to each transaction.  Is this okay?  (Y/Yes/N/No)")) %
           ptx_vector.size()).str();
         std::string accepted = command_line::input_line(prompt_str);
@@ -1487,7 +1487,7 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
 
     std::string prompt_str = tr("Sweeping ") + print_money(total_dust);
     if (ptx_vector.size() > 1) {
-      prompt_str = (boost::format(tr("Sweeping %s in %zu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+      prompt_str = (boost::format(tr("Sweeping %s in %u transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
         print_money(total_dust) %
         ptx_vector.size() %
         print_money(total_fee)).str();
