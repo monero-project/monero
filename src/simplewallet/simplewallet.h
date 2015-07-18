@@ -98,6 +98,7 @@ namespace cryptonote
      * \return success status
      */
     bool seed_set_language(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_always_confirm_transfers(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
