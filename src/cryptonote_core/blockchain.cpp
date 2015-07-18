@@ -309,7 +309,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
 #if defined(PER_BLOCK_CHECKPOINT)
-    if (m_fast_sync && get_blocks_dat_start() != nullptr)
+    if (m_fast_sync && !testnet && get_blocks_dat_start() != nullptr)
     {
         if (get_blocks_dat_size() > 4)
         {
