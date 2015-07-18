@@ -304,7 +304,8 @@ namespace epee
           std::cout << usage;
         }
       }
-      exit_handler();
+      if (exit_handler)
+        exit_handler();
       return true;
       CATCH_ENTRY_L0("console_handler", false);
     }
