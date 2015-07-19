@@ -1421,9 +1421,9 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
           total_fee += ptx_vector[n].fee;
         }
 
-        std::string prompt_str = (boost::format(tr("Your transaction needs to be split into %u transactions.  "
+        std::string prompt_str = (boost::format(tr("Your transaction needs to be split into %llu transactions.  "
           "This will result in a transaction fee being applied to each transaction, for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
-          ptx_vector.size() % print_money(total_fee)).str();
+          ((unsigned long long)ptx_vector.size()) % print_money(total_fee)).str();
         std::string accepted = command_line::input_line(prompt_str);
         if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
         {
@@ -1552,9 +1552,9 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
 
     std::string prompt_str = tr("Sweeping ") + print_money(total_dust);
     if (ptx_vector.size() > 1) {
-      prompt_str = (boost::format(tr("Sweeping %s in %u transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+      prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
         print_money(total_dust) %
-        ptx_vector.size() %
+        ((unsigned long long)ptx_vector.size()) %
         print_money(total_fee)).str();
     }
     else {
