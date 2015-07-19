@@ -108,7 +108,9 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
+    bool transfer_main(bool new_algorithm, const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
+    bool transfer_new(const std::vector<std::string> &args);
     bool sweep_dust(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
         std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits
