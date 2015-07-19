@@ -169,7 +169,7 @@ namespace cryptonote
 
         if (std::chrono::milliseconds(1) < current_time - m_print_time || force)
         {
-          std::cout << QT_TRANSLATE_NOOP("Height ", "cryptonote::simple_wallet") << height << " / " << m_blockchain_height << '\r';
+          std::cout << QT_TRANSLATE_NOOP("cryptonote::simple_wallet", "Height ") << height << " / " << m_blockchain_height << '\r';
           m_print_time = current_time;
         }
       }
