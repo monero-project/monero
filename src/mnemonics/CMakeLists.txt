@@ -40,6 +40,7 @@ set(mnemonics_private_headers
   language_base.h
   old_english.h
   portuguese.h
+  russian.h
   singleton.h
   spanish.h)
 
