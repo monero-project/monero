@@ -254,7 +254,11 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+      std::vector<wallet2::pending_tx> ptx_vector;
+      if (req.new_algorithm)
+        ptx_vector = m_wallet.create_transactions_2(dsts, req.mixin, req.unlock_time, req.fee, extra);
+      else
+        ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
 
       m_wallet.commit_tx(ptx_vector);
 
