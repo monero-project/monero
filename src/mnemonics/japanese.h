@@ -1681,7 +1681,7 @@ namespace Language
         "びじゅつかん",
         "ひしょ"
       });
-      unique_prefix_length = 4;
+      unique_prefix_length = 3;
       word_map = new std::unordered_map<std::string, uint32_t>;
       trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
       language_name = "Japanese";
