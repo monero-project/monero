@@ -38,6 +38,8 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 
+#define ENCRYPTED_PAYMENT_ID_TAIL 0x8d
+
 namespace cryptonote
 {
   //---------------------------------------------------------------
@@ -303,22 +305,90 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  void set_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash& payment_id)
+  bool remove_extra_nonce_tx_extra(std::vector<uint8_t>& tx_extra)
+  {
+    std::string extra_str(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size());
+    std::istringstream iss(extra_str);
+    binary_archive<false> ar(iss);
+    std::ostringstream oss;
+    binary_archive<true> newar(oss);
+
+    bool eof = false;
+    while (!eof)
+    {
+      tx_extra_field field;
+      bool r = ::do_serialize(ar, field);
+      CHECK_AND_NO_ASSERT_MES(r, false, "failed to deserialize extra field. extra = " << string_tools::buff_to_hex_nodelimer(std::string(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size())));
+      if (field.type() != typeid(tx_extra_nonce))
+        ::do_serialize(newar, field);
+
+      std::ios_base::iostate state = iss.rdstate();
+      eof = (EOF == iss.peek());
+      iss.clear(state);
+    }
+    CHECK_AND_NO_ASSERT_MES(::serialization::check_stream_state(ar), false, "failed to deserialize extra field. extra = " << string_tools::buff_to_hex_nodelimer(std::string(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size())));
+    tx_extra.clear();
+    std::string s = oss.str();
+    tx_extra.reserve(s.size());
+    std::copy(s.begin(), s.end(), std::back_inserter(tx_extra));
+    return true;
+  }
+  //---------------------------------------------------------------
+  void set_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash& payment_id, bool encrypted)
   {
     extra_nonce.clear();
-    extra_nonce.push_back(TX_EXTRA_NONCE_PAYMENT_ID);
+    extra_nonce.push_back(encrypted ? TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID : TX_EXTRA_NONCE_PAYMENT_ID);
     const uint8_t* payment_id_ptr = reinterpret_cast<const uint8_t*>(&payment_id);
     std::copy(payment_id_ptr, payment_id_ptr + sizeof(payment_id), std::back_inserter(extra_nonce));
   }
   //---------------------------------------------------------------
-  bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id)
+  bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id, bool &encrypted)
   {
     if(sizeof(crypto::hash) + 1 != extra_nonce.size())
       return false;
-    if(TX_EXTRA_NONCE_PAYMENT_ID != extra_nonce[0])
+    if(TX_EXTRA_NONCE_PAYMENT_ID != extra_nonce[0] && TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID != extra_nonce[0])
       return false;
     payment_id = *reinterpret_cast<const crypto::hash*>(extra_nonce.data() + 1);
+    encrypted = TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID == extra_nonce[0];
     return true;
+  }
+  //---------------------------------------------------------------
+  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations)
+  {
+    if (destinations.empty())
+      return null_pkey;
+    for (size_t n = 1; n < destinations.size(); ++n)
+    {
+      if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
+        continue;
+      if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
+        return null_pkey;
+    }
+    return destinations[0].addr.m_view_public_key;
+  }
+  //---------------------------------------------------------------
+  bool encrypt_payment_id(crypto::hash &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+  {
+    crypto::key_derivation derivation;
+    crypto::hash hash;
+    char data[33]; /* A hash, and an extra byte */
+
+    if (!generate_key_derivation(public_key, secret_key, derivation))
+      return false;
+
+    memcpy(data, &derivation, 32);
+    data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
+    cn_fast_hash(data, 33, hash);
+
+    for (size_t b = 0; b < 32; ++b)
+      payment_id.data[b] ^= hash.data[b];
+
+    return true;
+  }
+  bool decrypt_payment_id(crypto::hash &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+  {
+    // Encryption and decryption are the same operation (xor with a key)
+    return encrypt_payment_id(payment_id, public_key, secret_key);
   }
   //---------------------------------------------------------------
   bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
@@ -333,6 +403,50 @@ namespace cryptonote
     tx.extra = extra;
     keypair txkey = keypair::generate();
     add_tx_pub_key_to_extra(tx, txkey.pub);
+
+    // if we have a stealth payment id, find it and encrypt it with the tx key now
+    std::vector<tx_extra_field> tx_extra_fields;
+    if (parse_tx_extra(tx.extra, tx_extra_fields))
+    {
+      tx_extra_nonce extra_nonce;
+      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+      {
+        crypto::hash payment_id = null_hash;
+        bool encrypted;
+        if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id, encrypted) && encrypted)
+        {
+          LOG_PRINT_L2("Encrypting payment id " << payment_id);
+          crypto::key_derivation derivation;
+          crypto::public_key view_key_pub = get_destination_view_key_pub(destinations);
+          if (view_key_pub == null_pkey)
+          {
+            LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
+            return false;
+          }
+
+          if (!encrypt_payment_id(payment_id, view_key_pub, txkey.sec))
+          {
+            LOG_ERROR("Failed to encrypt payment id");
+            return false;
+          }
+
+          std::string extra_nonce;
+          set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id, true);
+          remove_extra_nonce_tx_extra(tx.extra);
+          if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+          {
+            LOG_ERROR("Failed to add encrypted payment id to tx extra");
+            return false;
+          }
+          LOG_PRINT_L1("Encrypted payment ID: " << payment_id);
+        }
+      }
+    }
+    else
+    {
+      LOG_ERROR("Failed to parse tx extra");
+      return false;
+    }
 
     struct input_generation_context_data
     {

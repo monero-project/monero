@@ -1288,6 +1288,7 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
 
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
+  bool encrypt_payment_id = false;
   if (1 == local_args.size() % 2)
   {
     std::string payment_id_str = local_args.back();
@@ -1298,7 +1299,7 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
     if(r)
     {
       std::string extra_nonce;
-      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id, false);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
     }
 
@@ -1376,6 +1377,11 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
         return true;
       }
     }
+    else
+    {
+      if (has_payment_id)
+        encrypt_payment_id = true;
+    }
 
     if (has_payment_id) {
       if (payment_id_seen && payment_id != new_payment_id) {
@@ -1386,7 +1392,7 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
       if (!payment_id_seen)
       {
         std::string extra_nonce;
-        set_payment_id_to_tx_extra_nonce(extra_nonce, new_payment_id);
+        set_payment_id_to_tx_extra_nonce(extra_nonce, new_payment_id, encrypt_payment_id);
         bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
         if(!r)
         {

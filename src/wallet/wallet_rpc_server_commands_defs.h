@@ -97,6 +97,7 @@ namespace wallet_rpc
       uint64_t mixin;
       uint64_t unlock_time;
       std::string payment_id;
+      bool encrypt_payment_id;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
@@ -104,6 +105,7 @@ namespace wallet_rpc
         KV_SERIALIZE(mixin)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(encrypt_payment_id)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -127,6 +129,7 @@ namespace wallet_rpc
       uint64_t unlock_time;
       std::string payment_id;
       bool new_algorithm;
+      bool encrypt_payment_id;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
@@ -135,6 +138,7 @@ namespace wallet_rpc
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(new_algorithm)
+        KV_SERIALIZE(encrypt_payment_id)
       END_KV_SERIALIZE_MAP()
     };
 

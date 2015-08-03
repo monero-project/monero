@@ -117,7 +117,7 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, bool encrypt_payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
   {
     crypto::hash integrated_payment_id = cryptonote::null_hash;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
@@ -144,6 +144,9 @@ namespace tools
         }
         integrated_payment_id = new_payment_id;
       }
+
+      // integrated addresses imply encrypted payment id
+      encrypt_payment_id = true;
     }
 
     if (!payment_id.empty())
@@ -161,7 +164,7 @@ namespace tools
       }
 
       std::string extra_nonce;
-      cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+      cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id, encrypt_payment_id);
       
       /* Append Payment ID data into extra */
       if (!cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
@@ -189,7 +192,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, req.encrypt_payment_id, dsts, extra, er))
     {
       return false;
     }
@@ -247,7 +250,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, req.encrypt_payment_id, dsts, extra, er))
     {
       return false;
     }

@@ -150,6 +150,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
   process_unconfirmed(tx);
   std::vector<size_t> outs;
   uint64_t tx_money_got_in_outs = 0;
+  crypto::public_key tx_pub_key = null_pkey;
 
   std::vector<tx_extra_field> tx_extra_fields;
   if(!parse_tx_extra(tx.extra, tx_extra_fields))
@@ -170,7 +171,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       return;
     }
 
-    crypto::public_key tx_pub_key = pub_key_field.pub_key;
+    tx_pub_key = pub_key_field.pub_key;
     bool r = lookup_acc_outs(m_account.get_keys(), tx, tx_pub_key, outs, tx_money_got_in_outs);
     THROW_WALLET_EXCEPTION_IF(!r, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
 
@@ -236,9 +237,26 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
   crypto::hash payment_id = null_hash;
   if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
   {
-    if(get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+    bool encrypted;
+    if(get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id, encrypted) && encrypted)
     {
       // We got a payment ID to go with this tx
+      LOG_PRINT_L2("Found encrypted payment ID: " << payment_id);
+      if (tx_pub_key != null_pkey)
+      {
+        if (!decrypt_payment_id(payment_id, tx_pub_key, m_account.get_keys().m_view_secret_key))
+        {
+          LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id);
+        }
+        else
+        {
+          LOG_PRINT_L2("Decrypted payment ID: " << payment_id);
+        }
+      }
+      else
+      {
+        LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
+      }
     }
   }
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
