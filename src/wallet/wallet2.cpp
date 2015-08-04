@@ -671,6 +671,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   crypto::secret_key retval = m_account.generate(recovery_param, recover, two_random);
 
   m_account_public_address = m_account.get_keys().m_account_address;
+  m_watch_only = false;
 
   bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
