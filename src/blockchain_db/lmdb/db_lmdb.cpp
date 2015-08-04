@@ -28,6 +28,7 @@
 #include "db_lmdb.h"
 
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
 #include <random>
@@ -262,6 +263,7 @@ void mdb_txn_safe::allow_new_txns()
 
 void BlockchainLMDB::do_resize(uint64_t increase_size)
 {
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   CRITICAL_REGION_LOCAL(m_synchronization_lock);
   const uint64_t add_size = 1LL << 30;
 
@@ -327,6 +329,7 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
 // threshold_size is used for batch transactions
 bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
 {
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 #if defined(ENABLE_AUTO_RESIZE)
   MDB_envinfo mei;
 
@@ -346,7 +349,8 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
   LOG_PRINT_L1("Space used:      " << size_used);
   LOG_PRINT_L1("Space remaining: " << mei.me_mapsize - size_used);
   LOG_PRINT_L1("Size threshold:  " << threshold_size);
-  LOG_PRINT_L1("Percent used: " << (double)size_used/mei.me_mapsize << "  Percent threshold: " << RESIZE_PERCENT);
+  float resize_percent_old = RESIZE_PERCENT;
+  LOG_PRINT_L1(boost::format("Percent used: %.04f  Percent threshold: %.04f") % ((double)size_used/mei.me_mapsize) % resize_percent_old);
 
   if (threshold_size > 0)
   {
@@ -376,7 +380,8 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
 
 void BlockchainLMDB::check_and_resize_for_batch(uint64_t batch_num_blocks)
 {
-  LOG_PRINT_L1("[batch] checking DB size");
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  LOG_PRINT_L1("[" << __func__ << "] " << "checking DB size");
   const uint64_t min_increase_size = 128 * (1 << 20);
   uint64_t threshold_size = 0;
   uint64_t increase_size = 0;
@@ -407,6 +412,7 @@ void BlockchainLMDB::check_and_resize_for_batch(uint64_t batch_num_blocks)
 
 uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) const
 {
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   uint64_t threshold_size = 0;
 
   // batch size estimate * batch safety factor = final size estimate
@@ -419,22 +425,33 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
   // For resizing purposes, allow for at least 4k average block size.
   uint64_t min_block_size = 4 * 1024;
 
-  uint64_t block_stop = m_height - 1;
+  uint64_t block_stop = 0;
+  if (m_height > 1)
+    block_stop = m_height - 1;
   uint64_t block_start = 0;
   if (block_stop >= num_prev_blocks)
     block_start = block_stop - num_prev_blocks + 1;
   uint32_t num_blocks_used = 0;
   uint64_t total_block_size = 0;
-  for (uint64_t block_num = block_start; block_num <= block_stop; ++block_num)
+  LOG_PRINT_L1("[" << __func__ << "] " << "m_height: " << m_height << "  block_start: " << block_start << "  block_stop: " << block_stop);
+  size_t avg_block_size = 0;
+  if (m_height == 0)
   {
-    uint32_t block_size = get_block_size(block_num);
-    total_block_size += block_size;
-    // Track number of blocks being totalled here instead of assuming, in case
-    // some blocks were to be skipped for being outliers.
-    ++num_blocks_used;
+    LOG_PRINT_L1("No existing blocks to check for average block size");
   }
-  size_t avg_block_size = total_block_size / num_blocks_used;
-  LOG_PRINT_L1("average block size across recent " << num_blocks_used << " blocks: " << avg_block_size);
+  else
+  {
+    for (uint64_t block_num = block_start; block_num <= block_stop; ++block_num)
+    {
+      uint32_t block_size = get_block_size(block_num);
+      total_block_size += block_size;
+      // Track number of blocks being totalled here instead of assuming, in case
+      // some blocks were to be skipped for being outliers.
+      ++num_blocks_used;
+    }
+    avg_block_size = total_block_size / num_blocks_used;
+    LOG_PRINT_L1("average block size across recent " << num_blocks_used << " blocks: " << avg_block_size);
+  }
   if (avg_block_size < min_block_size)
     avg_block_size = min_block_size;
   LOG_PRINT_L1("estimated average block size for batch: " << avg_block_size);
