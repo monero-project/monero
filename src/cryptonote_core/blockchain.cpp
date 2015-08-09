@@ -1511,7 +1511,15 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
                 // get a random output index from the DB.  If we've already seen it,
                 // return to the top of the loop and try again, otherwise add it to the
                 // list of output indices we've seen.
-                uint64_t i = m_db->get_random_output(amount);
+
+                // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+                uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+                double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+                uint64_t i = (uint64_t)(frac*num_outs);
+                // just in case rounding up to 1 occurs after sqrt
+                if (i == num_outs)
+                  --i;
+
                 if (seen_indices.count(i))
                 {
                     continue;

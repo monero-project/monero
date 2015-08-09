@@ -104,7 +104,6 @@
  *   height      get_tx_block_height(hash)
  *
  * Outputs:
- *   index       get_random_output(amount)
  *   uint64_t    get_num_outputs(amount)
  *   pub_key     get_output_key(amount, index)
  *   tx_out      get_output(tx_hash, index)
@@ -462,9 +461,6 @@ public:
 
   // returns height of block that contains transaction with hash <h>
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
-
-  // return global output index of a random output of amount <amount>
-  virtual uint64_t get_random_output(const uint64_t& amount) const = 0;
 
   // returns the total number of outputs of amount <amount>
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
