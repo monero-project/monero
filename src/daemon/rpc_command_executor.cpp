@@ -482,6 +482,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   }
   else
   {
+    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
     if (!m_rpc_server->on_get_transactions(req, res))
     {
       tools::fail_msg_writer() << fail_message.c_str();
