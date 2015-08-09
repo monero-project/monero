@@ -1473,6 +1473,7 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
     // from BlockchainDB where <n> is req.outs_count (number of mixins).
     for (uint64_t amount : req.amounts)
     {
+        auto num_outs = m_db->get_num_outputs(amount);
         // create outs_for_amount struct and populate amount field
         COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs = *res.outs.insert(res.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount());
         result_outs.amount = amount;
@@ -1481,9 +1482,9 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
 
         // if there aren't enough outputs to mix with (or just enough),
         // use all of them.  Eventually this should become impossible.
-        if (m_db->get_num_outputs(amount) <= req.outs_count)
+        if (num_outs <= req.outs_count)
         {
-            for (uint64_t i = 0; i < m_db->get_num_outputs(amount); i++)
+            for (uint64_t i = 0; i < num_outs; i++)
             {
                 // get tx_hash, tx_out_index from DB
                 tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
@@ -1499,7 +1500,6 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
         else
         {
             // while we still need more mixins
-            auto num_outs = m_db->get_num_outputs(amount);
             while (result_outs.outs.size() < req.outs_count)
             {
                 // if we've gone through every possible output, we've gotten all we can
