@@ -514,7 +514,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   }
   else
   {
-    tools::fail_msg_writer() << "transaction wasn't found: <" << transaction_hash << '>' << std::endl;
+    tools::fail_msg_writer() << "transaction wasn't found: " << transaction_hash << std::endl;
   }
 
   return true;
