@@ -334,26 +334,43 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  void set_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash& payment_id, bool encrypted)
+  void set_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash& payment_id)
   {
     extra_nonce.clear();
-    extra_nonce.push_back(encrypted ? TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID : TX_EXTRA_NONCE_PAYMENT_ID);
+    extra_nonce.push_back(TX_EXTRA_NONCE_PAYMENT_ID);
     const uint8_t* payment_id_ptr = reinterpret_cast<const uint8_t*>(&payment_id);
     std::copy(payment_id_ptr, payment_id_ptr + sizeof(payment_id), std::back_inserter(extra_nonce));
   }
   //---------------------------------------------------------------
-  bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id, bool &encrypted)
+  void set_encrypted_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash8& payment_id)
+  {
+    extra_nonce.clear();
+    extra_nonce.push_back(TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID);
+    const uint8_t* payment_id_ptr = reinterpret_cast<const uint8_t*>(&payment_id);
+    std::copy(payment_id_ptr, payment_id_ptr + sizeof(payment_id), std::back_inserter(extra_nonce));
+  }
+  //---------------------------------------------------------------
+  bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id)
   {
     if(sizeof(crypto::hash) + 1 != extra_nonce.size())
       return false;
-    if(TX_EXTRA_NONCE_PAYMENT_ID != extra_nonce[0] && TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID != extra_nonce[0])
+    if(TX_EXTRA_NONCE_PAYMENT_ID != extra_nonce[0])
       return false;
     payment_id = *reinterpret_cast<const crypto::hash*>(extra_nonce.data() + 1);
-    encrypted = TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID == extra_nonce[0];
     return true;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations)
+  bool get_encrypted_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash8& payment_id)
+  {
+    if(sizeof(crypto::hash8) + 1 != extra_nonce.size())
+      return false;
+    if (TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID != extra_nonce[0])
+      return false;
+    payment_id = *reinterpret_cast<const crypto::hash8*>(extra_nonce.data() + 1);
+    return true;
+  }
+  //---------------------------------------------------------------
+  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys)
   {
     if (destinations.empty())
       return null_pkey;
@@ -367,7 +384,7 @@ namespace cryptonote
     return destinations[0].addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool encrypt_payment_id(crypto::hash &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+  bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
   {
     crypto::key_derivation derivation;
     crypto::hash hash;
@@ -380,12 +397,12 @@ namespace cryptonote
     data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
     cn_fast_hash(data, 33, hash);
 
-    for (size_t b = 0; b < 32; ++b)
+    for (size_t b = 0; b < 8; ++b)
       payment_id.data[b] ^= hash.data[b];
 
     return true;
   }
-  bool decrypt_payment_id(crypto::hash &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+  bool decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
   {
     // Encryption and decryption are the same operation (xor with a key)
     return encrypt_payment_id(payment_id, public_key, secret_key);
@@ -411,13 +428,12 @@ namespace cryptonote
       tx_extra_nonce extra_nonce;
       if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
       {
-        crypto::hash payment_id = null_hash;
-        bool encrypted;
-        if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id, encrypted) && encrypted)
+        crypto::hash8 payment_id = null_hash8;
+        if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
         {
           LOG_PRINT_L2("Encrypting payment id " << payment_id);
           crypto::key_derivation derivation;
-          crypto::public_key view_key_pub = get_destination_view_key_pub(destinations);
+          crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, sender_account_keys);
           if (view_key_pub == null_pkey)
           {
             LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
@@ -431,7 +447,7 @@ namespace cryptonote
           }
 
           std::string extra_nonce;
-          set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id, true);
+          set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
           remove_extra_nonce_tx_extra(tx.extra);
           if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
           {

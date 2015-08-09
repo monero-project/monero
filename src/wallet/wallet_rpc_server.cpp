@@ -117,14 +117,15 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, bool encrypt_payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
   {
-    crypto::hash integrated_payment_id = cryptonote::null_hash;
+    crypto::hash8 integrated_payment_id = cryptonote::null_hash8;
+    std::string extra_nonce;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
       cryptonote::tx_destination_entry de;
       bool has_payment_id;
-      crypto::hash new_payment_id;
+      crypto::hash8 new_payment_id;
       if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet.testnet(), it->address))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
@@ -136,17 +137,15 @@ namespace tools
 
       if (has_payment_id)
       {
-        if (!payment_id.empty() || integrated_payment_id != cryptonote::null_hash)
+        if (!payment_id.empty() || integrated_payment_id != cryptonote::null_hash8)
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
           er.message = "A single payment id is allowed per transaction";
           return false;
         }
         integrated_payment_id = new_payment_id;
+        cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, integrated_payment_id);
       }
-
-      // integrated addresses imply encrypted payment id
-      encrypt_payment_id = true;
     }
 
     if (!payment_id.empty())
@@ -155,17 +154,23 @@ namespace tools
       /* Just to clarify */
       const std::string& payment_id_str = payment_id;
 
-      crypto::hash payment_id;
+      crypto::hash long_payment_id;
+      crypto::hash8 short_payment_id;
+
       /* Parse payment ID */
-      if (!wallet2::parse_payment_id(payment_id_str, payment_id)) {
+      if (wallet2::parse_long_payment_id(payment_id_str, long_payment_id)) {
+        cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, long_payment_id);
+      }
+      /* or short payment ID */
+      else if (!wallet2::parse_short_payment_id(payment_id_str, short_payment_id)) {
+        cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, short_payment_id);
+      }
+      else {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-        er.message = "Payment id has invalid format: \"" + payment_id_str + "\", expected 64-character string";
+        er.message = "Payment id has invalid format: \"" + payment_id_str + "\", expected 16 or 64 character string";
         return false;
       }
 
-      std::string extra_nonce;
-      cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id, encrypt_payment_id);
-      
       /* Append Payment ID data into extra */
       if (!cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
@@ -192,7 +197,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, req.encrypt_payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
     {
       return false;
     }
@@ -250,7 +255,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, req.encrypt_payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
     {
       return false;
     }
@@ -342,14 +347,14 @@ namespace tools
   {
     try
     {
-      crypto::hash payment_id;
+      crypto::hash8 payment_id;
       if (req.payment_id.empty())
       {
-        crypto::generate_random_bytes(32, payment_id.data);
+        crypto::generate_random_bytes(8, payment_id.data);
       }
       else
       {
-        if (!tools::wallet2::parse_payment_id(req.payment_id,payment_id))
+        if (!tools::wallet2::parse_short_payment_id(req.payment_id,payment_id))
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
           er.message = "Invalid payment ID";
@@ -374,7 +379,7 @@ namespace tools
     try
     {
       cryptonote::account_public_address address;
-      crypto::hash payment_id;
+      crypto::hash8 payment_id;
       bool has_payment_id;
 
       if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet.testnet(), req.integrated_address))
@@ -488,6 +493,7 @@ namespace tools
     for (auto & payment_id_str : req.payment_ids)
     {
       crypto::hash payment_id;
+      crypto::hash8 payment_id8;
       cryptonote::blobdata payment_id_blob;
 
       // TODO - should the whole thing fail because of one bad id?
@@ -499,14 +505,22 @@ namespace tools
         return false;
       }
 
-      if(sizeof(payment_id) != payment_id_blob.size())
+      if(sizeof(payment_id) == payment_id_blob.size())
+      {
+        payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
+      }
+      else if(sizeof(payment_id8) == payment_id_blob.size())
+      {
+        payment_id8 = *reinterpret_cast<const crypto::hash8*>(payment_id_blob.data());
+        memcpy(payment_id.data, payment_id8.data, 8);
+        memset(payment_id.data + 8, 0, 24);
+      }
+      else
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
         er.message = "Payment ID has invalid size: " + payment_id_str;
         return false;
       }
-
-      payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
 
       std::list<wallet2::payment_details> payment_list;
       m_wallet.get_payments(payment_id, payment_list, req.min_block_height);

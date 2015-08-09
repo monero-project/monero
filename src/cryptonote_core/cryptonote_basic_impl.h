@@ -60,7 +60,7 @@ namespace cryptonote {
   {
     uint8_t m_ver;
     account_public_address m_address;
-    crypto::hash payment_id;
+    crypto::hash8 payment_id;
     uint8_t check_sum;
   };
 #pragma pack (pop)
@@ -83,13 +83,13 @@ namespace cryptonote {
   std::string get_account_integrated_address_as_str(
       bool testnet
     , const account_public_address& adr
-    , const crypto::hash& payment_id
+    , const crypto::hash8& payment_id
     );
 
   bool get_account_integrated_address_from_str(
       account_public_address& adr
     , bool& has_payment_id
-    , crypto::hash& payment_id
+    , crypto::hash8& payment_id
     , bool testnet
     , const std::string& str
     );
@@ -110,6 +110,10 @@ template <class T>
 std::ostream &print256(std::ostream &o, const T &v) {
   return o << "<" << epee::string_tools::pod_to_hex(v) << ">";
 }
+template <class T>
+std::ostream &print64(std::ostream &o, const T &v) {
+  return o << "<" << epee::string_tools::pod_to_hex(v) << ">";
+}
 
 bool parse_hash256(const std::string str_hash, crypto::hash& hash);
 
@@ -120,4 +124,5 @@ namespace crypto {
   inline std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) { return print256(o, v); }
   inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) { return print256(o, v); }
   inline std::ostream &operator <<(std::ostream &o, const crypto::hash &v) { return print256(o, v); }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::hash8 &v) { return print64(o, v); }
 }

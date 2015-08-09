@@ -237,26 +237,34 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
   crypto::hash payment_id = null_hash;
   if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
   {
-    bool encrypted;
-    if(get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id, encrypted) && encrypted)
+    crypto::hash8 payment_id8 = null_hash8;
+    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
     {
       // We got a payment ID to go with this tx
-      LOG_PRINT_L2("Found encrypted payment ID: " << payment_id);
+      LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
       if (tx_pub_key != null_pkey)
       {
-        if (!decrypt_payment_id(payment_id, tx_pub_key, m_account.get_keys().m_view_secret_key))
+        if (!decrypt_payment_id(payment_id8, tx_pub_key, m_account.get_keys().m_view_secret_key))
         {
-          LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id);
+          LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id8);
         }
         else
         {
-          LOG_PRINT_L2("Decrypted payment ID: " << payment_id);
+          LOG_PRINT_L2("Decrypted payment ID: " << payment_id8);
+          // put the 64 bit decrypted payment id in the first 8 bytes
+          memcpy(payment_id.data, payment_id8.data, 8);
+          // rest is already 0, but guard against code changes above
+          memset(payment_id.data + 8, 0, 24);
         }
       }
       else
       {
         LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
       }
+    }
+    else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+    {
+      LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
     }
   }
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
@@ -783,7 +791,7 @@ bool wallet2::wallet_valid_path_format(const std::string& file_path)
   return !file_path.empty();
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
+bool wallet2::parse_long_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
 {
   cryptonote::blobdata payment_id_data;
   if(!epee::string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_data))
@@ -794,6 +802,33 @@ bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& 
 
   payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_data.data());
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::parse_short_payment_id(const std::string& payment_id_str, crypto::hash8& payment_id)
+{
+  cryptonote::blobdata payment_id_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_data))
+    return false;
+
+  if(sizeof(crypto::hash8) != payment_id_data.size())
+    return false;
+
+  payment_id = *reinterpret_cast<const crypto::hash8*>(payment_id_data.data());
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
+{
+  if (parse_long_payment_id(payment_id_str, payment_id))
+    return true;
+  crypto::hash8 payment_id8;
+  if (parse_short_payment_id(payment_id_str, payment_id8))
+  {
+    memcpy(payment_id.data, payment_id8.data, 8);
+    memset(payment_id.data + 8, 0, 24);
+    return true;
+  }
+  return false;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)
