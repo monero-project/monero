@@ -492,7 +492,25 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
 
   if (1 == res.txs_as_hex.size())
   {
+    // first as hex
     tools::success_msg_writer() << res.txs_as_hex.front();
+
+    // then as json
+    crypto::hash tx_hash, tx_prefix_hash;
+    cryptonote::transaction tx;
+    cryptonote::blobdata blob;
+    if (!string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), blob))
+    {
+      tools::fail_msg_writer() << "Failed to parse tx";
+    }
+    else if (!cryptonote::parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash))
+    {
+      tools::fail_msg_writer() << "Failed to parse tx blob";
+    }
+    else
+    {
+      tools::success_msg_writer() << cryptonote::obj_to_json_str(tx) << std::endl;
+    }
   }
   else
   {
