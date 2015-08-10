@@ -157,8 +157,6 @@ public:
 
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const;
 
-  virtual uint64_t get_random_output(const uint64_t& amount) const;
-
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index);

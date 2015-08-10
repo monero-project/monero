@@ -1264,19 +1264,6 @@ uint64_t BlockchainBDB::get_tx_block_height(const crypto::hash& h) const
     return (uint64_t)result - 1;
 }
 
-//FIXME: make sure the random method used here is appropriate
-uint64_t BlockchainBDB::get_random_output(const uint64_t& amount) const
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    check_open();
-
-    uint64_t num_outputs = get_num_outputs(amount);
-    if (num_outputs == 0)
-        throw1(OUTPUT_DNE("Attempting to get a random output for an amount, but none exist"));
-
-    return crypto::rand<uint64_t>() % num_outputs;
-}
-
 uint64_t BlockchainBDB::get_num_outputs(const uint64_t& amount) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);

@@ -1637,19 +1637,6 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
   return *(const uint64_t*)result.mv_data;
 }
 
-//FIXME: make sure the random method used here is appropriate
-uint64_t BlockchainLMDB::get_random_output(const uint64_t& amount) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-
-  uint64_t num_outputs = get_num_outputs(amount);
-  if (num_outputs == 0)
-    throw1(OUTPUT_DNE("Attempting to get a random output for an amount, but none exist"));
-
-  return crypto::rand<uint64_t>() % num_outputs;
-}
-
 uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
