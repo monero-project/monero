@@ -601,7 +601,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       // parse address
       cryptonote::account_public_address address;
       bool has_payment_id;
-      crypto::hash new_payment_id;
+      crypto::hash8 new_payment_id;
       if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, testnet, parts[0]))
       {
           fail_msg_writer() << tr("Failed to parse address");
@@ -1294,29 +1294,39 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
     local_args.pop_back();
 
     crypto::hash payment_id;
-    bool r = tools::wallet2::parse_payment_id(payment_id_str, payment_id);
+    bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
     if(r)
     {
       std::string extra_nonce;
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
     }
+    else
+    {
+      crypto::hash8 payment_id8;
+      r = tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8);
+      if(r)
+      {
+        std::string extra_nonce;
+        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
+        r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+      }
+    }
 
     if(!r)
     {
-      fail_msg_writer() << tr("payment id has invalid format, expected 64-character string: ") << payment_id_str;
+      fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character string: ") << payment_id_str;
       return true;
     }
     payment_id_seen = true;
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
-  crypto::hash payment_id = null_hash;
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
-    crypto::hash new_payment_id;
+    crypto::hash8 new_payment_id;
     if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[i]))
     {
       // if treating as an address fails, try as url
@@ -1377,23 +1387,21 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
       }
     }
 
-    if (has_payment_id) {
-      if (payment_id_seen && payment_id != new_payment_id) {
+    if (has_payment_id)
+    {
+      if (payment_id_seen)
+      {
         fail_msg_writer() << tr("A single transaction cannot use more than one payment id: ") << local_args[i];
         return true;
       }
 
-      if (!payment_id_seen)
+      std::string extra_nonce;
+      set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, new_payment_id);
+      bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+      if(!r)
       {
-        std::string extra_nonce;
-        set_payment_id_to_tx_extra_nonce(extra_nonce, new_payment_id);
-        bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-        if(!r)
-        {
-          fail_msg_writer() << tr("Failed to set up payment id, though it was decoded correctly");
-          return true;
-        }
-        payment_id = new_payment_id;
+        fail_msg_writer() << tr("Failed to set up payment id, though it was decoded correctly");
+        return true;
       }
     }
 
@@ -1696,7 +1704,7 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_integrated_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  crypto::hash payment_id;
+  crypto::hash8 payment_id;
   if (args.size() > 1)
   {
     fail_msg_writer() << tr("integrated_address only takes one or zero arguments");
@@ -1704,19 +1712,19 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
   }
   if (args.size() == 0)
   {
-    crypto::generate_random_bytes(32, payment_id.data);
+    crypto::generate_random_bytes(8, payment_id.data);
     success_msg_writer() << tr("Random payment ID: ") << payment_id;
     success_msg_writer() << tr("Matching integrated address: ") << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
     return true;
   }
-  if(tools::wallet2::parse_payment_id(args.back(), payment_id))
+  if(tools::wallet2::parse_short_payment_id(args.back(), payment_id))
   {
     success_msg_writer() << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
     return true;
   }
   else {
     bool has_payment_id;
-    crypto::hash payment_id;
+    crypto::hash8 payment_id;
     account_public_address addr;
     if(get_account_integrated_address_from_str(addr, has_payment_id, payment_id, m_wallet->testnet(), args.back()))
     {

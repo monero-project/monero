@@ -40,6 +40,7 @@
 #define TX_EXTRA_MERGE_MINING_TAG           0x03
 
 #define TX_EXTRA_NONCE_PAYMENT_ID           0x00
+#define TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID 0x01
 
 namespace cryptonote
 {

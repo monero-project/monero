@@ -46,7 +46,7 @@ namespace cryptonote {
 
   struct integrated_address {
     account_public_address adr;
-    crypto::hash payment_id;
+    crypto::hash8 payment_id;
 
     BEGIN_SERIALIZE_OBJECT()
       FIELD(adr)
@@ -150,7 +150,7 @@ namespace cryptonote {
   std::string get_account_integrated_address_as_str(
       bool testnet
     , account_public_address const & adr
-    , crypto::hash const & payment_id
+    , crypto::hash8 const & payment_id
     )
   {
     uint64_t integrated_address_prefix = testnet ?
@@ -176,7 +176,7 @@ namespace cryptonote {
   bool get_account_integrated_address_from_str(
       account_public_address& adr
     , bool& has_payment_id
-    , crypto::hash& payment_id
+    , crypto::hash8& payment_id
     , bool testnet
     , std::string const & str
     )
@@ -278,7 +278,7 @@ namespace cryptonote {
     )
   {
     bool has_payment_id;
-    crypto::hash payment_id;
+    crypto::hash8 payment_id;
     return get_account_integrated_address_from_str(adr, has_payment_id, payment_id, testnet, str);
   }
 
