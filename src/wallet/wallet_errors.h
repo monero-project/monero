@@ -73,6 +73,7 @@ namespace tools
     //       wallet_rpc_error *
     //         daemon_busy
     //         no_connection_to_daemon
+    //         is_key_image_spent_error
     //       wallet_files_doesnt_correspond
     //
     // * - class with protected ctor
@@ -570,6 +571,14 @@ namespace tools
     {
       explicit no_connection_to_daemon(std::string&& loc, const std::string& request)
         : wallet_rpc_error(std::move(loc), "no connection to daemon", request)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct is_key_image_spent_error : public wallet_rpc_error
+    {
+      explicit is_key_image_spent_error(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "error from is_key_image_spent call", request)
       {
       }
     };

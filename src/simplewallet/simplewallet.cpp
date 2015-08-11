@@ -364,6 +364,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
   m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes"));
+  m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -1253,7 +1254,46 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
     fail_msg_writer() << tr("failed to get blockchain height: ") << err;
   return true;
 }
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::rescan_spent(const std::vector<std::string> &args)
+{
+  if (!try_connect_to_daemon())
+    return true;
 
+  try
+  {
+    m_wallet->rescan_spent();
+  }
+  catch (const tools::error::daemon_busy&)
+  {
+    fail_msg_writer() << tr("daemon is busy. Please try later");
+  }
+  catch (const tools::error::no_connection_to_daemon&)
+  {
+    fail_msg_writer() << tr("no connection to daemon. Please, make sure daemon is running.");
+  }
+  catch (const tools::error::is_key_image_spent_error&)
+  {
+    fail_msg_writer() << tr("failed to get spent status");
+  }
+  catch (const tools::error::wallet_rpc_error& e)
+  {
+    LOG_ERROR("Unknown RPC error: " << e.to_string());
+    fail_msg_writer() << tr("RPC error: ") << e.what();
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("unexpected error: " << e.what());
+    fail_msg_writer() << tr("unexpected error: ") << e.what();
+  }
+  catch (...)
+  {
+    LOG_ERROR("Unknown error");
+    fail_msg_writer() << tr("unknown error");
+  }
+
+  return true;
+}
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::string> &args_)
 {

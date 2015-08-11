@@ -120,6 +120,7 @@ namespace cryptonote
     bool save(const std::vector<std::string> &args);
     bool save_watch_only(const std::vector<std::string> &args);
     bool set_variable(const std::vector<std::string> &args);
+    bool rescan_spent(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
