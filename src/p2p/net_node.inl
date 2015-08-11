@@ -1488,16 +1488,13 @@ namespace nodetool
 			limit_up = limit * 1024;
 			limit_down = limit * 1024;
 		}		
-		limit *= 1024;
-		if(this->islimitdown==false && this->islimitup==false) {
+		if(!this->islimitup) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit(limit_up);
+			LOG_PRINT_L0("Set limit-up to " << limit_up/1024 << " kB/s");
+        }
+		if(!this->islimitdown) {
 			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit(limit_down);	
-		}
-		else if(this->islimitdown==false && this->islimitup==true ) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit(limit_down);
-		}
-		else if(this->islimitdown==true && this->islimitup==false ) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit(limit_up);
+			LOG_PRINT_L0("Set limit-down to " << limit_down/1024 << " kB/s");
         }
 
 		return true;
