@@ -185,7 +185,6 @@ namespace cryptonote
     blocks_container m_blocks;               // height  -> block_extended_info
     blocks_by_id_index m_blocks_index;       // crypto::hash -> height
     transactions_container m_transactions;
-    key_images_container m_spent_keys;
     size_t m_current_block_cumul_sz_limit;
 
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
@@ -233,8 +232,6 @@ namespace cryptonote
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     block pop_block_from_blockchain();
-    bool purge_transaction_from_blockchain(const crypto::hash& tx_id);
-    bool purge_transaction_keyimages_from_blockchain(const transaction& tx, bool strict_check);
 
     bool handle_block_to_main_chain(const block& bl, block_verification_context& bvc);
     bool handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc);

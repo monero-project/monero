@@ -241,6 +241,35 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_is_key_image_spent(const COMMAND_RPC_IS_KEY_IMAGE_SPENT::request& req, COMMAND_RPC_IS_KEY_IMAGE_SPENT::response& res)
+  {
+    CHECK_CORE_BUSY();
+    std::vector<crypto::key_image> key_images;
+    BOOST_FOREACH(const auto& ki_hex_str, req.key_images)
+    {
+      blobdata b;
+      if(!string_tools::parse_hexstr_to_binbuff(ki_hex_str, b))
+      {
+        res.status = "Failed to parse hex representation of key image";
+        return true;
+      }
+      if(b.size() != sizeof(crypto::key_image))
+      {
+        res.status = "Failed, size of data mismatch";
+      }
+      key_images.push_back(*reinterpret_cast<const crypto::key_image*>(b.data()));
+    }
+    bool r = m_core.are_key_images_spent(key_images, res.spent_status);
+    if(!r)
+    {
+      res.status = "Failed";
+      return true;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_send_raw_tx(const COMMAND_RPC_SEND_RAW_TX::request& req, COMMAND_RPC_SEND_RAW_TX::response& res)
   {
     CHECK_CORE_READY();

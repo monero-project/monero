@@ -180,6 +180,26 @@ bool t_command_parser_executor::print_transaction(const std::vector<std::string>
   return true;
 }
 
+bool t_command_parser_executor::is_key_image_spent(const std::vector<std::string>& args)
+{
+  if (args.empty())
+  {
+    std::cout << "expected: is_key_image_spent <key_image>" << std::endl;
+    return true;
+  }
+
+  const std::string& str = args.front();
+  crypto::key_image ki;
+  crypto::hash hash;
+  if (parse_hash256(str, hash))
+  {
+    memcpy(&ki, &hash, sizeof(ki));
+    m_executor.is_key_image_spent(ki);
+  }
+
+  return true;
+}
+
 bool t_command_parser_executor::print_transaction_pool_long(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
