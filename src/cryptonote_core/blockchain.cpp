@@ -81,6 +81,8 @@ m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_
 template<class archive_t>
 void Blockchain::serialize(archive_t & ar, const unsigned int version)
 {
+    key_images_container dummy_key_images_container;
+
     LOG_PRINT_L3("Blockchain::" << __func__);
     if(version < 11)
         return;
@@ -88,7 +90,7 @@ void Blockchain::serialize(archive_t & ar, const unsigned int version)
     ar & m_blocks;
     ar & m_blocks_index;
     ar & m_transactions;
-    ar & m_spent_keys;
+    ar & dummy_key_images_container;
     ar & m_alternative_chains;
     ar & m_outputs;
     ar & m_invalid_blocks;
@@ -96,7 +98,7 @@ void Blockchain::serialize(archive_t & ar, const unsigned int version)
     /*serialization bug workaround*/
     if(version > 11)
     {
-        uint64_t total_check_count = m_db->height() + m_blocks_index.size() + m_transactions.size() + m_spent_keys.size() + m_alternative_chains.size() + m_outputs.size() + m_invalid_blocks.size() + m_current_block_cumul_sz_limit;
+        uint64_t total_check_count = m_db->height() + m_blocks_index.size() + m_transactions.size() + dummy_key_images_container.size() + m_alternative_chains.size() + m_outputs.size() + m_invalid_blocks.size() + m_current_block_cumul_sz_limit;
         if(archive_t::is_saving::value)
         {
             ar & total_check_count;
@@ -109,14 +111,14 @@ void Blockchain::serialize(archive_t & ar, const unsigned int version)
             {
                 LOG_ERROR("Blockchain storage data corruption detected. total_count loaded from file = " << total_check_count_loaded << ", expected = " << total_check_count);
 
-                LOG_PRINT_L0("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "m_spent_keys: " << m_spent_keys.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
+                LOG_PRINT_L0("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "dummy_key_images_container: " << dummy_key_images_container.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
 
                 throw std::runtime_error("Blockchain data corruption");
             }
         }
     }
 
-    LOG_PRINT_L3("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "m_spent_keys: " << m_spent_keys.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
+    LOG_PRINT_L3("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "dummy_key_images_container: " << dummy_key_images_container.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
 }
 //------------------------------------------------------------------
 bool Blockchain::have_tx(const crypto::hash &id) const
@@ -470,7 +472,6 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
     m_transactions.clear();
-    m_spent_keys.clear();
     m_blocks.clear();
     m_blocks_index.clear();
     m_alternative_chains.clear();
@@ -480,57 +481,6 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     add_new_block(b, bvc);
     return bvc.m_added_to_main_chain && !bvc.m_verifivation_failed;
-}
-//------------------------------------------------------------------
-//TODO: move to BlockchainDB subclass
-bool Blockchain::purge_transaction_keyimages_from_blockchain(const transaction& tx, bool strict_check)
-{
-    LOG_PRINT_L3("Blockchain::" << __func__);
-    CRITICAL_REGION_LOCAL(m_blockchain_lock);
-    struct purge_transaction_visitor: public boost::static_visitor<bool>
-    {
-        key_images_container& m_spent_keys;
-        bool m_strict_check;
-        purge_transaction_visitor(key_images_container& spent_keys, bool strict_check) :
-            m_spent_keys(spent_keys), m_strict_check(strict_check)
-        {
-        }
-
-        bool operator()(const txin_to_key& inp) const
-        {
-            //const crypto::key_image& ki = inp.k_image;
-            auto r = m_spent_keys.find(inp.k_image);
-            if(r != m_spent_keys.end())
-            {
-                m_spent_keys.erase(r);
-            }
-            else
-            {
-                CHECK_AND_ASSERT_MES(!m_strict_check, false, "purge_block_data_from_blockchain: key image in transaction not found");
-            }
-            return true;
-        }
-        bool operator()(const txin_gen& inp) const
-        {
-            return true;
-        }
-        bool operator()(const txin_to_script& tx) const
-        {
-            return false;
-        }
-
-        bool operator()(const txin_to_scripthash& tx) const
-        {
-            return false;
-        }
-    };
-
-    BOOST_FOREACH(const txin_v& in, tx.vin)
-    {
-        bool r = boost::apply_visitor(purge_transaction_visitor(m_spent_keys, strict_check), in);
-        CHECK_AND_ASSERT_MES(!strict_check || r, false, "failed to process purge_transaction_visitor");
-    }
-    return true;
 }
 //------------------------------------------------------------------
 crypto::hash Blockchain::get_tail_id(uint64_t& height) const
