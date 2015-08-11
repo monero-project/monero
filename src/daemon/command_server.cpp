@@ -85,6 +85,11 @@ t_command_server::t_command_server(
     , "Print transaction, print_tx <transaction_hash>"
     );
   m_command_lookup.set_handler(
+      "is_key_image_spent"
+    , std::bind(&t_command_parser_executor::is_key_image_spent, &m_parser, p::_1)
+    , "Prints whether a given key image is in the spent key images set, is_key_image_spent <key_image>"
+    );
+  m_command_lookup.set_handler(
       "start_mining"
     , std::bind(&t_command_parser_executor::start_mining, &m_parser, p::_1)
     , "Start mining for specified address, start_mining <addr> [threads=1]"

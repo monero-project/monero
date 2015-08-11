@@ -515,6 +515,21 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::is_key_image_spent(const crypto::key_image &key_image)
+  {
+    return m_blockchain_storage.have_tx_keyimg_as_spent(key_image);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent)
+  {
+    spent.clear();
+    BOOST_FOREACH(auto& ki, key_im)
+    {
+      spent.push_back(m_blockchain_storage.have_tx_keyimg_as_spent(ki));
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx)
   {
     std::unordered_set<crypto::key_image> ki;

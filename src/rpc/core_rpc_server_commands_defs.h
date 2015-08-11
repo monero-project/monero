@@ -117,6 +117,31 @@ namespace cryptonote
   };
 
   //-----------------------------------------------
+  struct COMMAND_RPC_IS_KEY_IMAGE_SPENT
+  {
+    struct request
+    {
+      std::vector<std::string> key_images;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_images)
+      END_KV_SERIALIZE_MAP()
+    };
+
+
+    struct response
+    {
+      std::vector<bool> spent_status;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(spent_status)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  //-----------------------------------------------
   struct COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES
   {
     struct request

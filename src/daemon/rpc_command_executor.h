@@ -87,6 +87,8 @@ public:
 
   bool print_transaction(crypto::hash transaction_hash);
 
+  bool is_key_image_spent(const crypto::key_image &ki);
+
   bool print_transaction_pool_long();
 
   bool print_transaction_pool_short();

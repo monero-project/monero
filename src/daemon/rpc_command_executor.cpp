@@ -520,6 +520,42 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   return true;
 }
 
+bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
+  cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req;
+  cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::response res;
+
+  std::string fail_message = "Problem checkking key image";
+
+  req.key_images.push_back(epee::string_tools::pod_to_hex(ki));
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/is_key_image_spent", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_is_key_image_spent(req, res))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  if (1 == res.spent_status.size())
+  {
+    // first as hex
+    tools::success_msg_writer() << ki << ": " << (res.spent_status.front() ? "spent" : "unspent");
+  }
+  else
+  {
+    tools::fail_msg_writer() << "key image status could not be determined" << std::endl;
+  }
+
+  return true;
+}
+
 bool t_rpc_command_executor::print_transaction_pool_long() {
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;

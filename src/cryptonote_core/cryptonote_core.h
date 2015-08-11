@@ -145,6 +145,9 @@ namespace cryptonote
 
      void stop();
 
+     bool is_key_image_spent(const crypto::key_image& key_im);
+     bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent);
+
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
@@ -156,8 +159,6 @@ namespace cryptonote
      //check correct values, amounts and all lightweight checks not related with database
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block);
      //check if tx already in memory pool or in main blockchain
-
-     bool is_key_image_spent(const crypto::key_image& key_im);
 
      bool check_tx_ring_signature(const txin_to_key& tx, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig);
      bool is_tx_spendtime_unlocked(uint64_t unlock_time);
