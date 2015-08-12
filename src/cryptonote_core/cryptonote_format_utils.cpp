@@ -366,7 +366,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool remove_extra_nonce_tx_extra(std::vector<uint8_t>& tx_extra)
+  bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)
   {
     std::string extra_str(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size());
     std::istringstream iss(extra_str);
@@ -380,7 +380,7 @@ namespace cryptonote
       tx_extra_field field;
       bool r = ::do_serialize(ar, field);
       CHECK_AND_NO_ASSERT_MES_L1(r, false, "failed to deserialize extra field. extra = " << string_tools::buff_to_hex_nodelimer(std::string(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size())));
-      if (field.type() != typeid(tx_extra_nonce))
+      if (field.type() != type)
         ::do_serialize(newar, field);
 
       std::ios_base::iostate state = iss.rdstate();
@@ -512,7 +512,7 @@ namespace cryptonote
 
           std::string extra_nonce;
           set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-          remove_extra_nonce_tx_extra(tx.extra);
+          remove_field_from_tx_extra(tx.extra, typeid(tx_extra_fields));
           if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
           {
             LOG_ERROR("Failed to add encrypted payment id to tx extra");
