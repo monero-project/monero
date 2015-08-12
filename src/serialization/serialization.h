@@ -41,6 +41,7 @@
 
 #pragma once
 #include <vector>
+#include <list>
 #include <string>
 #include <boost/type_traits/is_integral.hpp>
 #include <boost/type_traits/integral_constant.hpp>
@@ -59,6 +60,16 @@ struct is_blob_type { typedef boost::false_type type; };
 template <class T>
 struct has_free_serializer { typedef boost::true_type type; };
 
+/*! \struct is_pair_type 
+ *
+ * \brief a descriptor for dispatching serialize
+ */
+template <class T>
+struct is_pair_type { typedef boost::false_type type; };
+
+template<typename F, typename S>
+struct is_pair_type<std::pair<F,S>> { typedef boost::true_type type; };
+
 /*! \struct serializer
  *
  * \brief ... wouldn't a class be better?
@@ -75,19 +86,25 @@ struct has_free_serializer { typedef boost::true_type type; };
 template <class Archive, class T>
 struct serializer{
   static bool serialize(Archive &ar, T &v) {
-    return serialize(ar, v, typename boost::is_integral<T>::type(), typename is_blob_type<T>::type());
+    return serialize(ar, v, typename boost::is_integral<T>::type(), typename is_blob_type<T>::type(), typename is_pair_type<T>::type());
   }
-  static bool serialize(Archive &ar, T &v, boost::false_type, boost::true_type) {
+  template<typename A>
+  static bool serialize(Archive &ar, T &v, boost::false_type, boost::true_type, A a) {
     ar.serialize_blob(&v, sizeof(v));
     return true;
   }
-  static bool serialize(Archive &ar, T &v, boost::true_type, boost::false_type) {
+  template<typename A>
+  static bool serialize(Archive &ar, T &v, boost::true_type, boost::false_type, A a) {
     ar.serialize_int(v);
     return true;
   }
-  static bool serialize(Archive &ar, T &v, boost::false_type, boost::false_type) {
+  static bool serialize(Archive &ar, T &v, boost::false_type, boost::false_type, boost::false_type) {
     //serialize_custom(ar, v, typename has_free_serializer<T>::type());
     return v.do_serialize(ar);
+  }
+  static bool serialize(Archive &ar, T &v, boost::false_type, boost::false_type, boost::true_type) {
+    //serialize_custom(ar, v, typename has_free_serializer<T>::type());
+    return do_serialize(ar, v);
   }
   static void serialize_custom(Archive &ar, T &v, boost::true_type) {
   }
@@ -328,3 +345,5 @@ namespace serialization {
 
 #include "string.h"
 #include "vector.h"
+#include "list.h"
+#include "pair.h"
