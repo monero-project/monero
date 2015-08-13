@@ -961,6 +961,47 @@ void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_det
   });
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::rescan_spent()
+{
+  std::vector<std::string> key_images;
+
+  // make a list of key images for all our outputs
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details& td = m_transfers[i];
+    key_images.push_back(string_tools::pod_to_hex(td.m_key_image));
+  }
+
+  COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req = AUTO_VAL_INIT(req);
+  COMMAND_RPC_IS_KEY_IMAGE_SPENT::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
+  req.key_images = key_images;
+  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/is_key_image_spent", req, daemon_resp, m_http_client, 200000);
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
+  THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
+  THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
+  THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != key_images.size(), error::wallet_internal_error,
+    "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
+    std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(key_images.size()));
+
+  // update spent status
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    transfer_details& td = m_transfers[i];
+    if (td.m_spent != daemon_resp.spent_status[i])
+    {
+      if (td.m_spent)
+      {
+        LOG_PRINT_L1("Marking output " << i << " as unspent, it was marked as spent");
+      }
+      else
+      {
+        LOG_PRINT_L1("Marking output " << i << " as spent, it was marked as unspent");
+      }
+      td.m_spent = daemon_resp.spent_status[i];
+    }
+  }
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::is_transfer_unlocked(const transfer_details& td) const
 {
   if(!is_tx_spendtime_unlocked(td.m_tx.unlock_time))
