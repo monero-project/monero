@@ -131,7 +131,7 @@ namespace cryptonote
 
     struct response
     {
-      std::vector<bool> spent_status;
+      std::vector<int> spent_status;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
