@@ -225,6 +225,29 @@ namespace cryptonote
       res.status = "Failed";
       return true;
     }
+    LOG_PRINT_L2("Found " << txs.size() << "/" << vh.size() << " transactions on the blockchain");
+
+    // try the pool for any missing txes
+    size_t found_in_pool = 0;
+    if (!missed_txs.empty())
+    {
+      std::list<transaction> pool_txs;
+      bool r = m_core.get_pool_transactions(pool_txs);
+      if(r)
+      {
+        for (std::list<transaction>::const_iterator i = pool_txs.begin(); i != pool_txs.end(); ++i)
+        {
+          std::list<crypto::hash>::iterator mi = std::find(missed_txs.begin(), missed_txs.end(), get_transaction_hash(*i));
+          if (mi != missed_txs.end())
+          {
+            missed_txs.erase(mi);
+            txs.push_back(*i);
+            ++found_in_pool;
+          }
+        }
+      }
+      LOG_PRINT_L2("Found " << found_in_pool << "/" << vh.size() << " transactions in the pool");
+    }
 
     BOOST_FOREACH(auto& tx, txs)
     {
@@ -237,6 +260,7 @@ namespace cryptonote
       res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
     }
 
+    LOG_PRINT_L2(res.txs_as_hex.size() << " transactions found, " << res.missed_tx.size() << " not found");
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
