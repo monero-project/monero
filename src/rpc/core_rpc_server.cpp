@@ -259,12 +259,16 @@ namespace cryptonote
       }
       key_images.push_back(*reinterpret_cast<const crypto::key_image*>(b.data()));
     }
-    bool r = m_core.are_key_images_spent(key_images, res.spent_status);
+    std::vector<bool> spent_status;
+    bool r = m_core.are_key_images_spent(key_images, spent_status);
     if(!r)
     {
       res.status = "Failed";
       return true;
     }
+    res.spent_status.clear();
+    for (size_t n = 0; n < spent_status.size(); ++n)
+      res.spent_status.push_back(spent_status[n]);
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
