@@ -36,7 +36,8 @@ This loads the existing blockchain, for whichever database type it was compiled 
 
 `$ blockchain_import`
 
-This imports blocks from `$MONERO_DATA_DIR/export/blockchain.raw` into the current database.
+This imports blocks from `$MONERO_DATA_DIR/export/blockchain.raw` (exported using the `blockchain_export` tool as described above)
+into the current database.
 
 Defaults: `--batch on`, `--batch size 20000`, `--verify on`
 
