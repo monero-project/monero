@@ -39,13 +39,14 @@ int main(int argc, char* argv[])
 {
   uint32_t log_level = 0;
   uint64_t block_stop = 0;
-  std::string import_filename = BLOCKCHAIN_RAW;
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
   boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
+  boost::filesystem::path output_file_path;
 
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
+  const command_line::arg_descriptor<std::string> arg_output_file = {"output-file", "Specify output file", "", true};
   const command_line::arg_descriptor<uint32_t> arg_log_level  = {"log-level",  "", log_level};
   const command_line::arg_descriptor<uint64_t> arg_block_stop = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<bool>     arg_testnet_on = {
@@ -57,6 +58,7 @@ int main(int argc, char* argv[])
 
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
+  command_line::add_arg(desc_cmd_sett, arg_output_file);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_block_stop);
@@ -97,9 +99,12 @@ int main(int argc, char* argv[])
 
   auto data_dir_arg = opt_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
-  boost::filesystem::path output_dir {m_config_folder};
-  output_dir /= "export";
-  LOG_PRINT_L0("Export directory: " << output_dir.string());
+
+  if (command_line::has_arg(vm, arg_output_file))
+    output_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_output_file));
+  else
+    output_file_path = boost::filesystem::path(m_config_folder) / "export" / BLOCKCHAIN_RAW;
+  LOG_PRINT_L0("Export output file: " << output_file_path.string());
 
   // If we wanted to use the memory pool, we would set up a fake_core.
 
@@ -151,7 +156,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Exporting blockchain raw data...");
 
   BootstrapFile bootstrap;
-  r = bootstrap.store_blockchain_raw(core_storage, NULL, output_dir, block_stop);
+  r = bootstrap.store_blockchain_raw(core_storage, NULL, output_file_path, block_stop);
   CHECK_AND_ASSERT_MES(r, false, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
 }

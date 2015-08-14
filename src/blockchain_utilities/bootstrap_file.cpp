@@ -50,8 +50,9 @@ namespace
 
 
 
-bool BootstrapFile::open_writer(const boost::filesystem::path& dir_path)
+bool BootstrapFile::open_writer(const boost::filesystem::path& file_path)
 {
+  const boost::filesystem::path dir_path = file_path.parent_path();
   if (boost::filesystem::exists(dir_path))
   {
     if (!boost::filesystem::is_directory(dir_path))
@@ -69,7 +70,6 @@ bool BootstrapFile::open_writer(const boost::filesystem::path& dir_path)
     }
   }
 
-  std::string file_path = (dir_path / BLOCKCHAIN_RAW).string();
   m_raw_data_file = new std::ofstream();
 
   bool do_initialize_file = false;
@@ -83,15 +83,15 @@ bool BootstrapFile::open_writer(const boost::filesystem::path& dir_path)
   }
   else
   {
-    num_blocks = count_blocks(file_path);
+    num_blocks = count_blocks(file_path.string());
     LOG_PRINT_L0("appending to existing file with height: " << num_blocks-1 << "  total blocks: " << num_blocks);
   }
   m_height = num_blocks;
 
   if (do_initialize_file)
-    m_raw_data_file->open(file_path, std::ios_base::binary | std::ios_base::out | std::ios::trunc);
+    m_raw_data_file->open(file_path.string(), std::ios_base::binary | std::ios_base::out | std::ios::trunc);
   else
-    m_raw_data_file->open(file_path, std::ios_base::binary | std::ios_base::out | std::ios::app | std::ios::ate);
+    m_raw_data_file->open(file_path.string(), std::ios_base::binary | std::ios_base::out | std::ios::app | std::ios::ate);
 
   if (m_raw_data_file->fail())
     return false;
@@ -286,9 +286,9 @@ bool BootstrapFile::close()
 
 
 #if SOURCE_DB == DB_MEMORY
-bool BootstrapFile::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_stop)
+bool BootstrapFile::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_file, uint64_t requested_block_stop)
 #else
-bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_dir, uint64_t requested_block_stop)
+bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_file, uint64_t requested_block_stop)
 #endif
 {
   uint64_t num_blocks_written = 0;
@@ -297,7 +297,7 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   m_tx_pool = _tx_pool;
   uint64_t progress_interval = 100;
   LOG_PRINT_L0("Storing blocks raw data...");
-  if (!BootstrapFile::open_writer(output_dir))
+  if (!BootstrapFile::open_writer(output_file))
   {
     LOG_PRINT_RED_L0("failed to open raw file for write");
     return false;
