@@ -822,13 +822,13 @@ log_query_info(enum verbosity_value v, const char* str,
 }
 
 int
-reply_check_cname_chain(struct reply_info* rep) 
+reply_check_cname_chain(struct query_info* qinfo, struct reply_info* rep) 
 {
 	/* check only answer section rrs for matching cname chain.
 	 * the cache may return changed rdata, but owner names are untouched.*/
 	size_t i;
-	uint8_t* sname = rep->rrsets[0]->rk.dname;
-	size_t snamelen = rep->rrsets[0]->rk.dname_len;
+	uint8_t* sname = qinfo->qname;
+	size_t snamelen = qinfo->qname_len;
 	for(i=0; i<rep->an_numrrsets; i++) {
 		uint16_t t = ntohs(rep->rrsets[i]->rk.type);
 		if(t == LDNS_RR_TYPE_DNAME)

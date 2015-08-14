@@ -269,6 +269,8 @@ struct config_file {
 	unsigned int del_holddown;
 	/** autotrust keep_missing time, in seconds. 0 is forever. */
 	unsigned int keep_missing;
+	/** permit small holddown values, allowing 5011 rollover very fast */
+	int permit_small_holddown;
 
 	/** size of the key cache */
 	size_t key_cache_size;
@@ -368,6 +370,8 @@ struct config_file {
 extern uid_t cfg_uid;
 /** from cfg username, after daemonise setup performed */
 extern gid_t cfg_gid;
+/** debug and enable small timeouts */
+extern int autr_permit_small_holddown;
 
 /**
  * Stub config options

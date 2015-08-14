@@ -136,6 +136,43 @@ create_temp_dir () {
     cd $temp_dir
 }
 
+# pass filename as $1 arg.
+# creates file.sha1 and file.sha256
+storehash () {
+    case $OSTYPE in
+        linux*)
+                sha=`sha1sum $1 |  awk '{ print $1 }'`
+                sha256=`sha256sum $1 |  awk '{ print $1 }'`
+                ;;
+        freebsd*)
+                sha=`sha1 $1 |  awk '{ print $5 }'`
+                sha256=`sha256 $1 |  awk '{ print $5 }'`
+                ;;
+	*)
+		# in case $OSTYPE is gone.
+		case `uname` in
+		Linux*)
+		  sha=`sha1sum $1 |  awk '{ print $1 }'`
+		  sha256=`sha256sum $1 |  awk '{ print $1 }'`
+		  ;;
+		FreeBSD*)
+		  sha=`sha1 $1 |  awk '{ print $5 }'`
+		  sha256=`sha256 $1 |  awk '{ print $5 }'`
+		  ;;
+		*)
+		  sha=`sha1sum $1 |  awk '{ print $1 }'`
+		  sha256=`sha256sum $1 |  awk '{ print $1 }'`
+		  ;;
+		esac
+                ;;
+    esac
+    echo $sha > $1.sha1
+    echo $sha256 > $1.sha256
+    echo "hash of $1.{sha1,sha256}"
+    echo "sha1 $sha"
+    echo "sha256 $sha256"
+}
+
 
 SNAPSHOT="no"
 RC="no"
@@ -311,6 +348,8 @@ if [ "$DOWIN" = "yes" ]; then
 	    mv unbound-$version.zip $cwd/.
 	    cleanup
     fi
+    storehash unbound_setup_$version.exe
+    storehash unbound-$version.zip
     ls -lG unbound_setup_$version.exe
     ls -lG unbound-$version.zip
     info "Done"
@@ -411,36 +450,7 @@ tar czf ../unbound-$version.tar.gz unbound-$version || error_cleanup "Failed to 
 
 cleanup
 
-case $OSTYPE in
-        linux*)
-                sha=`sha1sum unbound-$version.tar.gz |  awk '{ print $1 }'`
-                sha256=`sha256sum unbound-$version.tar.gz |  awk '{ print $1 }'`
-                ;;
-        freebsd*)
-                sha=`sha1  unbound-$version.tar.gz |  awk '{ print $5 }'`
-                sha256=`sha256  unbound-$version.tar.gz |  awk '{ print $5 }'`
-                ;;
-	*)
-		# in case $OSTYPE is gone.
-		case `uname` in
-		Linux*)
-		  sha=`sha1sum unbound-$version.tar.gz |  awk '{ print $1 }'`
-		  sha256=`sha256sum unbound-$version.tar.gz |  awk '{ print $1 }'`
-		  ;;
-		FreeBSD*)
-		  sha=`sha1  unbound-$version.tar.gz |  awk '{ print $5 }'`
-		  sha256=`sha256  unbound-$version.tar.gz |  awk '{ print $5 }'`
-		  ;;
-		*)
-		  sha=`sha1sum unbound-$version.tar.gz |  awk '{ print $1 }'`
-		  sha256=`sha256sum unbound-$version.tar.gz |  awk '{ print $1 }'`
-		  ;;
-		esac
-                ;;
-esac
-echo $sha > unbound-$version.tar.gz.sha1
-echo $sha256 > unbound-$version.tar.gz.sha256
+storehash unbound-$version.tar.gz
 
 info "Unbound distribution created successfully."
-info "SHA1sum: $sha"
 

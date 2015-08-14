@@ -505,7 +505,7 @@ tomsg(struct module_env* env, struct query_info* q, struct reply_info* r,
 		return NULL;
 	if(r->an_numrrsets > 0 && (r->rrsets[0]->rk.type == htons(
 		LDNS_RR_TYPE_CNAME) || r->rrsets[0]->rk.type == htons(
-		LDNS_RR_TYPE_DNAME)) && !reply_check_cname_chain(r)) {
+		LDNS_RR_TYPE_DNAME)) && !reply_check_cname_chain(q, r)) {
 		/* cname chain is now invalid, reconstruct msg */
 		rrset_array_unlock(r->ref, r->rrset_count);
 		return NULL;

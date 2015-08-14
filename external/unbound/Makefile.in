@@ -168,7 +168,7 @@ HOST_OBJ=unbound-host.lo
 HOST_OBJ_LINK=$(HOST_OBJ) $(SLDNS_OBJ) $(COMPAT_OBJ_WITHOUT_CTIMEARC4) @WIN_HOST_OBJ_LINK@
 UBANCHOR_SRC=smallapp/unbound-anchor.c
 UBANCHOR_OBJ=unbound-anchor.lo
-UBANCHOR_OBJ_LINK=$(UBANCHOR_OBJ) \
+UBANCHOR_OBJ_LINK=$(UBANCHOR_OBJ) parseutil.lo \
 $(COMPAT_OBJ_WITHOUT_CTIME) @WIN_UBANCHOR_OBJ_LINK@
 TESTBOUND_SRC=testcode/testbound.c testcode/testpkts.c \
 daemon/worker.c daemon/acl_list.c daemon/daemon.c daemon/stats.c \
@@ -1175,7 +1175,7 @@ delayer.lo delayer.o: $(srcdir)/testcode/delayer.c config.h $(srcdir)/util/net_h
 unbound-control.lo unbound-control.o: $(srcdir)/smallapp/unbound-control.c config.h \
  $(srcdir)/util/log.h $(srcdir)/util/config_file.h $(srcdir)/util/locks.h $(srcdir)/util/net_help.h
 unbound-anchor.lo unbound-anchor.o: $(srcdir)/smallapp/unbound-anchor.c config.h $(srcdir)/libunbound/unbound.h \
- $(srcdir)/sldns/rrdef.h \
+ $(srcdir)/sldns/rrdef.h $(srcdir)/sldns/parseutil.h \
  
 petal.lo petal.o: $(srcdir)/testcode/petal.c config.h \
  
