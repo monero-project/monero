@@ -81,10 +81,10 @@ public:
 
 #if SOURCE_DB == DB_MEMORY
   bool store_blockchain_raw(cryptonote::blockchain_storage* cs, cryptonote::tx_memory_pool* txp,
-      boost::filesystem::path& output_dir, uint64_t use_block_height=0);
+      boost::filesystem::path& output_file, uint64_t use_block_height=0);
 #else
   bool store_blockchain_raw(cryptonote::Blockchain* cs, cryptonote::tx_memory_pool* txp,
-      boost::filesystem::path& output_dir, uint64_t use_block_height=0);
+      boost::filesystem::path& output_file, uint64_t use_block_height=0);
 #endif
 
 protected:
@@ -102,7 +102,7 @@ protected:
   boost::iostreams::stream<boost::iostreams::back_insert_device<buffer_type>>* m_output_stream;
 
   // open export file for write
-  bool open_writer(const boost::filesystem::path& dir_path);
+  bool open_writer(const boost::filesystem::path& file_path);
   bool initialize_file();
   bool close();
   void write_block(block& block);
