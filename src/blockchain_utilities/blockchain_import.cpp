@@ -544,6 +544,7 @@ int main(int argc, char* argv[])
 
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
+  const command_line::arg_descriptor<std::string> arg_input_file = {"input-file", "Specify input file", "", true};
   const command_line::arg_descriptor<uint32_t> arg_log_level   = {"log-level",  "", log_level};
   const command_line::arg_descriptor<uint64_t> arg_block_stop  = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<uint64_t> arg_batch_size  = {"batch-size", "", db_batch_size};
@@ -571,6 +572,7 @@ int main(int argc, char* argv[])
 
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
+  command_line::add_arg(desc_cmd_sett, arg_input_file);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_database);
@@ -651,7 +653,13 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Starting...");
   LOG_PRINT_L0("Setting log level = " << log_level);
 
-  boost::filesystem::path fs_import_file_path = boost::filesystem::path(m_config_folder) / "export" / BLOCKCHAIN_RAW;
+  boost::filesystem::path fs_import_file_path;
+
+  if (command_line::has_arg(vm, arg_input_file))
+    fs_import_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_input_file));
+  else
+    fs_import_file_path = boost::filesystem::path(m_config_folder) / "export" / BLOCKCHAIN_RAW;
+
   import_file_path = fs_import_file_path.string();
 
   if (command_line::has_arg(vm, arg_count_blocks))
