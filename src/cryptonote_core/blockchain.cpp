@@ -2218,7 +2218,7 @@ bool Blockchain::check_block_timestamp(const block& b) const
     }
 
     // if not enough blocks, no proper median yet, return true
-    if(m_db->height() < BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1)
+    if(m_db->height() < BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)
     {
         return true;
     }
@@ -2227,9 +2227,7 @@ bool Blockchain::check_block_timestamp(const block& b) const
     auto h = m_db->height();
 
     // need most recent 60 blocks, get index of first of those
-    // using +1 because BlockchainDB::height() returns the index of the top block,
-    // not the size of the blockchain (0-indexed)
-    size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - 1;
+    size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
     for(;offset < h; ++offset)
     {
         timestamps.push_back(m_db->get_block_timestamp(offset));
