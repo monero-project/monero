@@ -2470,7 +2470,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     }
 
     TIME_MEASURE_FINISH(vmt);
-    block_extended_info bei = boost::value_initialized<block_extended_info>();
     size_t block_size;
     difficulty_type cumulative_difficulty;
 
