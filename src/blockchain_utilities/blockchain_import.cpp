@@ -173,7 +173,7 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
 }
 
 template <typename FakeCore>
-int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint64_t block_stop=0)
+int import_from_file(FakeCore& simple_core, const std::string& import_file_path, uint64_t block_stop=0)
 {
 #if !defined(BLOCKCHAIN_DB)
   static_assert(std::is_same<fake_core_memory, FakeCore>::value || std::is_same<fake_core_lmdb, FakeCore>::value,
@@ -188,11 +188,11 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
     simple_core.m_storage.get_db().reset_stats();
   }
 #endif
-  boost::filesystem::path raw_file_path(import_file_path);
+  boost::filesystem::path fs_import_file_path(import_file_path);
   boost::system::error_code ec;
-  if (!boost::filesystem::exists(raw_file_path, ec))
+  if (!boost::filesystem::exists(fs_import_file_path, ec))
   {
-    LOG_PRINT_L0("bootstrap file not found: " << raw_file_path);
+    LOG_PRINT_L0("bootstrap file not found: " << fs_import_file_path);
     return false;
   }
 
@@ -526,7 +526,6 @@ int import_from_file(FakeCore& simple_core, std::string& import_file_path, uint6
 
 int main(int argc, char* argv[])
 {
-  std::string import_filename = BLOCKCHAIN_RAW;
 #if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
   std::string default_db_engine = "memory";
 #else
@@ -536,14 +535,16 @@ int main(int argc, char* argv[])
   uint32_t log_level = LOG_LEVEL_0;
   uint64_t num_blocks = 0;
   uint64_t block_stop = 0;
-  std::string dirname;
+  std::string m_config_folder;
   std::string db_arg_str;
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
   boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
+  std::string import_file_path;
 
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
+  const command_line::arg_descriptor<std::string> arg_input_file = {"input-file", "Specify input file", "", true};
   const command_line::arg_descriptor<uint32_t> arg_log_level   = {"log-level",  "", log_level};
   const command_line::arg_descriptor<uint64_t> arg_block_stop  = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<uint64_t> arg_batch_size  = {"batch-size", "", db_batch_size};
@@ -571,6 +572,7 @@ int main(int argc, char* argv[])
 
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
+  command_line::add_arg(desc_cmd_sett, arg_input_file);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_database);
@@ -643,7 +645,7 @@ int main(int argc, char* argv[])
 
   opt_testnet = command_line::get_arg(vm, arg_testnet_on);
   auto data_dir_arg = opt_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
-  dirname = command_line::get_arg(vm, data_dir_arg);
+  m_config_folder = command_line::get_arg(vm, data_dir_arg);
   db_arg_str = command_line::get_arg(vm, arg_database);
 
   log_space::get_set_log_detalisation_level(true, log_level);
@@ -651,10 +653,15 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Starting...");
   LOG_PRINT_L0("Setting log level = " << log_level);
 
-  boost::filesystem::path file_path {dirname};
-  std::string import_file_path;
+  boost::filesystem::path fs_import_file_path;
 
-  import_file_path = (file_path / "export" / import_filename).string();
+  if (command_line::has_arg(vm, arg_input_file))
+    fs_import_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_input_file));
+  else
+    fs_import_file_path = boost::filesystem::path(m_config_folder) / "export" / BLOCKCHAIN_RAW;
+
+  import_file_path = fs_import_file_path.string();
+
   if (command_line::has_arg(vm, arg_count_blocks))
   {
     BootstrapFile bootstrap;
@@ -694,7 +701,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("testnet: " << std::boolalpha << opt_testnet << std::noboolalpha);
 
   LOG_PRINT_L0("bootstrap file path: " << import_file_path);
-  LOG_PRINT_L0("database path:       " << file_path.string());
+  LOG_PRINT_L0("database path:       " << m_config_folder);
 
   try
   {
@@ -710,12 +717,12 @@ int main(int argc, char* argv[])
 #if !defined(BLOCKCHAIN_DB)
   if (db_engine == "lmdb")
   {
-    fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch, mdb_flags);
+    fake_core_lmdb simple_core(m_config_folder, opt_testnet, opt_batch, mdb_flags);
     import_from_file(simple_core, import_file_path, block_stop);
   }
   else if (db_engine == "memory")
   {
-    fake_core_memory simple_core(dirname, opt_testnet);
+    fake_core_memory simple_core(m_config_folder, opt_testnet);
     import_from_file(simple_core, import_file_path, block_stop);
   }
   else
@@ -732,9 +739,9 @@ int main(int argc, char* argv[])
     return 1;
   }
 #if BLOCKCHAIN_DB == DB_LMDB
-  fake_core_lmdb simple_core(dirname, opt_testnet, opt_batch, mdb_flags);
+  fake_core_lmdb simple_core(m_config_folder, opt_testnet, opt_batch, mdb_flags);
 #else
-  fake_core_memory simple_core(dirname, opt_testnet);
+  fake_core_memory simple_core(m_config_folder, opt_testnet);
 #endif
 
   if (! vm["pop-blocks"].defaulted())
