@@ -2368,6 +2368,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     bool add_tx_to_pool = false;
     TIME_MEASURE_FINISH(t3);
 
+// XXX old code adds miner tx here
+
     int tx_index = 0;
     // Iterate over the block's transaction hashes, grabbing each
     // from the tx_pool and validating them.  Each is then added
@@ -2379,6 +2381,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         uint64_t fee = 0;
         TIME_MEASURE_START(aa);
 
+// XXX old code does not check whether tx exists
         if (m_db->tx_exists(tx_id))
         {
             LOG_PRINT_L1("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
