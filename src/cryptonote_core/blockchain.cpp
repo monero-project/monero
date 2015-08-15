@@ -2365,6 +2365,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     uint64_t t_pool = 0;
     uint64_t t_dblspnd = 0;
     uint64_t t_cc;
+    bool add_tx_to_pool = false;
     TIME_MEASURE_FINISH(t3);
 
     int tx_index = 0;
@@ -2430,6 +2431,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
                 add_block_as_invalid(bl, id);
                 LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
                 bvc.m_verifivation_failed = true;
+                add_tx_to_pool = true;
                 break;
             }
         }
@@ -2445,6 +2447,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
                 add_block_as_invalid(bl, id);
                 LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
                 bvc.m_verifivation_failed = true;
+                add_tx_to_pool = true;
                 break;
             }
         }
@@ -2503,7 +2506,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
     // if we failed for any reason to verify the block, return taken
     // transactions to the tx_pool.
-    if (bvc.m_verifivation_failed || !add_success)
+    if ((bvc.m_verifivation_failed && add_tx_to_pool) || !add_success)
     {
         // return taken transactions to transaction pool
         for (auto& tx : txs)
