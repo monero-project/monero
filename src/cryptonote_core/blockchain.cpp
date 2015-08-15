@@ -2480,8 +2480,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     if(m_db->height())
         cumulative_difficulty += m_db->get_block_cumulative_difficulty(m_db->height() - 1);
 
-    update_next_cumulative_size_limit();
-
     TIME_MEASURE_FINISH(block_processing_time);
     if(precomputed)
         block_processing_time += m_fake_pow_calc_time;
@@ -2520,6 +2518,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     }
 
     TIME_MEASURE_FINISH(addblock);
+
+    update_next_cumulative_size_limit();
 
     LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
     if(m_show_time_stats)
