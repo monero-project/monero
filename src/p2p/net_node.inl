@@ -321,7 +321,7 @@ namespace nodetool
 
           try
           {
-            addr_list = tools::DNSResolver().get_ipv4(addr_str, avail, valid);
+            addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
             LOG_PRINT_L4("dns_threads[" << result_index << "] DNS resolve done");
             boost::this_thread::interruption_point();
           }
