@@ -2218,7 +2218,7 @@ bool Blockchain::check_block_timestamp(const block& b) const
     }
 
     // if not enough blocks, no proper median yet, return true
-    if(m_db->height() < BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1)
+    if(m_db->height() < BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)
     {
         return true;
     }
@@ -2227,9 +2227,7 @@ bool Blockchain::check_block_timestamp(const block& b) const
     auto h = m_db->height();
 
     // need most recent 60 blocks, get index of first of those
-    // using +1 because BlockchainDB::height() returns the index of the top block,
-    // not the size of the blockchain (0-indexed)
-    size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - 1;
+    size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
     for(;offset < h; ++offset)
     {
         timestamps.push_back(m_db->get_block_timestamp(offset));
@@ -2367,7 +2365,10 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     uint64_t t_pool = 0;
     uint64_t t_dblspnd = 0;
     uint64_t t_cc;
+    bool add_tx_to_pool = false;
     TIME_MEASURE_FINISH(t3);
+
+// XXX old code adds miner tx here
 
     int tx_index = 0;
     // Iterate over the block's transaction hashes, grabbing each
@@ -2380,6 +2381,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         uint64_t fee = 0;
         TIME_MEASURE_START(aa);
 
+// XXX old code does not check whether tx exists
         if (m_db->tx_exists(tx_id))
         {
             LOG_PRINT_L1("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
@@ -2432,6 +2434,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
                 add_block_as_invalid(bl, id);
                 LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
                 bvc.m_verifivation_failed = true;
+                add_tx_to_pool = true;
                 break;
             }
         }
@@ -2447,6 +2450,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
                 add_block_as_invalid(bl, id);
                 LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
                 bvc.m_verifivation_failed = true;
+                add_tx_to_pool = true;
                 break;
             }
         }
@@ -2469,7 +2473,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     }
 
     TIME_MEASURE_FINISH(vmt);
-    block_extended_info bei = boost::value_initialized<block_extended_info>();
     size_t block_size;
     difficulty_type cumulative_difficulty;
 
@@ -2479,8 +2482,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     already_generated_coins = already_generated_coins + base_reward;
     if(m_db->height())
         cumulative_difficulty += m_db->get_block_cumulative_difficulty(m_db->height() - 1);
-
-    update_next_cumulative_size_limit();
 
     TIME_MEASURE_FINISH(block_processing_time);
     if(precomputed)
@@ -2505,7 +2506,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
     // if we failed for any reason to verify the block, return taken
     // transactions to the tx_pool.
-    if (bvc.m_verifivation_failed || !add_success)
+    if ((bvc.m_verifivation_failed && add_tx_to_pool) || !add_success)
     {
         // return taken transactions to transaction pool
         for (auto& tx : txs)
@@ -2520,6 +2521,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     }
 
     TIME_MEASURE_FINISH(addblock);
+
+    update_next_cumulative_size_limit();
 
     LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
     if(m_show_time_stats)
