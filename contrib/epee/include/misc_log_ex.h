@@ -861,7 +861,8 @@ namespace log_space
       std::string::size_type a = m_default_log_file.rfind('.');
       if ( a != std::string::npos )
         m_default_log_file.erase( a, m_default_log_file.size());
-      m_default_log_file += ".log";
+      if ( ! m_default_log_file.empty() )
+        m_default_log_file += ".log";
 
       return true;
     }
