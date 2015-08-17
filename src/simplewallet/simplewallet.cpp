@@ -1815,8 +1815,23 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_log_level);
 
   bf::path default_log {log_space::log_singletone::get_default_log_folder()};
-  default_log /= log_space::log_singletone::get_default_log_file();
-  std::cout << sw::tr("default_log: ") << default_log << ENDL;
+  std::string log_file_name = log_space::log_singletone::get_default_log_file();
+  if (log_file_name.empty())
+  {
+    // Sanity check: File path should also be empty if file name is. If not,
+    // this would be a problem in epee's discovery of current process's file
+    // path.
+    if (! default_log.empty())
+    {
+      fail_msg_writer() << sw::tr("Unexpected empty log file name in presence of non-empty file path");
+      return false;
+    }
+    // epee didn't find path to executable from argv[0], so use this default file name.
+    log_file_name = "simplewallet.log";
+    // The full path will use cwd because epee also returned an empty default log folder.
+  }
+  default_log /= log_file_name;
+
   command_line::add_arg(desc_params, arg_log_file, default_log.string());
 
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
@@ -1861,7 +1876,9 @@ int main(int argc, char* argv[])
     return 0;
 
   // log_file_path
-  //   default: <simplewallet_path>/simplewallet.log
+  //   default: < argv[0] directory >/simplewallet.log
+  //     so if ran as "simplewallet" (no path), log file will be in cwd
+  //
   //   if log-file argument given:
   //     absolute path
   //     relative path: relative to cwd
@@ -1884,6 +1901,7 @@ int main(int argc, char* argv[])
   if(command_line::has_arg(vm, arg_log_level))
     log_level = command_line::get_arg(vm, arg_log_level);
   LOG_PRINT_L0("Setting log level = " << log_level);
+  LOG_PRINT_L0(sw::tr("default_log: ") << default_log.string());
   message_writer(epee::log_space::console_color_white, true) << boost::format(sw::tr("Logging at log level %d to %s")) %
     log_level % log_file_path.string();
   log_space::get_set_log_detalisation_level(true, log_level);
