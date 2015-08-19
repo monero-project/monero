@@ -365,6 +365,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
   m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
+  m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -1722,6 +1723,37 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
   }
 
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+
+  if(local_args.size() != 1) {
+    fail_msg_writer() << tr("Usage: get_tx_key <txid>");
+    return true;
+  }
+
+  cryptonote::blobdata txid_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args.front(), txid_data))
+  {
+    fail_msg_writer() << tr("Failed to parse txid");
+    return false;
+  }
+  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+  crypto::secret_key tx_key;
+  bool r = m_wallet->get_tx_key(txid, tx_key);
+  if (r)
+  {
+    success_msg_writer() << tr("tx key: ") << tx_key;
+    return true;
+  }
+  else
+  {
+    fail_msg_writer() << tr("No tx key found for this txid");
+    return true;
+  }
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()

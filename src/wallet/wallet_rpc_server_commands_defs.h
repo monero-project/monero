@@ -110,9 +110,11 @@ namespace wallet_rpc
     struct response
     {
       std::string tx_hash;
+      std::string tx_key;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(tx_key)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -141,9 +143,11 @@ namespace wallet_rpc
     struct response
     {
       std::list<std::string> tx_hash_list;
+      std::list<std::string> tx_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
+        KV_SERIALIZE(tx_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -159,9 +163,11 @@ namespace wallet_rpc
     struct response
     {
       std::list<std::string> tx_hash_list;
+      std::list<std::string> tx_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
+        KV_SERIALIZE(tx_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };
