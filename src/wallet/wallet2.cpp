@@ -65,6 +65,9 @@ using namespace cryptonote;
 // used to target a given block size (additional outputs may be added on top to build fee)
 #define TX_SIZE_TARGET(bytes) (bytes*2/3)
 
+// arbitrary, used to generate different hashes from the same input
+#define CHACHA8_KEY_TAIL 0x8c
+
 namespace
 {
 void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
@@ -853,6 +856,20 @@ bool wallet2::check_connection()
   return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const
+{
+  const account_keys &keys = m_account.get_keys();
+  const crypto::secret_key &view_key = keys.m_view_secret_key;
+  const crypto::secret_key &spend_key = keys.m_spend_secret_key;
+  char data[sizeof(view_key) + sizeof(spend_key) + 1];
+  memcpy(data, &view_key, sizeof(view_key));
+  memcpy(data + sizeof(view_key), &spend_key, sizeof(spend_key));
+  data[sizeof(data) - 1] = CHACHA8_KEY_TAIL;
+  crypto::generate_chacha8_key(data, sizeof(data), key);
+  memset(data, 0, sizeof(data));
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::load(const std::string& wallet_, const std::string& password)
 {
   clear();
@@ -874,8 +891,37 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   }
   else
   {
-    bool r = tools::unserialize_obj_from_file(*this, m_wallet_file);
+    wallet2::cache_file_data cache_file_data;
+    std::string buf;
+    bool r = epee::file_io_utils::load_file_to_string(m_wallet_file, buf);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
+
+    // try to read it as an encrypted cache
+    try
+    {
+      LOG_PRINT_L1("Trying to decrypt cache data");
+
+      r = ::serialization::parse_binary(buf, cache_file_data);
+      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + m_wallet_file + '\"');
+      crypto::chacha8_key key;
+      generate_chacha8_key_from_secret_keys(key);
+      std::string cache_data;
+      cache_data.resize(cache_file_data.cache_data.size());
+      crypto::chacha8(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), key, cache_file_data.iv, &cache_data[0]);
+
+      std::stringstream iss;
+      iss << cache_data;
+      boost::archive::binary_iarchive ar(iss);
+      ar >> *this;
+    }
+    catch (...)
+    {
+      LOG_PRINT_L1("Failed to load encrypted cache, trying unencrypted");
+      std::stringstream iss;
+      iss << buf;
+      boost::archive::binary_iarchive ar(iss);
+      ar >> *this;
+    }
     THROW_WALLET_EXCEPTION_IF(
       m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
       m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
@@ -906,7 +952,23 @@ void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
 //----------------------------------------------------------------------------------------------------
 void wallet2::store()
 {
-  bool r = tools::serialize_obj_to_file(*this, m_wallet_file);
+  std::stringstream oss;
+  boost::archive::binary_oarchive ar(oss);
+  ar << *this;
+
+  wallet2::cache_file_data cache_file_data = boost::value_initialized<wallet2::cache_file_data>();
+  cache_file_data.cache_data = oss.str();
+  crypto::chacha8_key key;
+  generate_chacha8_key_from_secret_keys(key);
+  std::string cipher;
+  cipher.resize(cache_file_data.cache_data.size());
+  cache_file_data.iv = crypto::rand<crypto::chacha8_iv>();
+  crypto::chacha8(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), key, cache_file_data.iv, &cipher[0]);
+  cache_file_data.cache_data = cipher;
+
+  std::string buf;
+  bool r = ::serialization::dump_binary(cache_file_data, buf);
+  r = r && epee::file_io_utils::save_string_to_file(m_wallet_file, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
 }
 //----------------------------------------------------------------------------------------------------
