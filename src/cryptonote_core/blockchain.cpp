@@ -797,8 +797,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
             if(!r)
             {
                 LOG_PRINT_L1("Failed to push ex-main chain blocks to alternative chain ");
-                // previously this would fail the blockchain switching, but I don't
-                // think this is bad enough to warrant that.
+                rollback_blockchain_switching(disconnected_chain, split_height);
+                return false;
             }
         }
     }
