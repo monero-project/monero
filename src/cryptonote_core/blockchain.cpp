@@ -856,8 +856,8 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
     // and timestamps from it alone
     else
     {
-        timestamps.resize(static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT));
-        cumulative_difficulties.resize(static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT));
+        timestamps.resize(std::min(alt_chain.size(), static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT)));
+        cumulative_difficulties.resize(std::min(alt_chain.size(), static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT)));
         size_t count = 0;
         size_t max_i = timestamps.size()-1;
         // get difficulties and timestamps from most recent blocks in alt chain
