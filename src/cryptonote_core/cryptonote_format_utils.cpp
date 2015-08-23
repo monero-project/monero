@@ -432,7 +432,6 @@ namespace cryptonote
         if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
         {
           LOG_PRINT_L2("Encrypting payment id " << payment_id);
-          crypto::key_derivation derivation;
           crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, sender_account_keys);
           if (view_key_pub == null_pkey)
           {

@@ -413,7 +413,6 @@ BOOL SetLockPagesPrivilege(HANDLE hProcess, BOOL bEnable)
 
 void slow_hash_allocate_state(void)
 {
-    int state = 0;
     if(hp_state != NULL)
         return;
 
