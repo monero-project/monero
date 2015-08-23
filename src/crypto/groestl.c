@@ -8,6 +8,7 @@
  *
  */
 
+#include <stddef.h>
 #include "groestl.h"
 #include "groestl_tables.h"
 
@@ -206,7 +207,7 @@ static void OutputTransformation(hashState *ctx) {
 static void Init(hashState* ctx) {
   /* allocate memory for state and data buffer */
 
-  for(unsigned i = 0; i < (SIZE512/sizeof(uint32_t)); i++)
+  for(size_t i = 0; i < (SIZE512/sizeof(uint32_t)); i++)
   {
 	ctx->chaining[i] = 0;
   }
