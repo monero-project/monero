@@ -1316,7 +1316,7 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
-    if(start_offset > m_db->height())
+    if(start_offset >= m_db->height())
         return false;
 
     if (!get_blocks(start_offset, count, blocks))
@@ -1338,10 +1338,10 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
-    if(start_offset > m_db->height())
+    if(start_offset >= m_db->height())
         return false;
 
-    for(size_t i = start_offset; i < start_offset + count && i <= m_db->height();i++)
+    for(size_t i = start_offset; i < start_offset + count && i < m_db->height();i++)
     {
         blocks.push_back(m_db->get_block_from_height(i));
     }
