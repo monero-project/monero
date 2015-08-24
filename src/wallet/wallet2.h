@@ -134,6 +134,17 @@ namespace tools
       END_SERIALIZE()
     };
 
+    struct cache_file_data
+    {
+      crypto::chacha8_iv iv;
+      std::string cache_data;
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(iv)
+        FIELD(cache_data)
+      END_SERIALIZE()
+    };
+
     /*!
      * \brief Generates a wallet or restores one.
      * \param  wallet_        Name of wallet file
@@ -313,6 +324,7 @@ namespace tools
     void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
+    bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
