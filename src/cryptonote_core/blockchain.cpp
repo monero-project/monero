@@ -1712,7 +1712,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
         // if requested height is higher than our chain, return false -- we can't help
         if (req_start_block >= m_db->height())
         {
-            return false;
+            return true;
         }
         start_height = req_start_block;
     }
