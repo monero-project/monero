@@ -1251,6 +1251,8 @@ std::string wallet2::address_from_txt_record(const std::string& s)
 void wallet2::commit_tx(pending_tx& ptx)
 {
   using namespace cryptonote;
+  crypto::hash txid;
+
   COMMAND_RPC_SEND_RAW_TX::request req;
   req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
   COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
@@ -1259,14 +1261,16 @@ void wallet2::commit_tx(pending_tx& ptx)
   THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
   THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);
 
+  txid = get_transaction_hash(ptx.tx);
   add_unconfirmed_tx(ptx.tx, ptx.change_dts.amount);
+  m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
 
-  LOG_PRINT_L2("transaction " << get_transaction_hash(ptx.tx) << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
+  LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
 
   BOOST_FOREACH(transfer_container::iterator it, ptx.selected_transfers)
     it->m_spent = true;
 
-  LOG_PRINT_L0("Transaction successfully sent. <" << get_transaction_hash(ptx.tx) << ">" << ENDL
+  LOG_PRINT_L0("Transaction successfully sent. <" << txid << ">" << ENDL
             << "Commission: " << print_money(ptx.fee+ptx.dust) << " (dust: " << print_money(ptx.dust) << ")" << ENDL
             << "Balance: " << print_money(balance()) << ENDL
             << "Unlocked: " << print_money(unlocked_balance()) << ENDL
@@ -1511,7 +1515,8 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     splitted_dsts.push_back(cryptonote::tx_destination_entry(dust, dust_policy.addr_for_dust));
   }
 
-  bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
+  crypto::secret_key tx_key;
+  bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
 
@@ -1530,7 +1535,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.tx = tx;
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
-
+  ptx.tx_key = tx_key;
 }
 
 // Another implementation of transaction creation that is hopefully better
@@ -1857,7 +1862,8 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
   THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < dust, error::wallet_internal_error, "invalid dust value: dust = " +
     std::to_string(dust) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
 
-  bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
+  crypto::secret_key tx_key;
+  bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
 
@@ -1876,6 +1882,7 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
   ptx.tx = tx;
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
+  ptx.tx_key = tx_key;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -1987,6 +1994,15 @@ std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
       throw;
     }
   }
+}
+
+bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const
+{
+  const std::unordered_map<crypto::hash, crypto::secret_key>::const_iterator i = m_tx_keys.find(txid);
+  if (i == m_tx_keys.end())
+    return false;
+  tx_key = i->second;
+  return true;
 }
 
 //----------------------------------------------------------------------------------------------------
