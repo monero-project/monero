@@ -218,7 +218,8 @@ namespace tools
 
       // populate response with tx hash
       res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
-      res.tx_key = boost::lexical_cast<std::string>(ptx_vector.back().tx_key);
+      if (req.get_tx_key)
+        res.tx_key = boost::lexical_cast<std::string>(ptx_vector.back().tx_key);
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -275,7 +276,8 @@ namespace tools
       for (auto & ptx : ptx_vector)
       {
         res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
-        res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+        if (req.get_tx_keys)
+          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
       }
 
       return true;
@@ -320,7 +322,8 @@ namespace tools
       for (auto & ptx : ptx_vector)
       {
         res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
-        res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+        if (req.get_tx_keys)
+          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
       }
 
       return true;
