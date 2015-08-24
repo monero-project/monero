@@ -1195,7 +1195,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
             // make sure block connects correctly to the main chain
             auto h = m_db->get_block_hash_from_height(alt_chain.front()->second.height - 1);
             CHECK_AND_ASSERT_MES(h == alt_chain.front()->second.bl.prev_id, false, "alternative chain has wrong connection to main chain");
-            complete_timestamps_vector(m_db->get_block_height(alt_chain.front()->second.bl.prev_id), timestamps);
+            complete_timestamps_vector(alt_chain.front()->second.height - 1, timestamps);
         }
         // if block not associated with known alternate chain
         else
