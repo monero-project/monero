@@ -1416,7 +1416,6 @@ void Blockchain::add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_A
 bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
-    srand(static_cast<unsigned int>(time(NULL)));
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
     // for each amount that we need to get mixins for, get <n> random outputs
