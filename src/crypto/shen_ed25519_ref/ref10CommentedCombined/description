@@ -1,0 +1,7 @@
+shen_ed25519_ref10
+MakeCryptoOps.py makes crypto-ops.c in the monero source from the ref10 implementation
+
+EdDSA signatures using Curve25519
+from http://hyperelliptic.org/ebats/supercop-20141124.tar.bz2
+
+commented / combined by shen noether, monero research labs
