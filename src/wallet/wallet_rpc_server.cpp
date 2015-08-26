@@ -356,7 +356,7 @@ namespace tools
       crypto::hash8 payment_id;
       if (req.payment_id.empty())
       {
-        crypto::generate_random_bytes(8, payment_id.data);
+        payment_id = crypto::rand<crypto::hash8>();
       }
       else
       {

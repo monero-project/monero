@@ -1828,7 +1828,7 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
   }
   if (args.size() == 0)
   {
-    crypto::generate_random_bytes(8, payment_id.data);
+    payment_id = crypto::rand<crypto::hash8>();
     success_msg_writer() << tr("Random payment ID: ") << payment_id;
     success_msg_writer() << tr("Matching integrated address: ") << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
     return true;
