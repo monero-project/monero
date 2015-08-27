@@ -38,6 +38,8 @@
 using namespace epee;
 namespace bf = boost::filesystem;
 
+static std::mutex instance_lock;
+
 namespace
 {
 
@@ -326,6 +328,8 @@ std::string DNSResolver::get_dns_format_from_oa_address(const std::string& oa_ad
 
 DNSResolver& DNSResolver::instance()
 {
+  std::lock_guard<std::mutex> lock(instance_lock);
+
   static DNSResolver* staticInstance = NULL;
   if (staticInstance == NULL)
   {
