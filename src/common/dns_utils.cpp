@@ -301,11 +301,7 @@ std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, boo
     {
       for (size_t i=0; result->data[i] != NULL; i++)
       {
-      	// plz fix this, but this does NOT work and spills over into parts of memory it shouldn't: records.push_back(result.ptr->data[i]);
-        char *restxt;
-        restxt = (char*) calloc(result->len[i]+1, 1);
-        memcpy(restxt, result->data[i]+1, result->len[i]-1);
-        records.push_back(restxt);
+        records.push_back(std::string(result->data[i]+1, result->len[i]-1));
       }
     }
   }
