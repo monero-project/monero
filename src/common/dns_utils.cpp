@@ -343,7 +343,7 @@ DNSResolver DNSResolver::create()
   return DNSResolver();
 }
 
-bool DNSResolver::check_address_syntax(const char *addr)
+bool DNSResolver::check_address_syntax(const char *addr) const
 {
   // if string doesn't contain a dot, we won't consider it a url for now.
   if (strchr(addr,'.') == NULL)

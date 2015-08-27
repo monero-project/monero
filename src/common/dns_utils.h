@@ -137,7 +137,7 @@ private:
    *
    * @return true if it looks enough like a URL, false if not
    */
-  bool check_address_syntax(const char *addr);
+  bool check_address_syntax(const char *addr) const;
 
   DNSResolverData *m_data;
 }; // class DNSResolver
