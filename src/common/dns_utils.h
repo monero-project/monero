@@ -49,7 +49,7 @@ struct DNSResolverData;
  */
 class DNSResolver
 {
-public:
+private:
 
   /**
    * @brief Constructs an instance of DNSResolver
@@ -57,6 +57,8 @@ public:
    * Constructs a class instance and does setup stuff for the backend resolver.
    */
   DNSResolver();
+
+public:
 
   /**
    * @brief takes care of freeing C pointers and such
@@ -118,6 +120,13 @@ public:
    * @return returns a pointer to the singleton
    */
   static DNSResolver& instance();
+
+  /**
+   * @brief Gets a new instance of DNSResolver
+   *
+   * @return returns a pointer to the new object
+   */
+  static DNSResolver create();
 
 private:
 
