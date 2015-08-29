@@ -28,7 +28,8 @@
 
 set(wallet_sources
   wallet2.cpp
-  wallet_rpc_server.cpp)
+  wallet_rpc_server.cpp
+  wallet_json_rpc_handlers.cpp)
 
 set(wallet_headers)
 
@@ -47,10 +48,13 @@ bitmonero_add_library(wallet
   ${wallet_private_headers})
 target_link_libraries(wallet
   LINK_PUBLIC
+    client_ipc
     cryptonote_core
     mnemonics
   LINK_PRIVATE
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${ZMQ_LIB}
+    ${CZMQ_LIB}
     ${EXTRA_LIBRARIES})

@@ -1,0 +1,10 @@
+unit_test
+unit_test_ansi
+unit_test_c99
+unit_test.c.gcov
+unit_test.gcno
+unit_test.gcda
+*.gcov
+unit_test.dSYM
+net_skeleton.gcno
+net_skeleton.gcda

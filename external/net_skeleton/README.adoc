@@ -1,0 +1,458 @@
+= Networking library for C/C++
+
+:buildstatus-uri: https://www.codeship.io/projects/72674aa0-1cbd-0132-0050-4a361eed21f8
+:buildstatus-badge: https://www.codeship.io/projects/72674aa0-1cbd-0132-0050-4a361eed21f8/status?branch=master
+
+ifdef::env-github[]
+image:{buildstatus-badge}[Build Status,link={buildstatus-uri}]
+endif::[]
+
+image::https://drone.io/github.com/cesanta/net_skeleton/status.png[Build Status,link=https://drone.io/github.com/cesanta/net_skeleton/latest]
+
+
+Net Skeleton is a multi-protocol networking library written in C.
+It provides easy to use event-driven interface that allows to implement
+network protocols or scalable network applications  with little effort.
+Net Skeleton releives developers from the burden of network programming
+complexity and let them concentrate on the logic, saving time and money.
+
+Net Skeleton has built-in support for several protocols, like
+HTTP and Websocket, and is ideal for embedded environments. Net Skeleton
+has been designed as an open source platform for connecting devices and
+bringing them online.
+
+== Features
+
+* Cross-platform: works on Linux/UNIX, QNX, eCos, Windows, Android, iPhone, etc
+* Single-threaded, asynchronous, non-blocking core with simple event-based API
+* Builtin protocols:
+  ** plain TCP, plain UDP, SSL/TLS (over TCP, one-way or two-way)
+  ** HTTP client, HTTP server
+  ** Websocket client, Websocket server
+  ** JSON-RPC client, JSON-RPC server
+* Tiny static and run-time footprint
+* Source code is both ISO C and ISO C++ compliant
+* Extensively tested and production-ready, trusted by many blue chip businesses
+
+== Concept
+
+Net Skeleton is a non-blocking, asyncronous event manager described by
+`struct ns_mgr` structure. That structure holds active connections.
+Connections could be either *listening*, *client* or *accepted*.
+Client connections are created by
+`ns_connect()` call. Listening connections are created by `ns_bind()` call.
+Accepted connections are those that incoming on a listening connection.
+Each connection is described by `struct ns_connection` structure, which has
+a number of fields like socket, event handler function, send/receive buffer,
+flags, et cetera.
+
+`ns_mgr_poll()` should be called in an infinite event loop.
+`ns_mgr_poll()` iterates over all sockets, accepts new connections,
+sends and receives data, closes connections, and calls an event handler
+function for each of those events.
+
+Each connection has send and receive buffer, `struct ns_connection::send_iobuf`
+and `struct ns_connection::recv_iobuf` respectively. When data arrives,
+Net Skeleton appends received data to the `recv_iobuf` and
+triggers `NS_RECV` event. User may send data back (`ns_send()` or
+`ns_printf()`), which appends data to the `send_iobuf`. When Net Skeleton
+successfully writes data to the socket, it discards it from `send_iobuf` and
+sends `NS_SEND` event. When connection is closed, `NS_CLOSE` event is sent.
+
+image::http://cesanta.com/images/net_skeleton/iobuf.png[]
+
+== Using Net Skeleton
+
+1. Define an event handler function.
+2. Initialize mgr by calling `ns_mgr_init()`.
+3. Create *listening connections* with `ns_bind()` and/or *client connections*
+with `ns_connect()`. Note that many connections can be created within a
+single manager. Connections can be created at any time, including within
+an event handler function.
+4. Call `ns_mgr_poll()` in a loop.
+
+[source,c]
+----
+#include "net_skeleton.h"
+
+// This event handler implements TCP echo server
+static void ev_handler(struct ns_connection *nc, int ev, void *ev_data) { // 1
+  struct iobuf *io = &nc->recv_iobuf;
+
+  switch (ev) {
+    case NS_RECV:
+      ns_send(nc, io->buf, io->len);  // Echo received data back
+      iobuf_remove(io, io->len);      // Discard data from recv buffer
+      break;
+    default:
+      break;
+  }
+}
+
+int main(void) {
+  struct ns_mgr mgr;
+  ns_mgr_init(&mgr, NULL);  // 2
+  ns_bind(&mgr, "1234", ev_handler, NULL);  // 3
+
+  // 4 - an event loop
+  for (;;) {
+    ns_mgr_poll(&mgr, 1000);
+  }
+
+  ns_mgr_free(&mgr);
+  return 0;
+}
+----
+
+
+Net Skeleton accepts incoming connections, reads and writes data, and
+calls specified event handler for each connection when appropriate. An
+event handler should examine received data, set connection flags if needed,
+and send data back to the client by `ns_send()` or `ns_printf()`. Here is a
+typical event flow for the accepted connection:
+`NS_ACCEPT` -> `NS_RECV` -> .... -> `NS_CLOSE`. Below is a complete list
+of events triggered by Net Skeleton:
+
+NS_ACCEPT:: sent when new server connection is accepted by a
+listening connection. `void *ev_data` is `union socket_address`
+of the remote peer.
+NS_CONNECT:: sent when a new client connection created by `ns_connect()` either
+failed or succeeded. `void *ev_data` is `int *success`. If `success` is 0
+then connection has been established, otherwise it contains error code. Example
+code to check connection status:
+
+[source,c]
+----
+static void ev_handler(struct ns_connection *nc, int ev, void *ev_data) {
+  int connect_status;
+
+  switch (ev) {
+    case NS_CONNECT:
+      connect_status = * (int *) ev_data;
+      if (connect_status == 0) {
+        /* Success */
+      } else  {
+        /* Error */
+        printf("connect() error: %s\n", strerror(connect_status));
+      }
+      break;
+    ...
+----
+
+NS_RECV:: New data is received and appended to the end of `recv_iobuf`.
+`void *ev_data` is `int *num_received_bytes`.
+
+WARNING: Net Skeleton uses `realloc()` to expand receive buffer.
+It is user's responsibility to discard processed
+data from the beginning of receive buffer, note the `iobuf_remove()`
+call in the example above.
+
+NS_SEND:: Net Skeleton has written data to the remote peer and discarded
+written data from the `send_iobuf`. `void *ev_data` is `int *num_sent_bytes`
+
+NS_POLL:: Sent to all connections on each invocation of `ns_server_poll()`
+
+An event handler can set `struct ns_connection::flags` attribute to control
+the behavior of the connection.  Below is a list of connection flags:
+
+* `NSF_FINISHED_SENDING_DATA` tells Net Skeleton that all data has been
+  appended to the `send_iobuf`. As soon as Net Skeleton sends it to the
+  socket, the connection will be closed.
+* `NSF_BUFFER_BUT_DONT_SEND` tells Net Skeleton to append data to the
+  `send_iobuf` but hold on sending it, because the data will be modified
+  later and then will be sent by clearing `NSF_BUFFER_BUT_DONT_SEND` flag.
+* `NSF_SSL_HANDSHAKE_DONE` SSL only, set when SSL handshake is done
+* `NSF_CONNECTING` set when connection is in connecting state after
+  `ns_connect()` call but connect did not finish yet
+* `NSF_CLOSE_IMMEDIATELY` tells Net Skeleton to close the connection
+  immediately, usually after some error
+* `NSF_LISTENING` set for all listening connections
+* `NSF_UDP` set if connection is UDP
+* `NSF_IS_WEBSOCKET` set by Net Skeleton if connection is a Websocket connection
+* `NSF_WEBSOCKET_NO_DEFRAG` should be set by a user if user wants to switch
+  off automatic frame defragmentation
+* `NSF_USER_1`, `NSF_USER_2`, `NSF_USER_3`, `NSF_USER_4` could be
+  used by a developer to store application-specific state
+
+== Plain TCP/UDP/SSL API
+
+CAUTION: Net skeleton manager instance is single threaded. It does not protect
+it's data structures by mutexes, therefore all functions that are dealing
+with particular event manager should be called from the same thread,
+with exception of `mg_broadcast()` function. It is fine to have different
+event managers handled by different threads.
+
+=== Structures
+
+- `struct ns_connection` Describes a connection between two peers
+- `struct ns_mgr` Container for a bunch of connections
+- `struct iobuf` Describes piece of data
+
+=== Functions for net skeleton manager
+
+void ns_mgr_init(struct ns_mgr *, void *user_data)::
+  Initializes net skeleton manager.
+
+void ns_mgr_free(struct ns_mgr *)::
+
+De-initializes skeleton manager, closes and deallocates all active connections.
+
+time_t ns_mgr_poll(struct ns_mgr *, int milliseconds)::
+
+This function performs the actual IO, and must be called in a loop
+(an event loop). Returns number current timestamp.
+
+void ns_broadcast(struct ns_mgr *, ns_event_handler_t cb, void *msg, size_t len)::
+
+Must be called from a different thread. Passes a message of a given length to
+all connections. Skeleton manager has a socketpair, `struct ns_mgr::ctl`,
+where `ns_broadcast()` pushes the message.
+`ns_mgr_poll()` wakes up, reads a message from the socket pair, and calls
+specified callback for each connection. Thus the callback function executes
+in event manager thread. Note that `ns_broadcast()` is the only function
+that can be, and must be, called from a different thread.
+
+void ns_next(struct ns_mgr *, struct ns_connection *)::
+
+Iterates over all active connections. Returns next connection from the list
+of active connections, or `NULL` if there is no more connections. Below
+is the iteration idiom:
+[source,c]
+----
+for (c = ns_next(srv, NULL); c != NULL; c = ns_next(srv, c)) {
+  // Do something with connection `c`
+}
+----
+
+
+=== Functions for adding new connections
+
+struct ns_connection *ns_add_sock(struct ns_mgr *, sock_t sock, ns_event_handler_t ev_handler)::
+
+Create a connection, associate it with the given socket and event handler, and
+add to the manager.
+
+struct ns_connection *ns_connect(struct ns_mgr *server, const char *addr, ns_event_handler_t ev_handler)::
+
+Connect to a remote host. If successful, `NS_CONNECT` event will be delivered
+to the new connection. `addr` format is the same as for the `ns_bind()` call,
+just an IP address becomes mandatory: `[PROTO://]HOST:PORT`
+`PROTO` could be `tcp://` or `udp://`. If `HOST` is not an IP
+address, Net Skeleton will resolve it - beware that standard blocking resolver
+will be used. It is a good practice to pre-resolve hosts beforehands and
+use only IP addresses to avoid blockin an IO thread.
+Returns: new client connection, or `NULL` on error.
+
+struct ns_connection *ns_bind(struct ns_mgr *, const char *addr, ns_event_handler_t ev_handler)::
+
+Start listening on the given port. `addr` could be a port number,
+e.g. `"3128"`, or IP address with a port number, e.g. `"127.0.0.1:3128"`.
+Also, a protocol prefix could be specified, valid prefixes are `tcp://` or
+`udp://`.
+
+Note that for UDP listening connections, only `NS_RECV` and `NS_CLOSE`
+are triggered.
+
+If IP address is specified, Net Skeleton binds to a specific interface only.
+Also, port could be `"0"`, in which case a random non-occupied port number
+will be chosen. Return value: a listening connection on success, or
+`NULL` on error.
+
+const char *ns_set_ssl(struct ns_connection *nc, const char *cert, const char *ca_cert)::
+Enable SSL for a given connection. Connection must be TCP. For listening
+connection, `cert` is a path to a server certificate, and is mandatory.
+`ca_cert` if non-NULL, specifies CA certificate for client authentication,
+enables two-way SSL. For client connections, both `cert` and `ca_cert` are
+optional and can be set to NULL. All certificates
+must be in PEM format. PEM file for server certificate should contain
+both certificate and the private key concatenated together.
+Returns: NULL if there is no error, or error string if there was error.
+
+Snippet below shows how to generate self-signed SSL certificate using OpenSSL:
+[source,sh]
+----
+openssl req -x509 -nodes -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365
+cat cert.pem key.pem > my_ssl_cert.pem
+----
+
+=== Functions for sending data
+
+int ns_send(struct ns_connection *, const void *buf, int len)::
+int ns_printf(struct ns_connection *, const char *fmt, ...)::
+int ns_vprintf(struct ns_connection *, const char *fmt, va_list ap)::
+
+These functions are for sending un-formatted and formatted data to the
+connection. Number of written bytes is returned. Note that these sending
+functions do not actually push data to the sockets, they just append data
+to the output buffer. The exception is UDP connections. For UDP, data is
+sent immediately, and returned value indicates an actual number of bytes
+sent to the socket.
+
+=== Utility functions
+
+void *ns_start_thread(void *(*thread_function)(void *), void *param)::
+  Starts a new thread
+
+int ns_socketpair2(sock_t [2], int proto)::
+  Create a socket pair. `proto` can be either `SOCK_STREAM` or `SOCK_DGRAM`.
+  Return 0 on failure, 1 on success.
+
+void ns_set_close_on_exec(sock_t)::
+  Set close-on-exec bit for a given socket.
+
+void ns_sock_to_str(sock_t sock, char *buf, size_t len, int flags)::
+  Converts socket's local or remote address into string. `flags` parameter
+  is a bit mask that controls the behavior. If bit 2 is set (`flags & 4`) then
+  the remote address is stringified, otherwise local address is stringified.
+  If bit 0 is set, then IP
+  address is printed. If bit 1 is set, then port number is printed. If both
+  port number and IP address are printed, they are separated by `:`.
+
+int ns_hexdump(const void *buf, int len, char *dst, int dst_len)::
+  Takes a memory buffer `buf` of length `len` and creates a hex dump of that
+  buffer in `dst`.
+
+int ns_resolve(const char *domain_name, char *ip_addr_buf, size_t buf_len)::
+  Converts domain name into IP address. This is a blocking call. Returns 1
+  on success, 0 on failure.
+
+int ns_stat(const char *path, ns_stat_t *st)::
+  Perform a 64-bit `stat()` call against given file. `path` should be
+  UTF8 encoded. Return value is the same as for `stat()` syscall.
+
+FILE *ns_fopen(const char *path, const char *mode)::
+  Open given file and return a file stream. `path` and `mode` should be
+  UTF8 encoded. Return value is the same as for `fopen()` call.
+
+int ns_open(const char *path, int flag, int mode)::
+  Open given file and return file descriptor. `path` should be UTF8 encoded.
+  Return value is the same as for `open()` syscall.
+
+=== HTTP/Websocket API
+
+void ns_set_protocol_http_websocket(struct ns_connection *)::
+  Attach built-in HTTP event handler to the given connection. User-defined
+  event handler will receive following extra events:
+  - NS_HTTP_REQUEST: HTTP request has arrived. Parsed HTTP request is passed as
+    `struct http_message` through the handler's `void *ev_data` pointer.
+  - NS_HTTP_REPLY: HTTP reply has arrived. Parsed HTTP reply is passed as
+    `struct http_message` through the handler's `void *ev_data` pointer.
+  - NS_WEBSOCKET_HANDSHAKE_REQUEST: server has received websocket handshake
+    request. `ev_data` contains parsed HTTP request.
+  - NS_WEBSOCKET_HANDSHAKE_DONE: server has completed Websocket handshake.
+    `ev_data` is `NULL`.
+  - NS_WEBSOCKET_FRAME: new websocket frame has arrived. `ev_data` is
+    `struct websocket_message *`
+
+void ns_send_websocket_handshake(struct ns_connection *nc, const char *uri, const char *extra_headers)::
+  Sends websocket handshake to the server. `nc` must be a valid connection, connected to a server, `uri` is an URI on the server, `extra_headers` is
+  extra HTTP headers to send or `NULL`.
+  This function is to be used by websocket client.
+
+void ns_send_websocket_frame(struct ns_connection *nc, int op, const void *data, size_t data_len)::
+  Send websocket frame to the remote end. `op` specifies frame's type , one of:
+  - WEBSOCKET_OP_CONTINUE
+  - WEBSOCKET_OP_TEXT
+  - WEBSOCKET_OP_BINARY
+  - WEBSOCKET_OP_CLOSE
+  - WEBSOCKET_OP_PING
+  - WEBSOCKET_OP_PONG
+  `data` and `data_len` contain frame data.
+
+void ns_send_websocket_framev(struct ns_connection *nc, int op, const struct ns_str *frames, int num_frames);
+  Send multiple websocket frames. Like `ns_send_websocket_frame()`, but sends
+  multiple frames at once.
+
+void ns_printf_websocket_frame(struct ns_connection *nc, int op, const char *fmt, ...)::
+  Send websocket frame to the remote end. Like `ns_send_websocket_frame()`,
+  but allows to create formatted message with `printf()`-like semantics.
+
+struct ns_str *ns_get_http_header(struct http_message *, const char *)::
+  Returns HTTP header if it is present in the HTTP message, or `NULL`.
+
+int ns_parse_http(const char *s, int n, struct http_message *req)::
+  Parses HTTP message. Return number of bytes parsed. If HTTP message is
+  incomplete, `0` is returned. On parse error, negative number is returned.
+
+int ns_get_http_var(const struct ns_str *buf, const char *name, char *dst, size_t dst_len)::
+  Fetch an HTTP form variable `name` from a `buf` into a buffer specified by
+  `dst`, `dst_len`. Destination is always zero-terminated. Return length
+  of a fetched variable. If not found, 0 is returned. `buf` must be
+  valid url-encoded buffer. If destination is too small, `-1` is returned.
+
+void ns_serve_http(struct ns_connection *nc, struct http_message *request, struct ns_serve_http_opts options)::
+  Serve given HTTP request according to the `options`.
+  Example code snippet:
+
+[source,c]
+.web_server.c
+----
+static void ev_handler(struct ns_connection *nc, int ev, void *ev_data) {
+  struct http_message *hm = (struct http_message *) ev_data;
+  struct ns_serve_http_opts opts = { .document_root = "/var/www" };  // C99 syntax
+
+  switch (ev) {
+    case NS_HTTP_REQUEST:
+      ns_serve_http(nc, hm, opts);
+      break;
+    default:
+      break;
+  }
+}
+----
+
+=== JSON-RPC API
+
+JSON-RPC module is implemented using
+https://github.com/cesanta/frozen[Frozen JSON parser/generator]. So for
+JSON-related functionality refer to Frozen documentation.
+
+int ns_rpc_parse_reply(const char *buf, int len, struct json_token *toks, int max_toks, struct ns_rpc_reply *reply, struct ns_rpc_error *error)::
+Parse JSON-RPC reply contained in `buf`, `len` into JSON tokens array
+`toks`, `max_toks`. If buffer contains valid reply, `reply` structure is
+populated. The result of RPC call is located in `reply.result`. On error,
+`error` structure is populated. Returns: the result of calling
+`parse_json(buf, len, toks, max_toks)`.
+
+int ns_rpc_create_request(char *buf, int len, const char *method, const char *id, const char *params_fmt, ...)::
+Create JSON-RPC request in a given buffer. Return length of the request, which
+can be larger then `len` that indicates an overflow.
+
+int ns_rpc_create_reply(char *buf, int len, const struct ns_rpc_request *req, const char *result_fmt, ...)::
+Create JSON-RPC reply in a given buffer. Return length of the reply, which
+can be larger then `len` that indicates an overflow.
+
+int ns_rpc_create_error(char *, int, struct ns_rpc_request *req, int, const char *, const char *, ...)::
+Create JSON-RPC error in a given buffer. Return length of the error, which
+can be larger then `len` that indicates an overflow.
+
+int ns_rpc_create_std_error(char *, int, struct ns_rpc_request *, int code)::
+Create JSON-RPC error in a given buffer. Return length of the error, which
+can be larger then `len` that indicates an overflow. `code` could be one of:
+`JSON_RPC_PARSE_ERROR`, `JSON_RPC_INVALID_REQUEST_ERROR`,
+`JSON_RPC_METHOD_NOT_FOUND_ERROR`, `JSON_RPC_INVALID_PARAMS_ERROR`,
+`JSON_RPC_INTERNAL_ERROR`, `JSON_RPC_SERVER_ERROR`.
+
+int ns_rpc_dispatch(const char *buf, int, char *dst, int dst_len, const char **methods, ns_rpc_handler_t *handlers)::
+Parses JSON-RPC request contained in `buf`, `len`. Then, dispatches the request
+to the correct handler method. Valid method names should be specified in NULL
+terminated array `methods`, and corresponding handlers in `handlers`.
+Result is put in `dst`, `dst_len`. Return: length of the result, which
+can be larger then `dst_len` that indicates an overflow.
+
+== Examples
+
+* link:examples/echo_server[examples/echo_server]:
+  a simple TCP echo server. It accepts incoming connections
+  and echoes back any data that it receives
+* link:examples/publish_subscribe[examples/publish_subscribe]:
+  implements pubsub pattern for TCP communication
+* link:examples/netcat[examples/netcat]:
+  an implementation of Netcat utility with traffic hexdump and SSL support
+
+== License
+
+Net Skeleton is released under
+http://www.gnu.org/licenses/old-licenses/gpl-2.0.html[GNU GPL v.2].
+Businesses have an option to get non-restrictive, royalty-free commercial
+license and professional support from http://cesanta.com[Cesanta Software].
