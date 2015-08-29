@@ -85,6 +85,7 @@ bitmonero_add_executable(daemon
 target_link_libraries(daemon
   LINK_PRIVATE
     rpc
+    server_ipc
     blockchain_db
     cryptonote_core
     crypto
@@ -101,8 +102,12 @@ target_link_libraries(daemon
     ${Boost_THREAD_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${UPNP_LIBRARIES}
-    ${EXTRA_LIBRARIES})
-add_dependencies(daemon version)
+    ${EXTRA_LIBRARIES}
+    ${NET_SKELETON_LIBRARY}
+    ${ZMQ_LIB}
+    ${CZMQ_LIB})
+add_dependencies(daemon
+  version)
 set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "bitmonerod")

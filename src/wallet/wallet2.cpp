@@ -92,7 +92,8 @@ namespace tools
 const size_t MAX_SPLIT_ATTEMPTS = 30;
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction_size_limit)
+void wallet2::init(const std::string& daemon_address,
+  uint64_t upper_transaction_size_limit)
 {
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = daemon_address;
@@ -180,18 +181,32 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     if(!outs.empty() && tx_money_got_in_outs)
     {
+      connect_to_daemon();
+      THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_output_indexes");
+
       //good news - got money! take care about it
       //usually we have only one transfer for user in transaction
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
-      req.txid = get_transaction_hash(tx);
-      bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
-      THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
-      THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
-      THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
-				"transactions outputs size=" + std::to_string(tx.vout.size()) +
-				" not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));
+      crypto::hash tx_id = get_transaction_hash(tx);
+
+      zchunk_t *tx_id_chunk = zchunk_new(tx_id.data, crypto::HASH_SIZE);
+      int rc = wap_client_output_indexes(ipc_client, &tx_id_chunk);
+
+      THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_output_indexes");
+      uint64_t status = wap_client_status(ipc_client);
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_output_indexes");
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_output_indexes");
+      THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_out_indices_error, "get_output_indexes");
+
+      zframe_t *frame = wap_client_o_indexes(ipc_client);
+      THROW_WALLET_EXCEPTION_IF(!frame, error::get_out_indices_error, "get_output_indexes");
+      size_t size = zframe_size(frame) / sizeof(uint64_t);
+      uint64_t *o_indexes_array = reinterpret_cast<uint64_t*>(zframe_data(frame));
+      std::vector<uint64_t> o_indexes;
+      for (uint64_t i = 0; i < size; i++) {
+        o_indexes.push_back(o_indexes_array[i]);
+      }
 
       BOOST_FOREACH(size_t o, outs)
       {
@@ -202,7 +217,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 	transfer_details& td = m_transfers.back();
 	td.m_block_height = height;
 	td.m_internal_output_index = o;
-	td.m_global_output_index = res.o_indexes[o];
+	td.m_global_output_index = o_indexes[o];
 	td.m_tx = tx;
 	td.m_spent = false;
 	cryptonote::keypair in_ephemeral;
@@ -348,24 +363,63 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
   if(!genesis_included)
     ids.push_back(m_blockchain[0]);
 }
+void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_complete_entry> &blocks) {
+  zframe_t *frame = zmsg_first(msg);
+  THROW_WALLET_EXCEPTION_IF(!frame, error::get_blocks_error, "getblocks");
+  size_t size = zframe_size(frame);
+  char *block_data = reinterpret_cast<char*>(zframe_data(frame));
+
+  rapidjson::Document json;
+  THROW_WALLET_EXCEPTION_IF(json.Parse(block_data, size).HasParseError(), error::get_blocks_error, "getblocks");
+  for (rapidjson::SizeType i = 0; i < json["blocks"].Size(); i++) {
+    block_complete_entry block_entry;
+    std::string block_string(json["blocks"][i]["block"].GetString(), json["blocks"][i]["block"].GetStringLength());
+    block_entry.block = block_string;
+    for (rapidjson::SizeType j = 0; j < json["blocks"][i]["txs"].Size(); j++) {
+      block_entry.txs.push_back(std::string(json["blocks"][i]["txs"][j].GetString(), json["blocks"][i]["txs"][j].GetStringLength()));
+    }
+    blocks.push_back(block_entry);
+  }
+}
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
 {
+  connect_to_daemon();
+  THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_blocks");
   blocks_added = 0;
-  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
-  get_short_chain_history(req.block_ids);
-  req.start_height = start_height;
-  bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
+  std::list<crypto::hash> block_ids;
+  get_short_chain_history(block_ids);
+  std::list<char*> size_prepended_block_ids;
+  zlist_t *list = zlist_new();
+  for (std::list<crypto::hash>::iterator it = block_ids.begin(); it != block_ids.end(); it++) {
+    char *block_id = new char[crypto::HASH_SIZE + 1];
+    block_id[0] = crypto::HASH_SIZE;
+    memcpy(block_id + 1, it->data, crypto::HASH_SIZE);
+    size_prepended_block_ids.push_back(block_id);
+  }
+  for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
+    zlist_append(list, *it);
+  }
+  int rc = wap_client_blocks(ipc_client, &list, start_height);
+  for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
+    delete *it;
+  }
+  zlist_destroy(&list);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_blocks");
 
-  size_t current_index = res.start_height;
-  BOOST_FOREACH(auto& bl_entry, res.blocks)
+  uint64_t status = wap_client_status(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_blocks");
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_blocks");
+  THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "get_blocks");
+  std::list<block_complete_entry> blocks;
+  zmsg_t *msg = wap_client_block_data(ipc_client); 
+  get_blocks_from_zmq_msg(msg, blocks);
+
+  uint64_t current_index = wap_client_start_height(ipc_client);
+  BOOST_FOREACH(auto& bl_entry, blocks)
   {
     cryptonote::block bl;
-    r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
+    bool r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
     THROW_WALLET_EXCEPTION_IF(!r, error::block_parse_error, bl_entry.block);
 
     crypto::hash bl_id = get_block_hash(bl);
@@ -377,9 +431,9 @@ void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
     else if(bl_id != m_blockchain[current_index])
     {
       //split detected here !!!
-      THROW_WALLET_EXCEPTION_IF(current_index == res.start_height, error::wallet_internal_error,
+      THROW_WALLET_EXCEPTION_IF(current_index == start_height, error::wallet_internal_error,
         "wrong daemon response: split starts from the first block in response " + string_tools::pod_to_hex(bl_id) +
-        " (height " + std::to_string(res.start_height) + "), local block id at this height: " +
+        " (height " + std::to_string(start_height) + "), local block id at this height: " +
         string_tools::pod_to_hex(m_blockchain[current_index]));
 
       detach_blockchain(current_index);
@@ -492,6 +546,8 @@ void wallet2::detach_blockchain(uint64_t height)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::deinit()
 {
+  //  Great, it all works. Now to shutdown, we use the destroy method,
+  //  which does a proper deconnect handshake internally:
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -846,18 +902,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::check_connection()
 {
-  if(m_http_client.is_connected())
-    return true;
-
-  net_utils::http::url_content u;
-  net_utils::parse_url(m_daemon_address, u);
-
-  if(!u.port)
-  {
-    u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
-  }
-
-  return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
+  return ipc_client && wap_client_connected(ipc_client);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const
@@ -1317,15 +1362,17 @@ std::string wallet2::address_from_txt_record(const std::string& s)
 void wallet2::commit_tx(pending_tx& ptx)
 {
   using namespace cryptonote;
-  crypto::hash txid;
 
-  COMMAND_RPC_SEND_RAW_TX::request req;
-  req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
-  COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
-  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);
+  connect_to_daemon();
+  THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "send_raw_transaction");
+  std::string tx_as_hex_string = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
+  zchunk_t *tx_as_hex = zchunk_new((void*)tx_as_hex_string.c_str(), tx_as_hex_string.length());
+  int rc = wap_client_put(ipc_client, &tx_as_hex);
+  uint64_t status = wap_client_status(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "send_raw_transaction");
+  THROW_WALLET_EXCEPTION_IF((status == IPC::STATUS_INVALID_TX) || (status == IPC::STATUS_TX_VERIFICATION_FAILED) ||
+    (status == IPC::STATUS_TX_NOT_RELAYED), error::tx_rejected, ptx.tx, status);
+  crypto::hash txid;
 
   txid = get_transaction_hash(ptx.tx);
   add_unconfirmed_tx(ptx.tx, ptx.change_dts.amount);
@@ -1493,20 +1540,44 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
   if(fake_outputs_count)
   {
-    COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
-    req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
+    connect_to_daemon();
+    THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
+    uint64_t outs_count = fake_outputs_count + 1;
+    std::vector<uint64_t> amounts;
     BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
     {
       THROW_WALLET_EXCEPTION_IF(it->m_tx.vout.size() <= it->m_internal_output_index, error::wallet_internal_error,
         "m_internal_output_index = " + std::to_string(it->m_internal_output_index) +
         " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size()));
-      req.amounts.push_back(it->amount());
+      amounts.push_back(it->amount());
     }
-
-    bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
-    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
+    zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
+    int rc = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
+    uint64_t status = wap_client_status(ipc_client);
+    THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
+    // TODO: Use a code to string mapping of errors
+    THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_RANDOM_OUTS_FAILED, error::get_random_outs_error, "IPC::STATUS_RANDOM_OUTS_FAILED");
+    THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_random_outs_error, "!IPC:STATUS_OK");
+    // Convert ZMQ response back into RPC response object.
+    zframe_t *outputs_frame = wap_client_random_outputs(ipc_client);
+    uint64_t frame_size = zframe_size(outputs_frame);
+    char *frame_data = reinterpret_cast<char*>(zframe_data(outputs_frame));
+    rapidjson::Document json;
+    COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
+    THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data, frame_size).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
+    for (rapidjson::SizeType i = 0; i < json["outputs"].Size(); i++) {
+      COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount output;
+      output.amount = json["outputs"][i]["amount"].GetInt64();
+      for (rapidjson::SizeType j = 0; j < json["outputs"][i]["outs"].Size(); j++) {
+        COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry entry;
+        entry.global_amount_index = json["outputs"][i]["outs"][j]["global_amount_index"].GetInt64();
+        std::string out_key(json["outputs"][i]["outs"][j]["out_key"].GetString(), json["outputs"][i]["outs"][j]["out_key"].GetStringLength());
+        memcpy(entry.out_key.data, out_key.c_str(), 32);
+        output.outs.push_back(entry);
+      }
+      daemon_resp.outs.push_back(output);
+    }
+    
     THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != selected_transfers.size(), error::wallet_internal_error,
       "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
       std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
@@ -2082,5 +2153,46 @@ void wallet2::generate_genesis(cryptonote::block& b) {
   {
     cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
   }
+}
+
+void wallet2::stop_ipc_client() {
+  if (ipc_client) {
+    wap_client_destroy(&ipc_client);
+  }
+}
+
+void wallet2::connect_to_daemon() {
+  if (check_connection()) {
+    return;
+  }
+  ipc_client = wap_client_new();
+  wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
+}
+
+uint64_t wallet2::start_mining(const std::string &address, uint64_t thread_count) {
+  zchunk_t *address_chunk = zchunk_new((void*)address.c_str(), address.length());
+  int rc = wap_client_start(ipc_client, &address_chunk, thread_count);
+  zchunk_destroy(&address_chunk);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "start_mining");
+  return wap_client_status(ipc_client);
+}
+
+uint64_t wallet2::stop_mining() {
+  int rc = wap_client_stop(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "stop_mining");
+  return wap_client_status(ipc_client);
+}
+
+uint64_t wallet2::get_height(uint64_t &height) {
+  int rc = wap_client_get_height(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_height");
+  height = wap_client_height(ipc_client);
+  return wap_client_status(ipc_client);
+}
+
+uint64_t wallet2::save_bc() {
+  int rc = wap_client_save_bc(ipc_client);
+  THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "save_bc");
+  return wap_client_status(ipc_client);
 }
 }
