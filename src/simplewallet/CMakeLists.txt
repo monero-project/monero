@@ -54,6 +54,7 @@ target_link_libraries(simplewallet
     ${UNBOUND_LIBRARY}
     ${UPNP_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${EXTRA_LIBRARIES})
+    ${EXTRA_LIBRARIES}
+    ${NET_SKELETON_LIBRARY})
 add_dependencies(simplewallet
   version)

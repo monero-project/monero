@@ -78,7 +78,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, command_line::arg_test_drop_download);
       command_line::add_arg(visible_options, command_line::arg_test_dbg_lock_sleep);
       command_line::add_arg(visible_options, command_line::arg_test_drop_download_height);
-    
+
       // Settings
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
       command_line::add_arg(core_settings, daemon_args::arg_log_file, default_log.string());
@@ -97,6 +97,11 @@ int main(int argc, char const * argv[])
 
       // Hidden options
       command_line::add_arg(hidden_options, daemon_args::arg_command);
+
+      // Legacy RPC options (in hidden section, not sure if best place)
+      command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_rpc_bind_ip);
+      command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_rpc_bind_port);
+      command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
 
       visible_options.add(core_settings);
       all_options.add(visible_options);

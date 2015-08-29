@@ -51,7 +51,6 @@ function (bitmonero_add_executable name)
   source_group("${name}"
     FILES
       ${ARGN})
-
   add_executable("${name}"
     ${ARGN})
   target_link_libraries("${name}"
@@ -86,11 +85,15 @@ function (bitmonero_add_library name)
       FOLDER "libs")
 endfunction ()
 
+find_library(ZMQ_LIB zmq)
+find_library(CZMQ_LIB czmq)
+
 add_subdirectory(common)
 add_subdirectory(crypto)
 add_subdirectory(cryptonote_core)
 add_subdirectory(blockchain_db)
 add_subdirectory(mnemonics)
+add_subdirectory(ipc)
 add_subdirectory(rpc)
 add_subdirectory(wallet)
 add_subdirectory(p2p)
