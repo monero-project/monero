@@ -1416,7 +1416,6 @@ void Blockchain::add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_A
 bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
-    srand(static_cast<unsigned int>(time(NULL)));
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
     // for each amount that we need to get mixins for, get <n> random outputs
@@ -2028,7 +2027,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
             return false;
         }
 
-        bool result;
         if (threads > 1)
         {
             // ND: Speedup
@@ -2364,7 +2362,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     uint64_t t_exists = 0;
     uint64_t t_pool = 0;
     uint64_t t_dblspnd = 0;
-    uint64_t t_cc;
     bool add_tx_to_pool = false;
     TIME_MEASURE_FINISH(t3);
 
@@ -2679,7 +2676,6 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
     LOG_PRINT_YELLOW("Blockchain::" << __func__, LOG_LEVEL_3);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
     TIME_MEASURE_START(t1);
-    auto height = m_db->height();
 
     if (m_sync_counter > 0)
     {

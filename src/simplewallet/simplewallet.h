@@ -99,6 +99,7 @@ namespace cryptonote
      */
     bool seed_set_language(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_always_confirm_transfers(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_store_tx_keys(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -122,6 +123,7 @@ namespace cryptonote
     bool set_variable(const std::vector<std::string> &args);
     bool rescan_spent(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
+    bool get_tx_key(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();

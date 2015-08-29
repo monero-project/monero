@@ -218,6 +218,8 @@ namespace tools
 
       // populate response with tx hash
       res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      if (req.get_tx_key)
+        res.tx_key = boost::lexical_cast<std::string>(ptx_vector.back().tx_key);
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -274,6 +276,8 @@ namespace tools
       for (auto & ptx : ptx_vector)
       {
         res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        if (req.get_tx_keys)
+          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
       }
 
       return true;
@@ -318,6 +322,8 @@ namespace tools
       for (auto & ptx : ptx_vector)
       {
         res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        if (req.get_tx_keys)
+          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
       }
 
       return true;
@@ -350,7 +356,7 @@ namespace tools
       crypto::hash8 payment_id;
       if (req.payment_id.empty())
       {
-        crypto::generate_random_bytes(8, payment_id.data);
+        payment_id = crypto::rand<crypto::hash8>();
       }
       else
       {

@@ -81,9 +81,9 @@ namespace tools
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false) {};
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_keys(false) {};
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet) {
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_keys(false) {
       ipc_client = NULL;
       connect_to_daemon();
       if (!ipc_client) {
@@ -132,6 +132,7 @@ namespace tools
       cryptonote::tx_destination_entry change_dts;
       std::list<transfer_container::iterator> selected_transfers;
       std::string key_images;
+      crypto::secret_key tx_key;
     };
 
     struct keys_file_data
@@ -142,6 +143,17 @@ namespace tools
       BEGIN_SERIALIZE_OBJECT()
         FIELD(iv)
         FIELD(account_data)
+      END_SERIALIZE()
+    };
+
+    struct cache_file_data
+    {
+      crypto::chacha8_iv iv;
+      std::string cache_data;
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(iv)
+        FIELD(cache_data)
       END_SERIALIZE()
     };
 
@@ -265,6 +277,9 @@ namespace tools
       if(ver < 7)
         return;
       a & m_payments;
+      if(ver < 8)
+        return;
+      a & m_tx_keys;
     }
 
     void stop_ipc_client();
@@ -297,6 +312,10 @@ namespace tools
 
     bool always_confirm_transfers() const { return m_always_confirm_transfers; }
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
+    bool store_tx_keys() const { return m_store_tx_keys; }
+    void store_tx_keys(bool store) { m_store_tx_keys = store; }
+
+    bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
   private:
     /*!
@@ -329,6 +348,7 @@ namespace tools
     void generate_genesis(cryptonote::block& b);
     void connect_to_daemon();
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
+    bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -338,6 +358,7 @@ namespace tools
     std::vector<crypto::hash> m_blockchain;
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
+    std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
 
     transfer_container m_transfers;
     payment_container m_payments;
@@ -355,9 +376,10 @@ namespace tools
     wap_client_t *ipc_client;
     bool m_watch_only; /*!< no spend key */
     bool m_always_confirm_transfers;
+    bool m_store_tx_keys; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 7)
+BOOST_CLASS_VERSION(tools::wallet2, 8)
 
 namespace boost
 {
@@ -610,7 +632,8 @@ namespace tools
       splitted_dsts.push_back(cryptonote::tx_destination_entry(dust, dust_policy.addr_for_dust));
     }
 
-    bool r = cryptonote::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
+    crypto::secret_key tx_key;
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
     THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
 
@@ -629,7 +652,7 @@ namespace tools
     ptx.tx = tx;
     ptx.change_dts = change_dts;
     ptx.selected_transfers = selected_transfers;
-
+    ptx.tx_key = tx_key;
   }
 
 

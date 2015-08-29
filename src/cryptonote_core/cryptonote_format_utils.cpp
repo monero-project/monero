@@ -408,7 +408,7 @@ namespace cryptonote
     return encrypt_payment_id(payment_id, public_key, secret_key);
   }
   //---------------------------------------------------------------
-  bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key)
   {
     tx.vin.clear();
     tx.vout.clear();
@@ -420,6 +420,7 @@ namespace cryptonote
     tx.extra = extra;
     keypair txkey = keypair::generate();
     add_tx_pub_key_to_extra(tx, txkey.pub);
+    tx_key = txkey.sec;
 
     // if we have a stealth payment id, find it and encrypt it with the tx key now
     std::vector<tx_extra_field> tx_extra_fields;
@@ -432,7 +433,6 @@ namespace cryptonote
         if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
         {
           LOG_PRINT_L2("Encrypting payment id " << payment_id);
-          crypto::key_derivation derivation;
           crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, sender_account_keys);
           if (view_key_pub == null_pkey)
           {
@@ -576,6 +576,12 @@ namespace cryptonote
     LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL << ss_ring_s.str() , LOG_LEVEL_3);
 
     return true;
+  }
+  //---------------------------------------------------------------
+  bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
+  {
+     crypto::secret_key tx_key;
+     return construct_tx_and_get_tx_key(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key);
   }
   //---------------------------------------------------------------
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money)

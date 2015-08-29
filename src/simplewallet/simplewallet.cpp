@@ -336,6 +336,35 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
   return true;
 }
 
+bool simple_wallet::set_store_tx_keys(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("This wallet is watch-only and cannot transfer.");
+    return true;
+  }
+  tools::password_container pwd_container;
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << tr("failed to read wallet password");
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << tr("invalid password");
+    return true;
+  }
+
+  m_wallet->store_tx_keys(is_it_true(args[1]));
+  m_wallet->rewrite(m_wallet_file, pwd_container.password());
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -365,8 +394,9 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Get viewkey"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-keys <1|0> - whether to store per-tx private keys for future reference"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
+  m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -406,6 +436,21 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
         set_always_confirm_transfers(local_args);
+        return true;
+      }
+    }
+    else if (args[0] == "store-tx-keys")
+    {
+      if (args.size() <= 1)
+      {
+        fail_msg_writer() << tr("set store-tx-keys: needs an argument (0 or 1)");
+        return true;
+      }
+      else
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        set_store_tx_keys(local_args);
         return true;
       }
     }
@@ -1746,6 +1791,37 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+
+  if(local_args.size() != 1) {
+    fail_msg_writer() << tr("Usage: get_tx_key <txid>");
+    return true;
+  }
+
+  cryptonote::blobdata txid_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args.front(), txid_data))
+  {
+    fail_msg_writer() << tr("Failed to parse txid");
+    return false;
+  }
+  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+  crypto::secret_key tx_key;
+  bool r = m_wallet->get_tx_key(txid, tx_key);
+  if (r)
+  {
+    success_msg_writer() << tr("tx key: ") << tx_key;
+    return true;
+  }
+  else
+  {
+    fail_msg_writer() << tr("No tx key found for this txid");
+    return true;
+  }
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
   std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
@@ -1774,7 +1850,7 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
   }
   if (args.size() == 0)
   {
-    crypto::generate_random_bytes(8, payment_id.data);
+    payment_id = crypto::rand<crypto::hash8>();
     success_msg_writer() << tr("Random payment ID: ") << payment_id;
     success_msg_writer() << tr("Matching integrated address: ") << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
     return true;
