@@ -52,9 +52,12 @@
 #include <boost/algorithm/string/join.hpp>
 
 #include "english.h"
+#include "italian.h"
+#include "german.h"
 #include "spanish.h"
 #include "portuguese.h"
 #include "japanese.h"
+#include "russian.h"
 #include "old_english.h"
 #include "language_base.h"
 #include "singleton.h"
@@ -78,8 +81,11 @@ namespace
     std::vector<Language::Base*> language_instances({
       Language::Singleton<Language::English>::instance(),
       Language::Singleton<Language::Spanish>::instance(),
+      Language::Singleton<Language::German>::instance(),
+      Language::Singleton<Language::Italian>::instance(),
       Language::Singleton<Language::Portuguese>::instance(),
       Language::Singleton<Language::Japanese>::instance(),
+      Language::Singleton<Language::Russian>::instance(),
       Language::Singleton<Language::OldEnglish>::instance()
     });
 
@@ -293,6 +299,18 @@ namespace crypto
       {
         language = Language::Singleton<Language::Japanese>::instance();
       }
+      else if (language_name == "Italian")
+      {
+        language = Language::Singleton<Language::Italian>::instance();
+      }
+      else if (language_name == "German")
+      {
+        language = Language::Singleton<Language::German>::instance();
+      }
+      else if (language_name == "Russian")
+      {
+        language = Language::Singleton<Language::Russian>::instance();
+      }
       else
       {
         return false;
@@ -340,7 +358,10 @@ namespace crypto
       std::vector<Language::Base*> language_instances({
         Language::Singleton<Language::English>::instance(),
         Language::Singleton<Language::Spanish>::instance(),
+        Language::Singleton<Language::German>::instance(),
+        Language::Singleton<Language::Italian>::instance(),
         Language::Singleton<Language::Portuguese>::instance(),
+        Language::Singleton<Language::Russian>::instance(),
         Language::Singleton<Language::Japanese>::instance()
       });
       for (std::vector<Language::Base*>::iterator it = language_instances.begin();

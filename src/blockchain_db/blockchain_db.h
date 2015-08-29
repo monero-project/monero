@@ -104,7 +104,6 @@
  *   height      get_tx_block_height(hash)
  *
  * Outputs:
- *   index       get_random_output(amount)
  *   uint64_t    get_num_outputs(amount)
  *   pub_key     get_output_key(amount, index)
  *   tx_out      get_output(tx_hash, index)
@@ -138,6 +137,15 @@ namespace cryptonote
 // typedef for convenience
 typedef std::pair<crypto::hash, uint64_t> tx_out_index;
 
+#pragma pack(push, 1)
+struct output_data_t
+{
+	crypto::public_key pubkey;
+	uint64_t unlock_time;
+	uint64_t height;
+};
+#pragma pack(pop)
+	
 /***********************************
  * Exception Definitions
  ***********************************/
@@ -279,7 +287,7 @@ private:
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
 
   // tells the subclass to store an output
-  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index) = 0;
+  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) = 0;
 
   // tells the subclass to remove an output
   virtual void remove_output(const tx_out& tx_output) = 0;
@@ -313,7 +321,7 @@ protected:
 
   mutable uint64_t time_tx_exists = 0;
   uint64_t time_commit1 = 0;
-
+  bool m_auto_remove_logs = true;
 
 public:
 
@@ -357,7 +365,7 @@ public:
   // release db lock
   virtual void unlock() = 0;
 
-  virtual void batch_start() = 0;
+  virtual void batch_start(uint64_t batch_num_blocks=0) = 0;
   virtual void batch_stop() = 0;
   virtual void set_batch_transactions(bool) = 0;
 
@@ -454,14 +462,12 @@ public:
   // returns height of block that contains transaction with hash <h>
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
 
-  // return global output index of a random output of amount <amount>
-  virtual uint64_t get_random_output(const uint64_t& amount) const = 0;
-
   // returns the total number of outputs of amount <amount>
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
   // return public key for output with global output amount <amount> and index <index>
-  virtual crypto::public_key get_output_key(const uint64_t& amount, const uint64_t& index) const = 0;
+  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) = 0;
+  virtual output_data_t get_output_key(const uint64_t& global_index) const = 0;
 
   // returns the output indexed by <index> in the transaction with hash <h>
   virtual tx_out get_output(const crypto::hash& h, const uint64_t& index) const = 0;
@@ -471,7 +477,11 @@ public:
 
   // returns the transaction-local reference for the output with <amount> at <index>
   // return type is pair of tx hash and index
-  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const = 0;
+  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) = 0;
+  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) = 0;
+  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) = 0;
+  
+  virtual bool can_thread_bulk_indices() const = 0;
 
   // return a vector of indices corresponding to the global output index for
   // each output in the transaction with hash <h>
@@ -483,7 +493,10 @@ public:
   // returns true if key image <img> is present in spent key images storage
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
 
+  void set_auto_remove_logs(bool auto_remove) { m_auto_remove_logs = auto_remove; }
+
   bool m_open;
+  mutable epee::critical_section m_synchronization_lock;
 };  // class BlockchainDB
 
 

@@ -104,9 +104,6 @@ namespace cryptonote
     bool have_tx_keyimg_as_spent(const crypto::key_image &key_im) const;
     const transaction *get_tx(const crypto::hash &id) const;
 
-    template<class visitor_t>
-    bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t& vis, uint64_t* pmax_related_block_height = NULL) const;
-
     uint64_t get_current_blockchain_height() const;
     crypto::hash get_tail_id() const;
     crypto::hash get_tail_id(uint64_t& height) const;
@@ -127,9 +124,7 @@ namespace cryptonote
     bool get_backward_blocks_sizes(size_t from_height, std::vector<size_t>& sz, size_t count) const;
     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const;
     bool store_blockchain();
-    bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, uint64_t* pmax_related_block_height = NULL) const;
-    bool check_tx_inputs(const transaction& tx, const crypto::hash& tx_prefix_hash, uint64_t* pmax_used_block_height = NULL) const;
-    bool check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height = NULL) const;
+
     bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id) const;
     uint64_t get_current_cumulative_blocksize_limit() const;
     bool is_storing_blockchain()const{return m_is_blockchain_storing;}
@@ -228,6 +223,13 @@ namespace cryptonote
 
     bool m_enforce_dns_checkpoints;
     bool m_testnet;
+
+    // made private for consistency with blockchain.h
+    template<class visitor_t>
+    bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t& vis, uint64_t* pmax_related_block_height = NULL) const;
+    bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, uint64_t* pmax_related_block_height = NULL) const;
+    bool check_tx_inputs(const transaction& tx, const crypto::hash& tx_prefix_hash, uint64_t* pmax_used_block_height = NULL) const;
+    bool check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height = NULL) const;
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain, bool discard_disconnected_chain);
     bool pop_block_from_blockchain();

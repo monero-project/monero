@@ -58,6 +58,9 @@ namespace cryptonote
   class simple_wallet : public tools::i_wallet2_callback
   {
   public:
+    static const char *tr(const char *str) { return i18n_translate(str, "cryptonote::simple_wallet"); }
+
+  public:
     typedef std::vector<std::string> command_type;
 
     simple_wallet();
@@ -95,6 +98,7 @@ namespace cryptonote
      * \return success status
      */
     bool seed_set_language(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_always_confirm_transfers(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -104,7 +108,9 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
+    bool transfer_main(bool new_algorithm, const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
+    bool transfer_new(const std::vector<std::string> &args);
     bool sweep_dust(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
         std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits
@@ -114,6 +120,7 @@ namespace cryptonote
     bool save(const std::vector<std::string> &args);
     bool save_watch_only(const std::vector<std::string> &args);
     bool set_variable(const std::vector<std::string> &args);
+    bool rescan_spent(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
@@ -165,7 +172,7 @@ namespace cryptonote
 
         if (std::chrono::milliseconds(1) < current_time - m_print_time || force)
         {
-          std::cout << "Height " << height << " of " << m_blockchain_height << '\r';
+          std::cout << QT_TRANSLATE_NOOP("cryptonote::simple_wallet", "Height ") << height << " / " << m_blockchain_height << '\r';
           m_print_time = current_time;
         }
       }

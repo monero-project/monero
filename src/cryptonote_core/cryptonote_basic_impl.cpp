@@ -46,7 +46,7 @@ namespace cryptonote {
 
   struct integrated_address {
     account_public_address adr;
-    crypto::hash payment_id;
+    crypto::hash8 payment_id;
 
     BEGIN_SERIALIZE_OBJECT()
       FIELD(adr)
@@ -99,7 +99,11 @@ namespace cryptonote {
     assert(current_block_size < std::numeric_limits<uint32_t>::max());
 
     uint64_t product_hi;
-    uint64_t product_lo = mul128(base_reward, current_block_size * (2 * median_size - current_block_size), &product_hi);
+	// BUGFIX: 32-bit saturation bug (e.g. ARM7), the result was being
+	// treated as 32-bit by default.
+    uint64_t multiplicand = 2 * median_size - current_block_size;
+    multiplicand *= current_block_size;
+    uint64_t product_lo = mul128(base_reward, multiplicand, &product_hi);
 
     uint64_t reward_hi;
     uint64_t reward_lo;
@@ -146,7 +150,7 @@ namespace cryptonote {
   std::string get_account_integrated_address_as_str(
       bool testnet
     , account_public_address const & adr
-    , crypto::hash const & payment_id
+    , crypto::hash8 const & payment_id
     )
   {
     uint64_t integrated_address_prefix = testnet ?
@@ -172,7 +176,7 @@ namespace cryptonote {
   bool get_account_integrated_address_from_str(
       account_public_address& adr
     , bool& has_payment_id
-    , crypto::hash& payment_id
+    , crypto::hash8& payment_id
     , bool testnet
     , std::string const & str
     )
@@ -274,7 +278,7 @@ namespace cryptonote {
     )
   {
     bool has_payment_id;
-    crypto::hash payment_id;
+    crypto::hash8 payment_id;
     return get_account_integrated_address_from_str(adr, has_payment_id, payment_id, testnet, str);
   }
 

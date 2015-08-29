@@ -283,7 +283,7 @@ compress_owner(struct ub_packed_rrset_key* key, sldns_buffer* pkt,
 	size_t owner_pos, uint16_t* owner_ptr, int owner_labs)
 {
 	struct compress_tree_node* p;
-	struct compress_tree_node** insertpt;
+	struct compress_tree_node** insertpt = NULL;
 	if(!*owner_ptr) {
 		/* compress first time dname */
 		if((p = compress_tree_lookup(tree, key->rk.dname, 

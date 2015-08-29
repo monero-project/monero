@@ -1,18 +1,31 @@
 LMDB 0.9 Change Log
 
-LMDB 0.9.15 Release Engineering
+LMDB 0.9.15 Release (2015/06/19)
 	Fix txn init (ITS#7961,#7987)
 	Fix MDB_PREV_DUP (ITS#7955,#7671)
 	Fix compact of empty env (ITS#7956)
+	Fix mdb_copy file mode
+	Fix mdb_env_close() after failed mdb_env_open()
+	Fix mdb_rebalance collapsing root (ITS#8062)
 	Fix mdb_load with large values (ITS#8066)
+	Fix to retry writes on EINTR (ITS#8106)
+	Fix mdb_cursor_del on empty DB (ITS#8109)
+	Fix MDB_INTEGERDUP key compare (ITS#8117)
+	Fix error handling (ITS#7959,#8157,etc.)
+	Fix race conditions (ITS#7969,7970)
 	Added workaround for fdatasync bug in ext3fs
 	Build
 		Don't use -fPIC for static lib
 		Update .gitignore (ITS#7952,#7953)
-		Cleanup for "make test" (ITS#7841)
+		Cleanup for "make test" (ITS#7841), "make clean", mtest*.c
 		Misc. Android/Windows cleanup
 	Documentation
 		Fix MDB_APPEND doc
+		Fix MDB_MAXKEYSIZE doc (ITS#8156)
+		Fix mdb_cursor_put,mdb_cursor_del EACCES description
+		Fix mdb_env_sync(MDB_RDONLY env) doc (ITS#8021)
+		Clarify MDB_WRITEMAP doc (ITS#8021)
+		Clarify mdb_env_open doc
 		Clarify mdb_dbi_open doc
 
 LMDB 0.9.14 Release (2014/09/20)

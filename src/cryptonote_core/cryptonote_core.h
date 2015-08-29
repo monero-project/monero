@@ -66,6 +66,9 @@ namespace cryptonote
      bool on_idle();
      bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block);
      bool handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate = true);
+     bool prepare_handle_incoming_blocks(const std::list<block_complete_entry>  &blocks);
+     bool cleanup_handle_incoming_blocks(bool force_sync = false);
+     	     	
      bool check_incoming_block_size(const blobdata& block_blob);
      i_cryptonote_protocol* get_protocol(){return m_pprotocol;}
 
@@ -142,6 +145,9 @@ namespace cryptonote
 
      void stop();
 
+     bool is_key_image_spent(const crypto::key_image& key_im);
+     bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent);
+
    private:
      bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
      bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
@@ -153,8 +159,6 @@ namespace cryptonote
      //check correct values, amounts and all lightweight checks not related with database
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block);
      //check if tx already in memory pool or in main blockchain
-
-     bool is_key_image_spent(const crypto::key_image& key_im);
 
      bool check_tx_ring_signature(const txin_to_key& tx, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig);
      bool is_tx_spendtime_unlocked(uint64_t unlock_time);

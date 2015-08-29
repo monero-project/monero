@@ -274,13 +274,14 @@ namespace epee
         }
 
         std::string command;
-        if(!m_stdin_reader.get_line(command))
-        {
-          LOG_PRINT("Failed to read line.", LOG_LEVEL_0);
-        }
+        bool get_line_ret = m_stdin_reader.get_line(command);
         if (m_stdin_reader.eos())
         {
           break;
+        }
+        if (!get_line_ret)
+        {
+          LOG_PRINT("Failed to read line.", LOG_LEVEL_0);
         }
         string_tools::trim(command);
 
@@ -303,7 +304,8 @@ namespace epee
           std::cout << usage;
         }
       }
-      exit_handler();
+      if (exit_handler)
+        exit_handler();
       return true;
       CATCH_ENTRY_L0("console_handler", false);
     }

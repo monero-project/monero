@@ -568,7 +568,7 @@ answer_from_cache(struct worker* worker, struct query_info* qinfo,
 	if(rep->an_numrrsets > 0 && (rep->rrsets[0]->rk.type == 
 		htons(LDNS_RR_TYPE_CNAME) || rep->rrsets[0]->rk.type == 
 		htons(LDNS_RR_TYPE_DNAME))) {
-		if(!reply_check_cname_chain(rep)) {
+		if(!reply_check_cname_chain(qinfo, rep)) {
 			/* cname chain invalid, redo iterator steps */
 			verbose(VERB_ALGO, "Cache reply: cname chain broken");
 		bail_out:

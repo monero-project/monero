@@ -128,7 +128,11 @@ namespace cryptonote
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
+#if BLOCKCHAIN_DB == DB_LMDB
+    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, kept_by_block);
+#else
     bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id);
+#endif
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     if(!ch_inp_res)
     {
@@ -203,6 +207,9 @@ namespace cryptonote
   bool tx_memory_pool::remove_transaction_keyimages(const transaction& tx)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
+	// ND: Speedup
+	// 1. Move transaction hash calcuation outside of loop. ._.
+    crypto::hash actual_hash = get_transaction_hash(tx);
     BOOST_FOREACH(const txin_v& vi, tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(vi, const txin_to_key, txin, false);
@@ -211,11 +218,11 @@ namespace cryptonote
                                     << "transaction id = " << get_transaction_hash(tx));
       std::unordered_set<crypto::hash>& key_image_set =  it->second;
       CHECK_AND_ASSERT_MES(key_image_set.size(), false, "empty key_image set, img=" << txin.k_image << ENDL
-        << "transaction id = " << get_transaction_hash(tx));
+        << "transaction id = " << actual_hash);
 
-      auto it_in_set = key_image_set.find(get_transaction_hash(tx));
+      auto it_in_set = key_image_set.find(actual_hash);
       CHECK_AND_ASSERT_MES(it_in_set != key_image_set.end(), false, "transaction id not found in key_image set, img=" << txin.k_image << ENDL
-        << "transaction id = " << get_transaction_hash(tx));
+        << "transaction id = " << actual_hash);
       key_image_set.erase(it_in_set);
       if(!key_image_set.size())
       {
@@ -503,7 +510,10 @@ namespace cryptonote
 
       // Can not exceed maximum block size
       if (max_total_size < total_size + tx_it->second.blob_size)
+      {
+        sorted_it++;
         continue;
+      }
 
       // If adding this tx will make the block size
       // greater than CRYPTONOTE_GETBLOCKTEMPLATE_MAX
@@ -511,7 +521,10 @@ namespace cryptonote
       // keep block sizes from becoming too unwieldly
       // to propagate at 60s block times.
       if ( (total_size + tx_it->second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
+      {
+        sorted_it++;
         continue;
+      }
 
       // If we've exceeded the penalty free size,
       // stop including more tx
@@ -522,7 +535,10 @@ namespace cryptonote
       // included into the blockchain or that are
       // missing key images
       if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
+      {
+        sorted_it++;
         continue;
+      }
 
       bl.tx_hashes.push_back(tx_it->first);
       total_size += tx_it->second.blob_size;

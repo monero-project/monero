@@ -86,6 +86,12 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_testnet_on);
       command_line::add_arg(core_settings, daemon_args::arg_dns_checkpoints);
       command_line::add_arg(core_settings, daemon_args::arg_db_type);
+      command_line::add_arg(core_settings, daemon_args::arg_prep_blocks_threads);
+      command_line::add_arg(core_settings, daemon_args::arg_fast_block_sync);
+      command_line::add_arg(core_settings, daemon_args::arg_db_sync_mode);
+      command_line::add_arg(core_settings, daemon_args::arg_show_time_stats);
+      command_line::add_arg(core_settings, daemon_args::arg_db_auto_remove_logs);
+
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
 

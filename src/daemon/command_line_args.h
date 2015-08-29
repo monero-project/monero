@@ -75,7 +75,32 @@ namespace daemon_args
   , "Specify database type"
   , "lmdb"
   };
-
+  const command_line::arg_descriptor<uint64_t> arg_prep_blocks_threads = {
+    "prep-blocks-threads"
+  , "Max number of threads to use when preparing block hashes in groups."
+  , 4
+  };
+  const command_line::arg_descriptor<uint64_t> arg_fast_block_sync = {
+    "fast-block-sync"
+  , "Test fast block-sync option using temporarily embedded known block hashes."
+  , 1
+  };
+  const command_line::arg_descriptor<uint64_t> arg_show_time_stats  = {
+    "show-time-stats"
+  , "Show time-stats when processing blocks/txs and disk synchronization."
+  , 1
+  };
+  const command_line::arg_descriptor<uint64_t> arg_db_auto_remove_logs  = {
+    "db-auto-remove-logs"
+  , "For BerkeleyDB only. Remove transactions logs automatically."
+  , 1
+  };
+  const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
+    "db-sync-mode"
+  , "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[nblocks_per_sync]." 
+  , "fastest:async:1000"
+  };
+;
 }  // namespace daemon_args
 
 #endif // DAEMON_COMMAND_LINE_ARGS_H

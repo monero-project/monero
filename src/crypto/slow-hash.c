@@ -624,6 +624,196 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
 }
 
+#elif defined(__arm__)
+// ND: Some minor optimizations for ARM7 (raspberrry pi 2), effect seems to be ~40-50% faster.
+//     Needs more work.
+void slow_hash_allocate_state(void)
+{
+  // Do nothing, this is just to maintain compatibility with the upgraded slow-hash.c
+  return;
+}
+
+void slow_hash_free_state(void)
+{
+  // As above
+  return;
+}
+
+static void (*const extra_hashes[4])(const void *, size_t, char *) = {
+  hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
+};
+
+#define MEMORY         (1 << 21) /* 2 MiB */
+#define ITER           (1 << 20)
+#define AES_BLOCK_SIZE  16
+#define AES_KEY_SIZE    32 /*16*/
+#define INIT_SIZE_BLK   8
+#define INIT_SIZE_BYTE (INIT_SIZE_BLK * AES_BLOCK_SIZE)
+
+#if defined(__GNUC__)
+#define RDATA_ALIGN16 __attribute__ ((aligned(16)))
+#define STATIC static
+#define INLINE inline
+#else
+#define RDATA_ALIGN16
+#define STATIC static
+#define INLINE
+#endif
+
+#define U64(x) ((uint64_t *) (x))
+
+#include "aesb.c"
+
+STATIC INLINE void ___mul128(uint32_t *a, uint32_t *b, uint32_t *h, uint32_t *l)
+{
+	// ND: 64x64 multiplication for ARM7
+	__asm__ __volatile__
+	(
+			  //  lo    hi
+		"umull %[r0], %[r1], %[b], %[d]\n\t"  // bd [r0 = bd.lo]
+		"umull %[r2], %[r3], %[b], %[c]\n\t"  // bc
+		"umull %[b],  %[c],  %[a], %[c]\n\t"  // ac
+		"adds  %[r1], %[r1], %[r2]\n\t"       // r1 = bd.hi + bc.lo
+		"adcs  %[r2], %[r3], %[b]\n\t"        // r2 = ac.lo + bc.hi + carry
+		"adc   %[r3], %[c],  #0\n\t"          // r3 = ac.hi + carry
+		"umull %[b],  %[a],  %[a], %[d]\n\t"  // ad
+		"adds  %[r1], %[r1], %[b]\n\t"        // r1 = bd.hi + bc.lo + ad.lo
+		"adcs  %[r2], %[r2], %[a]\n\t"        // r2 = ac.lo + bc.hi + ad.hi + carry
+		"adc   %[r3], %[r3], #0\n\t"          // r3 = ac.hi + carry
+		: [r0]"=&r"(l[0]), [r1]"=&r"(l[1]), [r2]"=&r"(h[0]), [r3]"=&r"(h[1])
+		: [a]"r"(a[1]), [b]"r"(a[0]), [c]"r"(b[1]), [d]"r"(b[0])
+		: "cc"
+	);
+}
+
+STATIC INLINE void mul(const uint8_t* a, const uint8_t* b, uint8_t* res)
+{
+	___mul128((uint32_t *) a, (uint32_t *) b, (uint32_t *) (res + 0), (uint32_t *) (res + 8));
+}
+
+STATIC INLINE void sum_half_blocks(uint8_t* a, const uint8_t* b)
+{
+	uint64_t a0, a1, b0, b1;
+	a0 = U64(a)[0];
+	a1 = U64(a)[1];
+	b0 = U64(b)[0];
+	b1 = U64(b)[1];
+	a0 += b0;
+	a1 += b1;
+	U64(a)[0] = a0;
+	U64(a)[1] = a1;
+}
+
+STATIC INLINE void swap_blocks(uint8_t *a, uint8_t *b)
+{
+	uint64_t t[2];
+	U64(t)[0] = U64(a)[0];
+	U64(t)[1] = U64(a)[1];
+	U64(a)[0] = U64(b)[0];
+	U64(a)[1] = U64(b)[1];
+	U64(b)[0] = U64(t)[0];
+	U64(b)[1] = U64(t)[1];
+}
+
+STATIC INLINE void xor_blocks(uint8_t* a, const uint8_t* b)
+{
+	U64(a)[0] ^= U64(b)[0];
+	U64(a)[1] ^= U64(b)[1];
+}
+
+#pragma pack(push, 1)
+union cn_slow_hash_state
+{
+    union hash_state hs;
+    struct
+    {
+        uint8_t k[64];
+        uint8_t init[INIT_SIZE_BYTE];
+    };
+};
+#pragma pack(pop)
+
+void cn_slow_hash(const void *data, size_t length, char *hash)
+{
+    uint8_t long_state[MEMORY];
+    uint8_t text[INIT_SIZE_BYTE];
+    uint8_t a[AES_BLOCK_SIZE];
+    uint8_t b[AES_BLOCK_SIZE];
+    uint8_t d[AES_BLOCK_SIZE];
+    uint8_t aes_key[AES_KEY_SIZE];
+    RDATA_ALIGN16 uint8_t expandedKey[256];
+
+    union cn_slow_hash_state state;
+
+    size_t i, j;
+    uint8_t *p = NULL;
+    oaes_ctx *aes_ctx;
+    static void (*const extra_hashes[4])(const void *, size_t, char *) =
+    {
+        hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
+    };
+
+    hash_process(&state.hs, data, length);
+    memcpy(text, state.init, INIT_SIZE_BYTE);
+
+    aes_ctx = (oaes_ctx *) oaes_alloc();
+    oaes_key_import_data(aes_ctx, state.hs.b, AES_KEY_SIZE);
+
+    // use aligned data
+    memcpy(expandedKey, aes_ctx->key->exp_data, aes_ctx->key->exp_data_len);
+    for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+    {
+        for(j = 0; j < INIT_SIZE_BLK; j++)
+            aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], expandedKey);
+            memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
+    }
+
+    U64(a)[0] = U64(&state.k[0])[0] ^ U64(&state.k[32])[0];
+    U64(a)[1] = U64(&state.k[0])[1] ^ U64(&state.k[32])[1];
+    U64(b)[0] = U64(&state.k[16])[0] ^ U64(&state.k[48])[0];
+    U64(b)[1] = U64(&state.k[16])[1] ^ U64(&state.k[48])[1];
+
+    for(i = 0; i < ITER / 2; i++)
+    {
+		#define MASK ((uint32_t)(((MEMORY / AES_BLOCK_SIZE) - 1) << 4))
+		#define state_index(x) ((*(uint32_t *) x) & MASK)
+
+        // Iteration 1
+        p = &long_state[state_index(a)];
+        aesb_single_round(p, p, a);
+
+        xor_blocks(b, p);
+        swap_blocks(b, p);
+        swap_blocks(a, b);
+
+        // Iteration 2
+        p = &long_state[state_index(a)];
+
+        mul(a, p, d);
+        sum_half_blocks(b, d);
+        swap_blocks(b, p);
+        xor_blocks(b, p);
+        swap_blocks(a, b);
+    }
+
+    memcpy(text, state.init, INIT_SIZE_BYTE);
+    oaes_key_import_data(aes_ctx, &state.hs.b[32], AES_KEY_SIZE);
+    memcpy(expandedKey, aes_ctx->key->exp_data, aes_ctx->key->exp_data_len);
+    for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+    {
+        for(j = 0; j < INIT_SIZE_BLK; j++)
+        {
+            xor_blocks(&text[j * AES_BLOCK_SIZE], &long_state[i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE]);
+            aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], expandedKey);
+        }
+    }
+
+    oaes_free((OAES_CTX **) &aes_ctx);
+    memcpy(state.init, text, INIT_SIZE_BYTE);
+    hash_permutation(&state.hs);
+    extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
+}
+
 #else
 // Portable implementation as a fallback
 

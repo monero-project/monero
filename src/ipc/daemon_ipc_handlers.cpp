@@ -390,6 +390,19 @@ namespace IPC
 
       typedef cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount outs_for_amount;
       typedef cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
+      std::stringstream ss;
+      std::for_each(res.outs.begin(), res.outs.end(), [&](outs_for_amount& ofa)
+      {
+        ss << "[" << ofa.amount << "]:";
+        CHECK_AND_ASSERT_MES(ofa.outs.size(), ;, "internal error: ofa.outs.size() is empty for amount " << ofa.amount);
+        std::for_each(ofa.outs.begin(), ofa.outs.end(), [&](out_entry& oe)
+            {
+              ss << oe.global_amount_index << " ";
+            });
+        ss << ENDL;
+      });
+      std::string s = ss.str();
+      LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: " << ENDL << s);
       for (unsigned int i = 0; i < res.outs.size(); i++) {
         rapidjson::Value output(rapidjson::kObjectType);
         outs_for_amount out = res.outs[i];
@@ -417,19 +430,6 @@ namespace IPC
       zframe_t *frame = zframe_new(block_string.c_str(), block_string.length());
       wap_proto_set_random_outputs(message, &frame);
 
-      std::stringstream ss;
-      std::for_each(res.outs.begin(), res.outs.end(), [&](outs_for_amount& ofa)
-      {
-        ss << "[" << ofa.amount << "]:";
-        CHECK_AND_ASSERT_MES(ofa.outs.size(), ;, "internal error: ofa.outs.size() is empty for amount " << ofa.amount);
-        std::for_each(ofa.outs.begin(), ofa.outs.end(), [&](out_entry& oe)
-            {
-              ss << oe.global_amount_index << " ";
-            });
-        ss << ENDL;
-      });
-      std::string s = ss.str();
-      LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: " << ENDL << s);
       wap_proto_set_status(message, STATUS_OK);
     }
 

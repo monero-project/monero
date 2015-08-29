@@ -444,6 +444,9 @@ server:
 	# If the value 0 is given, missing anchors are not removed.
 	# keep-missing: 31622400 # 366 days
 
+	# debug option that allows very small holddown times for key rollover
+	# permit-small-holddown: no
+
 	# the amount of memory to use for the key cache.
 	# plain value in bytes or you can append k, m or G. default is "4Mb". 
 	# key-cache-size: 4m
@@ -623,6 +626,8 @@ remote-control:
 # nameservers by hostname or by ipaddress. If you set stub-prime to yes, 
 # the list is treated as priming hints (default is no).
 # With stub-first yes, it attempts without the stub if it fails.
+# Consider adding domain-insecure: name and local-zone: name nodefault
+# to the server: section if the stub is a locally served zone.
 # stub-zone:
 #	name: "example.com"
 #	stub-addr: 192.0.2.68

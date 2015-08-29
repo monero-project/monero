@@ -2495,8 +2495,8 @@ wap_proto_test (bool verbose)
 {
     printf (" * wap_proto:");
 
-    //  Silence an "unused" warning by "using" the verbose variable
-    if (verbose) {;}
+    if (verbose)
+        printf ("\n");
 
     //  @selftest
     //  Simple create/destroy test
@@ -2556,6 +2556,7 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         zlist_t *block_ids = wap_proto_get_block_ids (self);
+        assert (block_ids);
         assert (zlist_size (block_ids) == 2);
         assert (streq ((char *) zlist_first (block_ids), "Name: Brutus"));
         assert (streq ((char *) zlist_next (block_ids), "Age: 43"));
@@ -2585,7 +2586,8 @@ wap_proto_test (bool verbose)
         char *content = zmsg_popstr (wap_proto_block_data (self));
         assert (streq (content, "Captcha Diem"));
         zstr_free (&content);
-        zmsg_destroy (&blocks_ok_block_data);
+        if (instance == 1)
+            zmsg_destroy (&blocks_ok_block_data);
     }
     wap_proto_set_id (self, WAP_PROTO_PUT);
 
@@ -2599,7 +2601,8 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_tx_as_hex (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&put_tx_as_hex);
+        if (instance == 1)
+            zchunk_destroy (&put_tx_as_hex);
     }
     wap_proto_set_id (self, WAP_PROTO_PUT_OK);
 
@@ -2625,7 +2628,8 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_tx_id (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&output_indexes_tx_id);
+        if (instance == 1)
+            zchunk_destroy (&output_indexes_tx_id);
     }
     wap_proto_set_id (self, WAP_PROTO_OUTPUT_INDEXES_OK);
 
@@ -2641,7 +2645,8 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
         assert (zframe_streq (wap_proto_o_indexes (self), "Captcha Diem"));
-        zframe_destroy (&output_indexes_ok_o_indexes);
+        if (instance == 1)
+            zframe_destroy (&output_indexes_ok_o_indexes);
     }
     wap_proto_set_id (self, WAP_PROTO_RANDOM_OUTS);
 
@@ -2657,7 +2662,8 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_outs_count (self) == 123);
         assert (zframe_streq (wap_proto_amounts (self), "Captcha Diem"));
-        zframe_destroy (&random_outs_amounts);
+        if (instance == 1)
+            zframe_destroy (&random_outs_amounts);
     }
     wap_proto_set_id (self, WAP_PROTO_RANDOM_OUTS_OK);
 
@@ -2673,7 +2679,8 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
         assert (zframe_streq (wap_proto_random_outputs (self), "Captcha Diem"));
-        zframe_destroy (&random_outs_ok_random_outputs);
+        if (instance == 1)
+            zframe_destroy (&random_outs_ok_random_outputs);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_HEIGHT);
 
@@ -2711,7 +2718,8 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_tx_id (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&get_tx_id);
+        if (instance == 1)
+            zchunk_destroy (&get_tx_id);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_OK);
 
@@ -2725,7 +2733,8 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_tx_data (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&get_ok_tx_data);
+        if (instance == 1)
+            zchunk_destroy (&get_ok_tx_data);
     }
     wap_proto_set_id (self, WAP_PROTO_SAVE_BC);
 
@@ -2762,7 +2771,8 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&start_address);
+        if (instance == 1)
+            zchunk_destroy (&start_address);
         assert (wap_proto_thread_count (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_START_OK);
@@ -2845,9 +2855,11 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
         assert (zframe_streq (wap_proto_white_list (self), "Captcha Diem"));
-        zframe_destroy (&get_peer_list_ok_white_list);
+        if (instance == 1)
+            zframe_destroy (&get_peer_list_ok_white_list);
         assert (zframe_streq (wap_proto_gray_list (self), "Captcha Diem"));
-        zframe_destroy (&get_peer_list_ok_gray_list);
+        if (instance == 1)
+            zframe_destroy (&get_peer_list_ok_gray_list);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_MINING_STATUS);
 
@@ -2879,7 +2891,8 @@ wap_proto_test (bool verbose)
         assert (wap_proto_speed (self) == 123);
         assert (wap_proto_thread_count (self) == 123);
         assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&get_mining_status_ok_address);
+        if (instance == 1)
+            zchunk_destroy (&get_mining_status_ok_address);
     }
     wap_proto_set_id (self, WAP_PROTO_SET_LOG_HASH_RATE);
 
@@ -2999,7 +3012,8 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
         assert (memcmp (zchunk_data (wap_proto_hash (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&get_block_hash_ok_hash);
+        if (instance == 1)
+            zchunk_destroy (&get_block_hash_ok_hash);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_TEMPLATE);
 
@@ -3015,7 +3029,8 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_reserve_size (self) == 123);
         assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&get_block_template_address);
+        if (instance == 1)
+            zchunk_destroy (&get_block_template_address);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_TEMPLATE_OK);
 
@@ -3039,9 +3054,11 @@ wap_proto_test (bool verbose)
         assert (wap_proto_height (self) == 123);
         assert (wap_proto_difficulty (self) == 123);
         assert (memcmp (zchunk_data (wap_proto_prev_hash (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&get_block_template_ok_prev_hash);
+        if (instance == 1)
+            zchunk_destroy (&get_block_template_ok_prev_hash);
         assert (memcmp (zchunk_data (wap_proto_block_template_blob (self)), "Captcha Diem", 12) == 0);
-        zchunk_destroy (&get_block_template_ok_block_template_blob);
+        if (instance == 1)
+            zchunk_destroy (&get_block_template_ok_block_template_blob);
     }
     wap_proto_set_id (self, WAP_PROTO_STOP);
 

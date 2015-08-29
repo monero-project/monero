@@ -134,7 +134,7 @@ cd build
 ```
 * If you are on a 64-bit system, run:
 ```
-cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="x86_64" -D BUILD_64=ON -D CMAKE_TOOLCHAIN_FILE=../cmake/64-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys64 ..
+cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="x86-64" -D BUILD_64=ON -D CMAKE_TOOLCHAIN_FILE=../cmake/64-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys64 ..
 ```
 * If you are on a 32-bit system, run:
 ```
@@ -167,3 +167,8 @@ Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
 * To build, change to the root of the source code directory, and run `doxygen Doxyfile`
 * If you have installed Graphviz, you can also generate in-doc diagrams by instead running `HAVE_DOT=YES doxygen Doxyfile`
 * The output will be built in doc/html/
+
+## Internationalization
+
+See README.i18n
+

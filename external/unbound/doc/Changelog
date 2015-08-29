@@ -1,3 +1,73 @@
+13 August 2015: Wouter
+	- 5011 implementation does not insist on all algorithms, when
+	  harden-algo-downgrade is turned off.
+	- Reap the child process that libunbound spawns.
+
+11 August 2015: Wouter
+	- Fix #694: configure script does not detect LibreSSL 2.2.2
+
+4 August 2015: Wouter
+	- Document that local-zone nodefault matches exactly and transparent
+	  can be used to release a subzone.
+
+3 August 2015: Wouter
+	- Document in the manual more text about configuring locally served
+	  zones.
+	- Fix 5011 anchor update timer after reload.
+	- Fix mktime in unbound-anchor not using UTC.
+
+30 July 2015: Wouter
+	- please afl-gcc (llvm) for uninitialised variable warning.
+	- Added permit-small-holddown config to debug fast 5011 rollover.
+
+24 July 2015: Wouter
+	- Fix #690: Reload fails when so-reuseport is yes after changing
+	  num-threads.
+	- iana portlist update.
+
+21 July 2015: Wouter
+	- Fix configure to detect SSL_CTX_set_ecdh_auto.
+	- iana portlist update.
+
+20 July 2015: Wouter
+	- Enable ECDHE for servers.  Where available, use
+	  SSL_CTX_set_ecdh_auto() for TLS-wrapped server configurations to
+	  enable ECDHE.  Otherwise, manually offer curve p256.
+	  Client connections should automatically use ECDHE when available.
+	  (thanks Daniel Kahn Gillmor)
+
+18 July 2015: Willem
+	- Allow certificate chain files to allow for intermediate certificates.
+	  (thanks Daniel Kahn Gillmor)
+
+13 July 2015: Wouter
+	- makedist produces sha1 and sha256 files for created binaries too.
+
+9 July 2015: Wouter
+	- 1.5.4 release tag
+	- trunk has 1.5.5 in development.
+	- Fix #681: Setting forwarders with unbound-control forward
+	  implicitly turns on forward-first.
+
+29 June 2015: Wouter
+	- iana portlist update.
+	- Fix alloc with log for allocation size checks.
+
+26 June 2015: Wouter
+	- Fix #677 Fix DNAME responses from cache that failed internal chain
+	  test.
+	- iana portlist update.
+
+22 June 2015: Wouter
+	- Fix #677 Fix CNAME corresponding to a DNAME was checked incorrectly
+	  and was therefore always synthesized (thanks to Valentin Dietrich).
+
+4 June 2015: Wouter
+	- RFC 7553 RR type URI support, is now enabled by default.
+
+2 June 2015: Wouter
+	- Fix #674: Do not free pointers given by getenv.
+
 29 May 2015: Wouter
 	- Fix that unparseable error responses are ratelimited.
 	- SOA negative TTL is capped at minimumttl in its rdata section.

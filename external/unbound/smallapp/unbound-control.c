@@ -161,7 +161,7 @@ setup_ctx(struct config_file* cfg)
         if(cfg->remote_control_use_cert) {
 		if(!(SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3) & SSL_OP_NO_SSLv3))
 			ssl_err("could not set SSL_OP_NO_SSLv3");
-		if(!SSL_CTX_use_certificate_file(ctx,c_cert,SSL_FILETYPE_PEM) ||
+		if(!SSL_CTX_use_certificate_chain_file(ctx,c_cert) ||
 		    !SSL_CTX_use_PrivateKey_file(ctx,c_key,SSL_FILETYPE_PEM)
 		    || !SSL_CTX_check_private_key(ctx))
 			ssl_err("Error setting up SSL_CTX client key and cert");

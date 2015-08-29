@@ -45,6 +45,40 @@ function (die msg)
   message(FATAL_ERROR "${BoldRed}${msg}${ColourReset}")
 endfunction ()
 
+if (NOT ${ARCH} STREQUAL "")
+	string(SUBSTRING ${ARCH} 0 3 IS_ARM)
+	string(TOLOWER ${IS_ARM} IS_ARM)
+
+	if (${IS_ARM} STREQUAL "arm")
+		string(SUBSTRING ${ARCH} 0 5 ARM_TEST)
+		string(TOLOWER ${ARM_TEST} ARM_TEST)
+	
+		if (${ARM_TEST} STREQUAL "armv6")
+			set(ARM6 1)
+		else()
+			set(ARM6 0)
+		endif()
+	   
+		if (${ARM_TEST} STREQUAL "armv7")
+			set(ARM7 1)
+		else()
+			set(ARM7 0)
+		endif()	
+	endif()
+endif()
+
+if(WIN32 OR ARM7 OR ARM6)
+	set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+endif()
+
+# set this to 0 if per-block checkpoint needs to be disabled
+set(PER_BLOCK_CHECKPOINT 1)
+
+if(PER_BLOCK_CHECKPOINT)
+  add_definitions("-DPER_BLOCK_CHECKPOINT")
+endif()
+
 list(INSERT CMAKE_MODULE_PATH 0
   "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -127,16 +161,16 @@ endif()
 option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
 if(MINGW)
-  get_filename_component(msys2_install_path "[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MSYS2 ${ARCH_WIDTH}bit;InstallLocation]" ABSOLUTE)
+  string(REGEX MATCH "^[^/]:/[^/]*" msys2_install_path "${CMAKE_C_COMPILER}")
+  message(STATUS "MSYS location: ${msys2_install_path}")
   set(CMAKE_INCLUDE_PATH "${msys2_install_path}/mingw${ARCH_WIDTH}/include")
   # This is necessary because otherwise CMake will make Boost libraries -lfoo
   # rather than a full path. Unfortunately, this makes the shared libraries get
   # linked due to a bug in CMake which misses putting -static flags around the
   # -lfoo arguments.
-  list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_DIRECTORIES
-    "${msys2_install_path}/mingw${ARCH_WIDTH}/lib")
-  list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES
-    "${msys2_install_path}/mingw${ARCH_WIDTH}/lib")
+  set(DEFLIB ${msys2_install_path}/mingw${ARCH_WIDTH}/lib)
+  list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_DIRECTORIES ${DEFLIB})
+  list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES ${DEFLIB})
 endif()
 
 if(STATIC)
@@ -158,18 +192,47 @@ if (DEFINED ENV{DATABASE})
 else()
   message(STATUS "Could not find DATABASE in env (not required unless you want to change database type from default: ${DATABASE})")
 endif()
+
+set(BERKELEY_DB 0)
 if (DATABASE STREQUAL "lmdb")
   set(BLOCKCHAIN_DB DB_LMDB)
+  
+  # temporarily allow mingw to compile with berkeley_db,
+  # regardless if building static or not
+  if(NOT STATIC OR MINGW)
+	  find_package(BerkeleyDB)
+		
+	  if(NOT BERKELEY_DB_LIBRARIES)
+	    message(STATUS "BerkeleyDB not found and has been disabled.")
+	  else()
+	    message(STATUS "Found BerkeleyDB include (db.h) in ${BERKELEY_DB_INCLUDE_DIR}")
+		if(BERKELEY_DB_LIBRARIES)
+		  message(STATUS "Found BerkeleyDB shared library")
+		  set(BDB_STATIC false CACHE BOOL "BDB Static flag")
+		  set(BDB_INCLUDE ${BERKELEY_DB_INCLUDE_DIR} CACHE STRING "BDB include path")
+		  set(BDB_LIBRARY ${BERKELEY_DB_LIBRARIES} CACHE STRING "BDB library name")
+		  set(BDB_LIBRARY_DIRS "" CACHE STRING "BDB Library dirs")
+		  set(BERKELEY_DB 1)
+		else()
+		  message(STATUS "Found BerkeleyDB includes, but could not find BerkeleyDB library. Please make sure you have installed libdb and libdb-dev or the equivalent")
+		endif()
+	  endif()
+  endif()
 elseif (DATABASE STREQUAL "memory")
   set(BLOCKCHAIN_DB DB_MEMORY)
 else()
   die("Invalid database type: ${DATABASE}")
 endif()
 
+if(BERKELEY_DB)
+  add_definitions("-DBERKELEY_DB")
+endif()
+	
 add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
   find_package(Threads)
 endif()
 
@@ -194,7 +257,7 @@ include_directories(external/rapidjson)
 include_directories(${LMDB_INCLUDE})
 
 # Final setup for Berkeley DB
-if (NOT STATIC)
+if (BERKELEY_DB)
   include_directories(${BDB_INCLUDE})
 endif()
 
@@ -210,10 +273,15 @@ if(MSVC)
   include_directories(SYSTEM src/platform/msc)
 else()
   set(ARCH native CACHE STRING "CPU to build for: -march value or default")
-  if(ARCH STREQUAL "default")
+  # -march=armv7-a conflicts with -mcpu=cortex-a7
+  if(ARCH STREQUAL "default" OR ARM7)
     set(ARCH_FLAG "")
   else()
-    set(ARCH_FLAG "-march=${ARCH}")
+    if(ARCH STREQUAL "x86_64")
+      set(ARCH_FLAG "-march=x86-64")
+    else()
+       set(ARCH_FLAG "-march=${ARCH}")
+    endif()
   endif()
   set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-error=sign-compare -Wno-error=strict-aliasing -Wno-error=type-limits -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
@@ -256,12 +324,16 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${ARCH_FLAG} -maes")
   endif()
 
-  string(SUBSTRING ${ARCH} 0 3 ARM_TEST)
-  string(TOLOWER ${ARM_TEST} ARM_TEST)
-  if(${ARM_TEST} STREQUAL "arm")
-    message(STATUS "Setting ARM C and C++ flags")
+  if(ARM6)
+    message(STATUS "Setting ARM6 C and C++ flags")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
+  endif()
+
+  if(ARM7)
+    message(STATUS "Setting ARM7 C and C++ flags")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=vfpv4 -funsafe-math-optimizations -mtune=cortex-a7")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=vfpv4 -funsafe-math-optimizations -mtune=cortex-a7")
   endif()
 
   if(APPLE)
@@ -341,7 +413,7 @@ elseif(APPLE OR FREEBSD)
   set(EXTRA_LIBRARIES "")
 elseif(NOT MSVC)
   find_library(RT rt)
-  set(EXTRA_LIBRARIES ${RT} ${PTHREAD} ${DL})
+  set(EXTRA_LIBRARIES ${RT} ${DL})
 endif()
 
 include(version.cmake)

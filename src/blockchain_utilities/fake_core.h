@@ -96,9 +96,9 @@ struct fake_core_lmdb
     return m_storage.get_db().add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
   }
 
-  void batch_start()
+  void batch_start(uint64_t batch_num_blocks = 0)
   {
-    m_storage.get_db().batch_start();
+    m_storage.get_db().batch_start(batch_num_blocks);
   }
 
   void batch_stop()
@@ -150,7 +150,7 @@ struct fake_core_memory
     return 2;
   }
 
-  void batch_start()
+  void batch_start(uint64_t batch_num_blocks = 0)
   {
     LOG_PRINT_L0("WARNING: [batch_start] opt_batch set, but this database doesn't support/need transactions - ignoring");
   }

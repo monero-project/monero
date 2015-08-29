@@ -482,6 +482,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   }
   else
   {
+    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
     if (!m_rpc_server->on_get_transactions(req, res))
     {
       tools::fail_msg_writer() << fail_message.c_str();
@@ -491,11 +492,65 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
 
   if (1 == res.txs_as_hex.size())
   {
+    // first as hex
     tools::success_msg_writer() << res.txs_as_hex.front();
+
+    // then as json
+    crypto::hash tx_hash, tx_prefix_hash;
+    cryptonote::transaction tx;
+    cryptonote::blobdata blob;
+    if (!string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), blob))
+    {
+      tools::fail_msg_writer() << "Failed to parse tx";
+    }
+    else if (!cryptonote::parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash))
+    {
+      tools::fail_msg_writer() << "Failed to parse tx blob";
+    }
+    else
+    {
+      tools::success_msg_writer() << cryptonote::obj_to_json_str(tx) << std::endl;
+    }
   }
   else
   {
-    tools::fail_msg_writer() << "transaction wasn't found: <" << transaction_hash << '>' << std::endl;
+    tools::fail_msg_writer() << "transaction wasn't found: " << transaction_hash << std::endl;
+  }
+
+  return true;
+}
+
+bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
+  cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req;
+  cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::response res;
+
+  std::string fail_message = "Problem checkking key image";
+
+  req.key_images.push_back(epee::string_tools::pod_to_hex(ki));
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/is_key_image_spent", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_is_key_image_spent(req, res))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  if (1 == res.spent_status.size())
+  {
+    // first as hex
+    tools::success_msg_writer() << ki << ": " << (res.spent_status.front() ? "spent" : "unspent");
+  }
+  else
+  {
+    tools::fail_msg_writer() << "key image status could not be determined" << std::endl;
   }
 
   return true;

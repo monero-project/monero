@@ -225,6 +225,29 @@ namespace cryptonote
       res.status = "Failed";
       return true;
     }
+    LOG_PRINT_L2("Found " << txs.size() << "/" << vh.size() << " transactions on the blockchain");
+
+    // try the pool for any missing txes
+    size_t found_in_pool = 0;
+    if (!missed_txs.empty())
+    {
+      std::list<transaction> pool_txs;
+      bool r = m_core.get_pool_transactions(pool_txs);
+      if(r)
+      {
+        for (std::list<transaction>::const_iterator i = pool_txs.begin(); i != pool_txs.end(); ++i)
+        {
+          std::list<crypto::hash>::iterator mi = std::find(missed_txs.begin(), missed_txs.end(), get_transaction_hash(*i));
+          if (mi != missed_txs.end())
+          {
+            missed_txs.erase(mi);
+            txs.push_back(*i);
+            ++found_in_pool;
+          }
+        }
+      }
+      LOG_PRINT_L2("Found " << found_in_pool << "/" << vh.size() << " transactions in the pool");
+    }
 
     BOOST_FOREACH(auto& tx, txs)
     {
@@ -236,6 +259,40 @@ namespace cryptonote
     {
       res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
     }
+
+    LOG_PRINT_L2(res.txs_as_hex.size() << " transactions found, " << res.missed_tx.size() << " not found");
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_is_key_image_spent(const COMMAND_RPC_IS_KEY_IMAGE_SPENT::request& req, COMMAND_RPC_IS_KEY_IMAGE_SPENT::response& res)
+  {
+    CHECK_CORE_BUSY();
+    std::vector<crypto::key_image> key_images;
+    BOOST_FOREACH(const auto& ki_hex_str, req.key_images)
+    {
+      blobdata b;
+      if(!string_tools::parse_hexstr_to_binbuff(ki_hex_str, b))
+      {
+        res.status = "Failed to parse hex representation of key image";
+        return true;
+      }
+      if(b.size() != sizeof(crypto::key_image))
+      {
+        res.status = "Failed, size of data mismatch";
+      }
+      key_images.push_back(*reinterpret_cast<const crypto::key_image*>(b.data()));
+    }
+    std::vector<bool> spent_status;
+    bool r = m_core.are_key_images_spent(key_images, spent_status);
+    if(!r)
+    {
+      res.status = "Failed";
+      return true;
+    }
+    res.spent_status.clear();
+    for (size_t n = 0; n < spent_status.size(); ++n)
+      res.spent_status.push_back(spent_status[n]);
 
     res.status = CORE_RPC_STATUS_OK;
     return true;

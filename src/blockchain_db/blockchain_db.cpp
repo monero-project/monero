@@ -56,24 +56,37 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     tx_hash = *tx_hash_ptr;
   }
 
+  for (const txin_v& tx_input : tx.vin)
+  {
+    if (tx_input.type() == typeid(txin_to_key))
+    {
+      add_spent_key(boost::get<txin_to_key>(tx_input).k_image);
+    }
+    else if (tx_input.type() == typeid(txin_gen))
+    {
+      /* nothing to do here */
+    }
+    else
+    {
+      LOG_PRINT_L1("Unsupported input type, removing key images and aborting transaction addition");
+      for (const txin_v& tx_input : tx.vin)
+      {
+        if (tx_input.type() == typeid(txin_to_key))
+        {
+          remove_spent_key(boost::get<txin_to_key>(tx_input).k_image);
+        }
+      }
+      return;
+    }
+  }
+
   add_transaction_data(blk_hash, tx, tx_hash);
 
   // iterate tx.vout using indices instead of C++11 foreach syntax because
   // we need the index
-  if (tx.vout.size() != 0)  // it may be technically possible for a tx to have no outputs
+  for (uint64_t i = 0; i < tx.vout.size(); ++i)
   {
-    for (uint64_t i = 0; i < tx.vout.size(); ++i)
-    {
-      add_output(tx_hash, tx.vout[i], i);
-    }
-
-    for (const txin_v& tx_input : tx.vin)
-    {
-      if (tx_input.type() == typeid(txin_to_key))
-      {
-        add_spent_key(boost::get<txin_to_key>(tx_input).k_image);
-      }
-    }
+    add_output(tx_hash, tx.vout[i], i, tx.unlock_time);
   }
 }
 

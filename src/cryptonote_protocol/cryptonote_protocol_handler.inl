@@ -314,7 +314,10 @@ namespace cryptonote
     LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_BLOCK (hop " << arg.hop << ")");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
-
+    m_core.pause_mine();
+    std::list<block_complete_entry> blocks;
+    blocks.push_back(arg.b);
+    m_core.prepare_handle_incoming_blocks(blocks);
     for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -323,14 +326,15 @@ namespace cryptonote
       {
         LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
         m_p2p->drop_connection(context);
+        m_core.cleanup_handle_incoming_blocks();
+        m_core.resume_mine();
         return 1;
       }
     }
 
-
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
-    m_core.pause_mine();
     m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block 
+    m_core.cleanup_handle_incoming_blocks(true);
     m_core.resume_mine();
     if(bvc.m_verifivation_failed)
     {
@@ -536,7 +540,7 @@ namespace cryptonote
 			
       if (m_core.get_test_drop_download() && m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
 				
-				
+  		  m_core.prepare_handle_incoming_blocks(arg.blocks);
 		  BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
 		  {
 			// process transactions
@@ -550,6 +554,7 @@ namespace cryptonote
 				LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, \r\ntx_id = " 
 				  << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)) << ", dropping connection");
 				m_p2p->drop_connection(context);
+				m_core.cleanup_handle_incoming_blocks();
 				return 1;
 			  }
 			}
@@ -566,12 +571,14 @@ namespace cryptonote
 				{
 				  LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
 				  m_p2p->drop_connection(context);
+				  m_core.cleanup_handle_incoming_blocks();
 				  return 1;
 				}
 				if(bvc.m_marked_as_orphaned)
 				{
 				  LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
 				  m_p2p->drop_connection(context);
+				  m_core.cleanup_handle_incoming_blocks();				  
 				  return 1;
 				}
 
@@ -582,7 +589,7 @@ namespace cryptonote
 				epee::net_utils::data_logger::get_instance().add_data("block_processing", 1);
 								
 		  } // each download block
-
+		  m_core.cleanup_handle_incoming_blocks();	
 		} // if not DISCARD BLOCK
 
 		  

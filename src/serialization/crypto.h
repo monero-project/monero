@@ -79,12 +79,14 @@ bool do_serialize(Archive<true> &ar, std::vector<crypto::signature> &v)
 
 BLOB_SERIALIZER(crypto::chacha8_iv);
 BLOB_SERIALIZER(crypto::hash);
+BLOB_SERIALIZER(crypto::hash8);
 BLOB_SERIALIZER(crypto::public_key);
 BLOB_SERIALIZER(crypto::secret_key);
 BLOB_SERIALIZER(crypto::key_derivation);
 BLOB_SERIALIZER(crypto::key_image);
 BLOB_SERIALIZER(crypto::signature);
 VARIANT_TAG(debug_archive, crypto::hash, "hash");
+VARIANT_TAG(debug_archive, crypto::hash8, "hash8");
 VARIANT_TAG(debug_archive, crypto::public_key, "public_key");
 VARIANT_TAG(debug_archive, crypto::secret_key, "secret_key");
 VARIANT_TAG(debug_archive, crypto::key_derivation, "key_derivation");

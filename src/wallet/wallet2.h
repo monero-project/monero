@@ -81,7 +81,7 @@ namespace tools
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false) {};
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false) {};
   public:
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet) {
       ipc_client = NULL;
@@ -235,15 +235,21 @@ namespace tools
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx);
     template<typename T>
     void transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t needed_fee, T destination_split_strategy, const tx_dust_policy& dust_policy, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx);
+    template<typename T>
+    void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::list<transfer_container::iterator> selected_transfers, size_t fake_outputs_count,
+      uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx);
+
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra);
+    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra);
     std::vector<pending_tx> create_dust_sweep_transactions();
     bool check_connection();
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height = 0) const;
     void get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height) const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
+    void rescan_spent();
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
@@ -276,6 +282,8 @@ namespace tools
      */
     static bool wallet_valid_path_format(const std::string& file_path);
 
+    static bool parse_long_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
+    static bool parse_short_payment_id(const std::string& payment_id_str, crypto::hash8& payment_id);
     static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
 
     static std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
@@ -286,6 +294,10 @@ namespace tools
     uint64_t stop_mining();
     uint64_t get_height(uint64_t &height);
     uint64_t save_bc();
+
+    bool always_confirm_transfers() const { return m_always_confirm_transfers; }
+    void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -342,6 +354,7 @@ namespace tools
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
     wap_client_t *ipc_client;
     bool m_watch_only; /*!< no spend key */
+    bool m_always_confirm_transfers;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 7)
@@ -487,7 +500,7 @@ namespace tools
     if(fake_outputs_count)
     {
       connect_to_daemon();
-      THROW_WALLET_EXCEPTION_IF(ipc_client == NULL, error::no_connection_to_daemon, "get_random_outs");
+      THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
       uint64_t outs_count = fake_outputs_count + 1;
       std::vector<uint64_t> amounts;
       BOOST_FOREACH(transfer_container::iterator it, selected_transfers)

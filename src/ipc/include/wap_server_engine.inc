@@ -281,21 +281,27 @@ engine_broadcast_event (server_t *server, client_t *client, event_t event)
     }
 }
 
-//  Poll socket for activity, invoke handler on any received message.
-//  Handler must be a CZMQ zloop_fn function; receives server as arg.
+//  Poll actor or zsock for activity, invoke handler on any received
+//  message. Handler must be a CZMQ zloop_fn function; receives server
+//  as arg.
 
 static void
-engine_handle_socket (server_t *server, zsock_t *socket, zloop_reader_fn handler)
+engine_handle_socket (server_t *server, void *sock, zloop_reader_fn handler)
 {
     if (server) {
         s_server_t *self = (s_server_t *) server;
+        //  Resolve zactor_t -> zsock_t
+        if (zactor_is (sock))
+            sock = zactor_sock ((zactor_t *) sock);
+        else
+            assert (zsock_is (sock));
         if (handler != NULL) {
-            int rc = zloop_reader (self->loop, socket, handler, self);
+            int rc = zloop_reader (self->loop, (zsock_t *) sock, handler, self);
             assert (rc == 0);
-            zloop_reader_set_tolerant (self->loop, socket);
+            zloop_reader_set_tolerant (self->loop, (zsock_t *) sock);
         }
         else
-            zloop_reader_end (self->loop, socket);
+            zloop_reader_end (self->loop, (zsock_t *) sock);
     }
 }
 
@@ -1263,8 +1269,8 @@ static int
 s_client_handle_ticket (zloop_t *loop, int timer_id, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
-    s_client_execute (self, expired_event);
     self->ticket = NULL;        //  Ticket is now dead
+    s_client_execute (self, expired_event);
     return 0;
 }
 

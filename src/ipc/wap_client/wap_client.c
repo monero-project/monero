@@ -362,6 +362,7 @@ static void
 prepare_get_random_outs_command (client_t *self)
 {
     wap_proto_set_amounts (self->message, &self->args->amounts);
+    wap_proto_set_outs_count (self->message, self->args->outs_count);
 }
 
 

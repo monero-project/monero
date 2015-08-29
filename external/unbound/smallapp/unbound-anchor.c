@@ -117,6 +117,7 @@
 #include "config.h"
 #include "libunbound/unbound.h"
 #include "sldns/rrdef.h"
+#include "sldns/parseutil.h"
 #include <expat.h>
 #ifndef HAVE_EXPAT_H
 #error "need libexpat to parse root-anchors.xml file."
@@ -1328,7 +1329,7 @@ xml_convertdate(const char* str)
 		/* but ignore, (lenient) */
 	}
 
-	t = mktime(&tm);
+	t = sldns_mktime_from_utc(&tm);
 	if(t == (time_t)-1) {
 		if(verb) printf("xml_convertdate mktime failure\n");
 		return 0;

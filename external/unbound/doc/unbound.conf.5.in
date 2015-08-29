@@ -801,6 +801,10 @@ mechanism work with zones that perform regular (non\-5011) rollovers.
 The default is 366 days.  The value 0 does not remove missing anchors,
 as per the RFC.
 .TP
+.B permit\-small\-holddown: \fI<yes or no>
+Debug option that allows the autotrust 5011 rollover timers to assume
+very small values.  Default is no.
+.TP
 .B key\-cache\-size: \fI<number>
 Number of bytes size of the key cache. Default is 4 megabytes.
 A plain number is in bytes, append 'k', 'm' or 'g' for kilobytes, megabytes
@@ -895,7 +899,8 @@ infected machines without answering the queries.
 Used to turn off default contents for AS112 zones. The other types
 also turn off default contents for the zone. The 'nodefault' option 
 has no other effect than turning off default contents for the 
-given zone.
+given zone.  Use \fInodefault\fR if you use exactly that zone, if you want to
+use a subzone, use \fItransparent\fR.
 .P
 The default zones are localhost, reverse 127.0.0.1 and ::1, and the AS112
 zones. The AS112 zones are reverse DNS zones for private use and reserved
@@ -1124,6 +1129,12 @@ bit on replies for the private zone (authoritative servers do not set the
 AD bit).  This setup makes unbound capable of answering queries for the 
 private zone, and can even set the AD bit ('authentic'), but the AA 
 ('authoritative') bit is not set on these replies. 
+.P
+Consider adding \fBserver:\fR statements for \fBdomain\-insecure:\fR and
+for \fBlocal\-zone:\fI name nodefault\fR for the zone if it is a locally
+served zone.  The insecure clause stops DNSSEC from invalidating the
+zone.  The local zone nodefault (or \fItransparent\fR) clause makes the
+(reverse\-) zone bypass unbound's filtering of RFC1918 zones.
 .TP
 .B name: \fI<domain name>
 Name of the stub zone.
