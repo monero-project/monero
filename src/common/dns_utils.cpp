@@ -175,8 +175,6 @@ private:
 };
 
 typedef class scoped_ptr<ub_result,ub_resolve_free> ub_result_ptr;
-static void freestring(char *ptr) { free(ptr); }
-typedef class scoped_ptr<char,freestring> string_ptr;
 
 struct DNSResolverData
 {
@@ -230,8 +228,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   dnssec_available = false;
   dnssec_valid = false;
 
-  string_ptr urlC(strdup(url.c_str()));
-  if (!check_address_syntax(urlC))
+  if (!check_address_syntax(url.c_str()))
   {
     return addresses;
   }
@@ -240,7 +237,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, urlC, record_type, DNS_CLASS_IN, &result))
+  if (!ub_resolve(m_data->m_ub_context, url.c_str(), record_type, DNS_CLASS_IN, &result))
   {
     dnssec_available = (result->secure || (!result->secure && result->bogus));
     dnssec_valid = result->secure && !result->bogus;
