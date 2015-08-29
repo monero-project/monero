@@ -131,6 +131,19 @@ public:
 private:
 
   /**
+   * @brief gets all records of a given type from a DNS query for the supplied URL;
+   * if no such record is present returns an empty vector.
+   *
+   * @param url A string containing a URL to query for
+   * @param record_type the record type to retrieve (DNS_TYPE_A, etc)
+   * @param reader a function that converts a record data to a string
+   *
+   * @return A vector of strings containing the requested record; or an empty vector
+   */
+  // TODO: modify this to accomodate DNSSEC
+  std::vector<std::string> get_record(const std::string& url, int record_type, std::string (*reader)(const char *,size_t), bool& dnssec_available, bool& dnssec_valid);
+
+  /**
    * @brief Checks a string to see if it looks like a URL
    *
    * @param addr the string to be checked
