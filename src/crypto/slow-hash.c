@@ -37,7 +37,7 @@
 #include "hash-ops.h"
 #include "oaes_lib.h"
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64))
 // Optimised code below, uses x86-specific intrinsics, SSE2, AES-NI
 // Fall back to more portable code is down at the bottom
 
