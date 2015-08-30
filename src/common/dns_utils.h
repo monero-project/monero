@@ -49,7 +49,7 @@ struct DNSResolverData;
  */
 class DNSResolver
 {
-public:
+private:
 
   /**
    * @brief Constructs an instance of DNSResolver
@@ -57,6 +57,8 @@ public:
    * Constructs a class instance and does setup stuff for the backend resolver.
    */
   DNSResolver();
+
+public:
 
   /**
    * @brief takes care of freeing C pointers and such
@@ -119,7 +121,27 @@ public:
    */
   static DNSResolver& instance();
 
+  /**
+   * @brief Gets a new instance of DNSResolver
+   *
+   * @return returns a pointer to the new object
+   */
+  static DNSResolver create();
+
 private:
+
+  /**
+   * @brief gets all records of a given type from a DNS query for the supplied URL;
+   * if no such record is present returns an empty vector.
+   *
+   * @param url A string containing a URL to query for
+   * @param record_type the record type to retrieve (DNS_TYPE_A, etc)
+   * @param reader a function that converts a record data to a string
+   *
+   * @return A vector of strings containing the requested record; or an empty vector
+   */
+  // TODO: modify this to accomodate DNSSEC
+  std::vector<std::string> get_record(const std::string& url, int record_type, std::string (*reader)(const char *,size_t), bool& dnssec_available, bool& dnssec_valid);
 
   /**
    * @brief Checks a string to see if it looks like a URL
@@ -128,7 +150,7 @@ private:
    *
    * @return true if it looks enough like a URL, false if not
    */
-  bool check_address_syntax(const char *addr);
+  bool check_address_syntax(const char *addr) const;
 
   DNSResolverData *m_data;
 }; // class DNSResolver
