@@ -35,7 +35,7 @@
 
 TEST(DNSResolver, IPv4Success)
 {
-  tools::DNSResolver resolver;
+  tools::DNSResolver resolver = tools::DNSResolver::create();
 
   bool avail, valid;
 
@@ -55,7 +55,7 @@ TEST(DNSResolver, IPv4Success)
 TEST(DNSResolver, IPv4Failure)
 {
   // guaranteed by IANA/ICANN/RFC to be invalid
-  tools::DNSResolver resolver;
+  tools::DNSResolver resolver = tools::DNSResolver::create();
 
   bool avail, valid;
 
@@ -70,7 +70,7 @@ TEST(DNSResolver, IPv4Failure)
 
 TEST(DNSResolver, DNSSECSuccess)
 {
-  tools::DNSResolver resolver;
+  tools::DNSResolver resolver = tools::DNSResolver::create();
 
   bool avail, valid;
 
@@ -86,7 +86,7 @@ TEST(DNSResolver, DNSSECSuccess)
 
 TEST(DNSResolver, DNSSECFailure)
 {
-  tools::DNSResolver resolver;
+  tools::DNSResolver resolver = tools::DNSResolver::create();
 
   bool avail, valid;
 
@@ -103,7 +103,7 @@ TEST(DNSResolver, DNSSECFailure)
 // It would be great to include an IPv6 test and assume it'll pass, but not every ISP / resolver plays nicely with IPv6;)
 /*TEST(DNSResolver, IPv6Success)
 {
-  tools::DNSResolver resolver;
+  tools::DNSResolver resolver = tools::DNSResolver::create();
 
   bool avail, valid;
 
@@ -123,7 +123,7 @@ TEST(DNSResolver, DNSSECFailure)
 TEST(DNSResolver, IPv6Failure)
 {
   // guaranteed by IANA/ICANN/RFC to be invalid
-  tools::DNSResolver resolver;
+  tools::DNSResolver resolver = tools::DNSResolver::create();
 
   bool avail, valid;
 
