@@ -575,7 +575,8 @@
 #cmakedefine USE_GOST
 
 /* Define if you want to use internal select based events */
-#cmakedefine USE_MINI_EVENT
+/* #cmakedefine USE_MINI_EVENT */
+#define USE_MINI_EVENT 1
 
 /* Define this to enable SHA256 and SHA512 support. */
 #cmakedefine USE_SHA2
