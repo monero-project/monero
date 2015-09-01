@@ -38,6 +38,8 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/foreach.hpp>
 #include <atomic>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "syncobj.h"
 #include "string_tools.h"
