@@ -925,12 +925,12 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         // to zero (0) for reliability.
         m_blocks->stat(NULL, &stats, 0);
         m_height = stats->bt_nkeys;
-        delete stats;
+        free(stats);
 
         // see above comment about DB_FAST_STAT
         m_output_indices->stat(NULL, &stats, 0);
         m_num_outputs = stats->bt_nkeys;
-        delete stats;
+        free(stats);
 
         // checks for compatibility
         bool compatible = true;
