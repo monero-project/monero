@@ -690,6 +690,12 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+    // fail if rollback_height passed is too high
+    if (rollback_height > m_db->height())
+    {
+      return true;
+    }
+
     m_timestamps_and_difficulties_height = 0;
 
     // remove blocks from blockchain until we get back to where we should be.
@@ -762,7 +768,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
             // rollback_blockchain_switching should be moved to two different
             // functions: rollback and apply_chain, but for now we pretend it is
             // just the latter (because the rollback was done above).
-            rollback_blockchain_switching(disconnected_chain, m_db->height());
+            rollback_blockchain_switching(disconnected_chain, split_height);
 
             // FIXME: Why do we keep invalid blocks around?  Possibly in case we hear
             // about them again so we can immediately dismiss them, but needs some
@@ -791,8 +797,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
             if(!r)
             {
                 LOG_PRINT_L1("Failed to push ex-main chain blocks to alternative chain ");
-                // previously this would fail the blockchain switching, but I don't
-                // think this is bad enough to warrant that.
+                rollback_blockchain_switching(disconnected_chain, split_height);
+                return false;
             }
         }
     }
@@ -850,8 +856,8 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
     // and timestamps from it alone
     else
     {
-        timestamps.resize(static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT));
-        cumulative_difficulties.resize(static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT));
+        timestamps.resize(std::min(alt_chain.size(), static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT)));
+        cumulative_difficulties.resize(std::min(alt_chain.size(), static_cast<size_t>(DIFFICULTY_BLOCKS_COUNT)));
         size_t count = 0;
         size_t max_i = timestamps.size()-1;
         // get difficulties and timestamps from most recent blocks in alt chain
@@ -1113,11 +1119,13 @@ bool Blockchain::complete_timestamps_vector(uint64_t start_top_height, std::vect
     size_t need_elements = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - timestamps.size();
     CHECK_AND_ASSERT_MES(start_top_height < m_db->height(), false, "internal error: passed start_height not < " << " m_db->height() -- " << start_top_height << " >= " << m_db->height());
     size_t stop_offset = start_top_height > need_elements ? start_top_height - need_elements : 0;
-    while (start_top_height != stop_offset)
+    do
     {
         timestamps.push_back(m_db->get_block_timestamp(start_top_height));
+        if (start_top_height == 0)
+            break;
         --start_top_height;
-    }
+    } while (start_top_height != stop_offset);
     return true;
 }
 //------------------------------------------------------------------
@@ -1187,7 +1195,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
             // make sure block connects correctly to the main chain
             auto h = m_db->get_block_hash_from_height(alt_chain.front()->second.height - 1);
             CHECK_AND_ASSERT_MES(h == alt_chain.front()->second.bl.prev_id, false, "alternative chain has wrong connection to main chain");
-            complete_timestamps_vector(m_db->get_block_height(alt_chain.front()->second.bl.prev_id), timestamps);
+            complete_timestamps_vector(alt_chain.front()->second.height - 1, timestamps);
         }
         // if block not associated with known alternate chain
         else
@@ -1271,8 +1279,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
             bool r = switch_to_alternative_blockchain(alt_chain, true);
 
-            bvc.m_added_to_main_chain = r;
-            bvc.m_verifivation_failed = !r;
+            if (r) bvc.m_added_to_main_chain = true;
+            else bvc.m_verifivation_failed = true;
 
             return r;
         }
@@ -1308,7 +1316,7 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
-    if(start_offset > m_db->height())
+    if(start_offset >= m_db->height())
         return false;
 
     if (!get_blocks(start_offset, count, blocks))
@@ -1330,10 +1338,10 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
-    if(start_offset > m_db->height())
+    if(start_offset >= m_db->height())
         return false;
 
-    for(size_t i = start_offset; i < start_offset + count && i <= m_db->height();i++)
+    for(size_t i = start_offset; i < start_offset + count && i < m_db->height();i++)
     {
         blocks.push_back(m_db->get_block_from_height(i));
     }
@@ -1704,7 +1712,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
         // if requested height is higher than our chain, return false -- we can't help
         if (req_start_block >= m_db->height())
         {
-            return false;
+            return true;
         }
         start_height = req_start_block;
     }

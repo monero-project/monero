@@ -48,6 +48,7 @@
 #include "crypto/hash.h"
 
 #include "wallet_errors.h"
+#include "daemon_ipc_handlers.h"
 
 #include <iostream>
 #define DEFAULT_TX_SPENDABLE_AGE                               10
@@ -82,7 +83,18 @@ namespace tools
   {
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_keys(false) {};
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_keys(false) {};
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_keys(false) {
+      ipc_client = NULL;
+      connect_to_daemon();
+      if (!ipc_client) {
+        std::cout << "Couldn't connect to daemon\n\n";
+        // Let ipc_client remain null. All request sending code will verify that
+        // it's not null and otherwise throw.
+      }
+    };
+    ~wallet2() {
+      stop_ipc_client();
+    };
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -188,7 +200,9 @@ namespace tools
     // free block size. TODO: fix this so that it actually takes
     // into account the current median block size rather than
     // the minimum block size.
-    void init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+    void init(const std::string& daemon_address = "http://localhost:8080",
+      uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) -
+      CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     bool deinit();
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
@@ -268,6 +282,7 @@ namespace tools
       a & m_tx_keys;
     }
 
+    void stop_ipc_client();
     /*!
      * \brief  Check if wallet keys and bin files exist
      * \param  file_path           Wallet file path
@@ -289,6 +304,11 @@ namespace tools
     static std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
 
     static std::string address_from_txt_record(const std::string& s);
+
+    uint64_t start_mining(const std::string &address, uint64_t thread_count);
+    uint64_t stop_mining();
+    uint64_t get_height(uint64_t &height);
+    uint64_t save_bc();
 
     bool always_confirm_transfers() const { return m_always_confirm_transfers; }
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
@@ -319,12 +339,14 @@ namespace tools
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
+    void get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_complete_entry> &blocks);
     void pull_blocks(uint64_t start_height, size_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx);
     void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
+    void connect_to_daemon();
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
     bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
 
@@ -351,6 +373,7 @@ namespace tools
     bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
+    wap_client_t *ipc_client;
     bool m_watch_only; /*!< no spend key */
     bool m_always_confirm_transfers;
     bool m_store_tx_keys; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
@@ -498,23 +521,45 @@ namespace tools
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
     if(fake_outputs_count)
     {
-      COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
-      req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
+      connect_to_daemon();
+      THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
+      uint64_t outs_count = fake_outputs_count + 1;
+      std::vector<uint64_t> amounts;
       BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
       {
         THROW_WALLET_EXCEPTION_IF(it->m_tx.vout.size() <= it->m_internal_output_index, error::wallet_internal_error,
           "m_internal_output_index = " + std::to_string(it->m_internal_output_index) +
           " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size()));
-        req.amounts.push_back(it->amount());
+        amounts.push_back(it->amount());
       }
 
-      bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != selected_transfers.size(), error::wallet_internal_error,
-        "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
-        std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
+      zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
+      int rc = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
+
+      uint64_t status = wap_client_status(ipc_client);
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
+      // TODO: Use a code to string mapping of errors
+      THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_RANDOM_OUTS_FAILED, error::get_random_outs_error, "IPC::STATUS_RANDOM_OUTS_FAILED");
+      THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_random_outs_error, "!IPC:STATUS_OK");
+  
+      // Convert ZMQ response back into RPC response object.
+      zframe_t *outputs_frame = wap_client_random_outputs(ipc_client);
+      uint64_t frame_size = zframe_size(outputs_frame);
+      char *frame_data = reinterpret_cast<char*>(zframe_data(outputs_frame));
+      rapidjson::Document json;
+      THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data, frame_size).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
+      for (rapidjson::SizeType i = 0; i < json["outputs"].Size(); i++) {
+        COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount output;
+        output.amount = json["outputs"][i]["amount"].GetInt64();
+        for (rapidjson::SizeType j = 0; j < json["outputs"][i]["outs"].Size(); j++) {
+          COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry entry;
+          entry.global_amount_index = json["outputs"][i]["outs"][j]["global_amount_index"].GetInt64();
+          std::string out_key(json["outputs"][i]["outs"][j]["out_key"].GetString(), json["outputs"][i]["outs"][j]["out_key"].GetStringLength());
+          memcpy(entry.out_key.data, out_key.c_str(), 32);
+          output.outs.push_back(entry);
+        }
+        daemon_resp.outs.push_back(output);
+      }
 
       std::vector<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount> scanty_outs;
       BOOST_FOREACH(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs, daemon_resp.outs)

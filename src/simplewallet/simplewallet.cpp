@@ -53,6 +53,8 @@
 #include "storages/http_abstract_invoke.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "wallet/wallet_rpc_server.h"
+#include "wallet/wallet_json_rpc_handlers.h"
+#include "rpc/json_rpc_http_server.h"
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "mnemonics/electrum-words.h"
@@ -692,6 +694,7 @@ bool simple_wallet::deinit()
   if (!m_wallet.get())
     return true;
 
+  m_wallet->stop_ipc_client();
   return close_wallet();
 }
 //----------------------------------------------------------------------------------------------------
@@ -986,21 +989,25 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  COMMAND_RPC_START_MINING::request req;
-  req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  // COMMAND_RPC_START_MINING::request req;
+  // req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  std::string miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  uint64_t threads_count;
 
   bool ok = true;
   size_t max_mining_threads_count = (std::max)(std::thread::hardware_concurrency(), static_cast<unsigned>(2));
   if (0 == args.size())
   {
-    req.threads_count = 1;
+    // req.threads_count = 1;
+    threads_count = 1;
   }
   else if (1 == args.size())
   {
     uint16_t num = 1;
     ok = string_tools::get_xtype_from_string(num, args[0]);
     ok = ok && (1 <= num && num <= max_mining_threads_count);
-    req.threads_count = num;
+    // req.threads_count = num;
+    threads_count = num;
   }
   else
   {
@@ -1014,13 +1021,17 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
     return true;
   }
 
-  COMMAND_RPC_START_MINING::response res;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/start_mining", req, res, m_http_client);
-  std::string err = interpret_rpc_response(r, res.status);
-  if (err.empty())
-    success_msg_writer() << tr("Mining started in daemon");
+  // COMMAND_RPC_START_MINING::response res;
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/start_mining", req, res, m_http_client);
+  // std::string err = interpret_rpc_response(r, res.status);
+
+  uint64_t status = m_wallet->start_mining(miner_address, threads_count);
+  // res has to be true since we have checked before.
+  if (status == IPC::STATUS_OK)
+    success_msg_writer() << "Mining started in daemon";
   else
-    fail_msg_writer() << tr("mining has NOT been started: ") << err;
+    fail_msg_writer() << "mining has NOT been started: " << status;
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1029,14 +1040,16 @@ bool simple_wallet::stop_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  COMMAND_RPC_STOP_MINING::request req;
-  COMMAND_RPC_STOP_MINING::response res;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/stop_mining", req, res, m_http_client);
-  std::string err = interpret_rpc_response(r, res.status);
-  if (err.empty())
-    success_msg_writer() << tr("Mining stopped in daemon");
+  // COMMAND_RPC_STOP_MINING::request req;
+  // COMMAND_RPC_STOP_MINING::response res;
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/stop_mining", req, res, m_http_client);
+  // std::string err = interpret_rpc_response(r, res.status);
+  uint64_t status = m_wallet->stop_mining();
+  if (status == IPC::STATUS_OK)
+    success_msg_writer() << "Mining stopped in daemon";
   else
-    fail_msg_writer() << tr("mining has NOT been stopped: ") << err;
+    fail_msg_writer() << "mining has NOT been stopped: " << status;
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1045,14 +1058,16 @@ bool simple_wallet::save_bc(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  COMMAND_RPC_SAVE_BC::request req;
-  COMMAND_RPC_SAVE_BC::response res;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/save_bc", req, res, m_http_client);
-  std::string err = interpret_rpc_response(r, res.status);
-  if (err.empty())
-    success_msg_writer() << tr("Blockchain saved");
+  // COMMAND_RPC_SAVE_BC::request req;
+  // COMMAND_RPC_SAVE_BC::response res;
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/save_bc", req, res, m_http_client);
+  // std::string err = interpret_rpc_response(r, res.status);
+  uint64_t status = m_wallet->save_bc();
+  if (status == IPC::STATUS_OK)
+    success_msg_writer() << "Blockchain saved";
   else
-    fail_msg_writer() << tr("Blockchain can't be saved: ") << err;
+    fail_msg_writer() << "Blockchain can't be saved: " << status;
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1279,11 +1294,18 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 uint64_t simple_wallet::get_daemon_blockchain_height(std::string& err)
 {
-  COMMAND_RPC_GET_HEIGHT::request req;
-  COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
-  err = interpret_rpc_response(r, res.status);
-  return res.height;
+  // COMMAND_RPC_GET_HEIGHT::request req;
+  // COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
+  // bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
+  // err = interpret_rpc_response(r, res.status);
+  uint64_t height;
+  uint64_t status = m_wallet->get_height(height);
+  // res has to be true since we have checked before.
+  if (status != IPC::STATUS_OK) {
+    // TODO: map proper error messages to codes.
+    err = "Couldn't get blockchain height.";
+  }
+  return height;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
@@ -1915,7 +1937,8 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_electrum_seed );
   command_line::add_arg(desc_params, arg_testnet);
   command_line::add_arg(desc_params, arg_restricted);
-  tools::wallet_rpc_server::init_options(desc_params);
+
+  RPC::Wallet::init_options(desc_params);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
@@ -1982,7 +2005,7 @@ int main(int argc, char* argv[])
     log_level % log_file_path.string();
   log_space::get_set_log_detalisation_level(true, log_level);
 
-  if(command_line::has_arg(vm, tools::wallet_rpc_server::arg_rpc_bind_port))
+  if (command_line::has_arg(vm, RPC::Wallet::arg_rpc_bind_port))
   {
     log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
     //runs wallet with rpc interface
@@ -2017,6 +2040,7 @@ int main(int argc, char* argv[])
       daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
     tools::wallet2 wal(testnet,restricted);
+    // RPC::Wallet::init(&wal);
     try
     {
       LOG_PRINT_L0(sw::tr("Loading wallet..."));
@@ -2030,17 +2054,27 @@ int main(int argc, char* argv[])
       LOG_ERROR(sw::tr("Wallet initialization failed: ") << e.what());
       return 1;
     }
+    // std::string ip_address, port;
+    // RPC::Wallet::get_address_and_port(vm, ip_address, port);
+    // RPC::Json_rpc_http_server rpc_server(ip_address, port, &RPC::Wallet::ev_handler);
+
     tools::wallet_rpc_server wrpc(wal);
     bool r = wrpc.init(vm);
     CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet rpc server"));
 
+    /*tools::signal_handler::install([&rpc_server, &wal] {
+      rpc_server.stop();
+      wal.store();
+    });*/
     tools::signal_handler::install([&wrpc, &wal] {
       wrpc.send_stop_signal();
       wal.store();
     });
     LOG_PRINT_L0(sw::tr("Starting wallet rpc server"));
     wrpc.run();
+
     LOG_PRINT_L0(sw::tr("Stopped wallet rpc server"));
+    wal.stop_ipc_client();
     try
     {
       LOG_PRINT_L0(sw::tr("Storing wallet..."));
@@ -2052,7 +2086,8 @@ int main(int argc, char* argv[])
       LOG_ERROR(sw::tr("Failed to store wallet: ") << e.what());
       return 1;
     }
-  }else
+  }
+  else
   {
     //runs wallet with console interface
     r = w.init(vm);
