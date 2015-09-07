@@ -423,6 +423,7 @@ namespace cryptonote
     tx_key = txkey.sec;
 
     // if we have a stealth payment id, find it and encrypt it with the tx key now
+    // The scheme was designed by luigi1111: http://pastebin.com/bp5RKXuC
     std::vector<tx_extra_field> tx_extra_fields;
     if (parse_tx_extra(tx.extra, tx_extra_fields))
     {
