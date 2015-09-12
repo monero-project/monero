@@ -118,6 +118,11 @@ void Blockchain::serialize(archive_t & ar, const unsigned int version)
         }
     }
 
+    if (version > 12)
+    {
+        ar & m_hardfork;
+    }
+
     LOG_PRINT_L3("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "dummy_key_images_container: " << dummy_key_images_container.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
 }
 //------------------------------------------------------------------
@@ -706,6 +711,8 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
         CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC! failed to add (again) block while chain switching during the rollback!");
     }
 
+    m_hardfork.reorganize_from_chain_height(m_db, rollback_height);
+
     LOG_PRINT_L1("Rollback to height " << rollback_height << " was successful.");
     if (original_chain.size())
     {
@@ -802,6 +809,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
     {
         m_alternative_chains.erase(ch_ent);
     }
+
+    m_hardfork.reorganize_from_chain_height(m_db, split_height);
 
     LOG_PRINT_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height(), LOG_LEVEL_0);
     return true;
@@ -972,12 +981,13 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
     uint64_t already_generated_coins;
 
     CRITICAL_REGION_BEGIN(m_blockchain_lock);
-    b.major_version = CURRENT_BLOCK_MAJOR_VERSION;
-    b.minor_version = CURRENT_BLOCK_MINOR_VERSION;
+    height = m_db->height();
+
+    b.major_version = m_hardfork.get_ideal_version();
+    b.minor_version = 0;
     b.prev_id = get_tail_id();
     b.timestamp = time(NULL);
 
-    height = m_db->height();
     diffic = get_difficulty_for_next_block();
     CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
 
@@ -2245,6 +2255,13 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
     TIME_MEASURE_START(t1);
 
+    // this is a cheap test
+    if (!m_hardfork.check(bl))
+    {
+        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << bl.major_version << std::endl << "current: " << m_hardfork.get_current_version());
+        return false;
+    }
+
     if(bl.prev_id != get_tail_id())
     {
         LOG_PRINT_L1("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
@@ -2520,6 +2537,9 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     TIME_MEASURE_FINISH(addblock);
 
     update_next_cumulative_size_limit();
+
+    // this will not fail since check succeeded above
+    m_hardfork.add(bl, new_height - 1);
 
     LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
     if(m_show_time_stats)

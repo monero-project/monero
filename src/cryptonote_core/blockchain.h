@@ -52,6 +52,7 @@
 #include "verification_context.h"
 #include "crypto/hash.h"
 #include "checkpoints.h"
+#include "hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
 namespace cryptonote
@@ -227,6 +228,8 @@ namespace cryptonote
     std::atomic<bool> m_is_blockchain_storing;
     bool m_enforce_dns_checkpoints;
 
+    HardFork m_hardfork;
+
     template<class visitor_t>
     inline bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
     bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, std::vector<crypto::public_key> &output_keys, uint64_t* pmax_related_block_height);
@@ -268,10 +271,10 @@ namespace cryptonote
   /*                                                                      */
   /************************************************************************/
 
-  #define CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER    12
+  #define CURRENT_BLOCKCHAIN_ARCHIVE_VER    13
 
   //------------------------------------------------------------------
 
 }  // namespace cryptonote
 
-BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER)
+BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_ARCHIVE_VER)
