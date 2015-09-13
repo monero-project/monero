@@ -2544,8 +2544,10 @@ wap_proto_test (bool verbose)
     wap_proto_set_id (self, WAP_PROTO_BLOCKS);
 
     zlist_t *blocks_block_ids = zlist_new ();
-    zlist_append (blocks_block_ids, "Name: Brutus");
-    zlist_append (blocks_block_ids, "Age: 43");
+    char name[] = "Name: Brutus";
+    zlist_append (blocks_block_ids, name);
+    char age[] = "Age: 43";
+    zlist_append (blocks_block_ids, age);
     wap_proto_set_block_ids (self, &blocks_block_ids);
     wap_proto_set_start_height (self, 123);
     //  Send twice
