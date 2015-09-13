@@ -3074,3 +3074,8 @@ void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
     m_db_blocks_per_sync = blocks_per_sync;
     m_max_prepare_blocks_threads = maxthreads;
 }
+
+HardFork::State Blockchain::get_hard_fork_state() const
+{
+    return m_hardfork.get_state();
+}

@@ -830,8 +830,34 @@ namespace cryptonote
 #else
     m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
 #endif
+    m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_miner.on_idle();
     m_mempool.on_idle();
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_fork_time()
+  {
+#if BLOCKCHAIN_DB == DB_LMDB
+    HardFork::State state = m_blockchain_storage.get_hard_fork_state();
+    switch (state) {
+      case HardFork::LikelyForked:
+        LOG_PRINT_L0(ENDL
+          << "**********************************************************************" << ENDL
+          << "Last scheduled hard fork is too far in the past." << ENDL
+          << "We are most likely forked from the network. Daemon update needed now." << ENDL
+          << "**********************************************************************" << ENDL);
+        break;
+      case HardFork::UpdateNeeded:
+        LOG_PRINT_L0(ENDL
+          << "**********************************************************************" << ENDL
+          << "Last scheduled hard fork time shows a daemon update is needed now." << ENDL
+          << "**********************************************************************" << ENDL);
+        break;
+      default:
+        break;
+    }
+#endif
     return true;
   }
   //-----------------------------------------------------------------------------------------------

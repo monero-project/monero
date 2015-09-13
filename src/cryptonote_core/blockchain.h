@@ -159,6 +159,8 @@ namespace cryptonote
 
     void set_show_time_stats(bool stats) { m_show_time_stats = stats; }
     
+    HardFork::State get_hard_fork_state() const;
+
     BlockchainDB& get_db()
     {
       return *m_db;

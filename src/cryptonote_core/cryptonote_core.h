@@ -167,6 +167,7 @@ namespace cryptonote
      bool on_update_blocktemplate_interval();
      bool check_tx_inputs_keyimages_diff(const transaction& tx);
      void graceful_exit();
+     bool check_fork_time();
      static std::atomic<bool> m_fast_exit;
      bool m_test_drop_download = true;
 	 uint64_t m_test_drop_download_height = 0;
@@ -185,6 +186,7 @@ namespace cryptonote
      std::string m_config_folder;
      cryptonote_protocol_stub m_protocol_stub;
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
+     epee::math_helper::once_a_time_seconds<60*60*2, false> m_fork_moaner;
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed;
 
