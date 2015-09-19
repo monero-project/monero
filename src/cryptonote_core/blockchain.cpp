@@ -355,6 +355,9 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     }
 #endif
 
+    // reinitialize hard fork versions, since they're not saved in the DB
+    m_hardfork.reorganize_from_chain_height (m_db, 1);
+
     LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
 
     return true;
