@@ -135,7 +135,7 @@ void HardFork::init()
     starting[n] = 0;
   checkpoints.clear();
   current_fork_index = 0;
-  vote_threshold = (unsigned int)ceilf(max_history * threshold_percent / 100.0f);
+  vote_threshold = (uint32_t)ceilf(max_history * threshold_percent / 100.0f);
 }
 
 bool HardFork::reorganize_from_block_height(const cryptonote::BlockchainDB *db, uint64_t height)
@@ -186,7 +186,7 @@ bool HardFork::reorganize_from_chain_height(const cryptonote::BlockchainDB *db, 
 int HardFork::get_voted_fork_index(uint64_t height) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  unsigned int accumulated_votes = 0;
+  uint32_t accumulated_votes = 0;
   for (unsigned int n = heights.size() - 1; n > current_fork_index; --n) {
     uint8_t v = heights[n].version;
     accumulated_votes += last_versions[v];
@@ -245,6 +245,22 @@ uint8_t HardFork::get_ideal_version() const
 {
   CRITICAL_REGION_LOCAL(lock);
   return heights.back().version;
+}
+
+bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
+{
+  CRITICAL_REGION_LOCAL(lock);
+
+  const uint8_t current_version = heights[current_fork_index].version;
+  const bool enabled = current_version >= version;
+  window = versions.size();
+  votes = 0;
+  for (size_t n = version; n < 256; ++n)
+      votes += last_versions[n];
+  threshold = vote_threshold;
+  assert((votes >= threshold) == enabled);
+  voting = heights.back().version;
+  return enabled;
 }
 
 template<class archive_t>

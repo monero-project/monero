@@ -361,5 +361,27 @@ bool t_command_parser_executor::stop_save_graph(const std::vector<std::string>& 
 	return m_executor.stop_save_graph();
 }
 
+bool t_command_parser_executor::hard_fork_info(const std::vector<std::string>& args)
+{
+  int version;
+  if (args.size() == 0) {
+    version = 0;
+  }
+  else if (args.size() == 1) {
+    try {
+      version = std::stoi(args[0]);
+    }
+    catch(std::invalid_argument& ex) {
+        return false;
+    }
+    if (version <= 0 || version > 255)
+      return false;
+  }
+  else {
+    return false;
+  }
+  return m_executor.hard_fork_info(version);
+}
+
 
 } // namespace daemonize

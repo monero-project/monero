@@ -162,6 +162,24 @@ namespace cryptonote
      */
     uint8_t get_current_version() const;
 
+    /**
+     * @brief returns information about current voting state
+     *
+     * returns true if the given version is enabled (ie, the current version
+     * is at least the passed version), false otherwise
+     *
+     * @param version the version to check voting for
+     * @param window the number of blocks considered in voting
+     * @param votes number of votes for next version
+     * @param threshold number of votes needed to switch to next version
+     */
+    bool get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
+
+    /**
+     * @brief returns the size of the voting window in blocks
+     */
+    uint64_t get_window_size() const { return max_history; }
+
     template<class archive_t>
     void serialize(archive_t & ar, const unsigned int version);
 
@@ -189,10 +207,10 @@ namespace cryptonote
     std::vector<Params> heights;
 
     std::deque<uint8_t> versions; /* rolling window of the last N blocks' versions */
-    unsigned int last_versions[256]; /* count of the block versions in the lsat N blocks */
+    unsigned int last_versions[256]; /* count of the block versions in the last N blocks */
     uint64_t starting[256]; /* block height at which each fork starts */
     unsigned int current_fork_index;
-    unsigned int vote_threshold;
+    uint32_t vote_threshold;
 
     uint64_t checkpoint_period;
     std::vector<std::pair<uint64_t, int>> checkpoints;
