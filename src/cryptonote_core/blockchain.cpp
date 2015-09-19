@@ -1632,7 +1632,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
     return true;
 }
 //------------------------------------------------------------------
-void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index)
+void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     std::stringstream ss;
@@ -1652,7 +1652,7 @@ void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index)
     LOG_PRINT_L0("Blockchain printed with log level 1");
 }
 //------------------------------------------------------------------
-void Blockchain::print_blockchain_index()
+void Blockchain::print_blockchain_index() const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     std::stringstream ss;
@@ -1670,7 +1670,7 @@ void Blockchain::print_blockchain_index()
 }
 //------------------------------------------------------------------
 //TODO: remove this function and references to it
-void Blockchain::print_blockchain_outs(const std::string& file)
+void Blockchain::print_blockchain_outs(const std::string& file) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     return;

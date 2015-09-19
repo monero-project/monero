@@ -145,9 +145,9 @@ namespace cryptonote
     bool get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
 
     //debug functions
-    void print_blockchain(uint64_t start_index, uint64_t end_index);
-    void print_blockchain_index();
-    void print_blockchain_outs(const std::string& file);
+    void print_blockchain(uint64_t start_index, uint64_t end_index) const;
+    void print_blockchain_index() const;
+    void print_blockchain_outs(const std::string& file) const;
 
     void check_against_checkpoints(const checkpoints& points, bool enforce);
     void set_enforce_dns_checkpoints(bool enforce);
