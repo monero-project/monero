@@ -69,10 +69,22 @@ extern "C" void slow_hash_free_state();
 
 DISABLE_VS_WARNINGS(4267)
 
+static const struct {
+  uint8_t version;
+  uint64_t height;
+  time_t time;
+} hard_forks[] = {
+  // version 1 from the start of the blockchain
+  { 1, 1, 1341378000 },
+
+  // version 2 can start from block 1009827, setup on the 20th of september
+  { 2, 1009827, 1442763710 },
+};
+
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
 m_db(), m_tx_pool(tx_pool), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), 
-m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_hardfork(), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true)
+m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -120,7 +132,7 @@ void Blockchain::serialize(archive_t & ar, const unsigned int version)
 
     if (version > 12)
     {
-        ar & m_hardfork;
+        ar & *m_hardfork;
     }
 
     LOG_PRINT_L3("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "dummy_key_images_container: " << dummy_key_images_container.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
@@ -275,6 +287,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
 
     m_db = db;
 
+    m_hardfork = new HardFork(*db);
+    for (size_t n = 0; n < sizeof(hard_forks) / sizeof(hard_forks[0]); ++n)
+      m_hardfork->add(hard_forks[n].version, hard_forks[n].height, hard_forks[n].time);
+    m_hardfork->init();
+
     // if the blockchain is new, add the genesis block
     // this feels kinda kludgy to do it this way, but can be looked at later.
     // TODO: add function to create and store genesis block,
@@ -355,9 +372,6 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     }
 #endif
 
-    // reinitialize hard fork versions, since they're not saved in the DB
-    m_hardfork.reorganize_from_chain_height (m_db, 1);
-
     LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
 
     return true;
@@ -424,6 +438,7 @@ bool Blockchain::deinit()
         LOG_PRINT_L0("There was an issue closing/storing the blockchain, shutting down now to prevent issues!");
     }
 
+    delete m_hardfork;
     delete m_db;
     return true;
 }
@@ -714,7 +729,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
         CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC! failed to add (again) block while chain switching during the rollback!");
     }
 
-    m_hardfork.reorganize_from_chain_height(m_db, rollback_height);
+    m_hardfork->reorganize_from_chain_height(rollback_height);
 
     LOG_PRINT_L1("Rollback to height " << rollback_height << " was successful.");
     if (original_chain.size())
@@ -813,7 +828,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
         m_alternative_chains.erase(ch_ent);
     }
 
-    m_hardfork.reorganize_from_chain_height(m_db, split_height);
+    m_hardfork->reorganize_from_chain_height(split_height);
 
     LOG_PRINT_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height(), LOG_LEVEL_0);
     return true;
@@ -986,7 +1001,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
     CRITICAL_REGION_BEGIN(m_blockchain_lock);
     height = m_db->height();
 
-    b.major_version = m_hardfork.get_ideal_version();
+    b.major_version = m_hardfork->get_ideal_version();
     b.minor_version = 0;
     b.prev_id = get_tail_id();
     b.timestamp = time(NULL);
@@ -2259,9 +2274,9 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     TIME_MEASURE_START(t1);
 
     // this is a cheap test
-    if (!m_hardfork.check(bl))
+    if (!m_hardfork->check(bl))
     {
-        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << bl.major_version << std::endl << "current: " << m_hardfork.get_current_version());
+        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << bl.major_version << std::endl << "current: " << m_hardfork->get_current_version());
         return false;
     }
 
@@ -2542,7 +2557,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     update_next_cumulative_size_limit();
 
     // this will not fail since check succeeded above
-    m_hardfork.add(bl, new_height - 1);
+    m_hardfork->add(bl, new_height - 1);
 
     LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
     if(m_show_time_stats)
@@ -3080,10 +3095,10 @@ void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
 
 HardFork::State Blockchain::get_hard_fork_state() const
 {
-    return m_hardfork.get_state();
+    return m_hardfork->get_state();
 }
 
 bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
 {
-    return m_hardfork.get_voting_info(version, window, votes, threshold, voting);
+    return m_hardfork->get_voting_info(version, window, votes, threshold, voting);
 }

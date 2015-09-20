@@ -374,6 +374,13 @@ private:
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
   void get_output_global_indices(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<uint64_t> &global_indices);
+
+  // Hard fork related storage
+  virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height);
+  virtual uint64_t get_hard_fork_starting_height(uint8_t version) const;
+  virtual void set_hard_fork_version(uint64_t height, uint8_t version);
+  virtual uint8_t get_hard_fork_version(uint64_t height) const;
+
   /**
    * @brief convert a tx output to a blob for storage
    *
@@ -429,6 +436,9 @@ private:
   Db* m_output_keys;
 
   Db* m_spent_keys;
+
+  Db* m_hf_starting_heights;
+  Db* m_hf_versions;
 
   uint64_t m_height;
   uint64_t m_num_outputs;

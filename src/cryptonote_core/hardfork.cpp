@@ -35,15 +35,14 @@
 
 using namespace cryptonote;
 
-HardFork::HardFork(uint8_t original_version, time_t forked_time, time_t update_time, uint64_t max_history, int threshold_percent, uint64_t checkpoint_period):
+HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, time_t forked_time, time_t update_time, uint64_t window_size, int threshold_percent):
+  db(db),
   original_version(original_version),
   forked_time(forked_time),
   update_time(update_time),
-  max_history(max_history),
-  threshold_percent(threshold_percent),
-  checkpoint_period(checkpoint_period)
+  window_size(window_size),
+  threshold_percent(threshold_percent)
 {
-  init();
 }
 
 bool HardFork::add(uint8_t version, uint64_t height, time_t time)
@@ -96,7 +95,7 @@ bool HardFork::add(const cryptonote::block &block, uint64_t height)
 
   const uint8_t version = get_effective_version(block);
 
-  while (versions.size() >= max_history) {
+  while (versions.size() >= window_size) {
     const uint8_t old_version = versions.front();
     last_versions[old_version]--;
     assert(last_versions[old_version] >= 0);
@@ -109,13 +108,12 @@ bool HardFork::add(const cryptonote::block &block, uint64_t height)
   uint8_t voted = get_voted_fork_index(height);
   if (voted > current_fork_index) {
     for (int v = heights[current_fork_index].version + 1; v <= heights[voted].version; ++v) {
-      starting[v] = height;
+      db.set_hard_fork_starting_height(v, height);
     }
     current_fork_index = voted;
   }
 
-  if (height % checkpoint_period == 0)
-    checkpoints.push_back(std::make_pair(height, current_fork_index));
+  db.set_hard_fork_version(height, heights[current_fork_index].version);
 
   return true;
 }
@@ -126,59 +124,66 @@ void HardFork::init()
   versions.clear();
   for (size_t n = 0; n < 256; ++n)
     last_versions[n] = 0;
-  for (size_t n = 0; n < 256; ++n)
-    starting[n] = std::numeric_limits<uint64_t>::max();
-  add(original_version, 0, 0);
-  for (size_t n = 0; n <= original_version; ++n)
-    starting[n] = 0;
-  checkpoints.clear();
   current_fork_index = 0;
-  vote_threshold = (uint32_t)ceilf(max_history * threshold_percent / 100.0f);
+  vote_threshold = (uint32_t)ceilf(window_size * threshold_percent / 100.0f);
+
+  // restore state from DB
+  uint64_t height = db.height();
+  if (height > window_size)
+    height -= window_size;
+  else
+    height = 1;
+
+  bool populate = db.get_hard_fork_starting_height(original_version) == std::numeric_limits<uint64_t>::max();
+  if (populate) {
+    LOG_PRINT_L0("The DB has no hard fork info, reparsing from start");
+    height = 1;
+  }
+  LOG_PRINT_L1("reorganizing from " << height);
+  reorganize_from_chain_height(height);
+  if (populate) {
+    // reorg will not touch the genesis block, use this as a flag for populating done
+    db.set_hard_fork_version(0, original_version);
+    db.set_hard_fork_starting_height(original_version, 0);
+  }
+  LOG_PRINT_L1("reorganization done");
 }
 
-bool HardFork::reorganize_from_block_height(const cryptonote::BlockchainDB *db, uint64_t height)
+bool HardFork::reorganize_from_block_height(uint64_t height)
 {
   CRITICAL_REGION_LOCAL(lock);
-  if (!db || height >= db->height())
+  if (height >= db.height())
     return false;
-  while (!checkpoints.empty() && checkpoints.back().first > height)
-    checkpoints.pop_back();
+
   versions.clear();
 
-  int v;
-  for (v = 255; v >= 0; --v) {
-    if (starting[v] <= height)
-      break;
-    if (starting[v] != std::numeric_limits<uint64_t>::max()) {
-      starting[v] = std::numeric_limits<uint64_t>::max();
-    }
-  }
-  for (current_fork_index = 0; current_fork_index < heights.size(); ++current_fork_index) {
-    if (heights[current_fork_index].version == v)
-      break;
-  }
   for (size_t n = 0; n < 256; ++n)
     last_versions[n] = 0;
-  const uint64_t rescan_height = height >= (max_history - 1) ? height - (max_history - 1) : 0;
+  const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size - 1) : 0;
+  const uint8_t start_version = height == 0 ? original_version : db.get_hard_fork_version(height);
+  while (heights[current_fork_index].version > start_version) {
+    db.set_hard_fork_starting_height(heights[current_fork_index].version, std::numeric_limits<uint64_t>::max());
+    --current_fork_index;
+  }
   for (uint64_t h = rescan_height; h <= height; ++h) {
-    cryptonote::block b = db->get_block_from_height(h);
+    cryptonote::block b = db.get_block_from_height(h);
     const uint8_t v = get_effective_version(b);
     last_versions[v]++;
     versions.push_back(v);
   }
-  const uint64_t bc_height = db->height();
+  const uint64_t bc_height = db.height();
   for (uint64_t h = height + 1; h < bc_height; ++h) {
-    add(db->get_block_from_height(h), h);
+    add(db.get_block_from_height(h), h);
   }
 
   return true;
 }
 
-bool HardFork::reorganize_from_chain_height(const cryptonote::BlockchainDB *db, uint64_t height)
+bool HardFork::reorganize_from_chain_height(uint64_t height)
 {
   if (height == 0)
     return false;
-  return reorganize_from_block_height(db, height - 1);
+  return reorganize_from_block_height(height - 1);
 }
 
 int HardFork::get_voted_fork_index(uint64_t height) const
@@ -219,18 +224,17 @@ HardFork::State HardFork::get_state() const
 uint8_t HardFork::get(uint64_t height) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  for (size_t n = 1; n < 256; ++n) {
-    if (starting[n] > height)
-      return n - 1;
+  if (height > db.height()) {
+    assert(false);
+    return 255;
   }
-  assert(false);
-  return 255;
+  return db.get_hard_fork_version(height);
 }
 
 uint64_t HardFork::get_start_height(uint8_t version) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  return starting[version];
+  return db.get_hard_fork_starting_height(version);
 }
 
 uint8_t HardFork::get_current_version() const
@@ -261,20 +265,3 @@ bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &vote
   return enabled;
 }
 
-template<class archive_t>
-void HardFork::serialize(archive_t & ar, const unsigned int version)
-{
-  CRITICAL_REGION_LOCAL(lock);
-  ar & forked_time;
-  ar & update_time;
-  ar & max_history;
-  ar & threshold_percent;
-  ar & original_version;
-  ar & heights;
-  ar & last_versions;
-  ar & starting;
-  ar & current_fork_index;
-  ar & vote_threshold;
-  ar & checkpoint_period;
-  ar & checkpoints;
-}

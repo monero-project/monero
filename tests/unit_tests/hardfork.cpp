@@ -39,101 +39,13 @@ using namespace cryptonote;
 #define BLOCKS_PER_YEAR 525960
 #define SECONDS_PER_YEAR 31557600
 
-static cryptonote::block mkblock(uint8_t version)
-{
-  cryptonote::block b;
-  b.major_version = version;
-  return b;
-}
-
-TEST(empty_hardforks, Success)
-{
-  HardFork hf;
-
-  ASSERT_TRUE(hf.get_state(time(NULL)) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(time(NULL) + 3600*24*400) == HardFork::Ready);
-
-  ASSERT_EQ(hf.get(0), 1);
-  ASSERT_EQ(hf.get(1), 1);
-  ASSERT_EQ(hf.get(100000000), 1);
-}
-
-TEST(ordering, Success)
-{
-  HardFork hf;
-
-  ASSERT_TRUE(hf.add(2, 2, 1));
-  ASSERT_FALSE(hf.add(3, 3, 1));
-  ASSERT_FALSE(hf.add(3, 2, 2));
-  ASSERT_FALSE(hf.add(2, 3, 2));
-  ASSERT_TRUE(hf.add(3, 10, 2));
-  ASSERT_TRUE(hf.add(4, 20, 3));
-  ASSERT_FALSE(hf.add(5, 5, 4));
-}
-
-TEST(states, Success)
-{
-  HardFork hf;
-
-  ASSERT_TRUE(hf.add(2, BLOCKS_PER_YEAR, SECONDS_PER_YEAR));
-
-  ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_UPDATE_TIME / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + (HardFork::DEFAULT_UPDATE_TIME + HardFork::DEFAULT_FORKED_TIME) / 2) == HardFork::UpdateNeeded);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_FORKED_TIME * 2) == HardFork::LikelyForked);
-
-  ASSERT_TRUE(hf.add(3, BLOCKS_PER_YEAR * 5, SECONDS_PER_YEAR * 5));
-
-  ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_UPDATE_TIME / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + (HardFork::DEFAULT_UPDATE_TIME + HardFork::DEFAULT_FORKED_TIME) / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_FORKED_TIME * 2) == HardFork::Ready);
-}
-
-TEST(steps_asap, Success)
-{
-  HardFork hf(1,1,1,1);
-
-  //                 v  h  t
-  ASSERT_TRUE(hf.add(4, 2, 1));
-  ASSERT_TRUE(hf.add(7, 4, 2));
-  ASSERT_TRUE(hf.add(9, 6, 3));
-
-  for (uint64_t h = 0; h < 10; ++h)
-    hf.add(mkblock(10), h);
-
-  ASSERT_EQ(hf.get(0), 1);
-  ASSERT_EQ(hf.get(1), 1);
-  ASSERT_EQ(hf.get(2), 4);
-  ASSERT_EQ(hf.get(3), 4);
-  ASSERT_EQ(hf.get(4), 7);
-  ASSERT_EQ(hf.get(5), 7);
-  ASSERT_EQ(hf.get(6), 9);
-  ASSERT_EQ(hf.get(7), 9);
-  ASSERT_EQ(hf.get(8), 9);
-  ASSERT_EQ(hf.get(9), 9);
-  ASSERT_EQ(hf.get(100000), 9);
-}
-
-TEST(steps_1, Success)
-{
-  HardFork hf(1,1,1,1);
-
-  //                 v  h  t
-  for (int n = 1 ; n < 10; ++n)
-    ASSERT_TRUE(hf.add(n+1, n, n));
-
-  for (uint64_t h = 0; h < 10; ++h) {
-    hf.add(mkblock(h+1), h);
-    ASSERT_EQ(hf.get(h), h+1);
-  }
-}
 
 class TestDB: public BlockchainDB {
 public:
-  virtual void open(const std::string& filename, const int db_flags = 0) {}
+  virtual void open(const std::string& filename, const int db_flags = 0) {
+    for (size_t n = 0; n < 256; ++n)
+      starting_height[n] = std::numeric_limits<uint64_t>::max();
+  }
   virtual void close() {}
   virtual void sync() {}
   virtual void reset() {}
@@ -197,36 +109,164 @@ public:
   virtual block get_block_from_height(const uint64_t& height) const {
     return blocks[height];
   }
+  virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height) {
+    starting_height[version] = height;
+  }
+  virtual uint64_t get_hard_fork_starting_height(uint8_t version) const {
+    return starting_height[version];
+  }
+  virtual void set_hard_fork_version(uint64_t height, uint8_t version) {
+    printf("set_hard_fork_version(%lu, %u)\n", (unsigned long)height, version);
+    if (versions.size() <= height) versions.resize(height+1); versions[height] = version;
+  }
+  virtual uint8_t get_hard_fork_version(uint64_t height) const {
+    printf("get_hard_fork_version(%lu)\n", (unsigned long)height);
+    return versions[height];
+  }
+
 private:
   std::vector<block> blocks;
+  uint64_t starting_height[256];
+  std::deque<uint8_t> versions;
 };
+
+static cryptonote::block mkblock(uint8_t version)
+{
+  cryptonote::block b;
+  b.major_version = version;
+  return b;
+}
+
+TEST(empty_hardforks, Success)
+{
+  TestDB db;
+  HardFork hf(db);
+
+  ASSERT_TRUE(hf.add(1, 0, 0));
+  hf.init();
+  ASSERT_TRUE(hf.get_state(time(NULL)) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(time(NULL) + 3600*24*400) == HardFork::Ready);
+
+  for (uint64_t h = 0; h <= 10; ++h) {
+    db.add_block(mkblock(1), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+  ASSERT_EQ(hf.get(0), 1);
+  ASSERT_EQ(hf.get(1), 1);
+  ASSERT_EQ(hf.get(10), 1);
+}
+
+TEST(ordering, Success)
+{
+  TestDB db;
+  HardFork hf(db);
+
+  ASSERT_TRUE(hf.add(2, 2, 1));
+  ASSERT_FALSE(hf.add(3, 3, 1));
+  ASSERT_FALSE(hf.add(3, 2, 2));
+  ASSERT_FALSE(hf.add(2, 3, 2));
+  ASSERT_TRUE(hf.add(3, 10, 2));
+  ASSERT_TRUE(hf.add(4, 20, 3));
+  ASSERT_FALSE(hf.add(5, 5, 4));
+}
+
+TEST(states, Success)
+{
+  TestDB db;
+  HardFork hf(db);
+
+  ASSERT_TRUE(hf.add(1, 0, 0));
+  ASSERT_TRUE(hf.add(2, BLOCKS_PER_YEAR, SECONDS_PER_YEAR));
+
+  ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_UPDATE_TIME / 2) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + (HardFork::DEFAULT_UPDATE_TIME + HardFork::DEFAULT_FORKED_TIME) / 2) == HardFork::UpdateNeeded);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_FORKED_TIME * 2) == HardFork::LikelyForked);
+
+  ASSERT_TRUE(hf.add(3, BLOCKS_PER_YEAR * 5, SECONDS_PER_YEAR * 5));
+
+  ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_UPDATE_TIME / 2) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + (HardFork::DEFAULT_UPDATE_TIME + HardFork::DEFAULT_FORKED_TIME) / 2) == HardFork::Ready);
+  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_FORKED_TIME * 2) == HardFork::Ready);
+}
+
+TEST(steps_asap, Success)
+{
+  TestDB db;
+  HardFork hf(db, 1,1,1,1);
+
+  //                 v  h  t
+  ASSERT_TRUE(hf.add(1, 0, 0));
+  ASSERT_TRUE(hf.add(4, 2, 1));
+  ASSERT_TRUE(hf.add(7, 4, 2));
+  ASSERT_TRUE(hf.add(9, 6, 3));
+  hf.init();
+
+  for (uint64_t h = 0; h < 10; ++h) {
+    db.add_block(mkblock(10), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  ASSERT_EQ(hf.get(0), 1);
+  ASSERT_EQ(hf.get(1), 1);
+  ASSERT_EQ(hf.get(2), 4);
+  ASSERT_EQ(hf.get(3), 4);
+  ASSERT_EQ(hf.get(4), 7);
+  ASSERT_EQ(hf.get(5), 7);
+  ASSERT_EQ(hf.get(6), 9);
+  ASSERT_EQ(hf.get(7), 9);
+  ASSERT_EQ(hf.get(8), 9);
+  ASSERT_EQ(hf.get(9), 9);
+}
+
+TEST(steps_1, Success)
+{
+  TestDB db;
+  HardFork hf(db, 1,1,1,1);
+
+  ASSERT_TRUE(hf.add(1, 0, 0));
+  for (int n = 1 ; n < 10; ++n)
+    ASSERT_TRUE(hf.add(n+1, n, n));
+  hf.init();
+
+  for (uint64_t h = 0 ; h < 10; ++h) {
+    db.add_block(mkblock(h+1), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  for (uint64_t h = 0; h < 10; ++h) {
+    ASSERT_EQ(hf.get(h), h+1);
+  }
+}
 
 TEST(reorganize, Same)
 {
   for (int history = 1; history <= 12; ++history) {
-    for (uint64_t checkpoint_period = 1; checkpoint_period <= 16; checkpoint_period++) {
-      HardFork hf(1, 1, 1, history, 100, checkpoint_period);
-      TestDB db;
+    TestDB db;
+    HardFork hf(db, 1, 1, 1, history, 100);
 
-      //                 v  h  t
-      ASSERT_TRUE(hf.add(4, 2, 1));
-      ASSERT_TRUE(hf.add(7, 4, 2));
-      ASSERT_TRUE(hf.add(9, 6, 3));
+    //                 v  h  t
+    ASSERT_TRUE(hf.add(1, 0, 0));
+    ASSERT_TRUE(hf.add(4, 2, 1));
+    ASSERT_TRUE(hf.add(7, 4, 2));
+    ASSERT_TRUE(hf.add(9, 6, 3));
+    hf.init();
 
-      //                                 index  0  1  2  3  4  5  6  7  8  9
-      static const uint8_t block_versions[] = { 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
-      for (uint64_t h = 0; h < 20; ++h) {
-        db.add_block(mkblock(block_versions[h]), 0, 0, 0, crypto::hash());
-        hf.add(db.get_block_from_height(h), h);
-      }
+    //                                 index  0  1  2  3  4  5  6  7  8  9
+    static const uint8_t block_versions[] = { 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
+    for (uint64_t h = 0; h < 20; ++h) {
+      db.add_block(mkblock(block_versions[h]), 0, 0, 0, crypto::hash());
+      ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+    }
 
-      for (uint64_t rh = 0; rh < 20; ++rh) {
-        hf.reorganize_from_block_height(&db, rh);
-        for (int hh = 0; hh < 20; ++hh) {
-          uint8_t version = hh >= (history-1) ? block_versions[hh - (history-1)] : 1;
-          ASSERT_EQ(hf.get(hh), version);
-        }
-        ASSERT_EQ(hf.get(100000), 9);
+    for (uint64_t rh = 0; rh < 20; ++rh) {
+      hf.reorganize_from_block_height(rh);
+      for (int hh = 0; hh < 20; ++hh) {
+        uint8_t version = hh >= (history-1) ? block_versions[hh - (history-1)] : 1;
+        ASSERT_EQ(hf.get(hh), version);
       }
     }
   }
@@ -235,74 +275,87 @@ TEST(reorganize, Same)
 TEST(reorganize, Changed)
 {
   int history = 4;
-  for (uint64_t checkpoint_period = 1; checkpoint_period <= 16; checkpoint_period++) {
-    HardFork hf(1, 1, 1, 4, 100, checkpoint_period);
-    TestDB db;
+  TestDB db;
+  HardFork hf(db, 1, 1, 1, 4, 100);
 
-    //                 v  h  t
-    ASSERT_TRUE(hf.add(4, 2, 1));
-    ASSERT_TRUE(hf.add(7, 4, 2));
-    ASSERT_TRUE(hf.add(9, 6, 3));
+  //                 v  h  t
+  ASSERT_TRUE(hf.add(1, 0, 0));
+  ASSERT_TRUE(hf.add(4, 2, 1));
+  ASSERT_TRUE(hf.add(7, 4, 2));
+  ASSERT_TRUE(hf.add(9, 6, 3));
+  hf.init();
 
-    //                                 index  0  1  2  3  4  5  6  7  8  9
-    static const uint8_t block_versions[] = { 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
-    for (uint64_t h = 0; h < 20; ++h) {
-      db.add_block(mkblock(block_versions[h]), 0, 0, 0, crypto::hash());
-      hf.add(db.get_block_from_height(h), h);
-    }
+  //                                 index  0  1  2  3  4  5  6  7  8  9
+  static const uint8_t block_versions[] = { 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
+  for (uint64_t h = 0; h < 16; ++h) {
+    db.add_block(mkblock(block_versions[h]), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE (hf.add(db.get_block_from_height(h), h));
+  }
 
-    for (uint64_t rh = 0; rh < 20; ++rh) {
-      hf.reorganize_from_block_height(&db, rh);
-      for (int hh = 0; hh < 20; ++hh) {
-        uint8_t version = hh >= (history-1) ? block_versions[hh - (history-1)] : 1;
-        ASSERT_EQ(hf.get(hh), version);
-      }
-      ASSERT_EQ(hf.get(100000), 9);
+  for (uint64_t rh = 0; rh < 16; ++rh) {
+    hf.reorganize_from_block_height(rh);
+    for (int hh = 0; hh < 16; ++hh) {
+      uint8_t version = hh >= (history-1) ? block_versions[hh - (history-1)] : 1;
+      ASSERT_EQ(hf.get(hh), version);
     }
+  }
 
-    // delay a bit for 9, and go back to 1 to check it stays at 9
-    static const uint8_t block_versions_new[] =    { 1, 1, 4, 4, 7, 7, 4, 7, 7, 7, 9, 9, 9, 9, 9, 1, 1, 1, 1, 1 };
-    static const uint8_t expected_versions_new[] = { 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 7, 7, 7, 9, 9, 9, 9, 9, 9, 9 };
-    for (uint64_t h = 3; h < 20; ++h) {
-      db.remove_block();
-    }
-    ASSERT_EQ(db.height(), 3);
-    hf.reorganize_from_block_height(&db, 2);
-    for (uint64_t h = 3; h < 20; ++h) {
-      db.add_block(mkblock(block_versions_new[h]), 0, 0, 0, crypto::hash());
-      hf.add(db.get_block_from_height(h), h);
-    }
-    for (int hh = 0; hh < 20; ++hh) {
-      ASSERT_EQ(hf.get(hh), expected_versions_new[hh]);
-    }
-    ASSERT_EQ(hf.get(100000), 9);
+  // delay a bit for 9, and go back to 1 to check it stays at 9
+  static const uint8_t block_versions_new[] =    { 1, 1, 4, 4, 7, 7, 4, 7, 7, 7, 9, 9, 9, 9, 9, 1 };
+  static const uint8_t expected_versions_new[] = { 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 7, 7, 7, 9, 9, 9 };
+  for (uint64_t h = 3; h < 16; ++h) {
+    db.remove_block();
+  }
+  ASSERT_EQ(db.height(), 3);
+  hf.reorganize_from_block_height(2);
+  for (uint64_t h = 3; h < 16; ++h) {
+    db.add_block(mkblock(block_versions_new[h]), 0, 0, 0, crypto::hash());
+    bool ret = hf.add(db.get_block_from_height(h), h);
+    ASSERT_EQ (ret, h < 15);
+  }
+  db.remove_block(); // last block added to the blockchain, but not hf
+  ASSERT_EQ(db.height(), 15);
+  for (int hh = 0; hh < 15; ++hh) {
+    ASSERT_EQ(hf.get(hh), expected_versions_new[hh]);
   }
 }
 
 TEST(voting, threshold)
 {
   for (int threshold = 87; threshold <= 88; ++threshold) {
-    HardFork hf(1, 1, 1, 8, threshold, 10);
     TestDB db;
+    HardFork hf(db, 1, 1, 1, 8, threshold);
 
     //                 v  h  t
+    ASSERT_TRUE(hf.add(1, 0, 0));
     ASSERT_TRUE(hf.add(2, 2, 1));
+    hf.init();
 
-    for (uint64_t h = 0; h < 10; ++h) {
+    for (uint64_t h = 0; h <= 8; ++h) {
       uint8_t v = 1 + !!(h % 8);
-      hf.add(mkblock(v), h);
-      uint8_t expected = threshold == 88 ? 1 : h < 7 ? 1 : 2;
-      ASSERT_EQ(hf.get(h), expected);
+      db.add_block(mkblock(v), 0, 0, 0, crypto::hash());
+      bool ret = hf.add(db.get_block_from_height(h), h);
+      if (h >= 8 && threshold == 87) {
+        ASSERT_FALSE(ret);
+      }
+      else {
+        ASSERT_TRUE(ret);
+        uint8_t expected = threshold == 88 ? 1 : h < 7 ? 1 : 2;
+        ASSERT_EQ(hf.get(h), expected);
+      }
     }
   }
 }
 
 TEST(new_blocks, denied)
 {
-    HardFork hf(1, 1, 1, 4, 50, 10);
+    TestDB db;
+    HardFork hf(db, 1, 1, 1, 4, 50);
 
     //                 v  h  t
+    ASSERT_TRUE(hf.add(1, 0, 0));
     ASSERT_TRUE(hf.add(2, 2, 1));
+    hf.init();
 
     ASSERT_FALSE(hf.add(mkblock(0), 0));
     ASSERT_TRUE(hf.add(mkblock(1), 0));
@@ -322,10 +375,13 @@ TEST(new_blocks, denied)
 
 TEST(new_version, early)
 {
-    HardFork hf(1, 1, 1, 4, 50, 10);
+    TestDB db;
+    HardFork hf(db, 1, 1, 1, 4, 50);
 
     //                 v  h  t
+    ASSERT_TRUE(hf.add(1, 0, 0));
     ASSERT_TRUE(hf.add(2, 4, 1));
+    hf.init();
 
     ASSERT_FALSE(hf.add(mkblock(0), 0));
     ASSERT_TRUE(hf.add(mkblock(2), 0));
@@ -342,12 +398,14 @@ TEST(new_version, early)
 
 TEST(reorganize, changed)
 {
-    HardFork hf(1, 1, 1, 4, 50, 10);
     TestDB db;
+    HardFork hf(db, 1, 1, 1, 4, 50);
 
     //                 v  h  t
+    ASSERT_TRUE(hf.add(1, 0, 0));
     ASSERT_TRUE(hf.add(2, 2, 1));
     ASSERT_TRUE(hf.add(3, 5, 2));
+    hf.init();
 
 #define ADD(v, h, a) \
   do { \
@@ -376,10 +434,10 @@ TEST(reorganize, changed)
 
     // pop a few blocks and check current version goes back down
     db.remove_block();
-    hf.reorganize_from_block_height(&db, 8);
+    hf.reorganize_from_block_height(8);
     ASSERT_EQ(hf.get_current_version(), 3);
     db.remove_block();
-    hf.reorganize_from_block_height(&db, 7);
+    hf.reorganize_from_block_height(7);
     ASSERT_EQ(hf.get_current_version(), 2);
     db.remove_block();
     ASSERT_EQ(hf.get_current_version(), 2);

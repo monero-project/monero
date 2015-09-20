@@ -160,8 +160,8 @@ namespace cryptonote
     void set_show_time_stats(bool stats) { m_show_time_stats = stats; }
     
     HardFork::State get_hard_fork_state() const;
-    uint8_t get_current_hard_fork_version() const { return m_hardfork.get_current_version(); }
-    uint8_t get_ideal_hard_fork_version() const { return m_hardfork.get_ideal_version(); }
+    uint8_t get_current_hard_fork_version() const { return m_hardfork->get_current_version(); }
+    uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
     bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
 
     BlockchainDB& get_db()
@@ -233,7 +233,7 @@ namespace cryptonote
     std::atomic<bool> m_is_blockchain_storing;
     bool m_enforce_dns_checkpoints;
 
-    HardFork m_hardfork;
+    HardFork *m_hardfork;
 
     template<class visitor_t>
     inline bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;

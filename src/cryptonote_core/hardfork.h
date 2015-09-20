@@ -28,8 +28,6 @@
 
 #pragma once
 
-#include <boost/serialization/serialization.hpp>
-#include <boost/serialization/version.hpp>
 #include "syncobj.h"
 #include "cryptonote_core/cryptonote_basic.h"
 
@@ -48,9 +46,8 @@ namespace cryptonote
 
     static const time_t DEFAULT_FORKED_TIME = 31557600; // a year in seconds
     static const time_t DEFAULT_UPDATE_TIME = 31557600 / 2;
-    static const uint64_t DEFAULT_MAX_HISTORY = 50; // supermajority window check length
+    static const uint64_t DEFAULT_WINDOW_SIZE = 50; // supermajority window check length
     static const int DEFAULT_THRESHOLD_PERCENT = 80;
-    static const uint64_t DEFAULT_CHECKPOINT_PERIOD = 1024; // mark a checkpoint every that many blocks
 
     /**
      * @brief creates a new HardFork object
@@ -58,10 +55,10 @@ namespace cryptonote
      * @param original_version the block version for blocks 0 through to the first fork
      * @param forked_time the time in seconds before thinking we're forked
      * @param update_time the time in seconds before thinking we need to update
-     * @param max_history the size of the window in blocks to consider for version voting
+     * @param window_size the size of the window in blocks to consider for version voting
      * @param threshold_percent the size of the majority in percents
      */
-    HardFork(uint8_t original_version = 1, time_t forked_time = DEFAULT_FORKED_TIME, time_t update_time = DEFAULT_UPDATE_TIME, uint64_t max_history = DEFAULT_MAX_HISTORY, int threshold_percent = DEFAULT_THRESHOLD_PERCENT, uint64_t checkpoint_period = DEFAULT_CHECKPOINT_PERIOD);
+    HardFork(cryptonote::BlockchainDB &db, uint8_t original_version = 1, time_t forked_time = DEFAULT_FORKED_TIME, time_t update_time = DEFAULT_UPDATE_TIME, uint64_t window_size = DEFAULT_WINDOW_SIZE, int threshold_percent = DEFAULT_THRESHOLD_PERCENT);
 
     /**
      * @brief add a new hardfork height
@@ -73,6 +70,13 @@ namespace cryptonote
      * @param time Approximate time of the hardfork (seconds since epoch)
      */
     bool add(uint8_t version, uint64_t height, time_t time);
+
+    /**
+     * @brief initialize the object
+     *
+     * Must be done after adding all the required hardforks via add above
+     */
+    void init();
 
     /**
      * @brief check whether a new block would be accepted
@@ -91,9 +95,7 @@ namespace cryptonote
      * call add first, then, if the hard fork requirements are met,
      * add the block to the blockchain, upon which a failure (the
      * block being invalid, double spending, etc) would cause the
-     * hardfork object to rescan the blockchain versions past the
-     * last checkpoint, potentially causing a large number of DB
-     * operations.
+     * hardfork object to reorganize.
      */
     bool check(const cryptonote::block &block) const;
 
@@ -117,8 +119,8 @@ namespace cryptonote
      * @param blockchain the blockchain
      * @param height of the last block kept from the previous blockchain
      */
-    bool reorganize_from_block_height(const cryptonote::BlockchainDB *db, uint64_t height);
-    bool reorganize_from_chain_height(const cryptonote::BlockchainDB *db, uint64_t height);
+    bool reorganize_from_block_height(uint64_t height);
+    bool reorganize_from_chain_height(uint64_t height);
 
     /**
      * @brief returns current state at the given time
@@ -176,23 +178,21 @@ namespace cryptonote
     /**
      * @brief returns the size of the voting window in blocks
      */
-    uint64_t get_window_size() const { return max_history; }
-
-    template<class archive_t>
-    void serialize(archive_t & ar, const unsigned int version);
+    uint64_t get_window_size() const { return window_size; }
 
   private:
 
-    void init();
     bool do_check(const cryptonote::block &block) const;
     int get_voted_fork_index(uint64_t height) const;
     uint8_t get_effective_version(const cryptonote::block &block) const;
 
   private:
 
+    BlockchainDB &db;
+
     time_t forked_time;
     time_t update_time;
-    uint64_t max_history;
+    uint64_t window_size;
     int threshold_percent;
 
     uint8_t original_version;
@@ -206,16 +206,11 @@ namespace cryptonote
 
     std::deque<uint8_t> versions; /* rolling window of the last N blocks' versions */
     unsigned int last_versions[256]; /* count of the block versions in the last N blocks */
-    uint64_t starting[256]; /* block height at which each fork starts */
-    unsigned int current_fork_index;
+    uint32_t current_fork_index;
     uint32_t vote_threshold;
-
-    uint64_t checkpoint_period;
-    std::vector<std::pair<uint64_t, int>> checkpoints;
 
     mutable epee::critical_section lock;
   };
 
 }  // namespace cryptonote
 
-BOOST_CLASS_VERSION(cryptonote::HardFork, 1)
