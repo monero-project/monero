@@ -963,10 +963,14 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
         LOG_PRINT_L1("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
         return false;
     }
-    if(base_reward + fee != money_in_use)
+    // From hard fork 2, we allow a miner to claim less block reward than is allowed, in case a miner wants less dust
+    if (m_hardfork->get_current_version() < 2)
     {
-        LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
-        return false;
+        if(base_reward + fee != money_in_use)
+        {
+            LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
+            return false;
+        }
     }
     return true;
 }
