@@ -73,12 +73,21 @@ static const struct {
   uint8_t version;
   uint64_t height;
   time_t time;
-} hard_forks[] = {
+} mainnet_hard_forks[] = {
   // version 1 from the start of the blockchain
   { 1, 1, 1341378000 },
 
   // version 2 can start from block 1009827, setup on the 20th of september
   { 2, 1009827, 1442763710 },
+};
+
+static const struct {
+  uint8_t version;
+  uint64_t height;
+  time_t time;
+} testnet_hard_forks[] = {
+  // version 1 from the start of the blockchain
+  { 1, 1, 1341378000 },
 };
 
 //------------------------------------------------------------------
@@ -288,8 +297,15 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_db = db;
 
     m_hardfork = new HardFork(*db);
-    for (size_t n = 0; n < sizeof(hard_forks) / sizeof(hard_forks[0]); ++n)
-      m_hardfork->add(hard_forks[n].version, hard_forks[n].height, hard_forks[n].time);
+    if (testnet) {
+      for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
+        m_hardfork->add(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].time);
+    }
+    else
+    {
+      for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
+        m_hardfork->add(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].time);
+    }
     m_hardfork->init();
 
     // if the blockchain is new, add the genesis block
