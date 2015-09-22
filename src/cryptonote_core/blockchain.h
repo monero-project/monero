@@ -38,6 +38,8 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/foreach.hpp>
 #include <atomic>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "syncobj.h"
 #include "string_tools.h"
@@ -50,6 +52,7 @@
 #include "verification_context.h"
 #include "crypto/hash.h"
 #include "checkpoints.h"
+#include "hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
 namespace cryptonote
@@ -142,9 +145,9 @@ namespace cryptonote
     bool get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
 
     //debug functions
-    void print_blockchain(uint64_t start_index, uint64_t end_index);
-    void print_blockchain_index();
-    void print_blockchain_outs(const std::string& file);
+    void print_blockchain(uint64_t start_index, uint64_t end_index) const;
+    void print_blockchain_index() const;
+    void print_blockchain_outs(const std::string& file) const;
 
     void check_against_checkpoints(const checkpoints& points, bool enforce);
     void set_enforce_dns_checkpoints(bool enforce);
@@ -156,6 +159,11 @@ namespace cryptonote
 
     void set_show_time_stats(bool stats) { m_show_time_stats = stats; }
     
+    HardFork::State get_hard_fork_state() const;
+    uint8_t get_current_hard_fork_version() const { return m_hardfork->get_current_version(); }
+    uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
+    bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
+
     BlockchainDB& get_db()
     {
       return *m_db;
@@ -225,6 +233,8 @@ namespace cryptonote
     std::atomic<bool> m_is_blockchain_storing;
     bool m_enforce_dns_checkpoints;
 
+    HardFork *m_hardfork;
+
     template<class visitor_t>
     inline bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
     bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, std::vector<crypto::public_key> &output_keys, uint64_t* pmax_related_block_height);
@@ -266,10 +276,10 @@ namespace cryptonote
   /*                                                                      */
   /************************************************************************/
 
-  #define CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER    12
+  #define CURRENT_BLOCKCHAIN_ARCHIVE_VER    13
 
   //------------------------------------------------------------------
 
 }  // namespace cryptonote
 
-BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER)
+BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_ARCHIVE_VER)

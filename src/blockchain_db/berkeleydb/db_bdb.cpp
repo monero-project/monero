@@ -118,6 +118,9 @@ const char* const BDB_OUTPUT_KEYS = "output_keys";
 
 const char* const BDB_SPENT_KEYS = "spent_keys";
 
+const char* const BDB_HF_STARTING_HEIGHTS = "hf_starting_heights";
+const char* const BDB_HF_VERSIONS = "hf_versions";
+
 const unsigned int MB = 1024 * 1024;
 // ND: FIXME: db keeps running out of locks when doing full syncs. Possible bug??? Set it to 5K for now.
 const unsigned int DB_MAX_LOCKS = 5000;
@@ -667,6 +670,9 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
 
         m_spent_keys = new Db(m_env, 0);
 
+        m_hf_starting_heights = new Db(m_env, 0);
+        m_hf_versions = new Db(m_env, 0);
+
         // Tell DB about Dbs that need duplicate support
         // Note: no need to tell about sorting,
         //   as the default is insertion order, which we want
@@ -683,6 +689,9 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_output_txs->set_re_len(sizeof(crypto::hash));
         m_output_indices->set_re_len(sizeof(uint64_t));
         m_output_keys->set_re_len(sizeof(output_data_t));
+
+        m_hf_starting_heights->set_re_len(sizeof(uint64_t));
+        m_hf_versions->set_re_len(sizeof(uint8_t));
 
         //TODO: Find out if we need to do Db::set_flags(DB_RENUMBER)
         //      for the RECNO databases.  We shouldn't as we're only
@@ -712,6 +721,9 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_output_keys->open(txn, BDB_OUTPUT_KEYS, NULL, DB_RECNO, DB_CREATE, 0);
 
         m_spent_keys->open(txn, BDB_SPENT_KEYS, NULL, DB_HASH, DB_CREATE, 0);
+
+        m_hf_starting_heights->open(txn, BDB_HF_STARTING_HEIGHTS, NULL, DB_RECNO, DB_CREATE, 0);
+        m_hf_versions->open(txn, BDB_HF_VERSIONS, NULL, DB_RECNO, DB_CREATE, 0);
 
         txn.commit();
 
@@ -785,6 +797,9 @@ void BlockchainBDB::sync()
         m_output_keys->sync(0);
 
         m_spent_keys->sync(0);
+
+        m_hf_starting_heights->sync(0);
+        m_hf_versions->sync(0);
     }
     catch (const std::exception& e)
     {
@@ -857,6 +872,12 @@ std::vector<std::string> BlockchainBDB::get_filenames() const
     filenames.push_back(fname);
 
     m_spent_keys->get_dbname(pfname, pdbname);
+    filenames.push_back(fname);
+
+    m_hf_starting_heights->get_dbname(pfname, pdbname);
+    filenames.push_back(fname);
+
+    m_hf_versions->get_dbname(pfname, pdbname);
     filenames.push_back(fname);
 
     std::vector<std::string> full_paths;
@@ -1837,6 +1858,60 @@ void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, const std::v
     TIME_MEASURE_FINISH(db3);
 
     LOG_PRINT_L3("db3: " << db3);
+}
+
+void BlockchainBDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    Dbt_copy<uint8_t> val_key(version);
+    Dbt_copy<uint64_t> val(height);
+    if (m_hf_starting_heights->put(DB_DEFAULT_TX, &val_key, &val, 0))
+        throw1(DB_ERROR("Error adding hard fork starting height to db transaction."));
+}
+
+uint64_t BlockchainBDB::get_hard_fork_starting_height(uint8_t version) const
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    Dbt_copy<uint8_t> key(version);
+    Dbt_copy<uint64_t> result;
+
+    auto get_result = m_hf_starting_heights->get(DB_DEFAULT_TX, &key, &result, 0);
+    if (get_result == DB_NOTFOUND)
+        return std::numeric_limits<uint64_t>::max();
+    else if (get_result)
+        throw0(DB_ERROR("Error attempting to retrieve hard fork starting height from the db"));
+
+    return result;
+}
+
+void BlockchainBDB::set_hard_fork_version(uint64_t height, uint8_t version)
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    Dbt_copy<uint64_t> val_key(height);
+    Dbt_copy<uint8_t> val(version);
+    if (m_hf_versions->put(DB_DEFAULT_TX, &val_key, &val, 0))
+        throw1(DB_ERROR("Error adding hard fork version to db transaction."));
+}
+
+uint8_t BlockchainBDB::get_hard_fork_version(uint64_t height) const
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    Dbt_copy<uint64_t> key(height);
+    Dbt_copy<uint8_t> result;
+
+    auto get_result = m_hf_versions->get(DB_DEFAULT_TX, &key, &result, 0);
+    if (get_result == DB_NOTFOUND || get_result)
+        throw0(DB_ERROR("Error attempting to retrieve hard fork version from the db"));
+
+    return result;
 }
 
 void BlockchainBDB::checkpoint_worker() const

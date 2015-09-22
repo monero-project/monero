@@ -812,6 +812,29 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_hard_fork_info(const COMMAND_RPC_HARD_FORK_INFO::request& req, COMMAND_RPC_HARD_FORK_INFO::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+#if BLOCKCHAIN_DB == DB_LMDB
+    const Blockchain &blockchain = m_core.get_blockchain_storage();
+    uint8_t version = req.version > 0 ? req.version : blockchain.get_ideal_hard_fork_version();
+    res.version = blockchain.get_current_hard_fork_version();
+    res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.voting);
+    res.state = blockchain.get_hard_fork_state();
+    return true;
+#else
+    error_resp.code = CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC;
+    error_resp.message = "Hard fork inoperative in memory mode.";
+    return false;
+#endif
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_fast_exit(const COMMAND_RPC_FAST_EXIT::request& req, COMMAND_RPC_FAST_EXIT::response& res)
   {
 	  cryptonote::core::set_fast_exit();

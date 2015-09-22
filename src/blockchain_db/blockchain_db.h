@@ -493,6 +493,12 @@ public:
   // returns true if key image <img> is present in spent key images storage
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
 
+  // Hard fork related storage
+  virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height) = 0;
+  virtual uint64_t get_hard_fork_starting_height(uint8_t version) const = 0;
+  virtual void set_hard_fork_version(uint64_t height, uint8_t version) = 0;
+  virtual uint8_t get_hard_fork_version(uint64_t height) const = 0;
+
   void set_auto_remove_logs(bool auto_remove) { m_auto_remove_logs = auto_remove; }
 
   bool m_open;
