@@ -182,7 +182,6 @@ namespace cryptonote
       FIELD(extra)
     END_SERIALIZE()
 
-
   protected:
     transaction_prefix(){}
   };
@@ -278,7 +277,7 @@ namespace cryptonote
   /************************************************************************/
   struct block_header
   {
-    uint8_t major_version;
+    uint8_t major_version;  // now used as a voting mechanism, rather than how this particular block is built
     uint8_t minor_version;
     uint64_t timestamp;
     crypto::hash  prev_id;
@@ -286,7 +285,6 @@ namespace cryptonote
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(major_version)
-      if(major_version > CURRENT_BLOCK_MAJOR_VERSION) return false;
       VARINT_FIELD(minor_version)
       VARINT_FIELD(timestamp)
       FIELD(prev_id)

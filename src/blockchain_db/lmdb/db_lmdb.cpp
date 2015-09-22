@@ -131,6 +131,15 @@ auto compare_uint64 = [](const MDB_val *a, const MDB_val *b)
   else return 1;
 };
 
+auto compare_uint8 = [](const MDB_val *a, const MDB_val *b)
+{
+  const uint8_t va = *(const uint8_t*)a->mv_data;
+  const uint8_t vb = *(const uint8_t*)b->mv_data;
+  if (va < vb) return -1;
+  else if (va == vb) return 0;
+  else return 1;
+};
+
 int compare_hash32(const MDB_val *a, const MDB_val *b)
 {
 	uint32_t *va = (uint32_t*) a->mv_data;
@@ -165,6 +174,9 @@ const char* const LMDB_OUTPUT_KEYS = "output_keys";
 const char* const LMDB_OUTPUTS = "outputs";
 const char* const LMDB_OUTPUT_GINDICES = "output_gindices";
 const char* const LMDB_SPENT_KEYS = "spent_keys";
+
+const char* const LMDB_HF_STARTING_HEIGHTS = "hf_starting_heights";
+const char* const LMDB_HF_VERSIONS = "hf_versions";
 
 inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi, const std::string& error_string)
 {
@@ -1022,6 +1034,9 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
+  lmdb_db_open(txn, LMDB_HF_STARTING_HEIGHTS, MDB_CREATE, m_hf_starting_heights, "Failed to open db handle for m_hf_starting_heights");
+  lmdb_db_open(txn, LMDB_HF_VERSIONS, MDB_CREATE, m_hf_versions, "Failed to open db handle for m_hf_versions");
+
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
   mdb_set_dupsort(txn, m_tx_outputs, compare_uint64);
   mdb_set_compare(txn, m_spent_keys, compare_hash32);
@@ -1029,6 +1044,8 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   mdb_set_compare(txn, m_txs, compare_hash32);
   mdb_set_compare(txn, m_tx_unlocks, compare_hash32);
   mdb_set_compare(txn, m_tx_heights, compare_hash32);
+  mdb_set_compare(txn, m_hf_starting_heights, compare_uint8);
+  mdb_set_compare(txn, m_hf_versions, compare_uint64);
 
   // get and keep current height
   MDB_stat db_stats;
@@ -2345,6 +2362,113 @@ void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::
 	}
 	TIME_MEASURE_FINISH(db3);
 	LOG_PRINT_L3("db3: " << db3);
+}
+
+void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_safe txn;
+  mdb_txn_safe* txn_ptr = &txn;
+  if (m_batch_active)
+    txn_ptr = m_write_txn;
+  else
+  {
+    if (mdb_txn_begin(m_env, NULL, 0, txn))
+      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    txn_ptr = &txn;
+  }
+
+  MDB_val_copy<uint8_t> val_key(version);
+  MDB_val_copy<uint64_t> val_value(height);
+  if (auto result = mdb_put(*txn_ptr, m_hf_starting_heights, &val_key, &val_value, 0))
+    throw1(DB_ERROR(std::string("Error adding hard fork starting height to db transaction: ").append(mdb_strerror(result)).c_str()));
+
+  if (!m_batch_active)
+    txn.commit();
+}
+
+uint64_t BlockchainLMDB::get_hard_fork_starting_height(uint8_t version) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_safe txn;
+  mdb_txn_safe* txn_ptr = &txn;
+  if (m_batch_active)
+    txn_ptr = m_write_txn;
+  else
+  {
+    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    txn_ptr = &txn;
+  }
+
+  MDB_val_copy<uint8_t> val_key(version);
+  MDB_val val_ret;
+  auto result = mdb_get(*txn_ptr, m_hf_starting_heights, &val_key, &val_ret);
+  if (result == MDB_NOTFOUND)
+    return std::numeric_limits<uint64_t>::max();
+  if (result)
+    throw0(DB_ERROR("Error attempting to retrieve a hard fork starting height from the db"));
+
+  if (!m_batch_active)
+    txn.commit();
+  return *(const uint64_t*)val_ret.mv_data;
+}
+
+void BlockchainLMDB::set_hard_fork_version(uint64_t height, uint8_t version)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+//LOG_PRINT_L1("BlockchainLMDB::set_hard_fork_version: batch " << m_batch_active << ", height " << height << ", version " << (int)version);
+  mdb_txn_safe txn;
+  mdb_txn_safe* txn_ptr = &txn;
+  if (m_batch_active)
+    txn_ptr = m_write_txn;
+  else
+  {
+    if (mdb_txn_begin(m_env, NULL, 0, txn))
+      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    txn_ptr = &txn;
+  }
+
+  MDB_val_copy<uint64_t> val_key(height);
+  MDB_val_copy<uint8_t> val_value(version);
+  if (auto result = mdb_put(*txn_ptr, m_hf_versions, &val_key, &val_value, 0))
+    throw1(DB_ERROR(std::string("Error adding hard fork version to db transaction: ").append(mdb_strerror(result)).c_str()));
+
+  if (!m_batch_active)
+    txn.commit();
+}
+
+uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_safe txn;
+  mdb_txn_safe* txn_ptr = &txn;
+  if (m_batch_active)
+    txn_ptr = m_write_txn;
+  else
+  {
+    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    txn_ptr = &txn;
+  }
+
+  MDB_val_copy<uint64_t> val_key(height);
+  MDB_val val_ret;
+  auto result = mdb_get(*txn_ptr, m_hf_versions, &val_key, &val_ret);
+  if (result == MDB_NOTFOUND || result)
+    throw0(DB_ERROR("Error attempting to retrieve a hard fork version from the db"));
+
+  if (!m_batch_active)
+    txn.commit();
+  return *(const uint8_t*)val_ret.mv_data;
 }
 
 }  // namespace cryptonote

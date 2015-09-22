@@ -1178,7 +1178,7 @@ double blockchain_storage::get_avg_block_size( size_t count) const
 		return average;
 }
 //------------------------------------------------------------------
-void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_index)
+void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_index) const
 {
   std::stringstream ss;
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1198,7 +1198,7 @@ void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_ind
   LOG_PRINT_L0("Blockchain printed with log level 1");
 }
 //------------------------------------------------------------------
-void blockchain_storage::print_blockchain_index()
+void blockchain_storage::print_blockchain_index() const
 {
   std::stringstream ss;
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1208,7 +1208,7 @@ void blockchain_storage::print_blockchain_index()
   LOG_PRINT_L0("Current blockchain index:" << ENDL << ss.str());
 }
 //------------------------------------------------------------------
-void blockchain_storage::print_blockchain_outs(const std::string& file)
+void blockchain_storage::print_blockchain_outs(const std::string& file) const
 {
   std::stringstream ss;
   CRITICAL_REGION_LOCAL(m_blockchain_lock);

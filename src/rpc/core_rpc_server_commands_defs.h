@@ -815,5 +815,40 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_HARD_FORK_INFO
+  {
+    struct request
+    {
+      uint8_t version;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(version)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint8_t version;
+      bool enabled;
+      uint32_t window;
+      uint32_t votes;
+      uint32_t threshold;
+      uint8_t voting;
+      uint32_t state;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(version)
+        KV_SERIALIZE(enabled)
+        KV_SERIALIZE(window)
+        KV_SERIALIZE(votes)
+        KV_SERIALIZE(threshold)
+        KV_SERIALIZE(voting)
+        KV_SERIALIZE(state)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 

@@ -37,7 +37,8 @@ set(cryptonote_core_sources
   cryptonote_format_utils.cpp
   difficulty.cpp
   miner.cpp
-  tx_pool.cpp)
+  tx_pool.cpp
+  hardfork.cpp)
 
 set(cryptonote_core_headers)
 
@@ -60,7 +61,8 @@ set(cryptonote_core_private_headers
   miner.h
   tx_extra.h
   tx_pool.h
-  verification_context.h)
+  verification_context.h
+  hardfork.h)
 
 if(PER_BLOCK_CHECKPOINT)
 	set(Blocks "blocks")

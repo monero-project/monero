@@ -46,7 +46,8 @@ set(unit_tests_sources
   slow_memmem.cpp
   test_format_utils.cpp
   test_peerlist.cpp
-  test_protocol_pack.cpp)
+  test_protocol_pack.cpp
+  hardfork.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
