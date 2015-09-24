@@ -310,6 +310,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     // we only need 1
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
+    //TODO: move this block into separate functions?
 #if defined(PER_BLOCK_CHECKPOINT)
     if (m_fast_sync && !testnet && get_blocks_dat_start() != nullptr)
     {
@@ -803,7 +804,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
         }
     }
 
-    //removing alt_chain entries from alternative chain
+    //removing alt_chain entries from alternative chains container
     BOOST_FOREACH(auto ch_ent, alt_chain)
     {
         m_alternative_chains.erase(ch_ent);
@@ -934,8 +935,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     return true;
 }
 //------------------------------------------------------------------
-// get the block sizes of the last <count> blocks, starting at <from_height>
-// and return by reference <sz>.
+// get the block sizes of the last <count> blocks, and return by reference <sz>.
 void Blockchain::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
@@ -1351,6 +1351,10 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
 //TODO: This function *looks* like it won't need to be rewritten
 //      to use BlockchainDB, as it calls other functions that were,
 //      but it warrants some looking into later.
+//
+//FIXME: This function appears to want to return false if any transactions
+//       that belong with blocks are missing, but not if blocks themselves
+//       are missing.
 bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
@@ -1363,6 +1367,9 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     {
         std::list<crypto::hash> missed_tx_id;
         std::list<transaction> txs;
+
+        // FIXME: s/rsp.missed_ids/missed_tx_id/ ?  Seems like rsp.missed_ids
+        //        is for missed blocks, not missed transactions as well.
         get_transactions(bl.tx_hashes, txs, rsp.missed_ids);
         CHECK_AND_ASSERT_MES(!missed_tx_id.size(), false, "Internal error: has missed missed_tx_id.size()=" << missed_tx_id.size()
                 << std::endl << "for block id = " << get_block_hash(bl));
@@ -1581,6 +1588,8 @@ uint64_t Blockchain::block_difficulty(uint64_t i) const
     return 0;
 }
 //------------------------------------------------------------------
+//TODO: return type should be void, throw on exception
+//       alternatively, return true only if no blocks missed
 template<class t_ids_container, class t_blocks_container, class t_missed_container>
 bool Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs) const
 {
@@ -1605,6 +1614,8 @@ bool Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container
     return true;
 }
 //------------------------------------------------------------------
+//TODO: return type should be void, throw on exception
+//       alternatively, return true only if no transactions missed
 template<class t_ids_container, class t_tx_container, class t_missed_container>
 bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const
 {
@@ -1621,7 +1632,6 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
         {
             missed_txs.push_back(tx_hash);
         }
-        //FIXME: is this the correct way to handle this?
         catch (const std::exception& e)
         {
             return false;
@@ -1878,6 +1888,11 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
     return true;
 }
 //------------------------------------------------------------------
+//FIXME: it seems this function is meant to be merely a wrapper around
+//       another function of the same name, this one adding one bit of
+//       functionality.  Should probably move anything more than that
+//       (getting the hash of the block at height max_used_block_id)
+//       to the other function to keep everything in one place.
 // This function overloads its sister function with
 // an extra value (hash of highest block that holds an output used as input)
 // as a return-by-reference.
@@ -1888,6 +1903,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
 
 #if defined(PER_BLOCK_CHECKPOINT)
     // check if we're doing per-block checkpointing
+    // FIXME: investigate why this block returns
     if (m_db->height() < m_blocks_hash_check.size() && kept_by_block)
     {
         TIME_MEASURE_START(a);
@@ -1936,6 +1952,10 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
 // This function validates transaction inputs and their keys.  Previously
 // it also performed double spend checking, but that has been moved to its
 // own function.
+// FIXME: consider moving functionality specific to one input into
+//        check_tx_input() rather than here, and use this function simply
+//        to iterate the inputs as necessary (splitting the task
+//        using threads, etc.)
 bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2143,6 +2163,9 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
     // 1. Disable locking and make method private.
     //CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+    //FIXME: this doesn't appear to be a good use of the visitor pattern,
+    //       but rather more complicated than necessary.  I may be wrong
+    //       though - TW
     struct outputs_visitor
     {
         std::vector<crypto::public_key >& m_output_keys;
@@ -2167,7 +2190,7 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
 
     output_keys.clear();
 
-    //check ring signature
+    // collect output keys
     outputs_visitor vi(output_keys, *this);
     if (!scan_outputkeys_for_indexes(txin, vi, tx_prefix_hash, pmax_related_block_height))
     {
@@ -2414,6 +2437,11 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         txs.push_back(tx);
         TIME_MEASURE_START(dd);
 
+        // FIXME: the storage should not be responsible for validation.
+        //        If it does any, it is merely a sanity check.
+        //        Validation is the purview of the Blockchain class
+        //        - TW
+        //
         // ND: this is not needed, db->add_block() checks for duplicate k_images and fails accordingly.
         // if (!check_for_double_spend(tx, keys))
         // {
@@ -2589,6 +2617,8 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
     return handle_block_to_main_chain(bl, id, bvc);
 }
 //------------------------------------------------------------------
+//TODO: Refactor, consider returning a failure height and letting
+//      caller decide course of action.
 void Blockchain::check_against_checkpoints(const checkpoints& points, bool enforce)
 {
     const auto& pts = points.get_points();
@@ -2667,6 +2697,8 @@ void Blockchain::block_longhash_worker(const uint64_t height, const std::vector<
     TIME_MEASURE_START(t);
     slow_hash_allocate_state();
 
+    //FIXME: height should be changing here, as get_block_longhash expects
+    //       the height of the block passed to it
     for (const auto & block : blocks)
     {
         crypto::hash id = get_block_hash(block);
@@ -2722,6 +2754,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 }
 
 //------------------------------------------------------------------
+//FIXME: unused parameter txs
 void Blockchain::output_scan_worker(const uint64_t amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, std::unordered_map<crypto::hash, cryptonote::transaction> &txs) const
 {
     try
