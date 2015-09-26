@@ -80,6 +80,7 @@ static const struct {
   // version 2 can start from block 1009827, setup on the 20th of september
   { 2, 1009827, 1442763710 },
 };
+static const uint64_t mainnet_hard_fork_version_1_till = 750000;
 
 static const struct {
   uint8_t version;
@@ -89,6 +90,7 @@ static const struct {
   // version 1 from the start of the blockchain
   { 1, 1, 1341378000 },
 };
+static const uint64_t testnet_hard_fork_version_1_till = 540000;
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
@@ -296,13 +298,14 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
 
     m_db = db;
 
-    m_hardfork = new HardFork(*db);
     if (testnet) {
+      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
       for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
         m_hardfork->add(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].time);
     }
     else
     {
+      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
       for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
         m_hardfork->add(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].time);
     }

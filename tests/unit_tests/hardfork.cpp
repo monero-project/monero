@@ -194,7 +194,7 @@ TEST(states, Success)
 TEST(steps_asap, Success)
 {
   TestDB db;
-  HardFork hf(db, 1,1,1,1);
+  HardFork hf(db, 1,0,1,1,1);
 
   //                 v  h  t
   ASSERT_TRUE(hf.add(1, 0, 0));
@@ -223,7 +223,7 @@ TEST(steps_asap, Success)
 TEST(steps_1, Success)
 {
   TestDB db;
-  HardFork hf(db, 1,1,1,1);
+  HardFork hf(db, 1,0,1,1,1);
 
   ASSERT_TRUE(hf.add(1, 0, 0));
   for (int n = 1 ; n < 10; ++n)
@@ -244,7 +244,7 @@ TEST(reorganize, Same)
 {
   for (int history = 1; history <= 12; ++history) {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, history, 100);
+    HardFork hf(db, 1, 0, 1, 1, history, 100);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -274,7 +274,7 @@ TEST(reorganize, Changed)
 {
   int history = 4;
   TestDB db;
-  HardFork hf(db, 1, 1, 1, 4, 100);
+  HardFork hf(db, 1, 0, 1, 1, 4, 100);
 
   //                 v  h  t
   ASSERT_TRUE(hf.add(1, 0, 0));
@@ -323,7 +323,7 @@ TEST(voting, threshold)
 {
   for (int threshold = 87; threshold <= 88; ++threshold) {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 8, threshold);
+    HardFork hf(db, 1, 0, 1, 1, 8, threshold);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -351,7 +351,7 @@ TEST(voting, threshold)
 TEST(new_blocks, denied)
 {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -377,7 +377,7 @@ TEST(new_blocks, denied)
 TEST(new_version, early)
 {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -400,7 +400,7 @@ TEST(new_version, early)
 TEST(reorganize, changed)
 {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));

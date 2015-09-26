@@ -44,6 +44,7 @@ namespace cryptonote
       Ready,
     } State;
 
+    static const uint64_t DEFAULT_ORIGINAL_VERSION_TILL_HEIGHT = 0; // <= actual height
     static const time_t DEFAULT_FORKED_TIME = 31557600; // a year in seconds
     static const time_t DEFAULT_UPDATE_TIME = 31557600 / 2;
     static const uint64_t DEFAULT_WINDOW_SIZE = 50; // supermajority window check length
@@ -58,7 +59,7 @@ namespace cryptonote
      * @param window_size the size of the window in blocks to consider for version voting
      * @param threshold_percent the size of the majority in percents
      */
-    HardFork(cryptonote::BlockchainDB &db, uint8_t original_version = 1, time_t forked_time = DEFAULT_FORKED_TIME, time_t update_time = DEFAULT_UPDATE_TIME, uint64_t window_size = DEFAULT_WINDOW_SIZE, int threshold_percent = DEFAULT_THRESHOLD_PERCENT);
+    HardFork(cryptonote::BlockchainDB &db, uint8_t original_version = 1, uint64_t original_version_till_height = DEFAULT_ORIGINAL_VERSION_TILL_HEIGHT, time_t forked_time = DEFAULT_FORKED_TIME, time_t update_time = DEFAULT_UPDATE_TIME, uint64_t window_size = DEFAULT_WINDOW_SIZE, int threshold_percent = DEFAULT_THRESHOLD_PERCENT);
 
     /**
      * @brief add a new hardfork height
@@ -182,9 +183,11 @@ namespace cryptonote
 
   private:
 
-    bool do_check(const cryptonote::block &block) const;
+    uint8_t get_block_version(uint64_t height) const;
+    bool do_check(uint8_t version) const;
     int get_voted_fork_index(uint64_t height) const;
-    uint8_t get_effective_version(const cryptonote::block &block) const;
+    uint8_t get_effective_version(uint8_t version) const;
+    bool add(uint8_t block_version, uint64_t height);
 
   private:
 
@@ -196,6 +199,7 @@ namespace cryptonote
     int threshold_percent;
 
     uint8_t original_version;
+    uint64_t original_version_till_height;
 
     struct Params {
       uint8_t version;
