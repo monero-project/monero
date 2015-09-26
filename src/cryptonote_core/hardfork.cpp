@@ -64,7 +64,7 @@ bool HardFork::add(uint8_t version, uint64_t height, time_t time)
     if (time <= heights.back().time)
       return false;
   }
-  heights.push_back({version: version, height: height, time: time});
+  heights.push_back(Params(version, height, time));
   return true;
 }
 
@@ -239,7 +239,7 @@ HardFork::State HardFork::get_state() const
 uint8_t HardFork::get(uint64_t height) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  if (height > db.height()) {
+  if (height >= db.height()) {
     assert(false);
     return 255;
   }

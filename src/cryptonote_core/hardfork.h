@@ -197,11 +197,12 @@ namespace cryptonote
 
     uint8_t original_version;
 
-    typedef struct {
+    struct Params {
       uint8_t version;
       uint64_t height;
       time_t time;
-    } Params;
+      Params(uint8_t version, uint64_t height, time_t time): version(version), height(height), time(time) {}
+    };
     std::vector<Params> heights;
 
     std::deque<uint8_t> versions; /* rolling window of the last N blocks' versions */
