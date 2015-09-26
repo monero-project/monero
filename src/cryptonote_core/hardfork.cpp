@@ -35,9 +35,10 @@
 
 using namespace cryptonote;
 
-HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, time_t forked_time, time_t update_time, uint64_t window_size, int threshold_percent):
+HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, int threshold_percent):
   db(db),
   original_version(original_version),
+  original_version_till_height(original_version_till_height),
   forked_time(forked_time),
   update_time(update_time),
   window_size(window_size),
@@ -68,9 +69,8 @@ bool HardFork::add(uint8_t version, uint64_t height, time_t time)
   return true;
 }
 
-uint8_t HardFork::get_effective_version(const cryptonote::block &block) const
+uint8_t HardFork::get_effective_version(uint8_t version) const
 {
-  uint8_t version = block.major_version;
   if (!heights.empty()) {
     uint8_t max_version = heights.back().version;
     if (version > max_version)
@@ -79,27 +79,27 @@ uint8_t HardFork::get_effective_version(const cryptonote::block &block) const
   return version;
 }
 
-bool HardFork::do_check(const cryptonote::block &block) const
+bool HardFork::do_check(uint8_t version) const
 {
-  return block.major_version >= heights[current_fork_index].version;
+  return version >= heights[current_fork_index].version;
 }
 
 bool HardFork::check(const cryptonote::block &block) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  return do_check(block);
+  return do_check(block.major_version);
 }
 
-bool HardFork::add(const cryptonote::block &block, uint64_t height)
+bool HardFork::add(uint8_t block_version, uint64_t height)
 {
   CRITICAL_REGION_LOCAL(lock);
 
-  if (!do_check(block))
+  if (!do_check(block_version))
     return false;
 
   db.set_hard_fork_version(height, heights[current_fork_index].version);
 
-  const uint8_t version = get_effective_version(block);
+  const uint8_t version = get_effective_version(block_version);
 
   while (versions.size() >= window_size) {
     const uint8_t old_version = versions.front();
@@ -121,6 +121,11 @@ bool HardFork::add(const cryptonote::block &block, uint64_t height)
   }
 
   return true;
+}
+
+bool HardFork::add(const cryptonote::block &block, uint64_t height)
+{
+  return add(block.major_version, height);
 }
 
 void HardFork::init()
@@ -154,11 +159,23 @@ void HardFork::init()
   LOG_PRINT_L1("reorganization done");
 }
 
+uint8_t HardFork::get_block_version(uint64_t height) const
+{
+  if (height <= original_version_till_height)
+    return original_version;
+
+  const cryptonote::block &block = db.get_block_from_height(height);
+  return block.major_version;
+}
+
 bool HardFork::reorganize_from_block_height(uint64_t height)
 {
   CRITICAL_REGION_LOCAL(lock);
   if (height >= db.height())
     return false;
+
+  //db.set_batch_transactions(true);
+  //db.batch_start();
 
   versions.clear();
 
@@ -172,7 +189,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
   }
   for (uint64_t h = rescan_height; h <= height; ++h) {
     cryptonote::block b = db.get_block_from_height(h);
-    const uint8_t v = get_effective_version(b);
+    const uint8_t v = get_effective_version(b.major_version);
     last_versions[v]++;
     versions.push_back(v);
   }
@@ -188,8 +205,10 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
 
   const uint64_t bc_height = db.height();
   for (uint64_t h = height + 1; h < bc_height; ++h) {
-    add(db.get_block_from_height(h), h);
+    add(get_block_version(h), h);
   }
+
+  //db.batch_stop();
 
   return true;
 }
