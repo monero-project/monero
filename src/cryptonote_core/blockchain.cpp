@@ -1998,6 +1998,43 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         return true;
     }
 
+    // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
+    // if one output cannot mix with 2 others, we accept at most 1 output that can mix
+    if (m_hardfork->get_current_version() >= 2)
+    {
+        size_t n_unmixable = 0, n_mixable = 0;
+        size_t mixin = std::numeric_limits<size_t>::max();
+        for (const auto& txin : tx.vin)
+        {
+            // non txin_to_key inputs will be rejected below
+            if (txin.type() == typeid(txin_to_key))
+            {
+              const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+              uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
+              // n_outputs includes the output we're considering
+              if (n_outputs <= 2)
+                ++n_unmixable;
+              else
+                ++n_mixable;
+              if (in_to_key.key_offsets.size() - 1 < mixin)
+                mixin = in_to_key.key_offsets.size() - 1;
+            }
+        }
+        if (mixin < 2)
+        {
+          if (n_unmixable == 0)
+          {
+            LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and no unmixable inputs");
+            return false;
+          }
+          if (n_mixable > 1)
+          {
+            LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and more than one mixable input with unmixable inputs");
+            return false;
+          }
+        }
+    }
+
 	auto it = m_check_txin_table.find(tx_prefix_hash);
 	if(it == m_check_txin_table.end())
 	{
