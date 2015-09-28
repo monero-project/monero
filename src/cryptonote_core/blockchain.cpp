@@ -73,13 +73,24 @@ static const struct {
   uint8_t version;
   uint64_t height;
   time_t time;
-} hard_forks[] = {
+} mainnet_hard_forks[] = {
   // version 1 from the start of the blockchain
   { 1, 1, 1341378000 },
 
   // version 2 can start from block 1009827, setup on the 20th of september
   { 2, 1009827, 1442763710 },
 };
+static const uint64_t mainnet_hard_fork_version_1_till = 750000;
+
+static const struct {
+  uint8_t version;
+  uint64_t height;
+  time_t time;
+} testnet_hard_forks[] = {
+  // version 1 from the start of the blockchain
+  { 1, 1, 1341378000 },
+};
+static const uint64_t testnet_hard_fork_version_1_till = 540000;
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
@@ -287,9 +298,17 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
 
     m_db = db;
 
-    m_hardfork = new HardFork(*db);
-    for (size_t n = 0; n < sizeof(hard_forks) / sizeof(hard_forks[0]); ++n)
-      m_hardfork->add(hard_forks[n].version, hard_forks[n].height, hard_forks[n].time);
+    if (testnet) {
+      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+      for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
+        m_hardfork->add(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].time);
+    }
+    else
+    {
+      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+      for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
+        m_hardfork->add(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].time);
+    }
     m_hardfork->init();
 
     // if the blockchain is new, add the genesis block
@@ -947,10 +966,14 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
         LOG_PRINT_L1("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
         return false;
     }
-    if(base_reward + fee != money_in_use)
+    // From hard fork 2, we allow a miner to claim less block reward than is allowed, in case a miner wants less dust
+    if (m_hardfork->get_current_version() < 2)
     {
-        LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
-        return false;
+        if(base_reward + fee != money_in_use)
+        {
+            LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
+            return false;
+        }
     }
     return true;
 }
@@ -1973,6 +1996,43 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         if (pmax_used_block_height)
             *pmax_used_block_height = its->second.second;
         return true;
+    }
+
+    // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
+    // if one output cannot mix with 2 others, we accept at most 1 output that can mix
+    if (m_hardfork->get_current_version() >= 2)
+    {
+        size_t n_unmixable = 0, n_mixable = 0;
+        size_t mixin = std::numeric_limits<size_t>::max();
+        for (const auto& txin : tx.vin)
+        {
+            // non txin_to_key inputs will be rejected below
+            if (txin.type() == typeid(txin_to_key))
+            {
+              const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+              uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
+              // n_outputs includes the output we're considering
+              if (n_outputs <= 2)
+                ++n_unmixable;
+              else
+                ++n_mixable;
+              if (in_to_key.key_offsets.size() - 1 < mixin)
+                mixin = in_to_key.key_offsets.size() - 1;
+            }
+        }
+        if (mixin < 2)
+        {
+          if (n_unmixable == 0)
+          {
+            LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and no unmixable inputs");
+            return false;
+          }
+          if (n_mixable > 1)
+          {
+            LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and more than one mixable input with unmixable inputs");
+            return false;
+          }
+        }
     }
 
 	auto it = m_check_txin_table.find(tx_prefix_hash);

@@ -196,7 +196,7 @@ TEST(states, Success)
 TEST(steps_asap, Success)
 {
   TestDB db;
-  HardFork hf(db, 1,1,1,1);
+  HardFork hf(db, 1,0,1,1,1);
 
   //                 v  h  t
   ASSERT_TRUE(hf.add(1, 0, 0));
@@ -225,7 +225,7 @@ TEST(steps_asap, Success)
 TEST(steps_1, Success)
 {
   TestDB db;
-  HardFork hf(db, 1,1,1,1);
+  HardFork hf(db, 1,0,1,1,1);
 
   ASSERT_TRUE(hf.add(1, 0, 0));
   for (int n = 1 ; n < 10; ++n)
@@ -238,7 +238,7 @@ TEST(steps_1, Success)
   }
 
   for (uint64_t h = 0; h < 10; ++h) {
-    ASSERT_EQ(hf.get(h), h+1);
+    ASSERT_EQ(hf.get(h), std::max(1,(int)h));
   }
 }
 
@@ -246,7 +246,7 @@ TEST(reorganize, Same)
 {
   for (int history = 1; history <= 12; ++history) {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, history, 100);
+    HardFork hf(db, 1, 0, 1, 1, history, 100);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -265,7 +265,7 @@ TEST(reorganize, Same)
     for (uint64_t rh = 0; rh < 20; ++rh) {
       hf.reorganize_from_block_height(rh);
       for (int hh = 0; hh < 20; ++hh) {
-        uint8_t version = hh >= (history-1) ? block_versions[hh - (history-1)] : 1;
+        uint8_t version = hh >= history ? block_versions[hh - history] : 1;
         ASSERT_EQ(hf.get(hh), version);
       }
     }
@@ -276,7 +276,7 @@ TEST(reorganize, Changed)
 {
   int history = 4;
   TestDB db;
-  HardFork hf(db, 1, 1, 1, 4, 100);
+  HardFork hf(db, 1, 0, 1, 1, 4, 100);
 
   //                 v  h  t
   ASSERT_TRUE(hf.add(1, 0, 0));
@@ -285,8 +285,10 @@ TEST(reorganize, Changed)
   ASSERT_TRUE(hf.add(9, 6, 3));
   hf.init();
 
+  //                                 fork         4     7     9
   //                                 index  0  1  2  3  4  5  6  7  8  9
   static const uint8_t block_versions[] = { 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
+  static const uint8_t expected_versions[] = { 1, 1, 1, 1, 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9 };
   for (uint64_t h = 0; h < 16; ++h) {
     db.add_block(mkblock(block_versions[h]), 0, 0, 0, crypto::hash());
     ASSERT_TRUE (hf.add(db.get_block_from_height(h), h));
@@ -295,14 +297,13 @@ TEST(reorganize, Changed)
   for (uint64_t rh = 0; rh < 16; ++rh) {
     hf.reorganize_from_block_height(rh);
     for (int hh = 0; hh < 16; ++hh) {
-      uint8_t version = hh >= (history-1) ? block_versions[hh - (history-1)] : 1;
-      ASSERT_EQ(hf.get(hh), version);
+      ASSERT_EQ(hf.get(hh), expected_versions[hh]);
     }
   }
 
   // delay a bit for 9, and go back to 1 to check it stays at 9
   static const uint8_t block_versions_new[] =    { 1, 1, 4, 4, 7, 7, 4, 7, 7, 7, 9, 9, 9, 9, 9, 1 };
-  static const uint8_t expected_versions_new[] = { 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 7, 7, 7, 9, 9, 9 };
+  static const uint8_t expected_versions_new[] = { 1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 7, 7, 7, 9, 9 };
   for (uint64_t h = 3; h < 16; ++h) {
     db.remove_block();
   }
@@ -324,7 +325,7 @@ TEST(voting, threshold)
 {
   for (int threshold = 87; threshold <= 88; ++threshold) {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 8, threshold);
+    HardFork hf(db, 1, 0, 1, 1, 8, threshold);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -336,11 +337,13 @@ TEST(voting, threshold)
       db.add_block(mkblock(v), 0, 0, 0, crypto::hash());
       bool ret = hf.add(db.get_block_from_height(h), h);
       if (h >= 8 && threshold == 87) {
+        // for threshold 87, we reach the treshold at height 7, so from height 8, hard fork to version 2, but 8 tries to add 1
         ASSERT_FALSE(ret);
       }
       else {
+        // for threshold 88, we never reach the threshold
         ASSERT_TRUE(ret);
-        uint8_t expected = threshold == 88 ? 1 : h < 7 ? 1 : 2;
+        uint8_t expected = threshold == 88 ? 1 : h < 8 ? 1 : 2;
         ASSERT_EQ(hf.get(h), expected);
       }
     }
@@ -350,7 +353,7 @@ TEST(voting, threshold)
 TEST(new_blocks, denied)
 {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -370,13 +373,13 @@ TEST(new_blocks, denied)
     ASSERT_FALSE(hf.add(mkblock(1), 9)); // so this one can't get added
     ASSERT_TRUE(hf.add(mkblock(2), 10));
 
-    ASSERT_EQ(hf.get_start_height(2), 8);
+    ASSERT_EQ(hf.get_start_height(2), 9);
 }
 
 TEST(new_version, early)
 {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -399,7 +402,7 @@ TEST(new_version, early)
 TEST(reorganize, changed)
 {
     TestDB db;
-    HardFork hf(db, 1, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add(1, 0, 0));
@@ -428,8 +431,8 @@ TEST(reorganize, changed)
     ADD_TRUE(3, 7);
     ADD_TRUE(4, 8);
     ADD_TRUE(4, 9);
-    ASSERT_EQ(hf.get_start_height(2), 3);
-    ASSERT_EQ(hf.get_start_height(3), 8);
+    ASSERT_EQ(hf.get_start_height(2), 4); // reaches threshold 2 at height 3, so height 4 forks
+    ASSERT_EQ(hf.get_start_height(3), 9);
     ASSERT_EQ(hf.get_current_version(), 3);
 
     // pop a few blocks and check current version goes back down
@@ -446,7 +449,7 @@ TEST(reorganize, changed)
     ADD_TRUE(2, 7);
     ADD_TRUE(2, 8);
     ADD_TRUE(2, 9);
-    ASSERT_EQ(hf.get_start_height(2), 3); // unchanged
+    ASSERT_EQ(hf.get_start_height(2), 4); // unchanged
     ASSERT_EQ(hf.get_current_version(), 2); // we did not bump to 3 this time
     ASSERT_EQ(hf.get_start_height(3), std::numeric_limits<uint64_t>::max()); // not yet
 }
