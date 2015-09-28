@@ -102,7 +102,7 @@ namespace tools
 // fuck it, I'm tired of dealing with getnameinfo()/inet_ntop/etc
 std::string ipv4_to_string(const char* src, size_t len)
 {
-  assert(memchr(src, 0, len));
+  assert(len >= 4);
 
   std::stringstream ss;
   unsigned int bytes[4];
@@ -122,7 +122,7 @@ std::string ipv4_to_string(const char* src, size_t len)
 // stop-gap measure and to make the tests pass at least...
 std::string ipv6_to_string(const char* src, size_t len)
 {
-  assert(memchr(src, 0, len));
+  assert(len >= 8);
 
   std::stringstream ss;
   unsigned int bytes[8];
