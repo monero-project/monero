@@ -73,7 +73,7 @@ namespace daemon_args
   const command_line::arg_descriptor<std::string> arg_db_type = {
     "db-type"
   , "Specify database type"
-  , "lmdb"
+  , DEFAULT_DB_TYPE
   };
   const command_line::arg_descriptor<uint64_t> arg_prep_blocks_threads = {
     "prep-blocks-threads"
