@@ -103,8 +103,8 @@ bool HardFork::add(uint8_t block_version, uint64_t height)
 
   while (versions.size() >= window_size) {
     const uint8_t old_version = versions.front();
+    assert(last_versions[old_version] >= 1);
     last_versions[old_version]--;
-    assert(last_versions[old_version] >= 0);
     versions.pop_front();
   }
 
