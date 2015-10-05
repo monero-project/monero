@@ -443,7 +443,13 @@ namespace nodetool
     if(m_no_igd == false) {
 		LOG_PRINT_L0("Attempting to add IGD port mapping.");
 		int result;
+#if MINIUPNPC_API_VERSION > 13
+		// default according to miniupnpc.h
+		unsigned char ttl = 2;
+		UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, ttl, &result);
+#else
 		UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
+#endif
 		UPNPUrls urls;
 		IGDdatas igdData;
 		char lanAddress[64];
