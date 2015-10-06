@@ -657,8 +657,11 @@ namespace cryptonote
     responce.height = height;
     responce.depth = m_core.get_current_blockchain_height() - height - 1;
     responce.hash = string_tools::pod_to_hex(hash);
+    responce.tx_tree_hash = string_tools::pod_to_hex(get_tx_tree_hash(blk));
     responce.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
     responce.reward = get_block_reward(blk);
+    tools::write_varint(&responce.txcount, blk.tx_hashes.size());
+    responce.txcount++;		// coinbase tx
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
