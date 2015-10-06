@@ -1865,7 +1865,7 @@ void BlockchainBDB::set_hard_fork_starting_height(uint8_t version, uint64_t heig
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
-    Dbt_copy<uint8_t> val_key(version);
+    Dbt_copy<uint32_t> val_key(version + 1);
     Dbt_copy<uint64_t> val(height);
     if (m_hf_starting_heights->put(DB_DEFAULT_TX, &val_key, &val, 0))
         throw1(DB_ERROR("Error adding hard fork starting height to db transaction."));
@@ -1876,7 +1876,7 @@ uint64_t BlockchainBDB::get_hard_fork_starting_height(uint8_t version) const
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
-    Dbt_copy<uint8_t> key(version);
+    Dbt_copy<uint32_t> key(version + 1);
     Dbt_copy<uint64_t> result;
 
     auto get_result = m_hf_starting_heights->get(DB_DEFAULT_TX, &key, &result, 0);
@@ -1893,7 +1893,7 @@ void BlockchainBDB::set_hard_fork_version(uint64_t height, uint8_t version)
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
-    Dbt_copy<uint64_t> val_key(height);
+    Dbt_copy<uint32_t> val_key(height + 1);
     Dbt_copy<uint8_t> val(version);
     if (m_hf_versions->put(DB_DEFAULT_TX, &val_key, &val, 0))
         throw1(DB_ERROR("Error adding hard fork version to db transaction."));
@@ -1904,7 +1904,7 @@ uint8_t BlockchainBDB::get_hard_fork_version(uint64_t height) const
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
-    Dbt_copy<uint64_t> key(height);
+    Dbt_copy<uint32_t> key(height + 1);
     Dbt_copy<uint8_t> result;
 
     auto get_result = m_hf_versions->get(DB_DEFAULT_TX, &key, &result, 0);
