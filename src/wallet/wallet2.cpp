@@ -1143,7 +1143,7 @@ uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_
     const transfer_details& td = m_transfers[i];
     if (!td.m_spent && is_transfer_unlocked(td))
     {
-      if (dust < td.amount())
+      if (dust < td.amount() && is_valid_decomposed_amount(td.amount()))
         unused_transfers_indices.push_back(i);
       else
         unused_dust_indices.push_back(i);
@@ -1572,14 +1572,17 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     change_dts.amount = found_money - needed_money;
   }
 
+  std::vector<cryptonote::tx_destination_entry> splitted_dsts, dust_dsts;
   uint64_t dust = 0;
-  std::vector<cryptonote::tx_destination_entry> splitted_dsts;
-  destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust);
-  THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < dust, error::wallet_internal_error, "invalid dust value: dust = " +
-    std::to_string(dust) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
-  if (0 != dust && !dust_policy.add_to_fee)
-  {
-    splitted_dsts.push_back(cryptonote::tx_destination_entry(dust, dust_policy.addr_for_dust));
+  destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust_dsts);
+  BOOST_FOREACH(auto& d, dust_dsts) {
+    THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < d.amount, error::wallet_internal_error, "invalid dust value: dust = " +
+      std::to_string(d.amount) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
+  }
+  BOOST_FOREACH(auto& d, dust_dsts) {
+    if (!dust_policy.add_to_fee)
+      splitted_dsts.push_back(cryptonote::tx_destination_entry(d.amount, dust_policy.addr_for_dust));
+    dust += d.amount;
   }
 
   crypto::secret_key tx_key;
@@ -1669,7 +1672,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     const transfer_details& td = m_transfers[i];
     if (!td.m_spent && is_transfer_unlocked(td))
     {
-      if (::config::DEFAULT_DUST_THRESHOLD <= td.amount())
+      if (is_valid_decomposed_amount(td.amount()))
         unused_transfers_indices.push_back(i);
       else
         unused_dust_indices.push_back(i);
@@ -1923,11 +1926,12 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
   if (dust_policy.dust_threshold > 0)
     money_back = money_back - money_back % dust_policy.dust_threshold;
   dsts.push_back(cryptonote::tx_destination_entry(money_back, m_account_public_address));
-  uint64_t dust = 0;
-  std::vector<cryptonote::tx_destination_entry> splitted_dsts;
+  std::vector<cryptonote::tx_destination_entry> splitted_dsts, dust;
   destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust);
-  THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < dust, error::wallet_internal_error, "invalid dust value: dust = " +
-    std::to_string(dust) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
+  BOOST_FOREACH(auto& d, dust) {
+    THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < d.amount, error::wallet_internal_error, "invalid dust value: dust = " +
+      std::to_string(d.amount) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
+  }
 
   crypto::secret_key tx_key;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
@@ -1945,7 +1949,7 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
 
   ptx.key_images = key_images;
   ptx.fee = money - money_back;
-  ptx.dust = dust;
+  ptx.dust = 0;
   ptx.tx = tx;
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
@@ -1961,7 +1965,7 @@ std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
   for (transfer_container::const_iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)
   {
     const transfer_details& td = *i;
-    if (!td.m_spent && td.amount() < dust_policy.dust_threshold && is_transfer_unlocked(td))
+    if (!td.m_spent && (td.amount() < dust_policy.dust_threshold || !is_valid_decomposed_amount(td.amount())) && is_transfer_unlocked(td))
     {
       num_dust_outputs++;
     }

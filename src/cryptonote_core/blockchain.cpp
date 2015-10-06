@@ -1972,6 +1972,23 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
     return true;
 }
 //------------------------------------------------------------------
+bool Blockchain::check_tx_outputs(const transaction& tx)
+{
+    LOG_PRINT_L3("Blockchain::" << __func__);
+    CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+    // from hard fork 2, we forbid dust and compound outputs
+    if (m_hardfork->get_current_version() >= 2) {
+      BOOST_FOREACH(auto &o, tx.vout) {
+        if (!is_valid_decomposed_amount(o.amount)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+}
+//------------------------------------------------------------------
 bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);

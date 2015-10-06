@@ -400,48 +400,36 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     inline void digit_split_strategy(const std::vector<cryptonote::tx_destination_entry>& dsts,
       const cryptonote::tx_destination_entry& change_dst, uint64_t dust_threshold,
-      std::vector<cryptonote::tx_destination_entry>& splitted_dsts, uint64_t& dust)
+      std::vector<cryptonote::tx_destination_entry>& splitted_dsts, std::vector<cryptonote::tx_destination_entry> &dust_dsts)
     {
       splitted_dsts.clear();
-      dust = 0;
+      dust_dsts.clear();
 
       BOOST_FOREACH(auto& de, dsts)
       {
-        cryptonote::decompose_amount_into_digits(de.amount, dust_threshold,
+        cryptonote::decompose_amount_into_digits(de.amount, 0,
           [&](uint64_t chunk) { splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, de.addr)); },
           [&](uint64_t a_dust) { splitted_dsts.push_back(cryptonote::tx_destination_entry(a_dust, de.addr)); } );
       }
 
-      cryptonote::decompose_amount_into_digits(change_dst.amount, dust_threshold,
-        [&](uint64_t chunk) { splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, change_dst.addr)); },
-        [&](uint64_t a_dust) { dust = a_dust; } );
+      cryptonote::decompose_amount_into_digits(change_dst.amount, 0,
+        [&](uint64_t chunk) {
+          if (chunk <= dust_threshold)
+            dust_dsts.push_back(cryptonote::tx_destination_entry(chunk, change_dst.addr));
+          else
+            splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, change_dst.addr));
+        },
+        [&](uint64_t a_dust) { dust_dsts.push_back(cryptonote::tx_destination_entry(a_dust, change_dst.addr)); } );
     }
     //----------------------------------------------------------------------------------------------------
     inline void null_split_strategy(const std::vector<cryptonote::tx_destination_entry>& dsts,
       const cryptonote::tx_destination_entry& change_dst, uint64_t dust_threshold,
-      std::vector<cryptonote::tx_destination_entry>& splitted_dsts, uint64_t& dust)
+      std::vector<cryptonote::tx_destination_entry>& splitted_dsts, std::vector<cryptonote::tx_destination_entry> &dust_dsts)
     {
       splitted_dsts = dsts;
 
-      dust = 0;
+      dust_dsts.clear();
       uint64_t change = change_dst.amount;
-      if (0 < dust_threshold)
-      {
-        for (uint64_t order = 10; order <= 10 * dust_threshold; order *= 10)
-        {
-          uint64_t dust_candidate = change_dst.amount % order;
-          uint64_t change_candidate = (change_dst.amount / order) * order;
-          if (dust_candidate <= dust_threshold)
-          {
-            dust = dust_candidate;
-            change = change_candidate;
-          }
-          else
-          {
-            break;
-          }
-        }
-      }
 
       if (0 != change)
       {
@@ -577,14 +565,17 @@ namespace tools
       change_dts.amount = found_money - needed_money;
     }
 
+    std::vector<cryptonote::tx_destination_entry> splitted_dsts, dust_dsts;
     uint64_t dust = 0;
-    std::vector<cryptonote::tx_destination_entry> splitted_dsts;
-    destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust);
-    THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < dust, error::wallet_internal_error, "invalid dust value: dust = " +
-      std::to_string(dust) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
-    if (0 != dust && !dust_policy.add_to_fee)
-    {
-      splitted_dsts.push_back(cryptonote::tx_destination_entry(dust, dust_policy.addr_for_dust));
+    destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust_dsts);
+    BOOST_FOREACH(auto& d, dust_dsts) {
+      THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < d.amount, error::wallet_internal_error, "invalid dust value: dust = " +
+        std::to_string(d.amount) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
+    }
+    BOOST_FOREACH(auto& d, dust_dsts) {
+      if (!dust_policy.add_to_fee)
+        splitted_dsts.push_back(cryptonote::tx_destination_entry(d.amount, dust_policy.addr_for_dust));
+      dust += d.amount;
     }
 
     crypto::secret_key tx_key;
