@@ -116,8 +116,8 @@ namespace cryptonote {
     return !carry;
   }
 
-  difficulty_type next_difficulty(vector<uint64_t> timestamps, vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
-    //cutoff DIFFICULTY_LAG
+  difficulty_type next_difficulty(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
+
     if(timestamps.size() > DIFFICULTY_WINDOW)
     {
       timestamps.resize(DIFFICULTY_WINDOW);
@@ -151,13 +151,15 @@ namespace cryptonote {
     assert(total_work > 0);
     uint64_t low, high;
     mul(total_work, target_seconds, low, high);
+    // blockchain errors "difficulty overhead" if this function returns zero.
+    // TODO: consider throwing an exception instead
     if (high != 0 || low + time_span - 1 < low) {
       return 0;
     }
     return (low + time_span - 1) / time_span;
   }
 
-  difficulty_type next_difficulty(vector<uint64_t> timestamps, vector<difficulty_type> cumulative_difficulties)
+  difficulty_type next_difficulty(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties)
   {
     return next_difficulty(std::move(timestamps), std::move(cumulative_difficulties), DIFFICULTY_TARGET);
   }
