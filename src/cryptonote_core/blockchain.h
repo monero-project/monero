@@ -423,9 +423,6 @@ namespace cryptonote
      */
     bool handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp);
 
-    //FIXME: function declared, but never defined or used.  Candidate for removal.
-    bool handle_get_objects(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res);
-
     /**
      * @brief gets random outputs to mix with
      *
@@ -988,9 +985,6 @@ namespace cryptonote
      */
     bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward);
 
-    //FIXME: function declared but neither defined nor used, candidate for removal
-    bool validate_transaction(const block& b, uint64_t height, const transaction& tx);
-
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
      *
@@ -1004,18 +998,6 @@ namespace cryptonote
      * @return false if something goes wrong with reverting (very bad), otherwise true
      */
     bool rollback_blockchain_switching(std::list<block>& original_chain, uint64_t rollback_height);
-
-    //FIXME: function declared but neither defined nor used, candidate for removal,
-    //       remnant from old blockchain_storage implementation
-    bool add_transaction_from_block(const transaction& tx, const crypto::hash& tx_id, const crypto::hash& bl_id, uint64_t bl_height);
-
-    //FIXME: function declared but neither defined nor used, candidate for removal,
-    //       remnant from old blockchain_storage implementation
-    bool push_transaction_to_global_outs_index(const transaction& tx, const crypto::hash& tx_id, std::vector<uint64_t>& global_indexes);
-
-    //FIXME: function declared but neither defined nor used, candidate for removal,
-    //       remnant from old blockchain_storage implementation
-    bool pop_transaction_from_global_index(const transaction& tx, const crypto::hash& tx_id);
 
     /**
      * @brief gets recent block sizes for median calculation
@@ -1144,9 +1126,6 @@ namespace cryptonote
      * @return false if a double spend was detected, otherwise true
      */
     bool check_for_double_spend(const transaction& tx, key_images_container& keys_this_block) const;
-
-    //FIXME: function declared but neither defined nor used, candidate for removal,
-    void get_timestamp_and_difficulty(uint64_t &timestamp, difficulty_type &difficulty, const int offset) const;
 
     /**
      * @brief validates a transaction input's ring signature

@@ -352,7 +352,6 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
   // we only need 1
   m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
-    //TODO: move this block into separate functions?
 #if defined(PER_BLOCK_CHECKPOINT)
   if (!fakechain)
     load_compiled_in_block_hashes();
