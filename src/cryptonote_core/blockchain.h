@@ -719,6 +719,8 @@ namespace cryptonote
 
     HardFork *m_hardfork;
 
+    bool m_testnet;
+
     /**
      * @brief collects the keys for all outputs being "spent" as an input
      *
@@ -1036,8 +1038,16 @@ namespace cryptonote
      */
     void check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image,
     		const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
-  };
 
+  /**
+   * @brief loads block hashes from compiled-in data set
+   *
+   * A (possibly empty) set of block hashes can be compiled into the
+   * monero daemon binary.  This function loads those hashes into
+   * a useful state.
+   */
+    void load_compiled_in_block_hashes();
+  };
 
   /************************************************************************/
   /*                                                                      */

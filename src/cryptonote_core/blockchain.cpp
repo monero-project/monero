@@ -249,7 +249,9 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
 
     m_db = db;
 
-    if (testnet) {
+    m_testnet = testnet;
+
+    if (m_testnet) {
       m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
       for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
         m_hardfork->add(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].time);
@@ -271,7 +273,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
         LOG_PRINT_L0("Blockchain not loaded, generating genesis block.");
         block bl = boost::value_initialized<block>();
         block_verification_context bvc = boost::value_initialized<block_verification_context>();
-        if (testnet)
+        if (m_testnet)
         {
             generate_genesis_block(bl, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
         }
@@ -302,45 +304,8 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     // we only need 1
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
-    //TODO: move this block into separate functions?
 #if defined(PER_BLOCK_CHECKPOINT)
-    if (m_fast_sync && !testnet && get_blocks_dat_start() != nullptr)
-    {
-        if (get_blocks_dat_size() > 4)
-        {
-            const unsigned char *p = get_blocks_dat_start();
-            uint32_t nblocks = *(uint32_t *) p;
-            if(nblocks > 0 && nblocks > m_db->height())
-            {
-                LOG_PRINT_L0("Loading precomputed blocks: " << nblocks);
-                p += sizeof(uint32_t);
-                for (uint32_t i = 0; i < nblocks; i++)
-                {
-                    crypto::hash hash;
-                    memcpy(hash.data, p, sizeof(hash.data));
-                    p += sizeof(hash.data);
-                    m_blocks_hash_check.push_back(hash);
-                }
-
-                // FIXME: clear tx_pool because the process might have been
-                // terminated and caused it to store txs kept by blocks.
-                // The core will not call check_tx_inputs(..) for these
-                // transactions in this case. Consequently, the sanity check
-                // for tx hashes will fail in handle_block_to_main_chain(..)
-                std::list<transaction> txs;
-                m_tx_pool.get_transactions(txs);
-
-                size_t blob_size;
-                uint64_t fee;
-                transaction pool_tx;
-                for(const transaction &tx : txs)
-                {
-                    crypto::hash tx_hash = get_transaction_hash(tx);
-                    m_tx_pool.take_tx(tx_hash, pool_tx, blob_size, fee);
-                }
-            }
-        }
-    }
+    load_compiled_in_block_hashes();
 #endif
 
     LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
@@ -616,10 +581,10 @@ void Blockchain::get_all_known_block_ids(std::list<crypto::hash> &main, std::lis
         main.push_back(a);
     }
 
-    BOOST_FOREACH(const blocks_ext_by_hash::value_type &v, m_alternative_chains)
+    for (const blocks_ext_by_hash::value_type &v : m_alternative_chains)
     alt.push_back(v.first);
 
-    BOOST_FOREACH(const blocks_ext_by_hash::value_type &v, m_invalid_blocks)
+    for (const blocks_ext_by_hash::value_type &v : m_invalid_blocks)
     invalid.push_back(v.first);
 }
 //------------------------------------------------------------------
@@ -800,7 +765,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
     }
 
     //removing alt_chain entries from alternative chains container
-    BOOST_FOREACH(auto ch_ent, alt_chain)
+    for (auto ch_ent : alt_chain)
     {
         m_alternative_chains.erase(ch_ent);
     }
@@ -909,7 +874,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     LOG_PRINT_L3("Blockchain::" << __func__);
     //validate reward
     uint64_t money_in_use = 0;
-    BOOST_FOREACH(auto& o, b.miner_tx.vout)
+    for (auto& o : b.miner_tx.vout)
     money_in_use += o.amount;
 
     std::vector<size_t> last_blocks_sizes;
@@ -1004,7 +969,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
     size_t real_txs_size = 0;
     uint64_t real_fee = 0;
     CRITICAL_REGION_BEGIN(m_tx_pool.m_transactions_lock);
-    BOOST_FOREACH(crypto::hash &cur_hash, b.tx_hashes)
+    for (crypto::hash &cur_hash : b.tx_hashes)
     {
         auto cur_res = m_tx_pool.m_transactions.find(cur_hash);
         if (cur_res == m_tx_pool.m_transactions.end())
@@ -1365,31 +1330,47 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     std::list<block> blocks;
     get_blocks(arg.blocks, blocks, rsp.missed_ids);
 
-    BOOST_FOREACH(const auto& bl, blocks)
+    for (const auto& bl : blocks)
     {
-        std::list<crypto::hash> missed_tx_id;
+        std::list<crypto::hash> missed_tx_ids;
         std::list<transaction> txs;
 
-        // FIXME: s/rsp.missed_ids/missed_tx_id/ ?  Seems like rsp.missed_ids
-        //        is for missed blocks, not missed transactions as well.
-        get_transactions(bl.tx_hashes, txs, rsp.missed_ids);
-        CHECK_AND_ASSERT_MES(!missed_tx_id.size(), false, "Internal error: has missed missed_tx_id.size()=" << missed_tx_id.size()
-                << std::endl << "for block id = " << get_block_hash(bl));
+        get_transactions(bl.tx_hashes, txs, missed_tx_ids);
+
+        if (missed_tx_ids.size() != 0)
+        {
+            LOG_ERROR("Error retrieving blocks, missed " << missed_tx_ids.size()
+                  << " transactions for block with hash: " << get_block_hash(bl)
+                  << std::endl
+            );
+            rsp.missed_ids.push_back(get_block_hash(bl));
+
+            // append missed transaction hashes to response missed_ids field,
+            // as done below if any standalone transactions were requested
+            // and missed.
+            rsp.missed_ids.splice(rsp.missed_ids.end(), missed_tx_ids);
+            return false;
+        }
+
         rsp.blocks.push_back(block_complete_entry());
         block_complete_entry& e = rsp.blocks.back();
         //pack block
         e.block = t_serializable_object_to_blob(bl);
         //pack transactions
-        BOOST_FOREACH(transaction& tx, txs)
-        e.txs.push_back(t_serializable_object_to_blob(tx));
+        for (transaction& tx : txs)
+        {
+            e.txs.push_back(t_serializable_object_to_blob(tx));
+        }
 
     }
     //get another transactions, if need
     std::list<transaction> txs;
     get_transactions(arg.txs, txs, rsp.missed_ids);
     //pack aside transactions
-    BOOST_FOREACH(const auto& tx, txs)
-    rsp.txs.push_back(t_serializable_object_to_blob(tx));
+    for (const auto& tx : txs)
+    {
+        rsp.txs.push_back(t_serializable_object_to_blob(tx));
+    }
 
     return true;
 }
@@ -1399,7 +1380,7 @@ bool Blockchain::get_alternative_blocks(std::list<block>& blocks) const
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
-    BOOST_FOREACH(const auto& alt_bl, m_alternative_chains)
+    for (const auto& alt_bl : m_alternative_chains)
     {
         blocks.push_back(alt_bl.second.bl);
     }
@@ -1942,7 +1923,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
 bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
-    BOOST_FOREACH(const txin_v& in, tx.vin)
+    for (const txin_v& in : tx.vin)
     {
         CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, in_to_key, true);
         if(have_tx_keyimg_as_spent(in_to_key.k_image))
@@ -3153,4 +3134,45 @@ HardFork::State Blockchain::get_hard_fork_state() const
 bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
 {
     return m_hardfork->get_voting_info(version, window, votes, threshold, voting);
+}
+
+void Blockchain::load_compiled_in_block_hashes()
+{
+    if (m_fast_sync && !m_testnet && get_blocks_dat_start() != nullptr)
+    {
+        if (get_blocks_dat_size() > 4)
+        {
+            const unsigned char *p = get_blocks_dat_start();
+            uint32_t nblocks = *(uint32_t *) p;
+            if(nblocks > 0 && nblocks > m_db->height())
+            {
+                LOG_PRINT_L0("Loading precomputed blocks: " << nblocks);
+                p += sizeof(uint32_t);
+                for (uint32_t i = 0; i < nblocks; i++)
+                {
+                    crypto::hash hash;
+                    memcpy(hash.data, p, sizeof(hash.data));
+                    p += sizeof(hash.data);
+                    m_blocks_hash_check.push_back(hash);
+                }
+
+                // FIXME: clear tx_pool because the process might have been
+                // terminated and caused it to store txs kept by blocks.
+                // The core will not call check_tx_inputs(..) for these
+                // transactions in this case. Consequently, the sanity check
+                // for tx hashes will fail in handle_block_to_main_chain(..)
+                std::list<transaction> txs;
+                m_tx_pool.get_transactions(txs);
+
+                size_t blob_size;
+                uint64_t fee;
+                transaction pool_tx;
+                for(const transaction &tx : txs)
+                {
+                    crypto::hash tx_hash = get_transaction_hash(tx);
+                    m_tx_pool.take_tx(tx_hash, pool_tx, blob_size, fee);
+                }
+            }
+        }
+    }
 }
