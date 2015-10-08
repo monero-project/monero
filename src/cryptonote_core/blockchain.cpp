@@ -100,55 +100,6 @@ m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_
     LOG_PRINT_L3("Blockchain::" << __func__);
 }
 //------------------------------------------------------------------
-//TODO: is this still needed?  I don't think so - tewinget
-template<class archive_t>
-void Blockchain::serialize(archive_t & ar, const unsigned int version)
-{
-    key_images_container dummy_key_images_container;
-
-    LOG_PRINT_L3("Blockchain::" << __func__);
-    if(version < 11)
-        return;
-    CRITICAL_REGION_LOCAL(m_blockchain_lock);
-    ar & m_blocks;
-    ar & m_blocks_index;
-    ar & m_transactions;
-    ar & dummy_key_images_container;
-    ar & m_alternative_chains;
-    ar & m_outputs;
-    ar & m_invalid_blocks;
-    ar & m_current_block_cumul_sz_limit;
-    /*serialization bug workaround*/
-    if(version > 11)
-    {
-        uint64_t total_check_count = m_db->height() + m_blocks_index.size() + m_transactions.size() + dummy_key_images_container.size() + m_alternative_chains.size() + m_outputs.size() + m_invalid_blocks.size() + m_current_block_cumul_sz_limit;
-        if(archive_t::is_saving::value)
-        {
-            ar & total_check_count;
-        }
-        else
-        {
-            uint64_t total_check_count_loaded = 0;
-            ar & total_check_count_loaded;
-            if(total_check_count != total_check_count_loaded)
-            {
-                LOG_ERROR("Blockchain storage data corruption detected. total_count loaded from file = " << total_check_count_loaded << ", expected = " << total_check_count);
-
-                LOG_PRINT_L0("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "dummy_key_images_container: " << dummy_key_images_container.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
-
-                throw std::runtime_error("Blockchain data corruption");
-            }
-        }
-    }
-
-    if (version > 12)
-    {
-        ar & *m_hardfork;
-    }
-
-    LOG_PRINT_L3("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "dummy_key_images_container: " << dummy_key_images_container.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
-}
-//------------------------------------------------------------------
 bool Blockchain::have_tx(const crypto::hash &id) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
