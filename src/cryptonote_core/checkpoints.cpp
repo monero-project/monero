@@ -84,10 +84,7 @@ namespace cryptonote
     return check_block(height, h, ignored);
   }
   //---------------------------------------------------------------------------
-  // this basically says if the blockchain is smaller than the first
-  // checkpoint then alternate blocks are allowed.  Alternatively, if the
-  // last checkpoint *before* the end of the current chain is also before
-  // the block to be added, then this is fine.
+  //FIXME: is this the desired behavior?
   bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const
   {
     if (0 == block_height)
