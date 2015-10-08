@@ -59,12 +59,12 @@
 namespace
 {
   // TODO: put right error codes here
-  int daemon_connection_error = -326701;
-  int parse_error = -32700;
-  int invalid_request = -32600;
-  int invalid_params = -32602;
-  int internal_error = -32603;
-  int not_mining_error = -32604;
+  const int daemon_connection_error = -326701;
+  const int parse_error = -32700;
+  const int invalid_request = -32600;
+  const int invalid_params = -32602;
+  const int internal_error = -32603;
+  const int not_mining_error = -32604;
 
   RPC::Json_rpc_http_server *server = NULL;
   wap_client_t *ipc_client = NULL;
@@ -90,7 +90,11 @@ namespace
     }
     ipc_client = wap_client_new();
     wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
-    return check_connection_to_daemon();
+    if (!check_connection_to_daemon()) {
+      wap_client_destroy(&ipc_client); // this sets ipc_client to NULL
+      return false;
+    }
+    return true;
   }
 
   /*!
@@ -191,8 +195,7 @@ namespace
     result_json.AddMember("status", "OK", response_json.GetAllocator());
     std::string response;
     construct_response_string(req, result_json, response_json, response);
-    size_t copy_length = ((uint32_t)len > response.length()) ? response.length() + 1 : (uint32_t)len;
-    strncpy(buf, response.c_str(), copy_length);
+    strncpy(buf, response.c_str(), (size_t)len);
     return response.length();
   }
 
@@ -217,7 +220,10 @@ namespace
     rapidjson::Document request_json;
     char request_buf[1000];
     strncpy(request_buf, req->params[0].ptr, req->params[0].len);
-    request_buf[req->params[0].len] = '\0';
+    size_t zidx = sizeof(request_buf) - 1;
+    if (req->params[0].len < zidx)
+      zidx = req->params[0].len;
+    request_buf[zidx] = '\0';
     if (request_json.Parse(request_buf).HasParseError())
     {
       return ns_rpc_create_error(buf, len, req, parse_error,

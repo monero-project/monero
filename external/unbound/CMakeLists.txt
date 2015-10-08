@@ -40,7 +40,7 @@ if (WIN32)
   set(USE_WINSOCK 1)
 else ()
   find_package(PkgConfig REQUIRED)
-  pkg_check_modules(LIBEVENT2 REQUIRED libevent)
+  set(USE_MINI_EVENT 1)
 endif ()
 
 set(RETSIGTYPE void)
@@ -181,10 +181,6 @@ set(libunbound_src
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
-if (LIBEVENT2_FOUND)
-  include_directories(SYSTEM ${LIBEVENT2_INCLUDE_DIRS})
-  link_directories(${LIBEVENT2_LIBRARY_DIRS})
-endif ()
 add_library(unbound
   ${common_src}
   ${sldns_src}
@@ -194,11 +190,6 @@ target_link_libraries(unbound
   LINK_PRIVATE
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT})
-if (LIBEVENT2_FOUND)
-  target_link_libraries(unbound
-    LINK_PRIVATE
-      ${LIBEVENT2_LIBRARIES})
-endif ()
 
 if (WIN32)
   target_link_libraries(unbound
@@ -206,11 +197,6 @@ if (WIN32)
       iphlpapi
       ws2_32)
 endif ()
-
-# XXX: Hack for static builds.
-set(LIBEVENT2_LIBDIR
-  "${LIBEVENT2_LIBDIR}"
-  PARENT_SCOPE)
 
 if (MINGW)
   # There is no variable for this (probably due to the fact that the pthread

@@ -69,6 +69,29 @@ extern "C" void slow_hash_free_state();
 
 DISABLE_VS_WARNINGS(4267)
 
+static const struct {
+  uint8_t version;
+  uint64_t height;
+  time_t time;
+} mainnet_hard_forks[] = {
+  // version 1 from the start of the blockchain
+  { 1, 1, 1341378000 },
+
+  // version 2 can start from block 1009827, setup on the 20th of september
+  { 2, 1009827, 1442763710 },
+};
+static const uint64_t mainnet_hard_fork_version_1_till = 750000;
+
+static const struct {
+  uint8_t version;
+  uint64_t height;
+  time_t time;
+} testnet_hard_forks[] = {
+  // version 1 from the start of the blockchain
+  { 1, 1, 1341378000 },
+};
+static const uint64_t testnet_hard_fork_version_1_till = 540000;
+
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
 m_db(), m_tx_pool(tx_pool), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), 
@@ -116,6 +139,11 @@ void Blockchain::serialize(archive_t & ar, const unsigned int version)
                 throw std::runtime_error("Blockchain data corruption");
             }
         }
+    }
+
+    if (version > 12)
+    {
+        ar & *m_hardfork;
     }
 
     LOG_PRINT_L3("Blockchain storage:" << std::endl << "m_blocks: " << m_db->height() << std::endl << "m_blocks_index: " << m_blocks_index.size() << std::endl << "m_transactions: " << m_transactions.size() << std::endl << "dummy_key_images_container: " << dummy_key_images_container.size() << std::endl << "m_alternative_chains: " << m_alternative_chains.size() << std::endl << "m_outputs: " << m_outputs.size() << std::endl << "m_invalid_blocks: " << m_invalid_blocks.size() << std::endl << "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
@@ -270,6 +298,19 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
 
     m_db = db;
 
+    if (testnet) {
+      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+      for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
+        m_hardfork->add(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].time);
+    }
+    else
+    {
+      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+      for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
+        m_hardfork->add(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].time);
+    }
+    m_hardfork->init();
+
     // if the blockchain is new, add the genesis block
     // this feels kinda kludgy to do it this way, but can be looked at later.
     // TODO: add function to create and store genesis block,
@@ -417,6 +458,7 @@ bool Blockchain::deinit()
         LOG_PRINT_L0("There was an issue closing/storing the blockchain, shutting down now to prevent issues!");
     }
 
+    delete m_hardfork;
     delete m_db;
     return true;
 }
@@ -713,6 +755,8 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
         CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC! failed to add (again) block while chain switching during the rollback!");
     }
 
+    m_hardfork->reorganize_from_chain_height(rollback_height);
+
     LOG_PRINT_L1("Rollback to height " << rollback_height << " was successful.");
     if (original_chain.size())
     {
@@ -809,6 +853,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
     {
         m_alternative_chains.erase(ch_ent);
     }
+
+    m_hardfork->reorganize_from_chain_height(split_height);
 
     LOG_PRINT_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height(), LOG_LEVEL_0);
     return true;
@@ -927,10 +973,14 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
         LOG_PRINT_L1("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
         return false;
     }
-    if(base_reward + fee != money_in_use)
+    // From hard fork 2, we allow a miner to claim less block reward than is allowed, in case a miner wants less dust
+    if (m_hardfork->get_current_version() < 2)
     {
-        LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
-        return false;
+        if(base_reward + fee != money_in_use)
+        {
+            LOG_PRINT_L1("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
+            return false;
+        }
     }
     return true;
 }
@@ -978,12 +1028,13 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
     uint64_t already_generated_coins;
 
     CRITICAL_REGION_BEGIN(m_blockchain_lock);
-    b.major_version = CURRENT_BLOCK_MAJOR_VERSION;
-    b.minor_version = CURRENT_BLOCK_MINOR_VERSION;
+    height = m_db->height();
+
+    b.major_version = m_hardfork->get_ideal_version();
+    b.minor_version = 0;
     b.prev_id = get_tail_id();
     b.timestamp = time(NULL);
 
-    height = m_db->height();
     diffic = get_difficulty_for_next_block();
     CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
 
@@ -1640,7 +1691,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
     return true;
 }
 //------------------------------------------------------------------
-void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index)
+void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     std::stringstream ss;
@@ -1660,7 +1711,7 @@ void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index)
     LOG_PRINT_L0("Blockchain printed with log level 1");
 }
 //------------------------------------------------------------------
-void Blockchain::print_blockchain_index()
+void Blockchain::print_blockchain_index() const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     std::stringstream ss;
@@ -1678,7 +1729,7 @@ void Blockchain::print_blockchain_index()
 }
 //------------------------------------------------------------------
 //TODO: remove this function and references to it
-void Blockchain::print_blockchain_outs(const std::string& file)
+void Blockchain::print_blockchain_outs(const std::string& file) const
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     return;
@@ -1973,6 +2024,43 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         if (pmax_used_block_height)
             *pmax_used_block_height = its->second.second;
         return true;
+    }
+
+    // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
+    // if one output cannot mix with 2 others, we accept at most 1 output that can mix
+    if (m_hardfork->get_current_version() >= 2)
+    {
+        size_t n_unmixable = 0, n_mixable = 0;
+        size_t mixin = std::numeric_limits<size_t>::max();
+        for (const auto& txin : tx.vin)
+        {
+            // non txin_to_key inputs will be rejected below
+            if (txin.type() == typeid(txin_to_key))
+            {
+              const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+              uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
+              // n_outputs includes the output we're considering
+              if (n_outputs <= 2)
+                ++n_unmixable;
+              else
+                ++n_mixable;
+              if (in_to_key.key_offsets.size() - 1 < mixin)
+                mixin = in_to_key.key_offsets.size() - 1;
+            }
+        }
+        if (mixin < 2)
+        {
+          if (n_unmixable == 0)
+          {
+            LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and no unmixable inputs");
+            return false;
+          }
+          if (n_mixable > 1)
+          {
+            LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and more than one mixable input with unmixable inputs");
+            return false;
+          }
+        }
     }
 
 	auto it = m_check_txin_table.find(tx_prefix_hash);
@@ -2276,6 +2364,13 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
     TIME_MEASURE_START(t1);
 
+    // this is a cheap test
+    if (!m_hardfork->check(bl))
+    {
+        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << bl.major_version << std::endl << "current: " << m_hardfork->get_current_version());
+        return false;
+    }
+
     if(bl.prev_id != get_tail_id())
     {
         LOG_PRINT_L1("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
@@ -2556,6 +2651,9 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     TIME_MEASURE_FINISH(addblock);
 
     update_next_cumulative_size_limit();
+
+    // this will not fail since check succeeded above
+    m_hardfork->add(bl, new_height - 1);
 
     LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
     if(m_show_time_stats)
@@ -3094,4 +3192,14 @@ void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
     m_fast_sync = fast_sync;
     m_db_blocks_per_sync = blocks_per_sync;
     m_max_prepare_blocks_threads = maxthreads;
+}
+
+HardFork::State Blockchain::get_hard_fork_state() const
+{
+    return m_hardfork->get_state();
+}
+
+bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
+{
+    return m_hardfork->get_voting_info(version, window, votes, threshold, voting);
 }

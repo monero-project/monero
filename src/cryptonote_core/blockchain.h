@@ -38,6 +38,8 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/foreach.hpp>
 #include <atomic>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "syncobj.h"
 #include "string_tools.h"
@@ -50,6 +52,7 @@
 #include "verification_context.h"
 #include "crypto/hash.h"
 #include "checkpoints.h"
+#include "hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
 namespace cryptonote
@@ -533,7 +536,6 @@ namespace cryptonote
 
 
     //debug functions
-
     /**
      * @brief prints data about a snippet of the blockchain
      *
@@ -542,7 +544,7 @@ namespace cryptonote
      * @param start_index height on chain to start at
      * @param end_index height on chain to end at
      */
-    void print_blockchain(uint64_t start_index, uint64_t end_index);
+    void print_blockchain(uint64_t start_index, uint64_t end_index) const;
 
     /**
      * @brief prints every block's hash
@@ -551,14 +553,14 @@ namespace cryptonote
      * it is recommended to redirect this output to a log file (or null sink
      * if a log file is already set up, as should be the default)
      */
-    void print_blockchain_index();
+    void print_blockchain_index() const;
 
     /**
      * @brief currently does nothing, candidate for removal
      *
      * @param file
      */
-    void print_blockchain_outs(const std::string& file);
+    void print_blockchain_outs(const std::string& file) const;
 
     /**
      * @brief check the blockchain against a set of checkpoints
@@ -612,6 +614,11 @@ namespace cryptonote
      */
     void set_show_time_stats(bool stats) { m_show_time_stats = stats; }
     
+    HardFork::State get_hard_fork_state() const;
+    uint8_t get_current_hard_fork_version() const { return m_hardfork->get_current_version(); }
+    uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
+    bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
+
     /**
      * @brief get a reference to the BlockchainDB in use by Blockchain
      *
@@ -712,6 +719,8 @@ namespace cryptonote
     std::atomic<bool> m_is_in_checkpoint_zone;
     std::atomic<bool> m_is_blockchain_storing;
     bool m_enforce_dns_checkpoints;
+
+    HardFork *m_hardfork;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input
@@ -1055,10 +1064,10 @@ namespace cryptonote
   /*                                                                      */
   /************************************************************************/
 
-  #define CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER    12
+  #define CURRENT_BLOCKCHAIN_ARCHIVE_VER    13
 
   //------------------------------------------------------------------
 
 }  // namespace cryptonote
 
-BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER)
+BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_ARCHIVE_VER)
