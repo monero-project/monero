@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2016, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,13 +25,18 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 #include <map>
 #include <vector>
 #include "cryptonote_basic_impl.h"
+#include "misc_log_ex.h"
+#include "storages/portable_storage_template_helper.h" // epee json include
+
+#define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(add_checkpoint(h,  hash), false);
+#define JSON_HASH_FILE_NAME "checkpoints.json"
 
 
 namespace cryptonote
@@ -88,8 +93,8 @@ namespace cryptonote
      * @param h the hash to be checked
      * @param is_a_checkpoint return-by-reference if there is a checkpoint at the given height
      *
-     * @return true if there is no checkpoint at the given height, 
-     *         true if the passed parameters match the stored checkpoint, 
+     * @return true if there is no checkpoint at the given height,
+     *         true if the passed parameters match the stored checkpoint,
      *         false otherwise
      */
     bool check_block(uint64_t height, const crypto::hash& h, bool& is_a_checkpoint) const;
@@ -110,7 +115,7 @@ namespace cryptonote
      * @param blockchain_height the current blockchain height
      * @param block_height the height of the block to be added as alternate
      *
-     * @return true if alternate blocks are allowed given the parameters, 
+     * @return true if alternate blocks are allowed given the parameters,
      *         otherwise false
      */
     bool is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const;
@@ -141,8 +146,70 @@ namespace cryptonote
      */
     bool check_for_conflicts(const checkpoints& other) const;
 
+    /**
+     * @brief loads the default main chain checkpoints
+     *
+     * @return true unless adding a checkpoint fails
+     */
+    bool init_default_checkpoints();
+
+    /**
+     * @brief load new checkpoints
+     *
+     * Loads new checkpoints from the specified json file, as well as
+     * (optionally) from DNS.
+     *
+     * @param json_hashfile_fullpath path to the json checkpoints file
+     * @param testnet whether to load testnet checkpoints or mainnet
+     * @param dns whether or not to load DNS checkpoints
+     *
+     * @return true if loading successful and no conflicts
+     */
+    bool load_new_checkpoints(const std::string json_hashfile_fullpath, bool testnet=false, bool dns=true);
+
+    /**
+     * @brief load new checkpoints from json
+     *
+     * @param json_hashfile_fullpath path to the json checkpoints file
+     *
+     * @return true if loading successful and no conflicts
+     */
+    bool load_checkpoints_from_json(const std::string json_hashfile_fullpath);
+
+    /**
+     * @brief load new checkpoints from DNS
+     *
+     * @param testnet whether to load testnet checkpoints or mainnet
+     *
+     * @return true if loading successful and no conflicts
+     */
+    bool load_checkpoints_from_dns(bool testnet = false);
 
   private:
+
+
+    /**
+     * @brief struct for loading a checkpoint from json
+     */
+  struct t_hashline
+  {
+    uint64_t height; //!< the height of the checkpoint
+    std::string hash; //!< the hash for the checkpoint
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(height)
+          KV_SERIALIZE(hash)
+        END_KV_SERIALIZE_MAP()
+  };
+
+  /**
+   * @brief struct for loading many checkpoints from json
+   */
+  struct t_hash_json {
+    std::vector<t_hashline> hashlines; //!< the checkpoint lines from the file
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(hashlines)
+        END_KV_SERIALIZE_MAP()
+  };
 
     std::map<uint64_t, crypto::hash> m_points; //!< the checkpoints container
 
