@@ -415,7 +415,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
     r = m_miner.init(vm, m_testnet);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
+    CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
 
     return load_state_data();
   }
