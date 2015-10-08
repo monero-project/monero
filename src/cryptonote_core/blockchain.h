@@ -239,6 +239,8 @@ namespace cryptonote
 
     HardFork *m_hardfork;
 
+    bool m_testnet;
+
     template<class visitor_t>
     inline bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
     bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, std::vector<crypto::public_key> &output_keys, uint64_t* pmax_related_block_height);
@@ -274,5 +276,14 @@ namespace cryptonote
     void get_timestamp_and_difficulty(uint64_t &timestamp, difficulty_type &difficulty, const int offset) const;
     void check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image,
         const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
+
+    /**
+     * @brief loads block hashes from compiled-in data set
+     *
+     * A (possibly empty) set of block hashes can be compiled into the
+     * monero daemon binary.  This function loads those hashes into
+     * a useful state.
+     */
+    void load_compiled_in_block_hashes();
   };
 }  // namespace cryptonote
