@@ -43,7 +43,7 @@ using namespace epee;
 #include "misc_language.h"
 #include <csignal>
 #include "daemon/command_line_args.h"
-#include "cryptonote_core/checkpoints_create.h"
+#include "cryptonote_core/checkpoints.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #if defined(BERKELEY_DB)
@@ -146,7 +146,7 @@ namespace cryptonote
     if (!m_testnet)
     {
       cryptonote::checkpoints checkpoints;
-      if (!cryptonote::create_checkpoints(checkpoints))
+      if (!checkpoints.init_default_checkpoints())
       {
         throw std::runtime_error("Failed to initialize checkpoints");
       }
