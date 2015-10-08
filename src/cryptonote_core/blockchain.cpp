@@ -229,8 +229,6 @@ uint64_t Blockchain::get_current_blockchain_height() const
     return m_db->height();
 }
 //------------------------------------------------------------------
-//FIXME: possibly move this into the constructor, to avoid accidentally
-//       dereferencing a null BlockchainDB pointer
 bool Blockchain::init(BlockchainDB* db, const bool testnet)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
@@ -265,9 +263,6 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_hardfork->init();
 
     // if the blockchain is new, add the genesis block
-    // this feels kinda kludgy to do it this way, but can be looked at later.
-    // TODO: add function to create and store genesis block,
-    //       taking testnet into account
     if(!m_db->height())
     {
         LOG_PRINT_L0("Blockchain not loaded, generating genesis block.");
@@ -731,9 +726,6 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
             // just the latter (because the rollback was done above).
             rollback_blockchain_switching(disconnected_chain, split_height);
 
-            // FIXME: Why do we keep invalid blocks around?  Possibly in case we hear
-            // about them again so we can immediately dismiss them, but needs some
-            // looking into.
             add_block_as_invalid(ch_ent->second, get_block_hash(ch_ent->second.bl));
             LOG_PRINT_L1("The block was inserted as invalid while connecting new alternative chain, block_id: " << get_block_hash(ch_ent->second.bl));
             m_alternative_chains.erase(ch_ent);
@@ -1011,10 +1003,13 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
 
     /*
-     two-phase miner transaction generation: we don't know exact block size until we prepare block, but we don't know reward until we know
-     block size, so first miner transaction generated with fake amount of money, and with phase we know think we know expected block size
+     * two-phase miner transaction generation: we don't know exact block size
+     * until we prepare the block, but we don't know the reward until we know
+     * the block size, so the miner transaction is generated with a fake amount
+     * of money.  After the block is filled with transactions and the block
+     * size is known, the miner transaction is updated to reflect the correct
+     * amount (fees + block reward).
      */
-    //make blocks coin-base tx looks close to real coinbase tx to get truthful blob size
     bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, 11);
     CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, first chance");
     size_t cumulative_size = txs_size + get_object_blobsize(b.miner_tx);
@@ -1238,7 +1233,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
         CHECK_AND_ASSERT_MES(i_res.second, false, "insertion of new alternative block returned as it already exist");
         alt_chain.push_back(i_res.first);
 
-        // FIXME: is it even possible for a checkpoint to show up not on the main chain?
+        // if somehow this block belongs to the main chain according to
+        // checkpoints, make it so.
         if(is_a_checkpoint)
         {
             //do reorganize!
@@ -1315,13 +1311,8 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
     return true;
 }
 //------------------------------------------------------------------
-//TODO: This function *looks* like it won't need to be rewritten
-//      to use BlockchainDB, as it calls other functions that were,
-//      but it warrants some looking into later.
-//
-//FIXME: This function appears to want to return false if any transactions
-//       that belong with blocks are missing, but not if blocks themselves
-//       are missing.
+//FIXME: should we really be mixing missed block hashes with
+//       missed transaction hashes in the response?
 bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
@@ -1347,7 +1338,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
 
             // append missed transaction hashes to response missed_ids field,
             // as done below if any standalone transactions were requested
-            // and missed.
+            // and missed, see fixme above.
             rsp.missed_ids.splice(rsp.missed_ids.end(), missed_tx_ids);
             return false;
         }
@@ -1690,7 +1681,6 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     return true;
 }
 //------------------------------------------------------------------
-//FIXME: change argument to std::vector, low priority
 // find split point between ours and foreign blockchain (or start at
 // blockchain height <req_start_block>), and return up to max_count FULL
 // blocks by reference.
@@ -1884,9 +1874,10 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+//FIXME: there seems to be no code path where this function would be called
+//       AND the conditions of this if would be met, consider removing.
 #if defined(PER_BLOCK_CHECKPOINT)
     // check if we're doing per-block checkpointing
-    // FIXME: investigate why this block returns
     if (m_db->height() < m_blocks_hash_check.size() && kept_by_block)
     {
         TIME_MEASURE_START(a);
@@ -2345,8 +2336,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     // before checkpoints, which is very dangerous behaviour. We moved the PoW
     // validation out of the next chunk of code to make sure that we correctly
     // check PoW now.
-    // FIXME: height parameter is not used...should it be used or should it not
-    // be a parameter?
+    //
     // validate proof_of_work versus difficulty target
     bool precomputed = false;
 #if defined(PER_BLOCK_CHECKPOINT)
@@ -2490,7 +2480,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
             {
                 LOG_PRINT_L1("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
 
-                //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
+                //FIXME: why is this done?  make sure that keeping invalid blocks makes sense.
                 add_block_as_invalid(bl, id);
                 LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
                 bvc.m_verifivation_failed = true;
