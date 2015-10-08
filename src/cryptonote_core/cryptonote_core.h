@@ -291,7 +291,6 @@ namespace cryptonote
       * @note see Blockchain::get_current_blockchain_height()
       */
      uint64_t get_current_blockchain_height() const;
-     bool get_blockchain_top(uint64_t& heeight, crypto::hash& top_id) const;
 
      /**
       * @brief get the hash and height of the most recent block
@@ -348,7 +347,6 @@ namespace cryptonote
       * @note see Blockchain::get_block_by_hash
       */
      bool get_block_by_hash(const crypto::hash &h, block &blk) const;
-     //void get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid);
 
      /**
       * @copydoc Blockchain::get_alternative_blocks
@@ -419,7 +417,6 @@ namespace cryptonote
       * @note see Blockchain::get_total_transactions
       */
      size_t get_blockchain_total_transactions() const;
-     //bool get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys);
 
      /**
       * @copydoc Blockchain::have_block
@@ -457,7 +454,6 @@ namespace cryptonote
       * @return true
       */
      bool get_stat_info(core_stat_info& st_inf) const;
-     //bool get_backward_blocks_sizes(uint64_t from_height, std::vector<size_t>& sizes, size_t count);
 
      /**
       * @copydoc Blockchain::get_tx_outputs_gindexs
@@ -672,7 +668,6 @@ namespace cryptonote
       * @return true
       */
      bool check_tx_syntax(const transaction& tx) const;
-     //check correct values, amounts and all lightweight checks not related with database
 
      /**
       * @brief validates some simple properties of a transaction
@@ -691,10 +686,7 @@ namespace cryptonote
       * @return true if all the checks pass, otherwise false
       */
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block) const;
-     //check if tx already in memory pool or in main blockchain
 
-     bool check_tx_ring_signature(const txin_to_key& tx, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig) const;
-     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
      /**
       * @copydoc miner::on_block_chain_update
       *
@@ -712,7 +704,6 @@ namespace cryptonote
       * @return true
       */
      bool handle_command_line(const boost::program_options::variables_map& vm);
-     bool on_update_blocktemplate_interval();
 
      /**
       * @brief verify that each input key image in a transaction is unique
