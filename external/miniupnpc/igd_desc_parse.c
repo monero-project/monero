@@ -15,6 +15,10 @@
 void IGDstartelt(void * d, const char * name, int l)
 {
 	struct IGDdatas * datas = (struct IGDdatas *)d;
+        if (l >= MINIUPNPC_URL_MAXSIZE) {
+          printf("Attempt to exploit miniupnpc buffer overflow\n");
+          l = MINIUPNPC_URL_MAXSIZE - 1;
+        }
 	memcpy( datas->cureltname, name, l);
 	datas->cureltname[l] = '\0';
 	datas->level++;
