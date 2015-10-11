@@ -985,6 +985,12 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::start_mining(const std::vector<std::string>& args)
 {
+  if (!m_trusted_daemon)
+  {
+    fail_msg_writer() << tr("This command assume a trusted daemon. Enable with --trusted-daemon");
+    return true;
+  }
+
   if (!try_connect_to_daemon())
     return true;
 
