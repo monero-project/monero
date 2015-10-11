@@ -134,6 +134,7 @@ namespace cryptonote
     bool store_blockchain();
 
     bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, bool kept_by_block = false);
+    bool check_tx_outputs(const transaction& tx);
     uint64_t get_current_cumulative_blocksize_limit() const;
     bool is_storing_blockchain()const{return m_is_blockchain_storing;}
     uint64_t block_difficulty(uint64_t i) const;

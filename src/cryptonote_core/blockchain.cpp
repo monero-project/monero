@@ -975,6 +975,14 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
             return false;
         }
     }
+    else
+    {
+        // from hard fork 2, since a miner can claim less than the full block reward, we update the base_reward
+        // to show the amount of coins that were actually generated, the remainder will be pushed back for later
+        // emission. This modifies the emission curve very slightly.
+        CHECK_AND_ASSERT_MES(money_in_use - fee <= base_reward, false, "base reward calculation bug");
+        base_reward = money_in_use - fee;
+    }
     return true;
 }
 //------------------------------------------------------------------
@@ -1093,7 +1101,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
      block size, so first miner transaction generated with fake amount of money, and with phase we know think we know expected block size
      */
     //make blocks coin-base tx looks close to real coinbase tx to get truthful blob size
-    bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, 11);
+    bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, 11, m_hardfork->get_current_version());
     CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, first chance");
     size_t cumulative_size = txs_size + get_object_blobsize(b.miner_tx);
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
@@ -1102,7 +1110,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
     for (size_t try_count = 0; try_count != 10; ++try_count)
     {
-        r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, 11);
+        r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, 11, m_hardfork->get_current_version());
 
         CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, second chance");
         size_t coinbase_blob_size = get_object_blobsize(b.miner_tx);
@@ -1961,6 +1969,23 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
 
     CHECK_AND_ASSERT_MES(max_used_block_height < m_db->height(), false,  "internal error: max used block index=" << max_used_block_height << " is not less then blockchain size = " << m_db->height());
     max_used_block_id = m_db->get_block_hash_from_height(max_used_block_height);
+    return true;
+}
+//------------------------------------------------------------------
+bool Blockchain::check_tx_outputs(const transaction& tx)
+{
+    LOG_PRINT_L3("Blockchain::" << __func__);
+    CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+    // from hard fork 2, we forbid dust and compound outputs
+    if (m_hardfork->get_current_version() >= 2) {
+      BOOST_FOREACH(auto &o, tx.vout) {
+        if (!is_valid_decomposed_amount(o.amount)) {
+          return false;
+        }
+      }
+    }
+
     return true;
 }
 //------------------------------------------------------------------

@@ -74,7 +74,7 @@ typedef cryptonote::simple_wallet sw;
 
 unsigned int epee::g_test_dbg_lock_sleep = 0;
 
-#define DEFAULT_MIX 3
+#define DEFAULT_MIX 4
 
 namespace
 {
