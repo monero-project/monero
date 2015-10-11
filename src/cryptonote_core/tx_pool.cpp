@@ -125,6 +125,12 @@ namespace cryptonote
       }
     }
 
+    if (!m_blockchain.check_tx_outputs(tx))
+    {
+      LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid outout");
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
