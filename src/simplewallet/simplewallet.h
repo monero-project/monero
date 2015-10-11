@@ -213,6 +213,7 @@ namespace cryptonote
     crypto::secret_key m_recovery_key;  // recovery key (used as random for wallet gen)
     bool m_restore_deterministic_wallet;  // recover flag
     bool m_non_deterministic;  // old 2-random generation
+    bool m_trusted_daemon;
 
     std::string m_daemon_address;
     std::string m_daemon_host;
