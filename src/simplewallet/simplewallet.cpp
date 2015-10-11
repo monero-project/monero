@@ -92,6 +92,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", sw::tr("Specify log file"), ""};
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("Used to deploy test nets. The daemon must be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view only commands"), false};
+  const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -706,6 +707,7 @@ void simple_wallet::handle_command_line(const boost::program_options::variables_
   m_electrum_seed                 = command_line::get_arg(vm, arg_electrum_seed);
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
+  m_trusted_daemon                = command_line::get_arg(vm, arg_trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::try_connect_to_daemon()
@@ -1302,6 +1304,12 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::rescan_spent(const std::vector<std::string> &args)
 {
+  if (!m_trusted_daemon)
+  {
+    fail_msg_writer() << tr("This command assume a trusted daemon. Enable with --trusted-daemon");
+    return true;
+  }
+
   if (!try_connect_to_daemon())
     return true;
 
@@ -1915,6 +1923,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_electrum_seed );
   command_line::add_arg(desc_params, arg_testnet);
   command_line::add_arg(desc_params, arg_restricted);
+  command_line::add_arg(desc_params, arg_trusted_daemon);
   tools::wallet_rpc_server::init_options(desc_params);
 
   po::positional_options_description positional_options;
