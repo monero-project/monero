@@ -536,6 +536,38 @@ namespace cryptonote
 
   };
 
+  struct COMMAND_RPC_GET_BLOCK
+  {
+    struct request
+    {
+      std::string hash;
+      uint64_t height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(hash)
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      block_header_responce block_header;
+      std::vector<std::string> tx_hashes;
+      std::string blob;
+      std::string json;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(block_header)
+        KV_SERIALIZE(tx_hashes)
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(blob)
+        KV_SERIALIZE(json)
+      END_KV_SERIALIZE_MAP()
+    };
+
+  };
+
   struct peer {
     uint64_t id;
     uint32_t ip;
