@@ -1879,7 +1879,7 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
   for (transfer_container::iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)
   {
     const transfer_details& td = *i;
-    if (!td.m_spent && td.amount() < dust_policy.dust_threshold && is_transfer_unlocked(td))
+    if (!td.m_spent && (td.amount() < dust_policy.dust_threshold || !is_valid_decomposed_amount(td.amount())) && is_transfer_unlocked(td))
     {
       selected_transfers.push_back (i);
       money += td.amount();
