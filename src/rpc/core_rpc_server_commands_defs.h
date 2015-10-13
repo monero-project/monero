@@ -95,9 +95,11 @@ namespace cryptonote
     struct request
     {
       std::list<std::string> txs_hashes;
+      bool decode_as_json;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs_hashes)
+        KV_SERIALIZE(decode_as_json)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -106,11 +108,13 @@ namespace cryptonote
     {
       std::list<std::string> txs_as_hex;  //transactions blobs as hex
       std::list<std::string> missed_tx;   //not found transactions
+      std::list<std::string> txs_as_json; //transactions decoded as json
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs_as_hex)
         KV_SERIALIZE(missed_tx)
+        KV_SERIALIZE(txs_as_json)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };

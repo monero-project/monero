@@ -253,6 +253,8 @@ namespace cryptonote
     {
       blobdata blob = t_serializable_object_to_blob(tx);
       res.txs_as_hex.push_back(string_tools::buff_to_hex_nodelimer(blob));
+      if (req.decode_as_json)
+        res.txs_as_json.push_back(obj_to_json_str(tx));
     }
 
     BOOST_FOREACH(const auto& miss_tx, missed_txs)
