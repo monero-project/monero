@@ -475,6 +475,8 @@ namespace cryptonote
      */
     bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, bool kept_by_block = false);
 
+    bool check_tx_outputs(const transaction& tx);
+
     /**
      * @brief gets the blocksize limit based on recent blocks
      *
