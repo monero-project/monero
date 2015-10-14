@@ -95,7 +95,184 @@ For static builds there are a number of Makefile targets to make the build proce
 
 ### On Linux:
 
-The instructions above should provide enough detail.
+Note: These compile instructions are up to date as of commit 0fdc75 20151014
+
+## Ubuntu
+
+```sudo apt-get update```
+```sudo apt-get upgrade -y```
+```sudo apt-get install -y git gcc-4.9 cmake libunbound2 libevent-2.0-5 libgtest-dev libboost1.55-all-dev libevent-dev libssl-dev build-essential pkg-config miniupnpc libdb++-dev libdb-dev```
+```git clone https://github.com/monero-project/bitmonero.git```
+```cd bitmonero```
+```make```
+
+## Mint
+
+```sudo apt-get update```
+```sudo apt-get install -y git gcc-4.9 cmake libunbound2 libevent-2.0-5 libgtest-dev libboost1.55-dev libboost1.55-all-dev libunbound-dev build-essential libssl-dev libdb++-dev libdb-dev```
+```git clone https://github.com/monero-project/bitmonero.git```
+```cd bitmonero```
+```make```
+
+## Archlinux
+
+```pacman -Sy; pacman -S boost boost-libs git gcc autoconf automake cmake db unbound gtest ldns expat bison pkg-config; git clone https://github.com/libevent/libevent; cd libevent;./autogen.sh;./configure --prefix=/usr;make;make install; cd; git clone https://github.com/monero-project/bitmonero; cd bitmonero; make release-static```
+
+## Centos
+
+Update repository meta data and install required packages.
+```yum update; yum groupinstall "Development Tools"; yum install wget cmake unbound-libs libevent-devel expat-devel bison-devel libdb-devel libdb-cxx-devel openssl-devel libicu libicu-devel zlib-devel zlib python-devel bzip2-devel texinfo boost-*```
+
+Enable EPEL repository and install the googletest library.
+```wget http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm; rpm -ivh epel-release-7-5.noarch.rpm; yum --enablerepo=epel install gtest-devel```
+
+Install ldns library from source, RPM is version 1.6.16, which is outdated.
+```wget http://www.nlnetlabs.nl/downloads/ldns/ldns-1.6.17.tar.gz; tar xvfz ldns-1.6.17.tar.gz; cd ldns-1.6.17; ./configure --prefix=/usr --libdir=/usr/lib64; make; make install```
+
+Optional step: updating Boost libraries. RHEL 7 / CentOS 7 repository offers Boost 1.53 which is the minimal Boost release Monero requires.
+If you would like to upgrade to Boost 1.55, here is how you do it.
+First, we remove boost-* RPMs we had installed in the first step, installing them was necessary to get initial dependencies added to the system.
+And we build from source.
+```yum remove boost-*```
+```cd; wget "http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.gz"; tar xvfz boost_1_55_0.tar.gz; cd boost_1_55_0```
+```./bootstrap.sh --prefix=/usr --libdir=/usr/lib64 --with-icu --with-libraries=atomic,date_time,exception,filesystem,iostreams,locale,program_options,regex,serialization,signals,system,test,thread,timer,log; ./b2; ./b2 install```
+
+Now we compile Monero.
+```cd; git clone https://github.com/monero-project/bitmonero; cd bitmonero; make```
+
+## OpenSUSE 13.2.
+
+Install required packages from repository
+```zypper install gcc gcc-c++ cmake libunbound2 libevent libevent-devel googletest-devel libldns1 expat libexpat-devel bison libicu-devel libicu53_1 git wget zlib-devel python-devel libopenssl-devel```
+
+OpenSUSE installs Boost 1.54 to /usr/lib64 if you use KDE environment, we must keep Boost 1.54 for KDE and install required Boost release (1.53, 1.55+) from source to /usr/lib
+```cd; wget "http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.gz"; tar xvfz boost_1_55_0.tar.gz; cd boost_1_55_0; ./bootstrap.sh --prefix=/usr --libdir=/usr/lib --with-icu --with-libraries=atomic,date_time,exception,filesystem,iostreams,locale,program_options,regex,serialization,signals,system,test,thread,timer,log; ./b2; ./b2 install```
+
+Install Berkeley DB 5.3
+```wget http://download.oracle.com/berkeley-db/db-5.3.28.tar.gz; tar xvfz db-5.3.28.tar.gz; cd db-5.3.28/build_unix/; ../dist/configure --enable-cxx --with-pic --enable-dbm --prefix=/usr; make; make install```
+
+Compile Monero.
+```cd; git clone https://github.com/monero-project/bitmonero; cd bitmonero; make```
+
+## Magei
+
+Install required packages.
+```urpmi -a boost; urpmi libboost-devel cmake expat gcc gcc-c++ make git bison libdb5.3-devel libevent-devel expat-devel bison-devel libicu-devel libstdc++-devel ldns-devel gtest-devel libapr-devel libuuid-devel libunimrcp-deps```
+
+Fix a berkeley db header file.
+```ln -s /usr/include/db53/db_cxx.h /usr/include/db_cxx.h```
+
+Install libunbound.
+```wget http://www.unbound.net/downloads/unbound-latest.tar.gz; tar xvfz unbound-latest.tar.gz; cd unbound-1*; ./configure; make; make install```
+
+Now we compile Monero.
+```cd; git clone https://github.com/monero-project/bitmonero; cd bitmonero; make```
+
+## Slackware 
+
+Note: If you use Slackware 14.1 not CURRENT tree, you must compile Boost 1.55+ yourself instead of installing from packages (see below). The other installation steps apply.
+You need to install required packages from Slackware repository:
+'D' series: cmake, gcc, gcc-g++, bison, git, libtool, autoconf, automake, m4, make
+'L' series:  boost, expat, libevent, icu4c
+
+Install googletest library.
+```cd; wget https://googletest.googlecode.com/files/gtest-1.7.0.zip; unzip gtest-1.7.0.zip; cd gtest-1.7.0; ./configure; make; cp -R include/gtest /usr/include; cp lib/.libs/* /usr/lib64/```
+
+Install libunbound.
+```cd; wget http://www.unbound.net/downloads/unbound-latest.tar.gz; tar xvfz unbound-latest.tar.gz; cd unbound-1*; ./configure; make; make install```
+
+Install ldns.
+```cd; wget https://www.nlnetlabs.nl/downloads/ldns/ldns-1.6.17.tar.gz; tar xvfz ldns-1.6.17.tar.gz; cd ldns-1.6.17; ./configure --prefix=/usr --libdir=/usr/lib64; make; make install```
+
+Install Berkeley DB 5.3
+```cd; wget http://download.oracle.com/berkeley-db/db-5.3.28.tar.gz; tar xvfz db-5.3.28.tar.gz; cd db-5.3.28/build_unix/;../dist/configure --enable-cxx --with-pic --enable-dbm --prefix=/usr; make; make install```
+
+Now we compile Monero.
+```cd; git clone https://github.com/monero-project/bitmonero; cd bitmonero; make```
+
+Only if you use Slackware 14.1, before building Monero compile Boost 1.55+, do not use Boost 1.54 from the Slackware 14.1 repository.
+```cd; wget "http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.gz"; tar xvfz boost_1_55_0.tar.gz; cd boost_1_55_0; ./bootstrap.sh --prefix=/usr --libdir=/usr/lib64 --with-icu --with-libraries=atomic,date_time,exception,filesystem,iostreams,locale,program_options,regex,serialization,signals,system,test,thread,timer,log;./b2; ./b2 install```
+
+## Gentoo
+
+Update portage and install required dependencies.
+```emerge --sync; emerge --ask dev-libs/icu dev-libs/libevent dev-cpp/gtest dev-util/cmake dev-libs/expat sys-devel/bison dev-vcs/git net-libs/ldns ```
+
+Now we need to install Boost 1.55+.
+I didn't have luck building from Gentoo 'dev-libs/boost' package. To tell the truth, the libraries built without a hitch, but Monero failed to pick them for some reason and thus, I had to unmerge them and use Boost 1.55 from sourceforge. 
+If you decide to go with the Gentoo supplied Boost 1.56 package, be sure to have the flag USE="icu", but I recommend to download Boost 1.55 from sourceforge, it's tested and works.
+
+```cd; wget "http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.gz"; tar xvfz boost_1_55_0.tar.gz; cd boost_1_55_0; ./bootstrap.sh --prefix=/usr --libdir=/usr/lib64 --with-icu --with-libraries=atomic,date_time,exception,filesystem,iostreams,locale,program_options,regex,serialization,signals,system,test,thread,timer,log;./b2; ./b2 install```
+
+Install Berkeley DB 5.3
+```cd; wget http://download.oracle.com/berkeley-db/db-5.3.28.tar.gz; tar xvfz db-5.3.28.tar.gz; cd db-5.3.28/build_unix/;../dist/configure --enable-cxx --with-pic --enable-dbm --prefix=/usr; make; make install```
+
+Install libunbound from github.
+```cd; git clone https://github.com/jedisct1/unbound; cd unbound; ./configure --prefix=/usr --libdir=/usr/lib64; make; make install```
+
+Compile Monero.
+```cd; git clone https://github.com/monero-project/bitmonero```
+
+Here we replace unbound source in bitmonero/external/unbound with the github source. For some reason only Gentoo had this problem, unbound-1.5.5+ has the fix. 
+I am not a dev though, don't ask me why. My goal was to get Monero to compile on most popular Linux distributions and save you time figuring it out on your own.
+If your compilation fails: "unbound/util/net_help.c:656:3: error: unknown type name ^ ^ EC_KEY ^ ^ EC_KEY *ecdh = EC_KEY_new_by_curve_name (NID_X9_62_prime256v1)", fear no more.
+Let's fetch unbound source and copy cmake files.
+```cd bitmonero/external; mv unbound unbound.old; git clone https://github.com/jedisct1/unbound; cp unbound.old/CMakeLists.txt unbound.old/config.h.cmake.in unbound.old/configure_checks.cmake unbound```
+
+We're ready to compile Monero, let's go.
+```cd ~/bitmonero; make```
+
+## Sabayon.
+Update and install required packages.
+```equo update; equo install sys-devel/gcc dev-libs/icu dev-cpp/gtest dev-util/cmake dev-libs/expat sys-devel/bison dev-vcs/git net-libs/ldns sys-libs/db:4.8```
+
+Remove Boost if already installed. Compile and install Boost from sourceforge.
+```equo remove boost; cd; wget "http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.gz"; tar xvfz boost_1_55_0.tar.gz; cd boost_1_55_0```
+```./bootstrap.sh --prefix=/usr --libdir=/usr/lib64 --with-icu --with-libraries=all;./b2; ./b2 install```
+
+Install libunbound from github.
+```cd; git clone https://github.com/jedisct1/unbound; cd unbound; ./configure --prefix=/usr --libdir=/usr/lib64; make; make install```
+
+
+Install libevent.
+```cd; git clone https://github.com/libevent/libevent; cd libevent; ./autogen.sh; ./configure --prefix=/usr; make; make install```
+
+
+Compile Monero.
+```cd; git clone https://github.com/monero-project/bitmonero; cd bitmonero; make release-static```
+
+## Lunar Linux.
+Update the system (optional) and package list.
+```lunar update; lin moonbase```
+
+Install required software.
+```lin curl icu4c; lin cmake expat bison db```
+
+The rest of required software is not available in Moonbase or Monero doesn't build with it, fetch from relevant sources.
+
+Install Git.
+```cd; wget --no-check-certificate https://github.com/git/git/archive/v2.5.2.tar.gz; tar xvfz v2.5.2.tar.gz; cd git-2.5.2; make; make install```
+
+Install googletest library.
+```cd; wget http://googletest.googlecode.com/files/gtest-1.7.0.zip; unzip gtest-1.7.0.zip; cd gtest-1.7.0; ./configure; make; cp -R include/gtest /usr/include; cp lib/.libs/* /usr/lib64/```
+
+Compile and install Boost 1.55 from sourceforge.
+```cd; wget "http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.gz"; tar xvfz boost_1_55_0.tar.gz; cd boost_1_55_0; ./bootstrap.sh --prefix=/usr --libdir=/usr/lib64 --with-icu --with-libraries=all; ./b2; ./b2 install```
+
+Install libunbound from github.
+```cd; GIT_SSL_NO_VERIFY=true /root/bin/git clone https://github.com/jedisct1/unbound; cd unbound; ./configure --prefix=/usr --libdir=/usr/lib64; make; make install```
+
+Install ldns.
+```cd; wget --no-check-certificate https://www.nlnetlabs.nl/downloads/ldns/ldns-1.6.17.tar.gz; tar xvfz ldns-1.6.17.tar.gz; cd ldns-1.6.17; ./configure --prefix=/usr --libdir=/usr/lib64; make; make install```
+
+Install libevent.
+```cd; GIT_SSL_NO_VERIFY=true /root/bin/git clone https://github.com/libevent/libevent; cd libevent; ./autogen.sh; ./configure --prefix=/usr; make; make install```
+
+Compile Monero.
+```cd; GIT_SSL_NO_VERIFY=true /root/bin/git clone https://github.com/monero-project/bitmonero; cd bitmonero; make release-static```
+
+
+
 
 ### On OS X:
 
@@ -106,6 +283,21 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 * Ensure Homebrew is installed, it can be found at http://brew.sh
 * Add the repository to brew: `brew tap sammy007/cryptonight`
 * Build Monero: `brew install bitmonero --build-from-source`
+
+## OS X Instructions
+
+Install homebrew
+```ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"```
+
+Install various packages needed to build the Monero daemon and wallet.
+```brew install git boost cmake libevent miniupnpc  pkg-config```
+
+Clone the bitmonero repository to your computer using Git.
+```git clone https://github.com/monero-project/bitmonero.git bitmonero```
+
+Compile
+```cd bitmonero```
+```make release```
 
 ### On Windows:
 
