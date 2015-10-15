@@ -396,6 +396,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-keys <1|0> - whether to store per-tx private keys for future reference"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
+  m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to a given address in a partcular tx"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -985,6 +986,12 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::start_mining(const std::vector<std::string>& args)
 {
+  if (!m_trusted_daemon)
+  {
+    fail_msg_writer() << tr("This command assume a trusted daemon. Enable with --trusted-daemon");
+    return true;
+  }
+
   if (!try_connect_to_daemon())
     return true;
 
@@ -1806,6 +1813,110 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("No tx key found for this txid");
     return true;
   }
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+
+  if(local_args.size() != 3) {
+    fail_msg_writer() << tr("Usage: check_tx_key <txid> <txkey> <address>");
+    return true;
+  }
+
+  if (!try_connect_to_daemon())
+    return true;
+
+  cryptonote::blobdata txid_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[0], txid_data))
+  {
+    fail_msg_writer() << tr("Failed to parse txid");
+    return true;
+  }
+  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+  cryptonote::blobdata tx_key_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[1], tx_key_data))
+  {
+    fail_msg_writer() << tr("Failed to parse tx key");
+    return true;
+  }
+  crypto::secret_key tx_key = *reinterpret_cast<const crypto::secret_key*>(tx_key_data.data());
+
+  cryptonote::account_public_address address;
+  bool has_payment_id;
+  crypto::hash8 payment_id;
+  if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), local_args[2]))
+  {
+    fail_msg_writer() << tr("Failed to parse address");
+    return true;
+  }
+
+  COMMAND_RPC_GET_TRANSACTIONS::request req;
+  COMMAND_RPC_GET_TRANSACTIONS::response res;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  if (!net_utils::invoke_http_json_remote_command2(m_daemon_address + "/gettransactions", req, res, m_http_client) ||
+      res.txs_as_hex.empty())
+  {
+    fail_msg_writer() << tr("Failed to get transaction from daemon");
+    return true;
+  }
+  cryptonote::blobdata tx_data;
+  if (!string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data))
+  {
+    fail_msg_writer() << tr("Failed to parse transaction from daemon");
+    return true;
+  }
+  crypto::hash tx_hash, tx_prefix_hash;
+  cryptonote::transaction tx;
+  if (!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash))
+  {
+    fail_msg_writer() << tr("Failed to validate transaction from daemon");
+    return true;
+  }
+  if (tx_hash != txid)
+  {
+    fail_msg_writer() << tr("Failed to get the right transaction from daemon");
+    return true;
+  }
+
+  crypto::key_derivation derivation;
+  if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
+  {
+    fail_msg_writer() << tr("Failed to generate key derivation from supplied parameters");
+    return true;
+  }
+
+  uint64_t received = 0;
+  try {
+    for (size_t n = 0; n < tx.vout.size(); ++n)
+    {
+      if (typeid(txout_to_key) != tx.vout[n].target.type())
+        continue;
+      const txout_to_key tx_out_to_key = boost::get<txout_to_key>(tx.vout[n].target);
+      crypto::public_key pubkey;
+      derive_public_key(derivation, n, address.m_spend_public_key, pubkey);
+      if (pubkey == tx_out_to_key.key)
+        received += tx.vout[n].amount;
+    }
+  }
+  catch(...)
+  {
+    LOG_ERROR("Unknown error");
+    fail_msg_writer() << tr("unknown error");
+    return true;
+  }
+
+  if (received > 0)
+  {
+    success_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " received " << print_money(received) << " in txid " << txid;
+  }
+  else
+  {
+    fail_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " received nothing in txid " << txid;
+  }
+
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
