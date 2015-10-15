@@ -31,7 +31,6 @@ set(cryptonote_core_sources
   blockchain_storage.cpp
   blockchain.cpp
   checkpoints.cpp
-  checkpoints_create.cpp
   cryptonote_basic_impl.cpp
   cryptonote_core.cpp
   cryptonote_format_utils.cpp
@@ -49,7 +48,6 @@ set(cryptonote_core_private_headers
   blockchain_storage_boost_serialization.h
   blockchain.h
   checkpoints.h
-  checkpoints_create.h
   connection_context.h
   cryptonote_basic.h
   cryptonote_basic_impl.h

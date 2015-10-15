@@ -39,7 +39,44 @@ namespace cryptonote
 {
     typedef std::uint64_t difficulty_type;
 
+    /**
+     * @brief checks if a hash fits the given difficulty
+     *
+     * The hash passes if (hash * difficulty) < 2^192.
+     * Phrased differently, if (hash * difficulty) fits without overflow into
+     * the least significant 192 bits of the 256 bit multiplication result.
+     *
+     * @param hash the hash to check
+     * @param difficulty the difficulty to check against
+     *
+     * @return true if valid, else false
+     */
     bool check_hash(const crypto::hash &hash, difficulty_type difficulty);
+
+    /**
+     * @brief gets the required difficulty for the next block
+     *
+     * This function calculates the required difficulty for the block that
+     * follows the blocks to which the passed timestamps and difficulties
+     * belong.
+     *
+     * The current difficulty algorithm is as follows:
+     * - take the total time and cumulative difficulty ("total work")
+     * - let m = the total work multiplied by the target block time
+     * - if (m + total time) > 2^64, give 0 for the next difficulty,
+     *   the blockchain class treats this as an error "difficulty overhead"
+     * 
+     * - the next difficulty = (m + the total time - 1) / the total time
+     *
+     * @param timestamps the most recent timestamps
+     * @param cumulative_difficulties the most recent difficulties
+     *
+     * @return the required difficulty for the next block
+     */
     difficulty_type next_difficulty(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties);
+
+    /**
+     * @overload
+     */
     difficulty_type next_difficulty(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds);
 }
