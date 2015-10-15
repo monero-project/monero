@@ -408,8 +408,8 @@ bool t_rpc_command_executor::print_height() {
 }
 
 bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request req;
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response res;
+  cryptonote::COMMAND_RPC_GET_BLOCK::request req;
+  cryptonote::COMMAND_RPC_GET_BLOCK::response res;
   epee::json_rpc::error error_resp;
 
   req.hash = epee::string_tools::pod_to_hex(block_hash);
@@ -418,14 +418,14 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
 
   if (m_is_rpc)
   {
-    if (!m_rpc_client->json_rpc_request(req, res, "getblockheaderbyhash", fail_message.c_str()))
+    if (!m_rpc_client->json_rpc_request(req, res, "getblock", fail_message.c_str()))
     {
       return true;
     }
   }
   else
   {
-    if (!m_rpc_server->on_get_block_header_by_hash(req, res, error_resp))
+    if (!m_rpc_server->on_get_block(req, res, error_resp))
     {
       tools::fail_msg_writer() << fail_message.c_str();
       return true;
@@ -433,13 +433,14 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
   }
 
   print_block_header(res.block_header);
+  tools::success_msg_writer() << res.json << ENDL;
 
   return true;
 }
 
 bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req;
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response res;
+  cryptonote::COMMAND_RPC_GET_BLOCK::request req;
+  cryptonote::COMMAND_RPC_GET_BLOCK::response res;
   epee::json_rpc::error error_resp;
 
   req.height = height;
@@ -448,14 +449,14 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
 
   if (m_is_rpc)
   {
-    if (!m_rpc_client->json_rpc_request(req, res, "getblockheaderbyheight", fail_message.c_str()))
+    if (!m_rpc_client->json_rpc_request(req, res, "getblock", fail_message.c_str()))
     {
       return true;
     }
   }
   else
   {
-    if (!m_rpc_server->on_get_block_header_by_height(req, res, error_resp))
+    if (!m_rpc_server->on_get_block(req, res, error_resp))
     {
       tools::fail_msg_writer() << fail_message.c_str();
       return true;
@@ -463,6 +464,7 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
   }
 
   print_block_header(res.block_header);
+  tools::success_msg_writer() << res.json << ENDL;
 
   return true;
 }
