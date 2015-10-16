@@ -150,11 +150,14 @@ void HardFork::init()
     height = 1;
   }
   LOG_PRINT_L1("reorganizing from " << height);
-  reorganize_from_chain_height(height);
   if (populate) {
+    reorganize_from_chain_height(height);
     // reorg will not touch the genesis block, use this as a flag for populating done
     db.set_hard_fork_version(0, original_version);
     db.set_hard_fork_starting_height(original_version, 0);
+  }
+  else {
+    rescan_from_chain_height(height);
   }
   LOG_PRINT_L1("reorganization done");
 }
@@ -218,6 +221,39 @@ bool HardFork::reorganize_from_chain_height(uint64_t height)
   if (height == 0)
     return false;
   return reorganize_from_block_height(height - 1);
+}
+
+bool HardFork::rescan_from_block_height(uint64_t height)
+{
+  CRITICAL_REGION_LOCAL(lock);
+  if (height >= db.height())
+    return false;
+
+  versions.clear();
+
+  for (size_t n = 0; n < 256; ++n)
+    last_versions[n] = 0;
+  const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size  -1) : 0;
+  for (uint64_t h = rescan_height; h <= height; ++h) {
+    cryptonote::block b = db.get_block_from_height(h);
+    const uint8_t v = get_effective_version(b.major_version);
+    last_versions[v]++;
+    versions.push_back(v);
+  }
+
+  uint8_t lastv = db.get_hard_fork_version(height);
+  current_fork_index = 0;
+  while (current_fork_index + 1 < heights.size() && heights[current_fork_index].version != lastv)
+    ++current_fork_index;
+
+  return true;
+}
+
+bool HardFork::rescan_from_chain_height(uint64_t height)
+{
+  if (height == 0)
+    return false;
+  return rescan_from_block_height(height - 1);
 }
 
 int HardFork::get_voted_fork_index(uint64_t height) const
