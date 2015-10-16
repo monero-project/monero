@@ -53,20 +53,23 @@ namespace
 bool BootstrapFile::open_writer(const boost::filesystem::path& file_path)
 {
   const boost::filesystem::path dir_path = file_path.parent_path();
-  if (boost::filesystem::exists(dir_path))
+  if (!dir_path.empty())
   {
-    if (!boost::filesystem::is_directory(dir_path))
+    if (boost::filesystem::exists(dir_path))
     {
-      LOG_PRINT_RED_L0("export directory path is a file: " << dir_path);
-      return false;
+      if (!boost::filesystem::is_directory(dir_path))
+      {
+        LOG_PRINT_RED_L0("export directory path is a file: " << dir_path);
+        return false;
+      }
     }
-  }
-  else
-  {
-    if (!boost::filesystem::create_directory(dir_path))
+    else
     {
-      LOG_PRINT_RED_L0("Failed to create directory " << dir_path);
-      return false;
+      if (!boost::filesystem::create_directory(dir_path))
+      {
+        LOG_PRINT_RED_L0("Failed to create directory " << dir_path);
+        return false;
+      }
     }
   }
 
