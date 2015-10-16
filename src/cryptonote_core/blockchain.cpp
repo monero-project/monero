@@ -352,13 +352,14 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
 #if defined(PER_BLOCK_CHECKPOINT)
-    if (m_fast_sync && !testnet && get_blocks_dat_start() != nullptr)
+    if (m_fast_sync && get_blocks_dat_start(testnet) != nullptr)
     {
-        if (get_blocks_dat_size() > 4)
+        if (get_blocks_dat_size(testnet) > 4)
         {
-            const unsigned char *p = get_blocks_dat_start();
-            uint32_t nblocks = *(uint32_t *) p;
-            if(nblocks > 0 && nblocks > m_db->height())
+            const unsigned char *p = get_blocks_dat_start(testnet);
+            const uint32_t nblocks = *p | ((*(p+1))<<8) | ((*(p+2))<<16) | ((*(p+3))<<24);
+            const size_t size_needed = 4 + nblocks * sizeof(crypto::hash);
+            if(nblocks > 0 && nblocks > m_db->height() && get_blocks_dat_size(testnet) >= size_needed)
             {
                 LOG_PRINT_L0("Loading precomputed blocks: " << nblocks);
                 p += sizeof(uint32_t);
