@@ -177,8 +177,8 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
   if (height >= db.height())
     return false;
 
-  //db.set_batch_transactions(true);
-  //db.batch_start();
+  db.set_batch_transactions(true);
+  db.batch_start();
 
   versions.clear();
 
@@ -211,7 +211,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
     add(get_block_version(h), h);
   }
 
-  //db.batch_stop();
+  db.batch_stop();
 
   return true;
 }
