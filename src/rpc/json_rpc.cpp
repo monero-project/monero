@@ -43,25 +43,30 @@
 #include <signal.h>
 #include <iostream>
 
-static bool execute = true;
+static volatile int execute = 1;
 void trap(int signal) {
-  RPC::DaemonDeprecated::stop();
-  execute = false;
+  execute = 0;
 }
 
 int main() {
+  bool initialized = false;
   int res = RPC::DaemonDeprecated::start();
   if (res == RPC::DaemonDeprecated::FAILURE_HTTP_SERVER) {
     std::cerr << "Couldn't start HTTP server\n";
-    execute = false;
+    execute = 0;
   } else if (res == RPC::DaemonDeprecated::FAILURE_DAEMON_NOT_RUNNING) {
     std::cerr << "Couldn't connect to daemon\n";
-    execute = false;
+    execute = 0;
+  } else {
+    initialized = true;
   }
   signal(SIGINT, &trap);
   while (execute) {
-
+    epee::misc_utils::sleep_no_w(100); // 100 ms
   }
+  signal(SIGINT, SIG_DFL);
+  if (initialized)
+    RPC::DaemonDeprecated::stop();
   std::cout << "out!\n";
   return 0;
 }
