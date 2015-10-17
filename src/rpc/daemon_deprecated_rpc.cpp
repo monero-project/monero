@@ -995,12 +995,18 @@ namespace RPC
     int start() {
       server = new RPC::Json_rpc_http_server("127.0.0.1", "9997", "daemon_json_rpc", &ev_handler);
       if (!server->start()) {
+        delete server;
+        server = NULL;
         return FAILURE_HTTP_SERVER;
       }
       std::cout << "Started Daemon server at 127.0.0.1/daemon_json_rpc:9997\n";
       ipc_client = wap_client_new();
       wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
       if (!check_connection_to_daemon()) {
+        wap_client_destroy(&ipc_client); // this sets ipc_client to NULL
+        server->stop();
+        delete server;
+        server = NULL;
         return FAILURE_DAEMON_NOT_RUNNING;
       }
       return SUCCESS;
@@ -1013,6 +1019,7 @@ namespace RPC
       if (server) {
         server->stop();
         delete server;
+        server = NULL;
       }
       if (ipc_client) {
         wap_client_destroy(&ipc_client);
