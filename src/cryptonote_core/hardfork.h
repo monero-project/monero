@@ -189,6 +189,9 @@ namespace cryptonote
     uint8_t get_effective_version(uint8_t version) const;
     bool add(uint8_t block_version, uint64_t height);
 
+    bool rescan_from_block_height(uint64_t height);
+    bool rescan_from_chain_height(uint64_t height);
+
   private:
 
     BlockchainDB &db;
