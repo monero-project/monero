@@ -30,9 +30,9 @@ if(APPLE)
     add_library(blocks STATIC blockexports.c)
     set_target_properties(blocks PROPERTIES LINKER_LANGUAGE C)
 else()
-	add_custom_command(OUTPUT blocks.o COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ld -r -b binary -o ${CMAKE_CURRENT_BINARY_DIR}/blocks.o blocks.dat)
-    add_library(blocks STATIC blocks.o blockexports.c)
+    add_custom_command(OUTPUT blocks.o COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ld -r -b binary -o ${CMAKE_CURRENT_BINARY_DIR}/blocks.o blocks.dat)
+    add_custom_command(OUTPUT testnet_blocks.o COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ld -r -b binary -o ${CMAKE_CURRENT_BINARY_DIR}/testnet_blocks.o testnet_blocks.dat)
+    add_library(blocks STATIC blocks.o testnet_blocks.o blockexports.c)
     set_target_properties(blocks PROPERTIES LINKER_LANGUAGE C)
 endif()
-
 

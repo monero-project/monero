@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "bootstrap_file.h"
+#include "blocksdat_file.h"
 #include "common/command_line.h"
 #include "version.h"
 
@@ -39,6 +40,7 @@ int main(int argc, char* argv[])
 {
   uint32_t log_level = 0;
   uint64_t block_stop = 0;
+  bool blocks_dat = false;
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
   boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
@@ -54,6 +56,7 @@ int main(int argc, char* argv[])
       , "Run on testnet."
       , false
   };
+  const command_line::arg_descriptor<bool> arg_blocks_dat = {"blocksdat", "Output in blocks.dat format", blocks_dat};
 
 
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
@@ -62,6 +65,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_block_stop);
+  command_line::add_arg(desc_cmd_sett, arg_blocks_dat);
 
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
@@ -94,6 +98,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Setting log level = " << log_level);
 
   bool opt_testnet = command_line::get_arg(vm, arg_testnet_on);
+  bool opt_blocks_dat = command_line::get_arg(vm, arg_blocks_dat);
 
   std::string m_config_folder;
 
@@ -155,8 +160,16 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Source blockchain storage initialized OK");
   LOG_PRINT_L0("Exporting blockchain raw data...");
 
-  BootstrapFile bootstrap;
-  r = bootstrap.store_blockchain_raw(core_storage, NULL, output_file_path, block_stop);
+  if (opt_blocks_dat)
+  {
+    BlocksdatFile blocksdat;
+    r = blocksdat.store_blockchain_raw(core_storage, NULL, output_file_path, block_stop);
+  }
+  else
+  {
+    BootstrapFile bootstrap;
+    r = bootstrap.store_blockchain_raw(core_storage, NULL, output_file_path, block_stop);
+  }
   CHECK_AND_ASSERT_MES(r, false, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
 }

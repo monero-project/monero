@@ -1048,7 +1048,7 @@ namespace cryptonote
    * monero daemon binary.  This function loads those hashes into
    * a useful state.
    */
-    void load_compiled_in_block_hashes();
+    void load_compiled_in_block_hashes(bool testnet);
   };
 
   /************************************************************************/

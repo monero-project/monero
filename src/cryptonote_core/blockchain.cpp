@@ -300,7 +300,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
 #if defined(PER_BLOCK_CHECKPOINT)
-    load_compiled_in_block_hashes();
+    load_compiled_in_block_hashes(testnet);
 #endif
 
     LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
@@ -3151,15 +3151,16 @@ bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, ui
     return m_hardfork->get_voting_info(version, window, votes, threshold, voting);
 }
 
-void Blockchain::load_compiled_in_block_hashes()
+void Blockchain::load_compiled_in_block_hashes(bool testnet)
 {
-    if (m_fast_sync && !m_testnet && get_blocks_dat_start() != nullptr)
+    if (m_fast_sync && get_blocks_dat_start(testnet) != nullptr)
     {
-        if (get_blocks_dat_size() > 4)
+        if (get_blocks_dat_size(testnet) > 4)
         {
-            const unsigned char *p = get_blocks_dat_start();
-            uint32_t nblocks = *(uint32_t *) p;
-            if(nblocks > 0 && nblocks > m_db->height())
+            const unsigned char *p = get_blocks_dat_start(testnet);
+            const uint32_t nblocks = *p | ((*(p+1))<<8) | ((*(p+2))<<16) | ((*(p+3))<<24);
+            const size_t size_needed = 4 + nblocks * sizeof(crypto::hash);
+            if(nblocks > 0 && nblocks > m_db->height() && get_blocks_dat_size(testnet) >= size_needed)
             {
                 LOG_PRINT_L0("Loading precomputed blocks: " << nblocks);
                 p += sizeof(uint32_t);
