@@ -38,6 +38,11 @@
 #include "mnemonics/spanish.h"
 #include "mnemonics/portuguese.h"
 #include "mnemonics/japanese.h"
+#include "mnemonics/german.h"
+#include "mnemonics/italian.h"
+#include "mnemonics/russian.h"
+#include "mnemonics/french.h"
+#include "mnemonics/dutch.h"
 #include "mnemonics/old_english.h"
 #include "mnemonics/language_base.h"
 #include "mnemonics/singleton.h"
@@ -133,6 +138,19 @@ namespace
   }
 }
 
+TEST(mnemonics, consistency)
+{
+  try {
+    std::vector<std::string> language_list;
+    crypto::ElectrumWords::get_language_list(language_list);
+  }
+  catch(const std::exception &e)
+  {
+    std::cout << "Error initializing mnemonics: " << e.what() << std::endl;
+    ASSERT_TRUE(false);
+  }
+}
+
 TEST(mnemonics, all_languages)
 {
   srand(time(NULL));
@@ -141,11 +159,22 @@ TEST(mnemonics, all_languages)
     Language::Singleton<Language::Spanish>::instance(),
     Language::Singleton<Language::Portuguese>::instance(),
     Language::Singleton<Language::Japanese>::instance(),
+    Language::Singleton<Language::German>::instance(),
+    Language::Singleton<Language::Italian>::instance(),
+    Language::Singleton<Language::Russian>::instance(),
+    Language::Singleton<Language::French>::instance(),
+    Language::Singleton<Language::Dutch>::instance(),
   });
 
   for (std::vector<Language::Base*>::iterator it = languages.begin(); it != languages.end(); it++)
   {
-    test_language(*(*it));
+    try {
+      test_language(*(*it));
+    }
+    catch (const std::exception &e) {
+      std::cout << "Error testing " << (*it)->get_language_name() << " language: " << e.what() << std::endl;
+      ASSERT_TRUE(false);
+    }
   }
 }
 

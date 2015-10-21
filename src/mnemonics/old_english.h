@@ -1680,7 +1680,7 @@ namespace Language
         "weary"
       }), 4)
     {
-      populate_maps();
+      populate_maps(ALLOW_DUPLICATE_PREFIXES | ALLOW_SHORT_WORDS);
     }
   };
 }

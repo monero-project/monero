@@ -38,6 +38,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include "misc_log_ex.h"
 
 /*!
  * \namespace Language
@@ -73,6 +74,10 @@ namespace Language
   class Base
   {
   protected:
+    enum {
+      ALLOW_SHORT_WORDS = 1<<0,
+      ALLOW_DUPLICATE_PREFIXES = 1<<1,
+    };
     const std::vector<std::string> word_list; /*!< A pointer to the array of words */
     std::unordered_map<std::string, uint32_t> word_map; /*!< hash table to find word's index */
     std::unordered_map<std::string, uint32_t> trimmed_word_map; /*!< hash table to find word's trimmed index */
@@ -81,21 +86,39 @@ namespace Language
     /*!
      * \brief Populates the word maps after the list is ready.
      */
-    void populate_maps()
+    void populate_maps(uint32_t flags = 0)
     {
       int ii;
       std::vector<std::string>::const_iterator it;
+      if (word_list.size () != 1626)
+        throw std::runtime_error("Wrong word list length for " + language_name);
       for (it = word_list.begin(), ii = 0; it != word_list.end(); it++, ii++)
       {
         word_map[*it] = ii;
+        if ((*it).size() < unique_prefix_length)
+        {
+          if (flags & ALLOW_SHORT_WORDS)
+            MWARNING(language_name << " word '" << *it << "' is shorter than its prefix length, " << unique_prefix_length);
+          else
+            throw std::runtime_error("Too short word in " + language_name + " word list: " + *it);
+        }
+        std::string trimmed;
         if (it->length() > unique_prefix_length)
         {
-          trimmed_word_map[utf8prefix(*it, unique_prefix_length)] = ii;
+          trimmed = utf8prefix(*it, unique_prefix_length);
         }
         else
         {
-          trimmed_word_map[*it] = ii;
+          trimmed = *it;
         }
+        if (trimmed_word_map.find(trimmed) != trimmed_word_map.end())
+        {
+          if (flags & ALLOW_DUPLICATE_PREFIXES)
+            MWARNING("Duplicate prefix in " << language_name << " word list: " << trimmed);
+          else
+            throw std::runtime_error("Duplicate prefix in " + language_name + " word list: " + trimmed);
+        }
+        trimmed_word_map[trimmed] = ii;
       }
     }
   public:

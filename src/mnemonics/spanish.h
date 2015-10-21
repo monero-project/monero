@@ -1680,7 +1680,7 @@ namespace Language
         "rito"
       }), 4)
     {
-      populate_maps();
+      populate_maps(ALLOW_SHORT_WORDS);
     }
   };
 }
