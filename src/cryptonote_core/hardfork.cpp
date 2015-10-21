@@ -35,6 +35,17 @@
 
 using namespace cryptonote;
 
+static uint8_t get_block_vote(const cryptonote::block &b)
+{
+  // Pre-hardfork blocks have a minor version hardcoded to 0.
+  // For the purposes of voting, we consider 0 to refer to
+  // version number 1, which is what all blocks from the genesis
+  // block are. It makes things simpler.
+  if (b.minor_version == 0)
+    return 1;
+  return b.minor_version;
+}
+
 HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, int threshold_percent):
   db(db),
   original_version(original_version),
@@ -87,7 +98,7 @@ bool HardFork::do_check(uint8_t version) const
 bool HardFork::check(const cryptonote::block &block) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  return do_check(block.major_version);
+  return do_check(get_block_vote(block));
 }
 
 bool HardFork::add(uint8_t block_version, uint64_t height)
@@ -125,7 +136,7 @@ bool HardFork::add(uint8_t block_version, uint64_t height)
 
 bool HardFork::add(const cryptonote::block &block, uint64_t height)
 {
-  return add(block.major_version, height);
+  return add(get_block_vote(block), height);
 }
 
 void HardFork::init()
@@ -168,7 +179,7 @@ uint8_t HardFork::get_block_version(uint64_t height) const
     return original_version;
 
   const cryptonote::block &block = db.get_block_from_height(height);
-  return block.major_version;
+  return get_block_vote(block);
 }
 
 bool HardFork::reorganize_from_block_height(uint64_t height)
@@ -192,7 +203,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
   }
   for (uint64_t h = rescan_height; h <= height; ++h) {
     cryptonote::block b = db.get_block_from_height(h);
-    const uint8_t v = get_effective_version(b.major_version);
+    const uint8_t v = get_effective_version(get_block_vote(b));
     last_versions[v]++;
     versions.push_back(v);
   }
@@ -236,7 +247,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
   const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size  -1) : 0;
   for (uint64_t h = rescan_height; h <= height; ++h) {
     cryptonote::block b = db.get_block_from_height(h);
-    const uint8_t v = get_effective_version(b.major_version);
+    const uint8_t v = get_effective_version(get_block_vote(b));
     last_versions[v]++;
     versions.push_back(v);
   }
