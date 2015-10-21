@@ -51,9 +51,7 @@ namespace Language
   class German: public Base
   {
   public:
-    German()
-    {
-      word_list = new std::vector<std::string>({
+    German(): Base("German", std::vector<std::string>({
         "Abakus",
         "Abart",
         "abbilden",
@@ -1680,11 +1678,8 @@ namespace Language
         "Zündung",
         "Zweck",
         "Zyklop"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "German";
+      }), 4)
+    {
       populate_maps();
     }
   };

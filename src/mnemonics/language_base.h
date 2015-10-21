@@ -73,9 +73,9 @@ namespace Language
   class Base
   {
   protected:
-    std::vector<std::string> *word_list; /*!< A pointer to the array of words */
-    std::unordered_map<std::string, uint32_t> *word_map; /*!< hash table to find word's index */
-    std::unordered_map<std::string, uint32_t> *trimmed_word_map; /*!< hash table to find word's trimmed index */
+    const std::vector<std::string> word_list; /*!< A pointer to the array of words */
+    std::unordered_map<std::string, uint32_t> word_map; /*!< hash table to find word's index */
+    std::unordered_map<std::string, uint32_t> trimmed_word_map; /*!< hash table to find word's trimmed index */
     std::string language_name; /*!< Name of language */
     uint32_t unique_prefix_length; /*!< Number of unique starting characters to trim the wordlist to when matching */
     /*!
@@ -84,33 +84,29 @@ namespace Language
     void populate_maps()
     {
       int ii;
-      std::vector<std::string>::iterator it;
-      for (it = word_list->begin(), ii = 0; it != word_list->end(); it++, ii++)
+      std::vector<std::string>::const_iterator it;
+      for (it = word_list.begin(), ii = 0; it != word_list.end(); it++, ii++)
       {
-        (*word_map)[*it] = ii;
+        word_map[*it] = ii;
         if (it->length() > unique_prefix_length)
         {
-          (*trimmed_word_map)[utf8prefix(*it, unique_prefix_length)] = ii;
+          trimmed_word_map[utf8prefix(*it, unique_prefix_length)] = ii;
         }
         else
         {
-          (*trimmed_word_map)[*it] = ii;
+          trimmed_word_map[*it] = ii;
         }
       }
     }
   public:
-    Base()
+    Base(const char *language_name, const std::vector<std::string> &words, uint32_t prefix_length):
+      word_list(words),
+      unique_prefix_length(prefix_length),
+      language_name(language_name)
     {
-      word_list = new std::vector<std::string>;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      unique_prefix_length = 4;
     }
     virtual ~Base()
     {
-      delete word_list;
-      delete word_map;
-      delete trimmed_word_map;
     }
     /*!
      * \brief Returns a pointer to the word list.
@@ -118,7 +114,7 @@ namespace Language
      */
     const std::vector<std::string>& get_word_list() const
     {
-      return *word_list;
+      return word_list;
     }
     /*!
      * \brief Returns a pointer to the word map.
@@ -126,7 +122,7 @@ namespace Language
      */
     const std::unordered_map<std::string, uint32_t>& get_word_map() const
     {
-      return *word_map;
+      return word_map;
     }
     /*!
      * \brief Returns a pointer to the trimmed word map.
@@ -134,13 +130,13 @@ namespace Language
      */
     const std::unordered_map<std::string, uint32_t>& get_trimmed_word_map() const
     {
-      return *trimmed_word_map;
+      return trimmed_word_map;
     }
     /*!
      * \brief Returns the name of the language.
      * \return Name of the language.
      */
-    std::string get_language_name() const
+    const std::string &get_language_name() const
     {
       return language_name;
     }

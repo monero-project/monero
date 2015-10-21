@@ -51,9 +51,7 @@ namespace Language
   class OldEnglish: public Base
   {
   public:
-    OldEnglish()
-    {
-      word_list = new std::vector<std::string>({
+    OldEnglish(): Base("OldEnglish", std::vector<std::string>({
         "like",
         "just",
         "love",
@@ -1680,11 +1678,8 @@ namespace Language
         "unseen",
         "weapon",
         "weary"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "OldEnglish";
+      }), 4)
+    {
       populate_maps();
     }
   };

@@ -51,9 +51,7 @@ namespace Language
   class Spanish: public Base
   {
   public:
-    Spanish()
-    {
-      word_list = new std::vector<std::string>({
+    Spanish(): Base("Spanish", std::vector<std::string>({
         "ábaco",
         "abdomen",
         "abeja",
@@ -1680,11 +1678,8 @@ namespace Language
         "risa",
         "ritmo",
         "rito"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "Spanish";
+      }), 4)
+    {
       populate_maps();
     }
   };

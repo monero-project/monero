@@ -49,9 +49,7 @@ namespace Language
   class Dutch: public Base
   {
   public:
-    Dutch()
-    {
-      word_list = new std::vector<std::string>({
+    Dutch(): Base("Dutch", std::vector<std::string>({
         "aalglad",
         "aalscholver",
         "aambeeld",
@@ -1678,11 +1676,8 @@ namespace Language
         "zwiep",
         "zwijmel",
         "zworen"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "Dutch";
+      }), 4)
+    {
       populate_maps();
     }
   };
