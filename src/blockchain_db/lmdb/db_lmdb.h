@@ -189,6 +189,11 @@ public:
 
   virtual bool has_key_image(const crypto::key_image& img) const;
 
+  virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
+  virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const;
+  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const;
+  virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const;
+
   virtual uint64_t add_block( const block& blk
                             , const size_t& block_size
                             , const difficulty_type& cumulative_difficulty

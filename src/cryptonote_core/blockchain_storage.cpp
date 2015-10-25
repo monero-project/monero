@@ -1890,3 +1890,41 @@ void blockchain_storage::set_enforce_dns_checkpoints(bool enforce_checkpoints)
 {
   m_enforce_dns_checkpoints = enforce_checkpoints;
 }
+//------------------------------------------------------------------
+bool blockchain_storage::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
+{
+  for (key_images_container::const_iterator i = m_spent_keys.begin(); i != m_spent_keys.end(); ++i) {
+    if (!f(*i))
+      return false;
+  }
+  return true;
+}
+//------------------------------------------------------------------
+bool blockchain_storage::for_all_blocks(std::function<bool(uint64_t, const block&)> f) const
+{
+  for (blocks_container::const_iterator i = m_blocks.begin(); i != m_blocks.end(); ++i) {
+    if (!f(i->height, i->bl))
+      return false;
+  }
+  return true;
+}
+//------------------------------------------------------------------
+bool blockchain_storage::for_all_transactions(std::function<bool(const transaction&)> f) const
+{
+  for (transactions_container::const_iterator i = m_transactions.begin(); i != m_transactions.end(); ++i) {
+    if (!f(i->second.tx))
+      return false;
+  }
+  return true;
+}
+//------------------------------------------------------------------
+bool blockchain_storage::for_all_outputs(std::function<bool(uint64_t, const crypto::hash&, size_t)> f) const
+{
+  for (outputs_container::const_iterator i = m_outputs.begin(); i != m_outputs.end(); ++i) {
+    for (size_t n = 0; n < i->second.size(); ++n) {
+      if (!f(i->first, i->second[n].first, i->second[n].second))
+        return false;
+    }
+  }
+  return true;
+}

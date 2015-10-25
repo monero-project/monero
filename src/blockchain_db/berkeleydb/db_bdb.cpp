@@ -533,6 +533,126 @@ void BlockchainBDB::remove_spent_key(const crypto::key_image& k_image)
         throw1(DB_ERROR("Error adding removal of key image to db transaction"));
 }
 
+bool BlockchainBDB::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    bdb_cur cur(DB_DEFAULT_TX, m_spent_keys);
+
+    Dbt_copy<crypto::key_image> k;
+    Dbt_copy<char> v;
+    bool ret = true;
+    int result;
+    while ((result = cur->get(&k, &v, DB_NEXT)) == 0)
+    {
+      if (!f(k))
+      {
+        ret = false;
+        break;
+      }
+    }
+    if (result != DB_NOTFOUND)
+      ret = false;
+
+    cur.close();
+    return ret;
+}
+
+bool BlockchainBDB::for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)> f) const
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    bdb_cur cur(DB_DEFAULT_TX, m_blocks);
+
+    Dbt_copy<uint64_t> k;
+    Dbt_safe v;
+    bool ret = true;
+    int result;
+    while ((result = cur->get(&k, &v, DB_NEXT)) == 0)
+    {
+      uint64_t height = k - 1;
+      blobdata bd;
+      bd.assign(reinterpret_cast<char*>(v.get_data()), v.get_size());
+      block b;
+      if (!parse_and_validate_block_from_blob(bd, b))
+          throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
+      crypto::hash hash;
+      if (!get_block_hash(b, hash))
+          throw0(DB_ERROR("Failed to get block hash from blob retrieved from the db"));
+      if (!f(height, hash, b))
+      {
+        ret = false;
+        break;
+      }
+    }
+    if (result != DB_NOTFOUND)
+      ret = false;
+
+    cur.close();
+    return ret;
+}
+
+bool BlockchainBDB::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f) const
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    bdb_cur cur(DB_DEFAULT_TX, m_txs);
+
+    Dbt_copy<crypto::hash> k;
+    Dbt_safe v;
+    bool ret = true;
+    int result;
+    while ((result = cur->get(&k, &v, DB_NEXT)) == 0)
+    {
+      blobdata bd;
+      bd.assign(reinterpret_cast<char*>(v.get_data()), v.get_size());
+      transaction tx;
+      if (!parse_and_validate_tx_from_blob(bd, tx))
+          throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
+      if (!f(k, tx))
+      {
+        ret = false;
+        break;
+      }
+    }
+    if (result != DB_NOTFOUND)
+      ret = false;
+
+    cur.close();
+    return ret;
+}
+
+bool BlockchainBDB::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const
+{
+    LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    check_open();
+
+    bdb_cur cur(DB_DEFAULT_TX, m_output_amounts);
+
+    Dbt_copy<uint64_t> k;
+    Dbt_copy<uint32_t> v;
+    bool ret = true;
+    int result;
+    while ((result = cur->get(&k, &v, DB_NEXT)) == 0)
+    {
+      uint32_t global_index = v - 1;
+      tx_out_index toi = get_output_tx_and_index_from_global(global_index);
+      if (!f(k, toi.first, toi.second))
+      {
+        ret = false;
+        break;
+      }
+    }
+    if (result != DB_NOTFOUND)
+      ret = false;
+
+    cur.close();
+    return ret;
+}
+
 blobdata BlockchainBDB::output_to_blob(const tx_out& output) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
