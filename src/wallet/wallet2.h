@@ -50,7 +50,6 @@
 #include "wallet_errors.h"
 
 #include <iostream>
-#define DEFAULT_TX_SPENDABLE_AGE                               10
 #define WALLET_RCP_CONNECTION_TIMEOUT                          200000
 
 namespace tools
