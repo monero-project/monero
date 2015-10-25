@@ -1880,7 +1880,7 @@ uint64_t BlockchainBDB::get_hard_fork_starting_height(uint8_t version) const
     Dbt_copy<uint64_t> result;
 
     auto get_result = m_hf_starting_heights->get(DB_DEFAULT_TX, &key, &result, 0);
-    if (get_result == DB_NOTFOUND)
+    if (get_result == DB_NOTFOUND || get_result == DB_KEYEMPTY)
         return std::numeric_limits<uint64_t>::max();
     else if (get_result)
         throw0(DB_ERROR("Error attempting to retrieve hard fork starting height from the db"));
@@ -1908,7 +1908,7 @@ uint8_t BlockchainBDB::get_hard_fork_version(uint64_t height) const
     Dbt_copy<uint8_t> result;
 
     auto get_result = m_hf_versions->get(DB_DEFAULT_TX, &key, &result, 0);
-    if (get_result == DB_NOTFOUND)
+    if (get_result == DB_NOTFOUND || get_result == DB_KEYEMPTY)
         throw0(OUTPUT_DNE("Error attempting to retrieve hard fork version from the db"));
     else if (get_result)
         throw0(DB_ERROR("Error attempting to retrieve hard fork version from the db"));
