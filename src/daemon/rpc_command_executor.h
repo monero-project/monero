@@ -73,6 +73,8 @@ public:
 
   bool show_difficulty();
 
+  bool show_status();
+
   bool print_connections();
 
   bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index);
