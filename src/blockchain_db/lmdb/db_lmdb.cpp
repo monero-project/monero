@@ -747,7 +747,7 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
 
   auto result = mdb_del(*m_write_txn, m_output_gindices, &k, NULL);
   if (result != 0 && result != MDB_NOTFOUND)
-      throw1(DB_ERROR("Error adding removal of output global index to db transaction"));
+      throw1(OUTPUT_DNE("Error adding removal of output global index to db transaction"));
 
   result = mdb_del(*m_write_txn, m_outputs, &v, NULL);
   if (result != 0 && result != MDB_NOTFOUND)
@@ -1242,7 +1242,7 @@ block BlockchainLMDB::get_block_from_height(const uint64_t& height) const
   auto get_result = mdb_get(txn, m_blocks, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    throw0(DB_ERROR(std::string("Attempt to get block from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block not in db").c_str()));
+    throw0(BLOCK_DNE(std::string("Attempt to get block from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block not in db").c_str()));
   }
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a block from the db"));
@@ -1278,7 +1278,7 @@ uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
   auto get_result = mdb_get(*txn_ptr, m_block_timestamps, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    throw0(DB_ERROR(std::string("Attempt to get timestamp from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- timestamp not in db").c_str()));
+    throw0(BLOCK_DNE(std::string("Attempt to get timestamp from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- timestamp not in db").c_str()));
   }
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a timestamp from the db"));
@@ -1322,7 +1322,7 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
   auto get_result = mdb_get(*txn_ptr, m_block_sizes, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    throw0(DB_ERROR(std::string("Attempt to get block size from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block size not in db").c_str()));
+    throw0(BLOCK_DNE(std::string("Attempt to get block size from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block size not in db").c_str()));
   }
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a block size from the db"));
@@ -1351,7 +1351,7 @@ difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& 
   auto get_result = mdb_get(*txn_ptr, m_block_diffs, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    throw0(DB_ERROR(std::string("Attempt to get cumulative difficulty from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- difficulty not in db").c_str()));
+    throw0(BLOCK_DNE(std::string("Attempt to get cumulative difficulty from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- difficulty not in db").c_str()));
   }
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a cumulative difficulty from the db"));
@@ -1398,7 +1398,7 @@ uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& heigh
   auto get_result = mdb_get(*txn_ptr, m_block_coins, &key, &result);
   if (get_result == MDB_NOTFOUND)
   {
-    throw0(DB_ERROR(std::string("Attempt to get generated coins from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block size not in db").c_str()));
+    throw0(BLOCK_DNE(std::string("Attempt to get generated coins from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block size not in db").c_str()));
   }
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a total generated coins from the db"));
@@ -1696,7 +1696,7 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
   MDB_val v;
   auto get_result = mdb_get(txn, m_output_keys, &k, &v);
   if (get_result == MDB_NOTFOUND)
-    throw0(DB_ERROR("Attempting to get output pubkey by global index, but key does not exist"));
+    throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve an output pubkey from the db"));
 	txn.commit();
@@ -2329,8 +2329,8 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
 			MDB_val v;
 
 			auto get_result = mdb_get(*txn_ptr, m_output_keys, &k, &v);
-			if (get_result != 0)
-				throw0(DB_ERROR("Attempting to get output pubkey by global index, but key does not exist"));
+			if (get_result == MDB_NOTFOUND)
+				throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
 			else if (get_result)
 				throw0(DB_ERROR("Error attempting to retrieve an output pubkey from the db"));
 
