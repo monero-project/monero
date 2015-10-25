@@ -1968,6 +1968,165 @@ bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
   return false;
 }
 
+bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+  MDB_val k;
+  MDB_val v;
+  bool ret = true;
+
+  lmdb_cur cur(txn, m_spent_keys);
+  MDB_cursor_op op = MDB_FIRST;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur, &k, &v, op);
+    op = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret < 0)
+      throw0(DB_ERROR("Failed to enumerate key images"));
+    const crypto::key_image k_image = *(crypto::key_image*)k.mv_data;
+    if (!f(k_image)) {
+      ret = false;
+      break;
+    }
+  }
+
+  cur.close();
+  txn.commit();
+
+  return ret;
+}
+
+bool BlockchainLMDB::for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)> f) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+  MDB_val k;
+  MDB_val v;
+  bool ret = true;
+
+  lmdb_cur cur(txn, m_blocks);
+  MDB_cursor_op op = MDB_FIRST;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur, &k, &v, op);
+    op = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw0(DB_ERROR("Failed to enumerate blocks"));
+    uint64_t height = *(uint64_t*)k.mv_data;
+    blobdata bd;
+    bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+    block b;
+    if (!parse_and_validate_block_from_blob(bd, b))
+      throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
+    crypto::hash hash;
+    if (!get_block_hash(b, hash))
+        throw0(DB_ERROR("Failed to get block hash from blob retrieved from the db"));
+    if (!f(height, hash, b)) {
+      ret = false;
+      break;
+    }
+  }
+
+  cur.close();
+  txn.commit();
+
+  return ret;
+}
+
+bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+  MDB_val k;
+  MDB_val v;
+  bool ret = true;
+
+  lmdb_cur cur(txn, m_txs);
+  MDB_cursor_op op = MDB_FIRST;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur, &k, &v, op);
+    op = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw0(DB_ERROR("Failed to enumerate transactions"));
+    const crypto::hash hash = *(crypto::hash*)k.mv_data;
+    blobdata bd;
+    bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+    transaction tx;
+    if (!parse_and_validate_tx_from_blob(bd, tx))
+      throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
+    if (!f(hash, tx)) {
+      ret = false;
+      break;
+    }
+  }
+
+  cur.close();
+  txn.commit();
+
+  return ret;
+}
+
+bool BlockchainLMDB::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+
+  MDB_val k;
+  MDB_val v;
+  bool ret = true;
+
+  lmdb_cur cur(txn, m_output_amounts);
+  MDB_cursor_op op = MDB_FIRST;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur, &k, &v, op);
+    op = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw0(DB_ERROR("Failed to enumerate outputs"));
+    uint64_t amount = *(uint64_t*)k.mv_data;
+    uint64_t global_index = *(uint64_t*)v.mv_data;
+    tx_out_index toi = get_output_tx_and_index_from_global(global_index);
+    if (!f(amount, toi.first, toi.second)) {
+      ret = false;
+      break;
+    }
+  }
+
+  cur.close();
+  txn.commit();
+
+  return ret;
+}
+
 // batch_num_blocks: (optional) Used to check if resize needed before batch transaction starts.
 void BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
 {
