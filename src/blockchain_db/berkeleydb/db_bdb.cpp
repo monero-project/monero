@@ -1315,7 +1315,7 @@ output_data_t BlockchainBDB::get_output_key(const uint64_t& global_index) const
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
-    Dbt_copy<uint32_t> k(global_index);
+    Dbt_copy<uint32_t> k(global_index + 1);
     Dbt_copy<output_data_t> v;
     auto get_result = m_output_keys->get(DB_DEFAULT_TX, &k, &v, 0);
     if (get_result == DB_NOTFOUND)
@@ -1467,7 +1467,7 @@ tx_out_index BlockchainBDB::get_output_tx_and_index_from_global(const uint64_t& 
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
-    Dbt_copy<uint32_t> k(index);
+    Dbt_copy<uint32_t> k(index + 1);
     Dbt_copy<crypto::hash > v;
 
     auto get_result = m_output_txs->get(DB_DEFAULT_TX, &k, &v, 0);
@@ -1826,7 +1826,7 @@ void BlockchainBDB::get_output_key(const uint64_t &amount, const std::vector<uin
     {
         for (const uint64_t &index : global_indices)
         {
-            Dbt_copy<uint32_t> k(index);
+            Dbt_copy<uint32_t> k(index + 1);
             Dbt_copy<output_data_t> v;
 
             auto get_result = m_output_keys->get(DB_DEFAULT_TX, &k, &v, 0);
