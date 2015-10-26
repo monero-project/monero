@@ -39,6 +39,10 @@
 
 using epee::string_tools::pod_to_hex;
 
+// Increase when the DB changes in a non backward compatible way, and there
+// is no automatic conversion, so that a full resync is needed.
+#define VERSION 0
+
 namespace
 {
 
@@ -122,6 +126,19 @@ private:
   std::unique_ptr<char[]> data;
 };
 
+template<>
+struct MDB_val_copy<const char*>: public MDB_val
+{
+	MDB_val_copy(const char *s) :
+			data(strdup(s))
+  {
+    mv_size = strlen(s) + 1; // include the NUL, makes it easier for compares
+    mv_data = data.get();
+  }
+private:
+  std::unique_ptr<char[]> data;
+};
+
 auto compare_uint64 = [](const MDB_val *a, const MDB_val *b)
 {
   const uint64_t va = *(const uint64_t*)a->mv_data;
@@ -154,6 +171,13 @@ int compare_hash32(const MDB_val *a, const MDB_val *b)
 	return 0;
 }
 
+int compare_string(const MDB_val *a, const MDB_val *b)
+{
+  const char *va = (const char*) a->mv_data;
+  const char *vb = (const char*) b->mv_data;
+  return strcmp(va, vb);
+}
+
 const char* const LMDB_BLOCKS = "blocks";
 const char* const LMDB_BLOCK_TIMESTAMPS = "block_timestamps";
 const char* const LMDB_BLOCK_HEIGHTS = "block_heights";
@@ -177,6 +201,8 @@ const char* const LMDB_SPENT_KEYS = "spent_keys";
 
 const char* const LMDB_HF_STARTING_HEIGHTS = "hf_starting_heights";
 const char* const LMDB_HF_VERSIONS = "hf_versions";
+
+const char* const LMDB_PROPERTIES = "properties";
 
 inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi, const std::string& error_string)
 {
@@ -1037,6 +1063,8 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_HF_STARTING_HEIGHTS, MDB_CREATE, m_hf_starting_heights, "Failed to open db handle for m_hf_starting_heights");
   lmdb_db_open(txn, LMDB_HF_VERSIONS, MDB_CREATE, m_hf_versions, "Failed to open db handle for m_hf_versions");
 
+  lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
+
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
   mdb_set_dupsort(txn, m_tx_outputs, compare_uint64);
   mdb_set_compare(txn, m_spent_keys, compare_hash32);
@@ -1046,6 +1074,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   mdb_set_compare(txn, m_tx_heights, compare_hash32);
   mdb_set_compare(txn, m_hf_starting_heights, compare_uint8);
   mdb_set_compare(txn, m_hf_versions, compare_uint64);
+  mdb_set_compare(txn, m_properties, compare_string);
 
   // get and keep current height
   MDB_stat db_stats;
@@ -1058,6 +1087,8 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   if (mdb_stat(txn, m_output_indices, &db_stats))
     throw0(DB_ERROR("Failed to query m_output_indices"));
   m_num_outputs = db_stats.ms_entries;
+
+  bool compatible = true;
 
 	// ND: This "new" version of the lmdb database is incompatible with
 	// the previous version. Ensure that the output_keys database is
@@ -1077,15 +1108,59 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
 	    // LOG_PRINT_L0("Output keys size: " << v.mv_size);
 	    if(v.mv_size != sizeof(output_data_t))
-	    {
-	    	txn.abort();
-	    	mdb_env_close(m_env);
-	    	m_open = false;
-	    	LOG_PRINT_RED_L0("Existing lmdb database is incompatible with this version.");
-	    	LOG_PRINT_RED_L0("Please delete the existing database and resync.");
-	    	return;
-	    }
+	      compatible = false;
 	}
+
+  MDB_val_copy<const char*> k("version");
+  MDB_val v;
+  auto get_result = mdb_get(txn, m_properties, &k, &v);
+  if(get_result == MDB_SUCCESS)
+  {
+    if (*(const uint32_t*)v.mv_data > VERSION)
+    {
+      LOG_PRINT_RED_L0("Existing lmdb database was made by a later version. We don't know how it will change yet.");
+      compatible = false;
+    }
+    else if (VERSION > 0 && *(const uint32_t*)v.mv_data < VERSION)
+    {
+      compatible = false;
+    }
+  }
+  else
+  {
+    // if not found, but we're on version 0, it's fine. If the DB's empty, it's fine too.
+    if (VERSION > 0 && m_height > 0)
+      compatible = false;
+  }
+
+  if (!compatible)
+  {
+    txn.abort();
+    mdb_env_close(m_env);
+    m_open = false;
+    LOG_PRINT_RED_L0("Existing lmdb database is incompatible with this version.");
+    LOG_PRINT_RED_L0("Please delete the existing database and resync.");
+    return;
+  }
+
+  if (!(mdb_flags & MDB_RDONLY))
+  {
+    // only write version on an empty DB
+    if (m_height == 0)
+    {
+      MDB_val_copy<const char*> k("version");
+      MDB_val_copy<uint32_t> v(VERSION);
+      auto put_result = mdb_put(txn, m_properties, &k, &v, 0);
+      if (put_result != MDB_SUCCESS)
+      {
+        txn.abort();
+        mdb_env_close(m_env);
+        m_open = false;
+        LOG_PRINT_RED_L0("Failed to write version to database.");
+        return;
+      }
+    }
+  }
 
   // commit the transaction
   txn.commit();
