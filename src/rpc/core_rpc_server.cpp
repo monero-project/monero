@@ -889,6 +889,7 @@ namespace cryptonote
     res.version = blockchain.get_current_hard_fork_version();
     res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.voting);
     res.state = blockchain.get_hard_fork_state();
+    res.status = CORE_RPC_STATUS_OK;
     return true;
 #else
     error_resp.code = CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC;

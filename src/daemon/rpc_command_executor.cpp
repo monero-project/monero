@@ -971,11 +971,13 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
             tools::fail_msg_writer() << fail_message.c_str();
             return true;
         }
-        version = version > 0 ? version : res.voting;
-        tools::msg_writer() << "version " << (uint32_t)version << " " << (res.enabled ? "enabled" : "not enabled") <<
-            ", " << res.votes << "/" << res.window << " votes, threshold " << res.threshold;
-        tools::msg_writer() << "current version " << (uint32_t)res.version << ", voting for version " << (uint32_t)res.voting;
     }
+
+    version = version > 0 ? version : res.voting;
+    tools::msg_writer() << "version " << (uint32_t)version << " " << (res.enabled ? "enabled" : "not enabled") <<
+        ", " << res.votes << "/" << res.window << " votes, threshold " << res.threshold;
+    tools::msg_writer() << "current version " << (uint32_t)res.version << ", voting for version " << (uint32_t)res.voting;
+
     return true;
 }
 
