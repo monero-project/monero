@@ -1042,7 +1042,7 @@ size_t blockchain_storage::find_end_of_allowed_index(const std::vector<std::pair
     --i;
     transactions_container::const_iterator it = m_transactions.find(amount_outs[i].first);
     CHECK_AND_ASSERT_MES(it != m_transactions.end(), 0, "internal error: failed to find transaction from outputs index with tx_id=" << amount_outs[i].first);
-    if(it->second.m_keeper_block_height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW <= get_current_blockchain_height() )
+    if(it->second.m_keeper_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= get_current_blockchain_height() )
       return i+1;
   } while (i != 0);
   return 0;

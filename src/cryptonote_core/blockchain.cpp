@@ -1483,6 +1483,17 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
     for (uint64_t amount : req.amounts)
     {
         auto num_outs = m_db->get_num_outputs(amount);
+        // ensure we don't include outputs that aren't yet eligible to be used
+        // outpouts are sorted by height
+        while (num_outs > 0)
+        {
+          const tx_out_index toi = m_db->get_output_tx_and_index(amount, num_outs - 1);
+          const uint64_t height = m_db->get_tx_block_height(toi.first);
+          if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= m_db->height())
+            break;
+          --num_outs;
+        }
+
         // create outs_for_amount struct and populate amount field
         COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs = *res.outs.insert(res.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount());
         result_outs.amount = amount;
