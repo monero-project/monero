@@ -310,7 +310,7 @@ bool t_rpc_command_executor::print_connections() {
 
   if (m_is_rpc)
   {
-    if (!m_rpc_client->json_rpc_request(req, res, "/get_connections", fail_message.c_str()))
+    if (!m_rpc_client->json_rpc_request(req, res, "get_connections", fail_message.c_str()))
     {
       return true;
     }
@@ -935,7 +935,7 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 
 	if (m_is_rpc)
 	{
-		if (!m_rpc_client->json_rpc_request(req, res, "/out_peers", fail_message.c_str()))
+		if (!m_rpc_client->json_rpc_request(req, res, "out_peers", fail_message.c_str()))
 		{
 			return true;
 		}
@@ -1014,7 +1014,7 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
 
     if (m_is_rpc)
     {
-        if (!m_rpc_client->json_rpc_request(req, res, "/hard_fork_info", fail_message.c_str()))
+        if (!m_rpc_client->json_rpc_request(req, res, "hard_fork_info", fail_message.c_str()))
         {
             return true;
         }
@@ -1026,11 +1026,13 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
             tools::fail_msg_writer() << fail_message.c_str();
             return true;
         }
-        version = version > 0 ? version : res.voting;
-        tools::msg_writer() << "version " << (uint32_t)version << " " << (res.enabled ? "enabled" : "not enabled") <<
-            ", " << res.votes << "/" << res.window << " votes, threshold " << res.threshold;
-        tools::msg_writer() << "current version " << (uint32_t)res.version << ", voting for version " << (uint32_t)res.voting;
     }
+
+    version = version > 0 ? version : res.voting;
+    tools::msg_writer() << "version " << (uint32_t)version << " " << (res.enabled ? "enabled" : "not enabled") <<
+        ", " << res.votes << "/" << res.window << " votes, threshold " << res.threshold;
+    tools::msg_writer() << "current version " << (uint32_t)res.version << ", voting for version " << (uint32_t)res.voting;
+
     return true;
 }
 
