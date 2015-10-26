@@ -116,11 +116,9 @@ public:
     return starting_height[version];
   }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) {
-    printf("set_hard_fork_version(%lu, %u)\n", (unsigned long)height, version);
     if (versions.size() <= height) versions.resize(height+1); versions[height] = version;
   }
   virtual uint8_t get_hard_fork_version(uint64_t height) const {
-    printf("get_hard_fork_version(%lu)\n", (unsigned long)height);
     return versions[height];
   }
 
@@ -133,7 +131,7 @@ private:
 static cryptonote::block mkblock(uint8_t version)
 {
   cryptonote::block b;
-  b.major_version = version;
+  b.minor_version = version;
   return b;
 }
 
@@ -360,7 +358,6 @@ TEST(new_blocks, denied)
     ASSERT_TRUE(hf.add(2, 2, 1));
     hf.init();
 
-    ASSERT_FALSE(hf.add(mkblock(0), 0));
     ASSERT_TRUE(hf.add(mkblock(1), 0));
     ASSERT_TRUE(hf.add(mkblock(1), 1));
     ASSERT_TRUE(hf.add(mkblock(1), 2));
@@ -386,7 +383,6 @@ TEST(new_version, early)
     ASSERT_TRUE(hf.add(2, 4, 1));
     hf.init();
 
-    ASSERT_FALSE(hf.add(mkblock(0), 0));
     ASSERT_TRUE(hf.add(mkblock(2), 0));
     ASSERT_TRUE(hf.add(mkblock(2), 1)); // we have enough votes already
     ASSERT_TRUE(hf.add(mkblock(2), 2));
@@ -419,7 +415,6 @@ TEST(reorganize, changed)
 #define ADD_TRUE(v, h) ADD(v, h, TRUE)
 #define ADD_FALSE(v, h) ADD(v, h, FALSE)
 
-    ADD_FALSE(0, 0);
     ADD_TRUE(1, 0);
     ADD_TRUE(1, 1);
     ADD_TRUE(2, 2);

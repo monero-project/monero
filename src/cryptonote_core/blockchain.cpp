@@ -1033,8 +1033,8 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
     CRITICAL_REGION_BEGIN(m_blockchain_lock);
     height = m_db->height();
 
-    b.major_version = m_hardfork->get_ideal_version();
-    b.minor_version = 0;
+    b.major_version = m_hardfork->get_current_version();
+    b.minor_version = m_hardfork->get_ideal_version();
     b.prev_id = get_tail_id();
     b.timestamp = time(NULL);
 
