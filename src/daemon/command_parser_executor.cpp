@@ -75,6 +75,13 @@ bool t_command_parser_executor::show_difficulty(const std::vector<std::string>& 
   return m_executor.show_difficulty();
 }
 
+bool t_command_parser_executor::show_status(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+
+  return m_executor.show_status();
+}
+
 bool t_command_parser_executor::print_connections(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;

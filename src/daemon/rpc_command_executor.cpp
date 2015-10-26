@@ -33,6 +33,7 @@
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
+#include "cryptonote_core/hardfork.h"
 #include <boost/format.hpp>
 #include <ctime>
 #include <string>
@@ -242,6 +243,60 @@ bool t_rpc_command_executor::show_difficulty() {
   tools::success_msg_writer() <<   "BH: " << res.height
                               << ", DIFF: " << res.difficulty
                               << ", HR: " << (int) res.difficulty / 60L << " H/s";
+
+  return true;
+}
+
+bool t_rpc_command_executor::show_status() {
+  cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+  cryptonote::COMMAND_RPC_GET_INFO::response ires;
+  cryptonote::COMMAND_RPC_HARD_FORK_INFO::request hfreq;
+  cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hfres;
+  epee::json_rpc::error error_resp;
+
+  std::string fail_message = "Problem fetching info";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(ireq, ires, "/getinfo", fail_message.c_str()))
+    {
+      return true;
+    }
+    if (!m_rpc_client->rpc_request(hfreq, hfres, "/hard_fork_info", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_info(ireq, ires))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+    if (!m_rpc_server->on_hard_fork_info(hfreq, hfres, error_resp))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, net hash %s, v%u, %s, %u+%u connections")
+    % (unsigned long long)ires.height
+    % (unsigned long long)(ires.target_height ? ires.target_height : ires.height)
+    % (100.0f * ires.height / (ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height))
+    % (m_rpc_server->is_testnet() ? "testnet" : "mainnet")
+    % [&ires]()->std::string {
+      float hr = ires.difficulty / 60.0f;
+      if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
+      if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
+      if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
+      return (boost::format("%.0f H/s") % hr).str();
+    }()
+    % (unsigned)hfres.version
+    % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
+    % (unsigned)ires.outgoing_connections_count % (unsigned)ires.incoming_connections_count
+  ;
 
   return true;
 }
