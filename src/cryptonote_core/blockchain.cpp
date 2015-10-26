@@ -3188,3 +3188,23 @@ bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, ui
 {
     return m_hardfork->get_voting_info(version, window, votes, threshold, voting);
 }
+
+bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
+{
+  return m_db->for_all_key_images(f);
+}
+
+bool Blockchain::for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const block&)> f) const
+{
+  return m_db->for_all_blocks(f);
+}
+
+bool Blockchain::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f) const
+{
+  return m_db->for_all_transactions(f);
+}
+
+bool Blockchain::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const
+{
+  return m_db->for_all_outputs(f);;
+}

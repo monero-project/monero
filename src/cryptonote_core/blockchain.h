@@ -165,6 +165,11 @@ namespace cryptonote
     uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
     bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
 
+    bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
+    bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const block&)>) const;
+    bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const;
+    bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)>) const;
+
     BlockchainDB& get_db()
     {
       return *m_db;
