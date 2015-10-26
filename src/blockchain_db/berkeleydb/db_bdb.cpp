@@ -38,6 +38,10 @@
 using epee::string_tools::pod_to_hex;
 #define DB_DEFAULT_TX (m_write_txn != nullptr ? *m_write_txn : (DbTxn*) nullptr)
 
+// Increase when the DB changes in a non backward compatible way, and there
+// is no automatic conversion, so that a full resync is needed.
+#define VERSION 0
+
 namespace
 {
 
@@ -121,6 +125,8 @@ const char* const BDB_SPENT_KEYS = "spent_keys";
 const char* const BDB_HF_STARTING_HEIGHTS = "hf_starting_heights";
 const char* const BDB_HF_VERSIONS = "hf_versions";
 
+const char* const BDB_PROPERTIES = "properties";
+
 const unsigned int MB = 1024 * 1024;
 // ND: FIXME: db keeps running out of locks when doing full syncs. Possible bug??? Set it to 5K for now.
 const unsigned int DB_MAX_LOCKS = 5000;
@@ -174,6 +180,22 @@ struct Dbt_copy<cryptonote::blobdata>: public Dbt
         set_data(m_data.get());
         set_size(bd.size());
         set_ulen(bd.size());
+        set_flags(DB_DBT_USERMEM);
+    }
+private:
+    std::unique_ptr<char[]> m_data;
+};
+
+template<>
+struct Dbt_copy<const char*>: public Dbt
+{
+    Dbt_copy(const char *s) :
+        m_data(strdup(s))
+    {
+        size_t len = strlen(s) + 1; // include the NUL, makes it easier for compare
+        set_data(m_data.get());
+        set_size(len);
+        set_ulen(len);
         set_flags(DB_DBT_USERMEM);
     }
 private:
@@ -793,6 +815,8 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_hf_starting_heights = new Db(m_env, 0);
         m_hf_versions = new Db(m_env, 0);
 
+        m_properties = new Db(m_env, 0);
+
         // Tell DB about Dbs that need duplicate support
         // Note: no need to tell about sorting,
         //   as the default is insertion order, which we want
@@ -845,6 +869,8 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_hf_starting_heights->open(txn, BDB_HF_STARTING_HEIGHTS, NULL, DB_RECNO, DB_CREATE, 0);
         m_hf_versions->open(txn, BDB_HF_VERSIONS, NULL, DB_RECNO, DB_CREATE, 0);
 
+        m_properties->open(txn, BDB_PROPERTIES, NULL, DB_HASH, DB_CREATE, 0);
+
         txn.commit();
 
         DB_BTREE_STAT* stats;
@@ -864,6 +890,56 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_output_indices->stat(NULL, &stats, 0);
         m_num_outputs = stats->bt_nkeys;
         delete stats;
+
+        // checks for compatibility
+        bool compatible = true;
+
+        Dbt_copy<const char*> key("version");
+        Dbt_copy<uint32_t> result;
+        auto get_result = m_properties->get(DB_DEFAULT_TX, &key, &result, 0);
+        if (get_result == 0)
+        {
+            if (result > VERSION)
+            {
+                LOG_PRINT_RED_L0("Existing BerkeleyDB database was made by a later version. We don't know how it will change yet.");
+                compatible = false;
+            }
+            else if (VERSION > 0 && result < VERSION)
+            {
+                compatible = false;
+            }
+        }
+        else
+        {
+            // if not found, but we're on version 0, it's fine. If the DB's empty, it's fine too.
+            if (VERSION > 0 && m_height > 0)
+                compatible = false;
+        }
+
+        if (!compatible)
+        {
+            m_open = false;
+            LOG_PRINT_RED_L0("Existing BerkeleyDB database is incompatible with this version.");
+            LOG_PRINT_RED_L0("Please delete the existing database and resync.");
+            return;
+        }
+
+        if (1 /* this can't be set readonly atm */)
+        {
+            // only write version on an empty DB
+            if (m_height == 0)
+            {
+                Dbt_copy<const char*> k("version");
+                Dbt_copy<uint32_t> v(VERSION);
+                auto put_result = m_properties->put(DB_DEFAULT_TX, &k, &v, 0);
+                if (put_result != 0)
+                {
+                    m_open = false;
+                    LOG_PRINT_RED_L0("Failed to write version to database.");
+                    return;
+                }
+            }
+        }
 
         // run checkpoint thread
         m_run_checkpoint = true;
@@ -920,6 +996,8 @@ void BlockchainBDB::sync()
 
         m_hf_starting_heights->sync(0);
         m_hf_versions->sync(0);
+
+        m_properties->sync(0);
     }
     catch (const std::exception& e)
     {
@@ -998,6 +1076,9 @@ std::vector<std::string> BlockchainBDB::get_filenames() const
     filenames.push_back(fname);
 
     m_hf_versions->get_dbname(pfname, pdbname);
+    filenames.push_back(fname);
+
+    m_properties->get_dbname(pfname, pdbname);
     filenames.push_back(fname);
 
     std::vector<std::string> full_paths;

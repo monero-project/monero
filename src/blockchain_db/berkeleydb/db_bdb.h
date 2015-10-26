@@ -445,6 +445,8 @@ private:
   Db* m_hf_starting_heights;
   Db* m_hf_versions;
 
+  Db* m_properties;
+
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
