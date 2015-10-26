@@ -255,7 +255,7 @@ bool t_rpc_command_executor::print_connections() {
 
   if (m_is_rpc)
   {
-    if (!m_rpc_client->json_rpc_request(req, res, "/get_connections", fail_message.c_str()))
+    if (!m_rpc_client->json_rpc_request(req, res, "get_connections", fail_message.c_str()))
     {
       return true;
     }
@@ -880,7 +880,7 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 
 	if (m_is_rpc)
 	{
-		if (!m_rpc_client->json_rpc_request(req, res, "/out_peers", fail_message.c_str()))
+		if (!m_rpc_client->json_rpc_request(req, res, "out_peers", fail_message.c_str()))
 		{
 			return true;
 		}
@@ -959,7 +959,7 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
 
     if (m_is_rpc)
     {
-        if (!m_rpc_client->json_rpc_request(req, res, "/hard_fork_info", fail_message.c_str()))
+        if (!m_rpc_client->json_rpc_request(req, res, "hard_fork_info", fail_message.c_str()))
         {
             return true;
         }
