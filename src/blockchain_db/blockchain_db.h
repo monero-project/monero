@@ -493,6 +493,11 @@ public:
   // returns true if key image <img> is present in spent key images storage
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
 
+  virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const = 0;
+  virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const = 0;
+  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const = 0;
+  virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const = 0;
+
   // Hard fork related storage
   virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height) = 0;
   virtual uint64_t get_hard_fork_starting_height(uint8_t version) const = 0;

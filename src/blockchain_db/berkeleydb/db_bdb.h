@@ -375,6 +375,11 @@ private:
 
   void get_output_global_indices(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<uint64_t> &global_indices);
 
+  virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
+  virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const;
+  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const;
+  virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const;
+
   // Hard fork related storage
   virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height);
   virtual uint64_t get_hard_fork_starting_height(uint8_t version) const;
