@@ -306,6 +306,8 @@ private:
   MDB_dbi m_hf_starting_heights;
   MDB_dbi m_hf_versions;
 
+  MDB_dbi m_properties;
+
   uint64_t m_height;
   uint64_t m_num_outputs;
   std::string m_folder;
