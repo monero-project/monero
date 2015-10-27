@@ -107,9 +107,6 @@ namespace cryptonote
     bool prepare_handle_incoming_blocks(const std::list<block_complete_entry>  &blocks);
     bool cleanup_handle_incoming_blocks(bool force_sync = false);
 
-    template<class archive_t>
-    void serialize(archive_t & ar, const unsigned int version);
-
     bool have_tx(const crypto::hash &id) const;
     bool have_tx_keyimges_as_spent(const transaction &tx) const;
     bool have_tx_keyimg_as_spent(const crypto::key_image &key_im) const;
@@ -276,16 +273,4 @@ namespace cryptonote
     void check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image,
     		const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
   };
-
-
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-
-  #define CURRENT_BLOCKCHAIN_ARCHIVE_VER    13
-
-  //------------------------------------------------------------------
-
 }  // namespace cryptonote
-
-BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_ARCHIVE_VER)
