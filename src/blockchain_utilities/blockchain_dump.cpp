@@ -162,7 +162,9 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Setting log level = " << log_level);
 
   bool opt_testnet = command_line::get_arg(vm, arg_testnet_on);
+#if SOURCE_DB != DB_MEMORY
   bool opt_include_db_only_data = command_line::get_arg(vm, arg_include_db_only_data);
+#endif
 
   std::string m_config_folder;
 
@@ -271,7 +273,6 @@ int main(int argc, char* argv[])
   start_struct(d,"blockchain");
     uint64_t height = core_storage->get_current_blockchain_height();
     write_pod(d, "height", height);
-goto start;
     start_array(d,"blockids", true);
       for (uint64_t h = 0; h < height; ++h)
         write_pod(d,core_storage->get_block_id_by_height(h));
@@ -310,6 +311,7 @@ goto start;
         end_compound(d);
       }
     }
+    end_compound(d);
     start_struct(d,"blocks", true);
     {
       std::vector<crypto::hash> blockids;
@@ -333,6 +335,7 @@ goto start;
         write_pod(d,key_images[n]);
     }
     end_compound(d);
+#if SOURCE_DB != DB_MEMORY
     if (opt_include_db_only_data)
     {
       start_struct(d, "block_timestamps", true);
@@ -386,7 +389,6 @@ goto start;
           catch (const OUTPUT_DNE &) { break; }
         }
       end_compound(d);
-start:
       start_struct(d, "outputs_amounts", true);
         for (uint64_t base = 1; base <= (uint64_t)10000000000000000000ul; base *= 10) for (uint64_t digit = 1; digit <= 9; ++digit) {
           uint64_t amount = digit * base;
@@ -417,6 +419,7 @@ start:
           write_pod(d, boost::lexical_cast<std::string>(v), db->get_hard_fork_starting_height(v));
       end_compound(d);
     }
+#endif
   end_compound(d);
 
   CHECK_AND_ASSERT_MES(r, false, "Failed to dump blockchain");
