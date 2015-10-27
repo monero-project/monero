@@ -195,8 +195,6 @@ const char* const LMDB_OUTPUT_TXS = "output_txs";
 const char* const LMDB_OUTPUT_INDICES = "output_indices";
 const char* const LMDB_OUTPUT_AMOUNTS = "output_amounts";
 const char* const LMDB_OUTPUT_KEYS = "output_keys";
-const char* const LMDB_OUTPUTS = "outputs";
-const char* const LMDB_OUTPUT_GINDICES = "output_gindices";
 const char* const LMDB_SPENT_KEYS = "spent_keys";
 
 const char* const LMDB_HF_STARTING_HEIGHTS = "hf_starting_heights";
@@ -691,19 +689,6 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
 			throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
   }
 
-
-/****** Uncomment if ever outputs actually need to be stored in this manner
- *
-  blobdata b = output_to_blob(tx_output);
-
-  v.mv_size = b.size();
-  v.mv_data = &b;
-  if (mdb_put(*m_write_txn, m_outputs, &k, &v, 0))
-    throw0(DB_ERROR("Failed to add output to db transaction"));
-  if (mdb_put(*m_write_txn, m_output_gindices, &v, &k, 0))
-    throw0(DB_ERROR("Failed to add output global index to db transaction"));
-************************************************************************/
-
   m_num_outputs++;
 }
 
@@ -759,26 +744,6 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
   check_open();
 
   MDB_val_copy<uint64_t> k(out_index);
-
-/****** Uncomment if ever outputs actually need to be stored in this manner
-  blobdata b;
-  t_serializable_object_to_blob(tx_output, b);
-  k.mv_size = b.size();
-  k.mv_data = &b;
-
-  if (mdb_get(*m_write_txn, m_output_gindices, &k, &v))
-      throw1(OUTPUT_DNE("Attempting to remove output that does not exist"));
-
-  uint64_t gindex = *(uint64_t*)v.mv_data;
-
-  auto result = mdb_del(*m_write_txn, m_output_gindices, &k, NULL);
-  if (result != 0 && result != MDB_NOTFOUND)
-      throw1(OUTPUT_DNE("Error adding removal of output global index to db transaction"));
-
-  result = mdb_del(*m_write_txn, m_outputs, &v, NULL);
-  if (result != 0 && result != MDB_NOTFOUND)
-      throw1(DB_ERROR("Error adding removal of output to db transaction"));
-*********************************************************************/
 
   auto result = mdb_del(*m_write_txn, m_output_indices, &k, NULL);
   if (result == MDB_NOTFOUND)
@@ -1052,11 +1017,6 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_OUTPUT_INDICES, MDB_INTEGERKEY | MDB_CREATE, m_output_indices, "Failed to open db handle for m_output_indices");
 	lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS,	MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
   lmdb_db_open(txn, LMDB_OUTPUT_KEYS, MDB_INTEGERKEY | MDB_CREATE, m_output_keys, "Failed to open db handle for m_output_keys");
-
-/*************** not used, but kept for posterity
-  lmdb_db_open(txn, LMDB_OUTPUTS, MDB_INTEGERKEY | MDB_CREATE, m_outputs, "Failed to open db handle for m_outputs");
-  lmdb_db_open(txn, LMDB_OUTPUT_GINDICES, MDB_CREATE, m_output_gindices, "Failed to open db handle for m_output_gindices");
-*************************************************/
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
@@ -1785,75 +1745,6 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint6
 
 	uint64_t glob_index = get_output_global_index(amount, index);
 	return get_output_key(glob_index);
-}
-
-tx_out BlockchainLMDB::get_output(const crypto::hash& h, const uint64_t& index) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-
-  mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
-
-  lmdb_cur cur(txn, m_tx_outputs);
-
-  MDB_val_copy<crypto::hash> k(h);
-  MDB_val v;
-  auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
-  if (result == MDB_NOTFOUND)
-    throw1(OUTPUT_DNE("Attempting to get an output by tx hash and tx index, but output not found"));
-  else if (result)
-    throw0(DB_ERROR("DB error attempting to get an output"));
-
-  size_t num_elems = 0;
-  mdb_cursor_count(cur, &num_elems);
-  if (num_elems <= index)
-    throw1(OUTPUT_DNE("Attempting to get an output by tx hash and tx index, but output not found"));
-
-  mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
-
-  for (uint64_t i = 0; i < index; ++i)
-  {
-    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
-  }
-
-  mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
-
-  blobdata b;
-  b = *(blobdata*)v.mv_data;
-
-  cur.close();
-  txn.commit();
-
-  return output_from_blob(b);
-}
-
-// As this is not used, its return is now a blank output.
-// This will save on space in the db.
-tx_out BlockchainLMDB::get_output(const uint64_t& index) const
-{
-  return tx_out();
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-
-  mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
-
-  MDB_val_copy<uint64_t> k(index);
-  MDB_val v;
-  auto get_result = mdb_get(txn, m_outputs, &k, &v);
-  if (get_result == MDB_NOTFOUND)
-  {
-    throw OUTPUT_DNE("Attempting to get output by global index, but output does not exist");
-  }
-  else if (get_result)
-    throw0(DB_ERROR("Error attempting to retrieve an output from the db"));
-
-  blobdata b = *(blobdata*)v.mv_data;
-
-  return output_from_blob(b);
 }
 
 tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t& index) const

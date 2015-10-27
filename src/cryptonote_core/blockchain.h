@@ -217,16 +217,6 @@ namespace cryptonote
     bool cleanup_handle_incoming_blocks(bool force_sync = false);
 
     /**
-     * @brief old serialization to disk, pending removal
-     *
-     * @tparam archive_t
-     * @param ar
-     * @param version
-     */
-    template<class archive_t>
-    void serialize(archive_t & ar, const unsigned int version);
-
-    /**
      * @brief search the blockchain for a transaction by hash
      *
      * @param id the hash to search for
@@ -1055,15 +1045,4 @@ namespace cryptonote
    */
     void load_compiled_in_block_hashes(bool testnet);
   };
-
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-
-  #define CURRENT_BLOCKCHAIN_ARCHIVE_VER    13
-
-  //------------------------------------------------------------------
-
 }  // namespace cryptonote
-
-BOOST_CLASS_VERSION(cryptonote::Blockchain, CURRENT_BLOCKCHAIN_ARCHIVE_VER)
