@@ -1104,12 +1104,12 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
 
   message_writer() << tr("Starting refresh...");
 
-  size_t fetched_blocks = 0;
-  size_t start_height = 0;
+  uint64_t fetched_blocks = 0;
+  uint64_t start_height = 0;
   if(!args.empty()){
     try
     {
-        start_height = boost::lexical_cast<int>( args[0] );
+        start_height = boost::lexical_cast<uint64_t>( args[0] );
     }
     catch(const boost::bad_lexical_cast &)
     {

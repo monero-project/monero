@@ -349,7 +349,7 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
     ids.push_back(m_blockchain[0]);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(uint64_t start_height, size_t& blocks_added)
+void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
 {
   blocks_added = 0;
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
@@ -400,17 +400,17 @@ void wallet2::refresh()
   refresh(0, blocks_fetched);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched)
+void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched)
 {
   bool received_money = false;
   refresh(start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money)
+void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {
   received_money = false;
   blocks_fetched = 0;
-  size_t added_blocks = 0;
+  uint64_t added_blocks = 0;
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? get_transaction_hash(m_transfers.back().m_tx) : null_hash;
 
@@ -444,7 +444,7 @@ void wallet2::refresh(uint64_t start_height, size_t & blocks_fetched, bool& rece
   LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance: " << print_money(balance()) << ", unlocked: " << print_money(unlocked_balance()));
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::refresh(size_t & blocks_fetched, bool& received_money, bool& ok)
+bool wallet2::refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok)
 {
   try
   {
