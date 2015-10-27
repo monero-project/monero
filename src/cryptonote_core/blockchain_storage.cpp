@@ -1900,19 +1900,21 @@ bool blockchain_storage::for_all_key_images(std::function<bool(const crypto::key
   return true;
 }
 //------------------------------------------------------------------
-bool blockchain_storage::for_all_blocks(std::function<bool(uint64_t, const block&)> f) const
+bool blockchain_storage::for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const block&)> f) const
 {
   for (blocks_container::const_iterator i = m_blocks.begin(); i != m_blocks.end(); ++i) {
-    if (!f(i->height, i->bl))
+    crypto::hash hash;
+    get_block_hash (i->bl, hash);
+    if (!f(i->height, hash, i->bl))
       return false;
   }
   return true;
 }
 //------------------------------------------------------------------
-bool blockchain_storage::for_all_transactions(std::function<bool(const transaction&)> f) const
+bool blockchain_storage::for_all_transactions(std::function<bool(const crypto::hash&, const transaction&)> f) const
 {
   for (transactions_container::const_iterator i = m_transactions.begin(); i != m_transactions.end(); ++i) {
-    if (!f(i->second.tx))
+    if (!f(i->first, i->second.tx))
       return false;
   }
   return true;
