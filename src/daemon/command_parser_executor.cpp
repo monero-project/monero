@@ -230,6 +230,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   }
 
   cryptonote::account_public_address adr;
+  bool testnet = false;
   if(!cryptonote::get_account_address_from_str(adr, false, args.front()))
   {
     if(!cryptonote::get_account_address_from_str(adr, true, args.front()))
@@ -237,6 +238,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
       std::cout << "target account address has wrong format" << std::endl;
       return true;
     }
+    testnet = true;
     std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
   }
   uint64_t threads_count = 1;
@@ -250,7 +252,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
     threads_count = (ok && 0 < threads_count) ? threads_count : 1;
   }
 
-  m_executor.start_mining(adr, threads_count);
+  m_executor.start_mining(adr, threads_count, testnet);
 
   return true;
 }

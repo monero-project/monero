@@ -262,7 +262,7 @@ bool t_rpc_command_executor::show_status() {
     {
       return true;
     }
-    if (!m_rpc_client->rpc_request(hfreq, hfres, "/hard_fork_info", fail_message.c_str()))
+    if (!m_rpc_client->json_rpc_request(hfreq, hfres, "hard_fork_info", fail_message.c_str()))
     {
       return true;
     }
@@ -285,7 +285,7 @@ bool t_rpc_command_executor::show_status() {
     % (unsigned long long)ires.height
     % (unsigned long long)(ires.target_height ? ires.target_height : ires.height)
     % (100.0f * ires.height / (ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height))
-    % (m_rpc_server->is_testnet() ? "testnet" : "mainnet")
+    % (ires.testnet ? "testnet" : "mainnet")
     % [&ires]()->std::string {
       float hr = ires.difficulty / 60.0f;
       if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
@@ -733,10 +733,10 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   return true;
 }
 
-bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads) {
+bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet) {
   cryptonote::COMMAND_RPC_START_MINING::request req;
   cryptonote::COMMAND_RPC_START_MINING::response res;
-  req.miner_address = cryptonote::get_account_address_as_str(m_rpc_server->is_testnet(), address);
+  req.miner_address = cryptonote::get_account_address_as_str(testnet, address);
   req.threads_count = num_threads;
 
   std::string fail_message = "Mining did not start";
