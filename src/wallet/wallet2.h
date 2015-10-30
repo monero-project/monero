@@ -213,9 +213,9 @@ namespace tools
      */
     bool is_deprecated() const;
     void refresh();
-    void refresh(uint64_t start_height, size_t & blocks_fetched);
-    void refresh(uint64_t start_height, size_t & blocks_fetched, bool& received_money);
-    bool refresh(size_t & blocks_fetched, bool& received_money, bool& ok);
+    void refresh(uint64_t start_height, uint64_t & blocks_fetched);
+    void refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money);
+    bool refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok);
 
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
@@ -318,7 +318,7 @@ namespace tools
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
-    void pull_blocks(uint64_t start_height, size_t& blocks_added);
+    void pull_blocks(uint64_t start_height, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx);
