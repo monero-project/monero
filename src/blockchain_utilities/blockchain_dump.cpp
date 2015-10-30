@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
       if (!boost::filesystem::is_directory(dir_path))
       {
         LOG_PRINT_RED_L0("dump directory path is a file: " << dir_path);
-        return false;
+        return 1;
       }
     }
     else
@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
       if (!boost::filesystem::create_directory(dir_path))
       {
         LOG_PRINT_RED_L0("Failed to create directory " << dir_path);
-        return false;
+        return 1;
       }
     }
   }
@@ -201,7 +201,7 @@ int main(int argc, char* argv[])
   std::ofstream raw_data_file;
   raw_data_file.open(output_file_path.string(), std::ios_base::out | std::ios::trunc);
   if (raw_data_file.fail())
-    return false;
+    return 1;
 
 
   // If we wanted to use the memory pool, we would set up a fake_core.
@@ -245,7 +245,7 @@ int main(int argc, char* argv[])
   else
   {
     LOG_PRINT_L0("Invalid db type: " << db_type);
-    throw;
+    return 1;
   }
   boost::filesystem::path folder(m_config_folder);
   folder /= db->get_db_name();
@@ -259,7 +259,7 @@ int main(int argc, char* argv[])
   catch (const std::exception& e)
   {
     LOG_PRINT_L0("Error opening database: " << e.what());
-    throw;
+    return 1;
   }
   r = core_storage->init(db, opt_testnet);
 #endif
@@ -425,7 +425,7 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(r, false, "Failed to dump blockchain");
 
   if (raw_data_file.fail())
-    return false;
+    return 1;
   raw_data_file.flush();
 
   LOG_PRINT_L0("Blockchain dump OK");

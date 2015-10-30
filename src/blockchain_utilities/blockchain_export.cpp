@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
   catch (const std::exception& e)
   {
     LOG_PRINT_L0("Error opening database: " << e.what());
-    throw;
+    return 1;
   }
   r = core_storage->init(db, opt_testnet);
 #endif
