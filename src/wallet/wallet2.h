@@ -79,9 +79,9 @@ namespace tools
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_keys(false) {};
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_keys(false), m_default_mixin(0) {}
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_keys(false) {};
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_keys(false), m_default_mixin(0) {}
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -293,6 +293,8 @@ namespace tools
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
     bool store_tx_keys() const { return m_store_tx_keys; }
     void store_tx_keys(bool store) { m_store_tx_keys = store; }
+    uint32_t default_mixin() const { return m_default_mixin; }
+    void default_mixin(uint32_t m) { m_default_mixin = m; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
@@ -353,6 +355,7 @@ namespace tools
     bool m_watch_only; /*!< no spend key */
     bool m_always_confirm_transfers;
     bool m_store_tx_keys; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
+    uint32_t m_default_mixin;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 8)
