@@ -86,6 +86,7 @@ target_link_libraries(daemon
   LINK_PRIVATE
     rpc
     server_ipc
+    client_ipc
     blockchain_db
     cryptonote_core
     crypto
