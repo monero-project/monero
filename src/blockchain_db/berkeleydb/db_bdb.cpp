@@ -1536,22 +1536,6 @@ output_data_t BlockchainBDB::get_output_key(const uint64_t& amount, const uint64
     return get_output_key(glob_index);
 }
 
-// As this is not used, its return is now a blank output.
-// This will save on space in the db.
-tx_out BlockchainBDB::get_output(const crypto::hash& h, const uint64_t& index) const
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    return tx_out();
-}
-
-// As this is not used, its return is now a blank output.
-// This will save on space in the db.
-tx_out BlockchainBDB::get_output(const uint64_t& index) const
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    return tx_out();
-}
-
 tx_out_index BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
