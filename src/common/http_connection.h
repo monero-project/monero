@@ -46,6 +46,7 @@ public:
     , uint16_t port
     )
     : mp_http_client(p_http_client)
+    , m_ok(false)
   {
     // TODO fix http client so that it accepts properly typed arguments
     std::string ip_str = epee::string_tools::get_ip_string_from_int32(ip);
@@ -61,7 +62,7 @@ public:
     }
   }
 
-  bool is_open()
+  bool is_open() const
   {
     return m_ok;
   }
