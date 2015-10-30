@@ -396,7 +396,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh()
 {
-  size_t blocks_fetched = 0;
+  uint64_t blocks_fetched = 0;
   refresh(0, blocks_fetched);
 }
 //----------------------------------------------------------------------------------------------------
