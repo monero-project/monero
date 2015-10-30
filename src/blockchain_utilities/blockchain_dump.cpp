@@ -31,7 +31,9 @@
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#ifdef BERKELEY_DB
 #include "blockchain_db/berkeleydb/db_bdb.h"
+#endif
 #include "blockchain_utilities.h"
 #include "common/command_line.h"
 #include "version.h"
@@ -237,11 +239,13 @@ int main(int argc, char* argv[])
     db = new BlockchainLMDB();
     mdb_flags |= MDB_RDONLY;
   }
+#ifdef BERKELEY_DB
   else if (db_type == "berkeley")
   {
     db = new BlockchainBDB();
     // can't open readonly due to the way flags are split in db_bdb.cpp
   }
+#endif
   else
   {
     LOG_PRINT_L0("Invalid db type: " << db_type);
