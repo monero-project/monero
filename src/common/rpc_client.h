@@ -54,7 +54,7 @@ namespace tools
       , m_port{port}
     {}
 
-    std::string build_url(std::string const & relative_url)
+    std::string build_url(std::string const & relative_url) const
     {
       std::string result =
               "http://"
