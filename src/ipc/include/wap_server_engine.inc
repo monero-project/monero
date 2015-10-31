@@ -113,7 +113,7 @@ typedef struct {
     uint client_id;             //  Client identifier counter
     size_t timeout;             //  Default client expiry timeout
     bool verbose;               //  Verbose logging enabled?
-    char *log_prefix;           //  Default log prefix
+    const char *log_prefix;     //  Default log prefix
 } s_server_t;
 
 
@@ -1318,6 +1318,7 @@ s_server_new (zsock_t *pipe)
 
     self->pipe = pipe;
     self->router = zsock_new (ZMQ_ROUTER);
+    assert (self->router);
     //  By default the socket will discard outgoing messages above the
     //  HWM of 1,000. This isn't helpful for high-volume streaming. We
     //  will use a unbounded queue here. If applications need to guard
