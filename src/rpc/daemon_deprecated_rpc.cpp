@@ -833,7 +833,7 @@ namespace
     uint64_t start_height = request_json["start_height"].GetUint();
     uint64_t block_count = request_json["blocks_ids"].Size();
     zlist_t *list = zlist_new();
-    for (int i = 0; i < block_count; i++) {
+    for (uint64_t i = 0; i < block_count; i++) {
       if (!request_json["blocks_ids"][i].IsString()) {
         zlist_destroy(&list);
         return ns_rpc_create_error(buf, len, req, invalid_params,
