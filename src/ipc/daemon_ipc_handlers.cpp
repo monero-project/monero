@@ -47,11 +47,11 @@
  */
 namespace
 {
-  cryptonote::core *core; /*!< Pointer to the core */
-  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p2p;
+  cryptonote::core *core = NULL; /*!< Pointer to the core */
+  nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > *p2p = NULL;
     /*!< Pointer to p2p node server */
-  zactor_t *server; /*!< 0MQ server */
-  bool testnet; /*!< testnet mode or not */
+  zactor_t *server = NULL; /*!< 0MQ server */
+  bool testnet = false; /*!< testnet mode or not */
 
   /*!
    * \brief Checks if core is busy
@@ -126,6 +126,8 @@ namespace IPC
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
       bool p_testnet)
     {
+      if (server)
+        stop();
       p2p = &p_p2p;
       core = &p_core;
       testnet = p_testnet;
@@ -136,13 +138,12 @@ namespace IPC
 
     /*!
      * \brief stops the IPC server
-     * 
-     * \param p_core cryptonote core object
-     * \param p_p2p  p2p object
-     * \param p_testnet testnet mode or not
      */
     void stop() {
       zactor_destroy(&server);
+      server = NULL;
+      p2p = NULL;
+      core = NULL;
     }
 
     /*!
