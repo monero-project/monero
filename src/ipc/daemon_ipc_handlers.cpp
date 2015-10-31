@@ -381,6 +381,7 @@ namespace IPC
       if (!core->get_random_outs_for_amounts(req, res))
       {
         wap_proto_set_status(message, STATUS_RANDOM_OUTS_FAILED);
+        return;
       }
 
       // We convert the result into a JSON string and put it into a 0MQ frame.
