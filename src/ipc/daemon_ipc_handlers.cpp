@@ -74,7 +74,7 @@ namespace
    */
   bool check_core_ready()
   {
-    if (p2p->get_payload_object().is_synchronized())
+    if (!p2p->get_payload_object().is_synchronized())
     {
       return false;
     }
