@@ -56,7 +56,7 @@ namespace
   /*!
    * \brief Checks if core is busy
    * 
-   * \return true if core is busy
+   * \return false if core is busy
    */
   bool check_core_busy()
   {
