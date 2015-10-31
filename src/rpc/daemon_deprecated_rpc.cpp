@@ -218,13 +218,8 @@ namespace
         "Parameters missing.", "{}");
     }
     rapidjson::Document request_json;
-    char request_buf[1000];
-    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
-    size_t zidx = sizeof(request_buf) - 1;
-    if (req->params[0].len < zidx)
-      zidx = req->params[0].len;
-    request_buf[zidx] = '\0';
-    if (request_json.Parse(request_buf).HasParseError())
+    std::string request_buf(req->params[0].ptr, req->params[0].len);
+    if (request_json.Parse(request_buf.c_str()).HasParseError())
     {
       return ns_rpc_create_error(buf, len, req, parse_error,
         "Invalid JSON passed", "{}");
@@ -478,10 +473,8 @@ namespace
     }
 
     rapidjson::Document request_json;
-    char request_buf[1000];
-    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
-    request_buf[req->params[0].len] = '\0';
-    if (request_json.Parse(request_buf).HasParseError())
+    std::string request_buf(req->params[0].ptr, req->params[0].len);
+    if (request_json.Parse(request_buf.c_str()).HasParseError())
     {
       return ns_rpc_create_error(buf, len, req, parse_error,
         "Invalid JSON passed", "{}");
@@ -533,10 +526,8 @@ namespace
     }
 
     rapidjson::Document request_json;
-    char request_buf[1000];
-    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
-    request_buf[req->params[0].len] = '\0';
-    if (request_json.Parse(request_buf).HasParseError())
+    std::string request_buf(req->params[0].ptr, req->params[0].len);
+    if (request_json.Parse(request_buf.c_str()).HasParseError())
     {
       return ns_rpc_create_error(buf, len, req, parse_error,
         "Invalid JSON passed", "{}");
@@ -665,10 +656,8 @@ namespace
     }
 
     rapidjson::Document request_json;
-    char request_buf[1000];
-    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
-    request_buf[req->params[0].len] = '\0';
-    if (request_json.Parse(request_buf).HasParseError())
+    std::string request_buf(req->params[0].ptr, req->params[0].len);
+    if (request_json.Parse(request_buf.c_str()).HasParseError())
     {
       return ns_rpc_create_error(buf, len, req, parse_error,
         "Invalid JSON passed", "{}");
@@ -726,10 +715,8 @@ namespace
     }
 
     rapidjson::Document request_json;
-    char request_buf[1000];
-    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
-    request_buf[req->params[0].len] = '\0';
-    if (request_json.Parse(request_buf).HasParseError())
+    std::string request_buf(req->params[0].ptr, req->params[0].len);
+    if (request_json.Parse(request_buf.c_str()).HasParseError())
     {
       return ns_rpc_create_error(buf, len, req, parse_error,
         "Invalid JSON passed", "{}");
@@ -810,10 +797,8 @@ namespace
     }
 
     rapidjson::Document request_json;
-    char request_buf[1000];
-    strncpy(request_buf, req->params[0].ptr, req->params[0].len);
-    request_buf[req->params[0].len] = '\0';
-    if (request_json.Parse(request_buf).HasParseError())
+    std::string request_buf(req->params[0].ptr, req->params[0].len);
+    if (request_json.Parse(request_buf.c_str()).HasParseError())
     {
       return ns_rpc_create_error(buf, len, req, parse_error,
         "Invalid JSON passed", "{}");
