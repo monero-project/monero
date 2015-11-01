@@ -34,6 +34,10 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/hardfork.h"
+#include "ipc/include/daemon_ipc_handlers.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 #include <boost/format.hpp>
 #include <ctime>
 #include <string>
@@ -41,18 +45,19 @@
 namespace daemonize {
 
 namespace {
-  void print_peer(std::string const & prefix, cryptonote::peer const & peer)
+  template<typename T>
+  void print_peer(const std::string &prefix, T &peer)
   {
     time_t now;
     time(&now);
-    time_t last_seen = static_cast<time_t>(peer.last_seen);
+    time_t last_seen = static_cast<time_t>(peer["last_seen"].GetInt());
 
     std::string id_str;
     std::string port_str;
     std::string elapsed = epee::misc_utils::get_time_interval_string(now - last_seen);
-    std::string ip_str = epee::string_tools::get_ip_string_from_int32(peer.ip);
-    epee::string_tools::xtype_to_string(peer.id, id_str);
-    epee::string_tools::xtype_to_string(peer.port, port_str);
+    std::string ip_str = epee::string_tools::get_ip_string_from_int32(peer["ip"].GetUint());
+    epee::string_tools::xtype_to_string(peer["id"].GetUint64(), id_str);
+    epee::string_tools::xtype_to_string(peer["port"].GetUint(), port_str);
     std::string addr_str = ip_str + ":" + port_str;
     tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
   }
@@ -72,182 +77,143 @@ namespace {
   }
 }
 
-t_rpc_command_executor::t_rpc_command_executor(
-    uint32_t ip
-  , uint16_t port
-  , bool is_rpc
-  , cryptonote::core_rpc_server* rpc_server
-  )
-  : m_rpc_client(NULL), m_rpc_server(rpc_server)
+t_rpc_command_executor::t_rpc_command_executor()
+  : ipc_client(NULL)
 {
-  if (is_rpc)
-  {
-    m_rpc_client = new tools::t_rpc_client(ip, port);
-  }
-  else
-  {
-    if (rpc_server == NULL)
-    {
-      throw std::runtime_error("If not calling commands via RPC, rpc_server pointer must be non-null");
-    }
-  }
-
-  m_is_rpc = is_rpc;
 }
 
 t_rpc_command_executor::~t_rpc_command_executor()
 {
-  if (m_rpc_client != NULL)
-  {
-    delete m_rpc_client;
+  if (ipc_client) {
+    wap_client_destroy(&ipc_client);
+   }
+}
+
+bool t_rpc_command_executor::check_connection_to_daemon() const
+{
+  return ipc_client && wap_client_connected(ipc_client);
+}
+
+bool t_rpc_command_executor::connect_to_daemon()
+{
+  if (check_connection_to_daemon()) {
+    return true;
   }
+  ipc_client = wap_client_new();
+  wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
+  if (!check_connection_to_daemon()) {
+    wap_client_destroy(&ipc_client); // this sets ipc_client to NULL
+    return false;
+  }
+  return true;
 }
 
 bool t_rpc_command_executor::print_peer_list() {
-  cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
-  cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
-
-  std::string failure_message = "Couldn't retrieve peer list";
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/get_peer_list", failure_message.c_str()))
-    {
-      return false;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_get_peer_list(req, res))
-    {
-      tools::fail_msg_writer() << failure_message;
-      return false;
-    }
+  if (wap_client_get_peer_list(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Couldn't retrieve peer list";
+    return true;
   }
 
-  for (auto & peer : res.white_list)
-  {
-    print_peer("white", peer);
+  rapidjson::Document response_json;
+  rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
+  rapidjson::Value result_json;
+  result_json.SetObject();
+
+  zframe_t *white_list_frame = wap_client_white_list(ipc_client);
+  rapidjson::Document white_list_json;
+  const char *data = reinterpret_cast<const char*>(zframe_data(white_list_frame));
+  size_t size = zframe_size(white_list_frame);
+
+  if (white_list_json.Parse(data, size).HasParseError()) {
+    tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
+    return true;
   }
 
-  for (auto & peer : res.gray_list)
-  {
-    print_peer("gray", peer);
+  for (size_t n = 0; n < white_list_json["peers"].Size(); ++n) {
+    print_peer("white", white_list_json["peers"][n]);
+  }
+
+  zframe_t *gray_list_frame = wap_client_gray_list(ipc_client);
+  rapidjson::Document gray_list_json;
+  data = reinterpret_cast<const char*>(zframe_data(gray_list_frame));
+  size = zframe_size(gray_list_frame);
+
+  if (gray_list_json.Parse(data, size).HasParseError()) {
+    tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
+    return true;
+  }
+
+  for (size_t n = 0; n < gray_list_json["peers"].Size(); ++n) {
+    print_peer("gray", gray_list_json["peers"][n]);
   }
 
   return true;
 }
 
 bool t_rpc_command_executor::save_blockchain() {
-  cryptonote::COMMAND_RPC_SAVE_BC::request req;
-  cryptonote::COMMAND_RPC_SAVE_BC::response res;
-
-  std::string fail_message = "Couldn't save blockchain";
-
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/save_bc", fail_message.c_str()))
-    {
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_save_bc(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-    }
+  if (wap_client_save_bc (ipc_client) < 0) {
+    tools::fail_msg_writer() << "Couldn't save blockchain";
+    return true;
   }
 
-  tools::success_msg_writer() << "Blockchain saved";
+   tools::success_msg_writer() << "Blockchain saved";
 
   return true;
 }
 
 bool t_rpc_command_executor::show_hash_rate() {
-  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::request req;
-  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::response res;
-  req.visible = true;
-
-  std::string fail_message = "Unsuccessful";
-
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/set_log_hash_rate", fail_message.c_str()))
-    {
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_set_log_hash_rate(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-    }
+  if (!wap_client_set_log_hash_rate(ipc_client, 1) < 0) {
+    tools::fail_msg_writer() << "Failed to enable hash rate logging";
+    return true;
   }
-
   tools::success_msg_writer() << "Hash rate logging is on";
-
   return true;
 }
 
 bool t_rpc_command_executor::hide_hash_rate() {
-  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::request req;
-  cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::response res;
-  req.visible = false;
-
-  std::string fail_message = "Unsuccessful";
-
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/set_log_hash_rate", fail_message.c_str()))
-    {
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_set_log_hash_rate(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+  if (!wap_client_set_log_hash_rate(ipc_client, 0) < 0) {
+    tools::fail_msg_writer() << "Failed to disable hash rate logging";
+    return true;
   }
-
   tools::success_msg_writer() << "Hash rate logging is off";
-
   return true;
 }
 
 bool t_rpc_command_executor::show_difficulty() {
-  cryptonote::COMMAND_RPC_GET_INFO::request req;
-  cryptonote::COMMAND_RPC_GET_INFO::response res;
-
-  std::string fail_message = "Problem fetching info";
-
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/getinfo", fail_message.c_str()))
-    {
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_get_info(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+  if (wap_client_get_info(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Failed to get info";
+    return true;
   }
-
-  tools::success_msg_writer() <<   "BH: " << res.height
-                              << ", DIFF: " << res.difficulty
-                              << ", HR: " << (int) res.difficulty / 60L << " H/s";
-
+  uint64_t height = wap_client_height(ipc_client);
+  uint64_t difficulty = wap_client_difficulty(ipc_client);
+  tools::success_msg_writer() <<   "BH: " << height
+                              << ", DIFF: " << difficulty
+                              << ", HR: " << (int) difficulty / 60L << " H/s";
   return true;
 }
 
 bool t_rpc_command_executor::show_status() {
+#if 0
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
   cryptonote::COMMAND_RPC_HARD_FORK_INFO::request hfreq;
@@ -297,31 +263,23 @@ bool t_rpc_command_executor::show_status() {
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)ires.outgoing_connections_count % (unsigned)ires.incoming_connections_count
   ;
+#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::print_connections() {
+#if 0
   cryptonote::COMMAND_RPC_GET_CONNECTIONS::request req;
   cryptonote::COMMAND_RPC_GET_CONNECTIONS::response res;
   epee::json_rpc::error error_resp;
 
   std::string fail_message = "Unsuccessful";
 
-  if (m_is_rpc)
+  if (!m_rpc_server->on_get_connections(req, res, error_resp))
   {
-    if (!m_rpc_client->json_rpc_request(req, res, "get_connections", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_get_connections(req, res, error_resp))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+    tools::fail_msg_writer() << fail_message.c_str();
+    return true;
   }
 
   tools::msg_writer() << std::setw(30) << std::left << "Remote Host"
@@ -357,6 +315,7 @@ bool t_rpc_command_executor::print_connections() {
     //tools::msg_writer() << boost::format("%-25s peer_id: %-25s %s") % address % info.peer_id % in_out;
     
   }
+#endif
 
   return true;
 }
@@ -408,61 +367,34 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
 }
 
 bool t_rpc_command_executor::set_log_level(int8_t level) {
-  cryptonote::COMMAND_RPC_SET_LOG_LEVEL::request req;
-  cryptonote::COMMAND_RPC_SET_LOG_LEVEL::response res;
-  req.level = level;
-
-  std::string fail_message = "Unsuccessful";
-
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/set_log_level", fail_message.c_str()))
-    {
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_set_log_level(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+  if (wap_client_set_log_level(ipc_client, level) < 0) {
+    tools::fail_msg_writer() << "Failed to set log level";
+    return true;
   }
-
   tools::success_msg_writer() << "Log level is now " << std::to_string(level);
-
   return true;
 }
 
 bool t_rpc_command_executor::print_height() {
-  cryptonote::COMMAND_RPC_GET_HEIGHT::request req;
-  cryptonote::COMMAND_RPC_GET_HEIGHT::response res;
-
-  std::string fail_message = "Unsuccessful";
-
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/getheight", fail_message.c_str()))
-    {
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_get_height(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+  if (wap_client_get_height(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Failed to get height";
+    return true;
   }
-
-  tools::success_msg_writer() << boost::lexical_cast<std::string>(res.height);
-
+  uint64_t height = wap_client_height(ipc_client);
+  tools::success_msg_writer() << boost::lexical_cast<std::string>(height);
   return true;
 }
 
 bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
+#if 0
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response res;
   epee::json_rpc::error error_resp;
@@ -471,28 +403,20 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
 
   std::string fail_message = "Unsuccessful";
 
-  if (m_is_rpc)
+  if (!m_rpc_server->on_get_block_header_by_hash(req, res, error_resp))
   {
-    if (!m_rpc_client->json_rpc_request(req, res, "getblockheaderbyhash", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_get_block_header_by_hash(req, res, error_resp))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+    tools::fail_msg_writer() << fail_message.c_str();
+    return true;
   }
 
   print_block_header(res.block_header);
+#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
+#if 0
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response res;
   epee::json_rpc::error error_resp;
@@ -501,48 +425,30 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
 
   std::string fail_message = "Unsuccessful";
 
-  if (m_is_rpc)
+  if (!m_rpc_server->on_get_block_header_by_height(req, res, error_resp))
   {
-    if (!m_rpc_client->json_rpc_request(req, res, "getblockheaderbyheight", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_get_block_header_by_height(req, res, error_resp))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+    tools::fail_msg_writer() << fail_message.c_str();
+    return true;
   }
 
   print_block_header(res.block_header);
+#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
+#if 0
   cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
 
   std::string fail_message = "Problem fetching transaction";
 
-  if (m_is_rpc)
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
+  if (!m_rpc_server->on_get_transactions(req, res))
   {
-    if (!m_rpc_client->rpc_request(req, res, "/gettransactions", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
-    if (!m_rpc_server->on_get_transactions(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+    tools::fail_msg_writer() << fail_message.c_str();
+    return true;
   }
 
   if (1 == res.txs_as_hex.size())
@@ -571,31 +477,23 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   {
     tools::fail_msg_writer() << "transaction wasn't found: " << transaction_hash << std::endl;
   }
+#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
+#if 0
   cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req;
   cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::response res;
 
-  std::string fail_message = "Problem checkking key image";
+  std::string fail_message = "Problem checking key image";
 
   req.key_images.push_back(epee::string_tools::pod_to_hex(ki));
-  if (m_is_rpc)
+  if (!m_rpc_server->on_is_key_image_spent(req, res))
   {
-    if (!m_rpc_client->rpc_request(req, res, "/is_key_image_spent", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_is_key_image_spent(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+    tools::fail_msg_writer() << fail_message.c_str();
+    return true;
   }
 
   if (1 == res.spent_status.size())
@@ -607,30 +505,22 @@ bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
   {
     tools::fail_msg_writer() << "key image status could not be determined" << std::endl;
   }
+#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::print_transaction_pool_long() {
+#if 0
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
 
   std::string fail_message = "Problem fetching transaction pool";
 
-  if (m_is_rpc)
+  if (!m_rpc_server->on_get_transaction_pool(req, res))
   {
-    if (!m_rpc_client->rpc_request(req, res, "/get_transaction_pool", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_get_transaction_pool(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+    tools::fail_msg_writer() << fail_message.c_str();
+    return true;
   }
 
   if (res.transactions.empty() && res.spent_key_images.empty())
@@ -686,30 +576,22 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
       tools::msg_writer() << "WARNING: Inconsistent pool state - no transactions";
     }
   }
+#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::print_transaction_pool_short() {
+#if 0
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
 
   std::string fail_message = "Problem fetching transaction pool";
 
-  if (m_is_rpc)
+  if (!m_rpc_server->on_get_transaction_pool(req, res))
   {
-    if (!m_rpc_client->rpc_request(req, res, "/get_transaction_pool", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_get_transaction_pool(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+    tools::fail_msg_writer() << fail_message.c_str();
+    return true;
   }
 
   if (res.transactions.empty())
@@ -727,122 +609,78 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
                         << "last_failed_height: " << tx_info.last_failed_height << std::endl
                         << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
   }
+#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet) {
-  cryptonote::COMMAND_RPC_START_MINING::request req;
-  cryptonote::COMMAND_RPC_START_MINING::response res;
-  req.miner_address = cryptonote::get_account_address_as_str(testnet, address);
-  req.threads_count = num_threads;
-
-  std::string fail_message = "Mining did not start";
-
-  if (m_is_rpc)
-  {
-    if (m_rpc_client->rpc_request(req, res, "/start_mining", fail_message.c_str()))
-    {
-      tools::success_msg_writer() << "Mining started";
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_start_mining(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
 
+  std::string address_str = cryptonote::get_account_address_as_str(testnet, address);
+  zchunk_t *address_chunk = zchunk_new((void*)address_str.c_str(), address_str.length());
+  int ret = wap_client_start(ipc_client, &address_chunk, num_threads);
+  zchunk_destroy(&address_chunk);
+  if (ret < 0) {
+    tools::fail_msg_writer() << "Failed to start mining";
+    return true;
+  }
+
+  uint64_t status = wap_client_status(ipc_client);
+  if (status == IPC::STATUS_CORE_BUSY) {
+    tools::fail_msg_writer() << "Core busy";
+    return true;
+  }
+  if (status == IPC::STATUS_WRONG_ADDRESS)
+  {
+    tools::fail_msg_writer() << "Wrong address";
+    return true;
+  }
+  if (status == IPC::STATUS_MINING_NOT_STARTED)
+  {
+    tools::fail_msg_writer() << "Failed to start mining";
+    return true;
+  }
+  tools::success_msg_writer() << "Mining started";
   return true;
 }
 
 bool t_rpc_command_executor::stop_mining() {
-  cryptonote::COMMAND_RPC_STOP_MINING::request req;
-  cryptonote::COMMAND_RPC_STOP_MINING::response res;
-
-  std::string fail_message = "Mining did not stop";
-
-  if (m_is_rpc)
-  {
-    if (!m_rpc_client->rpc_request(req, res, "/stop_mining", fail_message.c_str()))
-    {
-      return true;
-    }
-  }
-  else
-  {
-    if (!m_rpc_server->on_stop_mining(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
 
+  if (wap_client_stop(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Failed to stop mining";
+    return true;
+  }
+
+  uint64_t status = wap_client_status(ipc_client);
+  if (status == IPC::STATUS_CORE_BUSY) {
+    tools::fail_msg_writer() << "Core busy";
+    return true;
+  }
   tools::success_msg_writer() << "Mining stopped";
   return true;
 }
 
 bool t_rpc_command_executor::stop_daemon()
 {
-  cryptonote::COMMAND_RPC_STOP_DAEMON::request req;
-  cryptonote::COMMAND_RPC_STOP_DAEMON::response res;
-
-//# ifdef WIN32
-//    // Stop via service API
-//    // TODO - this is only temporary!  Get rid of hard-coded constants!
-//    bool ok = windows::stop_service("BitMonero Daemon");
-//    ok = windows::uninstall_service("BitMonero Daemon");
-//    //bool ok = windows::stop_service(SERVICE_NAME);
-//    //ok = windows::uninstall_service(SERVICE_NAME);
-//    if (ok)
-//    {
-//      return true;
-//    }
-//# endif
-
-  // Stop via RPC
-  std::string fail_message = "Daemon did not stop";
-
-  if (m_is_rpc)
-  {
-    if(!m_rpc_client->rpc_request(req, res, "/stop_daemon", fail_message.c_str()))
-    {
-      return true;
-    }
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
   }
-  else
-  {
-    if (!m_rpc_server->on_stop_daemon(req, res))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
-  }
-
-  tools::success_msg_writer() << "Stop signal sent";
-
+  tools::fail_msg_writer() << "Daemon can't stop, no IPC for, har, har";
   return true;
 }
 
 bool t_rpc_command_executor::print_status()
 {
-  if (!m_is_rpc)
-  {
-    tools::success_msg_writer() << "print_status makes no sense in interactive mode";
-    return true;
-  }
-
-  bool daemon_is_alive = m_rpc_client->check_connection();
-
-  if(daemon_is_alive) {
-    tools::success_msg_writer() << "bitmonerod is running";
-  }
-  else {
-    tools::fail_msg_writer() << "bitmonerod is NOT running";
-  }
-
+  tools::success_msg_writer() << "print_status makes no sense in interactive mode";
   return true;
 }
 
@@ -894,34 +732,26 @@ bool t_rpc_command_executor::set_limit_down(int limit)
 
 bool t_rpc_command_executor::fast_exit()
 {
+#if 0
 	cryptonote::COMMAND_RPC_FAST_EXIT::request req;
 	cryptonote::COMMAND_RPC_FAST_EXIT::response res;
 	
 	std::string fail_message = "Daemon did not stop";
 	
-	if (m_is_rpc)
+	if (!m_rpc_server->on_fast_exit(req, res))
 	{
-		if (!m_rpc_client->rpc_request(req, res, "/fast_exit", fail_message.c_str()))
-		{
-			return true;
-		}
-	}
-	
-	else
-    {
-		if (!m_rpc_server->on_fast_exit(req, res))
-		{
-			tools::fail_msg_writer() << fail_message.c_str();
-			return true;
-		}
+		tools::fail_msg_writer() << fail_message.c_str();
+		return true;
 	}
 
 	tools::success_msg_writer() << "Daemon stopped";
+#endif
 	return true;
 }
 
 bool t_rpc_command_executor::out_peers(uint64_t limit)
 {
+#if 0
 	cryptonote::COMMAND_RPC_OUT_PEERS::request req;
 	cryptonote::COMMAND_RPC_OUT_PEERS::response res;
 	
@@ -931,78 +761,47 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 	
 	std::string fail_message = "Unsuccessful";
 
-	if (m_is_rpc)
+	if (!m_rpc_server->on_out_peers(req, res))
 	{
-		if (!m_rpc_client->json_rpc_request(req, res, "out_peers", fail_message.c_str()))
-		{
-			return true;
-		}
+		tools::fail_msg_writer() << fail_message.c_str();
+		return true;
 	}
-	else
-	{
-		if (!m_rpc_server->on_out_peers(req, res))
-		{
-			tools::fail_msg_writer() << fail_message.c_str();
-			return true;
-		}
-	}
+#endif
 
 	return true;
 }
 
 bool t_rpc_command_executor::start_save_graph()
 {
-	cryptonote::COMMAND_RPC_START_SAVE_GRAPH::request req;
-	cryptonote::COMMAND_RPC_START_SAVE_GRAPH::response res;
-	std::string fail_message = "Unsuccessful";
-	
-	if (m_is_rpc)
-	{
-		if (!m_rpc_client->rpc_request(req, res, "/start_save_graph", fail_message.c_str()))
-		{
-			return true;
-		}
-	}
-	
-	else
-    {
-		if (!m_rpc_server->on_start_save_graph(req, res))
-		{
-			tools::fail_msg_writer() << fail_message.c_str();
-			return true;
-		}
-	}
-	
-	return true;
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+  if (wap_client_start_save_graph(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Failed to start saving graph";
+    return true;
+  }
+  tools::success_msg_writer() << "Started saving graph";
+  return true;
 }
 
 bool t_rpc_command_executor::stop_save_graph()
 {
-	cryptonote::COMMAND_RPC_STOP_SAVE_GRAPH::request req;
-	cryptonote::COMMAND_RPC_STOP_SAVE_GRAPH::response res;
-	std::string fail_message = "Unsuccessful";
-	
-	if (m_is_rpc)
-	{
-		if (!m_rpc_client->rpc_request(req, res, "/stop_save_graph", fail_message.c_str()))
-		{
-			return true;
-		}
-	}
-	
-	else
-    {
-		if (!m_rpc_server->on_stop_save_graph(req, res))
-		{
-			tools::fail_msg_writer() << fail_message.c_str();
-			return true;
-		}
-	}
-	return true;
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+  if (wap_client_stop_save_graph(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Failed to stop saving graph";
+    return true;
+  }
+  tools::success_msg_writer() << "Stopped saving graph";
+  return true;
 }
 
 bool t_rpc_command_executor::hard_fork_info(uint8_t version)
 {
+#if 0
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req;
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::response res;
     std::string fail_message = "Unsuccessful";
@@ -1010,26 +809,17 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
 
     req.version = version;
 
-    if (m_is_rpc)
+    if (!m_rpc_server->on_hard_fork_info(req, res, error_resp))
     {
-        if (!m_rpc_client->json_rpc_request(req, res, "hard_fork_info", fail_message.c_str()))
-        {
-            return true;
-        }
-    }
-    else
-    {
-        if (!m_rpc_server->on_hard_fork_info(req, res, error_resp))
-        {
-            tools::fail_msg_writer() << fail_message.c_str();
-            return true;
-        }
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
     }
 
     version = version > 0 ? version : res.voting;
     tools::msg_writer() << "version " << (uint32_t)version << " " << (res.enabled ? "enabled" : "not enabled") <<
         ", " << res.votes << "/" << res.window << " votes, threshold " << res.threshold;
     tools::msg_writer() << "current version " << (uint32_t)res.version << ", voting for version " << (uint32_t)res.voting;
+#endif
 
     return true;
 }

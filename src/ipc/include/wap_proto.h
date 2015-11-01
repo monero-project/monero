@@ -563,7 +563,7 @@ void
     wap_proto_set_reason (wap_proto_t *self, const char *value);
 
 //  Self test of this class
-int
+void
     wap_proto_test (bool verbose);
 //  @end
 

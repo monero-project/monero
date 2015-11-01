@@ -106,12 +106,13 @@ client_terminate (client_t *self)
 void
 wap_server_test (bool verbose)
 {
+    static char server_string[] = "server";
     printf (" * wap_server: ");
     if (verbose)
         printf ("\n");
     
     //  @selftest
-    zactor_t *server = zactor_new (wap_server, "server");
+    zactor_t *server = zactor_new (wap_server, server_string);
     if (verbose)
         zstr_send (server, "VERBOSE");
     zstr_sendx (server, "BIND", "ipc://@/wap_server", NULL);

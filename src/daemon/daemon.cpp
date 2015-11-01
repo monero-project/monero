@@ -117,17 +117,22 @@ bool t_daemon::run(bool interactive)
 
   try
   {
+    daemonize::t_command_server* rpc_commands;
+
     mp_internals->core.run();
 
     if (interactive)
     {
       IPC::Daemon::init(mp_internals->core.get(), mp_internals->p2p.get(), mp_internals->testnet_mode);
+      rpc_commands = new daemonize::t_command_server();
+      rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
     mp_internals->p2p.run(); // blocks until p2p goes down
 
     if (interactive)
     {
+      rpc_commands->stop_handling();
       IPC::Daemon::stop();
     }
 

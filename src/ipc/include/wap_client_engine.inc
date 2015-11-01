@@ -100,7 +100,7 @@ typedef enum {
 } event_t;
 
 //  Names for state machine logging and error reporting
-static char *
+static const char *
 s_state_name [] = {
     "(NONE)",
     "start",
@@ -130,7 +130,7 @@ s_state_name [] = {
     "reexpect open ok"
 };
 
-static char *
+static const char *
 s_event_name [] = {
     "(NONE)",
     "connect",

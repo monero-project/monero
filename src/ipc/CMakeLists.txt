@@ -36,7 +36,7 @@ set(client_ipc_sources
   wap_proto.c)
 
 set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} PROPERTIES LANGUAGE CXX)
-set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} PROPERTIES COMPILE_FLAGS "-Wno-write-strings -Wno-error -fpermissive")
+set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} PROPERTIES COMPILE_FLAGS "-Wno-error -fpermissive")
 
 set(server_ipc_headers)
 set(client_ipc_headers)

@@ -34,15 +34,9 @@ namespace daemonize {
 
 namespace p = std::placeholders;
 
-t_command_server::t_command_server(
-    uint32_t ip
-  , uint16_t port
-  , bool is_rpc
-  , cryptonote::core_rpc_server* rpc_server
-  )
-  : m_parser(ip, port, is_rpc, rpc_server)
+t_command_server::t_command_server()
+  : m_parser()
   , m_command_lookup()
-  , m_is_rpc(is_rpc)
 {
   m_command_lookup.set_handler(
       "q"
@@ -213,8 +207,6 @@ bool t_command_server::process_command_vec(const std::vector<std::string>& cmd)
 
 bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 {
-  if (m_is_rpc) return false;
-
   m_command_lookup.start_handling("", get_commands_str(), exit_handler);
 
   return true;
@@ -222,8 +214,6 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 
 void t_command_server::stop_handling()
 {
-  if (m_is_rpc) return;
-
   m_command_lookup.stop_handling();
 }
 

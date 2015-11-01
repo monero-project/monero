@@ -48,15 +48,9 @@ class t_command_server {
 private:
   t_command_parser_executor m_parser;
   epee::console_handlers_binder m_command_lookup;
-  bool m_is_rpc;
 
 public:
-  t_command_server(
-      uint32_t ip
-    , uint16_t port
-    , bool is_rpc = true
-    , cryptonote::core_rpc_server* rpc_server = NULL
-    );
+  t_command_server();
 
   bool process_command_str(const std::string& cmd);
 
