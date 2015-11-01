@@ -543,6 +543,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_store_tx_keys ? 1 :0);
   json.AddMember("store_tx_keys", value2, json.GetAllocator());
 
+  value2.SetUint(m_default_mixin);
+  json.AddMember("default_mixin", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -604,6 +607,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     is_old_file_format = true;
     m_watch_only = false;
     m_always_confirm_transfers = false;
+    m_default_mixin = 0;
   }
   else
   {
@@ -624,6 +628,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     }
     m_always_confirm_transfers = json.HasMember("always_confirm_transfers") && (json["always_confirm_transfers"].GetInt() != 0);
     m_store_tx_keys = json.HasMember("store_tx_keys") && (json["store_tx_keys"].GetInt() != 0);
+    m_default_mixin = json.HasMember("default_mixin") ? json["default_mixin"].GetUint() : 0;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();

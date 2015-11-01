@@ -364,6 +364,62 @@ bool simple_wallet::set_store_tx_keys(const std::vector<std::string> &args/* = s
   return true;
 }
 
+bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("This wallet is watch-only and cannot transfer.");
+    return true;
+  }
+  try
+  {
+    if (strchr(args[1].c_str(), '-'))
+    {
+      fail_msg_writer() << tr("Error: mixin must be an integer greater or equal to 2");
+      return true;
+    }
+    uint32_t mixin = boost::lexical_cast<uint32_t>(args[1]);
+    if (mixin < 2 && mixin != 0)
+    {
+      fail_msg_writer() << tr("Error: mixin must be an integer greater or equal to 2");
+      return true;
+    }
+    if (mixin == 0)
+      mixin = DEFAULT_MIX;
+
+    tools::password_container pwd_container;
+    success = pwd_container.read_password();
+    if (!success)
+    {
+      fail_msg_writer() << tr("failed to read wallet password");
+      return true;
+    }
+
+    /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+    success = m_wallet->verify_password(pwd_container.password());
+    if (!success)
+    {
+      fail_msg_writer() << tr("invalid password");
+      return true;
+    }
+
+    m_wallet->default_mixin(mixin);
+    m_wallet->rewrite(m_wallet_file, pwd_container.password());
+    return true;
+  }
+  catch(const boost::bad_lexical_cast &)
+  {
+    fail_msg_writer() << tr("Error: mixin must be an integer greater or equal to 2");
+    return true;
+  }
+  catch(...)
+  {
+    fail_msg_writer() << tr("Error changing default mixin");
+    return true;
+  }
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -393,7 +449,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Get viewkey"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-keys <1|0> - whether to store per-tx private keys for future reference"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-keys <1|0> - whether to store per-tx private keys for future reference; default_mixin <n> - set default mixin (default default is 4"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to a given address in a partcular tx"));
@@ -404,7 +460,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 {
   if (args.empty())
   {
-    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers");
+    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, default-mixin");
     return true;
   }
   else
@@ -451,6 +507,21 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
         set_store_tx_keys(local_args);
+        return true;
+      }
+    }
+    else if (args[0] == "default-mixin")
+    {
+      if (args.size() <= 1)
+      {
+        fail_msg_writer() << tr("set default-mixin: needs an argument (integer greater of equal to 2)");
+        return true;
+      }
+      else
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        set_default_mixin(local_args);
         return true;
       }
     }
@@ -1366,7 +1437,9 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
     {
-      fake_outs_count = DEFAULT_MIX;
+      fake_outs_count = m_wallet->default_mixin();
+      if (fake_outs_count == 0)
+        fake_outs_count = DEFAULT_MIX;
     }
     else
     {
