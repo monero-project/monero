@@ -103,6 +103,7 @@ ERROR.
         incoming_connections_count  number 8  Incoming Connections Count
         white_peerlist_size  number 8   White Peerlist Size
         grey_peerlist_size  number 8    Grey Peerlist Size
+        testnet             number 1    Testnet
 
     GET_PEER_LIST - get_peer_list IPC
 
@@ -469,6 +470,12 @@ uint64_t
     wap_proto_grey_peerlist_size (wap_proto_t *self);
 void
     wap_proto_set_grey_peerlist_size (wap_proto_t *self, uint64_t grey_peerlist_size);
+
+//  Get/set the testnet field
+byte
+    wap_proto_testnet (wap_proto_t *self);
+void
+    wap_proto_set_testnet (wap_proto_t *self, byte testnet);
 
 //  Get a copy of the white_list field
 zframe_t *

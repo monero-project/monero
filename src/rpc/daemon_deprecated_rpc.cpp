@@ -345,6 +345,8 @@ namespace
       response_json.GetAllocator());
     result_json.AddMember("grey_peerlist_size", wap_client_grey_peerlist_size(ipc_client),
       response_json.GetAllocator());
+    result_json.AddMember("testnet", wap_client_testnet(ipc_client),
+      response_json.GetAllocator());
     result_json.AddMember("status", "OK", response_json.GetAllocator());
 
     std::string response;

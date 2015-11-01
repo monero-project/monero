@@ -489,6 +489,7 @@ namespace IPC
       wap_proto_set_incoming_connections_count(message, total_connections - outgoing_connections_count);
       wap_proto_set_white_peerlist_size(message, p2p->get_peerlist_manager().get_white_peers_count());
       wap_proto_set_grey_peerlist_size(message, p2p->get_peerlist_manager().get_gray_peers_count());
+      wap_proto_set_testnet(message, testnet);
       wap_proto_set_status(message, STATUS_OK);
     }
 

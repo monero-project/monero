@@ -229,6 +229,10 @@ WAP_EXPORT uint64_t
 WAP_EXPORT uint64_t 
     wap_client_grey_peerlist_size (wap_client_t *self);
 
+//  Return last received testnet
+WAP_EXPORT uint8_t 
+    wap_client_testnet (wap_client_t *self);
+
 //  Return last received white_list
 WAP_EXPORT zframe_t *
     wap_client_white_list (wap_client_t *self);

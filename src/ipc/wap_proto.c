@@ -59,6 +59,7 @@ struct _wap_proto_t {
     uint64_t incoming_connections_count;  //  Incoming Connections Count
     uint64_t white_peerlist_size;       //  White Peerlist Size
     uint64_t grey_peerlist_size;        //  Grey Peerlist Size
+    byte testnet;                       //  Testnet
     zframe_t *white_list;               //  White list
     zframe_t *gray_list;                //  Gray list
     byte active;                        //  Active
@@ -502,6 +503,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->incoming_connections_count);
             GET_NUMBER8 (self->white_peerlist_size);
             GET_NUMBER8 (self->grey_peerlist_size);
+            GET_NUMBER1 (self->testnet);
             break;
 
         case WAP_PROTO_GET_PEER_LIST:
@@ -774,6 +776,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  incoming_connections_count
             frame_size += 8;            //  white_peerlist_size
             frame_size += 8;            //  grey_peerlist_size
+            frame_size += 1;            //  testnet
             break;
         case WAP_PROTO_GET_PEER_LIST_OK:
             frame_size += 8;            //  status
@@ -980,6 +983,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->incoming_connections_count);
             PUT_NUMBER8 (self->white_peerlist_size);
             PUT_NUMBER8 (self->grey_peerlist_size);
+            PUT_NUMBER1 (self->testnet);
             break;
 
         case WAP_PROTO_GET_PEER_LIST_OK:
@@ -1291,6 +1295,7 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    incoming_connections_count=%ld", (long) self->incoming_connections_count);
             zsys_debug ("    white_peerlist_size=%ld", (long) self->white_peerlist_size);
             zsys_debug ("    grey_peerlist_size=%ld", (long) self->grey_peerlist_size);
+            zsys_debug ("    testnet=%ld", (long) self->testnet);
             break;
 
         case WAP_PROTO_GET_PEER_LIST:
@@ -2192,6 +2197,24 @@ wap_proto_set_grey_peerlist_size (wap_proto_t *self, uint64_t grey_peerlist_size
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the testnet field
+
+byte
+wap_proto_testnet (wap_proto_t *self)
+{
+    assert (self);
+    return self->testnet;
+}
+
+void
+wap_proto_set_testnet (wap_proto_t *self, byte testnet)
+{
+    assert (self);
+    self->testnet = testnet;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get the white_list field without transferring ownership
 
 zframe_t *
@@ -2812,6 +2835,7 @@ wap_proto_test (bool verbose)
     wap_proto_set_incoming_connections_count (self, 123);
     wap_proto_set_white_peerlist_size (self, 123);
     wap_proto_set_grey_peerlist_size (self, 123);
+    wap_proto_set_testnet (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -2830,6 +2854,7 @@ wap_proto_test (bool verbose)
         assert (wap_proto_incoming_connections_count (self) == 123);
         assert (wap_proto_white_peerlist_size (self) == 123);
         assert (wap_proto_grey_peerlist_size (self) == 123);
+        assert (wap_proto_testnet (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_PEER_LIST);
 

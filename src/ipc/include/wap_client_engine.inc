@@ -2311,6 +2311,7 @@ struct _wap_client_t {
     uint64_t incoming_connections_count;  //  Returned by actor reply
     uint64_t white_peerlist_size;  //  Returned by actor reply
     uint64_t grey_peerlist_size;  //  Returned by actor reply
+    uint8_t testnet;            //  Returned by actor reply
     zframe_t *white_list;       //  Returned by actor reply
     zframe_t *gray_list;        //  Returned by actor reply
     uint8_t active;             //  Returned by actor reply
@@ -2490,7 +2491,7 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "GET INFO OK")) {
-                    zsock_recv (self->actor, "88888888888", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size);
+                    zsock_recv (self->actor, "888888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
                 }
                 else
                 if (streq (reply, "START OK")) {
@@ -3079,6 +3080,17 @@ wap_client_grey_peerlist_size (wap_client_t *self)
 {
     assert (self);
     return self->grey_peerlist_size;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received testnet
+
+uint8_t 
+wap_client_testnet (wap_client_t *self)
+{
+    assert (self);
+    return self->testnet;
 }
 
 

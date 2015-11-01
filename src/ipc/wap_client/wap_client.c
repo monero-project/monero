@@ -387,7 +387,7 @@ signal_have_random_outs_ok (client_t *self)
 static void
 signal_have_get_info_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s88888888888", "GET INFO OK",
+    zsock_send (self->cmdpipe, "s888888888881", "GET INFO OK",
         wap_proto_status (self->message),
         wap_proto_height (self->message),
         wap_proto_target_height (self->message),
@@ -398,7 +398,8 @@ signal_have_get_info_ok (client_t *self)
         wap_proto_outgoing_connections_count (self->message),
         wap_proto_incoming_connections_count (self->message),
         wap_proto_white_peerlist_size (self->message),
-        wap_proto_grey_peerlist_size (self->message));
+        wap_proto_grey_peerlist_size (self->message),
+        wap_proto_testnet (self->message));
 }
 
 
