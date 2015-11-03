@@ -166,24 +166,24 @@ prepare_start_command (client_t *self)
 }
 
 //  ---------------------------------------------------------------------------
-//  prepare_put_command
+//  prepare_send_raw_transaction_command
 //
 
 static void
-prepare_put_command (client_t *self)
+prepare_send_raw_transaction_command (client_t *self)
 {
     wap_proto_set_tx_as_hex (self->message, &self->args->tx_as_hex);
 }
 
 
 //  ---------------------------------------------------------------------------
-//  signal_have_put_ok
+//  signal_have_send_raw_transaction_ok
 //
 
 static void
-signal_have_put_ok (client_t *self)
+signal_have_send_raw_transaction_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "PUT OK",
+    zsock_send (self->cmdpipe, "s8", "SEND RAW TRANSACTION OK",
                 wap_proto_status (self->message));
 }
 

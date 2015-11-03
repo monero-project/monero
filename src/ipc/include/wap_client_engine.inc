@@ -26,7 +26,7 @@ typedef enum {
     connected_state = 3,
     expect_blocks_ok_state = 4,
     expect_get_ok_state = 5,
-    expect_put_ok_state = 6,
+    expect_send_raw_transaction_ok_state = 6,
     expect_save_bc_ok_state = 7,
     expect_start_ok_state = 8,
     expect_stop_ok_state = 9,
@@ -57,7 +57,7 @@ typedef enum {
     expired_event = 4,
     blocks_event = 5,
     get_event = 6,
-    put_event = 7,
+    send_raw_transaction_event = 7,
     save_bc_event = 8,
     start_event = 9,
     stop_event = 10,
@@ -77,7 +77,7 @@ typedef enum {
     destructor_event = 24,
     blocks_ok_event = 25,
     get_ok_event = 26,
-    put_ok_event = 27,
+    send_raw_transaction_ok_event = 27,
     save_bc_ok_event = 28,
     start_ok_event = 29,
     stop_ok_event = 30,
@@ -111,7 +111,7 @@ s_state_name [] = {
     "connected",
     "expect blocks ok",
     "expect get ok",
-    "expect put ok",
+    "expect send raw transaction ok",
     "expect save bc ok",
     "expect start ok",
     "expect stop ok",
@@ -143,7 +143,7 @@ s_event_name [] = {
     "expired",
     "BLOCKS",
     "GET",
-    "PUT",
+    "SEND_RAW_TRANSACTION",
     "SAVE_BC",
     "START",
     "STOP",
@@ -163,7 +163,7 @@ s_event_name [] = {
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
-    "PUT_OK",
+    "SEND_RAW_TRANSACTION_OK",
     "SAVE_BC_OK",
     "START_OK",
     "STOP_OK",
@@ -270,7 +270,7 @@ static void
 static void
     prepare_get_command (client_t *self);
 static void
-    prepare_put_command (client_t *self);
+    prepare_send_raw_transaction_command (client_t *self);
 static void
     prepare_start_command (client_t *self);
 static void
@@ -292,7 +292,7 @@ static void
 static void
     signal_have_get_ok (client_t *self);
 static void
-    signal_have_put_ok (client_t *self);
+    signal_have_send_raw_transaction_ok (client_t *self);
 static void
     signal_have_save_bc_ok (client_t *self);
 static void
@@ -546,11 +546,11 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_BLOCKS_OK:
             return blocks_ok_event;
             break;
-        case WAP_PROTO_PUT:
-            return put_event;
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
+            return send_raw_transaction_event;
             break;
-        case WAP_PROTO_PUT_OK:
-            return put_ok_event;
+        case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
+            return send_raw_transaction_ok_event;
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
             return output_indexes_event;
@@ -852,23 +852,23 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = expect_get_ok_state;
                 }
                 else
-                if (self->event == put_event) {
+                if (self->event == send_raw_transaction_event) {
                     if (!self->exception) {
-                        //  prepare put command
+                        //  prepare send raw transaction command
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ prepare put command", self->log_prefix);
-                        prepare_put_command (&self->client);
+                            zsys_debug ("%s:         $ prepare send raw transaction command", self->log_prefix);
+                        prepare_send_raw_transaction_command (&self->client);
                     }
                     if (!self->exception) {
-                        //  send PUT
+                        //  send SEND_RAW_TRANSACTION
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ send PUT",
+                            zsys_debug ("%s:         $ send SEND_RAW_TRANSACTION",
                                 self->log_prefix);
-                        wap_proto_set_id (self->message, WAP_PROTO_PUT);
+                        wap_proto_set_id (self->message, WAP_PROTO_SEND_RAW_TRANSACTION);
                         wap_proto_send (self->message, self->dealer);
                     }
                     if (!self->exception)
-                        self->state = expect_put_ok_state;
+                        self->state = expect_send_raw_transaction_ok_state;
                 }
                 else
                 if (self->event == save_bc_event) {
@@ -1256,13 +1256,13 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
-            case expect_put_ok_state:
-                if (self->event == put_ok_event) {
+            case expect_send_raw_transaction_ok_state:
+                if (self->event == send_raw_transaction_ok_event) {
                     if (!self->exception) {
-                        //  signal have put ok
+                        //  signal have send raw transaction ok
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ signal have put ok", self->log_prefix);
-                        signal_have_put_ok (&self->client);
+                            zsys_debug ("%s:         $ signal have send raw transaction ok", self->log_prefix);
+                        signal_have_send_raw_transaction_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -2164,10 +2164,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, blocks_event);
     }
     else
-    if (streq (method, "PUT")) {
+    if (streq (method, "SEND RAW TRANSACTION")) {
         zchunk_destroy (&self->args.tx_as_hex);
         zsock_recv (self->cmdpipe, "p", &self->args.tx_as_hex);
-        s_client_execute (self, put_event);
+        s_client_execute (self, send_raw_transaction_event);
     }
     else
     if (streq (method, "GET")) {
@@ -2540,7 +2540,7 @@ s_accept_reply (wap_client_t *self, ...)
                     zsock_recv (self->actor, "888p", &self->status, &self->start_height, &self->curr_height, &self->block_data);
                 }
                 else
-                if (streq (reply, "PUT OK")) {
+                if (streq (reply, "SEND RAW TRANSACTION OK")) {
                     zsock_recv (self->actor, "8", &self->status);
                 }
                 else
@@ -2693,13 +2693,13 @@ wap_client_blocks (wap_client_t *self, zlist_t **block_ids_p, uint64_t start_hei
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_put (wap_client_t *self, zchunk_t **tx_as_hex_p)
+wap_client_send_raw_transaction (wap_client_t *self, zchunk_t **tx_as_hex_p)
 {
     assert (self);
 
-    zsock_send (self->actor, "sp", "PUT", *tx_as_hex_p);
+    zsock_send (self->actor, "sp", "SEND RAW TRANSACTION", *tx_as_hex_p);
     *tx_as_hex_p = NULL;        //  Take ownership of tx_as_hex
-    if (s_accept_reply (self, "PUT OK", "FAILURE", NULL))
+    if (s_accept_reply (self, "SEND RAW TRANSACTION OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }

@@ -32,7 +32,7 @@ typedef enum {
     terminate_event = 1,
     open_event = 2,
     blocks_event = 3,
-    put_event = 4,
+    send_raw_transaction_event = 4,
     get_event = 5,
     save_bc_event = 6,
     start_event = 7,
@@ -73,7 +73,7 @@ s_event_name [] = {
     "terminate",
     "OPEN",
     "BLOCKS",
-    "PUT",
+    "SEND_RAW_TRANSACTION",
     "GET",
     "SAVE_BC",
     "START",
@@ -394,8 +394,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_BLOCKS:
             return blocks_event;
             break;
-        case WAP_PROTO_PUT:
-            return put_event;
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
+            return send_raw_transaction_event;
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
             return output_indexes_event;
@@ -681,7 +681,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == put_event) {
+                if (self->event == send_raw_transaction_event) {
                     if (!self->exception) {
                         //  send transaction
                         if (self->server->verbose)
@@ -689,11 +689,11 @@ s_client_execute (s_client_t *self, event_t event)
                         send_transaction (&self->client);
                     }
                     if (!self->exception) {
-                        //  send PUT_OK
+                        //  send SEND_RAW_TRANSACTION_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send PUT_OK",
+                            zsys_debug ("%s:         $ send SEND_RAW_TRANSACTION_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_PUT_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SEND_RAW_TRANSACTION_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

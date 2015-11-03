@@ -1372,7 +1372,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "send_raw_transaction");
   std::string tx_as_hex_string = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
   zchunk_t *tx_as_hex = zchunk_new((void*)tx_as_hex_string.c_str(), tx_as_hex_string.length());
-  int rc = wap_client_put(ipc_client, &tx_as_hex);
+  int rc = wap_client_send_raw_transaction(ipc_client, &tx_as_hex);
   uint64_t status = wap_client_status(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "send_raw_transaction");
   THROW_WALLET_EXCEPTION_IF((status == IPC::STATUS_INVALID_TX) || (status == IPC::STATUS_TX_VERIFICATION_FAILED) ||

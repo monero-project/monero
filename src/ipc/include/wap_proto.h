@@ -41,11 +41,11 @@ BLOCKS-OK, or ERROR if the request is invalid.
         curr_height         number 8    
         block_data          msg         Frames of block data
 
-    PUT - Wallet sends a raw transaction to the daemon. Daemon replies with
-PUT-OK, or ERROR.
+    SEND_RAW_TRANSACTION - Wallet sends a raw transaction to the daemon. Daemon replies with
+SEND-RAW-TRANSACTION-OK, or ERROR.
         tx_as_hex           chunk       Transaction as hex
 
-    PUT_OK - Daemon confirms that it accepted the raw transaction.
+    SEND_RAW_TRANSACTION_OK - Daemon confirms that it accepted the raw transaction.
         status              number 8    Transaction ID
 
     OUTPUT_INDEXES - Ask for tx output indexes.
@@ -210,8 +210,8 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_OPEN_OK                   2
 #define WAP_PROTO_BLOCKS                    3
 #define WAP_PROTO_BLOCKS_OK                 4
-#define WAP_PROTO_PUT                       5
-#define WAP_PROTO_PUT_OK                    6
+#define WAP_PROTO_SEND_RAW_TRANSACTION      5
+#define WAP_PROTO_SEND_RAW_TRANSACTION_OK   6
 #define WAP_PROTO_OUTPUT_INDEXES            7
 #define WAP_PROTO_OUTPUT_INDEXES_OK         8
 #define WAP_PROTO_RANDOM_OUTS               9

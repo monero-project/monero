@@ -368,7 +368,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
                 self->block_data = zmsg_new ();
             break;
 
-        case WAP_PROTO_PUT:
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -382,7 +382,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             }
             break;
 
-        case WAP_PROTO_PUT_OK:
+        case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
             GET_NUMBER8 (self->status);
             break;
 
@@ -738,12 +738,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  start_height
             frame_size += 8;            //  curr_height
             break;
-        case WAP_PROTO_PUT:
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
             frame_size += 4;            //  Size is 4 octets
             if (self->tx_as_hex)
                 frame_size += zchunk_size (self->tx_as_hex);
             break;
-        case WAP_PROTO_PUT_OK:
+        case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
             frame_size += 8;            //  status
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
@@ -913,7 +913,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             have_block_data = true;
             break;
 
-        case WAP_PROTO_PUT:
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
             if (self->tx_as_hex) {
                 PUT_NUMBER4 (zchunk_size (self->tx_as_hex));
                 memcpy (self->needle,
@@ -925,7 +925,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 PUT_NUMBER4 (0);    //  Empty chunk
             break;
 
-        case WAP_PROTO_PUT_OK:
+        case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
             PUT_NUMBER8 (self->status);
             break;
 
@@ -1243,13 +1243,13 @@ wap_proto_print (wap_proto_t *self)
                 zsys_debug ("(NULL)");
             break;
 
-        case WAP_PROTO_PUT:
-            zsys_debug ("WAP_PROTO_PUT:");
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
+            zsys_debug ("WAP_PROTO_SEND_RAW_TRANSACTION:");
             zsys_debug ("    tx_as_hex=[ ... ]");
             break;
 
-        case WAP_PROTO_PUT_OK:
-            zsys_debug ("WAP_PROTO_PUT_OK:");
+        case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
+            zsys_debug ("WAP_PROTO_SEND_RAW_TRANSACTION_OK:");
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
@@ -1551,11 +1551,11 @@ wap_proto_command (wap_proto_t *self)
         case WAP_PROTO_BLOCKS_OK:
             return ("BLOCKS_OK");
             break;
-        case WAP_PROTO_PUT:
-            return ("PUT");
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
+            return ("SEND_RAW_TRANSACTION");
             break;
-        case WAP_PROTO_PUT_OK:
-            return ("PUT_OK");
+        case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
+            return ("SEND_RAW_TRANSACTION_OK");
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
             return ("OUTPUT_INDEXES");
@@ -2813,10 +2813,10 @@ wap_proto_test (bool verbose)
         if (instance == 1)
             zmsg_destroy (&blocks_ok_block_data);
     }
-    wap_proto_set_id (self, WAP_PROTO_PUT);
+    wap_proto_set_id (self, WAP_PROTO_SEND_RAW_TRANSACTION);
 
-    zchunk_t *put_tx_as_hex = zchunk_new ("Captcha Diem", 12);
-    wap_proto_set_tx_as_hex (self, &put_tx_as_hex);
+    zchunk_t *send_raw_transaction_tx_as_hex = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_tx_as_hex (self, &send_raw_transaction_tx_as_hex);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -2826,9 +2826,9 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_tx_as_hex (self)), "Captcha Diem", 12) == 0);
         if (instance == 1)
-            zchunk_destroy (&put_tx_as_hex);
+            zchunk_destroy (&send_raw_transaction_tx_as_hex);
     }
-    wap_proto_set_id (self, WAP_PROTO_PUT_OK);
+    wap_proto_set_id (self, WAP_PROTO_SEND_RAW_TRANSACTION_OK);
 
     wap_proto_set_status (self, 123);
     //  Send twice
