@@ -733,5 +733,41 @@ namespace IPC
       wap_proto_set_block_template_blob(message, &blob_chunk);
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    /*!
+     * \brief get_hard_fork_info IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_hard_fork_info(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      const cryptonote::Blockchain &blockchain = core->get_blockchain_storage();
+
+      uint8_t version = wap_proto_hfversion(message);
+      if (version == 0)
+      {
+        version = blockchain.get_current_hard_fork_version();
+      }
+
+      uint32_t window, votes, threshold;
+      uint8_t voting;
+      bool enabled = blockchain.get_hard_fork_voting_info(version, window, votes, threshold, voting);
+      cryptonote::HardFork::State hfstate = blockchain.get_hard_fork_state();
+
+      wap_proto_set_hfversion(message, version);
+      wap_proto_set_enabled(message, enabled);
+      wap_proto_set_window(message, window);
+      wap_proto_set_votes(message, votes);
+      wap_proto_set_threshold(message, threshold);
+      wap_proto_set_voting(message, voting);
+      wap_proto_set_hfstate(message, hfstate);
+
+      wap_proto_set_status(message, STATUS_OK);
+    }
   }
 }

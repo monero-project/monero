@@ -157,6 +157,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_block_template (wap_client_t *self, uint64_t reserve_size, zchunk_t **address_p);
 
+//  Ask for hard fork info.                                                         
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_hard_fork_info (wap_client_t *self);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -272,6 +277,34 @@ WAP_EXPORT zchunk_t *
 //  Return last received block_template_blob
 WAP_EXPORT zchunk_t *
     wap_client_block_template_blob (wap_client_t *self);
+
+//  Return last received hfversion
+WAP_EXPORT uint8_t 
+    wap_client_hfversion (wap_client_t *self);
+
+//  Return last received enabled
+WAP_EXPORT uint8_t 
+    wap_client_enabled (wap_client_t *self);
+
+//  Return last received window
+WAP_EXPORT uint32_t 
+    wap_client_window (wap_client_t *self);
+
+//  Return last received votes
+WAP_EXPORT uint32_t 
+    wap_client_votes (wap_client_t *self);
+
+//  Return last received threshold
+WAP_EXPORT uint32_t 
+    wap_client_threshold (wap_client_t *self);
+
+//  Return last received voting
+WAP_EXPORT uint8_t 
+    wap_client_voting (wap_client_t *self);
+
+//  Return last received hfstate
+WAP_EXPORT uint32_t 
+    wap_client_hfstate (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

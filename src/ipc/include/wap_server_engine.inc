@@ -49,11 +49,12 @@ typedef enum {
     stop_save_graph_event = 18,
     get_block_hash_event = 19,
     get_block_template_event = 20,
-    close_event = 21,
-    ping_event = 22,
-    expired_event = 23,
-    exception_event = 24,
-    settled_event = 25
+    get_hard_fork_info_event = 21,
+    close_event = 22,
+    ping_event = 23,
+    expired_event = 24,
+    exception_event = 25,
+    settled_event = 26
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -89,6 +90,7 @@ s_event_name [] = {
     "STOP_SAVE_GRAPH",
     "GET_BLOCK_HASH",
     "GET_BLOCK_TEMPLATE",
+    "GET_HARD_FORK_INFO",
     "CLOSE",
     "PING",
     "expired",
@@ -194,6 +196,8 @@ static void
     get_block_hash (client_t *self);
 static void
     get_block_template (client_t *self);
+static void
+    get_hard_fork_info (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -440,6 +444,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_STOP:
             return stop_event;
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            return get_hard_fork_info_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -975,6 +982,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_BLOCK_TEMPLATE_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_TEMPLATE_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_hard_fork_info_event) {
+                    if (!self->exception) {
+                        //  get_hard_fork_info
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get_hard_fork_info", self->log_prefix);
+                        get_hard_fork_info (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_HARD_FORK_INFO_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_HARD_FORK_INFO_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_HARD_FORK_INFO_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

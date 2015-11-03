@@ -42,10 +42,11 @@ typedef enum {
     expect_stop_save_graph_ok_state = 19,
     expect_get_block_hash_ok_state = 20,
     expect_get_block_template_ok_state = 21,
-    expect_close_ok_state = 22,
-    defaults_state = 23,
-    have_error_state = 24,
-    reexpect_open_ok_state = 25
+    expect_get_hard_fork_info_ok_state = 22,
+    expect_close_ok_state = 23,
+    defaults_state = 24,
+    have_error_state = 25,
+    reexpect_open_ok_state = 26
 } state_t;
 
 typedef enum {
@@ -72,31 +73,33 @@ typedef enum {
     stop_save_graph_event = 20,
     get_block_hash_event = 21,
     get_block_template_event = 22,
-    destructor_event = 23,
-    blocks_ok_event = 24,
-    get_ok_event = 25,
-    put_ok_event = 26,
-    save_bc_ok_event = 27,
-    start_ok_event = 28,
-    stop_ok_event = 29,
-    output_indexes_ok_event = 30,
-    random_outs_ok_event = 31,
-    get_height_ok_event = 32,
-    get_info_ok_event = 33,
-    get_peer_list_ok_event = 34,
-    get_mining_status_ok_event = 35,
-    set_log_hash_rate_ok_event = 36,
-    set_log_level_ok_event = 37,
-    start_save_graph_ok_event = 38,
-    stop_save_graph_ok_event = 39,
-    get_block_hash_ok_event = 40,
-    get_block_template_ok_event = 41,
-    close_ok_event = 42,
-    ping_ok_event = 43,
-    error_event = 44,
-    exception_event = 45,
-    command_invalid_event = 46,
-    other_event = 47
+    get_hard_fork_info_event = 23,
+    destructor_event = 24,
+    blocks_ok_event = 25,
+    get_ok_event = 26,
+    put_ok_event = 27,
+    save_bc_ok_event = 28,
+    start_ok_event = 29,
+    stop_ok_event = 30,
+    output_indexes_ok_event = 31,
+    random_outs_ok_event = 32,
+    get_height_ok_event = 33,
+    get_info_ok_event = 34,
+    get_peer_list_ok_event = 35,
+    get_mining_status_ok_event = 36,
+    set_log_hash_rate_ok_event = 37,
+    set_log_level_ok_event = 38,
+    start_save_graph_ok_event = 39,
+    stop_save_graph_ok_event = 40,
+    get_block_hash_ok_event = 41,
+    get_block_template_ok_event = 42,
+    get_hard_fork_info_ok_event = 43,
+    close_ok_event = 44,
+    ping_ok_event = 45,
+    error_event = 46,
+    exception_event = 47,
+    command_invalid_event = 48,
+    other_event = 49
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -124,6 +127,7 @@ s_state_name [] = {
     "expect stop save graph ok",
     "expect get block hash ok",
     "expect get block template ok",
+    "expect get hard fork info ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -155,6 +159,7 @@ s_event_name [] = {
     "STOP_SAVE_GRAPH",
     "GET_BLOCK_HASH",
     "GET_BLOCK_TEMPLATE",
+    "GET_HARD_FORK_INFO",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
@@ -174,6 +179,7 @@ s_event_name [] = {
     "STOP_SAVE_GRAPH_OK",
     "GET_BLOCK_HASH_OK",
     "GET_BLOCK_TEMPLATE_OK",
+    "GET_HARD_FORK_INFO_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -317,6 +323,8 @@ static void
     signal_have_get_block_hash_ok (client_t *self);
 static void
     signal_have_get_block_template_ok (client_t *self);
+static void
+    signal_have_get_hard_fork_info_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -639,6 +647,12 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_STOP_OK:
             return stop_ok_event;
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            return get_hard_fork_info_event;
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO_OK:
+            return get_hard_fork_info_ok_event;
             break;
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
@@ -1092,6 +1106,19 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_block_template_ok_state;
+                }
+                else
+                if (self->event == get_hard_fork_info_event) {
+                    if (!self->exception) {
+                        //  send GET_HARD_FORK_INFO
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send GET_HARD_FORK_INFO",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_HARD_FORK_INFO);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_hard_fork_info_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -1853,6 +1880,45 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_get_hard_fork_info_ok_state:
+                if (self->event == get_hard_fork_info_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get hard fork info ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have get hard fork info ok", self->log_prefix);
+                        signal_have_get_hard_fork_info_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2180,6 +2246,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         zsock_recv (self->cmdpipe, "8p", &self->args.reserve_size, &self->args.address);
         s_client_execute (self, get_block_template_event);
     }
+    else
+    if (streq (method, "GET HARD FORK INFO")) {
+        s_client_execute (self, get_hard_fork_info_event);
+    }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
         zsys_error ("%s: trailing API command frames (%s)",
@@ -2322,6 +2392,13 @@ struct _wap_client_t {
     uint64_t reserved_offset;   //  Returned by actor reply
     zchunk_t *prev_hash;        //  Returned by actor reply
     zchunk_t *block_template_blob;  //  Returned by actor reply
+    uint8_t hfversion;          //  Returned by actor reply
+    uint8_t enabled;            //  Returned by actor reply
+    uint32_t window;            //  Returned by actor reply
+    uint32_t votes;             //  Returned by actor reply
+    uint32_t threshold;         //  Returned by actor reply
+    uint8_t voting;             //  Returned by actor reply
+    uint32_t hfstate;           //  Returned by actor reply
 };
 
 
@@ -2538,6 +2615,10 @@ s_accept_reply (wap_client_t *self, ...)
                     zchunk_destroy (&self->prev_hash);
                     zchunk_destroy (&self->block_template_blob);
                     zsock_recv (self->actor, "8888pp", &self->status, &self->reserved_offset, &self->height, &self->difficulty, &self->prev_hash, &self->block_template_blob);
+                }
+                else
+                if (streq (reply, "GET HARD FORK INFO OK")) {
+                    zsock_recv (self->actor, "81144414", &self->status, &self->hfversion, &self->enabled, &self->window, &self->votes, &self->threshold, &self->voting, &self->hfstate);
                 }
                 break;
             }
@@ -2886,6 +2967,22 @@ wap_client_get_block_template (wap_client_t *self, uint64_t reserve_size, zchunk
 
 
 //  ---------------------------------------------------------------------------
+//  Ask for hard fork info.                                                         
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_hard_fork_info (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "GET HARD FORK INFO");
+    if (s_accept_reply (self, "GET HARD FORK INFO OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Return last received status
 
 int 
@@ -3201,4 +3298,81 @@ wap_client_block_template_blob (wap_client_t *self)
 {
     assert (self);
     return self->block_template_blob;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received hfversion
+
+uint8_t 
+wap_client_hfversion (wap_client_t *self)
+{
+    assert (self);
+    return self->hfversion;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received enabled
+
+uint8_t 
+wap_client_enabled (wap_client_t *self)
+{
+    assert (self);
+    return self->enabled;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received window
+
+uint32_t 
+wap_client_window (wap_client_t *self)
+{
+    assert (self);
+    return self->window;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received votes
+
+uint32_t 
+wap_client_votes (wap_client_t *self)
+{
+    assert (self);
+    return self->votes;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received threshold
+
+uint32_t 
+wap_client_threshold (wap_client_t *self)
+{
+    assert (self);
+    return self->threshold;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received voting
+
+uint8_t 
+wap_client_voting (wap_client_t *self)
+{
+    assert (self);
+    return self->voting;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received hfstate
+
+uint32_t 
+wap_client_hfstate (wap_client_t *self)
+{
+    assert (self);
+    return self->hfstate;
 }

@@ -167,6 +167,19 @@ ERROR.
 
     STOP_OK - Daemon replies to a stop mining request.
 
+    GET_HARD_FORK_INFO - get_hard_fork_info IPC
+        hfversion           number 1    Version
+
+    GET_HARD_FORK_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        hfversion           number 1    Version
+        enabled             number 1    Enabled
+        window              number 4    Window
+        votes               number 4    Votes
+        threshold           number 4    Threshold
+        voting              number 1    Voting
+        hfstate             number 4    State
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -231,11 +244,13 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_BLOCK_TEMPLATE_OK     36
 #define WAP_PROTO_STOP                      37
 #define WAP_PROTO_STOP_OK                   38
-#define WAP_PROTO_CLOSE                     39
-#define WAP_PROTO_CLOSE_OK                  40
-#define WAP_PROTO_PING                      41
-#define WAP_PROTO_PING_OK                   42
-#define WAP_PROTO_ERROR                     43
+#define WAP_PROTO_GET_HARD_FORK_INFO        39
+#define WAP_PROTO_GET_HARD_FORK_INFO_OK     40
+#define WAP_PROTO_CLOSE                     41
+#define WAP_PROTO_CLOSE_OK                  42
+#define WAP_PROTO_PING                      43
+#define WAP_PROTO_PING_OK                   44
+#define WAP_PROTO_ERROR                     45
 
 #include <czmq.h>
 
@@ -562,6 +577,48 @@ zchunk_t *
 //  Set the block_template_blob field, transferring ownership from caller
 void
     wap_proto_set_block_template_blob (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get/set the hfversion field
+byte
+    wap_proto_hfversion (wap_proto_t *self);
+void
+    wap_proto_set_hfversion (wap_proto_t *self, byte hfversion);
+
+//  Get/set the enabled field
+byte
+    wap_proto_enabled (wap_proto_t *self);
+void
+    wap_proto_set_enabled (wap_proto_t *self, byte enabled);
+
+//  Get/set the window field
+uint32_t
+    wap_proto_window (wap_proto_t *self);
+void
+    wap_proto_set_window (wap_proto_t *self, uint32_t window);
+
+//  Get/set the votes field
+uint32_t
+    wap_proto_votes (wap_proto_t *self);
+void
+    wap_proto_set_votes (wap_proto_t *self, uint32_t votes);
+
+//  Get/set the threshold field
+uint32_t
+    wap_proto_threshold (wap_proto_t *self);
+void
+    wap_proto_set_threshold (wap_proto_t *self, uint32_t threshold);
+
+//  Get/set the voting field
+byte
+    wap_proto_voting (wap_proto_t *self);
+void
+    wap_proto_set_voting (wap_proto_t *self, byte voting);
+
+//  Get/set the hfstate field
+uint32_t
+    wap_proto_hfstate (wap_proto_t *self);
+void
+    wap_proto_set_hfstate (wap_proto_t *self, uint32_t hfstate);
 
 //  Get/set the reason field
 const char *

@@ -71,6 +71,13 @@ struct _wap_proto_t {
     uint64_t reserved_offset;           //  Rservered Offset
     zchunk_t *prev_hash;                //  Previous Hash
     zchunk_t *block_template_blob;      //  Block template blob
+    byte hfversion;                     //  Version
+    byte enabled;                       //  Enabled
+    uint32_t window;                    //  Window
+    uint32_t votes;                     //  Votes
+    uint32_t threshold;                 //  Threshold
+    byte voting;                        //  Voting
+    uint32_t hfstate;                   //  State
     char reason [256];                  //  Printable explanation
 };
 
@@ -647,6 +654,21 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
         case WAP_PROTO_STOP_OK:
             break;
 
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            GET_NUMBER1 (self->hfversion);
+            break;
+
+        case WAP_PROTO_GET_HARD_FORK_INFO_OK:
+            GET_NUMBER8 (self->status);
+            GET_NUMBER1 (self->hfversion);
+            GET_NUMBER1 (self->enabled);
+            GET_NUMBER4 (self->window);
+            GET_NUMBER4 (self->votes);
+            GET_NUMBER4 (self->threshold);
+            GET_NUMBER1 (self->voting);
+            GET_NUMBER4 (self->hfstate);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -834,6 +856,19 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  Size is 4 octets
             if (self->block_template_blob)
                 frame_size += zchunk_size (self->block_template_blob);
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            frame_size += 1;            //  hfversion
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO_OK:
+            frame_size += 8;            //  status
+            frame_size += 1;            //  hfversion
+            frame_size += 1;            //  enabled
+            frame_size += 4;            //  window
+            frame_size += 4;            //  votes
+            frame_size += 4;            //  threshold
+            frame_size += 1;            //  voting
+            frame_size += 4;            //  hfstate
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -1085,6 +1120,21 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
+            break;
+
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            PUT_NUMBER1 (self->hfversion);
+            break;
+
+        case WAP_PROTO_GET_HARD_FORK_INFO_OK:
+            PUT_NUMBER8 (self->status);
+            PUT_NUMBER1 (self->hfversion);
+            PUT_NUMBER1 (self->enabled);
+            PUT_NUMBER4 (self->window);
+            PUT_NUMBER4 (self->votes);
+            PUT_NUMBER4 (self->threshold);
+            PUT_NUMBER1 (self->voting);
+            PUT_NUMBER4 (self->hfstate);
             break;
 
         case WAP_PROTO_ERROR:
@@ -1403,6 +1453,23 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("WAP_PROTO_STOP_OK:");
             break;
 
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            zsys_debug ("WAP_PROTO_GET_HARD_FORK_INFO:");
+            zsys_debug ("    hfversion=%ld", (long) self->hfversion);
+            break;
+
+        case WAP_PROTO_GET_HARD_FORK_INFO_OK:
+            zsys_debug ("WAP_PROTO_GET_HARD_FORK_INFO_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    hfversion=%ld", (long) self->hfversion);
+            zsys_debug ("    enabled=%ld", (long) self->enabled);
+            zsys_debug ("    window=%ld", (long) self->window);
+            zsys_debug ("    votes=%ld", (long) self->votes);
+            zsys_debug ("    threshold=%ld", (long) self->threshold);
+            zsys_debug ("    voting=%ld", (long) self->voting);
+            zsys_debug ("    hfstate=%ld", (long) self->hfstate);
+            break;
+
         case WAP_PROTO_CLOSE:
             zsys_debug ("WAP_PROTO_CLOSE:");
             break;
@@ -1585,6 +1652,12 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_STOP_OK:
             return ("STOP_OK");
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            return ("GET_HARD_FORK_INFO");
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO_OK:
+            return ("GET_HARD_FORK_INFO_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -2488,6 +2561,132 @@ wap_proto_set_block_template_blob (wap_proto_t *self, zchunk_t **chunk_p)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the hfversion field
+
+byte
+wap_proto_hfversion (wap_proto_t *self)
+{
+    assert (self);
+    return self->hfversion;
+}
+
+void
+wap_proto_set_hfversion (wap_proto_t *self, byte hfversion)
+{
+    assert (self);
+    self->hfversion = hfversion;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the enabled field
+
+byte
+wap_proto_enabled (wap_proto_t *self)
+{
+    assert (self);
+    return self->enabled;
+}
+
+void
+wap_proto_set_enabled (wap_proto_t *self, byte enabled)
+{
+    assert (self);
+    self->enabled = enabled;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the window field
+
+uint32_t
+wap_proto_window (wap_proto_t *self)
+{
+    assert (self);
+    return self->window;
+}
+
+void
+wap_proto_set_window (wap_proto_t *self, uint32_t window)
+{
+    assert (self);
+    self->window = window;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the votes field
+
+uint32_t
+wap_proto_votes (wap_proto_t *self)
+{
+    assert (self);
+    return self->votes;
+}
+
+void
+wap_proto_set_votes (wap_proto_t *self, uint32_t votes)
+{
+    assert (self);
+    self->votes = votes;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the threshold field
+
+uint32_t
+wap_proto_threshold (wap_proto_t *self)
+{
+    assert (self);
+    return self->threshold;
+}
+
+void
+wap_proto_set_threshold (wap_proto_t *self, uint32_t threshold)
+{
+    assert (self);
+    self->threshold = threshold;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the voting field
+
+byte
+wap_proto_voting (wap_proto_t *self)
+{
+    assert (self);
+    return self->voting;
+}
+
+void
+wap_proto_set_voting (wap_proto_t *self, byte voting)
+{
+    assert (self);
+    self->voting = voting;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the hfstate field
+
+uint32_t
+wap_proto_hfstate (wap_proto_t *self)
+{
+    assert (self);
+    return self->hfstate;
+}
+
+void
+wap_proto_set_hfstate (wap_proto_t *self, uint32_t hfstate)
+{
+    assert (self);
+    self->hfstate = hfstate;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -3106,6 +3305,44 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_HARD_FORK_INFO);
+
+    wap_proto_set_hfversion (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_hfversion (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_HARD_FORK_INFO_OK);
+
+    wap_proto_set_status (self, 123);
+    wap_proto_set_hfversion (self, 123);
+    wap_proto_set_enabled (self, 123);
+    wap_proto_set_window (self, 123);
+    wap_proto_set_votes (self, 123);
+    wap_proto_set_threshold (self, 123);
+    wap_proto_set_voting (self, 123);
+    wap_proto_set_hfstate (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (wap_proto_hfversion (self) == 123);
+        assert (wap_proto_enabled (self) == 123);
+        assert (wap_proto_window (self) == 123);
+        assert (wap_proto_votes (self) == 123);
+        assert (wap_proto_threshold (self) == 123);
+        assert (wap_proto_voting (self) == 123);
+        assert (wap_proto_hfstate (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

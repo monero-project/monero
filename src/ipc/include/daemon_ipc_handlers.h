@@ -103,6 +103,7 @@ namespace IPC
     void get_output_indexes(wap_proto_t *message);
     void get_random_outs(wap_proto_t *message);
     void save_bc(wap_proto_t *message);
+    void get_hard_fork_info(wap_proto_t *message);
 
     /*!
      * \brief initializes it with objects necessary to handle IPC requests and starts
