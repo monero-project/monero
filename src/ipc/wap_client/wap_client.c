@@ -562,3 +562,15 @@ signal_have_get_hard_fork_info_ok (client_t *self)
         wap_proto_voting (self->message), 
         wap_proto_hfstate (self->message));
 }
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_connections_list_ok
+//
+
+static void
+signal_have_get_connections_list_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8p", "GET CONNECTIONS LIST OK",
+        wap_proto_status (self->message), 
+        wap_proto_get_connections (self->message));
+}

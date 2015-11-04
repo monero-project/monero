@@ -50,11 +50,12 @@ typedef enum {
     get_block_hash_event = 19,
     get_block_template_event = 20,
     get_hard_fork_info_event = 21,
-    close_event = 22,
-    ping_event = 23,
-    expired_event = 24,
-    exception_event = 25,
-    settled_event = 26
+    get_connections_list_event = 22,
+    close_event = 23,
+    ping_event = 24,
+    expired_event = 25,
+    exception_event = 26,
+    settled_event = 27
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -91,6 +92,7 @@ s_event_name [] = {
     "GET_BLOCK_HASH",
     "GET_BLOCK_TEMPLATE",
     "GET_HARD_FORK_INFO",
+    "GET_CONNECTIONS_LIST",
     "CLOSE",
     "PING",
     "expired",
@@ -198,6 +200,8 @@ static void
     get_block_template (client_t *self);
 static void
     get_hard_fork_info (client_t *self);
+static void
+    get_connections_list (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -447,6 +451,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO:
             return get_hard_fork_info_event;
+            break;
+        case WAP_PROTO_GET_CONNECTIONS_LIST:
+            return get_connections_list_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -1000,6 +1007,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_HARD_FORK_INFO_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_HARD_FORK_INFO_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_connections_list_event) {
+                    if (!self->exception) {
+                        //  get connections list
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get connections list", self->log_prefix);
+                        get_connections_list (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_CONNECTIONS_LIST_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_CONNECTIONS_LIST_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_CONNECTIONS_LIST_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

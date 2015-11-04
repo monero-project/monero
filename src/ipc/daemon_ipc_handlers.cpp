@@ -769,5 +769,67 @@ namespace IPC
 
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    /*!
+     * \brief get_connections_list IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_connections_list(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      const std::list<cryptonote::connection_info> connections = p2p->get_payload_object().get_connections();
+
+      // We are using JSON to encode blocks. The JSON string will sit in a 
+      // 0MQ frame which gets sent in a zmsg_t object. One could put each block
+      // a different frame too.
+
+      // First create a rapidjson object and then stringify it.
+      rapidjson::Document result_json;
+      result_json.SetObject();
+      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+      rapidjson::Value connections_json(rapidjson::kArrayType);
+      std::string blob;
+      BOOST_FOREACH(auto &c, connections)
+      {
+        rapidjson::Value this_connection(rapidjson::kObjectType);
+        rapidjson::Value string_value(rapidjson::kStringType);
+        this_connection.AddMember("incoming", c.incoming, allocator);
+        this_connection.AddMember("localhost", c.localhost, allocator);
+        this_connection.AddMember("local_ip", c.local_ip, allocator);
+        string_value.SetString(c.ip.c_str(), c.ip.length(), allocator);
+        this_connection.AddMember("ip", string_value.Move(), allocator);
+        string_value.SetString(c.port.c_str(), c.port.length(), allocator);
+        this_connection.AddMember("port", string_value.Move(), allocator);
+        string_value.SetString(c.peer_id.c_str(), c.peer_id.length(), allocator);
+        this_connection.AddMember("peer_id", string_value.Move(), allocator);
+        this_connection.AddMember("recv_count", c.recv_count, allocator);
+        this_connection.AddMember("recv_idle_time", c.recv_idle_time, allocator);
+        this_connection.AddMember("send_count", c.send_count, allocator);
+        this_connection.AddMember("send_idle_time", c.send_idle_time, allocator);
+        string_value.SetString(c.state.c_str(), c.state.length(), allocator);
+        this_connection.AddMember("state", string_value.Move(), allocator);
+        this_connection.AddMember("live_time", c.live_time, allocator);
+        this_connection.AddMember("avg_download", c.avg_download, allocator);
+        this_connection.AddMember("current_download", c.current_download, allocator);
+        this_connection.AddMember("avg_upload", c.avg_upload, allocator);
+        this_connection.AddMember("current_upload", c.current_upload, allocator);
+
+        connections_json.PushBack(this_connection, allocator);
+      }
+      result_json.AddMember("connections", connections_json, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      result_json.Accept(writer);
+      std::string connections_string = buffer.GetString();
+      zframe_t *connections_frame = zframe_new(connections_string.c_str(), connections_string.length());
+      wap_proto_set_connections(message, &connections_frame);
+      wap_proto_set_status(message, STATUS_OK);
+    }
   }
 }

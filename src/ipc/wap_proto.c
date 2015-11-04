@@ -78,6 +78,7 @@ struct _wap_proto_t {
     uint32_t threshold;                 //  Threshold
     byte voting;                        //  Voting
     uint32_t hfstate;                   //  State
+    zframe_t *connections;              //  Connections
     char reason [256];                  //  Printable explanation
 };
 
@@ -269,6 +270,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zchunk_destroy (&self->hash);
         zchunk_destroy (&self->prev_hash);
         zchunk_destroy (&self->block_template_blob);
+        zframe_destroy (&self->connections);
 
         //  Free object itself
         free (self);
@@ -669,6 +671,20 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER4 (self->hfstate);
             break;
 
+        case WAP_PROTO_GET_CONNECTIONS_LIST:
+            break;
+
+        case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
+            GET_NUMBER8 (self->status);
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: connections is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->connections);
+            self->connections = zframe_recv (input);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -869,6 +885,9 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  threshold
             frame_size += 1;            //  voting
             frame_size += 4;            //  hfstate
+            break;
+        case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
+            frame_size += 8;            //  status
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -1137,6 +1156,11 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->hfstate);
             break;
 
+        case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
+            PUT_NUMBER8 (self->status);
+            nbr_frames++;
+            break;
+
         case WAP_PROTO_ERROR:
             PUT_NUMBER2 (self->status);
             PUT_STRING (self->reason);
@@ -1180,6 +1204,14 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         //  If gray_list isn't set, send an empty frame
         if (self->gray_list)
             zframe_send (&self->gray_list, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_GET_CONNECTIONS_LIST_OK) {
+        //  If connections isn't set, send an empty frame
+        if (self->connections)
+            zframe_send (&self->connections, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
         else
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
@@ -1470,6 +1502,20 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    hfstate=%ld", (long) self->hfstate);
             break;
 
+        case WAP_PROTO_GET_CONNECTIONS_LIST:
+            zsys_debug ("WAP_PROTO_GET_CONNECTIONS_LIST:");
+            break;
+
+        case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
+            zsys_debug ("WAP_PROTO_GET_CONNECTIONS_LIST_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    connections=");
+            if (self->connections)
+                zframe_print (self->connections, NULL);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
         case WAP_PROTO_CLOSE:
             zsys_debug ("WAP_PROTO_CLOSE:");
             break;
@@ -1658,6 +1704,12 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO_OK:
             return ("GET_HARD_FORK_INFO_OK");
+            break;
+        case WAP_PROTO_GET_CONNECTIONS_LIST:
+            return ("GET_CONNECTIONS_LIST");
+            break;
+        case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
+            return ("GET_CONNECTIONS_LIST_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -2687,6 +2739,39 @@ wap_proto_set_hfstate (wap_proto_t *self, uint32_t hfstate)
 
 
 //  --------------------------------------------------------------------------
+//  Get the connections field without transferring ownership
+
+zframe_t *
+wap_proto_connections (wap_proto_t *self)
+{
+    assert (self);
+    return self->connections;
+}
+
+//  Get the connections field and transfer ownership to caller
+
+zframe_t *
+wap_proto_get_connections (wap_proto_t *self)
+{
+    zframe_t *connections = self->connections;
+    self->connections = NULL;
+    return connections;
+}
+
+//  Set the connections field, transferring ownership from caller
+
+void
+wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p)
+{
+    assert (self);
+    assert (frame_p);
+    zframe_destroy (&self->connections);
+    self->connections = *frame_p;
+    *frame_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -3343,6 +3428,33 @@ wap_proto_test (bool verbose)
         assert (wap_proto_threshold (self) == 123);
         assert (wap_proto_voting (self) == 123);
         assert (wap_proto_hfstate (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_CONNECTIONS_LIST);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_CONNECTIONS_LIST_OK);
+
+    wap_proto_set_status (self, 123);
+    zframe_t *get_connections_list_ok_connections = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_connections (self, &get_connections_list_ok_connections);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (zframe_streq (wap_proto_connections (self), "Captcha Diem"));
+        if (instance == 1)
+            zframe_destroy (&get_connections_list_ok_connections);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

@@ -257,16 +257,32 @@ bool t_rpc_command_executor::show_status() {
 }
 
 bool t_rpc_command_executor::print_connections() {
-#if 0
-  cryptonote::COMMAND_RPC_GET_CONNECTIONS::request req;
-  cryptonote::COMMAND_RPC_GET_CONNECTIONS::response res;
-  epee::json_rpc::error error_resp;
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
 
-  std::string fail_message = "Unsuccessful";
+  if (wap_client_get_connections_list(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Failed to query connections";
+    return true;
+  }
 
-  if (!m_rpc_server->on_get_connections(req, res, error_resp))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  rapidjson::Document response_json;
+  rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
+  rapidjson::Value result_json;
+  result_json.SetObject();
+
+  zframe_t *connections_frame = wap_client_connections(ipc_client);
+  if (!connections_frame) {
+    tools::fail_msg_writer() << "Failed to get connections";
+    return true;
+  }
+  rapidjson::Document connections_json;
+  const char *data = reinterpret_cast<const char*>(zframe_data(connections_frame));
+  size_t size = zframe_size(connections_frame);
+
+  if (connections_json.Parse(data, size).HasParseError()) {
+    tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
 
@@ -281,29 +297,35 @@ bool t_rpc_command_executor::print_connections() {
       << std::setw(13) << "Up(now)"
       << std::endl;
 
-  for (auto & info : res.connections)
-  {
-    std::string address = info.incoming ? "INC " : "OUT ";
-    address += info.ip + ":" + info.port;
+  for (size_t n = 0; n < connections_json["connections"].Size(); ++n) {
+    const auto &c = connections_json["connections"][n];
+
+    std::string ip_str = epee::string_tools::get_ip_string_from_int32(c["ip"].GetUint());
+    std::string port_str;
+    epee::string_tools::xtype_to_string(c["port"].GetUint(), port_str);
+    std::string address = c["incoming"].GetBool() ? "INC " : "OUT ";
+    address += ip_str + ":" + port_str;
+    uint64_t recv_count = c["recv_count"].GetUint64();
+    uint64_t recv_idle_time = c["recv_idle_time"].GetUint64();
+    uint64_t send_count = c["send_count"].GetUint64();
+    uint64_t send_idle_time = c["send_idle_time"].GetUint64();
     //std::string in_out = info.incoming ? "INC " : "OUT ";
-    tools::msg_writer() 
+    tools::msg_writer()
      //<< std::setw(30) << std::left << in_out
      << std::setw(30) << std::left << address
-     << std::setw(20) << info.peer_id
-     << std::setw(30) << std::to_string(info.recv_count) + "("  + std::to_string(info.recv_idle_time) + ")/" + std::to_string(info.send_count) + "(" + std::to_string(info.send_idle_time) + ")"
-     << std::setw(25) << info.state
-     << std::setw(20) << info.live_time
-     << std::setw(12) << info.avg_download
-     << std::setw(14) << info.current_download
-     << std::setw(10) << info.avg_upload
-     << std::setw(13) << info.current_upload
-     
-     << std::left << (info.localhost ? "[LOCALHOST]" : "")
-     << std::left << (info.local_ip ? "[LAN]" : "");
+     << std::setw(20) << c["id"].GetUint64()
+     << std::setw(30) << std::to_string(recv_count) + "("  + std::to_string(recv_idle_time) + ")/" + std::to_string(send_count) + "(" + std::to_string(send_idle_time) + ")"
+     << std::setw(25) << c["state"].GetString()
+     << std::setw(20) << c["live_time"].GetUint64()
+     << std::setw(12) << c["avg_download"].GetUint64()
+     << std::setw(14) << c["current_download"].GetUint64()
+     << std::setw(10) << c["avg_upload"].GetUint64()
+     << std::setw(13) << c["current_upload"].GetUint64()
+
+     << std::left << (c["localhost"].GetBool() ? "[LOCALHOST]" : "")
+     << std::left << (c["local_ip"].GetBool() ? "[LAN]" : "");
     //tools::msg_writer() << boost::format("%-25s peer_id: %-25s %s") % address % info.peer_id % in_out;
-    
   }
-#endif
 
   return true;
 }

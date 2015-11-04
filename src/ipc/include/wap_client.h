@@ -162,6 +162,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_hard_fork_info (wap_client_t *self);
 
+//  Get connections                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_connections_list (wap_client_t *self);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -305,6 +310,10 @@ WAP_EXPORT uint8_t
 //  Return last received hfstate
 WAP_EXPORT uint32_t 
     wap_client_hfstate (wap_client_t *self);
+
+//  Return last received connections
+WAP_EXPORT zframe_t *
+    wap_client_connections (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

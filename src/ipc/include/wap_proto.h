@@ -180,6 +180,12 @@ ERROR.
         voting              number 1    Voting
         hfstate             number 4    State
 
+    GET_CONNECTIONS_LIST - get_connections_list IPC
+
+    GET_CONNECTIONS_LIST_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        connections         frame       Connections
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -246,11 +252,13 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_STOP_OK                   38
 #define WAP_PROTO_GET_HARD_FORK_INFO        39
 #define WAP_PROTO_GET_HARD_FORK_INFO_OK     40
-#define WAP_PROTO_CLOSE                     41
-#define WAP_PROTO_CLOSE_OK                  42
-#define WAP_PROTO_PING                      43
-#define WAP_PROTO_PING_OK                   44
-#define WAP_PROTO_ERROR                     45
+#define WAP_PROTO_GET_CONNECTIONS_LIST      41
+#define WAP_PROTO_GET_CONNECTIONS_LIST_OK   42
+#define WAP_PROTO_CLOSE                     43
+#define WAP_PROTO_CLOSE_OK                  44
+#define WAP_PROTO_PING                      45
+#define WAP_PROTO_PING_OK                   46
+#define WAP_PROTO_ERROR                     47
 
 #include <czmq.h>
 
@@ -619,6 +627,16 @@ uint32_t
     wap_proto_hfstate (wap_proto_t *self);
 void
     wap_proto_set_hfstate (wap_proto_t *self, uint32_t hfstate);
+
+//  Get a copy of the connections field
+zframe_t *
+    wap_proto_connections (wap_proto_t *self);
+//  Get the connections field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_connections (wap_proto_t *self);
+//  Set the connections field, transferring ownership from caller
+void
+    wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p);
 
 //  Get/set the reason field
 const char *

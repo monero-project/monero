@@ -394,3 +394,13 @@ get_hard_fork_info (client_t *self)
     IPC::Daemon::get_hard_fork_info(self->message);
 }
 
+//  ---------------------------------------------------------------------------
+//  get_connections_list
+//
+
+static void
+get_connections_list (client_t *self)
+{
+    IPC::Daemon::get_connections_list(self->message);
+}
+
