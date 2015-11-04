@@ -685,6 +685,13 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             self->connections = zframe_recv (input);
             break;
 
+        case WAP_PROTO_STOP_DAEMON:
+            break;
+
+        case WAP_PROTO_STOP_DAEMON_OK:
+            GET_NUMBER8 (self->status);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -887,6 +894,9 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  hfstate
             break;
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
+            frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_STOP_DAEMON_OK:
             frame_size += 8;            //  status
             break;
         case WAP_PROTO_ERROR:
@@ -1159,6 +1169,10 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
             PUT_NUMBER8 (self->status);
             nbr_frames++;
+            break;
+
+        case WAP_PROTO_STOP_DAEMON_OK:
+            PUT_NUMBER8 (self->status);
             break;
 
         case WAP_PROTO_ERROR:
@@ -1516,6 +1530,15 @@ wap_proto_print (wap_proto_t *self)
                 zsys_debug ("(NULL)");
             break;
 
+        case WAP_PROTO_STOP_DAEMON:
+            zsys_debug ("WAP_PROTO_STOP_DAEMON:");
+            break;
+
+        case WAP_PROTO_STOP_DAEMON_OK:
+            zsys_debug ("WAP_PROTO_STOP_DAEMON_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
         case WAP_PROTO_CLOSE:
             zsys_debug ("WAP_PROTO_CLOSE:");
             break;
@@ -1710,6 +1733,12 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
             return ("GET_CONNECTIONS_LIST_OK");
+            break;
+        case WAP_PROTO_STOP_DAEMON:
+            return ("STOP_DAEMON");
+            break;
+        case WAP_PROTO_STOP_DAEMON_OK:
+            return ("STOP_DAEMON_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -3455,6 +3484,28 @@ wap_proto_test (bool verbose)
         assert (zframe_streq (wap_proto_connections (self), "Captcha Diem"));
         if (instance == 1)
             zframe_destroy (&get_connections_list_ok_connections);
+    }
+    wap_proto_set_id (self, WAP_PROTO_STOP_DAEMON);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_STOP_DAEMON_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

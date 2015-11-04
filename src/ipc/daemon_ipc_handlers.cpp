@@ -831,5 +831,20 @@ namespace IPC
       wap_proto_set_connections(message, &connections_frame);
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    /*!
+     * \brief stop_daemon IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void stop_daemon(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      p2p->send_stop_signal();
+      wap_proto_set_status(message, STATUS_OK);
+    }
   }
 }

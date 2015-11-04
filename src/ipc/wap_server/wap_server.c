@@ -404,3 +404,13 @@ get_connections_list (client_t *self)
     IPC::Daemon::get_connections_list(self->message);
 }
 
+//  ---------------------------------------------------------------------------
+//  stop_daemon
+//
+
+static void
+stop_daemon (client_t *self)
+{
+    IPC::Daemon::stop_daemon(self->message);
+}
+

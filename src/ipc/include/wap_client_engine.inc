@@ -44,10 +44,11 @@ typedef enum {
     expect_get_block_template_ok_state = 21,
     expect_get_hard_fork_info_ok_state = 22,
     expect_get_connections_list_ok_state = 23,
-    expect_close_ok_state = 24,
-    defaults_state = 25,
-    have_error_state = 26,
-    reexpect_open_ok_state = 27
+    expect_stop_daemon_ok_state = 24,
+    expect_close_ok_state = 25,
+    defaults_state = 26,
+    have_error_state = 27,
+    reexpect_open_ok_state = 28
 } state_t;
 
 typedef enum {
@@ -76,33 +77,35 @@ typedef enum {
     get_block_template_event = 22,
     get_hard_fork_info_event = 23,
     get_connections_list_event = 24,
-    destructor_event = 25,
-    blocks_ok_event = 26,
-    get_ok_event = 27,
-    send_raw_transaction_ok_event = 28,
-    save_bc_ok_event = 29,
-    start_ok_event = 30,
-    stop_ok_event = 31,
-    output_indexes_ok_event = 32,
-    random_outs_ok_event = 33,
-    get_height_ok_event = 34,
-    get_info_ok_event = 35,
-    get_peer_list_ok_event = 36,
-    get_mining_status_ok_event = 37,
-    set_log_hash_rate_ok_event = 38,
-    set_log_level_ok_event = 39,
-    start_save_graph_ok_event = 40,
-    stop_save_graph_ok_event = 41,
-    get_block_hash_ok_event = 42,
-    get_block_template_ok_event = 43,
-    get_hard_fork_info_ok_event = 44,
-    get_connections_list_ok_event = 45,
-    close_ok_event = 46,
-    ping_ok_event = 47,
-    error_event = 48,
-    exception_event = 49,
-    command_invalid_event = 50,
-    other_event = 51
+    stop_daemon_event = 25,
+    destructor_event = 26,
+    blocks_ok_event = 27,
+    get_ok_event = 28,
+    send_raw_transaction_ok_event = 29,
+    save_bc_ok_event = 30,
+    start_ok_event = 31,
+    stop_ok_event = 32,
+    output_indexes_ok_event = 33,
+    random_outs_ok_event = 34,
+    get_height_ok_event = 35,
+    get_info_ok_event = 36,
+    get_peer_list_ok_event = 37,
+    get_mining_status_ok_event = 38,
+    set_log_hash_rate_ok_event = 39,
+    set_log_level_ok_event = 40,
+    start_save_graph_ok_event = 41,
+    stop_save_graph_ok_event = 42,
+    get_block_hash_ok_event = 43,
+    get_block_template_ok_event = 44,
+    get_hard_fork_info_ok_event = 45,
+    get_connections_list_ok_event = 46,
+    stop_daemon_ok_event = 47,
+    close_ok_event = 48,
+    ping_ok_event = 49,
+    error_event = 50,
+    exception_event = 51,
+    command_invalid_event = 52,
+    other_event = 53
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -132,6 +135,7 @@ s_state_name [] = {
     "expect get block template ok",
     "expect get hard fork info ok",
     "expect get connections list ok",
+    "expect stop daemon ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -165,6 +169,7 @@ s_event_name [] = {
     "GET_BLOCK_TEMPLATE",
     "GET_HARD_FORK_INFO",
     "GET_CONNECTIONS_LIST",
+    "STOP_DAEMON",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
@@ -186,6 +191,7 @@ s_event_name [] = {
     "GET_BLOCK_TEMPLATE_OK",
     "GET_HARD_FORK_INFO_OK",
     "GET_CONNECTIONS_LIST_OK",
+    "STOP_DAEMON_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -333,6 +339,8 @@ static void
     signal_have_get_hard_fork_info_ok (client_t *self);
 static void
     signal_have_get_connections_list_ok (client_t *self);
+static void
+    signal_have_stop_daemon_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -667,6 +675,12 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
             return get_connections_list_ok_event;
+            break;
+        case WAP_PROTO_STOP_DAEMON:
+            return stop_daemon_event;
+            break;
+        case WAP_PROTO_STOP_DAEMON_OK:
+            return stop_daemon_ok_event;
             break;
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
@@ -1146,6 +1160,19 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_connections_list_ok_state;
+                }
+                else
+                if (self->event == stop_daemon_event) {
+                    if (!self->exception) {
+                        //  send STOP_DAEMON
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send STOP_DAEMON",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_STOP_DAEMON);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_stop_daemon_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -1985,6 +2012,45 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_stop_daemon_ok_state:
+                if (self->event == stop_daemon_ok_event) {
+                    if (!self->exception) {
+                        //  signal have stop daemon ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have stop daemon ok", self->log_prefix);
+                        signal_have_stop_daemon_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2319,6 +2385,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "GET CONNECTIONS LIST")) {
         s_client_execute (self, get_connections_list_event);
+    }
+    else
+    if (streq (method, "STOP DAEMON")) {
+        s_client_execute (self, stop_daemon_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -2697,6 +2767,10 @@ s_accept_reply (wap_client_t *self, ...)
                     zframe_destroy (&self->connections);
                     zsock_recv (self->actor, "8p", &self->status, &self->connections);
                 }
+                else
+                if (streq (reply, "STOP DAEMON OK")) {
+                    zsock_recv (self->actor, "8", &self->status);
+                }
                 break;
             }
             filter = va_arg (args, char *);
@@ -3070,6 +3144,22 @@ wap_client_get_connections_list (wap_client_t *self)
 
     zsock_send (self->actor, "s", "GET CONNECTIONS LIST");
     if (s_accept_reply (self, "GET CONNECTIONS LIST OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Stop daemon                                                                     
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_stop_daemon (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "STOP DAEMON");
+    if (s_accept_reply (self, "STOP DAEMON OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }

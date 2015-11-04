@@ -684,7 +684,11 @@ bool t_rpc_command_executor::stop_daemon()
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  tools::fail_msg_writer() << "Daemon can't stop, no IPC for, har, har";
+  if (wap_client_stop_daemon(ipc_client) < 0) {
+    tools::fail_msg_writer() << "Failed to stop daemon";
+    return true;
+  }
+  tools::success_msg_writer() << "Daemon stopping";
   return true;
 }
 

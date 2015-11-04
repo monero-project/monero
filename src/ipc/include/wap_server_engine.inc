@@ -51,11 +51,12 @@ typedef enum {
     get_block_template_event = 20,
     get_hard_fork_info_event = 21,
     get_connections_list_event = 22,
-    close_event = 23,
-    ping_event = 24,
-    expired_event = 25,
-    exception_event = 26,
-    settled_event = 27
+    stop_daemon_event = 23,
+    close_event = 24,
+    ping_event = 25,
+    expired_event = 26,
+    exception_event = 27,
+    settled_event = 28
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -93,6 +94,7 @@ s_event_name [] = {
     "GET_BLOCK_TEMPLATE",
     "GET_HARD_FORK_INFO",
     "GET_CONNECTIONS_LIST",
+    "STOP_DAEMON",
     "CLOSE",
     "PING",
     "expired",
@@ -202,6 +204,8 @@ static void
     get_hard_fork_info (client_t *self);
 static void
     get_connections_list (client_t *self);
+static void
+    stop_daemon (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -454,6 +458,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_GET_CONNECTIONS_LIST:
             return get_connections_list_event;
+            break;
+        case WAP_PROTO_STOP_DAEMON:
+            return stop_daemon_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -1025,6 +1032,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_CONNECTIONS_LIST_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_CONNECTIONS_LIST_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == stop_daemon_event) {
+                    if (!self->exception) {
+                        //  stop daemon
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ stop daemon", self->log_prefix);
+                        stop_daemon (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send STOP_DAEMON_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send STOP_DAEMON_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_STOP_DAEMON_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

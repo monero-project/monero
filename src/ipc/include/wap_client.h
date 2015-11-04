@@ -167,6 +167,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_connections_list (wap_client_t *self);
 
+//  Stop daemon                                                                     
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_stop_daemon (wap_client_t *self);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);

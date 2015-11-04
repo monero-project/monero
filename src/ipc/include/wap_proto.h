@@ -186,6 +186,11 @@ ERROR.
         status              number 8    Status
         connections         frame       Connections
 
+    STOP_DAEMON - stop_daemon IPC
+
+    STOP_DAEMON_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -254,11 +259,13 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_HARD_FORK_INFO_OK     40
 #define WAP_PROTO_GET_CONNECTIONS_LIST      41
 #define WAP_PROTO_GET_CONNECTIONS_LIST_OK   42
-#define WAP_PROTO_CLOSE                     43
-#define WAP_PROTO_CLOSE_OK                  44
-#define WAP_PROTO_PING                      45
-#define WAP_PROTO_PING_OK                   46
-#define WAP_PROTO_ERROR                     47
+#define WAP_PROTO_STOP_DAEMON               43
+#define WAP_PROTO_STOP_DAEMON_OK            44
+#define WAP_PROTO_CLOSE                     45
+#define WAP_PROTO_CLOSE_OK                  46
+#define WAP_PROTO_PING                      47
+#define WAP_PROTO_PING_OK                   48
+#define WAP_PROTO_ERROR                     49
 
 #include <czmq.h>
 

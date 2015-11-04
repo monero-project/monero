@@ -574,3 +574,13 @@ signal_have_get_connections_list_ok (client_t *self)
         wap_proto_status (self->message), 
         wap_proto_get_connections (self->message));
 }
+//
+//  ---------------------------------------------------------------------------
+//  signal_have_stop_daemon_ok
+//
+
+static void
+signal_have_stop_daemon_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8", "STOP DAEMON OK",(uint64_t)0);
+}
