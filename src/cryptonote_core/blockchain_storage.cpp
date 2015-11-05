@@ -606,7 +606,7 @@ bool blockchain_storage::validate_miner_transaction(const block& b, size_t cumul
 
   std::vector<size_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-  if (!get_block_reward(epee::misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward)) {
+  if (!get_block_reward(epee::misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward,0)) {
     LOG_PRINT_L1("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
   }

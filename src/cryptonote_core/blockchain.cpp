@@ -910,7 +910,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 
     std::vector<size_t> last_blocks_sizes;
     get_last_n_blocks_sizes(last_blocks_sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-    if (!get_block_reward(epee::misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward))
+    if (!get_block_reward(epee::misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward, get_current_hard_fork_version()))
     {
         LOG_PRINT_L1("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
         return false;
@@ -2604,10 +2604,11 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
     TIME_MEASURE_FINISH(addblock);
 
-    update_next_cumulative_size_limit();
-
     // this will not fail since check succeeded above
     m_hardfork->add(bl, new_height - 1);
+
+    // do this after updating the hard fork state since the size limit may change due to fork
+    update_next_cumulative_size_limit();
 
     LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
     if(m_show_time_stats)
@@ -2630,13 +2631,15 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 //------------------------------------------------------------------
 bool Blockchain::update_next_cumulative_size_limit()
 {
+    uint64_t full_reward_zone = get_current_hard_fork_version() < 2 ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE;
+
     LOG_PRINT_L3("Blockchain::" << __func__);
     std::vector<size_t> sz;
     get_last_n_blocks_sizes(sz, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
     uint64_t median = epee::misc_utils::median(sz);
-    if(median <= CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE)
-        median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE;
+    if(median <= full_reward_zone)
+      median = full_reward_zone;
 
     m_current_block_cumul_sz_limit = median*2;
     return true;
