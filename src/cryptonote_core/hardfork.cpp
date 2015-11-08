@@ -46,22 +46,22 @@ static uint8_t get_block_vote(const cryptonote::block &b)
   return b.minor_version;
 }
 
-HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, int threshold_percent):
+HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, uint8_t default_threshold_percent):
   db(db),
   original_version(original_version),
   original_version_till_height(original_version_till_height),
   forked_time(forked_time),
   update_time(update_time),
   window_size(window_size),
-  threshold_percent(threshold_percent)
+  default_threshold_percent(default_threshold_percent)
 {
   if (window_size == 0)
     throw "window_size needs to be strictly positive";
-  if (threshold_percent > 100)
-    throw "threshold_percent needs to be between 0 and 100";
+  if (default_threshold_percent > 100)
+    throw "default_threshold_percent needs to be between 0 and 100";
 }
 
-bool HardFork::add(uint8_t version, uint64_t height, time_t time)
+bool HardFork::add(uint8_t version, uint64_t height, uint8_t threshold, time_t time)
 {
   CRITICAL_REGION_LOCAL(lock);
 
@@ -76,8 +76,15 @@ bool HardFork::add(uint8_t version, uint64_t height, time_t time)
     if (time <= heights.back().time)
       return false;
   }
-  heights.push_back(Params(version, height, time));
+  if (threshold > 100)
+    return false;
+  heights.push_back(Params(version, height, threshold, time));
   return true;
+}
+
+bool HardFork::add(uint8_t version, uint64_t height, time_t time)
+{
+  return add(version, height, default_threshold_percent, time);
 }
 
 uint8_t HardFork::get_effective_version(uint8_t version) const
@@ -146,7 +153,6 @@ void HardFork::init()
   for (size_t n = 0; n < 256; ++n)
     last_versions[n] = 0;
   current_fork_index = 0;
-  vote_threshold = (uint32_t)ceilf(window_size * threshold_percent / 100.0f);
 
   // restore state from DB
   uint64_t height = db.height();
@@ -274,7 +280,8 @@ int HardFork::get_voted_fork_index(uint64_t height) const
   for (unsigned int n = heights.size() - 1; n > current_fork_index; --n) {
     uint8_t v = heights[n].version;
     accumulated_votes += last_versions[v];
-    if (height >= heights[n].height && accumulated_votes >= vote_threshold) {
+    uint32_t threshold = (window_size * heights[n].threshold + 99) / 100;
+    if (height >= heights[n].height && accumulated_votes >= threshold) {
       return n;
     }
   }
@@ -340,7 +347,7 @@ bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &vote
   votes = 0;
   for (size_t n = version; n < 256; ++n)
       votes += last_versions[n];
-  threshold = vote_threshold;
+  threshold = (window * heights[current_version].threshold + 99) / 100;
   assert((votes >= threshold) == enabled);
   voting = heights.back().version;
   return enabled;
