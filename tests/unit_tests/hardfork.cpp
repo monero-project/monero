@@ -352,6 +352,34 @@ TEST(voting, threshold)
   }
 }
 
+TEST(voting, different_thresholds)
+{
+  for (int threshold = 87; threshold <= 88; ++threshold) {
+    TestDB db;
+    HardFork hf(db, 1, 0, 1, 1, 4, 50); // window size 4
+
+    //                 v  h  t
+    ASSERT_TRUE(hf.add(1, 0, 0));
+    ASSERT_TRUE(hf.add(2, 5, 0, 1)); // asap
+    ASSERT_TRUE(hf.add(3, 10, 100, 2)); // all votes
+    ASSERT_TRUE(hf.add(4, 15, 3)); // default 50% votes
+    hf.init();
+
+    //                                           0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9
+    static const uint8_t block_versions[] =    { 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4 };
+    static const uint8_t expected_versions[] = { 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4 };
+
+    for (uint64_t h = 0; h < sizeof(block_versions) / sizeof(block_versions[0]); ++h) {
+      db.add_block(mkblock(block_versions[h]), 0, 0, 0, crypto::hash());
+      bool ret = hf.add(db.get_block_from_height(h), h);
+      ASSERT_EQ(ret, true);
+    }
+    for (uint64_t h = 0; h < sizeof(expected_versions) / sizeof(expected_versions[0]); ++h) {
+      ASSERT_EQ(hf.get(h), expected_versions[h]);
+    }
+  }
+}
+
 TEST(new_blocks, denied)
 {
     TestDB db;
