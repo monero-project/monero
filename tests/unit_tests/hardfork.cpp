@@ -480,3 +480,25 @@ TEST(reorganize, changed)
     ASSERT_EQ(hf.get_current_version(), 2); // we did not bump to 3 this time
     ASSERT_EQ(hf.get_start_height(3), std::numeric_limits<uint64_t>::max()); // not yet
 }
+
+TEST(get, higher)
+{
+    TestDB db;
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+
+    //                 v  h  t
+    ASSERT_TRUE(hf.add(1, 0, 0));
+    ASSERT_TRUE(hf.add(2, 2, 1));
+    ASSERT_TRUE(hf.add(3, 5, 2));
+    hf.init();
+
+    ASSERT_EQ(hf.get_ideal_version(0), 1);
+    ASSERT_EQ(hf.get_ideal_version(1), 1);
+    ASSERT_EQ(hf.get_ideal_version(2), 2);
+    ASSERT_EQ(hf.get_ideal_version(3), 2);
+    ASSERT_EQ(hf.get_ideal_version(4), 2);
+    ASSERT_EQ(hf.get_ideal_version(5), 3);
+    ASSERT_EQ(hf.get_ideal_version(6), 3);
+    ASSERT_EQ(hf.get_ideal_version(7), 3);
+}
+
