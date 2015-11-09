@@ -337,6 +337,17 @@ uint8_t HardFork::get_ideal_version() const
   return heights.back().version;
 }
 
+uint8_t HardFork::get_ideal_version(uint64_t height) const
+{
+  CRITICAL_REGION_LOCAL(lock);
+  for (unsigned int n = heights.size() - 1; n > 0; --n) {
+    if (height >= heights[n].height) {
+      return heights[n].version;
+    }
+  }
+  return original_version;
+}
+
 bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
 {
   CRITICAL_REGION_LOCAL(lock);

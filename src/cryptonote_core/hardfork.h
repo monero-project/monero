@@ -168,6 +168,13 @@ namespace cryptonote
     uint8_t get_ideal_version() const;
 
     /**
+     * @brief returns the "ideal" version for a given height
+     *
+     * @param height height of the block to check
+     */
+    uint8_t get_ideal_version(uint64_t height) const;
+
+    /**
      * @brief returns the current version
      *
      * This is the latest version that's past its trigger date and had enough votes
