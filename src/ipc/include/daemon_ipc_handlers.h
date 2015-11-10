@@ -78,8 +78,8 @@ namespace IPC
   const uint64_t STATUS_NOT_MINING = 11;
   const uint64_t STATUS_INVALID_LOG_LEVEL = 12;
   const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 13;
-  const uint64_t STATUS_HEIGHT_TOO_BIG = 13;
-  const uint64_t STATUS_RESERVE_SIZE_TOO_BIG = 14;
+  const uint64_t STATUS_HEIGHT_TOO_BIG = 14;
+  const uint64_t STATUS_RESERVE_SIZE_TOO_BIG = 15;
   /*!
    * \namespace Daemon
    * \brief Namespace pertaining to Daemon IPC.
