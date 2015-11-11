@@ -69,11 +69,11 @@ SEND-RAW-TRANSACTION-OK, or ERROR.
         status              number 4    Status
         height              number 8    Height
 
-    GET - Wallet requests transaction data from the daemon. Daemon replies
+    GET_TX - Wallet requests transaction data from the daemon. Daemon replies
 with GET-OK, or ERROR.
         tx_id               chunk       Transaction ID
 
-    GET_OK - Daemon replies with transaction data.
+    GET_TX_OK - Daemon replies with transaction data.
         tx_data             chunk       Transaction data
 
     SAVE_BC - save_bc command. Details tbd.
@@ -268,8 +268,8 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_RANDOM_OUTS_OK            10
 #define WAP_PROTO_GET_HEIGHT                11
 #define WAP_PROTO_GET_HEIGHT_OK             12
-#define WAP_PROTO_GET                       13
-#define WAP_PROTO_GET_OK                    14
+#define WAP_PROTO_GET_TX                    13
+#define WAP_PROTO_GET_TX_OK                 14
 #define WAP_PROTO_SAVE_BC                   15
 #define WAP_PROTO_SAVE_BC_OK                16
 #define WAP_PROTO_START                     17

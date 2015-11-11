@@ -77,10 +77,10 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_send_raw_transaction (wap_client_t *self, zchunk_t **tx_as_hex_p);
 
-//  Request a set of blocks from the server.                                        
+//  Request a set of transactions from the server.                                  
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_get (wap_client_t *self, zchunk_t **tx_id_p);
+    wap_client_get_tx (wap_client_t *self, zchunk_t **tx_id_p);
 
 //  Request a set of blocks from the server.                                        
 //  Returns >= 0 if successful, -1 if interrupted.

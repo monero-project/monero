@@ -454,7 +454,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->height);
             break;
 
-        case WAP_PROTO_GET:
+        case WAP_PROTO_GET_TX:
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -468,7 +468,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             }
             break;
 
-        case WAP_PROTO_GET_OK:
+        case WAP_PROTO_GET_TX_OK:
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -911,12 +911,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  status
             frame_size += 8;            //  height
             break;
-        case WAP_PROTO_GET:
+        case WAP_PROTO_GET_TX:
             frame_size += 4;            //  Size is 4 octets
             if (self->tx_id)
                 frame_size += zchunk_size (self->tx_id);
             break;
-        case WAP_PROTO_GET_OK:
+        case WAP_PROTO_GET_TX_OK:
             frame_size += 4;            //  Size is 4 octets
             if (self->tx_data)
                 frame_size += zchunk_size (self->tx_data);
@@ -1167,7 +1167,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->height);
             break;
 
-        case WAP_PROTO_GET:
+        case WAP_PROTO_GET_TX:
             if (self->tx_id) {
                 PUT_NUMBER4 (zchunk_size (self->tx_id));
                 memcpy (self->needle,
@@ -1179,7 +1179,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 PUT_NUMBER4 (0);    //  Empty chunk
             break;
 
-        case WAP_PROTO_GET_OK:
+        case WAP_PROTO_GET_TX_OK:
             if (self->tx_data) {
                 PUT_NUMBER4 (zchunk_size (self->tx_data));
                 memcpy (self->needle,
@@ -1620,13 +1620,13 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    height=%ld", (long) self->height);
             break;
 
-        case WAP_PROTO_GET:
-            zsys_debug ("WAP_PROTO_GET:");
+        case WAP_PROTO_GET_TX:
+            zsys_debug ("WAP_PROTO_GET_TX:");
             zsys_debug ("    tx_id=[ ... ]");
             break;
 
-        case WAP_PROTO_GET_OK:
-            zsys_debug ("WAP_PROTO_GET_OK:");
+        case WAP_PROTO_GET_TX_OK:
+            zsys_debug ("WAP_PROTO_GET_TX_OK:");
             zsys_debug ("    tx_data=[ ... ]");
             break;
 
@@ -1967,11 +1967,11 @@ wap_proto_command (wap_proto_t *self)
         case WAP_PROTO_GET_HEIGHT_OK:
             return ("GET_HEIGHT_OK");
             break;
-        case WAP_PROTO_GET:
-            return ("GET");
+        case WAP_PROTO_GET_TX:
+            return ("GET_TX");
             break;
-        case WAP_PROTO_GET_OK:
-            return ("GET_OK");
+        case WAP_PROTO_GET_TX_OK:
+            return ("GET_TX_OK");
             break;
         case WAP_PROTO_SAVE_BC:
             return ("SAVE_BC");
@@ -3574,10 +3574,10 @@ wap_proto_test (bool verbose)
         assert (wap_proto_status (self) == 123);
         assert (wap_proto_height (self) == 123);
     }
-    wap_proto_set_id (self, WAP_PROTO_GET);
+    wap_proto_set_id (self, WAP_PROTO_GET_TX);
 
-    zchunk_t *get_tx_id = zchunk_new ("Captcha Diem", 12);
-    wap_proto_set_tx_id (self, &get_tx_id);
+    zchunk_t *get_tx_tx_id = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_tx_id (self, &get_tx_tx_id);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -3587,12 +3587,12 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_tx_id (self)), "Captcha Diem", 12) == 0);
         if (instance == 1)
-            zchunk_destroy (&get_tx_id);
+            zchunk_destroy (&get_tx_tx_id);
     }
-    wap_proto_set_id (self, WAP_PROTO_GET_OK);
+    wap_proto_set_id (self, WAP_PROTO_GET_TX_OK);
 
-    zchunk_t *get_ok_tx_data = zchunk_new ("Captcha Diem", 12);
-    wap_proto_set_tx_data (self, &get_ok_tx_data);
+    zchunk_t *get_tx_ok_tx_data = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_tx_data (self, &get_tx_ok_tx_data);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -3602,7 +3602,7 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_tx_data (self)), "Captcha Diem", 12) == 0);
         if (instance == 1)
-            zchunk_destroy (&get_ok_tx_data);
+            zchunk_destroy (&get_tx_ok_tx_data);
     }
     wap_proto_set_id (self, WAP_PROTO_SAVE_BC);
 

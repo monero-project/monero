@@ -33,7 +33,7 @@ typedef enum {
     open_event = 2,
     blocks_event = 3,
     send_raw_transaction_event = 4,
-    get_event = 5,
+    get_tx_event = 5,
     save_bc_event = 6,
     start_event = 7,
     stop_event = 8,
@@ -78,7 +78,7 @@ s_event_name [] = {
     "OPEN",
     "BLOCKS",
     "SEND_RAW_TRANSACTION",
-    "GET",
+    "GET_TX",
     "SAVE_BC",
     "START",
     "STOP",
@@ -422,8 +422,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_GET_HEIGHT:
             return get_height_event;
             break;
-        case WAP_PROTO_GET:
-            return get_event;
+        case WAP_PROTO_GET_TX:
+            return get_tx_event;
             break;
         case WAP_PROTO_SAVE_BC:
             return save_bc_event;
@@ -727,7 +727,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == get_event) {
+                if (self->event == get_tx_event) {
                     if (!self->exception) {
                         //  retrieve transaction
                         if (self->server->verbose)
@@ -735,11 +735,11 @@ s_client_execute (s_client_t *self, event_t event)
                         retrieve_transaction (&self->client);
                     }
                     if (!self->exception) {
-                        //  send GET_OK
+                        //  send GET_TX_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send GET_OK",
+                            zsys_debug ("%s:         $ send GET_TX_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_TX_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

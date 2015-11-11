@@ -189,24 +189,24 @@ signal_have_send_raw_transaction_ok (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  prepare_get_command
+//  prepare_get_tx_command
 //
 
 static void
-prepare_get_command (client_t *self)
+prepare_get_tx_command (client_t *self)
 {
     wap_proto_set_tx_id (self->message, &self->args->tx_id);
 }
 
 
 //  ---------------------------------------------------------------------------
-//  signal_have_get_ok
+//  signal_have_get_tx_ok
 //
 
 static void
-signal_have_get_ok (client_t *self)
+signal_have_get_tx_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "sip", "GET OK", 0, 
+    zsock_send (self->cmdpipe, "sip", "GET TX OK", 0, 
                 wap_proto_get_tx_data (self->message));
 }
 

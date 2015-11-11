@@ -25,7 +25,7 @@ typedef enum {
     expect_open_ok_state = 2,
     connected_state = 3,
     expect_blocks_ok_state = 4,
-    expect_get_ok_state = 5,
+    expect_get_tx_ok_state = 5,
     expect_send_raw_transaction_ok_state = 6,
     expect_save_bc_ok_state = 7,
     expect_start_ok_state = 8,
@@ -60,7 +60,7 @@ typedef enum {
     open_ok_event = 3,
     expired_event = 4,
     blocks_event = 5,
-    get_event = 6,
+    get_tx_event = 6,
     send_raw_transaction_event = 7,
     save_bc_event = 8,
     start_event = 9,
@@ -84,7 +84,7 @@ typedef enum {
     get_block_by_hash_event = 27,
     destructor_event = 28,
     blocks_ok_event = 29,
-    get_ok_event = 30,
+    get_tx_ok_event = 30,
     send_raw_transaction_ok_event = 31,
     save_bc_ok_event = 32,
     start_ok_event = 33,
@@ -122,7 +122,7 @@ s_state_name [] = {
     "expect open ok",
     "connected",
     "expect blocks ok",
-    "expect get ok",
+    "expect get tx ok",
     "expect send raw transaction ok",
     "expect save bc ok",
     "expect start ok",
@@ -158,7 +158,7 @@ s_event_name [] = {
     "OPEN_OK",
     "expired",
     "BLOCKS",
-    "GET",
+    "GET_TX",
     "SEND_RAW_TRANSACTION",
     "SAVE_BC",
     "START",
@@ -182,7 +182,7 @@ s_event_name [] = {
     "GET_BLOCK_BY_HASH",
     "destructor",
     "BLOCKS_OK",
-    "GET_OK",
+    "GET_TX_OK",
     "SEND_RAW_TRANSACTION_OK",
     "SAVE_BC_OK",
     "START_OK",
@@ -295,7 +295,7 @@ static void
 static void
     prepare_blocks_command (client_t *self);
 static void
-    prepare_get_command (client_t *self);
+    prepare_get_tx_command (client_t *self);
 static void
     prepare_send_raw_transaction_command (client_t *self);
 static void
@@ -321,7 +321,7 @@ static void
 static void
     signal_have_blocks_ok (client_t *self);
 static void
-    signal_have_get_ok (client_t *self);
+    signal_have_get_tx_ok (client_t *self);
 static void
     signal_have_send_raw_transaction_ok (client_t *self);
 static void
@@ -610,11 +610,11 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_GET_HEIGHT_OK:
             return get_height_ok_event;
             break;
-        case WAP_PROTO_GET:
-            return get_event;
+        case WAP_PROTO_GET_TX:
+            return get_tx_event;
             break;
-        case WAP_PROTO_GET_OK:
-            return get_ok_event;
+        case WAP_PROTO_GET_TX_OK:
+            return get_tx_ok_event;
             break;
         case WAP_PROTO_SAVE_BC:
             return save_bc_event;
@@ -897,23 +897,23 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = expect_blocks_ok_state;
                 }
                 else
-                if (self->event == get_event) {
+                if (self->event == get_tx_event) {
                     if (!self->exception) {
-                        //  prepare get command
+                        //  prepare get tx command
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ prepare get command", self->log_prefix);
-                        prepare_get_command (&self->client);
+                            zsys_debug ("%s:         $ prepare get tx command", self->log_prefix);
+                        prepare_get_tx_command (&self->client);
                     }
                     if (!self->exception) {
-                        //  send GET
+                        //  send GET_TX
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ send GET",
+                            zsys_debug ("%s:         $ send GET_TX",
                                 self->log_prefix);
-                        wap_proto_set_id (self->message, WAP_PROTO_GET);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_TX);
                         wap_proto_send (self->message, self->dealer);
                     }
                     if (!self->exception)
-                        self->state = expect_get_ok_state;
+                        self->state = expect_get_tx_ok_state;
                 }
                 else
                 if (self->event == send_raw_transaction_event) {
@@ -1345,13 +1345,13 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
-            case expect_get_ok_state:
-                if (self->event == get_ok_event) {
+            case expect_get_tx_ok_state:
+                if (self->event == get_tx_ok_event) {
                     if (!self->exception) {
-                        //  signal have get ok
+                        //  signal have get tx ok
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ signal have get ok", self->log_prefix);
-                        signal_have_get_ok (&self->client);
+                            zsys_debug ("%s:         $ signal have get tx ok", self->log_prefix);
+                        signal_have_get_tx_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -2454,10 +2454,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, send_raw_transaction_event);
     }
     else
-    if (streq (method, "GET")) {
+    if (streq (method, "GET TX")) {
         zchunk_destroy (&self->args.tx_id);
         zsock_recv (self->cmdpipe, "p", &self->args.tx_id);
-        s_client_execute (self, get_event);
+        s_client_execute (self, get_tx_event);
     }
     else
     if (streq (method, "SAVE BC")) {
@@ -2858,7 +2858,7 @@ s_accept_reply (wap_client_t *self, ...)
                     zsock_recv (self->actor, "4", &self->status);
                 }
                 else
-                if (streq (reply, "GET OK")) {
+                if (streq (reply, "GET TX OK")) {
                     zchunk_destroy (&self->tx_data);
                     zsock_recv (self->actor, "ip", &self->status, &self->tx_data);
                 }
@@ -3043,17 +3043,17 @@ wap_client_send_raw_transaction (wap_client_t *self, zchunk_t **tx_as_hex_p)
 
 
 //  ---------------------------------------------------------------------------
-//  Request a set of blocks from the server.                                        
+//  Request a set of transactions from the server.                                  
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_get (wap_client_t *self, zchunk_t **tx_id_p)
+wap_client_get_tx (wap_client_t *self, zchunk_t **tx_id_p)
 {
     assert (self);
 
-    zsock_send (self->actor, "sp", "GET", *tx_id_p);
+    zsock_send (self->actor, "sp", "GET TX", *tx_id_p);
     *tx_id_p = NULL;            //  Take ownership of tx_id
-    if (s_accept_reply (self, "GET OK", "FAILURE", NULL))
+    if (s_accept_reply (self, "GET TX OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
