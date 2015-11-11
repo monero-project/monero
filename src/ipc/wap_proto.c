@@ -37,7 +37,7 @@ struct _wap_proto_t {
     char identity [256];                //  Wallet identity
     zlist_t *block_ids;                 //  block_ids
     uint64_t start_height;              //  start_height
-    uint64_t status;                    //  status
+    uint32_t status;                    //  Status
     uint64_t curr_height;               //  curr_height
     zmsg_t *block_data;                 //  Frames of block data
     zchunk_t *tx_as_hex;                //  Transaction as hex
@@ -370,7 +370,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_BLOCKS_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             GET_NUMBER8 (self->start_height);
             GET_NUMBER8 (self->curr_height);
             //  Get zero or more remaining frames
@@ -396,7 +396,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES:
@@ -414,7 +414,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
                 zsys_warning ("wap_proto: o_indexes is missing");
@@ -436,7 +436,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_RANDOM_OUTS_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
                 zsys_warning ("wap_proto: random_outputs is missing");
@@ -450,7 +450,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_HEIGHT_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             GET_NUMBER8 (self->height);
             break;
 
@@ -486,7 +486,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_SAVE_BC_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_START:
@@ -505,14 +505,14 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_START_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_GET_INFO:
             break;
 
         case WAP_PROTO_GET_INFO_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             GET_NUMBER8 (self->height);
             GET_NUMBER8 (self->target_height);
             GET_NUMBER8 (self->difficulty);
@@ -530,7 +530,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_PEER_LIST_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
                 zsys_warning ("wap_proto: white_list is missing");
@@ -551,7 +551,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_MINING_STATUS_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             GET_NUMBER1 (self->active);
             GET_NUMBER8 (self->speed);
             GET_NUMBER8 (self->thread_count);
@@ -573,7 +573,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_SET_LOG_HASH_RATE_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_SET_LOG_LEVEL:
@@ -581,21 +581,21 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_SET_LOG_LEVEL_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_START_SAVE_GRAPH:
             break;
 
         case WAP_PROTO_START_SAVE_GRAPH_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_STOP_SAVE_GRAPH:
             break;
 
         case WAP_PROTO_STOP_SAVE_GRAPH_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_GET_BLOCK_HASH:
@@ -603,7 +603,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_BLOCK_HASH_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -633,7 +633,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             GET_NUMBER8 (self->reserved_offset);
             GET_NUMBER8 (self->height);
             GET_NUMBER8 (self->difficulty);
@@ -672,7 +672,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_HARD_FORK_INFO_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             GET_NUMBER1 (self->hfversion);
             GET_NUMBER1 (self->enabled);
             GET_NUMBER4 (self->window);
@@ -686,7 +686,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
                 zsys_warning ("wap_proto: connections is missing");
@@ -700,7 +700,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
@@ -710,7 +710,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -772,7 +772,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
-            GET_NUMBER8 (self->status);
+            GET_NUMBER4 (self->status);
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -881,7 +881,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  start_height
             break;
         case WAP_PROTO_BLOCKS_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 8;            //  start_height
             frame_size += 8;            //  curr_height
             break;
@@ -891,7 +891,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->tx_as_hex);
             break;
         case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
             frame_size += 4;            //  Size is 4 octets
@@ -899,16 +899,16 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->tx_id);
             break;
         case WAP_PROTO_OUTPUT_INDEXES_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_RANDOM_OUTS:
             frame_size += 8;            //  outs_count
             break;
         case WAP_PROTO_RANDOM_OUTS_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_HEIGHT_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 8;            //  height
             break;
         case WAP_PROTO_GET:
@@ -922,7 +922,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->tx_data);
             break;
         case WAP_PROTO_SAVE_BC_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_START:
             frame_size += 4;            //  Size is 4 octets
@@ -931,10 +931,10 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  thread_count
             break;
         case WAP_PROTO_START_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_INFO_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 8;            //  height
             frame_size += 8;            //  target_height
             frame_size += 8;            //  difficulty
@@ -948,10 +948,10 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 1;            //  testnet
             break;
         case WAP_PROTO_GET_PEER_LIST_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_MINING_STATUS_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 1;            //  active
             frame_size += 8;            //  speed
             frame_size += 8;            //  thread_count
@@ -963,25 +963,25 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 1;            //  visible
             break;
         case WAP_PROTO_SET_LOG_HASH_RATE_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_SET_LOG_LEVEL:
             frame_size += 1;            //  level
             break;
         case WAP_PROTO_SET_LOG_LEVEL_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_START_SAVE_GRAPH_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_STOP_SAVE_GRAPH_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_BLOCK_HASH:
             frame_size += 8;            //  height
             break;
         case WAP_PROTO_GET_BLOCK_HASH_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 4;            //  Size is 4 octets
             if (self->hash)
                 frame_size += zchunk_size (self->hash);
@@ -993,7 +993,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->address);
             break;
         case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 8;            //  reserved_offset
             frame_size += 8;            //  height
             frame_size += 8;            //  difficulty
@@ -1008,7 +1008,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 1;            //  hfversion
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 1;            //  hfversion
             frame_size += 1;            //  enabled
             frame_size += 4;            //  window
@@ -1018,10 +1018,10 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  hfstate
             break;
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_STOP_DAEMON_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
             frame_size += 8;            //  height
@@ -1029,7 +1029,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 1;            //  as_json
             break;
         case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 4;            //  Size is 4 octets
             if (self->block)
                 frame_size += zchunk_size (self->block);
@@ -1057,7 +1057,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 1;            //  as_json
             break;
         case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
-            frame_size += 8;            //  status
+            frame_size += 4;            //  status
             frame_size += 4;            //  Size is 4 octets
             if (self->block)
                 frame_size += zchunk_size (self->block);
@@ -1112,7 +1112,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_BLOCKS_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->start_height);
             PUT_NUMBER8 (self->curr_height);
             nbr_frames += self->block_data? zmsg_size (self->block_data): 1;
@@ -1132,7 +1132,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_SEND_RAW_TRANSACTION_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES:
@@ -1148,7 +1148,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_OUTPUT_INDEXES_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             nbr_frames++;
             break;
 
@@ -1158,12 +1158,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_RANDOM_OUTS_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             nbr_frames++;
             break;
 
         case WAP_PROTO_GET_HEIGHT_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->height);
             break;
 
@@ -1192,7 +1192,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_SAVE_BC_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_START:
@@ -1209,11 +1209,11 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_START_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_GET_INFO_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->height);
             PUT_NUMBER8 (self->target_height);
             PUT_NUMBER8 (self->difficulty);
@@ -1228,13 +1228,13 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET_PEER_LIST_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             nbr_frames++;
             nbr_frames++;
             break;
 
         case WAP_PROTO_GET_MINING_STATUS_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             PUT_NUMBER1 (self->active);
             PUT_NUMBER8 (self->speed);
             PUT_NUMBER8 (self->thread_count);
@@ -1254,7 +1254,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_SET_LOG_HASH_RATE_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_SET_LOG_LEVEL:
@@ -1262,15 +1262,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_SET_LOG_LEVEL_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_START_SAVE_GRAPH_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_STOP_SAVE_GRAPH_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_GET_BLOCK_HASH:
@@ -1278,7 +1278,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET_BLOCK_HASH_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             if (self->hash) {
                 PUT_NUMBER4 (zchunk_size (self->hash));
                 memcpy (self->needle,
@@ -1304,7 +1304,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->reserved_offset);
             PUT_NUMBER8 (self->height);
             PUT_NUMBER8 (self->difficulty);
@@ -1333,7 +1333,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET_HARD_FORK_INFO_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             PUT_NUMBER1 (self->hfversion);
             PUT_NUMBER1 (self->enabled);
             PUT_NUMBER4 (self->window);
@@ -1344,12 +1344,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             nbr_frames++;
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
@@ -1359,7 +1359,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             if (self->block) {
                 PUT_NUMBER4 (zchunk_size (self->block));
                 memcpy (self->needle,
@@ -1413,7 +1413,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
 
         case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
-            PUT_NUMBER8 (self->status);
+            PUT_NUMBER4 (self->status);
             if (self->block) {
                 PUT_NUMBER4 (zchunk_size (self->block));
                 memcpy (self->needle,
@@ -2172,7 +2172,7 @@ wap_proto_set_start_height (wap_proto_t *self, uint64_t start_height)
 //  --------------------------------------------------------------------------
 //  Get/set the status field
 
-uint64_t
+uint32_t
 wap_proto_status (wap_proto_t *self)
 {
     assert (self);
@@ -2180,7 +2180,7 @@ wap_proto_status (wap_proto_t *self)
 }
 
 void
-wap_proto_set_status (wap_proto_t *self, uint64_t status)
+wap_proto_set_status (wap_proto_t *self, uint32_t status)
 {
     assert (self);
     self->status = status;

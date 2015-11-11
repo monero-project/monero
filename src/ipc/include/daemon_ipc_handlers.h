@@ -57,30 +57,14 @@ using namespace epee;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
+#include "ipc_util.h"
+
 /*!
  * \namespace IPC
  * \brief Namespace pertaining to IPC.
  */
 namespace IPC
 {
-  // A bunch of response statuses and error codes
-  const uint64_t STATUS_OK = 0;
-  const uint64_t STATUS_CORE_BUSY = 1;
-  const uint64_t STATUS_WRONG_ADDRESS = 2;
-  const uint64_t STATUS_MINING_NOT_STARTED = 3;
-  const uint64_t STATUS_WRONG_BLOCK_ID_LENGTH = 4;
-  const uint64_t STATUS_INTERNAL_ERROR = 5;
-  const uint64_t STATUS_INVALID_TX = 6;
-  const uint64_t STATUS_TX_VERIFICATION_FAILED = 7;
-  const uint64_t STATUS_TX_NOT_RELAYED = 8;
-  const uint64_t STATUS_RANDOM_OUTS_FAILED = 9;
-  const uint64_t STATUS_MINING_NOT_STOPPED = 10;
-  const uint64_t STATUS_NOT_MINING = 11;
-  const uint64_t STATUS_INVALID_LOG_LEVEL = 12;
-  const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 13;
-  const uint64_t STATUS_HEIGHT_TOO_BIG = 14;
-  const uint64_t STATUS_RESERVE_SIZE_TOO_BIG = 15;
-  const uint64_t STATUS_BLOCK_NOT_FOUND = 16;
   /*!
    * \namespace Daemon
    * \brief Namespace pertaining to Daemon IPC.

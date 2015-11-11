@@ -194,7 +194,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       int rc = wap_client_output_indexes(ipc_client, &tx_id_chunk);
 
       THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_output_indexes");
-      uint64_t status = wap_client_status(ipc_client);
+      int status = wap_client_status(ipc_client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_output_indexes");
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_output_indexes");
       THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_out_indices_error, "get_output_indexes");
@@ -407,7 +407,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
   zlist_destroy(&list);
   THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_blocks");
 
-  uint64_t status = wap_client_status(ipc_client);
+  int status = wap_client_status(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "get_blocks");
@@ -1373,7 +1373,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   std::string tx_as_hex_string = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
   zchunk_t *tx_as_hex = zchunk_new((void*)tx_as_hex_string.c_str(), tx_as_hex_string.length());
   int rc = wap_client_send_raw_transaction(ipc_client, &tx_as_hex);
-  uint64_t status = wap_client_status(ipc_client);
+  int status = wap_client_status(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "send_raw_transaction");
   THROW_WALLET_EXCEPTION_IF((status == IPC::STATUS_INVALID_TX) || (status == IPC::STATUS_TX_VERIFICATION_FAILED) ||
     (status == IPC::STATUS_TX_NOT_RELAYED), error::tx_rejected, ptx.tx, status);
@@ -1558,7 +1558,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     }
     zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
     int rc = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
-    uint64_t status = wap_client_status(ipc_client);
+    int status = wap_client_status(ipc_client);
     THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
     // TODO: Use a code to string mapping of errors
     THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_RANDOM_OUTS_FAILED, error::get_random_outs_error, "IPC::STATUS_RANDOM_OUTS_FAILED");
@@ -2178,7 +2178,7 @@ void wallet2::connect_to_daemon() {
   wap_client_connect(ipc_client, "ipc://@/monero", 200, "wallet identity");
 }
 
-uint64_t wallet2::start_mining(const std::string &address, uint64_t thread_count) {
+int wallet2::start_mining(const std::string &address, uint64_t thread_count) {
   zchunk_t *address_chunk = zchunk_new((void*)address.c_str(), address.length());
   int rc = wap_client_start(ipc_client, &address_chunk, thread_count);
   zchunk_destroy(&address_chunk);
@@ -2186,20 +2186,20 @@ uint64_t wallet2::start_mining(const std::string &address, uint64_t thread_count
   return wap_client_status(ipc_client);
 }
 
-uint64_t wallet2::stop_mining() {
+int wallet2::stop_mining() {
   int rc = wap_client_stop(ipc_client);
   THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "stop_mining");
   return wap_client_status(ipc_client);
 }
 
-uint64_t wallet2::get_height(uint64_t &height) {
+int wallet2::get_height(uint64_t &height) {
   int rc = wap_client_get_height(ipc_client);
   THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "get_height");
   height = wap_client_height(ipc_client);
   return wap_client_status(ipc_client);
 }
 
-uint64_t wallet2::save_bc() {
+int wallet2::save_bc() {
   int rc = wap_client_save_bc(ipc_client);
   THROW_WALLET_EXCEPTION_IF(rc < 0, error::no_connection_to_daemon, "save_bc");
   return wap_client_status(ipc_client);

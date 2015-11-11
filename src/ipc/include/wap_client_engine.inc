@@ -2851,11 +2851,11 @@ s_accept_reply (wap_client_t *self, ...)
                 else
                 if (streq (reply, "BLOCKS OK")) {
                     zmsg_destroy (&self->block_data);
-                    zsock_recv (self->actor, "888p", &self->status, &self->start_height, &self->curr_height, &self->block_data);
+                    zsock_recv (self->actor, "488p", &self->status, &self->start_height, &self->curr_height, &self->block_data);
                 }
                 else
                 if (streq (reply, "SEND RAW TRANSACTION OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "GET OK")) {
@@ -2864,98 +2864,98 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "SAVE BC OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "OUTPUT INDEXES OK")) {
                     zframe_destroy (&self->o_indexes);
-                    zsock_recv (self->actor, "8p", &self->status, &self->o_indexes);
+                    zsock_recv (self->actor, "4p", &self->status, &self->o_indexes);
                 }
                 else
                 if (streq (reply, "RANDOM OUTS OK")) {
                     zframe_destroy (&self->random_outputs);
-                    zsock_recv (self->actor, "8p", &self->status, &self->random_outputs);
+                    zsock_recv (self->actor, "4p", &self->status, &self->random_outputs);
                 }
                 else
                 if (streq (reply, "GET HEIGHT OK")) {
-                    zsock_recv (self->actor, "88", &self->status, &self->height);
+                    zsock_recv (self->actor, "48", &self->status, &self->height);
                 }
                 else
                 if (streq (reply, "GET INFO OK")) {
-                    zsock_recv (self->actor, "888888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
+                    zsock_recv (self->actor, "488888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
                 }
                 else
                 if (streq (reply, "START OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "STOP OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "GET PEER LIST OK")) {
                     zframe_destroy (&self->white_list);
                     zframe_destroy (&self->gray_list);
-                    zsock_recv (self->actor, "8pp", &self->status, &self->white_list, &self->gray_list);
+                    zsock_recv (self->actor, "4pp", &self->status, &self->white_list, &self->gray_list);
                 }
                 else
                 if (streq (reply, "GET MINING STATUS OK")) {
                     zchunk_destroy (&self->address);
-                    zsock_recv (self->actor, "8188p", &self->status, &self->active, &self->speed, &self->thread_count, &self->address);
+                    zsock_recv (self->actor, "4188p", &self->status, &self->active, &self->speed, &self->thread_count, &self->address);
                 }
                 else
                 if (streq (reply, "SET LOG HASH RATE OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "SET LOG LEVEL OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "START SAVE GRAPH OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "STOP SAVE GRAPH OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "GET BLOCK HASH OK")) {
                     zchunk_destroy (&self->hash);
-                    zsock_recv (self->actor, "8p", &self->status, &self->hash);
+                    zsock_recv (self->actor, "4p", &self->status, &self->hash);
                 }
                 else
                 if (streq (reply, "GET BLOCK TEMPLATE OK")) {
                     zchunk_destroy (&self->prev_hash);
                     zchunk_destroy (&self->block_template_blob);
-                    zsock_recv (self->actor, "8888pp", &self->status, &self->reserved_offset, &self->height, &self->difficulty, &self->prev_hash, &self->block_template_blob);
+                    zsock_recv (self->actor, "4888pp", &self->status, &self->reserved_offset, &self->height, &self->difficulty, &self->prev_hash, &self->block_template_blob);
                 }
                 else
                 if (streq (reply, "GET HARD FORK INFO OK")) {
-                    zsock_recv (self->actor, "81144414", &self->status, &self->hfversion, &self->enabled, &self->window, &self->votes, &self->threshold, &self->voting, &self->hfstate);
+                    zsock_recv (self->actor, "41144414", &self->status, &self->hfversion, &self->enabled, &self->window, &self->votes, &self->threshold, &self->voting, &self->hfstate);
                 }
                 else
                 if (streq (reply, "GET CONNECTIONS LIST OK")) {
                     zframe_destroy (&self->connections);
-                    zsock_recv (self->actor, "8p", &self->status, &self->connections);
+                    zsock_recv (self->actor, "4p", &self->status, &self->connections);
                 }
                 else
                 if (streq (reply, "STOP DAEMON OK")) {
-                    zsock_recv (self->actor, "8", &self->status);
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 else
                 if (streq (reply, "GET BLOCK BY HEIGHT OK")) {
                     zchunk_destroy (&self->block);
                     zchunk_destroy (&self->prev_hash);
                     zchunk_destroy (&self->hash);
-                    zsock_recv (self->actor, "8p118p4188p88", &self->status, &self->block, &self->major_version, &self->minor_version, &self->timestamp, &self->prev_hash, &self->nonce, &self->orphan, &self->height, &self->depth, &self->hash, &self->difficulty, &self->reward);
+                    zsock_recv (self->actor, "4p118p4188p88", &self->status, &self->block, &self->major_version, &self->minor_version, &self->timestamp, &self->prev_hash, &self->nonce, &self->orphan, &self->height, &self->depth, &self->hash, &self->difficulty, &self->reward);
                 }
                 else
                 if (streq (reply, "GET BLOCK BY HASH OK")) {
                     zchunk_destroy (&self->block);
                     zchunk_destroy (&self->prev_hash);
                     zchunk_destroy (&self->hash);
-                    zsock_recv (self->actor, "8p118p4188p88", &self->status, &self->block, &self->major_version, &self->minor_version, &self->timestamp, &self->prev_hash, &self->nonce, &self->orphan, &self->height, &self->depth, &self->hash, &self->difficulty, &self->reward);
+                    zsock_recv (self->actor, "4p118p4188p88", &self->status, &self->block, &self->major_version, &self->minor_version, &self->timestamp, &self->prev_hash, &self->nonce, &self->orphan, &self->height, &self->depth, &self->hash, &self->difficulty, &self->reward);
                 }
                 break;
             }

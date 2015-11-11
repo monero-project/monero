@@ -440,7 +440,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct tx_rejected : public transfer_error
     {
-      explicit tx_rejected(std::string&& loc, const cryptonote::transaction& tx, uint64_t status)
+      explicit tx_rejected(std::string&& loc, const cryptonote::transaction& tx, int status)
         : transfer_error(std::move(loc), "transaction was rejected by daemon")
         , m_tx(tx)
         , m_status(status)
@@ -448,7 +448,7 @@ namespace tools
       }
 
       const cryptonote::transaction& tx() const { return m_tx; }
-      uint64_t status() const { return m_status; }
+      int status() const { return m_status; }
 
       std::string to_string() const
       {
@@ -461,7 +461,7 @@ namespace tools
 
     private:
       cryptonote::transaction m_tx;
-      uint64_t m_status;
+      int m_status;
     };
     //----------------------------------------------------------------------------------------------------
     struct tx_sum_overflow : public transfer_error

@@ -36,7 +36,7 @@ BLOCKS-OK, or ERROR if the request is invalid.
         start_height        number 8    
 
     BLOCKS_OK - Daemon returns a set of blocks to the wallet.
-        status              number 8    
+        status              number 4    Status
         start_height        number 8    
         curr_height         number 8    
         block_data          msg         Frames of block data
@@ -46,13 +46,13 @@ SEND-RAW-TRANSACTION-OK, or ERROR.
         tx_as_hex           chunk       Transaction as hex
 
     SEND_RAW_TRANSACTION_OK - Daemon confirms that it accepted the raw transaction.
-        status              number 8    Transaction ID
+        status              number 4    Status
 
     OUTPUT_INDEXES - Ask for tx output indexes.
         tx_id               chunk       Transaction ID
 
     OUTPUT_INDEXES_OK - Daemon returns tx output indexes.
-        status              number 8    Status
+        status              number 4    Status
         o_indexes           frame       Output Indexes
 
     RANDOM_OUTS - Get random outputs for amounts.
@@ -60,13 +60,13 @@ SEND-RAW-TRANSACTION-OK, or ERROR.
         amounts             frame       Amounts
 
     RANDOM_OUTS_OK - Daemon returns random outputs for amounts.
-        status              number 8    Status
+        status              number 4    Status
         random_outputs      frame       Outputs
 
     GET_HEIGHT - Get height.
 
     GET_HEIGHT_OK - Daemon returns height.
-        status              number 8    Status
+        status              number 4    Status
         height              number 8    Height
 
     GET - Wallet requests transaction data from the daemon. Daemon replies
@@ -79,7 +79,7 @@ with GET-OK, or ERROR.
     SAVE_BC - save_bc command. Details tbd.
 
     SAVE_BC_OK - Daemon replies to a save_bc command.
-        status              number 8    Status
+        status              number 4    Status
 
     START - Wallet asks daemon to start mining. Daemon replies with START-OK, or
 ERROR.
@@ -87,12 +87,12 @@ ERROR.
         thread_count        number 8    
 
     START_OK - Daemon replies to a start mining request.
-        status              number 8    
+        status              number 4    
 
     GET_INFO - getinfo IPC
 
     GET_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         height              number 8    Height
         target_height       number 8    Target Height
         difficulty          number 8    Difficulty
@@ -108,14 +108,14 @@ ERROR.
     GET_PEER_LIST - get_peer_list IPC
 
     GET_PEER_LIST_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         white_list          frame       White list
         gray_list           frame       Gray list
 
     GET_MINING_STATUS - get_mining_status IPC
 
     GET_MINING_STATUS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         active              number 1    Active
         speed               number 8    Speed
         thread_count        number 8    Threads count
@@ -125,29 +125,29 @@ ERROR.
         visible             number 1    Visible
 
     SET_LOG_HASH_RATE_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     SET_LOG_LEVEL - set_log_level IPC
         level               number 1    Level
 
     SET_LOG_LEVEL_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     START_SAVE_GRAPH - start_save_graph IPC
 
     START_SAVE_GRAPH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     STOP_SAVE_GRAPH - stop_save_graph IPC
 
     STOP_SAVE_GRAPH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     GET_BLOCK_HASH - get_block_hash IPC
         height              number 8    Height
 
     GET_BLOCK_HASH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         hash                chunk       Hash
 
     GET_BLOCK_TEMPLATE - get_block_template IPC
@@ -155,7 +155,7 @@ ERROR.
         address             chunk       Address
 
     GET_BLOCK_TEMPLATE_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         reserved_offset     number 8    Rservered Offset
         height              number 8    Height
         difficulty          number 8    Difficulty
@@ -171,7 +171,7 @@ ERROR.
         hfversion           number 1    Version
 
     GET_HARD_FORK_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         hfversion           number 1    Version
         enabled             number 1    Enabled
         window              number 4    Window
@@ -183,13 +183,13 @@ ERROR.
     GET_CONNECTIONS_LIST - get_connections_list IPC
 
     GET_CONNECTIONS_LIST_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         connections         frame       Connections
 
     STOP_DAEMON - stop_daemon IPC
 
     STOP_DAEMON_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     GET_BLOCK_BY_HEIGHT - get_block_by_height IPC
         height              number 8    Height
@@ -197,7 +197,7 @@ ERROR.
         as_json             number 1    As JSON
 
     GET_BLOCK_BY_HEIGHT_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         block               chunk       Block blob
         major_version       number 1    
         minor_version       number 1    
@@ -217,7 +217,7 @@ ERROR.
         as_json             number 1    As JSON
 
     GET_BLOCK_BY_HASH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         block               chunk       Block blob
         major_version       number 1    
         minor_version       number 1    
@@ -381,10 +381,10 @@ void
     wap_proto_set_start_height (wap_proto_t *self, uint64_t start_height);
 
 //  Get/set the status field
-uint64_t
+uint32_t
     wap_proto_status (wap_proto_t *self);
 void
-    wap_proto_set_status (wap_proto_t *self, uint64_t status);
+    wap_proto_set_status (wap_proto_t *self, uint32_t status);
 
 //  Get/set the curr_height field
 uint64_t

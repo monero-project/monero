@@ -177,12 +177,11 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_get_height(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_get_height(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -240,13 +239,12 @@ namespace
     uint64_t threads_count = request_json["threads_count"].GetUint();
 
     zchunk_t *address_chunk = zchunk_new((void*)miner_address.c_str(), miner_address.length());
-    int rc = wap_client_start(ipc_client, &address_chunk, threads_count);
+    int status = wap_client_start(ipc_client, &address_chunk, threads_count);
     zchunk_destroy(&address_chunk);
-    if (rc < 0) {
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -277,12 +275,11 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_stop(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_stop(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -308,12 +305,11 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_get_info(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_get_info(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -369,8 +365,8 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_get_peer_list(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_get_peer_list(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
@@ -424,12 +420,11 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_get_mining_status(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_get_mining_status(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -490,12 +485,11 @@ namespace
 
     bool visible = request_json["visible"].GetBool();
     // 0MQ server expects an integer. 1 is true, 0 is false.
-    int rc = wap_client_set_log_hash_rate(ipc_client, visible ? 1 : 0);
-    if (rc < 0) {
+    int status = wap_client_set_log_hash_rate(ipc_client, visible ? 1 : 0);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -542,12 +536,11 @@ namespace
     }
 
     int level = request_json["level"].GetInt();
-    int rc = wap_client_set_log_level(ipc_client, level);
-    if (rc < 0) {
+    int status = wap_client_set_log_level(ipc_client, level);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -573,12 +566,11 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_get_height(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_get_height(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -609,8 +601,8 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_start_save_graph(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_start_save_graph(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
@@ -630,8 +622,8 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int rc = wap_client_stop_save_graph(ipc_client);
-    if (rc < 0) {
+    int status = wap_client_stop_save_graph(ipc_client);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
@@ -673,12 +665,11 @@ namespace
 
 
     int height = request_json[(unsigned int)0].GetUint();
-    int rc = wap_client_get_block_hash(ipc_client, height);
-    if (rc < 0) {
+    int status = wap_client_get_block_hash(ipc_client, height);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -738,13 +729,12 @@ namespace
     uint64_t reserve_size = request_json["reserve_size"].GetUint();
     std::string wallet_address = request_json["wallet_address"].GetString();
     zchunk_t *address_chunk = zchunk_new((void*)wallet_address.c_str(), wallet_address.length());
-    int rc = wap_client_get_block_template(ipc_client, reserve_size, &address_chunk);
-    if (rc < 0) {
+    int status = wap_client_get_block_template(ipc_client, reserve_size, &address_chunk);
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
     
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
@@ -832,15 +822,14 @@ namespace
       memcpy(size_prepended_block_id + 1, block_id.c_str(), crypto::HASH_SIZE);
       zlist_append(list, size_prepended_block_id);
     }
-    int rc = wap_client_blocks(ipc_client, &list, start_height);
+    int status = wap_client_blocks(ipc_client, &list, start_height);
     zlist_destroy(&list);
 
-    if (rc < 0) {
+    if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
     
-    uint64_t status = wap_client_status(ipc_client);
     if (status == IPC::STATUS_CORE_BUSY) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");

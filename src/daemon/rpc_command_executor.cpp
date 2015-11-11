@@ -419,7 +419,7 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash hash) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
   }
-  uint64_t status = wap_client_status(ipc_client);
+  int status = wap_client_status(ipc_client);
   if (status) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
@@ -446,7 +446,7 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
   }
-  uint64_t status = wap_client_status(ipc_client);
+  int status = wap_client_status(ipc_client);
   if (status) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
@@ -648,26 +648,14 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
 
   std::string address_str = cryptonote::get_account_address_as_str(testnet, address);
   zchunk_t *address_chunk = zchunk_new((void*)address_str.c_str(), address_str.length());
-  int ret = wap_client_start(ipc_client, &address_chunk, num_threads);
+  int status = wap_client_start(ipc_client, &address_chunk, num_threads);
   zchunk_destroy(&address_chunk);
-  if (ret < 0) {
+  if (status < 0) {
     tools::fail_msg_writer() << "Failed to start mining";
     return true;
   }
-
-  uint64_t status = wap_client_status(ipc_client);
-  if (status == IPC::STATUS_CORE_BUSY) {
-    tools::fail_msg_writer() << "Core busy";
-    return true;
-  }
-  if (status == IPC::STATUS_WRONG_ADDRESS)
-  {
-    tools::fail_msg_writer() << "Wrong address";
-    return true;
-  }
-  if (status == IPC::STATUS_MINING_NOT_STARTED)
-  {
-    tools::fail_msg_writer() << "Failed to start mining";
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   tools::success_msg_writer() << "Mining started";
@@ -680,16 +668,16 @@ bool t_rpc_command_executor::stop_mining() {
     return true;
   }
 
-  if (wap_client_stop(ipc_client) < 0) {
+  int status = wap_client_stop(ipc_client);
+  if (status < 0) {
     tools::fail_msg_writer() << "Failed to stop mining";
     return true;
   }
-
-  uint64_t status = wap_client_status(ipc_client);
-  if (status == IPC::STATUS_CORE_BUSY) {
-    tools::fail_msg_writer() << "Core busy";
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
+
   tools::success_msg_writer() << "Mining stopped";
   return true;
 }
@@ -700,8 +688,13 @@ bool t_rpc_command_executor::stop_daemon()
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (wap_client_stop_daemon(ipc_client) < 0) {
+  int status = wap_client_stop_daemon(ipc_client);
+  if (status < 0) {
     tools::fail_msg_writer() << "Failed to stop daemon";
+    return true;
+  }
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   tools::success_msg_writer() << "Daemon stopping";

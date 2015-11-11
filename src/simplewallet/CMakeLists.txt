@@ -45,6 +45,7 @@ bitmonero_add_executable(simplewallet
 target_link_libraries(simplewallet
   LINK_PRIVATE
     wallet
+    ipc_util
     rpc
     cryptonote_core
     crypto

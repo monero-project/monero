@@ -147,7 +147,7 @@ signal_have_blocks_ok (client_t *self)
     zmsg_t *msg = wap_proto_get_block_data (self->message);
     assert(msg != 0);
     printf("%p <--\n", (void*)msg);
-    zsock_send (self->cmdpipe, "s888p", "BLOCKS OK", wap_proto_status(self->message),
+    zsock_send (self->cmdpipe, "s488p", "BLOCKS OK", wap_proto_status(self->message),
                 wap_proto_start_height (self->message),
                 wap_proto_curr_height (self->message),
                 msg);
@@ -183,7 +183,7 @@ prepare_send_raw_transaction_command (client_t *self)
 static void
 signal_have_send_raw_transaction_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "SEND RAW TRANSACTION OK",
+    zsock_send (self->cmdpipe, "s4", "SEND RAW TRANSACTION OK",
                 wap_proto_status (self->message));
 }
 
@@ -229,7 +229,7 @@ signal_have_get_height_ok (client_t *self)
 static void
 signal_have_save_bc_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "SAVE BC OK", wap_proto_status(self->message));
+    zsock_send (self->cmdpipe, "s4", "SAVE BC OK", wap_proto_status(self->message));
 }
 
 
@@ -240,7 +240,7 @@ signal_have_save_bc_ok (client_t *self)
 static void
 signal_have_start_ok (client_t *self)
 {
-    zsock_send(self->cmdpipe, "s8", "START OK", wap_proto_status(self->message));
+    zsock_send(self->cmdpipe, "s4", "START OK", wap_proto_status(self->message));
 }
 
 
@@ -343,7 +343,7 @@ prepare_get_output_indexes_command (client_t *self)
 static void
 signal_have_output_indexes_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8p", "OUTPUT INDEXES OK",
+    zsock_send (self->cmdpipe, "s4p", "OUTPUT INDEXES OK",
         wap_proto_status (self->message),
         wap_proto_get_o_indexes (self->message));
 }
@@ -373,7 +373,7 @@ prepare_get_random_outs_command (client_t *self)
 static void
 signal_have_random_outs_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8p", "RANDOM OUTS OK",
+    zsock_send (self->cmdpipe, "s4p", "RANDOM OUTS OK",
         wap_proto_status (self->message),
         wap_proto_get_random_outputs (self->message));
 }
@@ -387,7 +387,7 @@ signal_have_random_outs_ok (client_t *self)
 static void
 signal_have_get_info_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s888888888881", "GET INFO OK",
+    zsock_send (self->cmdpipe, "s488888888881", "GET INFO OK",
         wap_proto_status (self->message),
         wap_proto_height (self->message),
         wap_proto_target_height (self->message),
@@ -410,7 +410,7 @@ signal_have_get_info_ok (client_t *self)
 static void
 signal_have_get_peer_list_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8pp", "GET PEER LIST OK",
+    zsock_send (self->cmdpipe, "s4pp", "GET PEER LIST OK",
         wap_proto_status (self->message),
         wap_proto_get_white_list (self->message),
         wap_proto_get_gray_list (self->message));
@@ -423,7 +423,7 @@ signal_have_get_peer_list_ok (client_t *self)
 static void
 signal_have_get_mining_status_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8188p", "GET MINING STATUS OK",
+    zsock_send (self->cmdpipe, "s4188p", "GET MINING STATUS OK",
         wap_proto_status (self->message),
         wap_proto_active (self->message),
         wap_proto_speed (self->message),
@@ -448,7 +448,7 @@ prepare_set_log_hash_rate_command (client_t *self)
 static void
 signal_have_set_log_hash_rate_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "SET LOG HASH RATE OK",
+    zsock_send (self->cmdpipe, "s4", "SET LOG HASH RATE OK",
         wap_proto_status (self->message));
 }
 
@@ -469,7 +469,7 @@ prepare_set_log_level_command (client_t *self)
 static void
 signal_have_set_log_level_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "SET LOG LEVEL OK",
+    zsock_send (self->cmdpipe, "s4", "SET LOG LEVEL OK",
         wap_proto_status (self->message));
 }
 
@@ -480,7 +480,7 @@ signal_have_set_log_level_ok (client_t *self)
 static void
 signal_have_start_save_graph_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "START SAVE GRAPH OK",
+    zsock_send (self->cmdpipe, "s4", "START SAVE GRAPH OK",
         wap_proto_status (self->message));
 }
 
@@ -491,7 +491,7 @@ signal_have_start_save_graph_ok (client_t *self)
 static void
 signal_have_stop_save_graph_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "STOP SAVE GRAPH OK",
+    zsock_send (self->cmdpipe, "s4", "STOP SAVE GRAPH OK",
         wap_proto_status (self->message));
 }
 
@@ -512,7 +512,7 @@ prepare_get_block_hash_command (client_t *self)
 static void
 signal_have_get_block_hash_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8p", "GET BLOCK HASH OK",
+    zsock_send (self->cmdpipe, "s4p", "GET BLOCK HASH OK",
         wap_proto_status (self->message), wap_proto_get_hash (self->message));
 }
 
@@ -534,7 +534,7 @@ prepare_get_block_template_command (client_t *self)
 static void
 signal_have_get_block_template_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8888pp", "GET BLOCK TEMPLATE OK",
+    zsock_send (self->cmdpipe, "s4888pp", "GET BLOCK TEMPLATE OK",
         wap_proto_status (self->message), 
         wap_proto_reserved_offset (self->message),
         wap_proto_height (self->message),
@@ -552,7 +552,7 @@ signal_have_get_block_template_ok (client_t *self)
 static void
 signal_have_get_hard_fork_info_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s81144414", "GET HARD FORK INFO OK",
+    zsock_send (self->cmdpipe, "s41144414", "GET HARD FORK INFO OK",
         wap_proto_status (self->message), 
         wap_proto_hfversion (self->message), 
         wap_proto_enabled (self->message), 
@@ -570,7 +570,7 @@ signal_have_get_hard_fork_info_ok (client_t *self)
 static void
 signal_have_get_connections_list_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8p", "GET CONNECTIONS LIST OK",
+    zsock_send (self->cmdpipe, "s4p", "GET CONNECTIONS LIST OK",
         wap_proto_status (self->message), 
         wap_proto_get_connections (self->message));
 }
@@ -582,7 +582,7 @@ signal_have_get_connections_list_ok (client_t *self)
 static void
 signal_have_stop_daemon_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8", "STOP DAEMON OK",(uint64_t)0);
+    zsock_send (self->cmdpipe, "s4", "STOP DAEMON OK",(uint64_t)0);
 }
 
 
@@ -606,7 +606,7 @@ prepare_get_block_by_height_command (client_t *self)
 static void
 signal_have_get_block_by_height_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8p118p4188p88", "GET BLOCK BY HEIGHT OK",
+    zsock_send (self->cmdpipe, "s4p118p4188p88", "GET BLOCK BY HEIGHT OK",
         wap_proto_status (self->message), 
         wap_proto_get_block (self->message),
         wap_proto_major_version (self->message),
@@ -642,7 +642,7 @@ prepare_get_block_by_hash_command (client_t *self)
 static void
 signal_have_get_block_by_hash_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s8p118p4188p88", "GET BLOCK BY HASH OK",
+    zsock_send (self->cmdpipe, "s4p118p4188p88", "GET BLOCK BY HASH OK",
         wap_proto_status (self->message), 
         wap_proto_get_block (self->message),
         wap_proto_major_version (self->message),
