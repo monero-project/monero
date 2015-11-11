@@ -117,8 +117,9 @@ bool t_rpc_command_executor::print_peer_list() {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (wap_client_get_peer_list(ipc_client) < 0) {
-    tools::fail_msg_writer() << "Couldn't retrieve peer list";
+  int status = wap_client_get_peer_list(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
 
@@ -163,8 +164,9 @@ bool t_rpc_command_executor::save_blockchain() {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (wap_client_save_bc (ipc_client) < 0) {
-    tools::fail_msg_writer() << "Couldn't save blockchain";
+  int status = wap_client_save_bc (ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
 
@@ -178,8 +180,9 @@ bool t_rpc_command_executor::show_hash_rate() {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (!wap_client_set_log_hash_rate(ipc_client, 1) < 0) {
-    tools::fail_msg_writer() << "Failed to enable hash rate logging";
+  int status = wap_client_set_log_hash_rate(ipc_client, 1);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   tools::success_msg_writer() << "Hash rate logging is on";
@@ -191,8 +194,9 @@ bool t_rpc_command_executor::hide_hash_rate() {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (!wap_client_set_log_hash_rate(ipc_client, 0) < 0) {
-    tools::fail_msg_writer() << "Failed to disable hash rate logging";
+  int status = wap_client_set_log_hash_rate(ipc_client, 0);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   tools::success_msg_writer() << "Hash rate logging is off";
@@ -204,8 +208,9 @@ bool t_rpc_command_executor::show_difficulty() {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (wap_client_get_info(ipc_client) < 0) {
-    tools::fail_msg_writer() << "Failed to get info";
+  int status = wap_client_get_info(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   uint64_t height = wap_client_height(ipc_client);
@@ -222,8 +227,9 @@ bool t_rpc_command_executor::show_status() {
     return true;
   }
 
-  if (wap_client_get_info(ipc_client) < 0) {
-    tools::fail_msg_writer() << "Failed to get info";
+  int status = wap_client_get_info(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   uint64_t height = wap_client_height(ipc_client);
@@ -233,8 +239,9 @@ bool t_rpc_command_executor::show_status() {
   uint64_t outgoing_connections_count = wap_client_outgoing_connections_count(ipc_client);
   uint64_t incoming_connections_count = wap_client_incoming_connections_count(ipc_client);
 
-  if (wap_client_get_hard_fork_info(ipc_client) < 0) {
-    tools::fail_msg_writer() << "Failed to get hard fork info";
+  status = wap_client_get_hard_fork_info(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   uint8_t version = wap_client_hfversion(ipc_client);
@@ -266,8 +273,9 @@ bool t_rpc_command_executor::print_connections() {
     return true;
   }
 
-  if (wap_client_get_connections_list(ipc_client) < 0) {
-    tools::fail_msg_writer() << "Failed to query connections";
+  int status = wap_client_get_connections_list(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
 
@@ -385,8 +393,9 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (wap_client_set_log_level(ipc_client, level) < 0) {
-    tools::fail_msg_writer() << "Failed to set log level";
+  int status = wap_client_set_log_level(ipc_client, level);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   tools::success_msg_writer() << "Log level is now " << std::to_string(level);
@@ -398,8 +407,9 @@ bool t_rpc_command_executor::print_height() {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  if (wap_client_get_height(ipc_client) < 0) {
-    tools::fail_msg_writer() << "Failed to get height";
+  int status = wap_client_get_height(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   uint64_t height = wap_client_height(ipc_client);
@@ -415,12 +425,8 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash hash) {
   zchunk_t *hash_chunk = zchunk_new(hash.data, sizeof(hash));
   int status = wap_client_get_block_by_hash(ipc_client, &hash_chunk, true, false);
   zchunk_destroy(&hash_chunk);
-  if (status < 0) {
-    tools::fail_msg_writer() << "Failed to get block header";
-    return true;
-  }
   if (status) {
-    tools::fail_msg_writer() << "Failed to get block header";
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   zchunk_t *chunk = wap_client_block(ipc_client);
@@ -441,12 +447,8 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
     return true;
   }
   int status = wap_client_get_block_by_height(ipc_client, height, true, false);
-  if (status < 0) {
-    tools::fail_msg_writer() << "Failed to get block header";
-    return true;
-  }
   if (status) {
-    tools::fail_msg_writer() << "Failed to get block header";
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
   zchunk_t *chunk = wap_client_block(ipc_client);
@@ -469,10 +471,6 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   zchunk_t *txid_chunk = zchunk_new(transaction_hash.data, sizeof(transaction_hash));
   int status = wap_client_get_tx(ipc_client, &txid_chunk, false);
   zchunk_destroy(&txid_chunk);
-  if (status < 0) {
-    tools::fail_msg_writer() << "Failed to get tx";
-    return true;
-  }
   if (status) {
     tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;

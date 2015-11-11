@@ -64,6 +64,8 @@ namespace IPC
 {
   const char *get_status_string(int code)
   {
+    if (code == -1)
+      return "communication error";
     if (code >= 0 && code < NUM_STATUS_CODES)
       return status_strings[code];
     return "unknown error code";
