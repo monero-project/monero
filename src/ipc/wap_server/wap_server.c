@@ -414,3 +414,23 @@ stop_daemon (client_t *self)
     IPC::Daemon::stop_daemon(self->message);
 }
 
+//  ---------------------------------------------------------------------------
+//  get_block_by_height
+//
+
+static void
+get_block_by_height (client_t *self)
+{
+    IPC::Daemon::get_block_by_height(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  get_block_by_hash
+//
+
+static void
+get_block_by_hash (client_t *self)
+{
+    IPC::Daemon::get_block_by_hash(self->message);
+}
+

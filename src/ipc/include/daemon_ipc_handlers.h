@@ -80,6 +80,7 @@ namespace IPC
   const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 13;
   const uint64_t STATUS_HEIGHT_TOO_BIG = 14;
   const uint64_t STATUS_RESERVE_SIZE_TOO_BIG = 15;
+  const uint64_t STATUS_BLOCK_NOT_FOUND = 16;
   /*!
    * \namespace Daemon
    * \brief Namespace pertaining to Daemon IPC.
@@ -106,6 +107,8 @@ namespace IPC
     void get_hard_fork_info(wap_proto_t *message);
     void get_connections_list(wap_proto_t *message);
     void stop_daemon(wap_proto_t *message);
+    void get_block_by_height(wap_proto_t *message);
+    void get_block_by_hash(wap_proto_t *message);
 
     /*!
      * \brief initializes it with objects necessary to handle IPC requests and starts

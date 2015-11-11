@@ -52,11 +52,13 @@ typedef enum {
     get_hard_fork_info_event = 21,
     get_connections_list_event = 22,
     stop_daemon_event = 23,
-    close_event = 24,
-    ping_event = 25,
-    expired_event = 26,
-    exception_event = 27,
-    settled_event = 28
+    get_block_by_height_event = 24,
+    get_block_by_hash_event = 25,
+    close_event = 26,
+    ping_event = 27,
+    expired_event = 28,
+    exception_event = 29,
+    settled_event = 30
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -95,6 +97,8 @@ s_event_name [] = {
     "GET_HARD_FORK_INFO",
     "GET_CONNECTIONS_LIST",
     "STOP_DAEMON",
+    "GET_BLOCK_BY_HEIGHT",
+    "GET_BLOCK_BY_HASH",
     "CLOSE",
     "PING",
     "expired",
@@ -206,6 +210,10 @@ static void
     get_connections_list (client_t *self);
 static void
     stop_daemon (client_t *self);
+static void
+    get_block_by_height (client_t *self);
+static void
+    get_block_by_hash (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -461,6 +469,12 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_STOP_DAEMON:
             return stop_daemon_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            return get_block_by_height_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            return get_block_by_hash_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -1050,6 +1064,42 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send STOP_DAEMON_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_STOP_DAEMON_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_block_by_height_event) {
+                    if (!self->exception) {
+                        //  get block by height
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get block by height", self->log_prefix);
+                        get_block_by_height (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_BY_HEIGHT_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_BY_HEIGHT_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_block_by_hash_event) {
+                    if (!self->exception) {
+                        //  get block by hash
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get block by hash", self->log_prefix);
+                        get_block_by_hash (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_BY_HASH_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_BY_HASH_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_BY_HASH_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

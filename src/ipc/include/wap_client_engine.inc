@@ -45,10 +45,12 @@ typedef enum {
     expect_get_hard_fork_info_ok_state = 22,
     expect_get_connections_list_ok_state = 23,
     expect_stop_daemon_ok_state = 24,
-    expect_close_ok_state = 25,
-    defaults_state = 26,
-    have_error_state = 27,
-    reexpect_open_ok_state = 28
+    expect_get_block_by_height_ok_state = 25,
+    expect_get_block_by_hash_ok_state = 26,
+    expect_close_ok_state = 27,
+    defaults_state = 28,
+    have_error_state = 29,
+    reexpect_open_ok_state = 30
 } state_t;
 
 typedef enum {
@@ -78,34 +80,38 @@ typedef enum {
     get_hard_fork_info_event = 23,
     get_connections_list_event = 24,
     stop_daemon_event = 25,
-    destructor_event = 26,
-    blocks_ok_event = 27,
-    get_ok_event = 28,
-    send_raw_transaction_ok_event = 29,
-    save_bc_ok_event = 30,
-    start_ok_event = 31,
-    stop_ok_event = 32,
-    output_indexes_ok_event = 33,
-    random_outs_ok_event = 34,
-    get_height_ok_event = 35,
-    get_info_ok_event = 36,
-    get_peer_list_ok_event = 37,
-    get_mining_status_ok_event = 38,
-    set_log_hash_rate_ok_event = 39,
-    set_log_level_ok_event = 40,
-    start_save_graph_ok_event = 41,
-    stop_save_graph_ok_event = 42,
-    get_block_hash_ok_event = 43,
-    get_block_template_ok_event = 44,
-    get_hard_fork_info_ok_event = 45,
-    get_connections_list_ok_event = 46,
-    stop_daemon_ok_event = 47,
-    close_ok_event = 48,
-    ping_ok_event = 49,
-    error_event = 50,
-    exception_event = 51,
-    command_invalid_event = 52,
-    other_event = 53
+    get_block_by_height_event = 26,
+    get_block_by_hash_event = 27,
+    destructor_event = 28,
+    blocks_ok_event = 29,
+    get_ok_event = 30,
+    send_raw_transaction_ok_event = 31,
+    save_bc_ok_event = 32,
+    start_ok_event = 33,
+    stop_ok_event = 34,
+    output_indexes_ok_event = 35,
+    random_outs_ok_event = 36,
+    get_height_ok_event = 37,
+    get_info_ok_event = 38,
+    get_peer_list_ok_event = 39,
+    get_mining_status_ok_event = 40,
+    set_log_hash_rate_ok_event = 41,
+    set_log_level_ok_event = 42,
+    start_save_graph_ok_event = 43,
+    stop_save_graph_ok_event = 44,
+    get_block_hash_ok_event = 45,
+    get_block_template_ok_event = 46,
+    get_hard_fork_info_ok_event = 47,
+    get_connections_list_ok_event = 48,
+    stop_daemon_ok_event = 49,
+    get_block_by_height_ok_event = 50,
+    get_block_by_hash_ok_event = 51,
+    close_ok_event = 52,
+    ping_ok_event = 53,
+    error_event = 54,
+    exception_event = 55,
+    command_invalid_event = 56,
+    other_event = 57
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -136,6 +142,8 @@ s_state_name [] = {
     "expect get hard fork info ok",
     "expect get connections list ok",
     "expect stop daemon ok",
+    "expect get block by height ok",
+    "expect get block by hash ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -170,6 +178,8 @@ s_event_name [] = {
     "GET_HARD_FORK_INFO",
     "GET_CONNECTIONS_LIST",
     "STOP_DAEMON",
+    "GET_BLOCK_BY_HEIGHT",
+    "GET_BLOCK_BY_HASH",
     "destructor",
     "BLOCKS_OK",
     "GET_OK",
@@ -192,6 +202,8 @@ s_event_name [] = {
     "GET_HARD_FORK_INFO_OK",
     "GET_CONNECTIONS_LIST_OK",
     "STOP_DAEMON_OK",
+    "GET_BLOCK_BY_HEIGHT_OK",
+    "GET_BLOCK_BY_HASH_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -223,6 +235,9 @@ struct _client_args_t {
     uint8_t level;
     uint64_t height;
     uint64_t reserve_size;
+    uint8_t header_only;
+    uint8_t as_json;
+    zchunk_t *hash;
 };
 
 typedef struct {
@@ -298,6 +313,10 @@ static void
 static void
     prepare_get_block_template_command (client_t *self);
 static void
+    prepare_get_block_by_height_command (client_t *self);
+static void
+    prepare_get_block_by_hash_command (client_t *self);
+static void
     check_if_connection_is_dead (client_t *self);
 static void
     signal_have_blocks_ok (client_t *self);
@@ -341,6 +360,10 @@ static void
     signal_have_get_connections_list_ok (client_t *self);
 static void
     signal_have_stop_daemon_ok (client_t *self);
+static void
+    signal_have_get_block_by_height_ok (client_t *self);
+static void
+    signal_have_get_block_by_hash_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -403,6 +426,7 @@ s_client_destroy (s_client_t **self_p)
         zchunk_destroy (&self->args.tx_id);
         zframe_destroy (&self->args.amounts);
         zchunk_destroy (&self->args.address);
+        zchunk_destroy (&self->args.hash);
         client_terminate (&self->client);
         wap_proto_destroy (&self->message);
         zsock_destroy (&self->msgpipe);
@@ -681,6 +705,18 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_STOP_DAEMON_OK:
             return stop_daemon_ok_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            return get_block_by_height_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
+            return get_block_by_height_ok_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            return get_block_by_hash_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
+            return get_block_by_hash_ok_event;
             break;
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
@@ -1173,6 +1209,44 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_stop_daemon_ok_state;
+                }
+                else
+                if (self->event == get_block_by_height_event) {
+                    if (!self->exception) {
+                        //  prepare get block by height command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare get block by height command", self->log_prefix);
+                        prepare_get_block_by_height_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_BY_HEIGHT
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_BY_HEIGHT",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_BLOCK_BY_HEIGHT);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_block_by_height_ok_state;
+                }
+                else
+                if (self->event == get_block_by_hash_event) {
+                    if (!self->exception) {
+                        //  prepare get block by hash command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare get block by hash command", self->log_prefix);
+                        prepare_get_block_by_hash_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_BY_HASH
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_BY_HASH",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_BLOCK_BY_HASH);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_block_by_hash_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -2051,6 +2125,84 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_get_block_by_height_ok_state:
+                if (self->event == get_block_by_height_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get block by height ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have get block by height ok", self->log_prefix);
+                        signal_have_get_block_by_height_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
+            case expect_get_block_by_hash_ok_state:
+                if (self->event == get_block_by_hash_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get block by hash ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have get block by hash ok", self->log_prefix);
+                        signal_have_get_block_by_hash_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2390,6 +2542,17 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (streq (method, "STOP DAEMON")) {
         s_client_execute (self, stop_daemon_event);
     }
+    else
+    if (streq (method, "GET BLOCK BY HEIGHT")) {
+        zsock_recv (self->cmdpipe, "811", &self->args.height, &self->args.header_only, &self->args.as_json);
+        s_client_execute (self, get_block_by_height_event);
+    }
+    else
+    if (streq (method, "GET BLOCK BY HASH")) {
+        zchunk_destroy (&self->args.hash);
+        zsock_recv (self->cmdpipe, "p11", &self->args.hash, &self->args.header_only, &self->args.as_json);
+        s_client_execute (self, get_block_by_hash_event);
+    }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
         zsys_error ("%s: trailing API command frames (%s)",
@@ -2540,6 +2703,14 @@ struct _wap_client_t {
     uint8_t voting;             //  Returned by actor reply
     uint32_t hfstate;           //  Returned by actor reply
     zframe_t *connections;      //  Returned by actor reply
+    zchunk_t *block;            //  Returned by actor reply
+    uint8_t major_version;      //  Returned by actor reply
+    uint8_t minor_version;      //  Returned by actor reply
+    uint64_t timestamp;         //  Returned by actor reply
+    uint32_t nonce;             //  Returned by actor reply
+    uint8_t orphan;             //  Returned by actor reply
+    uint64_t depth;             //  Returned by actor reply
+    uint64_t reward;            //  Returned by actor reply
 };
 
 
@@ -2599,6 +2770,7 @@ wap_client_destroy (wap_client_t **self_p)
         zchunk_destroy (&self->prev_hash);
         zchunk_destroy (&self->block_template_blob);
         zframe_destroy (&self->connections);
+        zchunk_destroy (&self->block);
         free (self);
         *self_p = NULL;
     }
@@ -2770,6 +2942,20 @@ s_accept_reply (wap_client_t *self, ...)
                 else
                 if (streq (reply, "STOP DAEMON OK")) {
                     zsock_recv (self->actor, "8", &self->status);
+                }
+                else
+                if (streq (reply, "GET BLOCK BY HEIGHT OK")) {
+                    zchunk_destroy (&self->block);
+                    zchunk_destroy (&self->prev_hash);
+                    zchunk_destroy (&self->hash);
+                    zsock_recv (self->actor, "8p118p4188p88", &self->status, &self->block, &self->major_version, &self->minor_version, &self->timestamp, &self->prev_hash, &self->nonce, &self->orphan, &self->height, &self->depth, &self->hash, &self->difficulty, &self->reward);
+                }
+                else
+                if (streq (reply, "GET BLOCK BY HASH OK")) {
+                    zchunk_destroy (&self->block);
+                    zchunk_destroy (&self->prev_hash);
+                    zchunk_destroy (&self->hash);
+                    zsock_recv (self->actor, "8p118p4188p88", &self->status, &self->block, &self->major_version, &self->minor_version, &self->timestamp, &self->prev_hash, &self->nonce, &self->orphan, &self->height, &self->depth, &self->hash, &self->difficulty, &self->reward);
                 }
                 break;
             }
@@ -3160,6 +3346,39 @@ wap_client_stop_daemon (wap_client_t *self)
 
     zsock_send (self->actor, "s", "STOP DAEMON");
     if (s_accept_reply (self, "STOP DAEMON OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Get block by height                                                             
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_block_by_height (wap_client_t *self, uint64_t height, uint8_t header_only, uint8_t as_json)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s811", "GET BLOCK BY HEIGHT", height, header_only, as_json);
+    if (s_accept_reply (self, "GET BLOCK BY HEIGHT OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Get block by hash                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_block_by_hash (wap_client_t *self, zchunk_t **hash_p, uint8_t header_only, uint8_t as_json)
+{
+    assert (self);
+
+    zsock_send (self->actor, "sp11", "GET BLOCK BY HASH", *hash_p, header_only, as_json);
+    *hash_p = NULL;             //  Take ownership of hash
+    if (s_accept_reply (self, "GET BLOCK BY HASH OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
@@ -3569,4 +3788,92 @@ wap_client_connections (wap_client_t *self)
 {
     assert (self);
     return self->connections;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received block
+
+zchunk_t *
+wap_client_block (wap_client_t *self)
+{
+    assert (self);
+    return self->block;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received major_version
+
+uint8_t 
+wap_client_major_version (wap_client_t *self)
+{
+    assert (self);
+    return self->major_version;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received minor_version
+
+uint8_t 
+wap_client_minor_version (wap_client_t *self)
+{
+    assert (self);
+    return self->minor_version;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received timestamp
+
+uint64_t 
+wap_client_timestamp (wap_client_t *self)
+{
+    assert (self);
+    return self->timestamp;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received nonce
+
+uint32_t 
+wap_client_nonce (wap_client_t *self)
+{
+    assert (self);
+    return self->nonce;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received orphan
+
+uint8_t 
+wap_client_orphan (wap_client_t *self)
+{
+    assert (self);
+    return self->orphan;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received depth
+
+uint64_t 
+wap_client_depth (wap_client_t *self)
+{
+    assert (self);
+    return self->depth;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received reward
+
+uint64_t 
+wap_client_reward (wap_client_t *self)
+{
+    assert (self);
+    return self->reward;
 }

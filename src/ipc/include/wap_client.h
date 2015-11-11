@@ -172,6 +172,16 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_stop_daemon (wap_client_t *self);
 
+//  Get block by height                                                             
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_block_by_height (wap_client_t *self, uint64_t height, uint8_t header_only, uint8_t as_json);
+
+//  Get block by hash                                                               
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_block_by_hash (wap_client_t *self, zchunk_t **hash_p, uint8_t header_only, uint8_t as_json);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -319,6 +329,38 @@ WAP_EXPORT uint32_t
 //  Return last received connections
 WAP_EXPORT zframe_t *
     wap_client_connections (wap_client_t *self);
+
+//  Return last received block
+WAP_EXPORT zchunk_t *
+    wap_client_block (wap_client_t *self);
+
+//  Return last received major_version
+WAP_EXPORT uint8_t 
+    wap_client_major_version (wap_client_t *self);
+
+//  Return last received minor_version
+WAP_EXPORT uint8_t 
+    wap_client_minor_version (wap_client_t *self);
+
+//  Return last received timestamp
+WAP_EXPORT uint64_t 
+    wap_client_timestamp (wap_client_t *self);
+
+//  Return last received nonce
+WAP_EXPORT uint32_t 
+    wap_client_nonce (wap_client_t *self);
+
+//  Return last received orphan
+WAP_EXPORT uint8_t 
+    wap_client_orphan (wap_client_t *self);
+
+//  Return last received depth
+WAP_EXPORT uint64_t 
+    wap_client_depth (wap_client_t *self);
+
+//  Return last received reward
+WAP_EXPORT uint64_t 
+    wap_client_reward (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

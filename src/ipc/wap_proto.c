@@ -79,6 +79,16 @@ struct _wap_proto_t {
     byte voting;                        //  Voting
     uint32_t hfstate;                   //  State
     zframe_t *connections;              //  Connections
+    byte header_only;                   //  Header-only
+    byte as_json;                       //  As JSON
+    zchunk_t *block;                    //  Block blob
+    byte major_version;                 //  major_version
+    byte minor_version;                 //  minor_version
+    uint64_t timestamp;                 //  timestamp
+    uint32_t nonce;                     //  nonce
+    byte orphan;                        //  orphan
+    uint64_t depth;                     //  depth
+    uint64_t reward;                    //  reward
     char reason [256];                  //  Printable explanation
 };
 
@@ -271,6 +281,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zchunk_destroy (&self->prev_hash);
         zchunk_destroy (&self->block_template_blob);
         zframe_destroy (&self->connections);
+        zchunk_destroy (&self->block);
 
         //  Free object itself
         free (self);
@@ -692,6 +703,119 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->status);
             break;
 
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            GET_NUMBER8 (self->height);
+            GET_NUMBER1 (self->header_only);
+            GET_NUMBER1 (self->as_json);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
+            GET_NUMBER8 (self->status);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: block is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->block);
+                self->block = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            GET_NUMBER1 (self->major_version);
+            GET_NUMBER1 (self->minor_version);
+            GET_NUMBER8 (self->timestamp);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: prev_hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->prev_hash);
+                self->prev_hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            GET_NUMBER4 (self->nonce);
+            GET_NUMBER1 (self->orphan);
+            GET_NUMBER8 (self->height);
+            GET_NUMBER8 (self->depth);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->hash);
+                self->hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            GET_NUMBER8 (self->difficulty);
+            GET_NUMBER8 (self->reward);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->hash);
+                self->hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            GET_NUMBER1 (self->header_only);
+            GET_NUMBER1 (self->as_json);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
+            GET_NUMBER8 (self->status);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: block is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->block);
+                self->block = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            GET_NUMBER1 (self->major_version);
+            GET_NUMBER1 (self->minor_version);
+            GET_NUMBER8 (self->timestamp);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: prev_hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->prev_hash);
+                self->prev_hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            GET_NUMBER4 (self->nonce);
+            GET_NUMBER8 (self->height);
+            GET_NUMBER8 (self->depth);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->hash);
+                self->hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            GET_NUMBER8 (self->difficulty);
+            GET_NUMBER8 (self->reward);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -898,6 +1022,59 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             break;
         case WAP_PROTO_STOP_DAEMON_OK:
             frame_size += 8;            //  status
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            frame_size += 8;            //  height
+            frame_size += 1;            //  header_only
+            frame_size += 1;            //  as_json
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
+            frame_size += 8;            //  status
+            frame_size += 4;            //  Size is 4 octets
+            if (self->block)
+                frame_size += zchunk_size (self->block);
+            frame_size += 1;            //  major_version
+            frame_size += 1;            //  minor_version
+            frame_size += 8;            //  timestamp
+            frame_size += 4;            //  Size is 4 octets
+            if (self->prev_hash)
+                frame_size += zchunk_size (self->prev_hash);
+            frame_size += 4;            //  nonce
+            frame_size += 1;            //  orphan
+            frame_size += 8;            //  height
+            frame_size += 8;            //  depth
+            frame_size += 4;            //  Size is 4 octets
+            if (self->hash)
+                frame_size += zchunk_size (self->hash);
+            frame_size += 8;            //  difficulty
+            frame_size += 8;            //  reward
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            frame_size += 4;            //  Size is 4 octets
+            if (self->hash)
+                frame_size += zchunk_size (self->hash);
+            frame_size += 1;            //  header_only
+            frame_size += 1;            //  as_json
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
+            frame_size += 8;            //  status
+            frame_size += 4;            //  Size is 4 octets
+            if (self->block)
+                frame_size += zchunk_size (self->block);
+            frame_size += 1;            //  major_version
+            frame_size += 1;            //  minor_version
+            frame_size += 8;            //  timestamp
+            frame_size += 4;            //  Size is 4 octets
+            if (self->prev_hash)
+                frame_size += zchunk_size (self->prev_hash);
+            frame_size += 4;            //  nonce
+            frame_size += 8;            //  height
+            frame_size += 8;            //  depth
+            frame_size += 4;            //  Size is 4 octets
+            if (self->hash)
+                frame_size += zchunk_size (self->hash);
+            frame_size += 8;            //  difficulty
+            frame_size += 8;            //  reward
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -1173,6 +1350,105 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
 
         case WAP_PROTO_STOP_DAEMON_OK:
             PUT_NUMBER8 (self->status);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            PUT_NUMBER8 (self->height);
+            PUT_NUMBER1 (self->header_only);
+            PUT_NUMBER1 (self->as_json);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
+            PUT_NUMBER8 (self->status);
+            if (self->block) {
+                PUT_NUMBER4 (zchunk_size (self->block));
+                memcpy (self->needle,
+                        zchunk_data (self->block),
+                        zchunk_size (self->block));
+                self->needle += zchunk_size (self->block);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER1 (self->major_version);
+            PUT_NUMBER1 (self->minor_version);
+            PUT_NUMBER8 (self->timestamp);
+            if (self->prev_hash) {
+                PUT_NUMBER4 (zchunk_size (self->prev_hash));
+                memcpy (self->needle,
+                        zchunk_data (self->prev_hash),
+                        zchunk_size (self->prev_hash));
+                self->needle += zchunk_size (self->prev_hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER4 (self->nonce);
+            PUT_NUMBER1 (self->orphan);
+            PUT_NUMBER8 (self->height);
+            PUT_NUMBER8 (self->depth);
+            if (self->hash) {
+                PUT_NUMBER4 (zchunk_size (self->hash));
+                memcpy (self->needle,
+                        zchunk_data (self->hash),
+                        zchunk_size (self->hash));
+                self->needle += zchunk_size (self->hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER8 (self->difficulty);
+            PUT_NUMBER8 (self->reward);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            if (self->hash) {
+                PUT_NUMBER4 (zchunk_size (self->hash));
+                memcpy (self->needle,
+                        zchunk_data (self->hash),
+                        zchunk_size (self->hash));
+                self->needle += zchunk_size (self->hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER1 (self->header_only);
+            PUT_NUMBER1 (self->as_json);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
+            PUT_NUMBER8 (self->status);
+            if (self->block) {
+                PUT_NUMBER4 (zchunk_size (self->block));
+                memcpy (self->needle,
+                        zchunk_data (self->block),
+                        zchunk_size (self->block));
+                self->needle += zchunk_size (self->block);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER1 (self->major_version);
+            PUT_NUMBER1 (self->minor_version);
+            PUT_NUMBER8 (self->timestamp);
+            if (self->prev_hash) {
+                PUT_NUMBER4 (zchunk_size (self->prev_hash));
+                memcpy (self->needle,
+                        zchunk_data (self->prev_hash),
+                        zchunk_size (self->prev_hash));
+                self->needle += zchunk_size (self->prev_hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER4 (self->nonce);
+            PUT_NUMBER8 (self->height);
+            PUT_NUMBER8 (self->depth);
+            if (self->hash) {
+                PUT_NUMBER4 (zchunk_size (self->hash));
+                memcpy (self->needle,
+                        zchunk_data (self->hash),
+                        zchunk_size (self->hash));
+                self->needle += zchunk_size (self->hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER8 (self->difficulty);
+            PUT_NUMBER8 (self->reward);
             break;
 
         case WAP_PROTO_ERROR:
@@ -1539,6 +1815,53 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_BY_HEIGHT:");
+            zsys_debug ("    height=%ld", (long) self->height);
+            zsys_debug ("    header_only=%ld", (long) self->header_only);
+            zsys_debug ("    as_json=%ld", (long) self->as_json);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    block=[ ... ]");
+            zsys_debug ("    major_version=%ld", (long) self->major_version);
+            zsys_debug ("    minor_version=%ld", (long) self->minor_version);
+            zsys_debug ("    timestamp=%ld", (long) self->timestamp);
+            zsys_debug ("    prev_hash=[ ... ]");
+            zsys_debug ("    nonce=%ld", (long) self->nonce);
+            zsys_debug ("    orphan=%ld", (long) self->orphan);
+            zsys_debug ("    height=%ld", (long) self->height);
+            zsys_debug ("    depth=%ld", (long) self->depth);
+            zsys_debug ("    hash=[ ... ]");
+            zsys_debug ("    difficulty=%ld", (long) self->difficulty);
+            zsys_debug ("    reward=%ld", (long) self->reward);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_BY_HASH:");
+            zsys_debug ("    hash=[ ... ]");
+            zsys_debug ("    header_only=%ld", (long) self->header_only);
+            zsys_debug ("    as_json=%ld", (long) self->as_json);
+            break;
+
+        case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
+            zsys_debug ("WAP_PROTO_GET_BLOCK_BY_HASH_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    block=[ ... ]");
+            zsys_debug ("    major_version=%ld", (long) self->major_version);
+            zsys_debug ("    minor_version=%ld", (long) self->minor_version);
+            zsys_debug ("    timestamp=%ld", (long) self->timestamp);
+            zsys_debug ("    prev_hash=[ ... ]");
+            zsys_debug ("    nonce=%ld", (long) self->nonce);
+            zsys_debug ("    height=%ld", (long) self->height);
+            zsys_debug ("    depth=%ld", (long) self->depth);
+            zsys_debug ("    hash=[ ... ]");
+            zsys_debug ("    difficulty=%ld", (long) self->difficulty);
+            zsys_debug ("    reward=%ld", (long) self->reward);
+            break;
+
         case WAP_PROTO_CLOSE:
             zsys_debug ("WAP_PROTO_CLOSE:");
             break;
@@ -1739,6 +2062,18 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_STOP_DAEMON_OK:
             return ("STOP_DAEMON_OK");
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            return ("GET_BLOCK_BY_HEIGHT");
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK:
+            return ("GET_BLOCK_BY_HEIGHT_OK");
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            return ("GET_BLOCK_BY_HASH");
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
+            return ("GET_BLOCK_BY_HASH_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -2801,6 +3136,201 @@ wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the header_only field
+
+byte
+wap_proto_header_only (wap_proto_t *self)
+{
+    assert (self);
+    return self->header_only;
+}
+
+void
+wap_proto_set_header_only (wap_proto_t *self, byte header_only)
+{
+    assert (self);
+    self->header_only = header_only;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the as_json field
+
+byte
+wap_proto_as_json (wap_proto_t *self)
+{
+    assert (self);
+    return self->as_json;
+}
+
+void
+wap_proto_set_as_json (wap_proto_t *self, byte as_json)
+{
+    assert (self);
+    self->as_json = as_json;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get the block field without transferring ownership
+
+zchunk_t *
+wap_proto_block (wap_proto_t *self)
+{
+    assert (self);
+    return self->block;
+}
+
+//  Get the block field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_block (wap_proto_t *self)
+{
+    zchunk_t *block = self->block;
+    self->block = NULL;
+    return block;
+}
+
+//  Set the block field, transferring ownership from caller
+
+void
+wap_proto_set_block (wap_proto_t *self, zchunk_t **chunk_p)
+{
+    assert (self);
+    assert (chunk_p);
+    zchunk_destroy (&self->block);
+    self->block = *chunk_p;
+    *chunk_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the major_version field
+
+byte
+wap_proto_major_version (wap_proto_t *self)
+{
+    assert (self);
+    return self->major_version;
+}
+
+void
+wap_proto_set_major_version (wap_proto_t *self, byte major_version)
+{
+    assert (self);
+    self->major_version = major_version;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the minor_version field
+
+byte
+wap_proto_minor_version (wap_proto_t *self)
+{
+    assert (self);
+    return self->minor_version;
+}
+
+void
+wap_proto_set_minor_version (wap_proto_t *self, byte minor_version)
+{
+    assert (self);
+    self->minor_version = minor_version;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the timestamp field
+
+uint64_t
+wap_proto_timestamp (wap_proto_t *self)
+{
+    assert (self);
+    return self->timestamp;
+}
+
+void
+wap_proto_set_timestamp (wap_proto_t *self, uint64_t timestamp)
+{
+    assert (self);
+    self->timestamp = timestamp;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the nonce field
+
+uint32_t
+wap_proto_nonce (wap_proto_t *self)
+{
+    assert (self);
+    return self->nonce;
+}
+
+void
+wap_proto_set_nonce (wap_proto_t *self, uint32_t nonce)
+{
+    assert (self);
+    self->nonce = nonce;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the orphan field
+
+byte
+wap_proto_orphan (wap_proto_t *self)
+{
+    assert (self);
+    return self->orphan;
+}
+
+void
+wap_proto_set_orphan (wap_proto_t *self, byte orphan)
+{
+    assert (self);
+    self->orphan = orphan;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the depth field
+
+uint64_t
+wap_proto_depth (wap_proto_t *self)
+{
+    assert (self);
+    return self->depth;
+}
+
+void
+wap_proto_set_depth (wap_proto_t *self, uint64_t depth)
+{
+    assert (self);
+    self->depth = depth;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the reward field
+
+uint64_t
+wap_proto_reward (wap_proto_t *self)
+{
+    assert (self);
+    return self->reward;
+}
+
+void
+wap_proto_set_reward (wap_proto_t *self, uint64_t reward)
+{
+    assert (self);
+    self->reward = reward;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -3506,6 +4036,129 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_BY_HEIGHT);
+
+    wap_proto_set_height (self, 123);
+    wap_proto_set_header_only (self, 123);
+    wap_proto_set_as_json (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_height (self) == 123);
+        assert (wap_proto_header_only (self) == 123);
+        assert (wap_proto_as_json (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK);
+
+    wap_proto_set_status (self, 123);
+    zchunk_t *get_block_by_height_ok_block = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_block (self, &get_block_by_height_ok_block);
+    wap_proto_set_major_version (self, 123);
+    wap_proto_set_minor_version (self, 123);
+    wap_proto_set_timestamp (self, 123);
+    zchunk_t *get_block_by_height_ok_prev_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_prev_hash (self, &get_block_by_height_ok_prev_hash);
+    wap_proto_set_nonce (self, 123);
+    wap_proto_set_orphan (self, 123);
+    wap_proto_set_height (self, 123);
+    wap_proto_set_depth (self, 123);
+    zchunk_t *get_block_by_height_ok_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_hash (self, &get_block_by_height_ok_hash);
+    wap_proto_set_difficulty (self, 123);
+    wap_proto_set_reward (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_block (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_block_by_height_ok_block);
+        assert (wap_proto_major_version (self) == 123);
+        assert (wap_proto_minor_version (self) == 123);
+        assert (wap_proto_timestamp (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_prev_hash (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_block_by_height_ok_prev_hash);
+        assert (wap_proto_nonce (self) == 123);
+        assert (wap_proto_orphan (self) == 123);
+        assert (wap_proto_height (self) == 123);
+        assert (wap_proto_depth (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_hash (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_block_by_height_ok_hash);
+        assert (wap_proto_difficulty (self) == 123);
+        assert (wap_proto_reward (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_BY_HASH);
+
+    zchunk_t *get_block_by_hash_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_hash (self, &get_block_by_hash_hash);
+    wap_proto_set_header_only (self, 123);
+    wap_proto_set_as_json (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (memcmp (zchunk_data (wap_proto_hash (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_block_by_hash_hash);
+        assert (wap_proto_header_only (self) == 123);
+        assert (wap_proto_as_json (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BLOCK_BY_HASH_OK);
+
+    wap_proto_set_status (self, 123);
+    zchunk_t *get_block_by_hash_ok_block = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_block (self, &get_block_by_hash_ok_block);
+    wap_proto_set_major_version (self, 123);
+    wap_proto_set_minor_version (self, 123);
+    wap_proto_set_timestamp (self, 123);
+    zchunk_t *get_block_by_hash_ok_prev_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_prev_hash (self, &get_block_by_hash_ok_prev_hash);
+    wap_proto_set_nonce (self, 123);
+    wap_proto_set_height (self, 123);
+    wap_proto_set_depth (self, 123);
+    zchunk_t *get_block_by_hash_ok_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_hash (self, &get_block_by_hash_ok_hash);
+    wap_proto_set_difficulty (self, 123);
+    wap_proto_set_reward (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_block (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_block_by_hash_ok_block);
+        assert (wap_proto_major_version (self) == 123);
+        assert (wap_proto_minor_version (self) == 123);
+        assert (wap_proto_timestamp (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_prev_hash (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_block_by_hash_ok_prev_hash);
+        assert (wap_proto_nonce (self) == 123);
+        assert (wap_proto_height (self) == 123);
+        assert (wap_proto_depth (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_hash (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_block_by_hash_ok_hash);
+        assert (wap_proto_difficulty (self) == 123);
+        assert (wap_proto_reward (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

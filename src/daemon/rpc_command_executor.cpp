@@ -62,18 +62,22 @@ namespace {
     tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
   }
 
-  void print_block_header(cryptonote::block_header_responce const & header)
+  void print_block_header(wap_client_t *ipc_client)
   {
+    zchunk_t *prev_hash = wap_client_prev_hash(ipc_client);
+    std::string prev_hash_str((const char *)zchunk_data(prev_hash), zchunk_size(prev_hash));
+    zchunk_t *hash = wap_client_hash(ipc_client);
+    std::string hash_str((const char *)zchunk_data(hash), zchunk_size(hash));
     tools::success_msg_writer()
-      << "timestamp: " << boost::lexical_cast<std::string>(header.timestamp) << std::endl
-      << "previous hash: " << header.prev_hash << std::endl
-      << "nonce: " << boost::lexical_cast<std::string>(header.nonce) << std::endl
-      << "is orphan: " << header.orphan_status << std::endl
-      << "height: " << boost::lexical_cast<std::string>(header.height) << std::endl
-      << "depth: " << boost::lexical_cast<std::string>(header.depth) << std::endl
-      << "hash: " << header.hash
-      << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
-      << "reward: " << boost::lexical_cast<std::string>(header.reward);
+      << "timestamp: " << boost::lexical_cast<std::string>(wap_client_timestamp(ipc_client)) << std::endl
+      << "previous hash: " << prev_hash_str << std::endl
+      << "nonce: " << std::hex << std::setfill('0') << std::setw(8) << wap_client_nonce(ipc_client) << std::dec <<  std::endl
+      << "is orphan: " << (wap_client_orphan(ipc_client) ? "true" : "false") << std::endl
+      << "height: " << boost::lexical_cast<std::string>(wap_client_height(ipc_client)) << std::endl
+      << "depth: " << boost::lexical_cast<std::string>(wap_client_depth(ipc_client)) << std::endl
+      << "hash: " << hash_str << std::endl
+      << "difficulty: " << boost::lexical_cast<std::string>(wap_client_difficulty(ipc_client)) << std::endl
+      << "reward: " << boost::lexical_cast<std::string>(wap_client_reward(ipc_client));
   }
 }
 
@@ -403,47 +407,59 @@ bool t_rpc_command_executor::print_height() {
   return true;
 }
 
-bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
-#if 0
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request req;
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response res;
-  epee::json_rpc::error error_resp;
-
-  req.hash = epee::string_tools::pod_to_hex(block_hash);
-
-  std::string fail_message = "Unsuccessful";
-
-  if (!m_rpc_server->on_get_block_header_by_hash(req, res, error_resp))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+bool t_rpc_command_executor::print_block_by_hash(crypto::hash hash) {
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  print_block_header(res.block_header);
-#endif
-
+  zchunk_t *hash_chunk = zchunk_new(hash.data, sizeof(hash));
+  int ret = wap_client_get_block_by_hash(ipc_client, &hash_chunk, true, false);
+  zchunk_destroy(&hash_chunk);
+  if (ret < 0) {
+    tools::fail_msg_writer() << "Failed to get block header";
+    return true;
+  }
+  uint64_t status = wap_client_status(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Failed to get block header";
+    return true;
+  }
+  zchunk_t *chunk = wap_client_block(ipc_client);
+  cryptonote::blobdata blob((const char *)zchunk_data(chunk), zchunk_size(chunk));
+  cryptonote::block_header block_header;
+  if (!cryptonote::parse_and_validate_block_header_from_blob(blob, block_header)) {
+    tools::fail_msg_writer() << "Failed to validate block header";
+    return true;
+  }
+  tools::success_msg_writer() << "Header: " << string_tools::pod_to_hex(block_header);
+  print_block_header(ipc_client);
   return true;
 }
 
 bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
-#if 0
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req;
-  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response res;
-  epee::json_rpc::error error_resp;
-
-  req.height = height;
-
-  std::string fail_message = "Unsuccessful";
-
-  if (!m_rpc_server->on_get_block_header_by_height(req, res, error_resp))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  print_block_header(res.block_header);
-#endif
-
+  int ret = wap_client_get_block_by_height(ipc_client, height, true, false);
+  if (ret < 0) {
+    tools::fail_msg_writer() << "Failed to get block header";
+    return true;
+  }
+  uint64_t status = wap_client_status(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Failed to get block header";
+    return true;
+  }
+  zchunk_t *chunk = wap_client_block(ipc_client);
+  cryptonote::blobdata blob((const char *)zchunk_data(chunk), zchunk_size(chunk));
+  cryptonote::block_header block_header;
+  if (!cryptonote::parse_and_validate_block_header_from_blob(blob, block_header)) {
+    tools::fail_msg_writer() << "Failed to validate block header";
+    return true;
+  }
+  tools::success_msg_writer() << "Header: " << string_tools::pod_to_hex(block_header);
+  print_block_header(ipc_client);
   return true;
 }
 

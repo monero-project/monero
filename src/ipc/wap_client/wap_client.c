@@ -584,3 +584,77 @@ signal_have_stop_daemon_ok (client_t *self)
 {
     zsock_send (self->cmdpipe, "s8", "STOP DAEMON OK",(uint64_t)0);
 }
+
+
+//  ---------------------------------------------------------------------------
+//  prepare_get_block_by_height_command
+//
+
+static void
+prepare_get_block_by_height_command (client_t *self)
+{
+    wap_proto_set_height (self->message, self->args->height);
+    wap_proto_set_header_only (self->message, self->args->header_only);
+    wap_proto_set_as_json (self->message, self->args->as_json);
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_block_by_height_ok
+//
+
+static void
+signal_have_get_block_by_height_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8p118p4188p88", "GET BLOCK BY HEIGHT OK",
+        wap_proto_status (self->message), 
+        wap_proto_get_block (self->message),
+        wap_proto_major_version (self->message),
+        wap_proto_minor_version (self->message),
+        wap_proto_timestamp (self->message),
+        wap_proto_get_prev_hash (self->message),
+        wap_proto_nonce (self->message),
+        wap_proto_orphan (self->message),
+        wap_proto_height (self->message),
+        wap_proto_depth (self->message),
+        wap_proto_get_hash (self->message),
+        wap_proto_difficulty (self->message),
+        wap_proto_reward (self->message));
+}
+
+
+//  ---------------------------------------------------------------------------
+//  prepare_get_block_by_hash_command
+//
+
+static void
+prepare_get_block_by_hash_command (client_t *self)
+{
+    wap_proto_set_hash (self->message, &self->args->hash);
+    wap_proto_set_header_only (self->message, self->args->header_only);
+    wap_proto_set_as_json (self->message, self->args->as_json);
+}
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_block_by_hash_ok
+//
+
+static void
+signal_have_get_block_by_hash_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s8p118p4188p88", "GET BLOCK BY HASH OK",
+        wap_proto_status (self->message), 
+        wap_proto_get_block (self->message),
+        wap_proto_major_version (self->message),
+        wap_proto_minor_version (self->message),
+        wap_proto_timestamp (self->message),
+        wap_proto_get_prev_hash (self->message),
+        wap_proto_nonce (self->message),
+        wap_proto_orphan (self->message),
+        wap_proto_height (self->message),
+        wap_proto_depth (self->message),
+        wap_proto_get_hash (self->message),
+        wap_proto_difficulty (self->message),
+        wap_proto_reward (self->message));
+}
+

@@ -191,6 +191,45 @@ ERROR.
     STOP_DAEMON_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 8    Status
 
+    GET_BLOCK_BY_HEIGHT - get_block_by_height IPC
+        height              number 8    Height
+        header_only         number 1    Header-only
+        as_json             number 1    As JSON
+
+    GET_BLOCK_BY_HEIGHT_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        block               chunk       Block blob
+        major_version       number 1    
+        minor_version       number 1    
+        timestamp           number 8    
+        prev_hash           chunk       
+        nonce               number 4    
+        orphan              number 1    
+        height              number 8    
+        depth               number 8    
+        hash                chunk       
+        difficulty          number 8    
+        reward              number 8    
+
+    GET_BLOCK_BY_HASH - get_block_by_hash IPC
+        hash                chunk       Hash
+        header_only         number 1    Header-only
+        as_json             number 1    As JSON
+
+    GET_BLOCK_BY_HASH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 8    Status
+        block               chunk       Block blob
+        major_version       number 1    
+        minor_version       number 1    
+        timestamp           number 8    
+        prev_hash           chunk       
+        nonce               number 4    
+        height              number 8    
+        depth               number 8    
+        hash                chunk       
+        difficulty          number 8    
+        reward              number 8    
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -261,11 +300,15 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_CONNECTIONS_LIST_OK   42
 #define WAP_PROTO_STOP_DAEMON               43
 #define WAP_PROTO_STOP_DAEMON_OK            44
-#define WAP_PROTO_CLOSE                     45
-#define WAP_PROTO_CLOSE_OK                  46
-#define WAP_PROTO_PING                      47
-#define WAP_PROTO_PING_OK                   48
-#define WAP_PROTO_ERROR                     49
+#define WAP_PROTO_GET_BLOCK_BY_HEIGHT       45
+#define WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK    46
+#define WAP_PROTO_GET_BLOCK_BY_HASH         47
+#define WAP_PROTO_GET_BLOCK_BY_HASH_OK      48
+#define WAP_PROTO_CLOSE                     49
+#define WAP_PROTO_CLOSE_OK                  50
+#define WAP_PROTO_PING                      51
+#define WAP_PROTO_PING_OK                   52
+#define WAP_PROTO_ERROR                     53
 
 #include <czmq.h>
 
@@ -644,6 +687,70 @@ zframe_t *
 //  Set the connections field, transferring ownership from caller
 void
     wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the header_only field
+byte
+    wap_proto_header_only (wap_proto_t *self);
+void
+    wap_proto_set_header_only (wap_proto_t *self, byte header_only);
+
+//  Get/set the as_json field
+byte
+    wap_proto_as_json (wap_proto_t *self);
+void
+    wap_proto_set_as_json (wap_proto_t *self, byte as_json);
+
+//  Get a copy of the block field
+zchunk_t *
+    wap_proto_block (wap_proto_t *self);
+//  Get the block field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_block (wap_proto_t *self);
+//  Set the block field, transferring ownership from caller
+void
+    wap_proto_set_block (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get/set the major_version field
+byte
+    wap_proto_major_version (wap_proto_t *self);
+void
+    wap_proto_set_major_version (wap_proto_t *self, byte major_version);
+
+//  Get/set the minor_version field
+byte
+    wap_proto_minor_version (wap_proto_t *self);
+void
+    wap_proto_set_minor_version (wap_proto_t *self, byte minor_version);
+
+//  Get/set the timestamp field
+uint64_t
+    wap_proto_timestamp (wap_proto_t *self);
+void
+    wap_proto_set_timestamp (wap_proto_t *self, uint64_t timestamp);
+
+//  Get/set the nonce field
+uint32_t
+    wap_proto_nonce (wap_proto_t *self);
+void
+    wap_proto_set_nonce (wap_proto_t *self, uint32_t nonce);
+
+//  Get/set the orphan field
+byte
+    wap_proto_orphan (wap_proto_t *self);
+void
+    wap_proto_set_orphan (wap_proto_t *self, byte orphan);
+
+//  Get/set the depth field
+uint64_t
+    wap_proto_depth (wap_proto_t *self);
+void
+    wap_proto_set_depth (wap_proto_t *self, uint64_t depth);
+
+//  Get/set the reward field
+uint64_t
+    wap_proto_reward (wap_proto_t *self);
+void
+    wap_proto_set_reward (wap_proto_t *self, uint64_t reward);
 
 //  Get/set the reason field
 const char *

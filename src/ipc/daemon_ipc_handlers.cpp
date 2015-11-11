@@ -846,5 +846,112 @@ namespace IPC
       p2p->send_stop_signal();
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    void get_block_by_worker(wap_proto_t *message, const crypto::hash &hash, bool header_only, bool as_json) {
+      const cryptonote::Blockchain &blockchain =  core->get_blockchain_storage();
+      cryptonote::block block;
+      if (!blockchain.get_block_by_hash(hash, block))
+      {
+        wap_proto_set_status(message, STATUS_BLOCK_NOT_FOUND);
+        return;
+      }
+      zchunk_t *chunk = NULL;
+      if (header_only)
+      {
+        if (as_json)
+        {
+          std::string repr = cryptonote::obj_to_json_str((cryptonote::block_header&)block);
+          chunk = zchunk_new((const char *)repr.c_str(), repr.size());
+        }
+        else
+        {
+          cryptonote::blobdata blob = t_serializable_object_to_blob((cryptonote::block_header&)block);
+          chunk = zchunk_new((const char *)blob.data(), blob.size());
+        }
+      }
+      else
+      {
+        if (as_json)
+        {
+          std::string repr = cryptonote::obj_to_json_str(block);
+          chunk = zchunk_new((const char *)repr.c_str(), repr.size());
+        }
+        else
+        {
+          cryptonote::blobdata blob = t_serializable_object_to_blob(block);
+          chunk = zchunk_new((const char *)blob.data(), blob.size());
+        }
+      }
+      wap_proto_set_block(message, &chunk);
+      wap_proto_set_major_version(message, block.major_version);
+      wap_proto_set_major_version(message, block.minor_version);
+      wap_proto_set_timestamp(message, block.timestamp);
+      std::string hash_str = string_tools::pod_to_hex(block.prev_id);
+      zchunk_t *hash_chunk = zchunk_new((void*)(hash_str.c_str()), hash_str.length());
+      wap_proto_set_prev_hash(message, &hash_chunk);
+      wap_proto_set_nonce(message, block.nonce);
+      wap_proto_set_orphan(message, false);
+      uint64_t block_height = boost::get<cryptonote::txin_gen>(block.miner_tx.vin.front()).height;
+      wap_proto_set_height(message, block_height);
+      wap_proto_set_depth(message, core->get_current_blockchain_height() - block_height - 1);
+      hash_str = string_tools::pod_to_hex(hash);
+      hash_chunk = zchunk_new((void*)(hash_str.c_str()), hash_str.length());
+      wap_proto_set_hash(message, &hash_chunk);
+      wap_proto_set_difficulty(message, blockchain.block_difficulty(block_height));
+      wap_proto_set_reward(message, [](const cryptonote::block &b){uint64_t reward = 0; BOOST_FOREACH(const cryptonote::tx_out& out, b.miner_tx.vout) { reward += out.amount; } return reward;}(block));
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_block_by_hash IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_block_by_hash(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      zchunk_t *hash_chunk = wap_proto_hash(message);
+      if (zchunk_size(hash_chunk) != sizeof(crypto::hash))
+      {
+        wap_proto_set_status(message, STATUS_WRONG_BLOCK_ID_LENGTH);
+        return;
+      }
+      const crypto::hash hash = *reinterpret_cast<const crypto::hash*>(zchunk_data(hash_chunk));
+      bool header_only = wap_proto_header_only(message);
+      bool as_json = wap_proto_as_json(message);
+      get_block_by_worker(message, hash, header_only, as_json);
+    }
+
+    /*!
+     * \brief get_block_by_height IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_block_by_height(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      uint64_t height = wap_proto_height(message);
+      if (core->get_current_blockchain_height() <= height)
+      {
+        wap_proto_set_status(message, STATUS_HEIGHT_TOO_BIG);
+        return;
+      }
+      bool header_only = wap_proto_header_only(message);
+      bool as_json = wap_proto_as_json(message);
+      const cryptonote::Blockchain &blockchain =  core->get_blockchain_storage();
+      crypto::hash hash = blockchain.get_block_id_by_height(height);
+      if (hash == cryptonote::null_hash)
+      {
+        wap_proto_set_status(message, STATUS_BLOCK_NOT_FOUND);
+        return;
+      }
+      get_block_by_worker(message, hash, header_only, as_json);
+    }
   }
 }
