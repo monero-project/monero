@@ -284,7 +284,7 @@ namespace
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Core busy.", "{}");
     }
-    if (wap_client_status(ipc_client) != IPC::STATUS_OK)
+    if (status != IPC::STATUS_OK)
     {
       return ns_rpc_create_error(buf, len, req, invalid_request,
         "Failed, mining not stopped", "{}");

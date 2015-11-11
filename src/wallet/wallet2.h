@@ -524,9 +524,8 @@ namespace tools
       }
 
       zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
-      int rc = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
+      int status = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
 
-      int status = wap_client_status(ipc_client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
       // TODO: Use a code to string mapping of errors
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_RANDOM_OUTS_FAILED, error::get_random_outs_error, "IPC::STATUS_RANDOM_OUTS_FAILED");

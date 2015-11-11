@@ -413,13 +413,12 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash hash) {
     return true;
   }
   zchunk_t *hash_chunk = zchunk_new(hash.data, sizeof(hash));
-  int ret = wap_client_get_block_by_hash(ipc_client, &hash_chunk, true, false);
+  int status = wap_client_get_block_by_hash(ipc_client, &hash_chunk, true, false);
   zchunk_destroy(&hash_chunk);
-  if (ret < 0) {
+  if (status < 0) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
   }
-  int status = wap_client_status(ipc_client);
   if (status) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
@@ -441,12 +440,11 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  int ret = wap_client_get_block_by_height(ipc_client, height, true, false);
-  if (ret < 0) {
+  int status = wap_client_get_block_by_height(ipc_client, height, true, false);
+  if (status < 0) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
   }
-  int status = wap_client_status(ipc_client);
   if (status) {
     tools::fail_msg_writer() << "Failed to get block header";
     return true;
