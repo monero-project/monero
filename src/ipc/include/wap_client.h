@@ -182,6 +182,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_block_by_hash (wap_client_t *self, zchunk_t **hash_p, uint8_t header_only, uint8_t as_json);
 
+//  Request key image status from the daemon.                                       
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_key_image_status (wap_client_t *self, zframe_t **key_images_p);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -365,6 +370,10 @@ WAP_EXPORT uint64_t
 //  Return last received reward
 WAP_EXPORT uint64_t 
     wap_client_reward (wap_client_t *self);
+
+//  Return last received spent
+WAP_EXPORT zframe_t *
+    wap_client_spent (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

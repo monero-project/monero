@@ -90,6 +90,8 @@ struct _wap_proto_t {
     byte orphan;                        //  orphan
     uint64_t depth;                     //  depth
     uint64_t reward;                    //  reward
+    zframe_t *key_images;               //  key_images
+    zframe_t *spent;                    //  Key image spent status
     char reason [256];                  //  Printable explanation
 };
 
@@ -283,6 +285,8 @@ wap_proto_destroy (wap_proto_t **self_p)
         zchunk_destroy (&self->block_template_blob);
         zframe_destroy (&self->connections);
         zchunk_destroy (&self->block);
+        zframe_destroy (&self->key_images);
+        zframe_destroy (&self->spent);
 
         //  Free object itself
         free (self);
@@ -820,6 +824,27 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->reward);
             break;
 
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS:
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: key_images is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->key_images);
+            self->key_images = zframe_recv (input);
+            break;
+
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
+            GET_NUMBER4 (self->status);
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: spent is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->spent);
+            self->spent = zframe_recv (input);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -1082,6 +1107,11 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
                 frame_size += zchunk_size (self->hash);
             frame_size += 8;            //  difficulty
             frame_size += 8;            //  reward
+            break;
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS:
+            break;
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
+            frame_size += 4;            //  status
             break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
@@ -1461,6 +1491,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->reward);
             break;
 
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS:
+            nbr_frames++;
+            break;
+
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
+            PUT_NUMBER4 (self->status);
+            nbr_frames++;
+            break;
+
         case WAP_PROTO_ERROR:
             PUT_NUMBER2 (self->status);
             PUT_STRING (self->reason);
@@ -1512,6 +1551,22 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         //  If connections isn't set, send an empty frame
         if (self->connections)
             zframe_send (&self->connections, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_GET_KEY_IMAGE_STATUS) {
+        //  If key_images isn't set, send an empty frame
+        if (self->key_images)
+            zframe_send (&self->key_images, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_GET_KEY_IMAGE_STATUS_OK) {
+        //  If spent isn't set, send an empty frame
+        if (self->spent)
+            zframe_send (&self->spent, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
         else
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
@@ -1875,6 +1930,25 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    reward=%ld", (long) self->reward);
             break;
 
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS:
+            zsys_debug ("WAP_PROTO_GET_KEY_IMAGE_STATUS:");
+            zsys_debug ("    key_images=");
+            if (self->key_images)
+                zframe_print (self->key_images, NULL);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
+            zsys_debug ("WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    spent=");
+            if (self->spent)
+                zframe_print (self->spent, NULL);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
         case WAP_PROTO_CLOSE:
             zsys_debug ("WAP_PROTO_CLOSE:");
             break;
@@ -2087,6 +2161,12 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
             return ("GET_BLOCK_BY_HASH_OK");
+            break;
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS:
+            return ("GET_KEY_IMAGE_STATUS");
+            break;
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
+            return ("GET_KEY_IMAGE_STATUS_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -3362,6 +3442,72 @@ wap_proto_set_reward (wap_proto_t *self, uint64_t reward)
 
 
 //  --------------------------------------------------------------------------
+//  Get the key_images field without transferring ownership
+
+zframe_t *
+wap_proto_key_images (wap_proto_t *self)
+{
+    assert (self);
+    return self->key_images;
+}
+
+//  Get the key_images field and transfer ownership to caller
+
+zframe_t *
+wap_proto_get_key_images (wap_proto_t *self)
+{
+    zframe_t *key_images = self->key_images;
+    self->key_images = NULL;
+    return key_images;
+}
+
+//  Set the key_images field, transferring ownership from caller
+
+void
+wap_proto_set_key_images (wap_proto_t *self, zframe_t **frame_p)
+{
+    assert (self);
+    assert (frame_p);
+    zframe_destroy (&self->key_images);
+    self->key_images = *frame_p;
+    *frame_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get the spent field without transferring ownership
+
+zframe_t *
+wap_proto_spent (wap_proto_t *self)
+{
+    assert (self);
+    return self->spent;
+}
+
+//  Get the spent field and transfer ownership to caller
+
+zframe_t *
+wap_proto_get_spent (wap_proto_t *self)
+{
+    zframe_t *spent = self->spent;
+    self->spent = NULL;
+    return spent;
+}
+
+//  Set the spent field, transferring ownership from caller
+
+void
+wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p)
+{
+    assert (self);
+    assert (frame_p);
+    zframe_destroy (&self->spent);
+    self->spent = *frame_p;
+    *frame_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -4196,6 +4342,38 @@ wap_proto_test (bool verbose)
             zchunk_destroy (&get_block_by_hash_ok_hash);
         assert (wap_proto_difficulty (self) == 123);
         assert (wap_proto_reward (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_KEY_IMAGE_STATUS);
+
+    zframe_t *get_key_image_status_key_images = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_key_images (self, &get_key_image_status_key_images);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (zframe_streq (wap_proto_key_images (self), "Captcha Diem"));
+        if (instance == 1)
+            zframe_destroy (&get_key_image_status_key_images);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_KEY_IMAGE_STATUS_OK);
+
+    wap_proto_set_status (self, 123);
+    zframe_t *get_key_image_status_ok_spent = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_spent (self, &get_key_image_status_ok_spent);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (zframe_streq (wap_proto_spent (self), "Captcha Diem"));
+        if (instance == 1)
+            zframe_destroy (&get_key_image_status_ok_spent);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

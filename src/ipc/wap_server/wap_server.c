@@ -434,3 +434,13 @@ get_block_by_hash (client_t *self)
     IPC::Daemon::get_block_by_hash(self->message);
 }
 
+//  ---------------------------------------------------------------------------
+//  get_key_image_status
+//
+
+static void
+get_key_image_status (client_t *self)
+{
+    IPC::Daemon::get_key_image_status(self->message);
+}
+

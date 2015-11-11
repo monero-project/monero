@@ -673,3 +673,27 @@ prepare_hard_fork_info_command (client_t *self)
     wap_proto_set_hfversion(self->message, self->args->hfversion);
 }
 
+
+//  ---------------------------------------------------------------------------
+//  prepare_get_key_image_status_command
+//
+
+static void
+prepare_get_key_image_status_command (client_t *self)
+{
+    wap_proto_set_key_images(self->message, &self->args->key_images);
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_key_image_status_ok
+//
+
+static void
+signal_have_get_key_image_status_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s4p", "GET KEY IMAGE STATUS OK",
+                wap_proto_status(self->message),
+                wap_proto_get_spent (self->message));
+}
+

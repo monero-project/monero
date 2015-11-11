@@ -47,10 +47,11 @@ typedef enum {
     expect_stop_daemon_ok_state = 24,
     expect_get_block_by_height_ok_state = 25,
     expect_get_block_by_hash_ok_state = 26,
-    expect_close_ok_state = 27,
-    defaults_state = 28,
-    have_error_state = 29,
-    reexpect_open_ok_state = 30
+    expect_get_key_image_status_ok_state = 27,
+    expect_close_ok_state = 28,
+    defaults_state = 29,
+    have_error_state = 30,
+    reexpect_open_ok_state = 31
 } state_t;
 
 typedef enum {
@@ -82,36 +83,38 @@ typedef enum {
     stop_daemon_event = 25,
     get_block_by_height_event = 26,
     get_block_by_hash_event = 27,
-    destructor_event = 28,
-    blocks_ok_event = 29,
-    get_tx_ok_event = 30,
-    send_raw_transaction_ok_event = 31,
-    save_bc_ok_event = 32,
-    start_ok_event = 33,
-    stop_ok_event = 34,
-    output_indexes_ok_event = 35,
-    random_outs_ok_event = 36,
-    get_height_ok_event = 37,
-    get_info_ok_event = 38,
-    get_peer_list_ok_event = 39,
-    get_mining_status_ok_event = 40,
-    set_log_hash_rate_ok_event = 41,
-    set_log_level_ok_event = 42,
-    start_save_graph_ok_event = 43,
-    stop_save_graph_ok_event = 44,
-    get_block_hash_ok_event = 45,
-    get_block_template_ok_event = 46,
-    get_hard_fork_info_ok_event = 47,
-    get_connections_list_ok_event = 48,
-    stop_daemon_ok_event = 49,
-    get_block_by_height_ok_event = 50,
-    get_block_by_hash_ok_event = 51,
-    close_ok_event = 52,
-    ping_ok_event = 53,
-    error_event = 54,
-    exception_event = 55,
-    command_invalid_event = 56,
-    other_event = 57
+    get_key_image_status_event = 28,
+    destructor_event = 29,
+    blocks_ok_event = 30,
+    get_tx_ok_event = 31,
+    send_raw_transaction_ok_event = 32,
+    save_bc_ok_event = 33,
+    start_ok_event = 34,
+    stop_ok_event = 35,
+    output_indexes_ok_event = 36,
+    random_outs_ok_event = 37,
+    get_height_ok_event = 38,
+    get_info_ok_event = 39,
+    get_peer_list_ok_event = 40,
+    get_mining_status_ok_event = 41,
+    set_log_hash_rate_ok_event = 42,
+    set_log_level_ok_event = 43,
+    start_save_graph_ok_event = 44,
+    stop_save_graph_ok_event = 45,
+    get_block_hash_ok_event = 46,
+    get_block_template_ok_event = 47,
+    get_hard_fork_info_ok_event = 48,
+    get_connections_list_ok_event = 49,
+    stop_daemon_ok_event = 50,
+    get_block_by_height_ok_event = 51,
+    get_block_by_hash_ok_event = 52,
+    get_key_image_status_ok_event = 53,
+    close_ok_event = 54,
+    ping_ok_event = 55,
+    error_event = 56,
+    exception_event = 57,
+    command_invalid_event = 58,
+    other_event = 59
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -144,6 +147,7 @@ s_state_name [] = {
     "expect stop daemon ok",
     "expect get block by height ok",
     "expect get block by hash ok",
+    "expect get key image status ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -180,6 +184,7 @@ s_event_name [] = {
     "STOP_DAEMON",
     "GET_BLOCK_BY_HEIGHT",
     "GET_BLOCK_BY_HASH",
+    "GET_KEY_IMAGE_STATUS",
     "destructor",
     "BLOCKS_OK",
     "GET_TX_OK",
@@ -204,6 +209,7 @@ s_event_name [] = {
     "STOP_DAEMON_OK",
     "GET_BLOCK_BY_HEIGHT_OK",
     "GET_BLOCK_BY_HASH_OK",
+    "GET_KEY_IMAGE_STATUS_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -239,6 +245,7 @@ struct _client_args_t {
     uint8_t hfversion;
     uint8_t header_only;
     zchunk_t *hash;
+    zframe_t *key_images;
 };
 
 typedef struct {
@@ -320,6 +327,8 @@ static void
 static void
     prepare_get_block_by_hash_command (client_t *self);
 static void
+    prepare_get_key_image_status_command (client_t *self);
+static void
     check_if_connection_is_dead (client_t *self);
 static void
     signal_have_blocks_ok (client_t *self);
@@ -367,6 +376,8 @@ static void
     signal_have_get_block_by_height_ok (client_t *self);
 static void
     signal_have_get_block_by_hash_ok (client_t *self);
+static void
+    signal_have_get_key_image_status_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -430,6 +441,7 @@ s_client_destroy (s_client_t **self_p)
         zframe_destroy (&self->args.amounts);
         zchunk_destroy (&self->args.address);
         zchunk_destroy (&self->args.hash);
+        zframe_destroy (&self->args.key_images);
         client_terminate (&self->client);
         wap_proto_destroy (&self->message);
         zsock_destroy (&self->msgpipe);
@@ -720,6 +732,12 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_GET_BLOCK_BY_HASH_OK:
             return get_block_by_hash_ok_event;
+            break;
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS:
+            return get_key_image_status_event;
+            break;
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
+            return get_key_image_status_ok_event;
             break;
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
@@ -1256,6 +1274,25 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_block_by_hash_ok_state;
+                }
+                else
+                if (self->event == get_key_image_status_event) {
+                    if (!self->exception) {
+                        //  prepare get key image status command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare get key image status command", self->log_prefix);
+                        prepare_get_key_image_status_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_KEY_IMAGE_STATUS
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send GET_KEY_IMAGE_STATUS",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_KEY_IMAGE_STATUS);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_key_image_status_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -2212,6 +2249,45 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_get_key_image_status_ok_state:
+                if (self->event == get_key_image_status_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get key image status ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have get key image status ok", self->log_prefix);
+                        signal_have_get_key_image_status_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2563,6 +2639,12 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         zsock_recv (self->cmdpipe, "p11", &self->args.hash, &self->args.header_only, &self->args.as_json);
         s_client_execute (self, get_block_by_hash_event);
     }
+    else
+    if (streq (method, "GET KEY IMAGE STATUS")) {
+        zframe_destroy (&self->args.key_images);
+        zsock_recv (self->cmdpipe, "p", &self->args.key_images);
+        s_client_execute (self, get_key_image_status_event);
+    }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
         zsys_error ("%s: trailing API command frames (%s)",
@@ -2722,6 +2804,7 @@ struct _wap_client_t {
     uint8_t orphan;             //  Returned by actor reply
     uint64_t depth;             //  Returned by actor reply
     uint64_t reward;            //  Returned by actor reply
+    zframe_t *spent;            //  Returned by actor reply
 };
 
 
@@ -2782,6 +2865,7 @@ wap_client_destroy (wap_client_t **self_p)
         zchunk_destroy (&self->block_template_blob);
         zframe_destroy (&self->connections);
         zchunk_destroy (&self->block);
+        zframe_destroy (&self->spent);
         free (self);
         *self_p = NULL;
     }
@@ -2967,6 +3051,11 @@ s_accept_reply (wap_client_t *self, ...)
                     zchunk_destroy (&self->prev_hash);
                     zchunk_destroy (&self->hash);
                     zsock_recv (self->actor, "4p118p4188p88", &self->status, &self->block, &self->major_version, &self->minor_version, &self->timestamp, &self->prev_hash, &self->nonce, &self->orphan, &self->height, &self->depth, &self->hash, &self->difficulty, &self->reward);
+                }
+                else
+                if (streq (reply, "GET KEY IMAGE STATUS OK")) {
+                    zframe_destroy (&self->spent);
+                    zsock_recv (self->actor, "4p", &self->status, &self->spent);
                 }
                 break;
             }
@@ -3390,6 +3479,23 @@ wap_client_get_block_by_hash (wap_client_t *self, zchunk_t **hash_p, uint8_t hea
     zsock_send (self->actor, "sp11", "GET BLOCK BY HASH", *hash_p, header_only, as_json);
     *hash_p = NULL;             //  Take ownership of hash
     if (s_accept_reply (self, "GET BLOCK BY HASH OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Request key image status from the daemon.                                       
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_key_image_status (wap_client_t *self, zframe_t **key_images_p)
+{
+    assert (self);
+
+    zsock_send (self->actor, "sp", "GET KEY IMAGE STATUS", *key_images_p);
+    *key_images_p = NULL;       //  Take ownership of key_images
+    if (s_accept_reply (self, "GET KEY IMAGE STATUS OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
@@ -3898,4 +4004,15 @@ wap_client_reward (wap_client_t *self)
 {
     assert (self);
     return self->reward;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received spent
+
+zframe_t *
+wap_client_spent (wap_client_t *self)
+{
+    assert (self);
+    return self->spent;
 }

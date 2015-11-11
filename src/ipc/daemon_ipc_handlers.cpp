@@ -1013,5 +1013,49 @@ namespace IPC
       wap_proto_set_tx_data(message, &chunk);
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    /*!
+     * \brief get_key_image_status IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_key_image_status(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      zframe_t *frame = wap_proto_key_images(message);
+      size_t n_bytes = zframe_size(frame);
+      if (n_bytes % sizeof(crypto::key_image)) {
+        wap_proto_set_status(message, STATUS_WRONG_KEY_IMAGE_LENGTH);
+        return;
+      }
+      size_t n_key_images = n_bytes / sizeof(crypto::key_image);
+      const crypto::key_image *key_image_data = reinterpret_cast<const crypto::key_image*>(zframe_data(frame));
+
+      std::vector<crypto::key_image> key_images;
+      key_images.reserve(n_key_images);
+      for (size_t n = 0; n < n_key_images; ++n) {
+        key_images.push_back(key_image_data[n]);
+      }
+
+      std::vector<bool> spent_status;
+      bool r = core->are_key_images_spent(key_images, spent_status);
+      if (!r || spent_status.size() != n_key_images) {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+
+      bool *spent_data = new bool[n_key_images];
+      for (size_t n = 0; n < n_key_images; ++n)
+        spent_data[n] = spent_status[n];
+      frame = zframe_new(spent_data, n_key_images * sizeof(bool));
+      wap_proto_set_spent(message, &frame);
+
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
   }
 }

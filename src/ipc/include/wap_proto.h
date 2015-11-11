@@ -233,6 +233,13 @@ ERROR.
         difficulty          number 8    
         reward              number 8    
 
+    GET_KEY_IMAGE_STATUS - Request whether key images are spent
+        key_images          frame       
+
+    GET_KEY_IMAGE_STATUS_OK - Daemon returns spent status for the key images.
+        status              number 4    Status
+        spent               frame       Key image spent status
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -307,11 +314,13 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK    46
 #define WAP_PROTO_GET_BLOCK_BY_HASH         47
 #define WAP_PROTO_GET_BLOCK_BY_HASH_OK      48
-#define WAP_PROTO_CLOSE                     49
-#define WAP_PROTO_CLOSE_OK                  50
-#define WAP_PROTO_PING                      51
-#define WAP_PROTO_PING_OK                   52
-#define WAP_PROTO_ERROR                     53
+#define WAP_PROTO_GET_KEY_IMAGE_STATUS      49
+#define WAP_PROTO_GET_KEY_IMAGE_STATUS_OK   50
+#define WAP_PROTO_CLOSE                     51
+#define WAP_PROTO_CLOSE_OK                  52
+#define WAP_PROTO_PING                      53
+#define WAP_PROTO_PING_OK                   54
+#define WAP_PROTO_ERROR                     55
 
 #include <czmq.h>
 
@@ -760,6 +769,26 @@ uint64_t
     wap_proto_reward (wap_proto_t *self);
 void
     wap_proto_set_reward (wap_proto_t *self, uint64_t reward);
+
+//  Get a copy of the key_images field
+zframe_t *
+    wap_proto_key_images (wap_proto_t *self);
+//  Get the key_images field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_key_images (wap_proto_t *self);
+//  Set the key_images field, transferring ownership from caller
+void
+    wap_proto_set_key_images (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get a copy of the spent field
+zframe_t *
+    wap_proto_spent (wap_proto_t *self);
+//  Get the spent field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_spent (wap_proto_t *self);
+//  Set the spent field, transferring ownership from caller
+void
+    wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p);
 
 //  Get/set the reason field
 const char *

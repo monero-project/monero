@@ -489,30 +489,25 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
 }
 
 bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
-#if 0
-  cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req;
-  cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::response res;
-
-  std::string fail_message = "Problem checking key image";
-
-  req.key_images.push_back(epee::string_tools::pod_to_hex(ki));
-  if (!m_rpc_server->on_is_key_image_spent(req, res))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  if (1 == res.spent_status.size())
-  {
-    // first as hex
-    tools::success_msg_writer() << ki << ": " << (res.spent_status.front() ? "spent" : "unspent");
+  zframe_t *frame = zframe_new(&ki, sizeof(ki));
+  int status = wap_client_get_key_image_status(ipc_client, &frame);
+  zframe_destroy(&frame);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
   }
-  else
-  {
-    tools::fail_msg_writer() << "key image status could not be determined" << std::endl;
+  frame = wap_client_spent(ipc_client);
+  if (zframe_size(frame) != 1) {
+    // we expect a single reply here, since we went a single key image
+    tools::fail_msg_writer() << "Unexpected size reply";
+    return true;
   }
-#endif
-
+  const bool *data = (const bool *)zframe_data(frame);
+  tools::success_msg_writer() << ki << ": " << (data[0] ? "spent" : "unspent");
   return true;
 }
 

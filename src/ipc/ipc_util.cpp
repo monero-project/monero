@@ -57,6 +57,7 @@ namespace
     "block not found",
     "wrong txid length",
     "tx not found",
+    "wrong key image length",
   };
 }
 
