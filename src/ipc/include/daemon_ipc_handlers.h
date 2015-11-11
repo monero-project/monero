@@ -93,6 +93,7 @@ namespace IPC
     void stop_daemon(wap_proto_t *message);
     void get_block_by_height(wap_proto_t *message);
     void get_block_by_hash(wap_proto_t *message);
+    void get_transaction(wap_proto_t *message);
 
     /*!
      * \brief initializes it with objects necessary to handle IPC requests and starts

@@ -80,7 +80,7 @@ WAP_EXPORT int
 //  Request a set of transactions from the server.                                  
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_get_tx (wap_client_t *self, zchunk_t **tx_id_p);
+    wap_client_get_tx (wap_client_t *self, zchunk_t **tx_id_p, uint8_t as_json);
 
 //  Request a set of blocks from the server.                                        
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -205,6 +205,10 @@ WAP_EXPORT zmsg_t *
 //  Return last received tx_data
 WAP_EXPORT zchunk_t *
     wap_client_tx_data (wap_client_t *self);
+
+//  Return last received in_pool
+WAP_EXPORT uint8_t 
+    wap_client_in_pool (wap_client_t *self);
 
 //  Return last received o_indexes
 WAP_EXPORT zframe_t *

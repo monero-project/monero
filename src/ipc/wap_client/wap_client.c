@@ -196,6 +196,7 @@ static void
 prepare_get_tx_command (client_t *self)
 {
     wap_proto_set_tx_id (self->message, &self->args->tx_id);
+    wap_proto_set_as_json (self->message, self->args->as_json);
 }
 
 
@@ -206,8 +207,10 @@ prepare_get_tx_command (client_t *self)
 static void
 signal_have_get_tx_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "sip", "GET TX OK", 0, 
-                wap_proto_get_tx_data (self->message));
+    zsock_send (self->cmdpipe, "s4p1", "GET TX OK",
+                wap_proto_status (self->message),
+                wap_proto_get_tx_data (self->message),
+                wap_proto_in_pool (self->message));
 }
 
 //  ---------------------------------------------------------------------------
@@ -217,7 +220,8 @@ signal_have_get_tx_ok (client_t *self)
 static void
 signal_have_get_height_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "si8", "GET HEIGHT OK", 0, 
+    zsock_send (self->cmdpipe, "s48", "GET HEIGHT OK",
+                wap_proto_status (self->message),
                 wap_proto_height (self->message));
 }
 

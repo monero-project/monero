@@ -464,47 +464,31 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
 }
 
 bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
-#if 0
-  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
-
-  std::string fail_message = "Problem fetching transaction";
-
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
-  if (!m_rpc_server->on_get_transactions(req, res))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  if (1 == res.txs_as_hex.size())
-  {
-    // first as hex
-    tools::success_msg_writer() << res.txs_as_hex.front();
-
-    // then as json
-    crypto::hash tx_hash, tx_prefix_hash;
-    cryptonote::transaction tx;
-    cryptonote::blobdata blob;
-    if (!string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), blob))
-    {
-      tools::fail_msg_writer() << "Failed to parse tx";
-    }
-    else if (!cryptonote::parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash))
-    {
-      tools::fail_msg_writer() << "Failed to parse tx blob";
-    }
-    else
-    {
-      tools::success_msg_writer() << cryptonote::obj_to_json_str(tx) << std::endl;
-    }
+  zchunk_t *txid_chunk = zchunk_new(transaction_hash.data, sizeof(transaction_hash));
+  int status = wap_client_get_tx(ipc_client, &txid_chunk, false);
+  zchunk_destroy(&txid_chunk);
+  if (status < 0) {
+    tools::fail_msg_writer() << "Failed to get tx";
+    return true;
   }
-  else
-  {
-    tools::fail_msg_writer() << "transaction wasn't found: " << transaction_hash << std::endl;
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
   }
-#endif
-
+  zchunk_t *tx_data = wap_client_tx_data(ipc_client);
+  cryptonote::blobdata blob((const char *)zchunk_data(tx_data), zchunk_size(tx_data));
+  cryptonote::transaction transaction;
+  if (!cryptonote::parse_and_validate_tx_from_blob(blob, transaction)) {
+    tools::fail_msg_writer() << "Failed to validate transaction";
+    return true;
+  }
+  bool in_pool = wap_client_in_pool(ipc_client);
+  tools::success_msg_writer() << "TX found in " << (in_pool ? "pool" : "blockchain");
+  tools::success_msg_writer() << cryptonote::obj_to_json_str(transaction);
   return true;
 }
 

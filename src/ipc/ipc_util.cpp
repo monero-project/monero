@@ -55,6 +55,8 @@ namespace
     "height too big",
     "reserve size too big",
     "block not found",
+    "wrong txid length",
+    "tx not found",
   };
 }
 

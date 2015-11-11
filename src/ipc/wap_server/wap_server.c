@@ -173,7 +173,7 @@ store_transaction (client_t *self)
 static void
 retrieve_transaction (client_t *self)
 {
-
+    IPC::Daemon::get_transaction(self->message);
 }
 
 

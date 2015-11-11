@@ -47,7 +47,9 @@ struct _wap_proto_t {
     zframe_t *amounts;                  //  Amounts
     zframe_t *random_outputs;           //  Outputs
     uint64_t height;                    //  Height
+    byte as_json;                       //  As JSON
     zchunk_t *tx_data;                  //  Transaction data
+    byte in_pool;                       //  In pool
     zchunk_t *address;                  //  address
     uint64_t thread_count;              //  thread_count
     uint64_t target_height;             //  Target Height
@@ -80,7 +82,6 @@ struct _wap_proto_t {
     uint32_t hfstate;                   //  State
     zframe_t *connections;              //  Connections
     byte header_only;                   //  Header-only
-    byte as_json;                       //  As JSON
     zchunk_t *block;                    //  Block blob
     byte major_version;                 //  major_version
     byte minor_version;                 //  minor_version
@@ -466,9 +467,11 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
                 self->tx_id = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
+            GET_NUMBER1 (self->as_json);
             break;
 
         case WAP_PROTO_GET_TX_OK:
+            GET_NUMBER4 (self->status);
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -480,6 +483,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
                 self->tx_data = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
+            GET_NUMBER1 (self->in_pool);
             break;
 
         case WAP_PROTO_SAVE_BC:
@@ -915,11 +919,14 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  Size is 4 octets
             if (self->tx_id)
                 frame_size += zchunk_size (self->tx_id);
+            frame_size += 1;            //  as_json
             break;
         case WAP_PROTO_GET_TX_OK:
+            frame_size += 4;            //  status
             frame_size += 4;            //  Size is 4 octets
             if (self->tx_data)
                 frame_size += zchunk_size (self->tx_data);
+            frame_size += 1;            //  in_pool
             break;
         case WAP_PROTO_SAVE_BC_OK:
             frame_size += 4;            //  status
@@ -1177,9 +1184,11 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER1 (self->as_json);
             break;
 
         case WAP_PROTO_GET_TX_OK:
+            PUT_NUMBER4 (self->status);
             if (self->tx_data) {
                 PUT_NUMBER4 (zchunk_size (self->tx_data));
                 memcpy (self->needle,
@@ -1189,6 +1198,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
+            PUT_NUMBER1 (self->in_pool);
             break;
 
         case WAP_PROTO_SAVE_BC_OK:
@@ -1623,11 +1633,14 @@ wap_proto_print (wap_proto_t *self)
         case WAP_PROTO_GET_TX:
             zsys_debug ("WAP_PROTO_GET_TX:");
             zsys_debug ("    tx_id=[ ... ]");
+            zsys_debug ("    as_json=%ld", (long) self->as_json);
             break;
 
         case WAP_PROTO_GET_TX_OK:
             zsys_debug ("WAP_PROTO_GET_TX_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
             zsys_debug ("    tx_data=[ ... ]");
+            zsys_debug ("    in_pool=%ld", (long) self->in_pool);
             break;
 
         case WAP_PROTO_SAVE_BC:
@@ -2440,6 +2453,24 @@ wap_proto_set_height (wap_proto_t *self, uint64_t height)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the as_json field
+
+byte
+wap_proto_as_json (wap_proto_t *self)
+{
+    assert (self);
+    return self->as_json;
+}
+
+void
+wap_proto_set_as_json (wap_proto_t *self, byte as_json)
+{
+    assert (self);
+    self->as_json = as_json;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get the tx_data field without transferring ownership
 
 zchunk_t *
@@ -2469,6 +2500,24 @@ wap_proto_set_tx_data (wap_proto_t *self, zchunk_t **chunk_p)
     zchunk_destroy (&self->tx_data);
     self->tx_data = *chunk_p;
     *chunk_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the in_pool field
+
+byte
+wap_proto_in_pool (wap_proto_t *self)
+{
+    assert (self);
+    return self->in_pool;
+}
+
+void
+wap_proto_set_in_pool (wap_proto_t *self, byte in_pool)
+{
+    assert (self);
+    self->in_pool = in_pool;
 }
 
 
@@ -3154,24 +3203,6 @@ wap_proto_set_header_only (wap_proto_t *self, byte header_only)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the as_json field
-
-byte
-wap_proto_as_json (wap_proto_t *self)
-{
-    assert (self);
-    return self->as_json;
-}
-
-void
-wap_proto_set_as_json (wap_proto_t *self, byte as_json)
-{
-    assert (self);
-    self->as_json = as_json;
-}
-
-
-//  --------------------------------------------------------------------------
 //  Get the block field without transferring ownership
 
 zchunk_t *
@@ -3578,6 +3609,7 @@ wap_proto_test (bool verbose)
 
     zchunk_t *get_tx_tx_id = zchunk_new ("Captcha Diem", 12);
     wap_proto_set_tx_id (self, &get_tx_tx_id);
+    wap_proto_set_as_json (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -3588,11 +3620,14 @@ wap_proto_test (bool verbose)
         assert (memcmp (zchunk_data (wap_proto_tx_id (self)), "Captcha Diem", 12) == 0);
         if (instance == 1)
             zchunk_destroy (&get_tx_tx_id);
+        assert (wap_proto_as_json (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_GET_TX_OK);
 
+    wap_proto_set_status (self, 123);
     zchunk_t *get_tx_ok_tx_data = zchunk_new ("Captcha Diem", 12);
     wap_proto_set_tx_data (self, &get_tx_ok_tx_data);
+    wap_proto_set_in_pool (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -3600,9 +3635,11 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
         assert (memcmp (zchunk_data (wap_proto_tx_data (self)), "Captcha Diem", 12) == 0);
         if (instance == 1)
             zchunk_destroy (&get_tx_ok_tx_data);
+        assert (wap_proto_in_pool (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_SAVE_BC);
 

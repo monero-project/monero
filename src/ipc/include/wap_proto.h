@@ -72,9 +72,12 @@ SEND-RAW-TRANSACTION-OK, or ERROR.
     GET_TX - Wallet requests transaction data from the daemon. Daemon replies
 with GET-OK, or ERROR.
         tx_id               chunk       Transaction ID
+        as_json             number 1    As JSON
 
     GET_TX_OK - Daemon replies with transaction data.
+        status              number 4    Status
         tx_data             chunk       Transaction data
+        in_pool             number 1    In pool
 
     SAVE_BC - save_bc command. Details tbd.
 
@@ -464,6 +467,12 @@ uint64_t
 void
     wap_proto_set_height (wap_proto_t *self, uint64_t height);
 
+//  Get/set the as_json field
+byte
+    wap_proto_as_json (wap_proto_t *self);
+void
+    wap_proto_set_as_json (wap_proto_t *self, byte as_json);
+
 //  Get a copy of the tx_data field
 zchunk_t *
     wap_proto_tx_data (wap_proto_t *self);
@@ -473,6 +482,12 @@ zchunk_t *
 //  Set the tx_data field, transferring ownership from caller
 void
     wap_proto_set_tx_data (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get/set the in_pool field
+byte
+    wap_proto_in_pool (wap_proto_t *self);
+void
+    wap_proto_set_in_pool (wap_proto_t *self, byte in_pool);
 
 //  Get a copy of the address field
 zchunk_t *
@@ -693,12 +708,6 @@ byte
     wap_proto_header_only (wap_proto_t *self);
 void
     wap_proto_set_header_only (wap_proto_t *self, byte header_only);
-
-//  Get/set the as_json field
-byte
-    wap_proto_as_json (wap_proto_t *self);
-void
-    wap_proto_set_as_json (wap_proto_t *self, byte as_json);
 
 //  Get a copy of the block field
 zchunk_t *

@@ -227,6 +227,7 @@ struct _client_args_t {
     uint64_t start_height;
     zchunk_t *tx_as_hex;
     zchunk_t *tx_id;
+    uint8_t as_json;
     uint64_t outs_count;
     zframe_t *amounts;
     zchunk_t *address;
@@ -236,7 +237,6 @@ struct _client_args_t {
     uint64_t height;
     uint64_t reserve_size;
     uint8_t header_only;
-    uint8_t as_json;
     zchunk_t *hash;
 };
 
@@ -2456,7 +2456,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "GET TX")) {
         zchunk_destroy (&self->args.tx_id);
-        zsock_recv (self->cmdpipe, "p", &self->args.tx_id);
+        zsock_recv (self->cmdpipe, "p1", &self->args.tx_id, &self->args.as_json);
         s_client_execute (self, get_tx_event);
     }
     else
@@ -2672,6 +2672,7 @@ struct _wap_client_t {
     uint64_t curr_height;       //  Returned by actor reply
     zmsg_t *block_data;         //  Returned by actor reply
     zchunk_t *tx_data;          //  Returned by actor reply
+    uint8_t in_pool;            //  Returned by actor reply
     zframe_t *o_indexes;        //  Returned by actor reply
     zframe_t *random_outputs;   //  Returned by actor reply
     uint64_t height;            //  Returned by actor reply
@@ -2860,7 +2861,7 @@ s_accept_reply (wap_client_t *self, ...)
                 else
                 if (streq (reply, "GET TX OK")) {
                     zchunk_destroy (&self->tx_data);
-                    zsock_recv (self->actor, "ip", &self->status, &self->tx_data);
+                    zsock_recv (self->actor, "4p1", &self->status, &self->tx_data, &self->in_pool);
                 }
                 else
                 if (streq (reply, "SAVE BC OK")) {
@@ -3047,11 +3048,11 @@ wap_client_send_raw_transaction (wap_client_t *self, zchunk_t **tx_as_hex_p)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_get_tx (wap_client_t *self, zchunk_t **tx_id_p)
+wap_client_get_tx (wap_client_t *self, zchunk_t **tx_id_p, uint8_t as_json)
 {
     assert (self);
 
-    zsock_send (self->actor, "sp", "GET TX", *tx_id_p);
+    zsock_send (self->actor, "sp1", "GET TX", *tx_id_p, as_json);
     *tx_id_p = NULL;            //  Take ownership of tx_id
     if (s_accept_reply (self, "GET TX OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
@@ -3447,6 +3448,17 @@ wap_client_tx_data (wap_client_t *self)
 {
     assert (self);
     return self->tx_data;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received in_pool
+
+uint8_t 
+wap_client_in_pool (wap_client_t *self)
+{
+    assert (self);
+    return self->in_pool;
 }
 
 

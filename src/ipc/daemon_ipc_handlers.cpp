@@ -953,5 +953,65 @@ namespace IPC
       }
       get_block_by_worker(message, hash, header_only, as_json);
     }
+
+    /*!
+     * \brief get_transaction IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_transaction(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      zchunk_t *hash_chunk = wap_proto_tx_id(message);
+      if (zchunk_size(hash_chunk) != sizeof(crypto::hash))
+      {
+        wap_proto_set_status(message, STATUS_WRONG_TX_ID_LENGTH);
+        return;
+      }
+      const crypto::hash hash = *reinterpret_cast<const crypto::hash*>(zchunk_data(hash_chunk));
+      std::vector<crypto::hash> hashes;
+      hashes.push_back(hash);
+      std::list<crypto::hash> missed_txs;
+      std::list<cryptonote::transaction> txs;
+      bool in_pool = false;
+      core->get_transactions(hashes, txs, missed_txs);
+      if (!missed_txs.empty()) {
+        std::list<cryptonote::transaction> pool_txs;
+        if (core->get_pool_transactions(pool_txs)) {
+          for (std::list<cryptonote::transaction>::const_iterator i = pool_txs.begin(); i != pool_txs.end(); ++i) {
+            std::list<crypto::hash>::iterator mi = std::find(missed_txs.begin(), missed_txs.end(), get_transaction_hash(*i));
+            if (mi != missed_txs.end())
+            {
+              missed_txs.erase(mi);
+              txs.push_back(*i);
+              in_pool = true;
+            }
+          }
+        }
+      }
+      if (txs.empty()) {
+        wap_proto_set_status(message, STATUS_TX_NOT_FOUND);
+        return;
+      }
+      wap_proto_set_in_pool(message, in_pool);
+      zchunk_t *chunk = NULL;
+      bool as_json = wap_proto_as_json(message);
+      if (as_json)
+      {
+        std::string repr = cryptonote::obj_to_json_str(txs.front());
+        chunk = zchunk_new((const char *)repr.c_str(), repr.size());
+      }
+      else
+      {
+        cryptonote::blobdata blob = t_serializable_object_to_blob(txs.front());
+        chunk = zchunk_new((const char *)blob.data(), blob.size());
+      }
+      wap_proto_set_tx_data(message, &chunk);
+      wap_proto_set_status(message, STATUS_OK);
+    }
   }
 }
