@@ -236,6 +236,7 @@ struct _client_args_t {
     uint8_t level;
     uint64_t height;
     uint64_t reserve_size;
+    uint8_t hfversion;
     uint8_t header_only;
     zchunk_t *hash;
 };
@@ -312,6 +313,8 @@ static void
     prepare_get_block_hash_command (client_t *self);
 static void
     prepare_get_block_template_command (client_t *self);
+static void
+    prepare_hard_fork_info_command (client_t *self);
 static void
     prepare_get_block_by_height_command (client_t *self);
 static void
@@ -1173,6 +1176,12 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == get_hard_fork_info_event) {
+                    if (!self->exception) {
+                        //  prepare hard fork info command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare hard fork info command", self->log_prefix);
+                        prepare_hard_fork_info_command (&self->client);
+                    }
                     if (!self->exception) {
                         //  send GET_HARD_FORK_INFO
                         if (wap_client_verbose)
@@ -2532,6 +2541,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "GET HARD FORK INFO")) {
+        zsock_recv (self->cmdpipe, "1", &self->args.hfversion);
         s_client_execute (self, get_hard_fork_info_event);
     }
     else
@@ -3309,11 +3319,11 @@ wap_client_get_block_template (wap_client_t *self, uint64_t reserve_size, zchunk
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_get_hard_fork_info (wap_client_t *self)
+wap_client_get_hard_fork_info (wap_client_t *self, uint8_t hfversion)
 {
     assert (self);
 
-    zsock_send (self->actor, "s", "GET HARD FORK INFO");
+    zsock_send (self->actor, "s1", "GET HARD FORK INFO", hfversion);
     if (s_accept_reply (self, "GET HARD FORK INFO OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;

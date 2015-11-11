@@ -662,3 +662,14 @@ signal_have_get_block_by_hash_ok (client_t *self)
         wap_proto_reward (self->message));
 }
 
+
+//  ---------------------------------------------------------------------------
+//  prepare_hard_fork_info_command
+//
+
+static void
+prepare_hard_fork_info_command (client_t *self)
+{
+    wap_proto_set_hfversion(self->message, self->args->hfversion);
+}
+

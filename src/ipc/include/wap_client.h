@@ -160,7 +160,7 @@ WAP_EXPORT int
 //  Ask for hard fork info.                                                         
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_get_hard_fork_info (wap_client_t *self);
+    wap_client_get_hard_fork_info (wap_client_t *self, uint8_t hfversion);
 
 //  Get connections                                                                 
 //  Returns >= 0 if successful, -1 if interrupted.

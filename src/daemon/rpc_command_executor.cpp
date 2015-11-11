@@ -239,7 +239,7 @@ bool t_rpc_command_executor::show_status() {
   uint64_t outgoing_connections_count = wap_client_outgoing_connections_count(ipc_client);
   uint64_t incoming_connections_count = wap_client_incoming_connections_count(ipc_client);
 
-  status = wap_client_get_hard_fork_info(ipc_client);
+  status = wap_client_get_hard_fork_info(ipc_client, 0);
   if (status) {
     tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
@@ -804,27 +804,27 @@ bool t_rpc_command_executor::stop_save_graph()
 
 bool t_rpc_command_executor::hard_fork_info(uint8_t version)
 {
-#if 0
-    cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req;
-    cryptonote::COMMAND_RPC_HARD_FORK_INFO::response res;
-    std::string fail_message = "Unsuccessful";
-    epee::json_rpc::error error_resp;
-
-    req.version = version;
-
-    if (!m_rpc_server->on_hard_fork_info(req, res, error_resp))
-    {
-      tools::fail_msg_writer() << fail_message.c_str();
-      return true;
-    }
-
-    version = version > 0 ? version : res.voting;
-    tools::msg_writer() << "version " << (uint32_t)version << " " << (res.enabled ? "enabled" : "not enabled") <<
-        ", " << res.votes << "/" << res.window << " votes, threshold " << res.threshold;
-    tools::msg_writer() << "current version " << (uint32_t)res.version << ", voting for version " << (uint32_t)res.voting;
-#endif
-
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
+  }
+  int status = wap_client_get_hard_fork_info(ipc_client, version);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+  uint8_t hfversion = wap_client_hfversion(ipc_client);
+  cryptonote::HardFork::State state = (cryptonote::HardFork::State)wap_client_hfstate(ipc_client);
+  version = version > 0 ? version : hfversion;
+  bool enabled = wap_client_enabled(ipc_client);
+  uint32_t votes = wap_client_votes(ipc_client);
+  uint32_t window = wap_client_window(ipc_client);
+  uint32_t threshold = wap_client_threshold(ipc_client);
+  uint8_t voting = wap_client_voting(ipc_client);
+  tools::msg_writer() << "version " << (uint32_t)version << " " << (enabled ? "enabled" : "not enabled") <<
+      ", " << votes << "/" << window << " votes, threshold " << threshold;
+  tools::msg_writer() << "current version " << (uint32_t)hfversion << ", voting for version " << (uint32_t)voting;
+  return true;
 }
 
 }// namespace daemonize

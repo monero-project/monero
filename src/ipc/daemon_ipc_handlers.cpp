@@ -759,7 +759,7 @@ namespace IPC
       bool enabled = blockchain.get_hard_fork_voting_info(version, window, votes, threshold, voting);
       cryptonote::HardFork::State hfstate = blockchain.get_hard_fork_state();
 
-      wap_proto_set_hfversion(message, version);
+      wap_proto_set_hfversion(message, blockchain.get_current_hard_fork_version());
       wap_proto_set_enabled(message, enabled);
       wap_proto_set_window(message, window);
       wap_proto_set_votes(message, votes);
