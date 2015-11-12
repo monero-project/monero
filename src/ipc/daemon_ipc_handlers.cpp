@@ -233,50 +233,43 @@ namespace IPC
         return;
       }
 
-      // We are using JSON to encode blocks. The JSON string will sit in a 
-      // 0MQ frame which gets sent in a zmsg_t object. One could put each block
-      // a different frame too.
+      // we need this to be fast, as refreshing from the wallet is something
+      // the user waits through, so we don't encode to JSON (and decode on the
+      // wallet side). Instead we sent:
+      //  - uin64_t nblocks (big endian)
+      //  - That many blocks, consisting of:
+      //    - string (4 byte length prefixed)
+      //    - uint32_t ntransactions (big endian)
+      //    - That many transactions, consisting of:
+      //      - string (4 byte length prefixed)
+      std::string block_string;
+      cryptonote::blobdata blob;
 
-      // First create a rapidjson object and then stringify it.
-      rapidjson::Document result_json;
-      result_json.SetObject();
-      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
-      rapidjson::Value block_json(rapidjson::kArrayType);
-      std::string blob;
-      BOOST_FOREACH(auto &b, bs)
-      {
-        rapidjson::Value this_block(rapidjson::kObjectType);
-        blob = block_to_blob(b.first);
-        rapidjson::Value string_value(rapidjson::kStringType);
-        string_value.SetString(blob.c_str(), blob.length(), allocator);
-        this_block.AddMember("block", string_value.Move(), allocator);
-        rapidjson::Value txs_blocks(rapidjson::kArrayType);
-        BOOST_FOREACH(auto &t, b.second)
-        {
-          rapidjson::Value string_value(rapidjson::kStringType);
-          blob = cryptonote::tx_to_blob(t);
-          string_value.SetString(blob.c_str(), blob.length(), allocator);
-          txs_blocks.PushBack(string_value.Move(), allocator);
+      block_string.resize(block_string.size()+8);
+      IPC::write64be((uint8_t*)block_string.c_str() + block_string.size() - 8, bs.size());
+      for (std::list<std::pair<cryptonote::block, std::list<cryptonote::transaction>>>::const_iterator i = bs.begin(); i != bs.end(); ++i) {
+        block_string.resize(block_string.size()+4);
+        blob = block_to_blob(i->first);
+        IPC::write32be((uint8_t*)block_string.c_str() + block_string.size() - 4, blob.size());
+        block_string.append(blob);
+        block_string.resize(block_string.size()+4);
+        IPC::write32be((uint8_t*)block_string.c_str() + block_string.size() - 4, i->second.size());
+        for (std::list<cryptonote::transaction>::const_iterator j = i->second.begin(); j != i->second.end(); ++j) {
+          block_string.resize(block_string.size()+4);
+          blob = cryptonote::tx_to_blob(*j);
+          IPC::write32be((uint8_t*)block_string.c_str() + block_string.size() - 4, blob.size());
+          block_string.append(blob);
         }
-        this_block.AddMember("txs", txs_blocks, allocator);
-        block_json.PushBack(this_block, allocator);
       }
 
-      result_json.AddMember("blocks", block_json, allocator);
-
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      result_json.Accept(writer);
-      std::string block_string = buffer.GetString();
+      // put that string in a frame and msg
       zmsg_t *block_data = zmsg_new();
-      // Put the JSON string in a frame.
       zframe_t *frame = zframe_new(block_string.c_str(), block_string.length());
       zmsg_prepend(block_data, &frame);
       wap_proto_set_start_height(message, result_start_height);
       wap_proto_set_curr_height(message, result_current_height);
-      wap_proto_set_status(message, STATUS_OK);
       wap_proto_set_msg_data(message, &block_data);
-
+      wap_proto_set_status(message, STATUS_OK);
     }
 
     /*!

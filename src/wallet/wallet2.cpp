@@ -487,18 +487,31 @@ void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_c
   zframe_t *frame = zmsg_first(msg);
   THROW_WALLET_EXCEPTION_IF(!frame, error::get_blocks_error, "getblocks");
   size_t size = zframe_size(frame);
-  char *block_data = reinterpret_cast<char*>(zframe_data(frame));
 
-  rapidjson::Document json;
-  THROW_WALLET_EXCEPTION_IF(json.Parse(block_data, size).HasParseError(), error::get_blocks_error, "getblocks");
-  for (rapidjson::SizeType i = 0; i < json["blocks"].Size(); i++) {
-    block_complete_entry block_entry;
-    std::string block_string(json["blocks"][i]["block"].GetString(), json["blocks"][i]["block"].GetStringLength());
-    block_entry.block = block_string;
-    for (rapidjson::SizeType j = 0; j < json["blocks"][i]["txs"].Size(); j++) {
-      block_entry.txs.push_back(std::string(json["blocks"][i]["txs"][j].GetString(), json["blocks"][i]["txs"][j].GetStringLength()));
+  const uint8_t *block_data = reinterpret_cast<const uint8_t*>(zframe_data(frame));
+  THROW_WALLET_EXCEPTION_IF(size < 8, error::get_blocks_error, "getblocks");
+  uint64_t nblocks = IPC::read64be(block_data);
+  block_data += 8; size -= 8;
+  for (uint64_t n = 0; n < nblocks; ++n) {
+    block_complete_entry be;
+    THROW_WALLET_EXCEPTION_IF(size < 4, error::get_blocks_error, "getblocks");
+    uint32_t bytes = IPC::read32be(block_data);
+    block_data += 4; size -= 4;
+    THROW_WALLET_EXCEPTION_IF(size < bytes, error::get_blocks_error, "getblocks");
+    be.block = std::string((const char*)block_data, bytes);
+    block_data += bytes; size -= bytes;
+    THROW_WALLET_EXCEPTION_IF(size < 4, error::get_blocks_error, "getblocks");
+    uint32_t ntxs = IPC::read32be(block_data);
+    block_data += 4; size -= 4;
+    for (uint32_t t = 0; t < ntxs; ++t) {
+      THROW_WALLET_EXCEPTION_IF(size < 4, error::get_blocks_error, "getblocks");
+      uint32_t bytes = IPC::read32be(block_data);
+      block_data += 4; size -= 4;
+      THROW_WALLET_EXCEPTION_IF(size < bytes, error::get_blocks_error, "getblocks");
+      be.txs.push_back(std::string((const char*)block_data, bytes));
+      block_data += bytes; size -= bytes;
     }
-    blocks.push_back(block_entry);
+    blocks.push_back(be);
   }
 }
 //----------------------------------------------------------------------------------------------------
