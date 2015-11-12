@@ -190,6 +190,7 @@ ERROR.
         connections         frame       Connections
 
     STOP_DAEMON - stop_daemon IPC
+        fast                number 1    Fast exit
 
     STOP_DAEMON_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 4    Status
@@ -719,6 +720,12 @@ zframe_t *
 //  Set the connections field, transferring ownership from caller
 void
     wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the fast field
+byte
+    wap_proto_fast (wap_proto_t *self);
+void
+    wap_proto_set_fast (wap_proto_t *self, byte fast);
 
 //  Get/set the header_only field
 byte

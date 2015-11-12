@@ -81,6 +81,7 @@ struct _wap_proto_t {
     byte voting;                        //  Voting
     uint32_t hfstate;                   //  State
     zframe_t *connections;              //  Connections
+    byte fast;                          //  Fast exit
     byte header_only;                   //  Header-only
     zchunk_t *block;                    //  Block blob
     byte major_version;                 //  major_version
@@ -705,6 +706,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_STOP_DAEMON:
+            GET_NUMBER1 (self->fast);
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
@@ -1065,6 +1067,9 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
             frame_size += 4;            //  status
             break;
+        case WAP_PROTO_STOP_DAEMON:
+            frame_size += 1;            //  fast
+            break;
         case WAP_PROTO_STOP_DAEMON_OK:
             frame_size += 4;            //  status
             break;
@@ -1402,6 +1407,10 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
             PUT_NUMBER4 (self->status);
             nbr_frames++;
+            break;
+
+        case WAP_PROTO_STOP_DAEMON:
+            PUT_NUMBER1 (self->fast);
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
@@ -1898,6 +1907,7 @@ wap_proto_print (wap_proto_t *self)
 
         case WAP_PROTO_STOP_DAEMON:
             zsys_debug ("WAP_PROTO_STOP_DAEMON:");
+            zsys_debug ("    fast=%ld", (long) self->fast);
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
@@ -3307,6 +3317,24 @@ wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the fast field
+
+byte
+wap_proto_fast (wap_proto_t *self)
+{
+    assert (self);
+    return self->fast;
+}
+
+void
+wap_proto_set_fast (wap_proto_t *self, byte fast)
+{
+    assert (self);
+    self->fast = fast;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the header_only field
 
 byte
@@ -4242,6 +4270,7 @@ wap_proto_test (bool verbose)
     }
     wap_proto_set_id (self, WAP_PROTO_STOP_DAEMON);
 
+    wap_proto_set_fast (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -4249,6 +4278,7 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
+        assert (wap_proto_fast (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_STOP_DAEMON_OK);
 

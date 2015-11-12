@@ -263,7 +263,7 @@ bool t_command_parser_executor::stop_daemon(const std::vector<std::string>& args
 {
   if (!args.empty()) return false;
 
-  return m_executor.stop_daemon();
+  return m_executor.stop_daemon(false);
 }
 
 bool t_command_parser_executor::print_status(const std::vector<std::string>& args)
@@ -333,7 +333,7 @@ bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& a
 bool t_command_parser_executor::fast_exit(const std::vector<std::string>& args)
 {
 	if (!args.empty()) return false;
-	return m_executor.fast_exit();
+	return m_executor.stop_daemon(true);
 }
 
 bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)

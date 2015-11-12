@@ -89,7 +89,7 @@ public:
 
   bool stop_mining();
 
-  bool stop_daemon();
+  bool stop_daemon(bool fast = false);
 
   bool print_status();
 
@@ -104,8 +104,6 @@ public:
   bool set_limit_up(int limit);
 
   bool set_limit_down(int limit);
-
-  bool fast_exit();
   
   bool out_peers(uint64_t limit);
   

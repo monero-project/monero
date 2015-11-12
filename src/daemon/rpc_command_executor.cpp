@@ -675,13 +675,13 @@ bool t_rpc_command_executor::stop_mining() {
   return true;
 }
 
-bool t_rpc_command_executor::stop_daemon()
+bool t_rpc_command_executor::stop_daemon(bool fast)
 {
   if (!connect_to_daemon()) {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  int status = wap_client_stop_daemon(ipc_client);
+  int status = wap_client_stop_daemon(ipc_client, fast);
   if (status < 0) {
     tools::fail_msg_writer() << "Failed to stop daemon";
     return true;
@@ -744,25 +744,6 @@ bool t_rpc_command_executor::set_limit_down(int limit)
     epee::net_utils::connection_basic::set_rate_down_limit( limit );
     std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
     return true;
-}
-
-bool t_rpc_command_executor::fast_exit()
-{
-#if 0
-	cryptonote::COMMAND_RPC_FAST_EXIT::request req;
-	cryptonote::COMMAND_RPC_FAST_EXIT::response res;
-	
-	std::string fail_message = "Daemon did not stop";
-	
-	if (!m_rpc_server->on_fast_exit(req, res))
-	{
-		tools::fail_msg_writer() << fail_message.c_str();
-		return true;
-	}
-
-	tools::success_msg_writer() << "Daemon stopped";
-#endif
-	return true;
 }
 
 bool t_rpc_command_executor::out_peers(uint64_t limit)

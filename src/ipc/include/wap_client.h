@@ -170,7 +170,7 @@ WAP_EXPORT int
 //  Stop daemon                                                                     
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_stop_daemon (wap_client_t *self);
+    wap_client_stop_daemon (wap_client_t *self, uint8_t fast);
 
 //  Get block by height                                                             
 //  Returns >= 0 if successful, -1 if interrupted.

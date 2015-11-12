@@ -249,6 +249,7 @@ struct _client_args_t {
     uint64_t height;
     uint64_t reserve_size;
     uint8_t hfversion;
+    uint8_t fast;
     uint8_t header_only;
     zchunk_t *hash;
     zframe_t *key_images;
@@ -328,6 +329,8 @@ static void
     prepare_get_block_template_command (client_t *self);
 static void
     prepare_hard_fork_info_command (client_t *self);
+static void
+    prepare_stop_daemon_command (client_t *self);
 static void
     prepare_get_block_by_height_command (client_t *self);
 static void
@@ -1240,6 +1243,12 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == stop_daemon_event) {
+                    if (!self->exception) {
+                        //  prepare stop daemon command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare stop daemon command", self->log_prefix);
+                        prepare_stop_daemon_command (&self->client);
+                    }
                     if (!self->exception) {
                         //  send STOP_DAEMON
                         if (wap_client_verbose)
@@ -2692,6 +2701,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "STOP DAEMON")) {
+        zsock_recv (self->cmdpipe, "1", &self->args.fast);
         s_client_execute (self, stop_daemon_event);
     }
     else
@@ -3515,11 +3525,11 @@ wap_client_get_connections_list (wap_client_t *self)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_stop_daemon (wap_client_t *self)
+wap_client_stop_daemon (wap_client_t *self, uint8_t fast)
 {
     assert (self);
 
-    zsock_send (self->actor, "s", "STOP DAEMON");
+    zsock_send (self->actor, "s1", "STOP DAEMON", fast);
     if (s_accept_reply (self, "STOP DAEMON OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;

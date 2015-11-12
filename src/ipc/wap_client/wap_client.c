@@ -578,6 +578,18 @@ signal_have_get_connections_list_ok (client_t *self)
         wap_proto_status (self->message), 
         wap_proto_get_connections (self->message));
 }
+
+//  ---------------------------------------------------------------------------
+//  prepare_stop_daemon_command
+//
+
+static void
+prepare_stop_daemon_command (client_t *self)
+{
+    wap_proto_set_fast(self->message, self->args->fast);
+}
+
+
 //
 //  ---------------------------------------------------------------------------
 //  signal_have_stop_daemon_ok

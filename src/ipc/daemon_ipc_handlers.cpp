@@ -848,7 +848,15 @@ namespace IPC
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
       }
-      p2p->send_stop_signal();
+      bool fast = wap_proto_fast(message);
+      if (fast) {
+        cryptonote::core::set_fast_exit();
+        p2p->deinit();
+        core->deinit();
+      }
+      else {
+        p2p->send_stop_signal();
+      }
       wap_proto_set_status(message, STATUS_OK);
     }
 
