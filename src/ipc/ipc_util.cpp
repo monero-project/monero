@@ -58,6 +58,7 @@ namespace
     "wrong txid length",
     "tx not found",
     "wrong key image length",
+    "not implemented",
   };
 }
 

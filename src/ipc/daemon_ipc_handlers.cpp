@@ -1154,5 +1154,21 @@ namespace IPC
       wap_proto_set_status(message, STATUS_OK);
     }
 
+    /*!
+     * \brief set_out_peers IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void set_out_peers(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      uint32_t num_out_peers = wap_proto_num_out_peers(message);
+      LOG_PRINT_L0("set_out_peers not implemented");
+      wap_proto_set_status(message, STATUS_NOT_IMPLEMENTED);
+    }
+
   }
 }

@@ -723,3 +723,26 @@ signal_have_get_tx_pool_ok (client_t *self)
                 msg);
 }
 
+//  ---------------------------------------------------------------------------
+//  prepare_set_out_peers_command
+//
+
+static void
+prepare_set_out_peers_command (client_t *self)
+{
+    wap_proto_set_num_out_peers(self->message, self->args->num_out_peers);
+}
+
+
+//
+//  ---------------------------------------------------------------------------
+//  signal_have_set_out_peers_ok
+//
+
+static void
+signal_have_set_out_peers_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s4", "SET OUT PEERS OK", wap_proto_status(self->message));
+}
+
+

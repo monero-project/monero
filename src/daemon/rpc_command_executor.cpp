@@ -748,24 +748,17 @@ bool t_rpc_command_executor::set_limit_down(int limit)
 
 bool t_rpc_command_executor::out_peers(uint64_t limit)
 {
-#if 0
-	cryptonote::COMMAND_RPC_OUT_PEERS::request req;
-	cryptonote::COMMAND_RPC_OUT_PEERS::response res;
-	
-	epee::json_rpc::error error_resp;
-
-	req.out_peers = limit;
-	
-	std::string fail_message = "Unsuccessful";
-
-	if (!m_rpc_server->on_out_peers(req, res))
-	{
-		tools::fail_msg_writer() << fail_message.c_str();
-		return true;
-	}
-#endif
-
-	return true;
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+  int status = wap_client_set_out_peers(ipc_client, limit);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+  tools::success_msg_writer() << "Out peers set";
+  return true;
 }
 
 bool t_rpc_command_executor::start_save_graph()

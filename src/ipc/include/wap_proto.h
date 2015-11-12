@@ -247,6 +247,12 @@ ERROR.
         status              number 4    Status
         msg_data            msg         Frames of transaction data
 
+    SET_OUT_PEERS - Wallet sets the max number of out peers
+        num_out_peers       number 8    
+
+    SET_OUT_PEERS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -325,11 +331,13 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_KEY_IMAGE_STATUS_OK   50
 #define WAP_PROTO_GET_TX_POOL               51
 #define WAP_PROTO_GET_TX_POOL_OK            52
-#define WAP_PROTO_CLOSE                     53
-#define WAP_PROTO_CLOSE_OK                  54
-#define WAP_PROTO_PING                      55
-#define WAP_PROTO_PING_OK                   56
-#define WAP_PROTO_ERROR                     57
+#define WAP_PROTO_SET_OUT_PEERS             53
+#define WAP_PROTO_SET_OUT_PEERS_OK          54
+#define WAP_PROTO_CLOSE                     55
+#define WAP_PROTO_CLOSE_OK                  56
+#define WAP_PROTO_PING                      57
+#define WAP_PROTO_PING_OK                   58
+#define WAP_PROTO_ERROR                     59
 
 #include <czmq.h>
 
@@ -804,6 +812,12 @@ zframe_t *
 //  Set the spent field, transferring ownership from caller
 void
     wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the num_out_peers field
+uint64_t
+    wap_proto_num_out_peers (wap_proto_t *self);
+void
+    wap_proto_set_num_out_peers (wap_proto_t *self, uint64_t num_out_peers);
 
 //  Get/set the reason field
 const char *

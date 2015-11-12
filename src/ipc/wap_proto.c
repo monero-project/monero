@@ -93,6 +93,7 @@ struct _wap_proto_t {
     uint64_t reward;                    //  reward
     zframe_t *key_images;               //  key_images
     zframe_t *spent;                    //  Key image spent status
+    uint64_t num_out_peers;             //  num_out_peers
     char reason [256];                  //  Printable explanation
 };
 
@@ -860,6 +861,14 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
                 self->msg_data = zmsg_new ();
             break;
 
+        case WAP_PROTO_SET_OUT_PEERS:
+            GET_NUMBER8 (self->num_out_peers);
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            GET_NUMBER4 (self->status);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -1132,6 +1141,12 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_TX_POOL_OK:
+            frame_size += 4;            //  status
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            frame_size += 8;            //  num_out_peers
+            break;
+        case WAP_PROTO_SET_OUT_PEERS_OK:
             frame_size += 4;            //  status
             break;
         case WAP_PROTO_ERROR:
@@ -1529,6 +1544,14 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->status);
             nbr_frames += self->msg_data? zmsg_size (self->msg_data): 1;
             have_msg_data = true;
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS:
+            PUT_NUMBER8 (self->num_out_peers);
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_ERROR:
@@ -1995,6 +2018,16 @@ wap_proto_print (wap_proto_t *self)
                 zsys_debug ("(NULL)");
             break;
 
+        case WAP_PROTO_SET_OUT_PEERS:
+            zsys_debug ("WAP_PROTO_SET_OUT_PEERS:");
+            zsys_debug ("    num_out_peers=%ld", (long) self->num_out_peers);
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            zsys_debug ("WAP_PROTO_SET_OUT_PEERS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
         case WAP_PROTO_CLOSE:
             zsys_debug ("WAP_PROTO_CLOSE:");
             break;
@@ -2219,6 +2252,12 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_GET_TX_POOL_OK:
             return ("GET_TX_POOL_OK");
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            return ("SET_OUT_PEERS");
+            break;
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            return ("SET_OUT_PEERS_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -3578,6 +3617,24 @@ wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the num_out_peers field
+
+uint64_t
+wap_proto_num_out_peers (wap_proto_t *self)
+{
+    assert (self);
+    return self->num_out_peers;
+}
+
+void
+wap_proto_set_num_out_peers (wap_proto_t *self, uint64_t num_out_peers)
+{
+    assert (self);
+    self->num_out_peers = num_out_peers;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -4477,6 +4534,30 @@ wap_proto_test (bool verbose)
         zstr_free (&content);
         if (instance == 1)
             zmsg_destroy (&get_tx_pool_ok_msg_data);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_OUT_PEERS);
+
+    wap_proto_set_num_out_peers (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_num_out_peers (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_OUT_PEERS_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

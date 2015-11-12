@@ -49,10 +49,11 @@ typedef enum {
     expect_get_block_by_hash_ok_state = 26,
     expect_get_key_image_status_ok_state = 27,
     expect_get_tx_pool_ok_state = 28,
-    expect_close_ok_state = 29,
-    defaults_state = 30,
-    have_error_state = 31,
-    reexpect_open_ok_state = 32
+    expect_set_out_peers_ok_state = 29,
+    expect_close_ok_state = 30,
+    defaults_state = 31,
+    have_error_state = 32,
+    reexpect_open_ok_state = 33
 } state_t;
 
 typedef enum {
@@ -86,38 +87,40 @@ typedef enum {
     get_block_by_hash_event = 27,
     get_key_image_status_event = 28,
     get_tx_pool_event = 29,
-    destructor_event = 30,
-    blocks_ok_event = 31,
-    get_tx_ok_event = 32,
-    send_raw_transaction_ok_event = 33,
-    save_bc_ok_event = 34,
-    start_mining_ok_event = 35,
-    stop_mining_ok_event = 36,
-    output_indexes_ok_event = 37,
-    random_outs_ok_event = 38,
-    get_height_ok_event = 39,
-    get_info_ok_event = 40,
-    get_peer_list_ok_event = 41,
-    get_mining_status_ok_event = 42,
-    set_log_hash_rate_ok_event = 43,
-    set_log_level_ok_event = 44,
-    start_save_graph_ok_event = 45,
-    stop_save_graph_ok_event = 46,
-    get_block_hash_ok_event = 47,
-    get_block_template_ok_event = 48,
-    get_hard_fork_info_ok_event = 49,
-    get_connections_list_ok_event = 50,
-    stop_daemon_ok_event = 51,
-    get_block_by_height_ok_event = 52,
-    get_block_by_hash_ok_event = 53,
-    get_key_image_status_ok_event = 54,
-    get_tx_pool_ok_event = 55,
-    close_ok_event = 56,
-    ping_ok_event = 57,
-    error_event = 58,
-    exception_event = 59,
-    command_invalid_event = 60,
-    other_event = 61
+    set_out_peers_event = 30,
+    destructor_event = 31,
+    blocks_ok_event = 32,
+    get_tx_ok_event = 33,
+    send_raw_transaction_ok_event = 34,
+    save_bc_ok_event = 35,
+    start_mining_ok_event = 36,
+    stop_mining_ok_event = 37,
+    output_indexes_ok_event = 38,
+    random_outs_ok_event = 39,
+    get_height_ok_event = 40,
+    get_info_ok_event = 41,
+    get_peer_list_ok_event = 42,
+    get_mining_status_ok_event = 43,
+    set_log_hash_rate_ok_event = 44,
+    set_log_level_ok_event = 45,
+    start_save_graph_ok_event = 46,
+    stop_save_graph_ok_event = 47,
+    get_block_hash_ok_event = 48,
+    get_block_template_ok_event = 49,
+    get_hard_fork_info_ok_event = 50,
+    get_connections_list_ok_event = 51,
+    stop_daemon_ok_event = 52,
+    get_block_by_height_ok_event = 53,
+    get_block_by_hash_ok_event = 54,
+    get_key_image_status_ok_event = 55,
+    get_tx_pool_ok_event = 56,
+    set_out_peers_ok_event = 57,
+    close_ok_event = 58,
+    ping_ok_event = 59,
+    error_event = 60,
+    exception_event = 61,
+    command_invalid_event = 62,
+    other_event = 63
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -152,6 +155,7 @@ s_state_name [] = {
     "expect get block by hash ok",
     "expect get key image status ok",
     "expect get tx pool ok",
+    "expect set out peers ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -190,6 +194,7 @@ s_event_name [] = {
     "GET_BLOCK_BY_HASH",
     "GET_KEY_IMAGE_STATUS",
     "GET_TX_POOL",
+    "SET_OUT_PEERS",
     "destructor",
     "BLOCKS_OK",
     "GET_TX_OK",
@@ -216,6 +221,7 @@ s_event_name [] = {
     "GET_BLOCK_BY_HASH_OK",
     "GET_KEY_IMAGE_STATUS_OK",
     "GET_TX_POOL_OK",
+    "SET_OUT_PEERS_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -253,6 +259,7 @@ struct _client_args_t {
     uint8_t header_only;
     zchunk_t *hash;
     zframe_t *key_images;
+    uint64_t num_out_peers;
 };
 
 typedef struct {
@@ -338,6 +345,8 @@ static void
 static void
     prepare_get_key_image_status_command (client_t *self);
 static void
+    prepare_set_out_peers_command (client_t *self);
+static void
     check_if_connection_is_dead (client_t *self);
 static void
     signal_have_blocks_ok (client_t *self);
@@ -389,6 +398,8 @@ static void
     signal_have_get_key_image_status_ok (client_t *self);
 static void
     signal_have_get_tx_pool_ok (client_t *self);
+static void
+    signal_have_set_out_peers_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -755,6 +766,12 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_GET_TX_POOL_OK:
             return get_tx_pool_ok_event;
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            return set_out_peers_event;
+            break;
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            return set_out_peers_ok_event;
             break;
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
@@ -1329,6 +1346,25 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_tx_pool_ok_state;
+                }
+                else
+                if (self->event == set_out_peers_event) {
+                    if (!self->exception) {
+                        //  prepare set out peers command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare set out peers command", self->log_prefix);
+                        prepare_set_out_peers_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_OUT_PEERS
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send SET_OUT_PEERS",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_SET_OUT_PEERS);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_set_out_peers_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -2363,6 +2399,45 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_set_out_peers_ok_state:
+                if (self->event == set_out_peers_ok_event) {
+                    if (!self->exception) {
+                        //  signal have set out peers ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have set out peers ok", self->log_prefix);
+                        signal_have_set_out_peers_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2724,6 +2799,11 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "GET TX POOL")) {
         s_client_execute (self, get_tx_pool_event);
+    }
+    else
+    if (streq (method, "SET OUT PEERS")) {
+        zsock_recv (self->cmdpipe, "8", &self->args.num_out_peers);
+        s_client_execute (self, set_out_peers_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -3141,6 +3221,10 @@ s_accept_reply (wap_client_t *self, ...)
                 if (streq (reply, "GET TX POOL OK")) {
                     zmsg_destroy (&self->msg_data);
                     zsock_recv (self->actor, "4p", &self->status, &self->msg_data);
+                }
+                else
+                if (streq (reply, "SET OUT PEERS OK")) {
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 break;
             }
@@ -3597,6 +3681,22 @@ wap_client_get_tx_pool (wap_client_t *self)
 
     zsock_send (self->actor, "s", "GET TX POOL");
     if (s_accept_reply (self, "GET TX POOL OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Set the max number of out peers                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_set_out_peers (wap_client_t *self, uint64_t num_out_peers)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s8", "SET OUT PEERS", num_out_peers);
+    if (s_accept_reply (self, "SET OUT PEERS OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }

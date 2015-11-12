@@ -192,6 +192,11 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_tx_pool (wap_client_t *self);
 
+//  Set the max number of out peers                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_set_out_peers (wap_client_t *self, uint64_t num_out_peers);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);

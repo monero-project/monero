@@ -56,11 +56,12 @@ typedef enum {
     get_block_by_hash_event = 25,
     get_key_image_status_event = 26,
     get_tx_pool_event = 27,
-    close_event = 28,
-    ping_event = 29,
-    expired_event = 30,
-    exception_event = 31,
-    settled_event = 32
+    set_out_peers_event = 28,
+    close_event = 29,
+    ping_event = 30,
+    expired_event = 31,
+    exception_event = 32,
+    settled_event = 33
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -103,6 +104,7 @@ s_event_name [] = {
     "GET_BLOCK_BY_HASH",
     "GET_KEY_IMAGE_STATUS",
     "GET_TX_POOL",
+    "SET_OUT_PEERS",
     "CLOSE",
     "PING",
     "expired",
@@ -222,6 +224,8 @@ static void
     get_key_image_status (client_t *self);
 static void
     get_tx_pool (client_t *self);
+static void
+    set_out_peers (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -489,6 +493,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_GET_TX_POOL:
             return get_tx_pool_event;
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            return set_out_peers_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -1150,6 +1157,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_TX_POOL_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_TX_POOL_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == set_out_peers_event) {
+                    if (!self->exception) {
+                        //  set out peers
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set out peers", self->log_prefix);
+                        set_out_peers (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_OUT_PEERS_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send SET_OUT_PEERS_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SET_OUT_PEERS_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

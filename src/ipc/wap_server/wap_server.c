@@ -454,3 +454,13 @@ get_tx_pool (client_t *self)
     IPC::Daemon::get_tx_pool(self->message);
 }
 
+//  ---------------------------------------------------------------------------
+//  set_out_peers
+//
+
+static void
+set_out_peers (client_t *self)
+{
+    IPC::Daemon::set_out_peers(self->message);
+}
+
