@@ -39,7 +39,7 @@ BLOCKS-OK, or ERROR if the request is invalid.
         status              number 4    Status
         start_height        number 8    
         curr_height         number 8    
-        block_data          msg         Frames of block data
+        msg_data            msg         Frames of block data
 
     SEND_RAW_TRANSACTION - Wallet sends a raw transaction to the daemon. Daemon replies with
 SEND-RAW-TRANSACTION-OK, or ERROR.
@@ -244,7 +244,7 @@ ERROR.
 
     GET_TX_POOL_OK - Daemon returns a set of transactions to the wallet.
         status              number 4    Status
-        tx_pool_data        msg         Frames of transaction data
+        msg_data            msg         Frames of transaction data
 
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
@@ -412,15 +412,15 @@ uint64_t
 void
     wap_proto_set_curr_height (wap_proto_t *self, uint64_t curr_height);
 
-//  Get a copy of the block_data field
+//  Get a copy of the msg_data field
 zmsg_t *
-    wap_proto_block_data (wap_proto_t *self);
-//  Get the block_data field and transfer ownership to caller
+    wap_proto_msg_data (wap_proto_t *self);
+//  Get the msg_data field and transfer ownership to caller
 zmsg_t *
-    wap_proto_get_block_data (wap_proto_t *self);
-//  Set the block_data field, transferring ownership from caller
+    wap_proto_get_msg_data (wap_proto_t *self);
+//  Set the msg_data field, transferring ownership from caller
 void
-    wap_proto_set_block_data (wap_proto_t *self, zmsg_t **msg_p);
+    wap_proto_set_msg_data (wap_proto_t *self, zmsg_t **msg_p);
 
 //  Get a copy of the tx_as_hex field
 zchunk_t *
@@ -797,16 +797,6 @@ zframe_t *
 //  Set the spent field, transferring ownership from caller
 void
     wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p);
-
-//  Get a copy of the tx_pool_data field
-zmsg_t *
-    wap_proto_tx_pool_data (wap_proto_t *self);
-//  Get the tx_pool_data field and transfer ownership to caller
-zmsg_t *
-    wap_proto_get_tx_pool_data (wap_proto_t *self);
-//  Set the tx_pool_data field, transferring ownership from caller
-void
-    wap_proto_set_tx_pool_data (wap_proto_t *self, zmsg_t **msg_p);
 
 //  Get/set the reason field
 const char *

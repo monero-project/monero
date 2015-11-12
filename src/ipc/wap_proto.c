@@ -39,7 +39,7 @@ struct _wap_proto_t {
     uint64_t start_height;              //  start_height
     uint32_t status;                    //  Status
     uint64_t curr_height;               //  curr_height
-    zmsg_t *block_data;                 //  Frames of block data
+    zmsg_t *msg_data;                   //  Frames of block data
     zchunk_t *tx_as_hex;                //  Transaction as hex
     zchunk_t *tx_id;                    //  Transaction ID
     zframe_t *o_indexes;                //  Output Indexes
@@ -92,7 +92,6 @@ struct _wap_proto_t {
     uint64_t reward;                    //  reward
     zframe_t *key_images;               //  key_images
     zframe_t *spent;                    //  Key image spent status
-    zmsg_t *tx_pool_data;               //  Frames of transaction data
     char reason [256];                  //  Printable explanation
 };
 
@@ -271,7 +270,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zframe_destroy (&self->routing_id);
         if (self->block_ids)
             zlist_destroy (&self->block_ids);
-        zmsg_destroy (&self->block_data);
+        zmsg_destroy (&self->msg_data);
         zchunk_destroy (&self->tx_as_hex);
         zchunk_destroy (&self->tx_id);
         zframe_destroy (&self->o_indexes);
@@ -288,7 +287,6 @@ wap_proto_destroy (wap_proto_t **self_p)
         zchunk_destroy (&self->block);
         zframe_destroy (&self->key_images);
         zframe_destroy (&self->spent);
-        zmsg_destroy (&self->tx_pool_data);
 
         //  Free object itself
         free (self);
@@ -381,11 +379,11 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->start_height);
             GET_NUMBER8 (self->curr_height);
             //  Get zero or more remaining frames
-            zmsg_destroy (&self->block_data);
+            zmsg_destroy (&self->msg_data);
             if (zsock_rcvmore (input))
-                self->block_data = zmsg_recv (input);
+                self->msg_data = zmsg_recv (input);
             else
-                self->block_data = zmsg_new ();
+                self->msg_data = zmsg_new ();
             break;
 
         case WAP_PROTO_SEND_RAW_TRANSACTION:
@@ -853,11 +851,11 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
         case WAP_PROTO_GET_TX_POOL_OK:
             GET_NUMBER4 (self->status);
             //  Get zero or more remaining frames
-            zmsg_destroy (&self->tx_pool_data);
+            zmsg_destroy (&self->msg_data);
             if (zsock_rcvmore (input))
-                self->tx_pool_data = zmsg_recv (input);
+                self->msg_data = zmsg_recv (input);
             else
-                self->tx_pool_data = zmsg_new ();
+                self->msg_data = zmsg_new ();
             break;
 
         case WAP_PROTO_CLOSE:
@@ -1142,7 +1140,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
     self->needle = (byte *) zmq_msg_data (&frame);
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
-    bool have_tx_pool_data = false;
+    bool have_msg_data = false;
     size_t nbr_frames = 1;              //  Total number of frames to send
 
     switch (self->id) {
@@ -1170,8 +1168,8 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->start_height);
             PUT_NUMBER8 (self->curr_height);
-            nbr_frames += self->block_data? zmsg_size (self->block_data): 1;
-            have_tx_pool_data = true;
+            nbr_frames += self->msg_data? zmsg_size (self->msg_data): 1;
+            have_msg_data = true;
             break;
 
         case WAP_PROTO_SEND_RAW_TRANSACTION:
@@ -1520,8 +1518,8 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
 
         case WAP_PROTO_GET_TX_POOL_OK:
             PUT_NUMBER4 (self->status);
-            nbr_frames += self->tx_pool_data? zmsg_size (self->tx_pool_data): 1;
-            have_tx_pool_data = true;
+            nbr_frames += self->msg_data? zmsg_size (self->msg_data): 1;
+            have_msg_data = true;
             break;
 
         case WAP_PROTO_ERROR:
@@ -1594,13 +1592,13 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         else
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
-    //  Now send the tx_pool_data if necessary
-    if (have_tx_pool_data) {
-        if (self->tx_pool_data) {
-            zframe_t *frame = zmsg_first (self->tx_pool_data);
+    //  Now send the msg_data if necessary
+    if (have_msg_data) {
+        if (self->msg_data) {
+            zframe_t *frame = zmsg_first (self->msg_data);
             while (frame) {
                 zframe_send (&frame, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
-                frame = zmsg_next (self->tx_pool_data);
+                frame = zmsg_next (self->msg_data);
             }
         }
         else
@@ -1647,9 +1645,9 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             zsys_debug ("    start_height=%ld", (long) self->start_height);
             zsys_debug ("    curr_height=%ld", (long) self->curr_height);
-            zsys_debug ("    block_data=");
-            if (self->block_data)
-                zmsg_print (self->block_data);
+            zsys_debug ("    msg_data=");
+            if (self->msg_data)
+                zmsg_print (self->msg_data);
             else
                 zsys_debug ("(NULL)");
             break;
@@ -1980,9 +1978,9 @@ wap_proto_print (wap_proto_t *self)
         case WAP_PROTO_GET_TX_POOL_OK:
             zsys_debug ("WAP_PROTO_GET_TX_POOL_OK:");
             zsys_debug ("    status=%ld", (long) self->status);
-            zsys_debug ("    tx_pool_data=");
-            if (self->tx_pool_data)
-                zmsg_print (self->tx_pool_data);
+            zsys_debug ("    msg_data=");
+            if (self->msg_data)
+                zmsg_print (self->msg_data);
             else
                 zsys_debug ("(NULL)");
             break;
@@ -2343,34 +2341,34 @@ wap_proto_set_curr_height (wap_proto_t *self, uint64_t curr_height)
 
 
 //  --------------------------------------------------------------------------
-//  Get the block_data field without transferring ownership
+//  Get the msg_data field without transferring ownership
 
 zmsg_t *
-wap_proto_block_data (wap_proto_t *self)
+wap_proto_msg_data (wap_proto_t *self)
 {
     assert (self);
-    return self->block_data;
+    return self->msg_data;
 }
 
-//  Get the block_data field and transfer ownership to caller
+//  Get the msg_data field and transfer ownership to caller
 
 zmsg_t *
-wap_proto_get_block_data (wap_proto_t *self)
+wap_proto_get_msg_data (wap_proto_t *self)
 {
-    zmsg_t *block_data = self->block_data;
-    self->block_data = NULL;
-    return block_data;
+    zmsg_t *msg_data = self->msg_data;
+    self->msg_data = NULL;
+    return msg_data;
 }
 
-//  Set the block_data field, transferring ownership from caller
+//  Set the msg_data field, transferring ownership from caller
 
 void
-wap_proto_set_block_data (wap_proto_t *self, zmsg_t **msg_p)
+wap_proto_set_msg_data (wap_proto_t *self, zmsg_t **msg_p)
 {
     assert (self);
     assert (msg_p);
-    zmsg_destroy (&self->block_data);
-    self->block_data = *msg_p;
+    zmsg_destroy (&self->msg_data);
+    self->msg_data = *msg_p;
     *msg_p = NULL;
 }
 
@@ -3552,39 +3550,6 @@ wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p)
 
 
 //  --------------------------------------------------------------------------
-//  Get the tx_pool_data field without transferring ownership
-
-zmsg_t *
-wap_proto_tx_pool_data (wap_proto_t *self)
-{
-    assert (self);
-    return self->tx_pool_data;
-}
-
-//  Get the tx_pool_data field and transfer ownership to caller
-
-zmsg_t *
-wap_proto_get_tx_pool_data (wap_proto_t *self)
-{
-    zmsg_t *tx_pool_data = self->tx_pool_data;
-    self->tx_pool_data = NULL;
-    return tx_pool_data;
-}
-
-//  Set the tx_pool_data field, transferring ownership from caller
-
-void
-wap_proto_set_tx_pool_data (wap_proto_t *self, zmsg_t **msg_p)
-{
-    assert (self);
-    assert (msg_p);
-    zmsg_destroy (&self->tx_pool_data);
-    self->tx_pool_data = *msg_p;
-    *msg_p = NULL;
-}
-
-
-//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -3691,9 +3656,9 @@ wap_proto_test (bool verbose)
     wap_proto_set_status (self, 123);
     wap_proto_set_start_height (self, 123);
     wap_proto_set_curr_height (self, 123);
-    zmsg_t *blocks_ok_block_data = zmsg_new ();
-    wap_proto_set_block_data (self, &blocks_ok_block_data);
-    zmsg_addstr (wap_proto_block_data (self), "Captcha Diem");
+    zmsg_t *blocks_ok_msg_data = zmsg_new ();
+    wap_proto_set_msg_data (self, &blocks_ok_msg_data);
+    zmsg_addstr (wap_proto_msg_data (self), "Captcha Diem");
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -3704,12 +3669,12 @@ wap_proto_test (bool verbose)
         assert (wap_proto_status (self) == 123);
         assert (wap_proto_start_height (self) == 123);
         assert (wap_proto_curr_height (self) == 123);
-        assert (zmsg_size (wap_proto_block_data (self)) == 1);
-        char *content = zmsg_popstr (wap_proto_block_data (self));
+        assert (zmsg_size (wap_proto_msg_data (self)) == 1);
+        char *content = zmsg_popstr (wap_proto_msg_data (self));
         assert (streq (content, "Captcha Diem"));
         zstr_free (&content);
         if (instance == 1)
-            zmsg_destroy (&blocks_ok_block_data);
+            zmsg_destroy (&blocks_ok_msg_data);
     }
     wap_proto_set_id (self, WAP_PROTO_SEND_RAW_TRANSACTION);
 
@@ -4465,9 +4430,9 @@ wap_proto_test (bool verbose)
     wap_proto_set_id (self, WAP_PROTO_GET_TX_POOL_OK);
 
     wap_proto_set_status (self, 123);
-    zmsg_t *get_tx_pool_ok_tx_pool_data = zmsg_new ();
-    wap_proto_set_tx_pool_data (self, &get_tx_pool_ok_tx_pool_data);
-    zmsg_addstr (wap_proto_tx_pool_data (self), "Captcha Diem");
+    zmsg_t *get_tx_pool_ok_msg_data = zmsg_new ();
+    wap_proto_set_msg_data (self, &get_tx_pool_ok_msg_data);
+    zmsg_addstr (wap_proto_msg_data (self), "Captcha Diem");
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -4476,12 +4441,12 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
-        assert (zmsg_size (wap_proto_tx_pool_data (self)) == 1);
-        char *content = zmsg_popstr (wap_proto_tx_pool_data (self));
+        assert (zmsg_size (wap_proto_msg_data (self)) == 1);
+        char *content = zmsg_popstr (wap_proto_msg_data (self));
         assert (streq (content, "Captcha Diem"));
         zstr_free (&content);
         if (instance == 1)
-            zmsg_destroy (&get_tx_pool_ok_tx_pool_data);
+            zmsg_destroy (&get_tx_pool_ok_msg_data);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

@@ -557,7 +557,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
     tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
-  zmsg_t *msg = wap_client_tx_pool_data(ipc_client);
+  zmsg_t *msg = wap_client_msg_data(ipc_client);
   if (!msg) {
     tools::fail_msg_writer() << "Bad message received";
     return true;
@@ -607,7 +607,7 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
     tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
     return true;
   }
-  zmsg_t *msg = wap_client_tx_pool_data(ipc_client);
+  zmsg_t *msg = wap_client_msg_data(ipc_client);
   if (!msg) {
     tools::fail_msg_writer() << "Bad message received";
     return true;

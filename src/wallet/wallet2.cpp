@@ -538,7 +538,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "get_blocks");
   std::list<block_complete_entry> blocks;
-  zmsg_t *msg = wap_client_block_data(ipc_client); 
+  zmsg_t *msg = wap_client_msg_data(ipc_client); 
   get_blocks_from_zmq_msg(msg, blocks);
 
   uint64_t current_index = wap_client_start_height(ipc_client);

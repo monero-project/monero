@@ -275,7 +275,7 @@ namespace IPC
       wap_proto_set_start_height(message, result_start_height);
       wap_proto_set_curr_height(message, result_current_height);
       wap_proto_set_status(message, STATUS_OK);
-      wap_proto_set_block_data(message, &block_data);
+      wap_proto_set_msg_data(message, &block_data);
 
     }
 
@@ -1142,7 +1142,7 @@ namespace IPC
       // Put the JSON string in a frame.
       zframe_t *frame = zframe_new(tx_string.c_str(), tx_string.length());
       zmsg_prepend(tx_data, &frame);
-      wap_proto_set_tx_pool_data(message, &tx_data);
+      wap_proto_set_msg_data(message, &tx_data);
       wap_proto_set_status(message, STATUS_OK);
     }
 

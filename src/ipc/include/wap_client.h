@@ -208,9 +208,9 @@ WAP_EXPORT uint64_t
 WAP_EXPORT uint64_t 
     wap_client_curr_height (wap_client_t *self);
 
-//  Return last received block_data
+//  Return last received msg_data
 WAP_EXPORT zmsg_t *
-    wap_client_block_data (wap_client_t *self);
+    wap_client_msg_data (wap_client_t *self);
 
 //  Return last received tx_data
 WAP_EXPORT zchunk_t *
@@ -379,10 +379,6 @@ WAP_EXPORT uint64_t
 //  Return last received spent
 WAP_EXPORT zframe_t *
     wap_client_spent (wap_client_t *self);
-
-//  Return last received tx_pool_data
-WAP_EXPORT zmsg_t *
-    wap_client_tx_pool_data (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

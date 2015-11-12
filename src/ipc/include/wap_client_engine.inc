@@ -2832,7 +2832,7 @@ struct _wap_client_t {
     char *reason;               //  Returned by actor reply
     uint64_t start_height;      //  Returned by actor reply
     uint64_t curr_height;       //  Returned by actor reply
-    zmsg_t *block_data;         //  Returned by actor reply
+    zmsg_t *msg_data;           //  Returned by actor reply
     zchunk_t *tx_data;          //  Returned by actor reply
     uint8_t in_pool;            //  Returned by actor reply
     zframe_t *o_indexes;        //  Returned by actor reply
@@ -2875,7 +2875,6 @@ struct _wap_client_t {
     uint64_t depth;             //  Returned by actor reply
     uint64_t reward;            //  Returned by actor reply
     zframe_t *spent;            //  Returned by actor reply
-    zmsg_t *tx_pool_data;       //  Returned by actor reply
 };
 
 
@@ -2924,7 +2923,7 @@ wap_client_destroy (wap_client_t **self_p)
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
         zstr_free (&self->reason);
-        zmsg_destroy (&self->block_data);
+        zmsg_destroy (&self->msg_data);
         zchunk_destroy (&self->tx_data);
         zframe_destroy (&self->o_indexes);
         zframe_destroy (&self->random_outputs);
@@ -2937,7 +2936,6 @@ wap_client_destroy (wap_client_t **self_p)
         zframe_destroy (&self->connections);
         zchunk_destroy (&self->block);
         zframe_destroy (&self->spent);
-        zmsg_destroy (&self->tx_pool_data);
         free (self);
         *self_p = NULL;
     }
@@ -3017,8 +3015,8 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "BLOCKS OK")) {
-                    zmsg_destroy (&self->block_data);
-                    zsock_recv (self->actor, "488p", &self->status, &self->start_height, &self->curr_height, &self->block_data);
+                    zmsg_destroy (&self->msg_data);
+                    zsock_recv (self->actor, "488p", &self->status, &self->start_height, &self->curr_height, &self->msg_data);
                 }
                 else
                 if (streq (reply, "SEND RAW TRANSACTION OK")) {
@@ -3131,8 +3129,8 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "GET TX POOL OK")) {
-                    zmsg_destroy (&self->tx_pool_data);
-                    zsock_recv (self->actor, "4p", &self->status, &self->tx_pool_data);
+                    zmsg_destroy (&self->msg_data);
+                    zsock_recv (self->actor, "4p", &self->status, &self->msg_data);
                 }
                 break;
             }
@@ -3639,13 +3637,13 @@ wap_client_curr_height (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  Return last received block_data
+//  Return last received msg_data
 
 zmsg_t *
-wap_client_block_data (wap_client_t *self)
+wap_client_msg_data (wap_client_t *self)
 {
     assert (self);
-    return self->block_data;
+    return self->msg_data;
 }
 
 
@@ -4108,15 +4106,4 @@ wap_client_spent (wap_client_t *self)
 {
     assert (self);
     return self->spent;
-}
-
-
-//  ---------------------------------------------------------------------------
-//  Return last received tx_pool_data
-
-zmsg_t *
-wap_client_tx_pool_data (wap_client_t *self)
-{
-    assert (self);
-    return self->tx_pool_data;
 }

@@ -845,7 +845,7 @@ namespace
     result_json.SetObject();
     rapidjson::Value blocks(rapidjson::kArrayType);
 
-    zframe_t *frame = zmsg_first(wap_client_block_data(ipc_client));
+    zframe_t *frame = zmsg_first(wap_client_msg_data(ipc_client));
     if (!frame) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Internal error.", "{}");

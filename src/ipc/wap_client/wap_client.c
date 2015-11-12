@@ -144,7 +144,7 @@ prepare_blocks_command (client_t *self)
 static void
 signal_have_blocks_ok (client_t *self)
 {
-    zmsg_t *msg = wap_proto_get_block_data (self->message);
+    zmsg_t *msg = wap_proto_get_msg_data (self->message);
     assert(msg != 0);
     printf("%p <--\n", (void*)msg);
     zsock_send (self->cmdpipe, "s488p", "BLOCKS OK", wap_proto_status(self->message),
@@ -255,7 +255,7 @@ signal_have_start_mining_ok (client_t *self)
 static void
 signal_have_stop_mining_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "si", "STOP MINING OK", 0);
+    zsock_send (self->cmdpipe, "s4", "STOP MINING OK", wap_proto_status(self->message));
 }
 
 
@@ -266,7 +266,7 @@ signal_have_stop_mining_ok (client_t *self)
 static void
 signal_success (client_t *self)
 {
-    zsock_send (self->cmdpipe, "si", "SUCCESS", 0);
+    zsock_send (self->cmdpipe, "s4", "SUCCESS", wap_proto_status(self->message));
 }
 
 
@@ -704,7 +704,7 @@ signal_have_get_key_image_status_ok (client_t *self)
 static void
 signal_have_get_tx_pool_ok (client_t *self)
 {
-    zmsg_t *msg = wap_proto_get_tx_pool_data (self->message);
+    zmsg_t *msg = wap_proto_get_msg_data (self->message);
     assert(msg != 0);
     zsock_send (self->cmdpipe, "s4p", "GET TX POOL OK",
                 wap_proto_status(self->message),
