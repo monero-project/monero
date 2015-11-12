@@ -28,8 +28,8 @@ typedef enum {
     expect_get_tx_ok_state = 5,
     expect_send_raw_transaction_ok_state = 6,
     expect_save_bc_ok_state = 7,
-    expect_start_ok_state = 8,
-    expect_stop_ok_state = 9,
+    expect_start_mining_ok_state = 8,
+    expect_stop_mining_ok_state = 9,
     expect_output_indexes_ok_state = 10,
     expect_random_outs_ok_state = 11,
     expect_get_height_ok_state = 12,
@@ -65,8 +65,8 @@ typedef enum {
     get_tx_event = 6,
     send_raw_transaction_event = 7,
     save_bc_event = 8,
-    start_event = 9,
-    stop_event = 10,
+    start_mining_event = 9,
+    stop_mining_event = 10,
     output_indexes_event = 11,
     random_outs_event = 12,
     get_height_event = 13,
@@ -91,8 +91,8 @@ typedef enum {
     get_tx_ok_event = 32,
     send_raw_transaction_ok_event = 33,
     save_bc_ok_event = 34,
-    start_ok_event = 35,
-    stop_ok_event = 36,
+    start_mining_ok_event = 35,
+    stop_mining_ok_event = 36,
     output_indexes_ok_event = 37,
     random_outs_ok_event = 38,
     get_height_ok_event = 39,
@@ -131,8 +131,8 @@ s_state_name [] = {
     "expect get tx ok",
     "expect send raw transaction ok",
     "expect save bc ok",
-    "expect start ok",
-    "expect stop ok",
+    "expect start mining ok",
+    "expect stop mining ok",
     "expect output indexes ok",
     "expect random outs ok",
     "expect get height ok",
@@ -169,8 +169,8 @@ s_event_name [] = {
     "GET_TX",
     "SEND_RAW_TRANSACTION",
     "SAVE_BC",
-    "START",
-    "STOP",
+    "START_MINING",
+    "STOP_MINING",
     "OUTPUT_INDEXES",
     "RANDOM_OUTS",
     "GET_HEIGHT",
@@ -195,8 +195,8 @@ s_event_name [] = {
     "GET_TX_OK",
     "SEND_RAW_TRANSACTION_OK",
     "SAVE_BC_OK",
-    "START_OK",
-    "STOP_OK",
+    "START_MINING_OK",
+    "STOP_MINING_OK",
     "OUTPUT_INDEXES_OK",
     "RANDOM_OUTS_OK",
     "GET_HEIGHT_OK",
@@ -313,7 +313,7 @@ static void
 static void
     prepare_send_raw_transaction_command (client_t *self);
 static void
-    prepare_start_command (client_t *self);
+    prepare_start_mining_command (client_t *self);
 static void
     prepare_get_output_indexes_command (client_t *self);
 static void
@@ -345,9 +345,9 @@ static void
 static void
     signal_have_save_bc_ok (client_t *self);
 static void
-    signal_have_start_ok (client_t *self);
+    signal_have_start_mining_ok (client_t *self);
 static void
-    signal_have_stop_ok (client_t *self);
+    signal_have_stop_mining_ok (client_t *self);
 static void
     signal_have_output_indexes_ok (client_t *self);
 static void
@@ -645,11 +645,11 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_SAVE_BC_OK:
             return save_bc_ok_event;
             break;
-        case WAP_PROTO_START:
-            return start_event;
+        case WAP_PROTO_START_MINING:
+            return start_mining_event;
             break;
-        case WAP_PROTO_START_OK:
-            return start_ok_event;
+        case WAP_PROTO_START_MINING_OK:
+            return start_mining_ok_event;
             break;
         case WAP_PROTO_GET_INFO:
             return get_info_event;
@@ -705,11 +705,11 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
             return get_block_template_ok_event;
             break;
-        case WAP_PROTO_STOP:
-            return stop_event;
+        case WAP_PROTO_STOP_MINING:
+            return stop_mining_event;
             break;
-        case WAP_PROTO_STOP_OK:
-            return stop_ok_event;
+        case WAP_PROTO_STOP_MINING_OK:
+            return stop_mining_ok_event;
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO:
             return get_hard_fork_info_event;
@@ -983,36 +983,36 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = expect_save_bc_ok_state;
                 }
                 else
-                if (self->event == start_event) {
+                if (self->event == start_mining_event) {
                     if (!self->exception) {
-                        //  prepare start command
+                        //  prepare start mining command
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ prepare start command", self->log_prefix);
-                        prepare_start_command (&self->client);
+                            zsys_debug ("%s:         $ prepare start mining command", self->log_prefix);
+                        prepare_start_mining_command (&self->client);
                     }
                     if (!self->exception) {
-                        //  send START
+                        //  send START_MINING
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ send START",
+                            zsys_debug ("%s:         $ send START_MINING",
                                 self->log_prefix);
-                        wap_proto_set_id (self->message, WAP_PROTO_START);
+                        wap_proto_set_id (self->message, WAP_PROTO_START_MINING);
                         wap_proto_send (self->message, self->dealer);
                     }
                     if (!self->exception)
-                        self->state = expect_start_ok_state;
+                        self->state = expect_start_mining_ok_state;
                 }
                 else
-                if (self->event == stop_event) {
+                if (self->event == stop_mining_event) {
                     if (!self->exception) {
-                        //  send STOP
+                        //  send STOP_MINING
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ send STOP",
+                            zsys_debug ("%s:         $ send STOP_MINING",
                                 self->log_prefix);
-                        wap_proto_set_id (self->message, WAP_PROTO_STOP);
+                        wap_proto_set_id (self->message, WAP_PROTO_STOP_MINING);
                         wap_proto_send (self->message, self->dealer);
                     }
                     if (!self->exception)
-                        self->state = expect_stop_ok_state;
+                        self->state = expect_stop_mining_ok_state;
                 }
                 else
                 if (self->event == output_indexes_event) {
@@ -1535,13 +1535,13 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
-            case expect_start_ok_state:
-                if (self->event == start_ok_event) {
+            case expect_start_mining_ok_state:
+                if (self->event == start_mining_ok_event) {
                     if (!self->exception) {
-                        //  signal have start ok
+                        //  signal have start mining ok
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ signal have start ok", self->log_prefix);
-                        signal_have_start_ok (&self->client);
+                            zsys_debug ("%s:         $ signal have start mining ok", self->log_prefix);
+                        signal_have_start_mining_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -1574,13 +1574,13 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
-            case expect_stop_ok_state:
-                if (self->event == stop_ok_event) {
+            case expect_stop_mining_ok_state:
+                if (self->event == stop_mining_ok_event) {
                     if (!self->exception) {
-                        //  signal have stop ok
+                        //  signal have stop mining ok
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ signal have stop ok", self->log_prefix);
-                        signal_have_stop_ok (&self->client);
+                            zsys_debug ("%s:         $ signal have stop mining ok", self->log_prefix);
+                        signal_have_stop_mining_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -2635,14 +2635,14 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, get_info_event);
     }
     else
-    if (streq (method, "START")) {
+    if (streq (method, "START MINING")) {
         zchunk_destroy (&self->args.address);
         zsock_recv (self->cmdpipe, "p8", &self->args.address, &self->args.thread_count);
-        s_client_execute (self, start_event);
+        s_client_execute (self, start_mining_event);
     }
     else
-    if (streq (method, "STOP")) {
-        s_client_execute (self, stop_event);
+    if (streq (method, "STOP MINING")) {
+        s_client_execute (self, stop_mining_event);
     }
     else
     if (streq (method, "GET PEER LIST")) {
@@ -3052,11 +3052,11 @@ s_accept_reply (wap_client_t *self, ...)
                     zsock_recv (self->actor, "488888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
                 }
                 else
-                if (streq (reply, "START OK")) {
+                if (streq (reply, "START MINING OK")) {
                     zsock_recv (self->actor, "4", &self->status);
                 }
                 else
-                if (streq (reply, "STOP OK")) {
+                if (streq (reply, "STOP MINING OK")) {
                     zsock_recv (self->actor, "4", &self->status);
                 }
                 else
@@ -3319,33 +3319,33 @@ wap_client_get_info (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  Send start command to server.                                                   
+//  Send start mining command to server.                                            
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_start (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count)
+wap_client_start_mining (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count)
 {
     assert (self);
 
-    zsock_send (self->actor, "sp8", "START", *address_p, thread_count);
+    zsock_send (self->actor, "sp8", "START MINING", *address_p, thread_count);
     *address_p = NULL;          //  Take ownership of address
-    if (s_accept_reply (self, "START OK", "FAILURE", NULL))
+    if (s_accept_reply (self, "START MINING OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
 
 
 //  ---------------------------------------------------------------------------
-//  Send stop command to server.                                                    
+//  Send stop mining command to server.                                             
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_stop (wap_client_t *self)
+wap_client_stop_mining (wap_client_t *self)
 {
     assert (self);
 
-    zsock_send (self->actor, "s", "STOP");
-    if (s_accept_reply (self, "STOP OK", "FAILURE", NULL))
+    zsock_send (self->actor, "s", "STOP MINING");
+    if (s_accept_reply (self, "STOP MINING OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }

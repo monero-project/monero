@@ -107,15 +107,15 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_info (wap_client_t *self);
 
-//  Send start command to server.                                                   
+//  Send start mining command to server.                                            
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_start (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count);
+    wap_client_start_mining (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count);
 
-//  Send stop command to server.                                                    
+//  Send stop mining command to server.                                             
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_stop (wap_client_t *self);
+    wap_client_stop_mining (wap_client_t *self);
 
 //  Get peer list                                                                   
 //  Returns >= 0 if successful, -1 if interrupted.

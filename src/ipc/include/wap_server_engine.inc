@@ -35,8 +35,8 @@ typedef enum {
     send_raw_transaction_event = 4,
     get_tx_event = 5,
     save_bc_event = 6,
-    start_event = 7,
-    stop_event = 8,
+    start_mining_event = 7,
+    stop_mining_event = 8,
     output_indexes_event = 9,
     random_outs_event = 10,
     get_height_event = 11,
@@ -82,8 +82,8 @@ s_event_name [] = {
     "SEND_RAW_TRANSACTION",
     "GET_TX",
     "SAVE_BC",
-    "START",
-    "STOP",
+    "START_MINING",
+    "STOP_MINING",
     "OUTPUT_INDEXES",
     "RANDOM_OUTS",
     "GET_HEIGHT",
@@ -436,8 +436,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_SAVE_BC:
             return save_bc_event;
             break;
-        case WAP_PROTO_START:
-            return start_event;
+        case WAP_PROTO_START_MINING:
+            return start_mining_event;
             break;
         case WAP_PROTO_GET_INFO:
             return get_info_event;
@@ -466,8 +466,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_GET_BLOCK_TEMPLATE:
             return get_block_template_event;
             break;
-        case WAP_PROTO_STOP:
-            return stop_event;
+        case WAP_PROTO_STOP_MINING:
+            return stop_mining_event;
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO:
             return get_hard_fork_info_event;
@@ -777,7 +777,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == start_event) {
+                if (self->event == start_mining_event) {
                     if (!self->exception) {
                         //  start mining process
                         if (self->server->verbose)
@@ -785,17 +785,17 @@ s_client_execute (s_client_t *self, event_t event)
                         start_mining_process (&self->client);
                     }
                     if (!self->exception) {
-                        //  send START_OK
+                        //  send START_MINING_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send START_OK",
+                            zsys_debug ("%s:         $ send START_MINING_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_START_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_START_MINING_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }
                 }
                 else
-                if (self->event == stop_event) {
+                if (self->event == stop_mining_event) {
                     if (!self->exception) {
                         //  stop mining process
                         if (self->server->verbose)
@@ -803,11 +803,11 @@ s_client_execute (s_client_t *self, event_t event)
                         stop_mining_process (&self->client);
                     }
                     if (!self->exception) {
-                        //  send STOP_OK
+                        //  send STOP_MINING_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send STOP_OK",
+                            zsys_debug ("%s:         $ send STOP_MINING_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_STOP_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_STOP_MINING_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

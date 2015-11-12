@@ -499,7 +499,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER4 (self->status);
             break;
 
-        case WAP_PROTO_START:
+        case WAP_PROTO_START_MINING:
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -514,7 +514,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->thread_count);
             break;
 
-        case WAP_PROTO_START_OK:
+        case WAP_PROTO_START_MINING_OK:
             GET_NUMBER4 (self->status);
             break;
 
@@ -671,10 +671,10 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             }
             break;
 
-        case WAP_PROTO_STOP:
+        case WAP_PROTO_STOP_MINING:
             break;
 
-        case WAP_PROTO_STOP_OK:
+        case WAP_PROTO_STOP_MINING_OK:
             break;
 
         case WAP_PROTO_GET_HARD_FORK_INFO:
@@ -971,13 +971,13 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_SAVE_BC_OK:
             frame_size += 4;            //  status
             break;
-        case WAP_PROTO_START:
+        case WAP_PROTO_START_MINING:
             frame_size += 4;            //  Size is 4 octets
             if (self->address)
                 frame_size += zchunk_size (self->address);
             frame_size += 8;            //  thread_count
             break;
-        case WAP_PROTO_START_OK:
+        case WAP_PROTO_START_MINING_OK:
             frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_INFO_OK:
@@ -1253,7 +1253,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->status);
             break;
 
-        case WAP_PROTO_START:
+        case WAP_PROTO_START_MINING:
             if (self->address) {
                 PUT_NUMBER4 (zchunk_size (self->address));
                 memcpy (self->needle,
@@ -1266,7 +1266,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->thread_count);
             break;
 
-        case WAP_PROTO_START_OK:
+        case WAP_PROTO_START_MINING_OK:
             PUT_NUMBER4 (self->status);
             break;
 
@@ -1731,14 +1731,14 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
-        case WAP_PROTO_START:
-            zsys_debug ("WAP_PROTO_START:");
+        case WAP_PROTO_START_MINING:
+            zsys_debug ("WAP_PROTO_START_MINING:");
             zsys_debug ("    address=[ ... ]");
             zsys_debug ("    thread_count=%ld", (long) self->thread_count);
             break;
 
-        case WAP_PROTO_START_OK:
-            zsys_debug ("WAP_PROTO_START_OK:");
+        case WAP_PROTO_START_MINING_OK:
+            zsys_debug ("WAP_PROTO_START_MINING_OK:");
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
@@ -1859,12 +1859,12 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    block_template_blob=[ ... ]");
             break;
 
-        case WAP_PROTO_STOP:
-            zsys_debug ("WAP_PROTO_STOP:");
+        case WAP_PROTO_STOP_MINING:
+            zsys_debug ("WAP_PROTO_STOP_MINING:");
             break;
 
-        case WAP_PROTO_STOP_OK:
-            zsys_debug ("WAP_PROTO_STOP_OK:");
+        case WAP_PROTO_STOP_MINING_OK:
+            zsys_debug ("WAP_PROTO_STOP_MINING_OK:");
             break;
 
         case WAP_PROTO_GET_HARD_FORK_INFO:
@@ -2104,11 +2104,11 @@ wap_proto_command (wap_proto_t *self)
         case WAP_PROTO_SAVE_BC_OK:
             return ("SAVE_BC_OK");
             break;
-        case WAP_PROTO_START:
-            return ("START");
+        case WAP_PROTO_START_MINING:
+            return ("START_MINING");
             break;
-        case WAP_PROTO_START_OK:
-            return ("START_OK");
+        case WAP_PROTO_START_MINING_OK:
+            return ("START_MINING_OK");
             break;
         case WAP_PROTO_GET_INFO:
             return ("GET_INFO");
@@ -2164,11 +2164,11 @@ wap_proto_command (wap_proto_t *self)
         case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
             return ("GET_BLOCK_TEMPLATE_OK");
             break;
-        case WAP_PROTO_STOP:
-            return ("STOP");
+        case WAP_PROTO_STOP_MINING:
+            return ("STOP_MINING");
             break;
-        case WAP_PROTO_STOP_OK:
-            return ("STOP_OK");
+        case WAP_PROTO_STOP_MINING_OK:
+            return ("STOP_MINING_OK");
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO:
             return ("GET_HARD_FORK_INFO");
@@ -3886,10 +3886,10 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
     }
-    wap_proto_set_id (self, WAP_PROTO_START);
+    wap_proto_set_id (self, WAP_PROTO_START_MINING);
 
-    zchunk_t *start_address = zchunk_new ("Captcha Diem", 12);
-    wap_proto_set_address (self, &start_address);
+    zchunk_t *start_mining_address = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_address (self, &start_mining_address);
     wap_proto_set_thread_count (self, 123);
     //  Send twice
     wap_proto_send (self, output);
@@ -3900,10 +3900,10 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
         if (instance == 1)
-            zchunk_destroy (&start_address);
+            zchunk_destroy (&start_mining_address);
         assert (wap_proto_thread_count (self) == 123);
     }
-    wap_proto_set_id (self, WAP_PROTO_START_OK);
+    wap_proto_set_id (self, WAP_PROTO_START_MINING_OK);
 
     wap_proto_set_status (self, 123);
     //  Send twice
@@ -4190,7 +4190,7 @@ wap_proto_test (bool verbose)
         if (instance == 1)
             zchunk_destroy (&get_block_template_ok_block_template_blob);
     }
-    wap_proto_set_id (self, WAP_PROTO_STOP);
+    wap_proto_set_id (self, WAP_PROTO_STOP_MINING);
 
     //  Send twice
     wap_proto_send (self, output);
@@ -4200,7 +4200,7 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
     }
-    wap_proto_set_id (self, WAP_PROTO_STOP_OK);
+    wap_proto_set_id (self, WAP_PROTO_STOP_MINING_OK);
 
     //  Send twice
     wap_proto_send (self, output);

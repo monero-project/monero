@@ -2425,14 +2425,14 @@ void wallet2::connect_to_daemon() {
 
 int wallet2::start_mining(const std::string &address, uint64_t thread_count) {
   zchunk_t *address_chunk = zchunk_new((void*)address.c_str(), address.length());
-  int status = wap_client_start(ipc_client, &address_chunk, thread_count);
+  int status = wap_client_start_mining(ipc_client, &address_chunk, thread_count);
   zchunk_destroy(&address_chunk);
   THROW_WALLET_EXCEPTION_IF(status < 0, error::no_connection_to_daemon, "start_mining");
   return status;
 }
 
 int wallet2::stop_mining() {
-  int status = wap_client_stop(ipc_client);
+  int status = wap_client_stop_mining(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status < 0, error::no_connection_to_daemon, "stop_mining");
   return status;
 }

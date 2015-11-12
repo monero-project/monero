@@ -239,7 +239,7 @@ namespace
     uint64_t threads_count = request_json["threads_count"].GetUint();
 
     zchunk_t *address_chunk = zchunk_new((void*)miner_address.c_str(), miner_address.length());
-    int status = wap_client_start(ipc_client, &address_chunk, threads_count);
+    int status = wap_client_start_mining(ipc_client, &address_chunk, threads_count);
     zchunk_destroy(&address_chunk);
     if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
@@ -275,7 +275,7 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int status = wap_client_stop(ipc_client);
+    int status = wap_client_stop_mining(ipc_client);
     if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");

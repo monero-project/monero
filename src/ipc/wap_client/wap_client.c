@@ -155,11 +155,11 @@ signal_have_blocks_ok (client_t *self)
 
 
 // ---------------------------------------------------------------------------
-// prepare_start_command
+// prepare_start_mining_command
 //
 
 static void
-prepare_start_command (client_t *self)
+prepare_start_mining_command (client_t *self)
 {
     wap_proto_set_address (self->message, &self->args->address);
     wap_proto_set_thread_count (self->message, self->args->thread_count);
@@ -238,24 +238,24 @@ signal_have_save_bc_ok (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  signal_have_start_ok
+//  signal_have_start_mining_ok
 //
 
 static void
-signal_have_start_ok (client_t *self)
+signal_have_start_mining_ok (client_t *self)
 {
-    zsock_send(self->cmdpipe, "s4", "START OK", wap_proto_status(self->message));
+    zsock_send(self->cmdpipe, "s4", "START MINING OK", wap_proto_status(self->message));
 }
 
 
 //  ---------------------------------------------------------------------------
-//  signal_have_stop_ok
+//  signal_have_stop_mining_ok
 //
 
 static void
-signal_have_stop_ok (client_t *self)
+signal_have_stop_mining_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "si", "STOP OK", 0);
+    zsock_send (self->cmdpipe, "si", "STOP MINING OK", 0);
 }
 
 

@@ -641,7 +641,7 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
 
   std::string address_str = cryptonote::get_account_address_as_str(testnet, address);
   zchunk_t *address_chunk = zchunk_new((void*)address_str.c_str(), address_str.length());
-  int status = wap_client_start(ipc_client, &address_chunk, num_threads);
+  int status = wap_client_start_mining(ipc_client, &address_chunk, num_threads);
   zchunk_destroy(&address_chunk);
   if (status < 0) {
     tools::fail_msg_writer() << "Failed to start mining";
@@ -661,7 +661,7 @@ bool t_rpc_command_executor::stop_mining() {
     return true;
   }
 
-  int status = wap_client_stop(ipc_client);
+  int status = wap_client_stop_mining(ipc_client);
   if (status < 0) {
     tools::fail_msg_writer() << "Failed to stop mining";
     return true;

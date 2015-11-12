@@ -84,12 +84,12 @@ with GET-OK, or ERROR.
     SAVE_BC_OK - Daemon replies to a save_bc command.
         status              number 4    Status
 
-    START - Wallet asks daemon to start mining. Daemon replies with START-OK, or
+    START_MINING - Wallet asks daemon to start mining. Daemon replies with START-MINING-OK, or
 ERROR.
         address             chunk       
         thread_count        number 8    
 
-    START_OK - Daemon replies to a start mining request.
+    START_MINING_OK - Daemon replies to a start mining request.
         status              number 4    
 
     GET_INFO - getinfo IPC
@@ -165,10 +165,10 @@ ERROR.
         prev_hash           chunk       Previous Hash
         block_template_blob  chunk      Block template blob
 
-    STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
+    STOP_MINING - Wallet asks daemon to stop mining. Daemon replies with STOP-MINING-OK, or
 ERROR.
 
-    STOP_OK - Daemon replies to a stop mining request.
+    STOP_MINING_OK - Daemon replies to a stop mining request.
 
     GET_HARD_FORK_INFO - get_hard_fork_info IPC
         hfversion           number 1    Version
@@ -288,8 +288,8 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_TX_OK                 14
 #define WAP_PROTO_SAVE_BC                   15
 #define WAP_PROTO_SAVE_BC_OK                16
-#define WAP_PROTO_START                     17
-#define WAP_PROTO_START_OK                  18
+#define WAP_PROTO_START_MINING              17
+#define WAP_PROTO_START_MINING_OK           18
 #define WAP_PROTO_GET_INFO                  19
 #define WAP_PROTO_GET_INFO_OK               20
 #define WAP_PROTO_GET_PEER_LIST             21
@@ -308,8 +308,8 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_BLOCK_HASH_OK         34
 #define WAP_PROTO_GET_BLOCK_TEMPLATE        35
 #define WAP_PROTO_GET_BLOCK_TEMPLATE_OK     36
-#define WAP_PROTO_STOP                      37
-#define WAP_PROTO_STOP_OK                   38
+#define WAP_PROTO_STOP_MINING               37
+#define WAP_PROTO_STOP_MINING_OK            38
 #define WAP_PROTO_GET_HARD_FORK_INFO        39
 #define WAP_PROTO_GET_HARD_FORK_INFO_OK     40
 #define WAP_PROTO_GET_CONNECTIONS_LIST      41
