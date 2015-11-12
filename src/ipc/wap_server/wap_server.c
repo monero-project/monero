@@ -444,3 +444,13 @@ get_key_image_status (client_t *self)
     IPC::Daemon::get_key_image_status(self->message);
 }
 
+//  ---------------------------------------------------------------------------
+//  get_tx_pool
+//
+
+static void
+get_tx_pool (client_t *self)
+{
+    IPC::Daemon::get_tx_pool(self->message);
+}
+

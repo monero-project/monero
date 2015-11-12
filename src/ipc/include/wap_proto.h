@@ -240,6 +240,12 @@ ERROR.
         status              number 4    Status
         spent               frame       Key image spent status
 
+    GET_TX_POOL - Wallet requests the tx pool from the daemon.
+
+    GET_TX_POOL_OK - Daemon returns a set of transactions to the wallet.
+        status              number 4    Status
+        tx_pool_data        msg         Frames of transaction data
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -316,11 +322,13 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_BLOCK_BY_HASH_OK      48
 #define WAP_PROTO_GET_KEY_IMAGE_STATUS      49
 #define WAP_PROTO_GET_KEY_IMAGE_STATUS_OK   50
-#define WAP_PROTO_CLOSE                     51
-#define WAP_PROTO_CLOSE_OK                  52
-#define WAP_PROTO_PING                      53
-#define WAP_PROTO_PING_OK                   54
-#define WAP_PROTO_ERROR                     55
+#define WAP_PROTO_GET_TX_POOL               51
+#define WAP_PROTO_GET_TX_POOL_OK            52
+#define WAP_PROTO_CLOSE                     53
+#define WAP_PROTO_CLOSE_OK                  54
+#define WAP_PROTO_PING                      55
+#define WAP_PROTO_PING_OK                   56
+#define WAP_PROTO_ERROR                     57
 
 #include <czmq.h>
 
@@ -789,6 +797,16 @@ zframe_t *
 //  Set the spent field, transferring ownership from caller
 void
     wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get a copy of the tx_pool_data field
+zmsg_t *
+    wap_proto_tx_pool_data (wap_proto_t *self);
+//  Get the tx_pool_data field and transfer ownership to caller
+zmsg_t *
+    wap_proto_get_tx_pool_data (wap_proto_t *self);
+//  Set the tx_pool_data field, transferring ownership from caller
+void
+    wap_proto_set_tx_pool_data (wap_proto_t *self, zmsg_t **msg_p);
 
 //  Get/set the reason field
 const char *

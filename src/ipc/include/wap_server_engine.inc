@@ -55,11 +55,12 @@ typedef enum {
     get_block_by_height_event = 24,
     get_block_by_hash_event = 25,
     get_key_image_status_event = 26,
-    close_event = 27,
-    ping_event = 28,
-    expired_event = 29,
-    exception_event = 30,
-    settled_event = 31
+    get_tx_pool_event = 27,
+    close_event = 28,
+    ping_event = 29,
+    expired_event = 30,
+    exception_event = 31,
+    settled_event = 32
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -101,6 +102,7 @@ s_event_name [] = {
     "GET_BLOCK_BY_HEIGHT",
     "GET_BLOCK_BY_HASH",
     "GET_KEY_IMAGE_STATUS",
+    "GET_TX_POOL",
     "CLOSE",
     "PING",
     "expired",
@@ -218,6 +220,8 @@ static void
     get_block_by_hash (client_t *self);
 static void
     get_key_image_status (client_t *self);
+static void
+    get_tx_pool (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -482,6 +486,9 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_GET_KEY_IMAGE_STATUS:
             return get_key_image_status_event;
+            break;
+        case WAP_PROTO_GET_TX_POOL:
+            return get_tx_pool_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -1125,6 +1132,24 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_KEY_IMAGE_STATUS_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_KEY_IMAGE_STATUS_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_tx_pool_event) {
+                    if (!self->exception) {
+                        //  get tx pool
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get tx pool", self->log_prefix);
+                        get_tx_pool (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_TX_POOL_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_TX_POOL_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_TX_POOL_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

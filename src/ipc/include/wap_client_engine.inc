@@ -48,10 +48,11 @@ typedef enum {
     expect_get_block_by_height_ok_state = 25,
     expect_get_block_by_hash_ok_state = 26,
     expect_get_key_image_status_ok_state = 27,
-    expect_close_ok_state = 28,
-    defaults_state = 29,
-    have_error_state = 30,
-    reexpect_open_ok_state = 31
+    expect_get_tx_pool_ok_state = 28,
+    expect_close_ok_state = 29,
+    defaults_state = 30,
+    have_error_state = 31,
+    reexpect_open_ok_state = 32
 } state_t;
 
 typedef enum {
@@ -84,37 +85,39 @@ typedef enum {
     get_block_by_height_event = 26,
     get_block_by_hash_event = 27,
     get_key_image_status_event = 28,
-    destructor_event = 29,
-    blocks_ok_event = 30,
-    get_tx_ok_event = 31,
-    send_raw_transaction_ok_event = 32,
-    save_bc_ok_event = 33,
-    start_ok_event = 34,
-    stop_ok_event = 35,
-    output_indexes_ok_event = 36,
-    random_outs_ok_event = 37,
-    get_height_ok_event = 38,
-    get_info_ok_event = 39,
-    get_peer_list_ok_event = 40,
-    get_mining_status_ok_event = 41,
-    set_log_hash_rate_ok_event = 42,
-    set_log_level_ok_event = 43,
-    start_save_graph_ok_event = 44,
-    stop_save_graph_ok_event = 45,
-    get_block_hash_ok_event = 46,
-    get_block_template_ok_event = 47,
-    get_hard_fork_info_ok_event = 48,
-    get_connections_list_ok_event = 49,
-    stop_daemon_ok_event = 50,
-    get_block_by_height_ok_event = 51,
-    get_block_by_hash_ok_event = 52,
-    get_key_image_status_ok_event = 53,
-    close_ok_event = 54,
-    ping_ok_event = 55,
-    error_event = 56,
-    exception_event = 57,
-    command_invalid_event = 58,
-    other_event = 59
+    get_tx_pool_event = 29,
+    destructor_event = 30,
+    blocks_ok_event = 31,
+    get_tx_ok_event = 32,
+    send_raw_transaction_ok_event = 33,
+    save_bc_ok_event = 34,
+    start_ok_event = 35,
+    stop_ok_event = 36,
+    output_indexes_ok_event = 37,
+    random_outs_ok_event = 38,
+    get_height_ok_event = 39,
+    get_info_ok_event = 40,
+    get_peer_list_ok_event = 41,
+    get_mining_status_ok_event = 42,
+    set_log_hash_rate_ok_event = 43,
+    set_log_level_ok_event = 44,
+    start_save_graph_ok_event = 45,
+    stop_save_graph_ok_event = 46,
+    get_block_hash_ok_event = 47,
+    get_block_template_ok_event = 48,
+    get_hard_fork_info_ok_event = 49,
+    get_connections_list_ok_event = 50,
+    stop_daemon_ok_event = 51,
+    get_block_by_height_ok_event = 52,
+    get_block_by_hash_ok_event = 53,
+    get_key_image_status_ok_event = 54,
+    get_tx_pool_ok_event = 55,
+    close_ok_event = 56,
+    ping_ok_event = 57,
+    error_event = 58,
+    exception_event = 59,
+    command_invalid_event = 60,
+    other_event = 61
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -148,6 +151,7 @@ s_state_name [] = {
     "expect get block by height ok",
     "expect get block by hash ok",
     "expect get key image status ok",
+    "expect get tx pool ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -185,6 +189,7 @@ s_event_name [] = {
     "GET_BLOCK_BY_HEIGHT",
     "GET_BLOCK_BY_HASH",
     "GET_KEY_IMAGE_STATUS",
+    "GET_TX_POOL",
     "destructor",
     "BLOCKS_OK",
     "GET_TX_OK",
@@ -210,6 +215,7 @@ s_event_name [] = {
     "GET_BLOCK_BY_HEIGHT_OK",
     "GET_BLOCK_BY_HASH_OK",
     "GET_KEY_IMAGE_STATUS_OK",
+    "GET_TX_POOL_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -378,6 +384,8 @@ static void
     signal_have_get_block_by_hash_ok (client_t *self);
 static void
     signal_have_get_key_image_status_ok (client_t *self);
+static void
+    signal_have_get_tx_pool_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -738,6 +746,12 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
             return get_key_image_status_ok_event;
+            break;
+        case WAP_PROTO_GET_TX_POOL:
+            return get_tx_pool_event;
+            break;
+        case WAP_PROTO_GET_TX_POOL_OK:
+            return get_tx_pool_ok_event;
             break;
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
@@ -1293,6 +1307,19 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_key_image_status_ok_state;
+                }
+                else
+                if (self->event == get_tx_pool_event) {
+                    if (!self->exception) {
+                        //  send GET_TX_POOL
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send GET_TX_POOL",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_TX_POOL);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_tx_pool_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -2288,6 +2315,45 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_get_tx_pool_ok_state:
+                if (self->event == get_tx_pool_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get tx pool ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have get tx pool ok", self->log_prefix);
+                        signal_have_get_tx_pool_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2645,6 +2711,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         zsock_recv (self->cmdpipe, "p", &self->args.key_images);
         s_client_execute (self, get_key_image_status_event);
     }
+    else
+    if (streq (method, "GET TX POOL")) {
+        s_client_execute (self, get_tx_pool_event);
+    }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
         zsys_error ("%s: trailing API command frames (%s)",
@@ -2805,6 +2875,7 @@ struct _wap_client_t {
     uint64_t depth;             //  Returned by actor reply
     uint64_t reward;            //  Returned by actor reply
     zframe_t *spent;            //  Returned by actor reply
+    zmsg_t *tx_pool_data;       //  Returned by actor reply
 };
 
 
@@ -2866,6 +2937,7 @@ wap_client_destroy (wap_client_t **self_p)
         zframe_destroy (&self->connections);
         zchunk_destroy (&self->block);
         zframe_destroy (&self->spent);
+        zmsg_destroy (&self->tx_pool_data);
         free (self);
         *self_p = NULL;
     }
@@ -3056,6 +3128,11 @@ s_accept_reply (wap_client_t *self, ...)
                 if (streq (reply, "GET KEY IMAGE STATUS OK")) {
                     zframe_destroy (&self->spent);
                     zsock_recv (self->actor, "4p", &self->status, &self->spent);
+                }
+                else
+                if (streq (reply, "GET TX POOL OK")) {
+                    zmsg_destroy (&self->tx_pool_data);
+                    zsock_recv (self->actor, "4p", &self->status, &self->tx_pool_data);
                 }
                 break;
             }
@@ -3496,6 +3573,22 @@ wap_client_get_key_image_status (wap_client_t *self, zframe_t **key_images_p)
     zsock_send (self->actor, "sp", "GET KEY IMAGE STATUS", *key_images_p);
     *key_images_p = NULL;       //  Take ownership of key_images
     if (s_accept_reply (self, "GET KEY IMAGE STATUS OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Request tx pool from the daemon.                                                
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_tx_pool (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "GET TX POOL");
+    if (s_accept_reply (self, "GET TX POOL OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
@@ -4015,4 +4108,15 @@ wap_client_spent (wap_client_t *self)
 {
     assert (self);
     return self->spent;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received tx_pool_data
+
+zmsg_t *
+wap_client_tx_pool_data (wap_client_t *self)
+{
+    assert (self);
+    return self->tx_pool_data;
 }

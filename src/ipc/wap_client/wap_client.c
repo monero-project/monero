@@ -697,3 +697,17 @@ signal_have_get_key_image_status_ok (client_t *self)
                 wap_proto_get_spent (self->message));
 }
 
+//  ---------------------------------------------------------------------------
+//  signal_have_get_tx_pool_ok
+//
+
+static void
+signal_have_get_tx_pool_ok (client_t *self)
+{
+    zmsg_t *msg = wap_proto_get_tx_pool_data (self->message);
+    assert(msg != 0);
+    zsock_send (self->cmdpipe, "s4p", "GET TX POOL OK",
+                wap_proto_status(self->message),
+                msg);
+}
+

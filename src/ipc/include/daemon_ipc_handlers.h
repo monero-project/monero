@@ -95,6 +95,7 @@ namespace IPC
     void get_block_by_hash(wap_proto_t *message);
     void get_transaction(wap_proto_t *message);
     void get_key_image_status(wap_proto_t *message);
+    void get_tx_pool(wap_proto_t *message);
 
     /*!
      * \brief initializes it with objects necessary to handle IPC requests and starts

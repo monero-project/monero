@@ -39,6 +39,11 @@
 
 #include "daemon_ipc_handlers.h"
 
+// for tx_info and spent_key_image_info, maybe they should be moved elsewhere
+#include "rpc/core_rpc_server_commands_defs.h"
+////#include "serialization/serialization.h"
+//#include "serialization/vector.h"
+
 #include <iostream>
 
 /*!
@@ -1054,6 +1059,90 @@ namespace IPC
       frame = zframe_new(spent_data, n_key_images * sizeof(bool));
       wap_proto_set_spent(message, &frame);
 
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_tx_pool IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_tx_pool(wap_proto_t *message)
+    {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      std::vector<cryptonote::tx_info> transactions;
+      std::vector<cryptonote::spent_key_image_info> key_images;
+      if (!core->get_pool_transactions_and_spent_keys_info(transactions, key_images)) {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+
+      // We are using JSON to encode transactions. The JSON string will sit in a 
+      // 0MQ frame which gets sent in a zmsg_t object. One could put each transaction
+      // a different frame too.
+
+      // First create a rapidjson object and then stringify it.
+      rapidjson::Document result_json;
+      result_json.SetObject();
+      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+      rapidjson::Value tx_json(rapidjson::kArrayType), ki_json(rapidjson::kArrayType);
+      rapidjson::Value string_value(rapidjson::kStringType);
+
+      BOOST_FOREACH(auto &txi, transactions)
+      {
+        rapidjson::Value this_tx(rapidjson::kObjectType);
+
+        string_value.SetString(txi.id_hash.c_str(), txi.id_hash.size(), allocator);
+        this_tx.AddMember("id_hash", string_value.Move(), allocator);
+        string_value.SetString(txi.tx_json.c_str(), txi.tx_json.size(), allocator);
+        this_tx.AddMember("tx_json", string_value.Move(), allocator);
+        this_tx.AddMember("blob_size", txi.blob_size, allocator);
+        this_tx.AddMember("fee", txi.fee, allocator);
+        string_value.SetString(txi.max_used_block_id_hash.c_str(), txi.max_used_block_id_hash.size(), allocator);
+        this_tx.AddMember("max_used_block_id_hash", string_value.Move(), allocator);
+        this_tx.AddMember("max_used_block_height", txi.max_used_block_height, allocator);
+        this_tx.AddMember("kept_by_block", txi.kept_by_block, allocator);
+        this_tx.AddMember("last_failed_height", txi.last_failed_height, allocator);
+        string_value.SetString(txi.last_failed_id_hash.c_str(), txi.last_failed_id_hash.size(), allocator);
+        this_tx.AddMember("last_failed_id_hash", string_value.Move(), allocator);
+        this_tx.AddMember("receive_time", txi.receive_time, allocator);
+
+        tx_json.PushBack(this_tx, allocator);
+      }
+      result_json.AddMember("tx_info", tx_json, allocator);
+
+      BOOST_FOREACH(auto &skii, key_images)
+      {
+        rapidjson::Value this_ki(rapidjson::kObjectType);
+
+        string_value.SetString(skii.id_hash.c_str(), skii.id_hash.size(), allocator);
+        this_ki.AddMember("id_hash", string_value.Move(), allocator);
+
+        rapidjson::Value tx_hashes_json(rapidjson::kArrayType);
+        BOOST_FOREACH(auto &tx_hash, skii.txs_hashes)
+        {
+          string_value.SetString(tx_hash.c_str(), tx_hash.size(), allocator);
+          tx_hashes_json.PushBack(string_value.Move(), allocator);
+        }
+        this_ki.AddMember("tx_hashes", tx_hashes_json, allocator);
+
+        ki_json.PushBack(this_ki, allocator);
+      }
+      result_json.AddMember("spent_key_image_info", ki_json, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      result_json.Accept(writer);
+      std::string tx_string = buffer.GetString();
+      zmsg_t *tx_data = zmsg_new();
+      // Put the JSON string in a frame.
+      zframe_t *frame = zframe_new(tx_string.c_str(), tx_string.length());
+      zmsg_prepend(tx_data, &frame);
+      wap_proto_set_tx_pool_data(message, &tx_data);
       wap_proto_set_status(message, STATUS_OK);
     }
 

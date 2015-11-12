@@ -79,6 +79,42 @@ namespace {
       << "difficulty: " << boost::lexical_cast<std::string>(wap_client_difficulty(ipc_client)) << std::endl
       << "reward: " << boost::lexical_cast<std::string>(wap_client_reward(ipc_client));
   }
+
+  template<typename T>
+  void print_tx_info(T &txi, bool full)
+  {
+    tools::msg_writer() << "id: " << txi["id_hash"].GetString();
+    if (full)
+      tools::msg_writer() << txi["tx_json"].GetString();
+    tools::msg_writer() << "blob_size: " << txi["blob_size"].GetUint64() << std::endl
+                        << "fee: " << cryptonote::print_money(txi["fee"].GetUint64()) << std::endl
+                        << "kept_by_block: " << (txi["kept_by_block"] == 0 ? 'F' : 'T') << std::endl
+                        << "max_used_block_height: " << txi["max_used_block_height"].GetUint64() << std::endl
+                        << "max_used_block_id: " << txi["max_used_block_id_hash"].GetString() << std::endl
+                        << "last_failed_height: " << txi["last_failed_height"].GetUint64() << std::endl
+                        << "last_failed_id: " << txi["last_failed_id_hash"].GetString() << std::endl;
+  }
+
+  template<typename T>
+  void print_spent_key_image_info(T &skii)
+  {
+    tools::msg_writer() << "key image: " << skii["id_hash"].GetString();
+    if (skii["tx_hashes"].Size() == 1)
+    {
+      tools::msg_writer() << "  tx: " << skii["tx_hashes"][(rapidjson::SizeType)0].GetString();
+    }
+    else if (skii["tx_hashes"].Size() == 0)
+    {
+      tools::msg_writer() << "  WARNING: spent key image has no txs associated";
+    }
+    else
+    {
+      tools::msg_writer() << "  NOTE: key image for multiple txs: " << skii["tx_hashes"].Size();
+      for (rapidjson::SizeType n = 0; n < skii["tx_hashes"].Size(); ++n) {
+        tools::msg_writer() << "  tx: " << skii["tx_hashes"][n].GetString();
+      }
+    }
+  }
 }
 
 t_rpc_command_executor::t_rpc_command_executor()
@@ -512,106 +548,88 @@ bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
 }
 
 bool t_rpc_command_executor::print_transaction_pool_long() {
-#if 0
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
-
-  std::string fail_message = "Problem fetching transaction pool";
-
-  if (!m_rpc_server->on_get_transaction_pool(req, res))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  if (res.transactions.empty() && res.spent_key_images.empty())
-  {
-    tools::msg_writer() << "Pool is empty" << std::endl;
+  int status = wap_client_get_tx_pool(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
   }
-  if (! res.transactions.empty())
-  {
+  zmsg_t *msg = wap_client_tx_pool_data(ipc_client);
+  if (!msg) {
+    tools::fail_msg_writer() << "Bad message received";
+    return true;
+  }
+  zframe_t *frame = zmsg_first(msg);
+  if (!frame) {
+    tools::fail_msg_writer() << "Bad frame received";
+    return true;
+  }
+  size_t size = zframe_size(frame);
+  char *data = reinterpret_cast<char*>(zframe_data(frame));
+  rapidjson::Document json;
+  if (json.Parse(data, size).HasParseError()) {
+    tools::fail_msg_writer() << "Bad JSON received";
+    return true;
+  }
+  if (json["tx_info"].Size() > 0) {
     tools::msg_writer() << "Transactions: ";
-    for (auto & tx_info : res.transactions)
-    {
-      tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                          << tx_info.tx_json << std::endl
-                          << "blob_size: " << tx_info.blob_size << std::endl
-                          << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                          << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
-                          << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                          << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
-                          << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                          << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    for (rapidjson::SizeType i = 0; i < json["tx_info"].Size(); i++) {
+      print_tx_info(json["tx_info"][i], true);
     }
-    if (res.spent_key_images.empty())
-    {
+    if (json["spent_key_image_info"].Size() == 0) {
       tools::msg_writer() << "WARNING: Inconsistent pool state - no spent key images";
     }
   }
-  if (! res.spent_key_images.empty())
-  {
+  if (json["spent_key_image_info"].Size() > 0) {
     tools::msg_writer() << ""; // one newline
     tools::msg_writer() << "Spent key images: ";
-    for (const cryptonote::spent_key_image_info& kinfo : res.spent_key_images)
-    {
-      tools::msg_writer() << "key image: " << kinfo.id_hash;
-      if (kinfo.txs_hashes.size() == 1)
-      {
-        tools::msg_writer() << "  tx: " << kinfo.txs_hashes[0];
-      }
-      else if (kinfo.txs_hashes.size() == 0)
-      {
-        tools::msg_writer() << "  WARNING: spent key image has no txs associated";
-      }
-      else
-      {
-        tools::msg_writer() << "  NOTE: key image for multiple txs: " << kinfo.txs_hashes.size();
-        for (const std::string& tx_id : kinfo.txs_hashes)
-        {
-          tools::msg_writer() << "  tx: " << tx_id;
-        }
-      }
+    for (rapidjson::SizeType i = 0; i < json["spent_key_image_info"].Size(); i++) {
+     print_spent_key_image_info(json["spent_key_image_info"][i]);
     }
-    if (res.transactions.empty())
-    {
+    if (json["tx_info"].Size() == 0) {
       tools::msg_writer() << "WARNING: Inconsistent pool state - no transactions";
     }
   }
-#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::print_transaction_pool_short() {
-#if 0
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
-
-  std::string fail_message = "Problem fetching transaction pool";
-
-  if (!m_rpc_server->on_get_transaction_pool(req, res))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  if (res.transactions.empty())
-  {
+  int status = wap_client_get_tx_pool(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+  zmsg_t *msg = wap_client_tx_pool_data(ipc_client);
+  if (!msg) {
+    tools::fail_msg_writer() << "Bad message received";
+    return true;
+  }
+  zframe_t *frame = zmsg_first(msg);
+  if (!frame) {
+    tools::fail_msg_writer() << "Bad frame received";
+    return true;
+  }
+  size_t size = zframe_size(frame);
+  char *data = reinterpret_cast<char*>(zframe_data(frame));
+  rapidjson::Document json;
+  if (json.Parse(data, size).HasParseError()) {
+    tools::fail_msg_writer() << "Bad JSON received";
+    return true;
+  }
+  if (json["tx_info"].Size() == 0) {
     tools::msg_writer() << "Pool is empty" << std::endl;
   }
-  for (auto & tx_info : res.transactions)
-  {
-    tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                        << "blob_size: " << tx_info.blob_size << std::endl
-                        << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                        << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
-                        << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                        << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
-                        << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                        << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+  for (rapidjson::SizeType i = 0; i < json["tx_info"].Size(); i++) {
+    print_tx_info(json["tx_info"][i], false);
   }
-#endif
-
   return true;
 }
 
