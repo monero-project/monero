@@ -674,8 +674,8 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
         m_timestamps = timestamps;
         m_difficulties = difficulties;
     }
-
-    return next_difficulty(timestamps, difficulties);
+    size_t target = get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET;
+    return next_difficulty(timestamps, difficulties, target);
 }
 //------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the
@@ -865,8 +865,11 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
         }
     }
 
+    // FIXME: This will fail if fork activation heights are subject to voting
+    size_t target = get_ideal_hard_fork_version(bei.height) < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET;
+
     // calculate the difficulty target for the block and return it
-    return next_difficulty(timestamps, cumulative_difficulties);
+    return next_difficulty(timestamps, cumulative_difficulties, target);
 }
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner
@@ -2194,7 +2197,7 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
     {
         //interpret as time
         uint64_t current_time = static_cast<uint64_t>(time(NULL));
-        if(current_time + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS >= unlock_time)
+        if(current_time + (get_current_hard_fork_version() < 2 ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS) >= unlock_time)
             return true;
         else
             return false;
