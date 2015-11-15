@@ -453,6 +453,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to a given address in a partcular tx"));
+  m_cmd_binder.set_handler("show_transfers", boost::bind(&simple_wallet::show_transfers, this, _1), tr("show_transfers [in|out] [<min_height> [<max_height>]] - show incoming/outgoing transfers within an optional height range"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -1987,6 +1988,104 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   else
   {
     fail_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " received nothing in txid " << txid;
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+  bool in = true;
+  bool out = true;
+  uint64_t min_height = 0;
+  uint64_t max_height = (uint64_t)-1;
+
+  if(local_args.size() > 3) {
+    fail_msg_writer() << tr("Usage: show_transfers [in|out] [<min_height> [<max_height>]]");
+    return true;
+  }
+
+  // optional in/out selector
+  if (local_args.size() > 0) {
+    if (local_args[0] == "in" || local_args[0] == "incoming") {
+      out = false;
+      local_args.erase(local_args.begin());
+    }
+    else if (local_args[0] == "out" || local_args[0] == "outgoing") {
+      in = false;
+      local_args.erase(local_args.begin());
+    }
+    else if (local_args[0] == "all" || local_args[0] == "both") {
+      local_args.erase(local_args.begin());
+    }
+  }
+
+  // min height
+  if (local_args.size() > 0) {
+    try {
+      min_height = boost::lexical_cast<uint64_t>(local_args[0]);
+    }
+    catch (boost::bad_lexical_cast &) {
+      fail_msg_writer() << "Bad min_height parameter: " << local_args[0];
+      return true;
+    }
+    local_args.erase(local_args.begin());
+  }
+
+  // max height
+  if (local_args.size() > 0) {
+    try {
+      max_height = boost::lexical_cast<uint64_t>(local_args[0]);
+    }
+    catch (boost::bad_lexical_cast &) {
+      fail_msg_writer() << "Bad max_height parameter: " << local_args[0];
+      return true;
+    }
+    local_args.erase(local_args.begin());
+  }
+
+  std::multimap<uint64_t, std::pair<bool,std::string>> output;
+
+  if (in) {
+    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+    m_wallet->get_payments(payments, min_height, max_height);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+      const tools::wallet2::payment_details &pd = i->second;
+      std::string payment_id = string_tools::pod_to_hex(i->first);
+      if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+        payment_id = payment_id.substr(0,16);
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%18.18s  %s  %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id).str())));
+    }
+  }
+
+  if (out) {
+    std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
+    m_wallet->get_payments_out(payments, min_height, max_height);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+      const tools::wallet2::confirmed_transfer_details &pd = i->second;
+      uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(false, (boost::format("%18.18s  %s") % print_money(pd.m_amount_in - pd.m_change - fee) % "-").str())));
+    }
+  }
+
+  // print in and out sorted by height
+  for (std::map<uint64_t, std::pair<bool, std::string>>::const_iterator i = output.begin(); i != output.end(); ++i) {
+    message_writer(i->second.first ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
+      boost::format("[%8.8llu]  %4.4s  %s") %
+      ((unsigned long long)i->first) % (i->second.first ? tr("in") : tr("out")) % i->second.second;
+  }
+
+  // print unconfirmed last
+  if (out) {
+    std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
+    m_wallet->get_unconfirmed_payments_out(upayments);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
+      const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
+      uint64_t amount = 0;
+      cryptonote::get_inputs_money_amount(pd.m_tx, amount);
+      message_writer() << (boost::format("[%8.8s]  %4.4s  %18.18s") % tr("pending") % tr("out") % print_money(amount - pd.m_change)).str();
+    }
   }
 
   return true;

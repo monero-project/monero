@@ -150,7 +150,7 @@ bool wallet2::is_deprecated() const
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height)
 {
-  process_unconfirmed(tx);
+  process_unconfirmed(tx, height);
   std::vector<size_t> outs;
   uint64_t tx_money_got_in_outs = 0;
   crypto::public_key tx_pub_key = null_pkey;
@@ -283,11 +283,22 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_unconfirmed(const cryptonote::transaction& tx)
+void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t height)
 {
-  auto unconf_it = m_unconfirmed_txs.find(get_transaction_hash(tx));
-  if(unconf_it != m_unconfirmed_txs.end())
+  crypto::hash txid = get_transaction_hash(tx);
+  auto unconf_it = m_unconfirmed_txs.find(txid);
+  if(unconf_it != m_unconfirmed_txs.end()) {
+    if (store_tx_keys()) {
+      try {
+        m_confirmed_txs.insert(std::make_pair(txid, confirmed_transfer_details(unconf_it->second, height)));
+      }
+      catch (...) {
+        // can fail if the tx has unexpected input types
+        LOG_PRINT_L0("Failed to add outgoing transaction to confirmed transaction map");
+      }
+    }
     m_unconfirmed_txs.erase(unconf_it);
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
@@ -1021,15 +1032,32 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
   });
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height) const
+void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height, uint64_t max_height) const
 {
   auto range = std::make_pair(m_payments.begin(), m_payments.end());
-  std::for_each(range.first, range.second, [&payments, &min_height](const payment_container::value_type& x) {
-    if (min_height < x.second.m_block_height)
+  std::for_each(range.first, range.second, [&payments, &min_height, &max_height](const payment_container::value_type& x) {
+    if (min_height < x.second.m_block_height && max_height >= x.second.m_block_height)
     {
       payments.push_back(x);
     }
   });
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
+    uint64_t min_height, uint64_t max_height) const
+{
+  for (auto i = m_confirmed_txs.begin(); i != m_confirmed_txs.end(); ++i) {
+    if (i->second.m_block_height > min_height && i->second.m_block_height <= max_height) {
+      confirmed_payments.push_back(*i);
+    }
+  }
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments) const
+{
+  for (auto i = m_unconfirmed_txs.begin(); i != m_unconfirmed_txs.end(); ++i) {
+    unconfirmed_payments.push_back(*i);
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::rescan_spent()
