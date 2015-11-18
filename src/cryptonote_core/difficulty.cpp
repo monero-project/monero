@@ -157,8 +157,4 @@ namespace cryptonote {
     return (low + time_span - 1) / time_span;
   }
 
-  difficulty_type next_difficulty(vector<uint64_t> timestamps, vector<difficulty_type> cumulative_difficulties)
-  {
-    return next_difficulty(std::move(timestamps), std::move(cumulative_difficulties), DIFFICULTY_TARGET);
-  }
 }

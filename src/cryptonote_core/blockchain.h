@@ -160,6 +160,8 @@ namespace cryptonote
     HardFork::State get_hard_fork_state() const;
     uint8_t get_current_hard_fork_version() const { return m_hardfork->get_current_version(); }
     uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
+    uint8_t get_ideal_hard_fork_version(uint64_t height) const { return m_hardfork->get_ideal_version(height); }
+
     bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
 
     bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
