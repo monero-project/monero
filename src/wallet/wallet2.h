@@ -109,6 +109,17 @@ namespace tools
       time_t m_sent_time;
     };
 
+    struct confirmed_transfer_details
+    {
+      uint64_t m_amount_in;
+      uint64_t m_amount_out;
+      uint64_t m_change;
+      uint64_t m_block_height;
+      confirmed_transfer_details() {}
+      confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
+        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
+    };
+
     typedef std::vector<transfer_details> transfer_container;
     typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;
 
@@ -244,7 +255,10 @@ namespace tools
     bool check_connection();
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height = 0) const;
-    void get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height) const;
+    void get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height, uint64_t max_height = (uint64_t)-1) const;
+    void get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
+      uint64_t min_height, uint64_t max_height = (uint64_t)-1) const;
+    void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments) const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     void rescan_spent();
     template <class t_archive>
@@ -265,6 +279,9 @@ namespace tools
       if(ver < 8)
         return;
       a & m_tx_keys;
+      if(ver < 9)
+        return;
+      a & m_confirmed_txs;
     }
 
     /*!
@@ -323,7 +340,7 @@ namespace tools
     void pull_blocks(uint64_t start_height, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
-    void process_unconfirmed(const cryptonote::transaction& tx);
+    void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
     void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
@@ -337,6 +354,7 @@ namespace tools
     std::vector<crypto::hash> m_blockchain;
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
+    std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
     std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
 
     transfer_container m_transfers;
@@ -358,7 +376,7 @@ namespace tools
     uint32_t m_default_mixin;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 8)
+BOOST_CLASS_VERSION(tools::wallet2, 9)
 
 namespace boost
 {
@@ -381,6 +399,15 @@ namespace boost
       a & x.m_change;
       a & x.m_sent_time;
       a & x.m_tx;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive &a, tools::wallet2::confirmed_transfer_details &x, const boost::serialization::version_type ver)
+    {
+      a & x.m_amount_in;
+      a & x.m_amount_out;
+      a & x.m_change;
+      a & x.m_block_height;
     }
 
     template <class Archive>
