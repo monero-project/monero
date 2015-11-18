@@ -139,7 +139,7 @@ bool transactions_flow_test(std::string& working_folder,
 
   w1.init(daemon_addr_a);
 
-  size_t blocks_fetched = 0;
+  uint64_t blocks_fetched = 0;
   bool received_money;
   bool ok;
   if(!w1.refresh(blocks_fetched, received_money, ok))
