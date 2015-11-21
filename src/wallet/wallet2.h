@@ -127,7 +127,7 @@ namespace tools
       uint64_t m_amount_out;
       uint64_t m_change;
       uint64_t m_block_height;
-      confirmed_transfer_details() {}
+      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
         m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
     };
@@ -362,6 +362,7 @@ namespace tools
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
+    void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t spent, uint64_t received);
     void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void connect_to_daemon();
