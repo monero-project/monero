@@ -82,13 +82,13 @@ namespace daemon_args
   };
   const command_line::arg_descriptor<uint64_t> arg_fast_block_sync = {
     "fast-block-sync"
-  , "Test fast block-sync option using temporarily embedded known block hashes."
+  , "Sync up most of the way by using embedded, known block hashes."
   , 1
   };
   const command_line::arg_descriptor<uint64_t> arg_show_time_stats  = {
     "show-time-stats"
   , "Show time-stats when processing blocks/txs and disk synchronization."
-  , 1
+  , 0
   };
   const command_line::arg_descriptor<uint64_t> arg_db_auto_remove_logs  = {
     "db-auto-remove-logs"
