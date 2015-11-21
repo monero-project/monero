@@ -43,6 +43,7 @@ using namespace epee;
 #else 
 #include <sys/utsname.h>
 #endif
+#include <boost/filesystem.hpp>
 
 
 namespace tools
@@ -388,5 +389,23 @@ std::string get_nix_version_display_string()
     code = ok ? 0 : errno;
 #endif
     return std::error_code(code, std::system_category());
+  }
+
+  bool sanitize_locale()
+  {
+    // boost::filesystem throws for "invalid" locales, such as en_US.UTF-8, or kjsdkfs,
+    // so reset it here before any calls to it
+    try
+    {
+      boost::filesystem::path p {std::string("test")};
+      p /= std::string("test");
+    }
+    catch (...)
+    {
+      setenv("LC_ALL", "C", 1);
+      setenv("LANG", "C", 1);
+      return true;
+    }
+    return false;
   }
 }
