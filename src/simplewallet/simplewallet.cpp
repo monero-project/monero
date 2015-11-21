@@ -2055,7 +2055,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       std::string payment_id = string_tools::pod_to_hex(i->first);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
-      output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%18.18s  %s  %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id).str())));
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id).str())));
     }
   }
 
@@ -2065,14 +2065,16 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
       uint64_t fee = pd.m_amount_in - pd.m_amount_out;
-      output.insert(std::make_pair(pd.m_block_height, std::make_pair(false, (boost::format("%18.18s  %s") % print_money(pd.m_amount_in - pd.m_change - fee) % "-").str())));
+      uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
+      LOG_PRINT_L2("out: in " << print_money(pd.m_amount_in) << ", out " << print_money(pd.m_amount_out) << ", change " << print_money(change) << ", fee " << print_money(fee));
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(false, (boost::format("%20.20s %s") % print_money(pd.m_amount_in - change - fee) % "-").str())));
     }
   }
 
   // print in and out sorted by height
   for (std::map<uint64_t, std::pair<bool, std::string>>::const_iterator i = output.begin(); i != output.end(); ++i) {
     message_writer(i->second.first ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
-      boost::format("[%8.8llu]  %4.4s  %s") %
+      boost::format("%8.8llu %6.6s  %s") %
       ((unsigned long long)i->first) % (i->second.first ? tr("in") : tr("out")) % i->second.second;
   }
 
@@ -2084,7 +2086,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
       uint64_t amount = 0;
       cryptonote::get_inputs_money_amount(pd.m_tx, amount);
-      message_writer() << (boost::format("[%8.8s]  %4.4s  %18.18s") % tr("pending") % tr("out") % print_money(amount - pd.m_change)).str();
+      message_writer() << (boost::format("%8.8s %6.6s %20.20s") % tr("pending") % tr("out") % print_money(amount - pd.m_change)).str();
     }
   }
 

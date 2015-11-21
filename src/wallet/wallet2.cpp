@@ -270,7 +270,14 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
     }
   }
+
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
+
+  if (tx_money_spent_in_ins > 0)
+  {
+    process_outgoing(tx, height, tx_money_spent_in_ins, tx_money_got_in_outs);
+  }
+
   if (0 < received)
   {
     payment_details payment;
@@ -299,6 +306,18 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t he
     }
     m_unconfirmed_txs.erase(unconf_it);
   }
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t height, uint64_t spent, uint64_t received)
+{
+  crypto::hash txid = get_transaction_hash(tx);
+  confirmed_transfer_details &ctd = m_confirmed_txs[txid];
+  // operator[] creates if not found
+  // fill with the info we know, some info might already be there
+  ctd.m_amount_in = spent;
+  ctd.m_amount_out = get_outs_money_amount(tx);
+  ctd.m_change = received;
+  ctd.m_block_height = height;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
