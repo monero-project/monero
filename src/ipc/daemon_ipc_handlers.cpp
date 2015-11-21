@@ -298,7 +298,7 @@ namespace IPC
 
       cryptonote::cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      if (!core->handle_incoming_tx(tx_blob, tvc, false))
+      if (!core->handle_incoming_tx(tx_blob, tvc, false, false))
       {
         LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
         wap_proto_set_status(message, STATUS_INVALID_TX);

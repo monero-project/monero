@@ -55,6 +55,17 @@ namespace cryptonote
   namespace
   {
     size_t const TRANSACTION_SIZE_LIMIT = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+    time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
+    time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
+
+    // a kind of increasing backoff within min/max bounds
+    time_t get_relay_delay(time_t now, time_t received)
+    {
+      time_t d = (now - received + MIN_RELAY_TIME) / MIN_RELAY_TIME * MIN_RELAY_TIME;
+      if (d > MAX_RELAY_TIME)
+        d = MAX_RELAY_TIME;
+      return d;
+    }
   }
   //---------------------------------------------------------------------------------
 #if BLOCKCHAIN_DB == DB_LMDB
@@ -70,7 +81,7 @@ namespace cryptonote
   }
 #endif
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block)
+  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed)
   {
 
 
@@ -154,6 +165,8 @@ namespace cryptonote
         txd_p.first->second.max_used_block_height = 0;
         txd_p.first->second.kept_by_block = kept_by_block;
         txd_p.first->second.receive_time = time(nullptr);
+        txd_p.first->second.last_relayed_time = time(NULL);
+        txd_p.first->second.relayed = relayed;
         tvc.m_verifivation_impossible = true;
         tvc.m_added_to_pool = true;
       }else
@@ -176,6 +189,8 @@ namespace cryptonote
       txd_p.first->second.last_failed_height = 0;
       txd_p.first->second.last_failed_id = null_hash;
       txd_p.first->second.receive_time = time(nullptr);
+      txd_p.first->second.last_relayed_time = time(NULL);
+      txd_p.first->second.relayed = relayed;
       tvc.m_added_to_pool = true;
 
       if(txd_p.first->second.fee > 0)
@@ -202,12 +217,12 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block)
+  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed)
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
     get_transaction_hash(tx, h, blob_size);
-    return add_tx(tx, h, blob_size, tvc, keeped_by_block);
+    return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed);
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::remove_transaction_keyimages(const transaction& tx)
@@ -240,7 +255,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee)
+  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     auto it = m_transactions.find(id);
@@ -255,6 +270,7 @@ namespace cryptonote
     tx = it->second.tx;
     blob_size = it->second.blob_size;
     fee = it->second.fee;
+    relayed = it->second.relayed;
     remove_transaction_keyimages(it->second.tx);
     m_transactions.erase(it);
     m_txs_by_fee.erase(sorted_it);
@@ -302,6 +318,41 @@ namespace cryptonote
         ++it;
     }
     return true;
+  }
+  //---------------------------------------------------------------------------------
+  bool tx_memory_pool::get_relayable_transactions(std::list<std::pair<crypto::hash, cryptonote::transaction>> &txs) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    const time_t now = time(NULL);
+    for(auto it = m_transactions.begin(); it!= m_transactions.end();)
+    {
+      // 0 fee transactions are never relayed
+      if(it->second.fee > 0 && now - it->second.last_relayed_time > get_relay_delay(now, it->second.receive_time))
+      {
+        // if the tx is older than half the max lifetime, we don't re-relay it, to avoid a problem
+        // mentioned by smooth where nodes would flush txes at slightly different times, causing
+        // flushed txes to be re-added when received from a node which was just about to flush it
+        time_t max_age = it->second.kept_by_block ? CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME : CRYPTONOTE_MEMPOOL_TX_LIVETIME;
+        if (now - it->second.receive_time <= max_age / 2)
+        {
+          txs.push_back(std::make_pair(it->first, it->second.tx));
+        }
+      }
+      ++it;
+    }
+    return true;
+  }
+  //---------------------------------------------------------------------------------
+  void tx_memory_pool::set_relayed(const std::list<std::pair<crypto::hash, cryptonote::transaction>> &txs)
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    const time_t now = time(NULL);
+    for (auto it = txs.begin(); it != txs.end(); ++it)
+    {
+      auto i = m_transactions.find(it->first);
+      if (i != m_transactions.end())
+        i->second.last_relayed_time = now;
+    }
   }
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::get_transactions_count() const
