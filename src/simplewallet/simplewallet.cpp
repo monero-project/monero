@@ -2164,6 +2164,9 @@ int main(int argc, char* argv[])
 
   //TRY_ENTRY();
 
+  std::string lang = i18n_get_language();
+  tools::sanitize_locale();
+
   string_tools::set_module_name_and_folder(argv[0]);
 
   po::options_description desc_general(sw::tr("General options"));
@@ -2212,7 +2215,7 @@ int main(int argc, char* argv[])
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
 
-  i18n_set_language("translations", "monero");
+  i18n_set_language("translations", "monero", lang);
 
   po::options_description desc_all;
   desc_all.add(desc_general).add(desc_params);

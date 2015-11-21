@@ -94,6 +94,8 @@ int main(int argc, char* argv[])
   uint32_t log_level = 0;
   uint64_t block_stop = 0;
 
+  tools::sanitize_locale();
+
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
   boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
   boost::filesystem::path output_file_path;

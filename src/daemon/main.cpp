@@ -54,6 +54,8 @@ int main(int argc, char const * argv[])
 		_note_c("dbg/main", "Begin of main()");
 		// TODO parse the debug options like set log level right here at start
 
+    tools::sanitize_locale();
+
     epee::string_tools::set_module_name_and_folder(argv[0]);
 
     // Build argument description
