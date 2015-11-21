@@ -42,6 +42,8 @@ int main(int argc, char* argv[])
   uint64_t block_stop = 0;
   bool blocks_dat = false;
 
+  tools::sanitize_locale();
+
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
   boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
   boost::filesystem::path output_file_path;
