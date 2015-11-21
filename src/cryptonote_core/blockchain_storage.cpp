@@ -301,7 +301,7 @@ bool blockchain_storage::purge_transaction_from_blockchain(const crypto::hash& t
   if(!is_coinbase(tx))
   {
     cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    bool r = m_tx_pool->add_tx(tx, tvc, true);
+    bool r = m_tx_pool->add_tx(tx, tvc, true, true);
     CHECK_AND_ASSERT_MES(r, false, "purge_block_data_from_blockchain: failed to add transaction to transaction pool");
   }
 
@@ -1686,7 +1686,8 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     transaction tx;
     size_t blob_size = 0;
     uint64_t fee = 0;
-    if(!m_tx_pool->take_tx(tx_id, tx, blob_size, fee))
+    bool relayed = false;
+    if(!m_tx_pool->take_tx(tx_id, tx, blob_size, fee, relayed))
     {
       LOG_PRINT_L1("Block with id: " << id  << "has at least one unknown transaction with id: " << tx_id);
       purge_block_data_from_blockchain(bl, tx_processed_count);
@@ -1698,7 +1699,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     {
       LOG_PRINT_L1("Block with id: " << id  << "has at least one transaction (id: " << tx_id << ") with wrong inputs.");
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      bool add_res = m_tx_pool->add_tx(tx, tvc, true);
+      bool add_res = m_tx_pool->add_tx(tx, tvc, true, relayed);
       CHECK_AND_ASSERT_MES2(add_res, "handle_block_to_main_chain: failed to add transaction back to transaction pool");
       purge_block_data_from_blockchain(bl, tx_processed_count);
       add_block_as_invalid(bl, id);
@@ -1711,7 +1712,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     {
        LOG_PRINT_L1("Block with id: " << id << " failed to add transaction to blockchain storage");
        cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-       bool add_res = m_tx_pool->add_tx(tx, tvc, true);
+       bool add_res = m_tx_pool->add_tx(tx, tvc, true, relayed);
        CHECK_AND_ASSERT_MES2(add_res, "handle_block_to_main_chain: failed to add transaction back to transaction pool");
        purge_block_data_from_blockchain(bl, tx_processed_count);
        bvc.m_verifivation_failed = true;

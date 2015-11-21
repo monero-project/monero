@@ -334,11 +334,12 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
 
                 size_t blob_size;
                 uint64_t fee;
+                bool relayed;
                 transaction pool_tx;
                 for(const transaction &tx : txs)
                 {
                     crypto::hash tx_hash = get_transaction_hash(tx);
-                    m_tx_pool.take_tx(tx_hash, pool_tx, blob_size, fee);
+                    m_tx_pool.take_tx(tx_hash, pool_tx, blob_size, fee, relayed);
                 }
             }
         }
@@ -452,7 +453,12 @@ block Blockchain::pop_block_from_blockchain()
         if (!is_coinbase(tx))
         {
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-            bool r = m_tx_pool.add_tx(tx, tvc, true);
+            // We assume that if they were in a block, the transactions are already
+            // known to the network as a whole. However, if we had mined that block,
+            // that might not be always true. Unlikely though, and always relaying
+            // these again might cause a spike of traffic as many nodes re-relay
+            // all the transactions in a popped block when a reorg happens.
+            bool r = m_tx_pool.add_tx(tx, tvc, true, true);
             if (!r)
             {
                 LOG_ERROR("Error returning transaction to tx_pool");
@@ -2464,6 +2470,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         transaction tx;
         size_t blob_size = 0;
         uint64_t fee = 0;
+        bool relayed = false;
         TIME_MEASURE_START(aa);
 
 // XXX old code does not check whether tx exists
@@ -2479,7 +2486,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         TIME_MEASURE_START(bb);
 
         // get transaction with hash <tx_id> from tx_pool
-        if(!m_tx_pool.take_tx(tx_id, tx, blob_size, fee))
+        if(!m_tx_pool.take_tx(tx_id, tx, blob_size, fee, relayed))
         {
             LOG_PRINT_L1("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
             bvc.m_verifivation_failed = true;
@@ -2597,7 +2604,12 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         for (auto& tx : txs)
         {
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-            if (!m_tx_pool.add_tx(tx, tvc, true))
+            // We assume that if they were in a block, the transactions are already
+            // known to the network as a whole. However, if we had mined that block,
+            // that might not be always true. Unlikely though, and always relaying
+            // these again might cause a spike of traffic as many nodes re-relay
+            // all the transactions in a popped block when a reorg happens.
+            if (!m_tx_pool.add_tx(tx, tvc, true, true))
             {
                 LOG_PRINT_L0("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
             }

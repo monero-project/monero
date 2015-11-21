@@ -64,7 +64,7 @@ namespace cryptonote
      core(i_cryptonote_protocol* pprotocol);
      bool handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote_connection_context& context);
      bool on_idle();
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
      bool handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate = true);
      bool prepare_handle_incoming_blocks(const std::list<block_complete_entry>  &blocks);
      bool cleanup_handle_incoming_blocks(bool force_sync = false);
@@ -152,8 +152,8 @@ namespace cryptonote
      bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
 
    private:
-     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
-     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
+     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
+     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
      bool add_new_block(const block& b, block_verification_context& bvc);
      bool load_state_data();
      bool parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const blobdata& blob) const;
@@ -171,6 +171,8 @@ namespace cryptonote
      bool check_tx_inputs_keyimages_diff(const transaction& tx) const;
      void graceful_exit();
      bool check_fork_time();
+     bool relay_txpool_transactions();
+
      static std::atomic<bool> m_fast_exit;
      bool m_test_drop_download = true;
 	 uint64_t m_test_drop_download_height = 0;
@@ -190,6 +192,7 @@ namespace cryptonote
      cryptonote_protocol_stub m_protocol_stub;
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
      epee::math_helper::once_a_time_seconds<60*60*2, false> m_fork_moaner;
+     epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed;
 
