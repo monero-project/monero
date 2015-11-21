@@ -81,10 +81,10 @@ namespace cryptonote
 #else
     tx_memory_pool(blockchain_storage& bchs);
 #endif
-    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
-    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
+    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
+    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
     //gets tx and remove it from pool
-    bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee);
+    bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed);
 
     bool have_tx(const crypto::hash &id) const;
     bool on_blockchain_inc(uint64_t new_block_height, const crypto::hash& top_block_id);
@@ -101,13 +101,15 @@ namespace cryptonote
     void get_transactions(std::list<transaction>& txs) const;
     bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
     bool get_transaction(const crypto::hash& h, transaction& tx) const;
+    bool get_relayable_transactions(std::list<std::pair<crypto::hash, cryptonote::transaction>>& txs) const;
+    void set_relayed(const std::list<std::pair<crypto::hash, cryptonote::transaction>>& txs);
     size_t get_transactions_count() const;
     std::string print_pool(bool short_format) const;
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
 
-#define CURRENT_MEMPOOL_ARCHIVE_VER    8
+#define CURRENT_MEMPOOL_ARCHIVE_VER    9
 
     template<class archive_t>
     void serialize(archive_t & a, const unsigned int version)
@@ -131,6 +133,9 @@ namespace cryptonote
       uint64_t last_failed_height;
       crypto::hash last_failed_id;
       time_t receive_time;
+
+      time_t last_relayed_time;
+      bool relayed;
     };
 
   private:
@@ -230,7 +235,10 @@ namespace boost
       ar & td.last_failed_height;
       ar & td.last_failed_id;
       ar & td.receive_time;
-
+      if (version < 9)
+        return;
+      ar & td.last_relayed_time;
+      ar & td.relayed;
     }
   }
 }
