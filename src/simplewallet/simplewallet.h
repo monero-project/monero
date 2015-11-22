@@ -99,7 +99,7 @@ namespace cryptonote
      */
     bool seed_set_language(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_always_confirm_transfers(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_store_tx_keys(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_store_tx_info(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_default_mixin(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
@@ -175,9 +175,9 @@ namespace cryptonote
           m_blockchain_height = (std::max)(m_blockchain_height, height);
         }
 
-        if (std::chrono::milliseconds(1) < current_time - m_print_time || force)
+        if (std::chrono::milliseconds(20) < current_time - m_print_time || force)
         {
-          std::cout << QT_TRANSLATE_NOOP("cryptonote::simple_wallet", "Height ") << height << " / " << m_blockchain_height << '\r';
+          std::cout << QT_TRANSLATE_NOOP("cryptonote::simple_wallet", "Height ") << height << " / " << m_blockchain_height << '\r' << std::flush;
           m_print_time = current_time;
         }
       }

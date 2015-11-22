@@ -335,7 +335,7 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
   return true;
 }
 
-bool simple_wallet::set_store_tx_keys(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
   if (m_wallet->watch_only())
@@ -359,7 +359,7 @@ bool simple_wallet::set_store_tx_keys(const std::vector<std::string> &args/* = s
     return true;
   }
 
-  m_wallet->store_tx_keys(is_it_true(args[1]));
+  m_wallet->store_tx_info(is_it_true(args[1]));
   m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
@@ -449,7 +449,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Get viewkey"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-keys <1|0> - whether to store per-tx private keys for future reference; default_mixin <n> - set default mixin (default default is 4"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store per outgoing tx info (destination address, payment id, tx secret key) for future reference; default_mixin <n> - set default mixin (default default is 4"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to a given address in a partcular tx"));
@@ -496,18 +496,18 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         return true;
       }
     }
-    else if (args[0] == "store-tx-keys")
+    else if (args[0] == "store-tx-info")
     {
       if (args.size() <= 1)
       {
-        fail_msg_writer() << tr("set store-tx-keys: needs an argument (0 or 1)");
+        fail_msg_writer() << tr("set store-tx-info: needs an argument (0 or 1)");
         return true;
       }
       else
       {
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_store_tx_keys(local_args);
+        set_store_tx_info(local_args);
         return true;
       }
     }
@@ -1998,22 +1998,27 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   std::vector<std::string> local_args = args_;
   bool in = true;
   bool out = true;
+  bool pending = true;
   uint64_t min_height = 0;
   uint64_t max_height = (uint64_t)-1;
 
   if(local_args.size() > 3) {
-    fail_msg_writer() << tr("Usage: show_transfers [in|out] [<min_height> [<max_height>]]");
+    fail_msg_writer() << tr("Usage: show_transfers [in|out|all|pending] [<min_height> [<max_height>]]");
     return true;
   }
 
   // optional in/out selector
   if (local_args.size() > 0) {
     if (local_args[0] == "in" || local_args[0] == "incoming") {
-      out = false;
+      out = pending = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "out" || local_args[0] == "outgoing") {
       in = false;
+      local_args.erase(local_args.begin());
+    }
+    else if (local_args[0] == "pending") {
+      in = out = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "all" || local_args[0] == "both") {
@@ -2055,7 +2060,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       std::string payment_id = string_tools::pod_to_hex(i->first);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
-      output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%18.18s  %s  %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id).str())));
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-").str())));
     }
   }
 
@@ -2065,26 +2070,40 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
       uint64_t fee = pd.m_amount_in - pd.m_amount_out;
-      output.insert(std::make_pair(pd.m_block_height, std::make_pair(false, (boost::format("%18.18s  %s") % print_money(pd.m_amount_in - pd.m_change - fee) % "-").str())));
+      uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
+      std::string dests;
+      for (const auto &d: pd.m_dests) {
+        if (!dests.empty())
+          dests += ", ";
+        dests +=  get_account_address_as_str(m_wallet->testnet(), d.addr) + ": " + print_money(d.amount);
+      }
+      std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
+      if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+        payment_id = payment_id.substr(0,16);
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(false, (boost::format("%20.20s %s %s %14.14s %s") % print_money(pd.m_amount_in - change - fee) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee) % dests).str())));
     }
   }
 
   // print in and out sorted by height
   for (std::map<uint64_t, std::pair<bool, std::string>>::const_iterator i = output.begin(); i != output.end(); ++i) {
     message_writer(i->second.first ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
-      boost::format("[%8.8llu]  %4.4s  %s") %
+      boost::format("%8.8llu %6.6s %s") %
       ((unsigned long long)i->first) % (i->second.first ? tr("in") : tr("out")) % i->second.second;
   }
 
   // print unconfirmed last
-  if (out) {
+  if (pending) {
     std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
     m_wallet->get_unconfirmed_payments_out(upayments);
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
       const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
       uint64_t amount = 0;
       cryptonote::get_inputs_money_amount(pd.m_tx, amount);
-      message_writer() << (boost::format("[%8.8s]  %4.4s  %18.18s") % tr("pending") % tr("out") % print_money(amount - pd.m_change)).str();
+      uint64_t fee = amount - get_outs_money_amount(pd.m_tx);
+      std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
+      if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+        payment_id = payment_id.substr(0,16);
+      message_writer() << (boost::format("%8.8s %6.6s %20.20s %s %s %14.14s") % tr("pending") % tr("out") % print_money(amount - pd.m_change) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee)).str();
     }
   }
 

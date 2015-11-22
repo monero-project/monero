@@ -270,7 +270,14 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
     }
   }
+
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
+
+  if (tx_money_spent_in_ins > 0)
+  {
+    process_outgoing(tx, height, tx_money_spent_in_ins, tx_money_got_in_outs);
+  }
+
   if (0 < received)
   {
     payment_details payment;
@@ -288,7 +295,7 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t he
   crypto::hash txid = get_transaction_hash(tx);
   auto unconf_it = m_unconfirmed_txs.find(txid);
   if(unconf_it != m_unconfirmed_txs.end()) {
-    if (store_tx_keys()) {
+    if (store_tx_info()) {
       try {
         m_confirmed_txs.insert(std::make_pair(txid, confirmed_transfer_details(unconf_it->second, height)));
       }
@@ -299,6 +306,18 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t he
     }
     m_unconfirmed_txs.erase(unconf_it);
   }
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t height, uint64_t spent, uint64_t received)
+{
+  crypto::hash txid = get_transaction_hash(tx);
+  confirmed_transfer_details &ctd = m_confirmed_txs[txid];
+  // operator[] creates if not found
+  // fill with the info we know, some info might already be there
+  ctd.m_amount_in = spent;
+  ctd.m_amount_out = get_outs_money_amount(tx);
+  ctd.m_change = received;
+  ctd.m_block_height = height;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
@@ -551,8 +570,8 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_always_confirm_transfers ? 1 :0);
   json.AddMember("always_confirm_transfers", value2, json.GetAllocator());
 
-  value2.SetInt(m_store_tx_keys ? 1 :0);
-  json.AddMember("store_tx_keys", value2, json.GetAllocator());
+  value2.SetInt(m_store_tx_info ? 1 :0);
+  json.AddMember("store_tx_info", value2, json.GetAllocator());
 
   value2.SetUint(m_default_mixin);
   json.AddMember("default_mixin", value2, json.GetAllocator());
@@ -638,7 +657,8 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
       m_watch_only = false;
     }
     m_always_confirm_transfers = json.HasMember("always_confirm_transfers") && (json["always_confirm_transfers"].GetInt() != 0);
-    m_store_tx_keys = json.HasMember("store_tx_keys") && (json["store_tx_keys"].GetInt() != 0);
+    m_store_tx_info = (json.HasMember("store_tx_keys") && (json["store_tx_keys"].GetInt() != 0))
+                   || (json.HasMember("store_tx_info") && (json["store_tx_info"].GetInt() != 0));
     m_default_mixin = json.HasMember("default_mixin") ? json["default_mixin"].GetUint() : 0;
   }
 
@@ -1206,12 +1226,14 @@ uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_
   return found_money;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount)
+void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount)
 {
   unconfirmed_transfer_details& utd = m_unconfirmed_txs[cryptonote::get_transaction_hash(tx)];
   utd.m_change = change_amount;
   utd.m_sent_time = time(NULL);
   utd.m_tx = tx;
+  utd.m_dests = dests;
+  utd.m_payment_id = payment_id;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -1345,6 +1367,30 @@ std::string wallet2::address_from_txt_record(const std::string& s)
   return std::string();
 }
 
+crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
+{
+  std::vector<tx_extra_field> tx_extra_fields;
+  if(!parse_tx_extra(ptx.tx.extra, tx_extra_fields))
+    return cryptonote::null_hash;
+  tx_extra_nonce extra_nonce;
+  crypto::hash payment_id = null_hash;
+  if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+  {
+    crypto::hash8 payment_id8 = null_hash8;
+    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+    {
+      if (decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key))
+      {
+        memcpy(payment_id.data, payment_id8.data, 8);
+      }
+    }
+    else if (!get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+    {
+      payment_id = cryptonote::null_hash;
+    }
+  }
+  return payment_id;
+}
 //----------------------------------------------------------------------------------------------------
 // take a pending tx and actually send it to the daemon
 void wallet2::commit_tx(pending_tx& ptx)
@@ -1361,8 +1407,15 @@ void wallet2::commit_tx(pending_tx& ptx)
   THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);
 
   txid = get_transaction_hash(ptx.tx);
-  add_unconfirmed_tx(ptx.tx, ptx.change_dts.amount);
-  if (store_tx_keys())
+  crypto::hash payment_id = cryptonote::null_hash;
+  std::vector<cryptonote::tx_destination_entry> dests;
+  if (store_tx_info())
+  {
+    payment_id = get_payment_id(ptx);
+    dests = ptx.dests;
+  }
+  add_unconfirmed_tx(ptx.tx, dests, payment_id, ptx.change_dts.amount);
+  if (store_tx_info())
     m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
@@ -1639,6 +1692,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
+  ptx.dests = dsts;
 }
 
 // Another implementation of transaction creation that is hopefully better
@@ -1987,6 +2041,7 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
+  ptx.dests = dsts;
 }
 
 //----------------------------------------------------------------------------------------------------
