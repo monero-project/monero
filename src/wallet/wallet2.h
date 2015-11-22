@@ -80,9 +80,18 @@ namespace tools
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0) {}
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0) {
+    enum RefreshType {
+      RefreshFull,
+      RefreshOptimizeCoinbase,
+      RefreshNoCoinbase,
+    };
+
+  private:
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase) {}
+
+  public:
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase) {
       ipc_client = NULL;
       connect_to_daemon();
       if (!ipc_client) {
@@ -94,6 +103,7 @@ namespace tools
     ~wallet2() {
       stop_ipc_client();
     };
+
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -247,6 +257,9 @@ namespace tools
     void refresh(uint64_t start_height, uint64_t & blocks_fetched);
     void refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money);
     bool refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok);
+
+    void set_refresh_type(RefreshType refresh_type) { m_refresh_type = refresh_type; }
+    RefreshType get_refresh_type(RefreshType refresh_type) const { return m_refresh_type; }
 
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
@@ -407,6 +420,7 @@ namespace tools
     bool m_always_confirm_transfers;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
     uint32_t m_default_mixin;
+    RefreshType m_refresh_type;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 10)
