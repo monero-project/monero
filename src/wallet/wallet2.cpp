@@ -174,9 +174,10 @@ void wallet2::check_acc_out(const account_keys &acc, const tx_out &o, const cryp
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height)
+void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, bool miner_tx)
 {
-  process_unconfirmed(tx, height);
+  if (!miner_tx)
+    process_unconfirmed(tx, height);
   std::vector<size_t> outs;
   uint64_t tx_money_got_in_outs = 0;
   crypto::public_key tx_pub_key = null_pkey;
@@ -202,8 +203,27 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     tx_pub_key = pub_key_field.pub_key;
     bool r = true;
-    int threads = std::thread::hardware_concurrency();
-    if (threads > 1)
+    int threads;
+    if (miner_tx)
+    {
+      for (size_t i = 0; i < tx.vout.size(); ++i)
+      {
+        uint64_t money_transfered = 0;
+        bool error = false;
+        check_acc_out(m_account.get_keys(), tx.vout[i], tx_pub_key, i, money_transfered, error);
+        if (error)
+        {
+          r = false;
+          break;
+        }
+        // this assumes that the miner tx pays a single address
+        if (money_transfered == 0)
+          break;
+        outs.push_back(i);
+        tx_money_got_in_outs += money_transfered;
+      }
+    }
+    else if (tx.vout.size() > 1 && (threads = std::thread::hardware_concurrency()) > 1)
     {
       boost::asio::io_service ioservice;
       boost::thread_group threadpool;
@@ -214,8 +234,8 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       }
 
       const account_keys &keys = m_account.get_keys();
-      uint64_t *money_transfered = new uint64_t[tx.vout.size()];
-      bool *error = new bool[tx.vout.size()];
+      std::vector<uint64_t> money_transfered(tx.vout.size());
+      std::deque<bool> error(tx.vout.size());
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
         ioservice.dispatch(boost::bind(&wallet2::check_acc_out, this, std::cref(keys), std::cref(tx.vout[i]), std::cref(tx_pub_key), i,
@@ -236,8 +256,6 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
           tx_money_got_in_outs += money_transfered[i];
         }
       }
-      delete[] error;
-      delete[] money_transfered;
     }
     else
     {
@@ -303,50 +321,53 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     }
   }
 
-  tx_extra_nonce extra_nonce;
-  crypto::hash payment_id = null_hash;
-  if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+  if (tx_money_spent_in_ins > 0)
   {
-    crypto::hash8 payment_id8 = null_hash8;
-    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+    process_outgoing(tx, height, tx_money_spent_in_ins, tx_money_got_in_outs);
+  }
+
+  uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
+  if (0 < received)
+  {
+    tx_extra_nonce extra_nonce;
+    crypto::hash payment_id = null_hash;
+    if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
     {
-      // We got a payment ID to go with this tx
-      LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
-      if (tx_pub_key != null_pkey)
+      crypto::hash8 payment_id8 = null_hash8;
+      if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
       {
-        if (!decrypt_payment_id(payment_id8, tx_pub_key, m_account.get_keys().m_view_secret_key))
+        // We got a payment ID to go with this tx
+        LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
+        if (tx_pub_key != null_pkey)
         {
-          LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id8);
+          if (!decrypt_payment_id(payment_id8, tx_pub_key, m_account.get_keys().m_view_secret_key))
+          {
+            LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id8);
+          }
+          else
+          {
+            LOG_PRINT_L2("Decrypted payment ID: " << payment_id8);
+            // put the 64 bit decrypted payment id in the first 8 bytes
+            memcpy(payment_id.data, payment_id8.data, 8);
+            // rest is already 0, but guard against code changes above
+            memset(payment_id.data + 8, 0, 24);
+          }
         }
         else
         {
-          LOG_PRINT_L2("Decrypted payment ID: " << payment_id8);
-          // put the 64 bit decrypted payment id in the first 8 bytes
-          memcpy(payment_id.data, payment_id8.data, 8);
-          // rest is already 0, but guard against code changes above
-          memset(payment_id.data + 8, 0, 24);
+          LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
         }
       }
-      else
+      else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
       {
-        LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
+        LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
       }
     }
     else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
     {
       LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
     }
-  }
 
-  uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
-
-  if (tx_money_spent_in_ins > 0)
-  {
-    process_outgoing(tx, height, tx_money_spent_in_ins, tx_money_got_in_outs);
-  }
-
-  if (0 < received)
-  {
     payment_details payment;
     payment.m_tx_hash      = cryptonote::get_transaction_hash(tx);
     payment.m_amount       = received;
@@ -395,7 +416,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   if(b.timestamp + 60*60*24 > m_account.get_createtime())
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    process_new_transaction(b.miner_tx, height);
+    process_new_transaction(b.miner_tx, height, true);
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
     TIME_MEASURE_START(txs_handle_time);
@@ -404,7 +425,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
       cryptonote::transaction tx;
       bool r = parse_and_validate_tx_from_blob(txblob, tx);
       THROW_WALLET_EXCEPTION_IF(!r, error::tx_parse_error, txblob);
-      process_new_transaction(tx, height);
+      process_new_transaction(tx, height, false);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
