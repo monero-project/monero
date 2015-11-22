@@ -119,6 +119,8 @@ namespace tools
       cryptonote::transaction m_tx;
       uint64_t m_change;
       time_t m_sent_time;
+      std::vector<cryptonote::tx_destination_entry> m_dests;
+      crypto::hash m_payment_id;
     };
 
     struct confirmed_transfer_details
@@ -127,9 +129,12 @@ namespace tools
       uint64_t m_amount_out;
       uint64_t m_change;
       uint64_t m_block_height;
-      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0) {}
+      std::vector<cryptonote::tx_destination_entry> m_dests;
+      crypto::hash m_payment_id;
+
+      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(cryptonote::null_hash) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
+        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
     };
 
     typedef std::vector<transfer_details> transfer_container;
@@ -143,6 +148,7 @@ namespace tools
       std::list<transfer_container::iterator> selected_transfers;
       std::string key_images;
       crypto::secret_key tx_key;
+      std::vector<cryptonote::tx_destination_entry> dests;
     };
 
     struct keys_file_data
@@ -363,11 +369,12 @@ namespace tools
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
     void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t spent, uint64_t received);
-    void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
+    void add_unconfirmed_tx(const cryptonote::transaction& tx, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void connect_to_daemon();
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
     bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
+    crypto::hash get_payment_id(const pending_tx &ptx) const;
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -400,7 +407,7 @@ namespace tools
     uint32_t m_default_mixin;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 9)
+BOOST_CLASS_VERSION(tools::wallet2, 10)
 
 namespace boost
 {
@@ -423,6 +430,10 @@ namespace boost
       a & x.m_change;
       a & x.m_sent_time;
       a & x.m_tx;
+      if (ver < 9)
+        return;
+      a & x.m_dests;
+      a & x.m_payment_id;
     }
 
     template <class Archive>
@@ -432,6 +443,10 @@ namespace boost
       a & x.m_amount_out;
       a & x.m_change;
       a & x.m_block_height;
+      if (ver < 9)
+        return;
+      a & x.m_dests;
+      a & x.m_payment_id;
     }
 
     template <class Archive>
@@ -441,6 +456,13 @@ namespace boost
       a & x.m_amount;
       a & x.m_block_height;
       a & x.m_unlock_time;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive& a, cryptonote::tx_destination_entry& x, const boost::serialization::version_type ver)
+    {
+      a & x.amount;
+      a & x.addr;
     }
   }
 }
@@ -673,6 +695,7 @@ namespace tools
     ptx.change_dts = change_dts;
     ptx.selected_transfers = selected_transfers;
     ptx.tx_key = tx_key;
+    ptx.dests = dsts;
   }
 
 
