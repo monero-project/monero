@@ -470,9 +470,9 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
   int threads = std::thread::hardware_concurrency();
   if (threads > 1)
   {
-    crypto::hash *round_block_hashes = new crypto::hash[threads];
-    cryptonote::block *round_blocks = new cryptonote::block[threads];
-    bool *error = new bool[threads];
+    std::vector<crypto::hash> round_block_hashes(threads);
+    std::vector<cryptonote::block> round_blocks(threads);
+    std::deque<bool> error(threads);
     const std::list<block_complete_entry> &blocks = res.blocks;
     size_t blocks_size = blocks.size();
     std::list<block_complete_entry>::const_iterator blocki = blocks.begin();
@@ -482,7 +482,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
 
       boost::asio::io_service ioservice;
       boost::thread_group threadpool;
-      std::auto_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
+      std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
       for (size_t i = 0; i < round_size; i++)
       {
         threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
@@ -531,9 +531,6 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
         ++blocki;
       }
     }
-    delete[] error;
-    delete[] round_blocks;
-    delete[] round_block_hashes;
   }
   else
   {
