@@ -1225,12 +1225,14 @@ uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_
   return found_money;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount)
+void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount)
 {
   unconfirmed_transfer_details& utd = m_unconfirmed_txs[cryptonote::get_transaction_hash(tx)];
   utd.m_change = change_amount;
   utd.m_sent_time = time(NULL);
   utd.m_tx = tx;
+  utd.m_dests = dests;
+  utd.m_payment_id = payment_id;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -1364,6 +1366,30 @@ std::string wallet2::address_from_txt_record(const std::string& s)
   return std::string();
 }
 
+crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
+{
+  std::vector<tx_extra_field> tx_extra_fields;
+  if(!parse_tx_extra(ptx.tx.extra, tx_extra_fields))
+    return cryptonote::null_hash;
+  tx_extra_nonce extra_nonce;
+  crypto::hash payment_id = null_hash;
+  if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+  {
+    crypto::hash8 payment_id8 = null_hash8;
+    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+    {
+      if (decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key))
+      {
+        memcpy(payment_id.data, payment_id8.data, 8);
+      }
+    }
+    else if (!get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+    {
+      payment_id = cryptonote::null_hash;
+    }
+  }
+  return payment_id;
+}
 //----------------------------------------------------------------------------------------------------
 // take a pending tx and actually send it to the daemon
 void wallet2::commit_tx(pending_tx& ptx)
@@ -1380,7 +1406,14 @@ void wallet2::commit_tx(pending_tx& ptx)
   THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status);
 
   txid = get_transaction_hash(ptx.tx);
-  add_unconfirmed_tx(ptx.tx, ptx.change_dts.amount);
+  crypto::hash payment_id = cryptonote::null_hash;
+  std::vector<cryptonote::tx_destination_entry> dests;
+  if (store_tx_keys())
+  {
+    payment_id = get_payment_id(ptx);
+    dests = ptx.dests;
+  }
+  add_unconfirmed_tx(ptx.tx, dests, payment_id, ptx.change_dts.amount);
   if (store_tx_keys())
     m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
 
@@ -1658,6 +1691,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
+  ptx.dests = dsts;
 }
 
 // Another implementation of transaction creation that is hopefully better
@@ -2006,6 +2040,7 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
+  ptx.dests = dsts;
 }
 
 //----------------------------------------------------------------------------------------------------
