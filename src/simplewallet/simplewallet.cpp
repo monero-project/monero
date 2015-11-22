@@ -335,7 +335,7 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
   return true;
 }
 
-bool simple_wallet::set_store_tx_keys(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
   if (m_wallet->watch_only())
@@ -359,7 +359,7 @@ bool simple_wallet::set_store_tx_keys(const std::vector<std::string> &args/* = s
     return true;
   }
 
-  m_wallet->store_tx_keys(is_it_true(args[1]));
+  m_wallet->store_tx_info(is_it_true(args[1]));
   m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
@@ -449,7 +449,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Get viewkey"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-keys <1|0> - whether to store per-tx private keys for future reference; default_mixin <n> - set default mixin (default default is 4"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store per outgoing tx info (destination address, payment id, tx secret key) for future reference; default_mixin <n> - set default mixin (default default is 4"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to a given address in a partcular tx"));
@@ -496,18 +496,18 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         return true;
       }
     }
-    else if (args[0] == "store-tx-keys")
+    else if (args[0] == "store-tx-info")
     {
       if (args.size() <= 1)
       {
-        fail_msg_writer() << tr("set store-tx-keys: needs an argument (0 or 1)");
+        fail_msg_writer() << tr("set store-tx-info: needs an argument (0 or 1)");
         return true;
       }
       else
       {
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_store_tx_keys(local_args);
+        set_store_tx_info(local_args);
         return true;
       }
     }

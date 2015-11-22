@@ -295,7 +295,7 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t he
   crypto::hash txid = get_transaction_hash(tx);
   auto unconf_it = m_unconfirmed_txs.find(txid);
   if(unconf_it != m_unconfirmed_txs.end()) {
-    if (store_tx_keys()) {
+    if (store_tx_info()) {
       try {
         m_confirmed_txs.insert(std::make_pair(txid, confirmed_transfer_details(unconf_it->second, height)));
       }
@@ -570,8 +570,8 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_always_confirm_transfers ? 1 :0);
   json.AddMember("always_confirm_transfers", value2, json.GetAllocator());
 
-  value2.SetInt(m_store_tx_keys ? 1 :0);
-  json.AddMember("store_tx_keys", value2, json.GetAllocator());
+  value2.SetInt(m_store_tx_info ? 1 :0);
+  json.AddMember("store_tx_info", value2, json.GetAllocator());
 
   value2.SetUint(m_default_mixin);
   json.AddMember("default_mixin", value2, json.GetAllocator());
@@ -657,7 +657,8 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
       m_watch_only = false;
     }
     m_always_confirm_transfers = json.HasMember("always_confirm_transfers") && (json["always_confirm_transfers"].GetInt() != 0);
-    m_store_tx_keys = json.HasMember("store_tx_keys") && (json["store_tx_keys"].GetInt() != 0);
+    m_store_tx_info = (json.HasMember("store_tx_keys") && (json["store_tx_keys"].GetInt() != 0))
+                   || (json.HasMember("store_tx_info") && (json["store_tx_info"].GetInt() != 0));
     m_default_mixin = json.HasMember("default_mixin") ? json["default_mixin"].GetUint() : 0;
   }
 
@@ -1408,13 +1409,13 @@ void wallet2::commit_tx(pending_tx& ptx)
   txid = get_transaction_hash(ptx.tx);
   crypto::hash payment_id = cryptonote::null_hash;
   std::vector<cryptonote::tx_destination_entry> dests;
-  if (store_tx_keys())
+  if (store_tx_info())
   {
     payment_id = get_payment_id(ptx);
     dests = ptx.dests;
   }
   add_unconfirmed_tx(ptx.tx, dests, payment_id, ptx.change_dts.amount);
-  if (store_tx_keys())
+  if (store_tx_info())
     m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
