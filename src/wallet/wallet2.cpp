@@ -204,7 +204,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     tx_pub_key = pub_key_field.pub_key;
     bool r = true;
     int threads;
-    if (miner_tx)
+    if (miner_tx && m_refresh_type == RefreshNoCoinbase)
+    {
+      // assume coinbase isn't for us
+    }
+    else if (miner_tx && m_refresh_type == RefreshOptimizeCoinbase)
     {
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {

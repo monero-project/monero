@@ -73,7 +73,7 @@ namespace cryptonote
     bool process_command(const std::vector<std::string> &args);
     std::string get_commands_str();
   private:
-    void handle_command_line(const boost::program_options::variables_map& vm);
+    bool handle_command_line(const boost::program_options::variables_map& vm);
 
     bool run_console_handler();
 
@@ -221,6 +221,8 @@ namespace cryptonote
     std::string m_daemon_address;
     std::string m_daemon_host;
     int m_daemon_port;
+
+    tools::wallet2::RefreshType m_refresh_type;
 
     epee::console_handlers_binder m_cmd_binder;
 
