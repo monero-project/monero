@@ -571,6 +571,7 @@ namespace cryptonote
 				{
 				  LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
 				  m_p2p->drop_connection(context);
+				  m_p2p->add_ip_fail(context.m_remote_ip);
 				  m_core.cleanup_handle_incoming_blocks();
 				  return 1;
 				}
@@ -578,6 +579,7 @@ namespace cryptonote
 				{
 				  LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
 				  m_p2p->drop_connection(context);
+				  m_p2p->add_ip_fail(context.m_remote_ip);
 				  m_core.cleanup_handle_incoming_blocks();				  
 				  return 1;
 				}
@@ -728,6 +730,7 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT("sent empty m_block_ids, dropping connection");
       m_p2p->drop_connection(context);
+      m_p2p->add_ip_fail(context.m_remote_ip);
       return 1;
     }
 
@@ -736,6 +739,7 @@ namespace cryptonote
       LOG_ERROR_CCONTEXT("sent m_block_ids starting from unknown id: "
                                               << epee::string_tools::pod_to_hex(arg.m_block_ids.front()) << " , dropping connection");
       m_p2p->drop_connection(context);
+      m_p2p->add_ip_fail(context.m_remote_ip);
       return 1;
     }
     

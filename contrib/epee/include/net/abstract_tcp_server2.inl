@@ -899,9 +899,7 @@ POP_WARNINGS
         boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
         boost::asio::placeholders::error));
 
-      bool r = conn->start(true, 1 < m_threads_count);
-      if (!r)
-        _erro("[sock " << conn->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
+      conn->start(true, 1 < m_threads_count);
       conn->save_dbg_log();
     }else
     {
