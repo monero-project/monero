@@ -46,6 +46,11 @@ static uint8_t get_block_vote(const cryptonote::block &b)
   return b.minor_version;
 }
 
+static uint8_t get_block_version(const cryptonote::block &b)
+{
+  return b.major_version;
+}
+
 HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, uint8_t default_threshold_percent):
   db(db),
   original_version(original_version),
@@ -105,7 +110,7 @@ bool HardFork::do_check(uint8_t version) const
 bool HardFork::check(const cryptonote::block &block) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  return do_check(get_block_vote(block));
+  return do_check(::get_block_version(block));
 }
 
 bool HardFork::add(uint8_t block_version, uint64_t height)
@@ -143,7 +148,7 @@ bool HardFork::add(uint8_t block_version, uint64_t height)
 
 bool HardFork::add(const cryptonote::block &block, uint64_t height)
 {
-  return add(get_block_vote(block), height);
+  return add(::get_block_version(block), height);
 }
 
 void HardFork::init()
@@ -185,7 +190,7 @@ uint8_t HardFork::get_block_version(uint64_t height) const
     return original_version;
 
   const cryptonote::block &block = db.get_block_from_height(height);
-  return get_block_vote(block);
+  return ::get_block_version(block);
 }
 
 bool HardFork::reorganize_from_block_height(uint64_t height)
