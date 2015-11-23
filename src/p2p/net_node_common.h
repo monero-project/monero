@@ -50,6 +50,8 @@ namespace nodetool
     virtual void request_callback(const epee::net_utils::connection_context_base& context)=0;
     virtual uint64_t get_connections_count()=0;
     virtual void for_each_connection(std::function<bool(t_connection_context&, peerid_type)> f)=0;
+    virtual bool block_ip(uint32_t adress)=0;
+    virtual bool add_ip_fail(uint32_t adress)=0;
   };
 
   template<class t_connection_context>
@@ -83,6 +85,14 @@ namespace nodetool
     virtual uint64_t get_connections_count()    
     {
       return false;
+    }
+    virtual bool block_ip(uint32_t adress)
+    {
+      return true;
+    }
+    virtual bool add_ip_fail(uint32_t adress)
+    {
+      return true;
     }
   };
 }

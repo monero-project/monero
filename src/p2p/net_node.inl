@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+// IP blocking adapted from Boolberry
+
 #pragma once
 
 #include <algorithm>
@@ -161,9 +163,50 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_remote_ip_allowed(uint32_t addr)
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
+    auto it = m_blocked_ips.find(addr);
+    if(it == m_blocked_ips.end())
+      return true;
+    if(time(nullptr) - it->second > P2P_IP_BLOCKTIME )
+    {
+      m_blocked_ips.erase(it);
+      LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << "is unblocked.", LOG_LEVEL_0);
+      return true;
+    }
+    return false;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_default_config()
   {
     m_config.m_peer_id  = crypto::rand<uint64_t>();
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::block_ip(uint32_t addr)
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
+    m_blocked_ips[addr] = time(nullptr);
+    LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.", LOG_LEVEL_0);
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::add_ip_fail(uint32_t address)
+  {
+    CRITICAL_REGION_LOCAL(m_ip_fails_score_lock);
+    uint64_t fails = ++m_ip_fails_score[address];
+    LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(address) << " fail score=" << fails, LOG_LEVEL_1);
+    if(fails > P2P_IP_FAILS_BEFORE_BLOCK)
+    {
+      auto it = m_ip_fails_score.find(address);
+      CHECK_AND_ASSERT_MES(it != m_ip_fails_score.end(), false, "internal error");
+      it->second = P2P_IP_FAILS_BEFORE_BLOCK/2;
+      block_ip(address);
+    }
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -428,6 +471,7 @@ namespace nodetool
     m_net_server.set_threads_prefix("P2P");
     m_net_server.get_config_object().m_pcommands_handler = this;
     m_net_server.get_config_object().m_invoke_timeout = P2P_DEFAULT_INVOKE_TIMEOUT;
+    m_net_server.set_connection_filter(this);
 
     //try to bind
     LOG_PRINT_L0("Binding on " << m_bind_ip << ":" << m_port);
@@ -624,6 +668,7 @@ namespace nodetool
       if(!handle_remote_peerlist(rsp.local_peerlist, rsp.node_data.local_time, context))
       {
         LOG_ERROR_CCONTEXT("COMMAND_HANDSHAKE: failed to handle_remote_peerlist(...), closing connection.");
+        add_ip_fail(context.m_remote_ip);
         return;
       }
       hsh_result = true;
@@ -685,6 +730,7 @@ namespace nodetool
       {
         LOG_ERROR_CCONTEXT("COMMAND_TIMED_SYNC: failed to handle_remote_peerlist(...), closing connection.");
         m_net_server.get_config_object().close(context.m_connection_id );
+        add_ip_fail(context.m_remote_ip);
       }
       if(!context.m_is_income)
         m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_ip, context.m_remote_port);
@@ -831,6 +877,20 @@ namespace nodetool
 
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_addr_recently_failed(const net_address& addr)
+  {
+    CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
+    auto it = m_conn_fails_cache.find(addr);
+    if(it == m_conn_fails_cache.end())
+      return false;
+
+    if(time(NULL) - it->second > P2P_FAILED_ADDR_FORGET_SECONDS)
+      return false;
+    else
+      return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_new_connection_from_peerlist(bool use_white_list)
   {
     size_t local_peers_count = use_white_list ? m_peerlist.get_white_peers_count():m_peerlist.get_gray_peers_count();
@@ -865,6 +925,12 @@ namespace nodetool
 				_note("Peer is used");
         continue;
 			}
+
+      if(!is_remote_ip_allowed(pe.adr.ip))
+        continue;
+
+      if(is_addr_recently_failed(pe.adr))
+        continue;
 
       LOG_PRINT_L2("Selected peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
@@ -1270,6 +1336,7 @@ namespace nodetool
 
       LOG_PRINT_CCONTEXT_L1("WRONG NETWORK AGENT CONNECTED! id=" << epee::string_tools::get_str_from_guid_a(arg.node_data.network_id));
       drop_connection(context);
+      add_ip_fail(context.m_remote_ip);
       return 1;
     }
 
@@ -1277,6 +1344,7 @@ namespace nodetool
     {
       LOG_ERROR_CCONTEXT("COMMAND_HANDSHAKE came not from incoming connection");
       drop_connection(context);
+      add_ip_fail(context.m_remote_ip);
       return 1;
     }
 
