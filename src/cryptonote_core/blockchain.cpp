@@ -2338,7 +2338,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     // this is a cheap test
     if (!m_hardfork->check(bl))
     {
-        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << bl.major_version << std::endl << "current: " << m_hardfork->get_current_version());
+        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)m_hardfork->get_current_version());
         return false;
     }
 
