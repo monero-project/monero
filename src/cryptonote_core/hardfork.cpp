@@ -263,7 +263,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
     versions.push_back(v);
   }
 
-  uint8_t lastv = db.get_hard_fork_version(height);
+  uint8_t lastv = db.get_hard_fork_version(db.height() - 1);
   current_fork_index = 0;
   while (current_fork_index + 1 < heights.size() && heights[current_fork_index].version != lastv)
     ++current_fork_index;
