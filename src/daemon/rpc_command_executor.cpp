@@ -283,7 +283,7 @@ bool t_rpc_command_executor::show_status() {
 
   tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, net hash %s, v%u, %s, %u+%u connections")
     % (unsigned long long)ires.height
-    % (unsigned long long)(ires.target_height ? ires.target_height : ires.height)
+    % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % (100.0f * ires.height / (ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height))
     % (ires.testnet ? "testnet" : "mainnet")
     % [&ires]()->std::string {
