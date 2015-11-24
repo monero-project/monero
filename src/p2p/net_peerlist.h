@@ -53,6 +53,7 @@
 #include "net_peerlist_boost_serialization.h"
 
 
+#define CURRENT_PEERLIST_STORAGE_ARCHIVE_VER    4
 
 namespace nodetool
 {
@@ -394,4 +395,4 @@ namespace nodetool
   //--------------------------------------------------------------------------------------------------
 }
 
-BOOST_CLASS_VERSION(nodetool::peerlist_manager, 4)
+BOOST_CLASS_VERSION(nodetool::peerlist_manager, CURRENT_PEERLIST_STORAGE_ARCHIVE_VER)

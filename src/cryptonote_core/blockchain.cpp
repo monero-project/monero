@@ -257,13 +257,13 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     if (testnet) {
       m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
       for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
-        m_hardfork->add(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
+        m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
     }
     else
     {
       m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
       for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
-        m_hardfork->add(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
+        m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
     }
     m_hardfork->init();
 
@@ -2338,7 +2338,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     // this is a cheap test
     if (!m_hardfork->check(bl))
     {
-        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << bl.major_version << std::endl << "current: " << m_hardfork->get_current_version());
+        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)m_hardfork->get_current_version());
         return false;
     }
 

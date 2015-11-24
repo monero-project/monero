@@ -42,6 +42,7 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/version.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <boost/serialization/map.hpp>
 
 #include "cryptonote_config.h"
 #include "warnings.h"
@@ -66,7 +67,8 @@ namespace nodetool
 
   template<class t_payload_net_handler>
   class node_server: public epee::levin::levin_commands_handler<p2p_connection_context_t<typename t_payload_net_handler::connection_context> >,
-                     public i_p2p_endpoint<typename t_payload_net_handler::connection_context>
+                     public i_p2p_endpoint<typename t_payload_net_handler::connection_context>,
+                     public epee::net_utils::i_connection_filter
   {
     struct by_conn_id{};
     struct by_peer_id{};
@@ -169,6 +171,10 @@ namespace nodetool
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type)> f);
+    virtual bool block_ip(uint32_t adress);
+    virtual bool add_ip_fail(uint32_t address);
+    //----------------- i_connection_filter  --------------------------------------------------------
+    virtual bool is_remote_ip_allowed(uint32_t adress);
     //-----------------------------------------------------------------------------------------------
     bool parse_peer_from_string(nodetool::net_address& pe, const std::string& node_addr);
     bool handle_command_line(
@@ -196,6 +202,8 @@ namespace nodetool
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
     bool make_expected_connections_count(bool white_list, size_t expected_connections);
+    void cache_connect_fail_info(const net_address& addr);
+    bool is_addr_recently_failed(const net_address& addr);
     bool is_priority_node(const net_address& na);
 
     template <class Container>
@@ -282,6 +290,15 @@ namespace nodetool
     //keep connections to initiate some interactions
     net_server m_net_server;
     boost::uuids::uuid m_network_id;
+
+    std::map<net_address, time_t> m_conn_fails_cache;
+    epee::critical_section m_conn_fails_cache_lock;
+
+    epee::critical_section m_blocked_ips_lock;
+    std::map<uint32_t, time_t> m_blocked_ips;
+
+    epee::critical_section m_ip_fails_score_lock;
+    std::map<uint32_t, uint64_t> m_ip_fails_score;
   };
 }
 
