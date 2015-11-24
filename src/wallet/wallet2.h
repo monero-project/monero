@@ -79,9 +79,18 @@ namespace tools
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0) {}
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0) {}
+    enum RefreshType {
+      RefreshFull,
+      RefreshOptimizeCoinbase,
+      RefreshNoCoinbase,
+    };
+
+  private:
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase) {}
+
+  public:
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase) {}
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -234,6 +243,9 @@ namespace tools
     void refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money);
     bool refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok);
 
+    void set_refresh_type(RefreshType refresh_type) { m_refresh_type = refresh_type; }
+    RefreshType get_refresh_type(RefreshType refresh_type) const { return m_refresh_type; }
+
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
     bool watch_only() const { return m_watch_only; }
@@ -336,8 +348,8 @@ namespace tools
      * \param password       Password of wallet file
      */
     void load_keys(const std::string& keys_file_name, const std::string& password);
-    void process_new_transaction(const cryptonote::transaction& tx, uint64_t height);
-    void process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
+    void process_new_transaction(const cryptonote::transaction& tx, uint64_t height, bool miner_tx);
+    void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
@@ -353,6 +365,8 @@ namespace tools
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
     bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
     crypto::hash get_payment_id(const pending_tx &ptx) const;
+    void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
+    void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -382,6 +396,7 @@ namespace tools
     bool m_always_confirm_transfers;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
     uint32_t m_default_mixin;
+    RefreshType m_refresh_type;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 10)
