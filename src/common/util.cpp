@@ -402,8 +402,13 @@ std::string get_nix_version_display_string()
     }
     catch (...)
     {
+#if defined(__MINGW32__) || defined(__MINGW__)
+      putenv("LC_ALL=C");
+      putenv("LANG=C");
+#else
       setenv("LC_ALL", "C", 1);
       setenv("LANG", "C", 1);
+#endif
       return true;
     }
     return false;
