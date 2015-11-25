@@ -171,7 +171,7 @@ namespace nodetool
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type)> f);
-    virtual bool block_ip(uint32_t adress);
+    virtual bool block_ip(uint32_t adress, uint32_t seconds = P2P_IP_BLOCKTIME);
     virtual bool add_ip_fail(uint32_t address);
     //----------------- i_connection_filter  --------------------------------------------------------
     virtual bool is_remote_ip_allowed(uint32_t adress);
