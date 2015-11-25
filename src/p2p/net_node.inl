@@ -169,7 +169,7 @@ namespace nodetool
     auto it = m_blocked_ips.find(addr);
     if(it == m_blocked_ips.end())
       return true;
-    if(time(nullptr) - it->second > P2P_IP_BLOCKTIME )
+    if(time(nullptr) >= it->second)
     {
       m_blocked_ips.erase(it);
       LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << "is unblocked.", LOG_LEVEL_0);
@@ -186,10 +186,10 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::block_ip(uint32_t addr)
+  bool node_server<t_payload_net_handler>::block_ip(uint32_t addr, uint32_t seconds)
   {
     CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
-    m_blocked_ips[addr] = time(nullptr);
+    m_blocked_ips[addr] = time(nullptr) + seconds;
     LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.", LOG_LEVEL_0);
     return true;
   }
