@@ -273,6 +273,7 @@ namespace cryptonote
       uint64_t height;
       uint64_t target_height;
       uint64_t difficulty;
+      uint64_t target;
       uint64_t tx_count;
       uint64_t tx_pool_size;
       uint64_t alt_blocks_count;
