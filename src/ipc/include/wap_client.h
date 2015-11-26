@@ -197,6 +197,16 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_set_out_peers (wap_client_t *self, uint64_t num_out_peers);
 
+//  Get list of banned peers                                                        
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_bans (wap_client_t *self);
+
+//  Ban/unban peers                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_set_bans (wap_client_t *self, zframe_t **bans_p);
+
 //  Return last received status
 WAP_EXPORT int 
     wap_client_status (wap_client_t *self);
@@ -384,6 +394,10 @@ WAP_EXPORT uint64_t
 //  Return last received spent
 WAP_EXPORT zframe_t *
     wap_client_spent (wap_client_t *self);
+
+//  Return last received bans
+WAP_EXPORT zframe_t *
+    wap_client_bans (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

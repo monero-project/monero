@@ -58,6 +58,8 @@ namespace
     "wrong txid length",
     "tx not found",
     "wrong key image length",
+    "bad JSON syntax",
+    "bad IP address",
     "not implemented",
   };
 }

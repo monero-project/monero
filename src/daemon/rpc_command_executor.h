@@ -113,9 +113,17 @@ public:
   
   bool hard_fork_info(uint8_t version);
 
+  bool print_bans();
+
+  bool ban(const std::string &ip, time_t seconds);
+
+  bool unban(const std::string &ip);
+
 private:
   bool check_connection_to_daemon() const;
   bool connect_to_daemon();
+
+  bool set_ban(const std::string &ip, bool ban, time_t seconds);
 
 private:
   wap_client_t *ipc_client;

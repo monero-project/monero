@@ -115,6 +115,16 @@ namespace {
       }
     }
   }
+
+  template<typename T>
+  void print_ban(T &ban)
+  {
+    std::string time_str;
+    std::string ip_str = ban["ip"].GetString();
+    epee::string_tools::xtype_to_string(ban["seconds"].GetUint64(), time_str);
+    tools::msg_writer() << boost::format("%s banned for %s") % ip_str % time_str;
+  }
+
 }
 
 t_rpc_command_executor::t_rpc_command_executor()
@@ -810,6 +820,91 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
       ", " << votes << "/" << window << " votes, threshold " << threshold;
   tools::msg_writer() << "current version " << (uint32_t)hfversion << ", voting for version " << (uint32_t)voting;
   return true;
+}
+
+bool t_rpc_command_executor::print_bans()
+{
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+  int status = wap_client_get_bans(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+
+  zframe_t *bans_frame = wap_client_bans(ipc_client);
+  const char *data = reinterpret_cast<const char*>(zframe_data(bans_frame));
+  size_t size = zframe_size(bans_frame);
+
+  rapidjson::Document bans_json;
+  if (bans_json.Parse(data, size).HasParseError()) {
+    tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
+    return true;
+  }
+
+  size_t nbans = bans_json["bans"].Size();
+  tools::success_msg_writer() << nbans << " banned IPs";
+  for (size_t n = 0; n < nbans; ++n) {
+    try {
+      print_ban(bans_json["bans"][n]);
+    }
+    catch(...) {
+      tools::fail_msg_writer() << "Couldn't parse ban record from JSON";
+    }
+  }
+
+  return true;
+}
+
+
+bool t_rpc_command_executor::set_ban(const std::string &ip, bool ban, time_t seconds)
+{
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+
+  // json array of "ip", "ban", "seconds"
+  rapidjson::Document result_json;
+  result_json.SetObject();
+  rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+  rapidjson::Value bans_json(rapidjson::kArrayType);
+  rapidjson::Value string_value(rapidjson::kStringType);
+
+  rapidjson::Value this_ban(rapidjson::kObjectType);
+  string_value.SetString(ip.c_str(), ip.size(), allocator);
+  this_ban.AddMember("ip", string_value.Move(), allocator);
+  this_ban.AddMember("ban", ban, allocator);
+  this_ban.AddMember("seconds", seconds, allocator);
+  bans_json.PushBack(this_ban, allocator);
+  result_json.AddMember("bans", bans_json, allocator);
+
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  result_json.Accept(writer);
+  std::string bans_string = buffer.GetString();
+
+  zframe_t *frame = zframe_new(bans_string.c_str(), bans_string.size());
+  int status = wap_client_set_bans(ipc_client, &frame);
+  zframe_destroy(&frame);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+
+  return true;
+}
+
+bool t_rpc_command_executor::ban(const std::string &ip, time_t seconds)
+{
+  return set_ban(ip, true, seconds);
+}
+
+bool t_rpc_command_executor::unban(const std::string &ip)
+{
+  return set_ban(ip, false, 0);
 }
 
 }// namespace daemonize

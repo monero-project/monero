@@ -97,6 +97,8 @@ namespace IPC
     void get_key_image_status(wap_proto_t *message);
     void get_tx_pool(wap_proto_t *message);
     void set_out_peers(wap_proto_t *message);
+    void get_bans(wap_proto_t *message);
+    void set_bans(wap_proto_t *message);
 
     /*!
      * \brief initializes it with objects necessary to handle IPC requests and starts

@@ -94,6 +94,7 @@ struct _wap_proto_t {
     zframe_t *key_images;               //  key_images
     zframe_t *spent;                    //  Key image spent status
     uint64_t num_out_peers;             //  num_out_peers
+    zframe_t *bans;                     //  List of banned peers
     char reason [256];                  //  Printable explanation
 };
 
@@ -289,6 +290,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zchunk_destroy (&self->block);
         zframe_destroy (&self->key_images);
         zframe_destroy (&self->spent);
+        zframe_destroy (&self->bans);
 
         //  Free object itself
         free (self);
@@ -869,6 +871,34 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER4 (self->status);
             break;
 
+        case WAP_PROTO_GET_BANS:
+            break;
+
+        case WAP_PROTO_GET_BANS_OK:
+            GET_NUMBER4 (self->status);
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: bans is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->bans);
+            self->bans = zframe_recv (input);
+            break;
+
+        case WAP_PROTO_SET_BANS:
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: bans is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->bans);
+            self->bans = zframe_recv (input);
+            break;
+
+        case WAP_PROTO_SET_BANS_OK:
+            GET_NUMBER4 (self->status);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -1147,6 +1177,14 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  num_out_peers
             break;
         case WAP_PROTO_SET_OUT_PEERS_OK:
+            frame_size += 4;            //  status
+            break;
+        case WAP_PROTO_GET_BANS_OK:
+            frame_size += 4;            //  status
+            break;
+        case WAP_PROTO_SET_BANS:
+            break;
+        case WAP_PROTO_SET_BANS_OK:
             frame_size += 4;            //  status
             break;
         case WAP_PROTO_ERROR:
@@ -1554,6 +1592,19 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->status);
             break;
 
+        case WAP_PROTO_GET_BANS_OK:
+            PUT_NUMBER4 (self->status);
+            nbr_frames++;
+            break;
+
+        case WAP_PROTO_SET_BANS:
+            nbr_frames++;
+            break;
+
+        case WAP_PROTO_SET_BANS_OK:
+            PUT_NUMBER4 (self->status);
+            break;
+
         case WAP_PROTO_ERROR:
             PUT_NUMBER2 (self->status);
             PUT_STRING (self->reason);
@@ -1621,6 +1672,22 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         //  If spent isn't set, send an empty frame
         if (self->spent)
             zframe_send (&self->spent, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_GET_BANS_OK) {
+        //  If bans isn't set, send an empty frame
+        if (self->bans)
+            zframe_send (&self->bans, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_SET_BANS) {
+        //  If bans isn't set, send an empty frame
+        if (self->bans)
+            zframe_send (&self->bans, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
         else
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
@@ -2028,6 +2095,34 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
+        case WAP_PROTO_GET_BANS:
+            zsys_debug ("WAP_PROTO_GET_BANS:");
+            break;
+
+        case WAP_PROTO_GET_BANS_OK:
+            zsys_debug ("WAP_PROTO_GET_BANS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    bans=");
+            if (self->bans)
+                zframe_print (self->bans, NULL);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
+        case WAP_PROTO_SET_BANS:
+            zsys_debug ("WAP_PROTO_SET_BANS:");
+            zsys_debug ("    bans=");
+            if (self->bans)
+                zframe_print (self->bans, NULL);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
+        case WAP_PROTO_SET_BANS_OK:
+            zsys_debug ("WAP_PROTO_SET_BANS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
         case WAP_PROTO_CLOSE:
             zsys_debug ("WAP_PROTO_CLOSE:");
             break;
@@ -2258,6 +2353,18 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_SET_OUT_PEERS_OK:
             return ("SET_OUT_PEERS_OK");
+            break;
+        case WAP_PROTO_GET_BANS:
+            return ("GET_BANS");
+            break;
+        case WAP_PROTO_GET_BANS_OK:
+            return ("GET_BANS_OK");
+            break;
+        case WAP_PROTO_SET_BANS:
+            return ("SET_BANS");
+            break;
+        case WAP_PROTO_SET_BANS_OK:
+            return ("SET_BANS_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -3635,6 +3742,39 @@ wap_proto_set_num_out_peers (wap_proto_t *self, uint64_t num_out_peers)
 
 
 //  --------------------------------------------------------------------------
+//  Get the bans field without transferring ownership
+
+zframe_t *
+wap_proto_bans (wap_proto_t *self)
+{
+    assert (self);
+    return self->bans;
+}
+
+//  Get the bans field and transfer ownership to caller
+
+zframe_t *
+wap_proto_get_bans (wap_proto_t *self)
+{
+    zframe_t *bans = self->bans;
+    self->bans = NULL;
+    return bans;
+}
+
+//  Set the bans field, transferring ownership from caller
+
+void
+wap_proto_set_bans (wap_proto_t *self, zframe_t **frame_p)
+{
+    assert (self);
+    assert (frame_p);
+    zframe_destroy (&self->bans);
+    self->bans = *frame_p;
+    *frame_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -4548,6 +4688,60 @@ wap_proto_test (bool verbose)
         assert (wap_proto_num_out_peers (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_SET_OUT_PEERS_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BANS);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BANS_OK);
+
+    wap_proto_set_status (self, 123);
+    zframe_t *get_bans_ok_bans = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_bans (self, &get_bans_ok_bans);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (zframe_streq (wap_proto_bans (self), "Captcha Diem"));
+        if (instance == 1)
+            zframe_destroy (&get_bans_ok_bans);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_BANS);
+
+    zframe_t *set_bans_bans = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_bans (self, &set_bans_bans);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (zframe_streq (wap_proto_bans (self), "Captcha Diem"));
+        if (instance == 1)
+            zframe_destroy (&set_bans_bans);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_BANS_OK);
 
     wap_proto_set_status (self, 123);
     //  Send twice

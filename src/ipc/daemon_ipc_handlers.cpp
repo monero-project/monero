@@ -1163,5 +1163,93 @@ namespace IPC
       wap_proto_set_status(message, STATUS_NOT_IMPLEMENTED);
     }
 
+    /*!
+     * \brief get_bans IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_bans(wap_proto_t *message)
+    {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      // We are using JSON to encode the bans list. The JSON string will sit in a 
+      // 0MQ frame which gets sent in a zmsg_t object.
+
+      // First create a rapidjson object and then stringify it.
+      rapidjson::Document result_json;
+      result_json.SetObject();
+      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+      rapidjson::Value bans_json(rapidjson::kArrayType);
+      rapidjson::Value string_value(rapidjson::kStringType);
+
+      const auto now = time(nullptr);
+      std::map<uint32_t, time_t> blocked_ips = p2p->get_blocked_ips();
+      for (std::map<uint32_t, time_t>::const_iterator i = blocked_ips.begin(); i != blocked_ips.end(); ++i)
+      {
+        rapidjson::Value this_ban(rapidjson::kObjectType);
+
+        std::string ip = epee::string_tools::get_ip_string_from_int32(i->first);
+        string_value.SetString(ip.c_str(), ip.size(), allocator);
+        this_ban.AddMember("ip", string_value.Move(), allocator);
+        uint64_t seconds = i->second >= now ? i->second - now : 0;
+        this_ban.AddMember("seconds", seconds, allocator);
+
+        bans_json.PushBack(this_ban, allocator);
+      }
+      result_json.AddMember("bans", bans_json, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      result_json.Accept(writer);
+      std::string bans_string = buffer.GetString();
+      // Put the JSON string in a frame.
+      zframe_t *frame = zframe_new(bans_string.c_str(), bans_string.length());
+      wap_proto_set_bans(message, &frame);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_bans IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void set_bans(wap_proto_t *message)
+    {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      zframe_t *bans = wap_proto_bans(message);
+      const char *data = (const char*)zframe_data(bans);
+      size_t size = zframe_size(bans);
+      rapidjson::Document bans_json;
+      if (bans_json.Parse(data, size).HasParseError()) {
+        wap_proto_set_status(message, STATUS_BAD_JSON_SYNTAX);
+        return;
+      }
+
+      size_t nbans = bans_json["bans"].Size();
+      for (size_t n = 0; n < nbans; ++n) {
+        uint32_t ip;
+        if (!epee::string_tools::get_ip_int32_from_string(ip, bans_json["bans"][n]["ip"].GetString())) {
+          wap_proto_set_status(message, STATUS_BAD_IP_ADDRESS);
+          return;
+        }
+        bool ban = bans_json["bans"][n]["ban"].GetBool();
+        uint64_t seconds = bans_json["bans"][n]["seconds"].GetUint64(); 
+
+        if (ban)
+          p2p->block_ip(ip, seconds);
+        else
+          p2p->unblock_ip(ip);
+      }
+
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
   }
 }

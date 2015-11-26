@@ -253,6 +253,18 @@ ERROR.
     SET_OUT_PEERS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 4    Status
 
+    GET_BANS - Wallet gets the list of banned peers
+
+    GET_BANS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+        bans                frame       List of banned peers
+
+    SET_BANS - Wallet gives a list of peers to ban or unban
+        bans                frame       List of peers to ban or unban
+
+    SET_BANS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -333,11 +345,15 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_TX_POOL_OK            52
 #define WAP_PROTO_SET_OUT_PEERS             53
 #define WAP_PROTO_SET_OUT_PEERS_OK          54
-#define WAP_PROTO_CLOSE                     55
-#define WAP_PROTO_CLOSE_OK                  56
-#define WAP_PROTO_PING                      57
-#define WAP_PROTO_PING_OK                   58
-#define WAP_PROTO_ERROR                     59
+#define WAP_PROTO_GET_BANS                  55
+#define WAP_PROTO_GET_BANS_OK               56
+#define WAP_PROTO_SET_BANS                  57
+#define WAP_PROTO_SET_BANS_OK               58
+#define WAP_PROTO_CLOSE                     59
+#define WAP_PROTO_CLOSE_OK                  60
+#define WAP_PROTO_PING                      61
+#define WAP_PROTO_PING_OK                   62
+#define WAP_PROTO_ERROR                     63
 
 #include <czmq.h>
 
@@ -818,6 +834,16 @@ uint64_t
     wap_proto_num_out_peers (wap_proto_t *self);
 void
     wap_proto_set_num_out_peers (wap_proto_t *self, uint64_t num_out_peers);
+
+//  Get a copy of the bans field
+zframe_t *
+    wap_proto_bans (wap_proto_t *self);
+//  Get the bans field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_bans (wap_proto_t *self);
+//  Set the bans field, transferring ownership from caller
+void
+    wap_proto_set_bans (wap_proto_t *self, zframe_t **frame_p);
 
 //  Get/set the reason field
 const char *

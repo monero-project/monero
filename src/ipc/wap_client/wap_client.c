@@ -745,3 +745,45 @@ signal_have_set_out_peers_ok (client_t *self)
 }
 
 
+//  ---------------------------------------------------------------------------
+//  //  prepare_get_bans_command
+//  //
+
+static void
+prepare_get_bans_command (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  prepare_set_bans_command
+//
+
+static void
+prepare_set_bans_command (client_t *self)
+{
+    wap_proto_set_bans (self->message, &self->args->bans);
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_have_get_bans_ok
+//
+
+static void
+signal_have_get_bans_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s4p", "GET BANS OK", wap_proto_status(self->message),
+        wap_proto_get_bans(self->message));
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_have_set_bans_ok
+//
+
+static void
+signal_have_set_bans_ok (client_t *self)
+{
+    zsock_send (self->cmdpipe, "s4", "SET BANS OK", wap_proto_status(self->message));
+}
