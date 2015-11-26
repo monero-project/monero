@@ -1036,4 +1036,110 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
     return true;
 }
 
+bool t_rpc_command_executor::print_bans()
+{
+    cryptonote::COMMAND_RPC_GETBANS::request req;
+    cryptonote::COMMAND_RPC_GETBANS::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "get_bans", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_get_bans(req, res, error_resp))
+        {
+            tools::fail_msg_writer() << fail_message.c_str();
+            return true;
+        }
+    }
+
+    time_t now = time(nullptr);
+    for (auto i = res.bans.begin(); i != res.bans.end(); ++i)
+    {
+        time_t seconds = i->seconds - now;
+        tools::msg_writer() << epee::string_tools::get_ip_string_from_int32(i->ip) << " banned for " << seconds << " seconds";
+    }
+
+    return true;
+}
+
+
+bool t_rpc_command_executor::ban(const std::string &ip, time_t seconds)
+{
+    cryptonote::COMMAND_RPC_SETBANS::request req;
+    cryptonote::COMMAND_RPC_SETBANS::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    cryptonote::COMMAND_RPC_SETBANS::ban ban;
+    if (!epee::string_tools::get_ip_int32_from_string(ban.ip, ip))
+    {
+        tools::fail_msg_writer() << "Invalid IP";
+        return true;
+    }
+    ban.ban = true;
+    ban.seconds = seconds;
+    req.bans.push_back(ban);
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "set_bans", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_set_bans(req, res, error_resp))
+        {
+            tools::fail_msg_writer() << fail_message.c_str();
+            return true;
+        }
+    }
+
+    return true;
+}
+
+bool t_rpc_command_executor::unban(const std::string &ip)
+{
+    cryptonote::COMMAND_RPC_SETBANS::request req;
+    cryptonote::COMMAND_RPC_SETBANS::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    cryptonote::COMMAND_RPC_SETBANS::ban ban;
+    if (!epee::string_tools::get_ip_int32_from_string(ban.ip, ip))
+    {
+        tools::fail_msg_writer() << "Invalid IP";
+        return true;
+    }
+    ban.ban = false;
+    ban.seconds = 0;
+    req.bans.push_back(ban);
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "set_bans", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_set_bans(req, res, error_resp))
+        {
+            tools::fail_msg_writer() << fail_message.c_str();
+            return true;
+        }
+    }
+
+    return true;
+}
+
 }// namespace daemonize

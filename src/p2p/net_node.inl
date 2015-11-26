@@ -186,11 +186,23 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::block_ip(uint32_t addr, uint32_t seconds)
+  bool node_server<t_payload_net_handler>::block_ip(uint32_t addr, time_t seconds)
   {
     CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
     m_blocked_ips[addr] = time(nullptr) + seconds;
     LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.", LOG_LEVEL_0);
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::unblock_ip(uint32_t addr)
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
+    auto i = m_blocked_ips.find(addr);
+    if (i == m_blocked_ips.end())
+      return false;
+    m_blocked_ips.erase(i);
+    LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.", LOG_LEVEL_0);
     return true;
   }
   //-----------------------------------------------------------------------------------

@@ -392,5 +392,34 @@ bool t_command_parser_executor::hard_fork_info(const std::vector<std::string>& a
   return m_executor.hard_fork_info(version);
 }
 
+bool t_command_parser_executor::show_bans(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+  return m_executor.print_bans();
+}
+
+bool t_command_parser_executor::ban(const std::vector<std::string>& args)
+{
+  if (args.size() != 1 && args.size() != 2) return false;
+  std::string ip = args[0];
+  time_t seconds = P2P_IP_BLOCKTIME;
+  if (args.size() > 1)
+  {
+    seconds = std::stoi(args[0]);
+    if (seconds == 0)
+    {
+      return false;
+    }
+  }
+  return m_executor.ban(ip, seconds);
+}
+
+bool t_command_parser_executor::unban(const std::vector<std::string>& args)
+{
+  if (args.size() != 1) return false;
+  std::string ip = args[0];
+  return m_executor.unban(ip);
+}
+
 
 } // namespace daemonize

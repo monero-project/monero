@@ -899,6 +899,49 @@ namespace cryptonote
 #endif
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_bans(const COMMAND_RPC_GETBANS::request& req, COMMAND_RPC_GETBANS::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    std::map<uint32_t, time_t> blocked_ips = m_p2p.get_blocked_ips();
+    for (std::map<uint32_t, time_t>::const_iterator i = blocked_ips.begin(); i != blocked_ips.end(); ++i)
+    {
+      COMMAND_RPC_GETBANS::ban b;
+      b.ip = i->first;
+      b.seconds = i->second;
+      res.bans.push_back(b);
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_bans(const COMMAND_RPC_SETBANS::request& req, COMMAND_RPC_SETBANS::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    for (auto i = req.bans.begin(); i != req.bans.end(); ++i)
+    {
+      if (i->ban)
+        m_p2p.block_ip(i->ip, i->seconds);
+      else
+        m_p2p.unblock_ip(i->ip);
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_fast_exit(const COMMAND_RPC_FAST_EXIT::request& req, COMMAND_RPC_FAST_EXIT::response& res)
   {
 	  cryptonote::core::set_fast_exit();
