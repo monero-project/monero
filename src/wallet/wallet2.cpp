@@ -478,11 +478,11 @@ void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::bl
     bl_id = get_block_hash(bl);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<cryptonote::block_complete_entry> &blocks)
+void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
-  get_short_chain_history(req.block_ids);
+  req.block_ids = short_chain_history;
 
   req.start_height = start_height;
   bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
@@ -617,18 +617,31 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   uint64_t added_blocks = 0;
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? get_transaction_hash(m_transfers.back().m_tx) : null_hash;
+  std::list<crypto::hash> short_chain_history;
 
+  get_short_chain_history(short_chain_history);
   while(m_run.load(std::memory_order_relaxed))
   {
     try
     {
       uint64_t blocks_start_height;
       std::list<cryptonote::block_complete_entry> blocks;
-      pull_blocks(start_height, blocks_start_height, blocks);
+      pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
       process_blocks(blocks_start_height, blocks, added_blocks);
       blocks_fetched += added_blocks;
       if(!added_blocks)
         break;
+      cryptonote::block bl;
+
+      // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
+      std::list<cryptonote::block_complete_entry>::const_reverse_iterator i = blocks.rbegin();
+      for (int n = 0; n < 3; ++n)
+      {
+        bool ok = cryptonote::parse_and_validate_block_from_blob(i->block, bl);
+        THROW_WALLET_EXCEPTION_IF(!ok, error::block_parse_error, i->block);
+        short_chain_history.push_front(cryptonote::get_block_hash(bl));
+        ++i;
+      }
     }
     catch (const std::exception&)
     {
