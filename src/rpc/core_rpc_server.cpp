@@ -51,6 +51,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_testnet_rpc_bind_port);
+    command_line::add_arg(desc, arg_restricted_rpc);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(
@@ -69,6 +70,7 @@ namespace cryptonote
 
     m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
     m_port = command_line::get_arg(vm, p2p_bind_arg);
+    m_restricted = command_line::get_arg(vm, arg_restricted_rpc);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -955,6 +957,12 @@ namespace cryptonote
       "testnet-rpc-bind-port"
     , "Port for testnet RPC server"
     , std::to_string(config::testnet::RPC_DEFAULT_PORT)
+    };
+
+  const command_line::arg_descriptor<bool> core_rpc_server::arg_restricted_rpc = {
+      "restricted-rpc"
+    , "Restrict RPC to view only commands"
+    , false
     };
 
 }  // namespace cryptonote
