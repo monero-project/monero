@@ -478,19 +478,26 @@ void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::bl
     bl_id = get_block_hash(bl);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
+void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<cryptonote::block_complete_entry> &blocks)
 {
-  blocks_added = 0;
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   get_short_chain_history(req.block_ids);
+
   req.start_height = start_height;
   bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblocks.bin");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
 
-  size_t current_index = res.start_height;
+  blocks_start_height = res.start_height;
+  blocks = res.blocks;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added)
+{
+  size_t current_index = start_height;
+  blocks_added = 0;
 
   int threads = std::thread::hardware_concurrency();
   if (threads > 1)
@@ -498,7 +505,6 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
     std::vector<crypto::hash> round_block_hashes(threads);
     std::vector<cryptonote::block> round_blocks(threads);
     std::deque<bool> error(threads);
-    const std::list<block_complete_entry> &blocks = res.blocks;
     size_t blocks_size = blocks.size();
     std::list<block_complete_entry>::const_iterator blocki = blocks.begin();
     for (size_t b = 0; b < blocks_size; b += threads)
@@ -559,10 +565,10 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
   }
   else
   {
-  BOOST_FOREACH(auto& bl_entry, res.blocks)
+  BOOST_FOREACH(auto& bl_entry, blocks)
   {
     cryptonote::block bl;
-    r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
+    bool r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
     THROW_WALLET_EXCEPTION_IF(!r, error::block_parse_error, bl_entry.block);
 
     crypto::hash bl_id = get_block_hash(bl);
@@ -574,9 +580,9 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
     else if(bl_id != m_blockchain[current_index])
     {
       //split detected here !!!
-      THROW_WALLET_EXCEPTION_IF(current_index == res.start_height, error::wallet_internal_error,
+      THROW_WALLET_EXCEPTION_IF(current_index == start_height, error::wallet_internal_error,
         "wrong daemon response: split starts from the first block in response " + string_tools::pod_to_hex(bl_id) +
-        " (height " + std::to_string(res.start_height) + "), local block id at this height: " +
+        " (height " + std::to_string(start_height) + "), local block id at this height: " +
         string_tools::pod_to_hex(m_blockchain[current_index]));
 
       detach_blockchain(current_index);
@@ -616,7 +622,10 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   {
     try
     {
-      pull_blocks(start_height, added_blocks);
+      uint64_t blocks_start_height;
+      std::list<cryptonote::block_complete_entry> blocks;
+      pull_blocks(start_height, blocks_start_height, blocks);
+      process_blocks(blocks_start_height, blocks, added_blocks);
       blocks_fetched += added_blocks;
       if(!added_blocks)
         break;
