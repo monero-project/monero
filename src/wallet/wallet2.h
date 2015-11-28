@@ -87,10 +87,10 @@ namespace tools
     };
 
   private:
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase) {}
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true) {}
 
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true) {}
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -330,6 +330,8 @@ namespace tools
     void store_tx_info(bool store) { m_store_tx_info = store; }
     uint32_t default_mixin() const { return m_default_mixin; }
     void default_mixin(uint32_t m) { m_default_mixin = m; }
+    bool auto_refresh() const { return m_auto_refresh; }
+    void auto_refresh(bool r) { m_auto_refresh = r; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
@@ -397,6 +399,7 @@ namespace tools
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
     uint32_t m_default_mixin;
     RefreshType m_refresh_type;
+    bool m_auto_refresh;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 10)

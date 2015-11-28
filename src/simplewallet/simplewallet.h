@@ -77,6 +77,8 @@ namespace cryptonote
 
     bool run_console_handler();
 
+    void wallet_refresh_thread();
+
     bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, bool testnet, const std::string &old_language);
     bool new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
@@ -101,6 +103,7 @@ namespace cryptonote
     bool set_always_confirm_transfers(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_store_tx_info(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_default_mixin(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_auto_refresh(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -229,5 +232,11 @@ namespace cryptonote
     std::unique_ptr<tools::wallet2> m_wallet;
     epee::net_utils::http::http_simple_client m_http_client;
     refresh_progress_reporter_t m_refresh_progress_reporter;
+
+    std::atomic<bool> m_auto_refresh_run;
+    bool m_auto_refresh_refreshing;
+    std::thread m_auto_refresh_thread;
+    std::mutex m_auto_refresh_mutex;
+    std::condition_variable m_auto_refresh_cond;
   };
 }
