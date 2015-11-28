@@ -203,31 +203,64 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     tx_pub_key = pub_key_field.pub_key;
     bool r = true;
-    int threads;
+    int threads = std::thread::hardware_concurrency();
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
     }
     else if (miner_tx && m_refresh_type == RefreshOptimizeCoinbase)
     {
-      for (size_t i = 0; i < tx.vout.size(); ++i)
+      uint64_t money_transfered = 0;
+      bool error = false;
+      check_acc_out(m_account.get_keys(), tx.vout[0], tx_pub_key, 0, money_transfered, error);
+      if (error)
       {
-        uint64_t money_transfered = 0;
-        bool error = false;
-        check_acc_out(m_account.get_keys(), tx.vout[i], tx_pub_key, i, money_transfered, error);
-        if (error)
-        {
-          r = false;
-          break;
-        }
+        r = false;
+      }
+      else
+      {
         // this assumes that the miner tx pays a single address
-        if (money_transfered == 0)
-          break;
-        outs.push_back(i);
-        tx_money_got_in_outs += money_transfered;
+        if (money_transfered > 0)
+        {
+          outs.push_back(0);
+          tx_money_got_in_outs = money_transfered;
+
+          // process the other outs from that tx
+          boost::asio::io_service ioservice;
+          boost::thread_group threadpool;
+          std::auto_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
+          for (int i = 0; i < threads; i++)
+          {
+            threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
+          }
+
+          const account_keys &keys = m_account.get_keys();
+          std::vector<uint64_t> money_transfered(tx.vout.size());
+          std::deque<bool> error(tx.vout.size());
+          // the first one was already checked
+          for (size_t i = 1; i < tx.vout.size(); ++i)
+          {
+            ioservice.dispatch(boost::bind(&wallet2::check_acc_out, this, std::cref(keys), std::cref(tx.vout[i]), std::cref(tx_pub_key), i,
+              std::ref(money_transfered[i]), std::ref(error[i])));
+          }
+          KILL_IOSERVICE();
+          for (size_t i = 1; i < tx.vout.size(); ++i)
+          {
+            if (error[i])
+            {
+              r = false;
+              break;
+            }
+            if (money_transfered[i])
+            {
+              outs.push_back(i);
+              tx_money_got_in_outs += money_transfered[i];
+            }
+          }
+        }
       }
     }
-    else if (tx.vout.size() > 1 && (threads = std::thread::hardware_concurrency()) > 1)
+    else if (tx.vout.size() > 1 && threads > 1)
     {
       boost::asio::io_service ioservice;
       boost::thread_group threadpool;
