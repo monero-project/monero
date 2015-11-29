@@ -117,6 +117,9 @@ namespace nodetool
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
     void delete_connections(size_t count);
+    virtual bool block_ip(uint32_t adress, time_t seconds = P2P_IP_BLOCKTIME);
+    virtual bool unblock_ip(uint32_t address);
+    virtual std::map<uint32_t, time_t> get_blocked_ips() const { return m_blocked_ips; }
   private:
     const std::vector<std::string> m_seed_nodes_list =
     { "seeds.moneroseeds.se"
@@ -171,7 +174,6 @@ namespace nodetool
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type)> f);
-    virtual bool block_ip(uint32_t adress);
     virtual bool add_ip_fail(uint32_t address);
     //----------------- i_connection_filter  --------------------------------------------------------
     virtual bool is_remote_ip_allowed(uint32_t adress);

@@ -194,6 +194,21 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::hard_fork_info, &m_parser, p::_1)
     , "Print hard fork voting information"
     );
+    m_command_lookup.set_handler(
+      "bans"
+    , std::bind(&t_command_parser_executor::show_bans, &m_parser, p::_1)
+    , "Show the currently banned IPs"
+    );
+    m_command_lookup.set_handler(
+      "ban"
+    , std::bind(&t_command_parser_executor::ban, &m_parser, p::_1)
+    , "Ban a given IP for a time"
+    );
+    m_command_lookup.set_handler(
+      "unban"
+    , std::bind(&t_command_parser_executor::unban, &m_parser, p::_1)
+    , "Unban a given IP"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

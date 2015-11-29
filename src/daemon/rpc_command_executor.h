@@ -124,6 +124,12 @@ public:
   bool stop_save_graph();
   
   bool hard_fork_info(uint8_t version);
+
+  bool print_bans();
+
+  bool ban(const std::string &ip, time_t seconds);
+
+  bool unban(const std::string &ip);
 };
 
 } // namespace daemonize

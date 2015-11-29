@@ -888,5 +888,70 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GETBANS
+  {
+    struct ban
+    {
+      uint32_t ip;
+      uint32_t seconds;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(ip)
+        KV_SERIALIZE(seconds)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<ban> bans;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(bans)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SETBANS
+  {
+    struct ban
+    {
+      uint32_t ip;
+      bool ban;
+      uint32_t seconds;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(ip)
+        KV_SERIALIZE(ban)
+        KV_SERIALIZE(seconds)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      std::vector<ban> bans;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(bans)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 
