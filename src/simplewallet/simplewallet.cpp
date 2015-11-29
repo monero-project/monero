@@ -468,6 +468,7 @@ simple_wallet::simple_wallet()
   , m_refresh_progress_reporter(*this)
   , m_auto_refresh_run(false)
   , m_auto_refresh_refreshing(false)
+  , m_in_manual_refresh(false)
 {
   m_cmd_binder.set_handler("start_mining", boost::bind(&simple_wallet::start_mining, this, _1), tr("start_mining [<number_of_threads>] - Start mining in daemon"));
   m_cmd_binder.set_handler("stop_mining", boost::bind(&simple_wallet::stop_mining, this, _1), tr("Stop mining in daemon"));
@@ -1071,7 +1072,6 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
 
   m_wallet->init(m_daemon_address);
 
-  refresh(std::vector<std::string>());
   success_msg_writer() <<
     "**********************************************************************\n" <<
     tr("Use \"help\" command to see the list of available commands.\n") <<
@@ -1084,6 +1084,11 @@ bool simple_wallet::close_wallet()
   if (m_auto_refresh_run.load(std::memory_order_relaxed))
   {
     m_auto_refresh_run.store(false, std::memory_order_relaxed);
+    m_wallet->stop();
+    {
+      std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+      m_auto_refresh_cond.notify_one();
+    }
     m_auto_refresh_thread.join();
   }
 
@@ -1276,10 +1281,15 @@ void simple_wallet::on_skip_transaction(uint64_t height, const cryptonote::trans
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::refresh(const std::vector<std::string>& args)
 {
-  std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
-
   if (!try_connect_to_daemon())
     return true;
+
+  bool auto_refresh_run = m_auto_refresh_run.load(std::memory_order_relaxed);
+  m_auto_refresh_run.store(false, std::memory_order_relaxed);
+  // stop any background refresh, and take over
+  m_wallet->stop();
+  std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+  m_auto_refresh_cond.notify_one();
 
   message_writer() << tr("Starting refresh...");
 
@@ -1300,7 +1310,9 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
   std::ostringstream ss;
   try
   {
+    m_in_manual_refresh.store(true, std::memory_order_relaxed);
     m_wallet->refresh(start_height, fetched_blocks);
+    m_in_manual_refresh.store(false, std::memory_order_relaxed);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -1346,6 +1358,8 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
     fail_msg_writer() << tr("refresh failed: ") << ss.str() << ". " << tr("Blocks received: ") << fetched_blocks;
   }
 
+  m_in_manual_refresh.store(false, std::memory_order_relaxed);
+  m_auto_refresh_run.store(auto_refresh_run, std::memory_order_relaxed);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -2222,6 +2236,8 @@ void simple_wallet::wallet_refresh_thread()
   while (true)
   {
     std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+    if (!m_auto_refresh_run.load(std::memory_order_relaxed))
+      break;
     m_auto_refresh_refreshing = true;
     try
     {
@@ -2230,9 +2246,9 @@ void simple_wallet::wallet_refresh_thread()
     }
     catch(...) {}
     m_auto_refresh_refreshing = false;
-    m_auto_refresh_cond.wait_for(lock, chrono::seconds(90));
     if (!m_auto_refresh_run.load(std::memory_order_relaxed))
       break;
+    m_auto_refresh_cond.wait_for(lock, chrono::seconds(90));
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -2243,6 +2259,10 @@ bool simple_wallet::run()
   if (m_auto_refresh_run)
   {
     m_auto_refresh_thread = std::thread([&]{wallet_refresh_thread();});
+  }
+  else
+  {
+    refresh(std::vector<std::string>());
   }
   return m_cmd_binder.run_handling(std::string("[") + tr("wallet") + " " + addr_start + "]: ", "");
 }
@@ -2304,6 +2324,18 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
 bool simple_wallet::process_command(const std::vector<std::string> &args)
 {
   return m_cmd_binder.process_command_vec(args);
+}
+//----------------------------------------------------------------------------------------------------
+void simple_wallet::interrupt()
+{
+  if (m_in_manual_refresh.load(std::memory_order_relaxed))
+  {
+    m_wallet->stop();
+  }
+  else
+  {
+    stop();
+  }
 }
 //----------------------------------------------------------------------------------------------------
 int main(int argc, char* argv[])
@@ -2480,7 +2512,7 @@ int main(int argc, char* argv[])
     bool r = wrpc.init(vm);
     CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet rpc server"));
 
-    tools::signal_handler::install([&wrpc, &wal] {
+    tools::signal_handler::install([&wrpc, &wal](int) {
       wrpc.send_stop_signal();
       wal.store();
     });
@@ -2513,8 +2545,16 @@ int main(int argc, char* argv[])
     }
     else
     {
-      tools::signal_handler::install([&w] {
-        w.stop();
+      tools::signal_handler::install([&w](int type) {
+        if (type == SIGINT)
+        {
+          // if we're pressing ^C when refreshing, just stop refreshing
+          w.interrupt();
+        }
+        else
+        {
+          w.stop();
+        }
       });
       w.run();
 

@@ -68,6 +68,7 @@ namespace cryptonote
     bool deinit();
     bool run();
     void stop();
+    void interrupt();
 
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
@@ -134,6 +135,7 @@ namespace cryptonote
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
     bool ask_wallet_create_if_needed();
+
     /*!
      * \brief Prints the seed with a nice message
      * \param seed seed to print
@@ -238,5 +240,6 @@ namespace cryptonote
     std::thread m_auto_refresh_thread;
     std::mutex m_auto_refresh_mutex;
     std::condition_variable m_auto_refresh_cond;
+    std::atomic<bool> m_in_manual_refresh;
   };
 }

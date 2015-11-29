@@ -48,7 +48,7 @@ using namespace epee;
 
 namespace tools
 {
-  std::function<void(void)> signal_handler::m_handler; 
+  std::function<void(int)> signal_handler::m_handler;
 
 #ifdef WIN32
   std::string get_windows_version_display_string()
