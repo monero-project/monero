@@ -745,19 +745,19 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         m_wallet_file += std::string(":") + parts[n];
 
       bool r = new_wallet(m_wallet_file, pwd_container.password(), address, viewkey, testnet);
-      CHECK_AND_ASSERT_MES(r, false, "account creation failed");
+      CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
     else
     {
       bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet,
         m_non_deterministic, testnet, old_language);
-      CHECK_AND_ASSERT_MES(r, false, "account creation failed");
+      CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
   }
   else
   {
     bool r = open_wallet(m_wallet_file, pwd_container.password(), testnet);
-    CHECK_AND_ASSERT_MES(r, false, "could not open account");
+    CHECK_AND_ASSERT_MES(r, false, tr("could not open account"));
   }
 
   return true;
@@ -1320,7 +1320,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
       message_writer(td.m_spent ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
         boost::format("%21s%8s%16u%68s") %
         print_money(td.amount()) %
-        (td.m_spent ? "T" : "F") %
+        (td.m_spent ? tr("T") : tr("F")) %
         td.m_global_output_index %
         get_transaction_hash (td.m_tx);
     }
@@ -2019,11 +2019,11 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
 
   if (received > 0)
   {
-    success_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " received " << print_money(received) << " in txid " << txid;
+    success_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " " << tr("received") << " " << print_money(received) << " " << tr("in txid") << " " << txid;
   }
   else
   {
-    fail_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " received nothing in txid " << txid;
+    fail_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " " << tr("received nothing in txid") << " " << txid;
   }
 
   return true;
@@ -2068,7 +2068,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       min_height = boost::lexical_cast<uint64_t>(local_args[0]);
     }
     catch (boost::bad_lexical_cast &) {
-      fail_msg_writer() << "Bad min_height parameter: " << local_args[0];
+      fail_msg_writer() << tr("Bad min_height parameter:") << " " << local_args[0];
       return true;
     }
     local_args.erase(local_args.begin());
@@ -2080,7 +2080,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       max_height = boost::lexical_cast<uint64_t>(local_args[0]);
     }
     catch (boost::bad_lexical_cast &) {
-      fail_msg_writer() << "Bad max_height parameter: " << local_args[0];
+      fail_msg_writer() << tr("Bad max_height parameter:") << " " << local_args[0];
       return true;
     }
     local_args.erase(local_args.begin());
