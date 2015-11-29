@@ -763,6 +763,14 @@ void wallet2::detach_blockchain(uint64_t height)
       ++it;
   }
 
+  for (auto it = m_confirmed_txs.begin(); it != m_confirmed_txs.end(); )
+  {
+    if(height <= it->second.m_block_height)
+      it = m_confirmed_txs.erase(it);
+    else
+      ++it;
+  }
+
   LOG_PRINT_L0("Detached blockchain on height " << height << ", transfers detached " << transfers_detached << ", blocks detached " << blocks_detached);
 }
 //----------------------------------------------------------------------------------------------------
