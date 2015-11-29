@@ -242,7 +242,7 @@ bool t_rpc_command_executor::show_difficulty() {
 
   tools::success_msg_writer() <<   "BH: " << res.height
                               << ", DIFF: " << res.difficulty
-                              << ", HR: " << (int) res.difficulty / 60L << " H/s";
+                              << ", HR: " << (int) res.difficulty / res.target << " H/s";
 
   return true;
 }
@@ -287,7 +287,7 @@ bool t_rpc_command_executor::show_status() {
     % (100.0f * ires.height / (ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height))
     % (ires.testnet ? "testnet" : "mainnet")
     % [&ires]()->std::string {
-      float hr = ires.difficulty / 60.0f;
+      float hr = ires.difficulty / ires.target;
       if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
       if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
       if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
