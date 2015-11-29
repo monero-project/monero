@@ -2193,7 +2193,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 
   // print in and out sorted by height
   for (std::map<uint64_t, std::pair<bool, std::string>>::const_iterator i = output.begin(); i != output.end(); ++i) {
-    message_writer(i->second.first ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
+    message_writer(i->second.first ? epee::log_space::console_color_green : epee::log_space::console_color_magenta, false) <<
       boost::format("%8.8llu %6.6s %s") %
       ((unsigned long long)i->first) % (i->second.first ? tr("in") : tr("out")) % i->second.second;
   }
