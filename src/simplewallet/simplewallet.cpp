@@ -421,6 +421,42 @@ bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = s
   }
 }
 
+bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  tools::password_container pwd_container;
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << tr("failed to read wallet password");
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << tr("invalid password");
+    return true;
+  }
+
+  bool auto_refresh = is_it_true(args[1]);
+  m_wallet->auto_refresh(auto_refresh);
+  if (auto_refresh && !m_auto_refresh_run.load(std::memory_order_relaxed))
+  {
+    m_auto_refresh_run.store(true, std::memory_order_relaxed);
+    m_auto_refresh_thread = std::thread([&]{wallet_refresh_thread();});
+  }
+  else if (!auto_refresh && m_auto_refresh_run.load(std::memory_order_relaxed))
+  {
+    m_auto_refresh_run.store(false, std::memory_order_relaxed);
+    m_auto_refresh_thread.join();
+  }
+
+  m_wallet->rewrite(m_wallet_file, pwd_container.password());
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -430,6 +466,8 @@ bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<st
 simple_wallet::simple_wallet()
   : m_daemon_port(0)
   , m_refresh_progress_reporter(*this)
+  , m_auto_refresh_run(false)
+  , m_auto_refresh_refreshing(false)
 {
   m_cmd_binder.set_handler("start_mining", boost::bind(&simple_wallet::start_mining, this, _1), tr("start_mining [<number_of_threads>] - Start mining in daemon"));
   m_cmd_binder.set_handler("stop_mining", boost::bind(&simple_wallet::stop_mining, this, _1), tr("Stop mining in daemon"));
@@ -450,7 +488,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Get viewkey"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store per outgoing tx info (destination address, payment id, tx secret key) for future reference; default_mixin <n> - set default mixin (default default is 4"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store per outgoing tx info (destination address, payment id, tx secret key) for future reference; default_mixin <n> - set default mixin (default default is 4; auto-refresh <1|0> - whether to automatically refresh new blocks from the daemon"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to a given address in a partcular tx"));
@@ -462,7 +500,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 {
   if (args.empty())
   {
-    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, default-mixin");
+    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, default-mixin, auto-refresh");
     return true;
   }
   else
@@ -524,6 +562,21 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
         set_default_mixin(local_args);
+        return true;
+      }
+    }
+    else if (args[0] == "auto-refresh")
+    {
+      if (args.size() <= 1)
+      {
+        fail_msg_writer() << tr("set auto-refresh: needs an argument (0 or 1)");
+        return true;
+      }
+      else
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        set_auto_refresh(local_args);
         return true;
       }
     }
@@ -1028,6 +1081,12 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::close_wallet()
 {
+  if (m_auto_refresh_run.load(std::memory_order_relaxed))
+  {
+    m_auto_refresh_run.store(false, std::memory_order_relaxed);
+    m_auto_refresh_thread.join();
+  }
+
   bool r = m_wallet->deinit();
   if (!r)
   {
@@ -1175,38 +1234,50 @@ bool simple_wallet::save_bc(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_new_block(uint64_t height, const cryptonote::block& block)
 {
-  m_refresh_progress_reporter.update(height, false);
+  if (!m_auto_refresh_refreshing)
+    m_refresh_progress_reporter.update(height, false);
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index)
 {
-  message_writer(epee::log_space::console_color_green, false) <<
+  message_writer(epee::log_space::console_color_green, false) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(tx) << ", " <<
     tr("received ") << print_money(tx.vout[out_index].amount);
-  m_refresh_progress_reporter.update(height, true);
+  if (m_auto_refresh_refreshing)
+    m_cmd_binder.print_prompt();
+  else
+    m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx)
 {
-  message_writer(epee::log_space::console_color_magenta, false) <<
+  message_writer(epee::log_space::console_color_magenta, false) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(spend_tx) << ", " <<
     tr("spent ") << print_money(in_tx.vout[out_index].amount);
-  m_refresh_progress_reporter.update(height, true);
+  if (m_auto_refresh_refreshing)
+    m_cmd_binder.print_prompt();
+  else
+    m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
 {
-  message_writer(epee::log_space::console_color_red, true) <<
+  message_writer(epee::log_space::console_color_red, true) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(tx) << ", " <<
     tr("unsupported transaction format");
-  m_refresh_progress_reporter.update(height, true);
+  if (m_auto_refresh_refreshing)
+    m_cmd_binder.print_prompt();
+  else
+    m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::refresh(const std::vector<std::string>& args)
 {
+  std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+
   if (!try_connect_to_daemon())
     return true;
 
@@ -2146,9 +2217,33 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+void simple_wallet::wallet_refresh_thread()
+{
+  while (true)
+  {
+    std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+    m_auto_refresh_refreshing = true;
+    try
+    {
+      uint64_t fetched_blocks;
+      m_wallet->refresh(0, fetched_blocks);
+    }
+    catch(...) {}
+    m_auto_refresh_refreshing = false;
+    m_auto_refresh_cond.wait_for(lock, chrono::seconds(90));
+    if (!m_auto_refresh_run.load(std::memory_order_relaxed))
+      break;
+  }
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
   std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
+  m_auto_refresh_run = m_wallet->auto_refresh();
+  if (m_auto_refresh_run)
+  {
+    m_auto_refresh_thread = std::thread([&]{wallet_refresh_thread();});
+  }
   return m_cmd_binder.run_handling(std::string("[") + tr("wallet") + " " + addr_start + "]: ", "");
 }
 //----------------------------------------------------------------------------------------------------

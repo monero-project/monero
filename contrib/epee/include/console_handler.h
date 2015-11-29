@@ -251,27 +251,33 @@ namespace epee
       m_stdin_reader.stop();
     }
 
+    void print_prompt()
+    {
+      if (!m_prompt.empty())
+      {
+        epee::log_space::set_console_color(epee::log_space::console_color_yellow, true);
+        std::cout << m_prompt;
+        if (' ' != m_prompt.back())
+          std::cout << ' ';
+        epee::log_space::reset_console_color();
+        std::cout.flush();
+      }
+    }
+
   private:
     template<typename t_cmd_handler>
     bool run(const std::string& prompt, const std::string& usage, const t_cmd_handler& cmd_handler, std::function<void(void)> exit_handler)
     {
       TRY_ENTRY();
       bool continue_handle = true;
+      m_prompt = prompt;
       while(continue_handle)
       {
         if (!m_running)
         {
           break;
         }
-        if (!prompt.empty())
-        {
-          epee::log_space::set_console_color(epee::log_space::console_color_yellow, true);
-          std::cout << prompt;
-          if (' ' != prompt.back())
-            std::cout << ' ';
-          epee::log_space::reset_console_color();
-          std::cout.flush();
-        }
+        print_prompt();
 
         std::string command;
         bool get_line_ret = m_stdin_reader.get_line(command);
@@ -313,6 +319,7 @@ namespace epee
   private:
     async_stdin_reader m_stdin_reader;
     std::atomic<bool> m_running = {true};
+    std::string m_prompt;
   };
 
 
@@ -446,6 +453,11 @@ namespace epee
     bool run_handling(const std::string& prompt, const std::string& usage_string, std::function<void(void)> exit_handler = NULL)
     {
       return m_console_handler.run(boost::bind(&console_handlers_binder::process_command_str, this, _1), prompt, usage_string, exit_handler);
+    }
+
+    void print_prompt()
+    {
+      m_console_handler.print_prompt();
     }
   };
 
