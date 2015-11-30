@@ -680,6 +680,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   get_short_chain_history(short_chain_history);
   pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
 
+  m_run.store(true, std::memory_order_relaxed);
   while(m_run.load(std::memory_order_relaxed))
   {
     try

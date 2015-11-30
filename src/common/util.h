@@ -130,7 +130,7 @@ namespace tools
     {
       if (CTRL_C_EVENT == type || CTRL_BREAK_EVENT == type)
       {
-        handle_signal();
+        handle_signal(type);
       }
       else
       {
@@ -141,21 +141,21 @@ namespace tools
     }
 #else
     /*! \brief handler for NIX */
-    static void posix_handler(int /*type*/)
+    static void posix_handler(int type)
     {
-      handle_signal();
+      handle_signal(type);
     }
 #endif
 
     /*! \brief calles m_handler */
-    static void handle_signal()
+    static void handle_signal(int type)
     {
       static std::mutex m_mutex;
       std::unique_lock<std::mutex> lock(m_mutex);
-      m_handler();
+      m_handler(type);
     }
 
     /*! \brief where the installed handler is stored */
-    static std::function<void(void)> m_handler;
+    static std::function<void(int)> m_handler;
   };
 }
