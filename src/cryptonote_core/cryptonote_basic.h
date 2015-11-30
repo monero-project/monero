@@ -284,8 +284,8 @@ namespace cryptonote
     uint32_t nonce;
 
     BEGIN_SERIALIZE()
-      FIELD(major_version)
-      FIELD(minor_version)
+      VARINT_FIELD(major_version)
+      VARINT_FIELD(minor_version)
       VARINT_FIELD(timestamp)
       FIELD(prev_id)
       FIELD(nonce)
