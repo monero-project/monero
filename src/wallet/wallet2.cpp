@@ -918,7 +918,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_store_tx_info = (json.HasMember("store_tx_keys") && (json["store_tx_keys"].GetInt() != 0))
                    || (json.HasMember("store_tx_info") && (json["store_tx_info"].GetInt() != 0));
     m_default_mixin = json.HasMember("default_mixin") ? json["default_mixin"].GetUint() : 0;
-    m_auto_refresh = json.HasMember("auto_refresh") && (json["auto_refresh"].GetInt() != 0);
+    m_auto_refresh = !json.HasMember("auto_refresh") || (json["auto_refresh"].GetInt() != 0);
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
