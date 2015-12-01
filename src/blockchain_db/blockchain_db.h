@@ -105,7 +105,7 @@
  *
  * Outputs:
  *   uint64_t    get_num_outputs(amount)
- *   pub_key     get_output_key(amount, index)
+ *   pub_key     get_output_data(amount, index)
  *   hash,index  get_output_tx_and_index_from_global(index)
  *   hash,index  get_output_tx_and_index(amount, index)
  *   vec<uint64> get_tx_output_indices(tx_hash)
@@ -465,8 +465,8 @@ public:
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
   // return public key for output with global output amount <amount> and index <index>
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) = 0;
-  virtual output_data_t get_output_key(const uint64_t& global_index) const = 0;
+  virtual output_data_t get_output_data(const uint64_t& amount, const uint64_t& index) = 0;
+  virtual output_data_t get_output_data(const uint64_t& global_index) const = 0;
 
   // returns the tx hash associated with an output, referenced by global output index
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const = 0;
@@ -475,7 +475,7 @@ public:
   // return type is pair of tx hash and index
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) = 0;
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) = 0;
-  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) = 0;
+  virtual void get_output_data(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) = 0;
   
   virtual bool can_thread_bulk_indices() const = 0;
 

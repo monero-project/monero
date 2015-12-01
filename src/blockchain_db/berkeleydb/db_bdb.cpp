@@ -388,7 +388,7 @@ void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_out
         od.height = m_height;
 
         Dbt_copy<output_data_t> data(od);
-        if (m_output_keys->put(DB_DEFAULT_TX, &k, &data, 0))
+        if (m_output_data->put(DB_DEFAULT_TX, &k, &data, 0))
             throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
     }
 
@@ -468,10 +468,10 @@ void BlockchainBDB::remove_output(const uint64_t& out_index, const uint64_t amou
         throw1(DB_ERROR("Error adding removal of output tx hash to db transaction"));
     }
 
-    result = m_output_keys->del(DB_DEFAULT_TX, &k, 0);
+    result = m_output_data->del(DB_DEFAULT_TX, &k, 0);
     if (result == DB_NOTFOUND)
     {
-        LOG_PRINT_L0("Unexpected: global output index not found in m_output_keys");
+        LOG_PRINT_L0("Unexpected: global output index not found in m_output_data");
     }
     else if (result)
         throw1(DB_ERROR("Error adding removal of output pubkey to db transaction"));
@@ -808,7 +808,7 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_output_txs = new Db(m_env, 0);
         m_output_indices = new Db(m_env, 0);
         m_output_amounts = new Db(m_env, 0);
-        m_output_keys = new Db(m_env, 0);
+        m_output_data = new Db(m_env, 0);
 
         m_spent_keys = new Db(m_env, 0);
 
@@ -832,7 +832,7 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
 
         m_output_txs->set_re_len(sizeof(crypto::hash));
         m_output_indices->set_re_len(sizeof(uint64_t));
-        m_output_keys->set_re_len(sizeof(output_data_t));
+        m_output_data->set_re_len(sizeof(output_data_t));
 
         m_hf_starting_heights->set_re_len(sizeof(uint64_t));
         m_hf_versions->set_re_len(sizeof(uint8_t));
@@ -862,7 +862,7 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_output_txs->open(txn, BDB_OUTPUT_TXS, NULL, DB_RECNO, DB_CREATE, 0);
         m_output_indices->open(txn, BDB_OUTPUT_INDICES, NULL, DB_RECNO, DB_CREATE, 0);
         m_output_amounts->open(txn, BDB_OUTPUT_AMOUNTS, NULL, DB_HASH, DB_CREATE, 0);
-        m_output_keys->open(txn, BDB_OUTPUT_KEYS, NULL, DB_RECNO, DB_CREATE, 0);
+        m_output_data->open(txn, BDB_OUTPUT_KEYS, NULL, DB_RECNO, DB_CREATE, 0);
 
         m_spent_keys->open(txn, BDB_SPENT_KEYS, NULL, DB_HASH, DB_CREATE, 0);
 
@@ -990,7 +990,7 @@ void BlockchainBDB::sync()
         m_output_txs->sync(0);
         m_output_indices->sync(0);
         m_output_amounts->sync(0);
-        m_output_keys->sync(0);
+        m_output_data->sync(0);
 
         m_spent_keys->sync(0);
 
@@ -1066,7 +1066,7 @@ std::vector<std::string> BlockchainBDB::get_filenames() const
     m_output_amounts->get_dbname(pfname, pdbname);
     filenames.push_back(fname);
 
-    m_output_keys->get_dbname(pfname, pdbname);
+    m_output_data->get_dbname(pfname, pdbname);
     filenames.push_back(fname);
 
     m_spent_keys->get_dbname(pfname, pdbname);
@@ -1511,14 +1511,14 @@ uint64_t BlockchainBDB::get_num_outputs(const uint64_t& amount) const
     return num_elems;
 }
 
-output_data_t BlockchainBDB::get_output_key(const uint64_t& global_index) const
+output_data_t BlockchainBDB::get_output_data(const uint64_t& global_index) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
     Dbt_copy<uint32_t> k(global_index + 1);
     Dbt_copy<output_data_t> v;
-    auto get_result = m_output_keys->get(DB_DEFAULT_TX, &k, &v, 0);
+    auto get_result = m_output_data->get(DB_DEFAULT_TX, &k, &v, 0);
     if (get_result == DB_NOTFOUND)
         throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
     else if (get_result)
@@ -1527,13 +1527,13 @@ output_data_t BlockchainBDB::get_output_key(const uint64_t& global_index) const
     return v;
 }
 
-output_data_t BlockchainBDB::get_output_key(const uint64_t& amount, const uint64_t& index)
+output_data_t BlockchainBDB::get_output_data(const uint64_t& amount, const uint64_t& index)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
 
     uint64_t glob_index = get_output_global_index(amount, index);
-    return get_output_key(glob_index);
+    return get_output_data(glob_index);
 }
 
 tx_out_index BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index)
@@ -1996,7 +1996,7 @@ void BlockchainBDB::get_output_global_indices(const uint64_t& amount, const std:
 
 }
 
-void BlockchainBDB::get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs)
+void BlockchainBDB::get_output_data(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
@@ -2014,7 +2014,7 @@ void BlockchainBDB::get_output_key(const uint64_t &amount, const std::vector<uin
             Dbt_copy<uint32_t> k(index + 1);
             Dbt_copy<output_data_t> v;
 
-            auto get_result = m_output_keys->get(DB_DEFAULT_TX, &k, &v, 0);
+            auto get_result = m_output_data->get(DB_DEFAULT_TX, &k, &v, 0);
             if (get_result == DB_NOTFOUND)
                 throw1(OUTPUT_DNE("output with given index not in db"));
             else if (get_result)

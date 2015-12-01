@@ -150,7 +150,7 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
 
     if (!found)
     {
-        m_db->get_output_key(tx_in_to_key.amount, absolute_offsets, outputs);
+        m_db->get_output_data(tx_in_to_key.amount, absolute_offsets, outputs);
     }
     else
     {
@@ -162,7 +162,7 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
             std::vector<output_data_t> add_outputs;
             for (size_t i = outputs.size(); i < absolute_offsets.size(); i++)
                 add_offsets.push_back(absolute_offsets[i]);
-            m_db->get_output_key(tx_in_to_key.amount, add_offsets, add_outputs);
+            m_db->get_output_data(tx_in_to_key.amount, add_offsets, add_outputs);
             outputs.insert(outputs.end(), add_outputs.begin(), add_outputs.end());
         }
     }
@@ -179,7 +179,7 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
                 if (count < outputs.size())
                     output_index = outputs.at(count);
                 else
-                    output_index = m_db->get_output_key(tx_in_to_key.amount, i);
+                    output_index = m_db->get_output_data(tx_in_to_key.amount, i);
 
                 // call to the passed boost visitor to grab the public key for the output
                 if (!vis.handle_output(output_index.unlock_time, output_index.pubkey))
@@ -1402,7 +1402,7 @@ void Blockchain::add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_A
 
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry& oen = *result_outs.outs.insert(result_outs.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry());
     oen.global_amount_index = i;
-    output_data_t data = m_db->get_output_key(amount, i);
+    output_data_t data = m_db->get_output_data(amount, i);
     oen.out_key = data.pubkey;
 }
 //------------------------------------------------------------------
@@ -2815,7 +2815,7 @@ void Blockchain::output_scan_worker(const uint64_t amount, const std::vector<uin
 {
     try
     {
-        m_db->get_output_key(amount, offsets, outputs);
+        m_db->get_output_data(amount, offsets, outputs);
     }
     catch (const std::exception& e)
     {

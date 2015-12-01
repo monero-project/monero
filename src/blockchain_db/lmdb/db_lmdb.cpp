@@ -685,7 +685,7 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
 
 		MDB_val_copy<output_data_t> data(od);
 		//MDB_val_copy<crypto::public_key> val_pubkey(boost::get<txout_to_key>(tx_output.target).key);
-		if (mdb_put(*m_write_txn, m_output_keys, &k, &data, 0))
+		if (mdb_put(*m_write_txn, m_output_data, &k, &data, 0))
 			throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
   }
 
@@ -767,10 +767,10 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
     throw1(DB_ERROR("Error adding removal of output tx hash to db transaction"));
   }
 
-  result = mdb_del(*m_write_txn, m_output_keys, &k, NULL);
+  result = mdb_del(*m_write_txn, m_output_data, &k, NULL);
   if (result == MDB_NOTFOUND)
   {
-      LOG_PRINT_L0("Unexpected: global output index not found in m_output_keys");
+      LOG_PRINT_L0("Unexpected: global output index not found in m_output_data");
   }
   else if (result)
     throw1(DB_ERROR("Error adding removal of output pubkey to db transaction"));
@@ -1016,7 +1016,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_OUTPUT_TXS, MDB_INTEGERKEY | MDB_CREATE, m_output_txs, "Failed to open db handle for m_output_txs");
   lmdb_db_open(txn, LMDB_OUTPUT_INDICES, MDB_INTEGERKEY | MDB_CREATE, m_output_indices, "Failed to open db handle for m_output_indices");
 	lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS,	MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
-  lmdb_db_open(txn, LMDB_OUTPUT_KEYS, MDB_INTEGERKEY | MDB_CREATE, m_output_keys, "Failed to open db handle for m_output_keys");
+  lmdb_db_open(txn, LMDB_OUTPUT_KEYS, MDB_INTEGERKEY | MDB_CREATE, m_output_data, "Failed to open db handle for m_output_data");
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
@@ -1058,7 +1058,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 	{
 	    MDB_val_copy<uint64_t> k(0);
 	    MDB_val v;
-	    auto get_result = mdb_get(txn, m_output_keys, &k, &v);
+	    auto get_result = mdb_get(txn, m_output_data, &k, &v);
 	    if(get_result != MDB_SUCCESS)
 	    {
 	    	txn.abort();
@@ -1718,7 +1718,7 @@ uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
   return num_elems;
 }
 
-output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
+output_data_t BlockchainLMDB::get_output_data(const uint64_t &global_index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1729,7 +1729,7 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
 
 	MDB_val_copy<uint64_t> k(global_index);
   MDB_val v;
-  auto get_result = mdb_get(txn, m_output_keys, &k, &v);
+  auto get_result = mdb_get(txn, m_output_data, &k, &v);
   if (get_result == MDB_NOTFOUND)
     throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
   else if (get_result)
@@ -1738,13 +1738,13 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
 	return *(output_data_t *) v.mv_data;
 }
 
-output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index)
+output_data_t BlockchainLMDB::get_output_data(const uint64_t& amount, const uint64_t& index)
 {
 	LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 	check_open();
 
 	uint64_t glob_index = get_output_global_index(amount, index);
-	return get_output_key(glob_index);
+	return get_output_data(glob_index);
 }
 
 tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t& index) const
@@ -2427,7 +2427,7 @@ void BlockchainLMDB::get_output_global_indices(const uint64_t& amount, const std
 	LOG_PRINT_L3("txx: " << txx << " db1: " << t_dbmul << " db2: " << t_dbscan);
 }
 
-void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs)
+void BlockchainLMDB::get_output_data(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs)
 {
 	LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 	TIME_MEASURE_START(db3);
@@ -2453,7 +2453,7 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
 			MDB_val_copy<uint64_t> k(index);
 			MDB_val v;
 
-			auto get_result = mdb_get(*txn_ptr, m_output_keys, &k, &v);
+			auto get_result = mdb_get(*txn_ptr, m_output_data, &k, &v);
 			if (get_result == MDB_NOTFOUND)
 				throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
 			else if (get_result)
