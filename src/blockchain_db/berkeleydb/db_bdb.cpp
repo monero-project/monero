@@ -588,7 +588,7 @@ bool BlockchainBDB::for_all_blocks(std::function<bool(uint64_t, const crypto::ha
 
     bdb_cur cur(DB_DEFAULT_TX, m_blocks);
 
-    Dbt_copy<uint64_t> k;
+    Dbt_copy<uint32_t> k;
     Dbt_safe v;
     bool ret = true;
     int result;
