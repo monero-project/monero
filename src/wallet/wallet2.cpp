@@ -896,6 +896,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_watch_only = false;
     m_always_confirm_transfers = false;
     m_default_mixin = 0;
+    m_auto_refresh = true;
   }
   else
   {
