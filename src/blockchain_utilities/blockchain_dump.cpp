@@ -256,6 +256,7 @@ int main(int argc, char* argv[])
   boost::filesystem::path folder(m_config_folder);
   folder /= db->get_db_name();
   const std::string filename = folder.string();
+  uint64_t base_idx = db->get_indexing_base();
 
   LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
   try
@@ -386,7 +387,7 @@ int main(int argc, char* argv[])
         {
           try
           {
-            tx_out_index toi = db->get_output_tx_and_index_from_global(idx);
+            tx_out_index toi = db->get_output_tx_and_index_from_global(idx + base_idx);
             start_struct(d, boost::lexical_cast<std::string>(idx));
               write_pod(d, "tx_hash", string_tools::pod_to_hex(toi.first));
               write_pod(d, "tx_index", string_tools::pod_to_hex(toi.second));
@@ -406,7 +407,7 @@ int main(int argc, char* argv[])
         {
           try
           {
-            output_data_t od = db->get_output_key(idx);
+            output_data_t od = db->get_output_key(idx + base_idx);
             start_struct(d, boost::lexical_cast<std::string>(idx));
               write_pod(d, "pubkey", string_tools::pod_to_hex(od.pubkey));
               write_pod(d, "unlock_time", od.unlock_time);
