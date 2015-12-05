@@ -359,6 +359,21 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_STOP_WALLET
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
 
