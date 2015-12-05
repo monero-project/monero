@@ -236,16 +236,19 @@ int main(int argc, char* argv[])
   BlockchainDB* db;
   int mdb_flags = 0;
   std::string db_type = command_line::get_arg(vm, arg_db_type);
+  size_t base_idx = 0;
   if (db_type.empty() || db_type == "lmdb")
   {
     db = new BlockchainLMDB();
     mdb_flags |= MDB_RDONLY;
+    base_idx = 0;
   }
 #ifdef BERKELEY_DB
   else if (db_type == "berkeley")
   {
     db = new BlockchainBDB();
     // can't open readonly due to the way flags are split in db_bdb.cpp
+    base_idx = 1;
   }
 #endif
   else
@@ -386,7 +389,7 @@ int main(int argc, char* argv[])
         {
           try
           {
-            tx_out_index toi = db->get_output_tx_and_index_from_global(idx);
+            tx_out_index toi = db->get_output_tx_and_index_from_global(idx + base_idx);
             start_struct(d, boost::lexical_cast<std::string>(idx));
               write_pod(d, "tx_hash", string_tools::pod_to_hex(toi.first));
               write_pod(d, "tx_index", string_tools::pod_to_hex(toi.second));
@@ -406,7 +409,7 @@ int main(int argc, char* argv[])
         {
           try
           {
-            output_data_t od = db->get_output_key(idx);
+            output_data_t od = db->get_output_key(idx + base_idx);
             start_struct(d, boost::lexical_cast<std::string>(idx));
               write_pod(d, "pubkey", string_tools::pod_to_hex(od.pubkey));
               write_pod(d, "unlock_time", od.unlock_time);
