@@ -93,7 +93,6 @@ namespace
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("Used to deploy test nets. The daemon must be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view only commands"), false};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
-  const command_line::arg_descriptor<std::string> arg_refresh_type = {"refresh-type", sw::tr("Control the wallet refresh speedup/assumptions balance: full (slowest, no assumptions), optimize-coinbase (fast, assumes the whole coinbase is paid to a single address), no-coinbase (fastest, assumes we receive no coinbase transaction)"), "optimize-coinbase"};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -457,6 +456,64 @@ bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = st
   return true;
 }
 
+static bool parse_refresh_type(const std::string &s, tools::wallet2::RefreshType &refresh_type)
+{
+  static const struct
+  {
+    const char *name;
+    tools::wallet2::RefreshType refresh_type;
+  } names[] =
+  {
+    { "full", tools::wallet2::RefreshFull },
+    { "optimize-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
+    { "optimized-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
+    { "no-coinbase", tools::wallet2::RefreshNoCoinbase },
+    { "default", tools::wallet2::RefreshDefault },
+  };
+  for (size_t n = 0; n < sizeof(names) / sizeof(names[0]); ++n)
+  {
+    if (s == names[n].name)
+    {
+      refresh_type = names[n].refresh_type;
+      return true;
+    }
+  }
+  fail_msg_writer() << tr("Failed to parse refresh type");
+  return false;
+}
+
+bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+
+  tools::wallet2::RefreshType refresh_type;
+  if (!parse_refresh_type(args[1], refresh_type))
+  {
+    return true;
+  }
+
+  tools::password_container pwd_container;
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << tr("failed to read wallet password");
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << tr("invalid password");
+    return true;
+  }
+
+  m_wallet->set_refresh_type(refresh_type);
+
+  m_wallet->rewrite(m_wallet_file, pwd_container.password());
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -489,7 +546,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Get viewkey"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Get spendkey"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Get deterministic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store per outgoing tx info (destination address, payment id, tx secret key) for future reference; default_mixin <n> - set default mixin (default default is 4; auto-refresh <1|0> - whether to automatically refresh new blocks from the daemon"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("available options: seed language - Set wallet seed langage; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store per outgoing tx info (destination address, payment id, tx secret key) for future reference; default_mixin <n> - set default mixin (default default is 4; auto-refresh <1|0> - whether to automatically refresh new blocks from the daemon; refresh-type <full|optimize-coinbase|no-coinbase|default> - control the wallet refresh speedup/assumptions balance"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given tx"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to a given address in a partcular tx"));
@@ -501,7 +558,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 {
   if (args.empty())
   {
-    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, default-mixin, auto-refresh");
+    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, default-mixin, auto-refresh, refresh-type");
     return true;
   }
   else
@@ -581,10 +638,27 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         return true;
       }
     }
+    else if (args[0] == "refresh-type")
+    {
+      if (args.size() <= 1)
+      {
+        fail_msg_writer() << tr("set refresh-type: needs an argument:") <<
+          tr("full (slowest, no assumptions), optimize-coinbase (fast, assumes the whole coinbase is paid to a single address), no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)");
+        return true;
+      }
+      else
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        set_refresh_type(local_args);
+        return true;
+      }
+    }
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
   return true;
 }
+
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_log(const std::vector<std::string> &args)
 {
@@ -825,31 +899,6 @@ bool simple_wallet::deinit()
   return close_wallet();
 }
 //----------------------------------------------------------------------------------------------------
-static bool parse_refresh_type(const std::string &s, tools::wallet2::RefreshType &refresh_type)
-{
-  static const struct
-  {
-    const char *name;
-    tools::wallet2::RefreshType refresh_type;
-  } names[] =
-  {
-    { "full", tools::wallet2::RefreshFull },
-    { "optimize-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
-    { "optimized-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
-    { "no-coinbase", tools::wallet2::RefreshNoCoinbase },
-  };
-  for (size_t n = 0; n < sizeof(names) / sizeof(names[0]); ++n)
-  {
-    if (s == names[n].name)
-    {
-      refresh_type = names[n].refresh_type;
-      return true;
-    }
-  }
-  fail_msg_writer() << tr("Failed to parse refresh type");
-  return false;
-}
-//----------------------------------------------------------------------------------------------------
 bool simple_wallet::handle_command_line(const boost::program_options::variables_map& vm)
 {
   m_wallet_file                   = command_line::get_arg(vm, arg_wallet_file);
@@ -862,10 +911,6 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
   m_trusted_daemon                = command_line::get_arg(vm, arg_trusted_daemon);
-  std::string refresh_type        = command_line::get_arg(vm, arg_refresh_type);
-
-  if (!parse_refresh_type(refresh_type, m_refresh_type))
-    return false;
 
   return true;
 }
@@ -2392,7 +2437,6 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_testnet);
   command_line::add_arg(desc_params, arg_restricted);
   command_line::add_arg(desc_params, arg_trusted_daemon);
-  command_line::add_arg(desc_params, arg_refresh_type);
   tools::wallet_rpc_server::init_options(desc_params);
 
   po::positional_options_description positional_options;

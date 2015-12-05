@@ -84,6 +84,7 @@ namespace tools
       RefreshFull,
       RefreshOptimizeCoinbase,
       RefreshNoCoinbase,
+      RefreshDefault = RefreshOptimizeCoinbase,
     };
 
   private:
@@ -244,7 +245,7 @@ namespace tools
     bool refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok);
 
     void set_refresh_type(RefreshType refresh_type) { m_refresh_type = refresh_type; }
-    RefreshType get_refresh_type(RefreshType refresh_type) const { return m_refresh_type; }
+    RefreshType get_refresh_type() const { return m_refresh_type; }
 
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
