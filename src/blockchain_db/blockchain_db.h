@@ -464,6 +464,9 @@ public:
   // returns the total number of outputs of amount <amount>
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
+  // return index of the first element (should be hidden, but isn't)
+  virtual uint64_t get_indexing_base() const { return 0; }
+
   // return public key for output with global output amount <amount> and index <index>
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) = 0;
   virtual output_data_t get_output_key(const uint64_t& global_index) const = 0;
