@@ -405,6 +405,10 @@ private:
   uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
   void checkpoint_worker() const;
   void check_open() const;
+  //
+  // fix up anything that may be wrong due to past bugs
+  virtual void fixup();
+
   bool m_run_checkpoint;
   std::unique_ptr<boost::thread> m_checkpoint_thread;
   typedef bdb_safe_buffer<void *> bdb_safe_buffer_t;

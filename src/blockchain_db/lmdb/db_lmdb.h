@@ -266,6 +266,9 @@ private:
 
   void check_open() const;
 
+  // fix up anything that may be wrong due to past bugs
+  virtual void fixup();
+
   MDB_env* m_env;
 
   MDB_dbi m_blocks;
