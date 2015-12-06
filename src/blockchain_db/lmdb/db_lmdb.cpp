@@ -2596,4 +2596,10 @@ uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
   return *(const uint8_t*)val_ret.mv_data;
 }
 
+void BlockchainLMDB::fixup()
+{
+  // Always call parent as well
+  BlockchainDB::fixup();
+}
+
 }  // namespace cryptonote
