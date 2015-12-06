@@ -268,52 +268,57 @@ namespace epee
     template<typename t_cmd_handler>
     bool run(const std::string& prompt, const std::string& usage, const t_cmd_handler& cmd_handler, std::function<void(void)> exit_handler)
     {
-      TRY_ENTRY();
       bool continue_handle = true;
       m_prompt = prompt;
       while(continue_handle)
       {
-        if (!m_running)
+        try
         {
-          break;
-        }
-        print_prompt();
+          if (!m_running)
+          {
+            break;
+          }
+          print_prompt();
 
-        std::string command;
-        bool get_line_ret = m_stdin_reader.get_line(command);
-        if (!m_running || m_stdin_reader.eos())
-        {
-          break;
-        }
-        if (!get_line_ret)
-        {
-          LOG_PRINT("Failed to read line.", LOG_LEVEL_0);
-        }
-        string_tools::trim(command);
+          std::string command;
+          bool get_line_ret = m_stdin_reader.get_line(command);
+          if (!m_running || m_stdin_reader.eos())
+          {
+            break;
+          }
+          if (!get_line_ret)
+          {
+            LOG_PRINT("Failed to read line.", LOG_LEVEL_0);
+          }
+          string_tools::trim(command);
 
-        LOG_PRINT_L2("Read command: " << command);
-        if (command.empty())
-        {
-          continue;
+          LOG_PRINT_L2("Read command: " << command);
+          if (command.empty())
+          {
+            continue;
+          }
+          else if(cmd_handler(command))
+          {
+            continue;
+          }
+          else if(0 == command.compare("exit") || 0 == command.compare("q"))
+          {
+            continue_handle = false;
+          }
+          else
+          {
+            std::cout << "unknown command: " << command << std::endl;
+            std::cout << usage;
+          }
         }
-        else if(cmd_handler(command))
+        catch (const std::exception &ex)
         {
-          continue;
-        }
-        else if(0 == command.compare("exit") || 0 == command.compare("q"))
-        {
-          continue_handle = false;
-        }
-        else
-        {
-          std::cout << "unknown command: " << command << std::endl;
-          std::cout << usage;
+          LOG_ERROR("Exception at [console_handler], what=" << ex.what());
         }
       }
       if (exit_handler)
         exit_handler();
       return true;
-      CATCH_ENTRY_L0("console_handler", false);
     }
 
   private:
