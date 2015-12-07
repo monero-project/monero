@@ -92,6 +92,7 @@ namespace nodetool
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
     
     const command_line::arg_descriptor<bool>        arg_no_igd				= {"no-igd", "Disable UPnP port mapping"};
+    const command_line::arg_descriptor<bool>        arg_offline				= {"offline", "Do not listen for peers, nor connect to any"};
     const command_line::arg_descriptor<int64_t>     arg_out_peers 			= {"out-peers", "set max limit of out peers", -1};
     const command_line::arg_descriptor<int>    		arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
     
@@ -116,6 +117,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_seed_node);    
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_igd);
+    command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_out_peers);
     command_line::add_arg(desc, arg_tos_flag);
     command_line::add_arg(desc, arg_limit_rate_up);
@@ -241,6 +243,7 @@ namespace nodetool
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
     m_no_igd = command_line::get_arg(vm, arg_no_igd);
+    m_offline = command_line::get_arg(vm, arg_offline);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {       
@@ -484,6 +487,10 @@ namespace nodetool
     m_net_server.get_config_object().m_pcommands_handler = this;
     m_net_server.get_config_object().m_invoke_timeout = P2P_DEFAULT_INVOKE_TIMEOUT;
     m_net_server.set_connection_filter(this);
+
+    // from here onwards, it's online stuff
+    if (m_offline)
+      return res;
 
     //try to bind
     LOG_PRINT_L0("Binding on " << m_bind_ip << ":" << m_port);
@@ -1019,6 +1026,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_expected_connections_count(bool white_list, size_t expected_connections)
   {
+    if (m_offline)
+      return true;
+
     size_t conn_count = get_outgoing_connections_count();
     //add new connections from white peers
     while(conn_count < expected_connections)
