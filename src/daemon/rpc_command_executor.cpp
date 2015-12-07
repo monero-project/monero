@@ -267,6 +267,14 @@ bool t_rpc_command_executor::show_difficulty() {
   return true;
 }
 
+static std::string get_mining_speed(uint64_t hr)
+{
+  if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
+  if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
+  if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
+  return (boost::format("%.0f H/s") % hr).str();
+}
+
 bool t_rpc_command_executor::show_status() {
   if (!connect_to_daemon()) {
     tools::fail_msg_writer() << "Failed to connect to daemon";
@@ -294,18 +302,21 @@ bool t_rpc_command_executor::show_status() {
   uint8_t version = wap_client_hfversion(ipc_client);
   cryptonote::HardFork::State state = (cryptonote::HardFork::State)wap_client_hfstate(ipc_client);
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, net hash %s, v%u, %s, %u+%u connections")
+  status = wap_client_get_mining_status(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+  bool mining_active = wap_client_active(ipc_client);
+  uint64_t mining_speed = wap_client_speed(ipc_client);
+
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u, %s, %u+%u connections")
     % (unsigned long long)height
     % (unsigned long long)(target_height >= height ? target_height : height)
     % (100.0f * height / (target_height ? target_height < height ? height : target_height : height))
     % (testnet ? "testnet" : "mainnet")
-    % [&difficulty, &target]()->std::string {
-      float hr = difficulty / target;
-      if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
-      if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
-      if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
-      return (boost::format("%.0f H/s") % hr).str();
-    }()
+    % (mining_active ? "mining at " + get_mining_speed(mining_speed) : "not mining")
+    % get_mining_speed(difficulty / target)
     % (unsigned)version
     % (state == cryptonote::HardFork::Ready ? "up to date" : state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)outgoing_connections_count % (unsigned)incoming_connections_count
