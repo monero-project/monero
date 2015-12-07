@@ -134,8 +134,17 @@ namespace nodetool
     p2p_data.open( state_file_path , std::ios_base::binary | std::ios_base::in);
     if(!p2p_data.fail())
     {
-      boost::archive::binary_iarchive a(p2p_data);
-      a >> *this;
+      try
+      {
+        boost::archive::binary_iarchive a(p2p_data);
+        a >> *this;
+      }
+      catch (const std::exception &e)
+      {
+        LOG_ERROR("Failed to load p2p config file, falling back to default config");
+        m_peerlist = peerlist_manager(); // it was probably half clobbered by the failed load
+        make_default_config();
+      }
     }else
     {
       make_default_config();
