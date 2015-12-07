@@ -780,12 +780,12 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_env->set_lk_max_lockers(DB_MAX_LOCKS);
         m_env->set_lk_max_objects(DB_MAX_LOCKS);
         
+        if(m_auto_remove_logs)
+          m_env->log_set_config(DB_LOG_AUTO_REMOVE, 1);
+
         // last parameter left 0, files will be created with default rw access
         m_env->open(filename.c_str(), db_env_open_flags, 0);
         m_env->set_flags(db_flags, 1);
-
-        if(m_auto_remove_logs)
-        	m_env->log_set_config(DB_LOG_AUTO_REMOVE, 1);
 
         // begin transaction to init dbs
         bdb_txn_safe txn;
