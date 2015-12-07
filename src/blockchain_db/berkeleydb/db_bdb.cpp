@@ -964,7 +964,41 @@ void BlockchainBDB::close()
 
     // FIXME: not yet thread safe!!!  Use with care.
     m_open = false;
+
+    // DB_FORCESYNC is only available on newer version of libdb.
+    // The libdb doc says using the DB_FORCESYNC flag to DB_ENV->close
+    // is "similar to calling the DB->close(0) method to close each
+    // database handle". So this is what we do here as a fallback.
+#ifdef DB_FORCESYNC
     m_env->close(DB_FORCESYNC);
+#else
+    m_blocks->close(0);
+    m_block_heights->close(0);
+    m_block_hashes->close(0);
+    m_block_timestamps->close(0);
+    m_block_sizes->close(0);
+    m_block_diffs->close(0);
+    m_block_coins->close(0);
+
+    m_txs->close(0);
+    m_tx_unlocks->close(0);
+    m_tx_heights->close(0);
+    m_tx_outputs->close(0);
+
+    m_output_txs->close(0);
+    m_output_indices->close(0);
+    m_output_amounts->close(0);
+    m_output_keys->close(0);
+
+    m_spent_keys->close(0);
+
+    m_hf_starting_heights->close(0);
+    m_hf_versions->close(0);
+
+    m_properties->close(0);
+
+    m_env->close(0);
+#endif
 }
 
 void BlockchainBDB::sync()
