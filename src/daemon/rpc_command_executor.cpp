@@ -247,11 +247,21 @@ bool t_rpc_command_executor::show_difficulty() {
   return true;
 }
 
+static std::string get_mining_speed(uint64_t hr)
+{
+  if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
+  if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
+  if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
+  return (boost::format("%.0f H/s") % hr).str();
+}
+
 bool t_rpc_command_executor::show_status() {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
   cryptonote::COMMAND_RPC_HARD_FORK_INFO::request hfreq;
   cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hfres;
+  cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
+  cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
   epee::json_rpc::error error_resp;
 
   std::string fail_message = "Problem fetching info";
@@ -263,6 +273,10 @@ bool t_rpc_command_executor::show_status() {
       return true;
     }
     if (!m_rpc_client->json_rpc_request(hfreq, hfres, "hard_fork_info", fail_message.c_str()))
+    {
+      return true;
+    }
+    if (!m_rpc_client->rpc_request(mreq, mres, "mining_status", fail_message.c_str()))
     {
       return true;
     }
@@ -279,20 +293,20 @@ bool t_rpc_command_executor::show_status() {
       tools::fail_msg_writer() << fail_message.c_str();
       return true;
     }
+    if (!m_rpc_server->on_mining_status(mreq, mres))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
   }
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, net hash %s, v%u, %s, %u+%u connections")
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u, %s, %u+%u connections")
     % (unsigned long long)ires.height
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % (100.0f * ires.height / (ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height))
     % (ires.testnet ? "testnet" : "mainnet")
-    % [&ires]()->std::string {
-      float hr = ires.difficulty / ires.target;
-      if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
-      if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
-      if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
-      return (boost::format("%.0f H/s") % hr).str();
-    }()
+    % (mres.active ? "mining at " + get_mining_speed(mres.speed) : "not mining")
+    % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)ires.outgoing_connections_count % (unsigned)ires.incoming_connections_count
