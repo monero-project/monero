@@ -834,6 +834,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_auto_refresh ? 1 :0);
   json.AddMember("auto_refresh", value2, json.GetAllocator());
 
+  value2.SetInt(m_refresh_type);
+  json.AddMember("refresh_type", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -896,6 +899,8 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_watch_only = false;
     m_always_confirm_transfers = false;
     m_default_mixin = 0;
+    m_auto_refresh = true;
+    m_refresh_type = RefreshType::RefreshDefault;
   }
   else
   {
@@ -919,6 +924,15 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
                    || (json.HasMember("store_tx_info") && (json["store_tx_info"].GetInt() != 0));
     m_default_mixin = json.HasMember("default_mixin") ? json["default_mixin"].GetUint() : 0;
     m_auto_refresh = !json.HasMember("auto_refresh") || (json["auto_refresh"].GetInt() != 0);
+    m_refresh_type = RefreshType::RefreshDefault;
+    if (json.HasMember("refresh_type"))
+    {
+      int type = json["refresh_type"].GetInt();
+      if (type == RefreshFull || type == RefreshOptimizeCoinbase || type == RefreshNoCoinbase)
+        m_refresh_type = (RefreshType)type;
+      else
+        LOG_PRINT_L0("Unknown refresh-type value (" << type << "), using default");
+    }
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
