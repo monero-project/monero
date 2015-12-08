@@ -40,7 +40,6 @@ using namespace epee;
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
-#include "daemon/command_line_args.h"
 
 namespace cryptonote
 {
@@ -78,7 +77,7 @@ namespace cryptonote
       const boost::program_options::variables_map& vm
     )
   {
-    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     m_net_server.set_threads_prefix("RPC");
     bool r = handle_command_line(vm);
