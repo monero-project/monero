@@ -49,7 +49,6 @@
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "data_logger.hpp"
-#include "daemon/command_line_args.h"
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
@@ -354,7 +353,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
     std::set<std::string> full_addrs;
-    bool testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     if (testnet)
     {

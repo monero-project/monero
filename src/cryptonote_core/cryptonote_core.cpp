@@ -130,13 +130,27 @@ namespace cryptonote
     graceful_exit();
   }
   //-----------------------------------------------------------------------------------
-  void core::init_options(boost::program_options::options_description& /*desc*/)
+  void core::init_options(boost::program_options::options_description& desc)
   {
+    command_line::add_arg(desc, command_line::arg_data_dir, tools::get_default_data_dir());
+    command_line::add_arg(desc, command_line::arg_testnet_data_dir, (boost::filesystem::path(tools::get_default_data_dir()) / "testnet").string());
+
+    command_line::add_arg(desc, command_line::arg_test_drop_download);
+    command_line::add_arg(desc, command_line::arg_test_drop_download_height);
+
+    command_line::add_arg(desc, command_line::arg_testnet_on);
+    command_line::add_arg(desc, command_line::arg_dns_checkpoints);
+    command_line::add_arg(desc, command_line::arg_db_type);
+    command_line::add_arg(desc, command_line::arg_prep_blocks_threads);
+    command_line::add_arg(desc, command_line::arg_fast_block_sync);
+    command_line::add_arg(desc, command_line::arg_db_sync_mode);
+    command_line::add_arg(desc, command_line::arg_show_time_stats);
+    command_line::add_arg(desc, command_line::arg_db_auto_remove_logs);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
   {
-    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     auto data_dir_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, data_dir_arg);
@@ -159,7 +173,7 @@ namespace cryptonote
     }
 
 
-    set_enforce_dns_checkpoints(command_line::get_arg(vm, daemon_args::arg_dns_checkpoints));
+    set_enforce_dns_checkpoints(command_line::get_arg(vm, command_line::arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
     
     if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
@@ -211,10 +225,10 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
 #if BLOCKCHAIN_DB == DB_LMDB
-    std::string db_type = command_line::get_arg(vm, daemon_args::arg_db_type);
-    std::string db_sync_mode = command_line::get_arg(vm, daemon_args::arg_db_sync_mode);
-    bool fast_sync = command_line::get_arg(vm, daemon_args::arg_fast_block_sync) != 0;
-    uint64_t blocks_threads = command_line::get_arg(vm, daemon_args::arg_prep_blocks_threads);
+    std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
+    std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
+    bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
+    uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
 
     BlockchainDB* db = nullptr;
     uint64_t BDB_FAST_MODE = 0;
@@ -309,7 +323,7 @@ namespace cryptonote
           blocks_per_sync = 1;
       }
 
-      bool auto_remove_logs = command_line::get_arg(vm, daemon_args::arg_db_auto_remove_logs) != 0;
+      bool auto_remove_logs = command_line::get_arg(vm, command_line::arg_db_auto_remove_logs) != 0;
       db->set_auto_remove_logs(auto_remove_logs);
       db->open(filename, db_flags);
       if(!db->m_open)
@@ -326,7 +340,7 @@ namespace cryptonote
 
     r = m_blockchain_storage.init(db, m_testnet);
 
-    bool show_time_stats = command_line::get_arg(vm, daemon_args::arg_show_time_stats) != 0;
+    bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
 #else
     r = m_blockchain_storage.init(m_config_folder, m_testnet);

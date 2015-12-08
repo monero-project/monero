@@ -70,7 +70,7 @@ public:
     // Handle circular dependencies
     protocol.set_p2p_endpoint(p2p.get());
     core.set_protocol(protocol.get());
-    testnet_mode = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    testnet_mode = command_line::get_arg(vm, command_line::arg_testnet_on);
     restricted_rpc = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc);
   }
 };
