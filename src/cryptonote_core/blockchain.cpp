@@ -293,6 +293,9 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     {
     }
 
+    // ensure we fixup anything we found and fix in the future
+    m_db->fixup();
+
     // check how far behind we are
     uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
     uint64_t timestamp_diff = time(NULL) - top_block_timestamp;

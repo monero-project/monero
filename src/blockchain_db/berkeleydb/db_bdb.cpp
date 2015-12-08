@@ -2123,4 +2123,10 @@ void BlockchainBDB::checkpoint_worker() const
     LOG_PRINT_L0("Leaving BDB checkpoint thread.")
 }
 
+void BlockchainBDB::fixup()
+{
+  // Always call parent as well
+  BlockchainDB::fixup();
+}
+
 }  // namespace cryptonote

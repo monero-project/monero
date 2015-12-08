@@ -503,6 +503,9 @@ public:
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) = 0;
   virtual uint8_t get_hard_fork_version(uint64_t height) const = 0;
 
+  // fix up anything that may be wrong due to past bugs
+  virtual void fixup();
+
   void set_auto_remove_logs(bool auto_remove) { m_auto_remove_logs = auto_remove; }
 
   bool m_open;
