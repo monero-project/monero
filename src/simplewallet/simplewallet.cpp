@@ -2456,7 +2456,7 @@ int main(int argc, char* argv[])
     {
       success_msg_writer() << CRYPTONOTE_NAME << " " << sw::tr("wallet") << " v" << MONERO_VERSION_FULL;
       success_msg_writer() << sw::tr("Usage:") << " simplewallet [--wallet-file=<file>|--generate-new-wallet=<file>] [--daemon-address=<host>:<port>] [<COMMAND>]";
-      success_msg_writer() << desc_all << '\n' << w.get_commands_str();
+      success_msg_writer() << desc_all;
       return false;
     }
     else if (command_line::get_arg(vm, command_line::arg_version))
