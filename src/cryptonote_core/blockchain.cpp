@@ -1361,7 +1361,7 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
     if(start_offset > m_db->height())
         return false;
 
-    for(size_t i = start_offset; i < start_offset + count && i <= m_db->height();i++)
+    for(size_t i = start_offset; i < start_offset + count && i < m_db->height();i++)
     {
         blocks.push_back(m_db->get_block_from_height(i));
     }
