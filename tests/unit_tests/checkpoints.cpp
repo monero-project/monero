@@ -35,7 +35,7 @@
 using namespace cryptonote;
 
 
-TEST(checkpoints_is_alternative_block_allowed, handles_empty_checkpoins)
+TEST(checkpoints_is_alternative_block_allowed, handles_empty_checkpoints)
 {
   checkpoints cp;
 

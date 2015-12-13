@@ -759,7 +759,7 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
     }
     else
     {
-        if (!boost::filesystem::create_directory(direc))
+        if (!boost::filesystem::create_directories(direc))
             throw0(DB_OPEN_FAILURE(std::string("Failed to create directory ").append(filename).c_str()));
     }
 
@@ -1042,7 +1042,46 @@ void BlockchainBDB::sync()
 void BlockchainBDB::reset()
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    // TODO: this
+    check_open();
+
+    bdb_txn_safe txn;
+    if (m_env->txn_begin(NULL, txn, 0))
+        throw0(DB_ERROR("Failed to create a transaction for the db"));
+    m_write_txn = &txn;
+    try
+    {
+        uint32_t count;
+
+        m_blocks->truncate(*m_write_txn, &count, 0);
+        m_block_heights->truncate(*m_write_txn, &count, 0);
+        m_block_hashes->truncate(*m_write_txn, &count, 0);
+        m_block_timestamps->truncate(*m_write_txn, &count, 0);
+        m_block_sizes->truncate(*m_write_txn, &count, 0);
+        m_block_diffs->truncate(*m_write_txn, &count, 0);
+        m_block_coins->truncate(*m_write_txn, &count, 0);
+
+        m_txs->truncate(*m_write_txn, &count, 0);
+        m_tx_unlocks->truncate(*m_write_txn, &count, 0);
+        m_tx_heights->truncate(*m_write_txn, &count, 0);
+        m_tx_outputs->truncate(*m_write_txn, &count, 0);
+
+        m_output_txs->truncate(*m_write_txn, &count, 0);
+        m_output_indices->truncate(*m_write_txn, &count, 0);
+        m_output_amounts->truncate(*m_write_txn, &count, 0);
+        m_output_keys->truncate(*m_write_txn, &count, 0);
+
+        m_spent_keys->truncate(*m_write_txn, &count, 0);
+
+        m_hf_starting_heights->truncate(*m_write_txn, &count, 0);
+        m_hf_versions->truncate(*m_write_txn, &count, 0);
+
+        m_properties->truncate(*m_write_txn, &count, 0);
+    }
+    catch (const std::exception& e)
+    {
+        throw0(DB_ERROR(std::string("Failed to reset database: ").append(e.what()).c_str()));
+    }
+    m_write_txn = NULL;
 }
 
 std::vector<std::string> BlockchainBDB::get_filenames() const

@@ -236,7 +236,7 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(BlockchainDB* db, const bool testnet)
+bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -293,8 +293,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     {
     }
 
-    // ensure we fixup anything we found and fix in the future
-    m_db->fixup();
+    if (!fakechain)
+    {
+      // ensure we fixup anything we found and fix in the future
+      m_db->fixup();
+    }
 
     // check how far behind we are
     uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
@@ -311,7 +314,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
 #if defined(PER_BLOCK_CHECKPOINT)
-    if (m_fast_sync && get_blocks_dat_start(testnet) != nullptr)
+    if (!fakechain && m_fast_sync && get_blocks_dat_start(testnet) != nullptr)
     {
         if (get_blocks_dat_size(testnet) > 4)
         {
@@ -1361,7 +1364,7 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<block
     if(start_offset > m_db->height())
         return false;
 
-    for(size_t i = start_offset; i < start_offset + count && i <= m_db->height();i++)
+    for(size_t i = start_offset; i < start_offset + count && i < m_db->height();i++)
     {
         blocks.push_back(m_db->get_block_from_height(i));
     }
@@ -2631,7 +2634,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     // do this after updating the hard fork state since the size limit may change due to fork
     update_next_cumulative_size_limit();
 
-    LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
+    LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height-1 << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
     if(m_show_time_stats)
     {
         LOG_PRINT_L0("Height: " << new_height << " blob: " << coinbase_blob_size << " cumm: "

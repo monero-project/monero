@@ -474,7 +474,6 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
 {
   boost::program_options::options_description desc("Allowed options");
   cryptonote::core::init_options(desc);
-  command_line::add_arg(desc, command_line::arg_data_dir);
   boost::program_options::variables_map vm;
   bool r = command_line::handle_error_helper(desc, [&]()
   {
@@ -484,6 +483,10 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   });
   if (!r)
     return false;
+
+  // hardcode a --fakechain option for tests
+  static const char * const fakechain[] = {"", "--fakechain"};
+  boost::program_options::store(boost::program_options::parse_command_line(2, fakechain, desc), vm);
 
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core c(&pr);
@@ -671,4 +674,4 @@ inline bool do_replay_file(const std::string& filename)
 #define CHECK_EQ(v1, v2) CHECK_AND_ASSERT_MES(v1 == v2, false, "[" << perr_context << "] failed: \"" << QUOTEME(v1) << " == " << QUOTEME(v2) << "\", " << v1 << " != " << v2)
 #define CHECK_NOT_EQ(v1, v2) CHECK_AND_ASSERT_MES(!(v1 == v2), false, "[" << perr_context << "] failed: \"" << QUOTEME(v1) << " != " << QUOTEME(v2) << "\", " << v1 << " == " << v2)
 #define MK_COINS(amount) (UINT64_C(amount) * COIN)
-#define TESTS_DEFAULT_FEE ((uint64_t)1000000) // pow(10, 6)
+#define TESTS_DEFAULT_FEE ((uint64_t)20000000000) // 2 * pow(10, 10)

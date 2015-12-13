@@ -943,7 +943,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   }
   else
   {
-    if (!boost::filesystem::create_directory(direc))
+    if (!boost::filesystem::create_directories(direc))
       throw0(DB_OPEN_FAILURE(std::string("Failed to create directory ").append(filename).c_str()));
   }
 
@@ -1159,7 +1159,33 @@ void BlockchainLMDB::sync()
 void BlockchainLMDB::reset()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  // TODO: this
+  check_open();
+
+  mdb_txn_safe txn;
+  if (mdb_txn_begin(m_env, NULL, 0, txn))
+    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  mdb_drop(txn, m_blocks, 0);
+  mdb_drop(txn, m_block_timestamps, 0);
+  mdb_drop(txn, m_block_heights, 0);
+  mdb_drop(txn, m_block_hashes, 0);
+  mdb_drop(txn, m_block_sizes, 0);
+  mdb_drop(txn, m_block_diffs, 0);
+  mdb_drop(txn, m_block_coins, 0);
+  mdb_drop(txn, m_txs, 0);
+  mdb_drop(txn, m_tx_unlocks, 0);
+  mdb_drop(txn, m_tx_heights, 0);
+  mdb_drop(txn, m_tx_outputs, 0);
+  mdb_drop(txn, m_output_txs, 0);
+  mdb_drop(txn, m_output_indices, 0);
+  mdb_drop(txn, m_output_amounts, 0);
+  mdb_drop(txn, m_output_keys, 0);
+  mdb_drop(txn, m_spent_keys, 0);
+  mdb_drop(txn, m_hf_starting_heights, 0);
+  mdb_drop(txn, m_hf_versions, 0);
+  mdb_drop(txn, m_properties, 0);
+  txn.commit();
+  m_height = 0;
+  m_num_outputs = 0;
 }
 
 std::vector<std::string> BlockchainLMDB::get_filenames() const
