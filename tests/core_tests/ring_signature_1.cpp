@@ -144,7 +144,7 @@ gen_ring_signature_2::gen_ring_signature_2()
 }
 
 /**
- * Bob has 4 inputs by 61 coins. He sends 4 * 61 coins to Alice, using ring signature with nmix = 3. Each Bob's input
+ * Bob has 4 inputs by 13 coins. He sends 4 * 13 coins to Alice, using ring signature with nmix = 3. Each Bob's input
  * is used as mix for 3 others.
  */
 bool gen_ring_signature_2::generate(std::vector<test_event_entry>& events) const
@@ -161,14 +161,14 @@ bool gen_ring_signature_2::generate(std::vector<test_event_entry>& events) const
   MAKE_NEXT_BLOCK(events, blk_2, blk_1, miner_account);                                                 //  4
   MAKE_NEXT_BLOCK(events, blk_3, blk_2, miner_account);                                                 //  5
   REWIND_BLOCKS(events, blk_3r, blk_3, miner_account);                                                  // <N blocks>
-  MAKE_TX_LIST_START(events, txs_blk_4, miner_account, bob_account, MK_COINS(61), blk_3);               //  6 + N
-  MAKE_TX_LIST(events, txs_blk_4, miner_account, bob_account, MK_COINS(61), blk_3);                     //  7 + N
-  MAKE_TX_LIST(events, txs_blk_4, miner_account, bob_account, MK_COINS(61), blk_3);                     //  8 + N
-  MAKE_TX_LIST(events, txs_blk_4, miner_account, bob_account, MK_COINS(61), blk_3);                     //  9 + N
+  MAKE_TX_LIST_START(events, txs_blk_4, miner_account, bob_account, MK_COINS(13), blk_3);               //  6 + N
+  MAKE_TX_LIST(events, txs_blk_4, miner_account, bob_account, MK_COINS(13), blk_3);                     //  7 + N
+  MAKE_TX_LIST(events, txs_blk_4, miner_account, bob_account, MK_COINS(13), blk_3);                     //  8 + N
+  MAKE_TX_LIST(events, txs_blk_4, miner_account, bob_account, MK_COINS(13), blk_3);                     //  9 + N
   MAKE_NEXT_BLOCK_TX_LIST(events, blk_4, blk_3r, miner_account, txs_blk_4);                             // 10 + N
   DO_CALLBACK(events, "check_balances_1");                                                              // 11 + N
   REWIND_BLOCKS(events, blk_4r, blk_4, miner_account);                                                  // <N blocks>
-  MAKE_TX_MIX(events, tx_0, bob_account, alice_account, MK_COINS(244) - TESTS_DEFAULT_FEE, 3, blk_4);   // 12 + 2N
+  MAKE_TX_MIX(events, tx_0, bob_account, alice_account, MK_COINS(52) - TESTS_DEFAULT_FEE, 3, blk_4);   // 12 + 2N
   MAKE_NEXT_BLOCK_TX1(events, blk_5, blk_4r, miner_account, tx_0);                                      // 13 + 2N
   DO_CALLBACK(events, "check_balances_2");                                                              // 14 + 2N
 
@@ -190,7 +190,7 @@ bool gen_ring_signature_2::check_balances_1(cryptonote::core& c, size_t ev_index
   map_hash2tx_t mtx;
   r = find_block_chain(events, chain, mtx, get_block_hash(blocks.back()));
   CHECK_TEST_CONDITION(r);
-  CHECK_EQ(MK_COINS(244), get_balance(m_bob_account, chain, mtx));
+  CHECK_EQ(MK_COINS(52), get_balance(m_bob_account, chain, mtx));
   CHECK_EQ(0, get_balance(m_alice_account, chain, mtx));
 
   return true;
@@ -209,7 +209,7 @@ bool gen_ring_signature_2::check_balances_2(cryptonote::core& c, size_t ev_index
   r = find_block_chain(events, chain, mtx, get_block_hash(blocks.back()));
   CHECK_TEST_CONDITION(r);
   CHECK_EQ(0, get_balance(m_bob_account, chain, mtx));
-  CHECK_EQ(MK_COINS(244) - TESTS_DEFAULT_FEE, get_balance(m_alice_account, chain, mtx));
+  CHECK_EQ(MK_COINS(52) - TESTS_DEFAULT_FEE, get_balance(m_alice_account, chain, mtx));
 
   return true;
 }
