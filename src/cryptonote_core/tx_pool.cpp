@@ -113,7 +113,7 @@ namespace cryptonote
     needed_fee *= FEE_PER_KB;
     if (!kept_by_block && fee < needed_fee /*&& fee < MINING_ALLOWED_LEGACY_FEE*/)
     {
-      LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minumim fee: " << print_money(needed_fee));
+      LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minimum fee: " << print_money(needed_fee));
       tvc.m_verifivation_failed = true;
       return false;
     }
