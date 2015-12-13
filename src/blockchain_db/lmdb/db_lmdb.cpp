@@ -208,6 +208,12 @@ inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi
     throw0(cryptonote::DB_OPEN_FAILURE(error_string.c_str()));
 }
 
+const std::string lmdb_error(const std::string& error_string, int mdb_res)
+{
+  const std::string full_string = error_string + mdb_strerror(mdb_res);
+  return full_string;
+}
+
 }  // anonymous namespace
 
 namespace cryptonote
@@ -994,8 +1000,8 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   // get a read/write MDB_txn, depending on mdb_flags
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, txn_flags, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, txn_flags, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   // open necessary databases, and set properties as needed
   // uses macros to avoid having to change things too many places
@@ -1206,8 +1212,8 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h) const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val_copy<crypto::hash> key(h);
   MDB_val result;
@@ -1239,8 +1245,8 @@ uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h) const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val_copy<crypto::hash> key(h);
   MDB_val result;
@@ -1269,8 +1275,8 @@ block BlockchainLMDB::get_block_from_height(const uint64_t& height) const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val_copy<uint64_t> key(height);
   MDB_val result;
@@ -1305,8 +1311,8 @@ uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
   MDB_val_copy<uint64_t> key(height);
   MDB_val result;
@@ -1348,8 +1354,8 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
 
   MDB_val_copy<uint64_t> key(height);
@@ -1378,8 +1384,8 @@ difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& 
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
   MDB_val_copy<uint64_t> key(height);
   MDB_val result;
@@ -1424,8 +1430,8 @@ uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& heigh
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
 
   MDB_val_copy<uint64_t> key(height);
@@ -1454,8 +1460,8 @@ crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height) 
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
 
   MDB_val_copy<uint64_t> key(height);
@@ -1547,8 +1553,8 @@ bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
 
   MDB_val_copy<crypto::hash> key(h);
@@ -1577,8 +1583,8 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val_copy<crypto::hash> key(h);
   MDB_val result;
@@ -1602,8 +1608,8 @@ transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
 
   MDB_val_copy<crypto::hash> key(h);
@@ -1632,8 +1638,8 @@ uint64_t BlockchainLMDB::get_tx_count() const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_stat db_stats;
   if (mdb_stat(txn, m_txs, &db_stats))
@@ -1669,8 +1675,8 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
 
   MDB_val_copy<crypto::hash> key(h);
@@ -1695,8 +1701,8 @@ uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   lmdb_cur cur(txn, m_output_amounts);
 
@@ -1724,8 +1730,8 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
 	MDB_val_copy<uint64_t> k(global_index);
   MDB_val v;
@@ -1758,8 +1764,8 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t&
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   }
   MDB_val_copy<uint64_t> k(index);
   MDB_val v;
@@ -1803,8 +1809,8 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
   std::vector<uint64_t> index_vec;
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   lmdb_cur cur(txn, m_tx_outputs);
 
@@ -1848,8 +1854,8 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_amount_output_indices(const crypto:
   transaction tx = get_tx(h);
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   uint64_t i = 0;
   uint64_t global_index;
@@ -1919,8 +1925,8 @@ bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val_copy<crypto::key_image> val_key(img);
   MDB_val unused;
@@ -1940,8 +1946,8 @@ bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_ima
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val k;
   MDB_val v;
@@ -1976,8 +1982,8 @@ bool BlockchainLMDB::for_all_blocks(std::function<bool(uint64_t, const crypto::h
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val k;
   MDB_val v;
@@ -2020,8 +2026,8 @@ bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val k;
   MDB_val v;
@@ -2061,8 +2067,8 @@ bool BlockchainLMDB::for_all_outputs(std::function<bool(uint64_t amount, const c
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 
   MDB_val k;
   MDB_val v;
@@ -2112,8 +2118,8 @@ void BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
   m_write_batch_txn = new mdb_txn_safe();
 
   // NOTE: need to make sure it's destroyed properly when done
-  if (mdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
   // indicates this transaction is for batch transactions, but not whether it's
   // active
   m_write_batch_txn->m_batch_txn = true;
@@ -2210,8 +2216,8 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, c
   mdb_txn_safe txn;
   if (! m_batch_active)
   {
-    if (mdb_txn_begin(m_env, NULL, 0, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     m_write_txn = &txn;
   }
 
@@ -2248,8 +2254,8 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
   mdb_txn_safe txn;
   if (! m_batch_active)
   {
-    if (mdb_txn_begin(m_env, NULL, 0, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     m_write_txn = &txn;
   }
 
@@ -2287,8 +2293,8 @@ void BlockchainLMDB::get_output_tx_and_index_from_global(const std::vector<uint6
 		txn_ptr = m_write_txn;
 	else
 	{
-		if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-			throw0(DB_ERROR("Failed to create a transaction for the db"));
+		if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 	}
 
 	for (const uint64_t &index : global_indices)
@@ -2339,8 +2345,8 @@ void BlockchainLMDB::get_output_global_indices(const uint64_t& amount, const std
 		txn_ptr = m_write_txn;
 	else
 	{
-		if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-			throw0(DB_ERROR("Failed to create a transaction for the db"));
+		if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
 	}
 
 	lmdb_cur cur(*txn_ptr, m_output_amounts);
@@ -2445,8 +2451,8 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
       txn_ptr = m_write_txn;
     else
     {
-      if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-        throw0(DB_ERROR("Failed to create a transaction for the db"));
+      if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+        throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     }
 		for (const uint64_t &index : global_indices)
 		{
@@ -2500,8 +2506,8 @@ void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t hei
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, 0, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     txn_ptr = &txn;
   }
 
@@ -2525,8 +2531,8 @@ uint64_t BlockchainLMDB::get_hard_fork_starting_height(uint8_t version) const
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     txn_ptr = &txn;
   }
 
@@ -2555,8 +2561,8 @@ void BlockchainLMDB::set_hard_fork_version(uint64_t height, uint8_t version)
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, 0, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     txn_ptr = &txn;
   }
 
@@ -2580,8 +2586,8 @@ uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
     txn_ptr = m_write_txn;
   else
   {
-    if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
-      throw0(DB_ERROR("Failed to create a transaction for the db"));
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     txn_ptr = &txn;
   }
 
