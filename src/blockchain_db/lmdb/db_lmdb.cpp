@@ -1238,6 +1238,7 @@ uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint64_t ret;
   mdb_txn_safe txn;
   if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
@@ -1250,8 +1251,9 @@ uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h) const
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a block height from the db"));
 
+  ret = *(const uint64_t *)result.mv_data;
   txn.commit();
-  return *(const uint64_t*)result.mv_data;
+  return ret;
 }
 
 block_header BlockchainLMDB::get_block_header(const crypto::hash& h) const
@@ -1282,14 +1284,14 @@ block BlockchainLMDB::get_block_from_height(const uint64_t& height) const
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a block from the db"));
 
-  txn.commit();
-
   blobdata bd;
   bd.assign(reinterpret_cast<char*>(result.mv_data), result.mv_size);
 
   block b;
   if (!parse_and_validate_block_from_blob(bd, b))
     throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
+
+  txn.commit();
 
   return b;
 }
@@ -1299,6 +1301,7 @@ uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint64_t ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -1318,9 +1321,10 @@ uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a timestamp from the db"));
 
+  ret = *(const uint64_t *)result.mv_data;
   if (! m_batch_active)
     txn.commit();
-  return *(const uint64_t*)result.mv_data;
+  return ret;
 }
 
 uint64_t BlockchainLMDB::get_top_block_timestamp() const
@@ -1352,6 +1356,7 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
       throw0(DB_ERROR("Failed to create a transaction for the db"));
   }
 
+  size_t ret;
   MDB_val_copy<uint64_t> key(height);
   MDB_val result;
   auto get_result = mdb_get(*txn_ptr, m_block_sizes, &key, &result);
@@ -1362,9 +1367,10 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a block size from the db"));
 
+  ret = *(const size_t *)result.mv_data;
   if (! m_batch_active)
     txn.commit();
-  return *(const size_t*)result.mv_data;
+  return ret;
 }
 
 difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height) const
@@ -1372,6 +1378,7 @@ difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& 
   LOG_PRINT_L3("BlockchainLMDB::" << __func__ << "  height: " << height);
   check_open();
 
+  difficulty_type ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -1391,9 +1398,10 @@ difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& 
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a cumulative difficulty from the db"));
 
+  ret = *(difficulty_type*)result.mv_data;
   if (! m_batch_active)
     txn.commit();
-  return *(difficulty_type*)result.mv_data;
+  return ret;
 }
 
 difficulty_type BlockchainLMDB::get_block_difficulty(const uint64_t& height) const
@@ -1418,6 +1426,7 @@ uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& heigh
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint64_t ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -1438,9 +1447,10 @@ uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& heigh
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a total generated coins from the db"));
 
+  ret = *(const uint64_t*)result.mv_data;
   if (! m_batch_active)
     txn.commit();
-  return *(const uint64_t*)result.mv_data;
+  return ret;
 }
 
 crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height) const
@@ -1448,6 +1458,7 @@ crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height) 
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  crypto::hash ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -1469,9 +1480,10 @@ crypto::hash BlockchainLMDB::get_block_hash_from_height(const uint64_t& height) 
     throw0(DB_ERROR(std::string("Error attempting to retrieve a block hash from the db: ").
           append(mdb_strerror(get_result)).c_str()));
 
+  ret = *(crypto::hash*)result.mv_data;
   if (! m_batch_active)
     txn.commit();
-  return *(crypto::hash*)result.mv_data;
+  return ret;
 }
 
 std::vector<block> BlockchainLMDB::get_blocks_range(const uint64_t& h1, const uint64_t& h2) const
@@ -1558,10 +1570,10 @@ bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
   auto get_result = mdb_get(*txn_ptr, m_txs, &key, &result);
   TIME_MEASURE_FINISH(time1);
   time_tx_exists += time1;
+  if (! m_batch_active)
+    txn.commit();
   if (get_result == MDB_NOTFOUND)
   {
-    if (! m_batch_active)
-      txn.commit();
     LOG_PRINT_L1("transaction with hash " << epee::string_tools::pod_to_hex(h) << " not found in db");
     return false;
   }
@@ -1576,6 +1588,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint64_t ret;
   mdb_txn_safe txn;
   if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
@@ -1588,7 +1601,9 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   else if (get_result)
     throw0(DB_ERROR("DB error attempting to fetch tx unlock time from hash"));
 
-  return *(const uint64_t*)result.mv_data;
+  ret = *(const uint64_t*)result.mv_data;
+  txn.commit();
+  return ret;
 }
 
 transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
@@ -1663,6 +1678,7 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint64_t ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -1683,10 +1699,11 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
   else if (get_result)
     throw0(DB_ERROR("DB error attempting to fetch tx height from hash"));
 
+  ret = *(const uint64_t*)result.mv_data;
   if (! m_batch_active)
     txn.commit();
 
-  return *(const uint64_t*)result.mv_data;
+  return ret;
 }
 
 uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
@@ -1723,6 +1740,7 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  output_data_t ret;
   mdb_txn_safe txn;
   if (mdb_txn_begin(m_env, NULL, MDB_RDONLY, txn))
     throw0(DB_ERROR("Failed to create a transaction for the db"));
@@ -1734,8 +1752,9 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
     throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve an output pubkey from the db"));
+	ret = *(output_data_t *) v.mv_data;
 	txn.commit();
-	return *(output_data_t *) v.mv_data;
+	return ret;
 }
 
 output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index)
@@ -1752,6 +1771,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t&
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  tx_out_index ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -1777,10 +1797,12 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t&
     throw1(OUTPUT_DNE("output with given index not in db"));
   else if (get_result)
     throw0(DB_ERROR("DB error attempting to fetch output tx index"));
+
+  ret = tx_out_index(tx_hash, *(const uint64_t *)v.mv_data);
   if (! m_batch_active)
     txn.commit();
 
-  return tx_out_index(tx_hash, *(const uint64_t *)v.mv_data);
+  return ret;
 }
 
 tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index)
@@ -2519,6 +2541,7 @@ uint64_t BlockchainLMDB::get_hard_fork_starting_height(uint8_t version) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint64_t ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -2538,9 +2561,10 @@ uint64_t BlockchainLMDB::get_hard_fork_starting_height(uint8_t version) const
   if (result)
     throw0(DB_ERROR("Error attempting to retrieve a hard fork starting height from the db"));
 
+  ret = *(const uint64_t*)val_ret.mv_data;
   if (!m_batch_active)
     txn.commit();
-  return *(const uint64_t*)val_ret.mv_data;
+  return ret;
 }
 
 void BlockchainLMDB::set_hard_fork_version(uint64_t height, uint8_t version)
@@ -2574,6 +2598,7 @@ uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  uint8_t ret;
   mdb_txn_safe txn;
   mdb_txn_safe* txn_ptr = &txn;
   if (m_batch_active)
@@ -2591,9 +2616,10 @@ uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
   if (result == MDB_NOTFOUND || result)
     throw0(DB_ERROR("Error attempting to retrieve a hard fork version from the db"));
 
+  ret = *(const uint8_t*)val_ret.mv_data;
   if (!m_batch_active)
     txn.commit();
-  return *(const uint8_t*)val_ret.mv_data;
+  return ret;
 }
 
 void BlockchainLMDB::fixup()
