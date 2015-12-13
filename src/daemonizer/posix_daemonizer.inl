@@ -74,9 +74,9 @@ namespace daemonizer
   {
     if (command_line::has_arg(vm, arg_detach))
     {
-      auto daemon = executor.create_daemon(vm);
       tools::success_msg_writer() << "Forking to background...";
       posix::fork();
+      auto daemon = executor.create_daemon(vm);
       return daemon.run();
     }
     else
