@@ -759,7 +759,7 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
     }
     else
     {
-        if (!boost::filesystem::create_directory(direc))
+        if (!boost::filesystem::create_directories(direc))
             throw0(DB_OPEN_FAILURE(std::string("Failed to create directory ").append(filename).c_str()));
     }
 
