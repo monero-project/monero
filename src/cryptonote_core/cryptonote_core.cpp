@@ -97,7 +97,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints()
   {
-    if (m_testnet) return true;
+    if (m_testnet || m_fakechain) return true;
 
     if (m_checkpoints_updating.test_and_set()) return true;
 
@@ -145,18 +145,20 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_db_sync_mode);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_db_auto_remove_logs);
+    command_line::add_arg(desc, command_line::arg_fakechain);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
   {
     m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    m_fakechain = command_line::get_arg(vm, command_line::arg_fakechain);
 
     auto data_dir_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, data_dir_arg);
 
     auto data_dir = boost::filesystem::path(m_config_folder);
 
-    if (!m_testnet)
+    if (!m_testnet && !m_fakechain)
     {
       cryptonote::checkpoints checkpoints;
       if (!cryptonote::create_checkpoints(checkpoints))
@@ -257,6 +259,9 @@ namespace cryptonote
 
     boost::filesystem::path folder(m_config_folder);
 
+    if (m_fakechain)
+      folder /= "fake";
+
     folder /= db->get_db_name();
 
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
@@ -337,7 +342,7 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         blocks_per_sync, sync_mode, fast_sync);
 
-    r = m_blockchain_storage.init(db, m_testnet);
+    r = m_blockchain_storage.init(db, m_testnet, m_fakechain);
 
     bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);

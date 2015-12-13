@@ -236,7 +236,7 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(BlockchainDB* db, const bool testnet)
+bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -293,8 +293,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     {
     }
 
-    // ensure we fixup anything we found and fix in the future
-    m_db->fixup();
+    if (!fakechain)
+    {
+      // ensure we fixup anything we found and fix in the future
+      m_db->fixup();
+    }
 
     // check how far behind we are
     uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
@@ -311,7 +314,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
 #if defined(PER_BLOCK_CHECKPOINT)
-    if (m_fast_sync && get_blocks_dat_start(testnet) != nullptr)
+    if (!fakechain && m_fast_sync && get_blocks_dat_start(testnet) != nullptr)
     {
         if (get_blocks_dat_size(testnet) > 4)
         {

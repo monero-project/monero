@@ -484,6 +484,10 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   if (!r)
     return false;
 
+  // hardcode a --fakechain option for tests
+  static const char * const fakechain[] = {"", "--fakechain"};
+  boost::program_options::store(boost::program_options::parse_command_line(2, fakechain, desc), vm);
+
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core c(&pr);
   // FIXME: make sure that vm has arg_testnet_on set to true or false if
