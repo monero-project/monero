@@ -234,7 +234,9 @@ uint64_t Blockchain::get_current_blockchain_height() const
     return m_db->height();
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, const bool testnet)
+//FIXME: possibly move this into the constructor, to avoid accidentally
+//       dereferencing a null BlockchainDB pointer
+bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -290,8 +292,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     {
     }
 
-    // ensure we fixup anything we found and fix in the future
-    m_db->fixup();
+    if (!fakechain)
+    {
+      // ensure we fixup anything we found and fix in the future
+      m_db->fixup();
+    }
 
     // check how far behind we are
     uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
@@ -308,7 +313,8 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet)
     m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
 #if defined(PER_BLOCK_CHECKPOINT)
-    load_compiled_in_block_hashes(testnet);
+    if (!fakechain)
+      load_compiled_in_block_hashes(testnet);
 #endif
 
     LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);

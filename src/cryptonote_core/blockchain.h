@@ -113,7 +113,7 @@ namespace cryptonote
      *
      * @return true on success, false if any initialization steps fail
      */
-    bool init(BlockchainDB* db, const bool testnet = false);
+    bool init(BlockchainDB* db, const bool testnet = false, const bool fakechain = false);
 
     /**
      * @brief Uninitializes the blockchain state
