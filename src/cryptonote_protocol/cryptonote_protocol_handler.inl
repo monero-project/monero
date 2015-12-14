@@ -675,9 +675,9 @@ namespace cryptonote
 		//std::string blob; // for calculate size of request
 		//epee::serialization::store_t_to_binary(r, blob);
 		//epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
-		LOG_PRINT_CCONTEXT_L0("r = " << 200);
+		LOG_PRINT_CCONTEXT_L1("r = " << 200);
 		
-      LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
+      LOG_PRINT_CCONTEXT_L1("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
     }else
     { 
