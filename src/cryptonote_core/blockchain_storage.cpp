@@ -661,7 +661,7 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
   b.timestamp = time(NULL);
   height = m_blocks.size();
   diffic = get_difficulty_for_next_block();
-  CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
+  CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
   median_size = m_current_block_cumul_sz_limit / 2;
   already_generated_coins = m_blocks.back().already_generated_coins;

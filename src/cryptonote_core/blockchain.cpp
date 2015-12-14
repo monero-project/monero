@@ -1010,7 +1010,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   b.timestamp = time(NULL);
 
   diffic = get_difficulty_for_next_block();
-  CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
+  CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
   median_size = m_current_block_cumul_sz_limit / 2;
   already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
