@@ -1,21 +1,21 @@
 # Copyright (c) 2014-2015, The Monero Project
-# 
+#
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are
 # permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of
 #    conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list
 #    of conditions and the following disclaimer in the documentation and/or other
 #    materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be
 #    used to endorse or promote products derived from this software without specific
 #    prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
+#
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 cmake_minimum_required(VERSION 2.8.7)
@@ -46,30 +46,30 @@ function (die msg)
 endfunction ()
 
 if (NOT ${ARCH} STREQUAL "")
-	string(SUBSTRING ${ARCH} 0 3 IS_ARM)
-	string(TOLOWER ${IS_ARM} IS_ARM)
+  string(SUBSTRING ${ARCH} 0 3 IS_ARM)
+  string(TOLOWER ${IS_ARM} IS_ARM)
 
-	if (${IS_ARM} STREQUAL "arm")
-		string(SUBSTRING ${ARCH} 0 5 ARM_TEST)
-		string(TOLOWER ${ARM_TEST} ARM_TEST)
-	
-		if (${ARM_TEST} STREQUAL "armv6")
-			set(ARM6 1)
-		else()
-			set(ARM6 0)
-		endif()
-	   
-		if (${ARM_TEST} STREQUAL "armv7")
-			set(ARM7 1)
-		else()
-			set(ARM7 0)
-		endif()	
-	endif()
+  if (${IS_ARM} STREQUAL "arm")
+    string(SUBSTRING ${ARCH} 0 5 ARM_TEST)
+    string(TOLOWER ${ARM_TEST} ARM_TEST)
+
+    if (${ARM_TEST} STREQUAL "armv6")
+      set(ARM6 1)
+    else()
+      set(ARM6 0)
+    endif()
+
+    if (${ARM_TEST} STREQUAL "armv7")
+      set(ARM7 1)
+    else()
+      set(ARM7 0)
+    endif()
+  endif()
 endif()
 
 if(WIN32 OR ARM7 OR ARM6)
-	set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+  set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
+  set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 endif()
 
 # set this to 0 if per-block checkpoint needs to be disabled
@@ -137,7 +137,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "DragonFly.*|FreeBSD")
 endif()
 
 # TODO: check bsdi, NetBSD, OpenBSD, to see if they need the same FreeBSD changes
-# 
+#
 # elseif(CMAKE_SYSTEM_NAME MATCHES "kNetBSD.*|NetBSD.*")
 #   set(NETBSD TRUE)
 # elseif(CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*")
@@ -194,27 +194,27 @@ endif()
 set(BERKELEY_DB 0)
 if (DATABASE STREQUAL "lmdb")
   set(BLOCKCHAIN_DB DB_LMDB)
-  
+
   # temporarily allow mingw to compile with berkeley_db,
   # regardless if building static or not
   if(NOT STATIC OR MINGW)
-	  find_package(BerkeleyDB)
-		
-	  if(NOT BERKELEY_DB_LIBRARIES)
-	    message(STATUS "BerkeleyDB not found and has been disabled.")
-	  else()
-	    message(STATUS "Found BerkeleyDB include (db.h) in ${BERKELEY_DB_INCLUDE_DIR}")
-		if(BERKELEY_DB_LIBRARIES)
-		  message(STATUS "Found BerkeleyDB shared library")
-		  set(BDB_STATIC false CACHE BOOL "BDB Static flag")
-		  set(BDB_INCLUDE ${BERKELEY_DB_INCLUDE_DIR} CACHE STRING "BDB include path")
-		  set(BDB_LIBRARY ${BERKELEY_DB_LIBRARIES} CACHE STRING "BDB library name")
-		  set(BDB_LIBRARY_DIRS "" CACHE STRING "BDB Library dirs")
-		  set(BERKELEY_DB 1)
-		else()
-		  message(STATUS "Found BerkeleyDB includes, but could not find BerkeleyDB library. Please make sure you have installed libdb and libdb-dev or the equivalent")
-		endif()
-	  endif()
+    find_package(BerkeleyDB)
+
+    if(NOT BERKELEY_DB_LIBRARIES)
+      message(STATUS "BerkeleyDB not found and has been disabled.")
+    else()
+      message(STATUS "Found BerkeleyDB include (db.h) in ${BERKELEY_DB_INCLUDE_DIR}")
+      if(BERKELEY_DB_LIBRARIES)
+        message(STATUS "Found BerkeleyDB shared library")
+        set(BDB_STATIC false CACHE BOOL "BDB Static flag")
+        set(BDB_INCLUDE ${BERKELEY_DB_INCLUDE_DIR} CACHE STRING "BDB include path")
+        set(BDB_LIBRARY ${BERKELEY_DB_LIBRARIES} CACHE STRING "BDB library name")
+        set(BDB_LIBRARY_DIRS "" CACHE STRING "BDB Library dirs")
+        set(BERKELEY_DB 1)
+      else()
+        message(STATUS "Found BerkeleyDB includes, but could not find BerkeleyDB library. Please make sure you have installed libdb and libdb-dev or the equivalent")
+      endif()
+    endif()
   endif()
 
   if (BERKELEY_DB AND (ARCH_WIDTH STREQUAL "32" OR ARM6 OR ARM7))
@@ -234,7 +234,7 @@ endif()
 if(BERKELEY_DB)
   add_definitions("-DBERKELEY_DB")
 endif()
-	
+
 add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 if (UNIX AND NOT APPLE)

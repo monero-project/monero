@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -51,8 +51,8 @@ int main(int argc, char const * argv[])
 {
   try {
 
-		_note_c("dbg/main", "Begin of main()");
-		// TODO parse the debug options like set log level right here at start
+    _note_c("dbg/main", "Begin of main()");
+    // TODO parse the debug options like set log level right here at start
 
     tools::sanitize_locale();
 
@@ -77,7 +77,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, daemon_args::arg_config_file, default_conf.string());
       command_line::add_arg(visible_options, command_line::arg_test_dbg_lock_sleep);
       cryptonote::core::init_options(core_settings);
-    
+
       // Settings
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
       command_line::add_arg(core_settings, daemon_args::arg_log_file, default_log.string());
@@ -132,7 +132,7 @@ int main(int argc, char const * argv[])
       std::cout << "OS: " << tools::get_os_version_string() << ENDL;
       return 0;
     }
-    
+
     epee::g_test_dbg_lock_sleep = command_line::get_arg(vm, command_line::arg_test_dbg_lock_sleep);
 
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
@@ -261,7 +261,7 @@ int main(int argc, char const * argv[])
         );
     }
 
-		_note_c("dbg/main", "Moving from main() into the daemonize now.");
+    _note_c("dbg/main", "Moving from main() into the daemonize now.");
 
     return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
   }

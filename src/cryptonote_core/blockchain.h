@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
@@ -61,11 +61,11 @@ namespace cryptonote
 
   enum blockchain_db_sync_mode
   {
-  	  db_sync, 
-  	  db_async,
-  	  db_nosync
+    db_sync,
+    db_async,
+    db_nosync
   };
-  
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -153,10 +153,10 @@ namespace cryptonote
 
     // user options, must be called before calling init()
     void set_user_options(uint64_t block_threads, uint64_t blocks_per_sync,
-    		blockchain_db_sync_mode sync_mode, bool fast_sync);
+        blockchain_db_sync_mode sync_mode, bool fast_sync);
 
     void set_show_time_stats(bool stats) { m_show_time_stats = stats; }
-    
+
     HardFork::State get_hard_fork_state() const;
     uint8_t get_current_hard_fork_version() const { return m_hardfork->get_current_version(); }
     uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
@@ -174,12 +174,12 @@ namespace cryptonote
       return *m_db;
     }
 
-	void output_scan_worker(const uint64_t amount,const std::vector<uint64_t> &offsets, 
-		std::vector<output_data_t> &outputs, std::unordered_map<crypto::hash, 
-		cryptonote::transaction> &txs) const;
+    void output_scan_worker(const uint64_t amount,const std::vector<uint64_t> &offsets,
+        std::vector<output_data_t> &outputs, std::unordered_map<crypto::hash,
+        cryptonote::transaction> &txs) const;
 
-	void block_longhash_worker(const uint64_t height, const std::vector<block> &blocks,
-			std::unordered_map<crypto::hash, crypto::hash> &map) const;
+    void block_longhash_worker(const uint64_t height, const std::vector<block> &blocks,
+        std::unordered_map<crypto::hash, crypto::hash> &map) const;
   private:
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
     typedef std::unordered_map<crypto::hash, transaction_chain_entry> transactions_container;
@@ -208,22 +208,22 @@ namespace cryptonote
     // SHA-3 hashes for each block and for fast pow checking
     std::vector<crypto::hash> m_blocks_hash_check;
     std::vector<crypto::hash> m_blocks_txs_check;
-	
-	blockchain_db_sync_mode m_db_sync_mode;
-	bool m_fast_sync;
-	bool m_show_time_stats;
-	uint64_t m_db_blocks_per_sync;
-	uint64_t m_max_prepare_blocks_threads;
+
+    blockchain_db_sync_mode m_db_sync_mode;
+    bool m_fast_sync;
+    bool m_show_time_stats;
+    uint64_t m_db_blocks_per_sync;
+    uint64_t m_max_prepare_blocks_threads;
     uint64_t m_fake_pow_calc_time;
     uint64_t m_fake_scan_time;
-	uint64_t m_sync_counter;
-	std::vector<uint64_t> m_timestamps;
-	std::vector<difficulty_type> m_difficulties;
-	uint64_t m_timestamps_and_difficulties_height;
+    uint64_t m_sync_counter;
+    std::vector<uint64_t> m_timestamps;
+    std::vector<difficulty_type> m_difficulties;
+    uint64_t m_timestamps_and_difficulties_height;
 
-	boost::asio::io_service m_async_service;
-	boost::thread_group m_async_pool;
-	std::unique_ptr<boost::asio::io_service::work> m_async_work_idle;
+    boost::asio::io_service m_async_service;
+    boost::thread_group m_async_pool;
+    std::unique_ptr<boost::asio::io_service::work> m_async_work_idle;
 
     // all alternative chains
     blocks_ext_by_hash m_alternative_chains; // crypto::hash -> block_extended_info
@@ -273,6 +273,6 @@ namespace cryptonote
     bool check_for_double_spend(const transaction& tx, key_images_container& keys_this_block) const;
     void get_timestamp_and_difficulty(uint64_t &timestamp, difficulty_type &difficulty, const int offset) const;
     void check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image,
-    		const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
+        const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
   };
 }  // namespace cryptonote

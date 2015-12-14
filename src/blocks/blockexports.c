@@ -49,18 +49,18 @@ extern const unsigned char _binary_testnet_blocks_end[];
 
 const unsigned char *get_blocks_dat_start(int testnet)
 {
-	if (testnet)
-		return _binary_testnet_blocks_start;
-	else
-		return _binary_blocks_start;
+  if (testnet)
+    return _binary_testnet_blocks_start;
+  else
+    return _binary_blocks_start;
 }
 
 size_t get_blocks_dat_size(int testnet)
 {
-	if (testnet)
-		return (size_t) (_binary_testnet_blocks_end - _binary_testnet_blocks_start);
-	else
-		return (size_t) (_binary_blocks_end - _binary_blocks_start);
+  if (testnet)
+    return (size_t) (_binary_testnet_blocks_end - _binary_testnet_blocks_start);
+  else
+    return (size_t) (_binary_blocks_end - _binary_blocks_start);
 }
 
 #endif

@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <algorithm>
@@ -99,8 +99,8 @@ static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
-m_db(), m_tx_pool(tx_pool), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false), 
-m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true)
+  m_db(), m_tx_pool(tx_pool), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false),
+  m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -2043,13 +2043,13 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         }
     }
 
-	auto it = m_check_txin_table.find(tx_prefix_hash);
-	if(it == m_check_txin_table.end())
-	{
-		m_check_txin_table.emplace(tx_prefix_hash, std::unordered_map<crypto::key_image, bool>());
-		it = m_check_txin_table.find(tx_prefix_hash);
-		assert(it != m_check_txin_table.end());
-	}
+    auto it = m_check_txin_table.find(tx_prefix_hash);
+    if(it == m_check_txin_table.end())
+    {
+      m_check_txin_table.emplace(tx_prefix_hash, std::unordered_map<crypto::key_image, bool>());
+      it = m_check_txin_table.find(tx_prefix_hash);
+      assert(it != m_check_txin_table.end());
+    }
 
     uint64_t t_t1 = 0;
     std::vector<std::vector<crypto::public_key>> pubkeys(tx.vin.size());
@@ -2062,14 +2062,14 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
     boost::thread_group threadpool;
 
     std::auto_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
-	if(threads > 1)
-	{
-	    for (int i = 0; i < threads; i++)
-	    {
-	        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-	    }
-	}
-	
+    if(threads > 1)
+    {
+      for (int i = 0; i < threads; i++)
+      {
+        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
+      }
+    }
+
 #define KILL_IOSERVICE()  \
         if(threads > 1) \
         { \
@@ -2092,19 +2092,19 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
 
 #if defined(CACHE_VIN_RESULTS)
-		auto itk = it->second.find(in_to_key.k_image);
-		if(itk != it->second.end())
-		{
-			if(!itk->second)
-			{
-				LOG_PRINT_L1("Failed ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-				return false;
-			}
+        auto itk = it->second.find(in_to_key.k_image);
+        if(itk != it->second.end())
+        {
+          if(!itk->second)
+          {
+            LOG_PRINT_L1("Failed ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+            return false;
+          }
 
-			// txin has been verified already, skip
-			sig_index++;
-			continue;
-		}
+          // txin has been verified already, skip
+          sig_index++;
+          continue;
+        }
 #endif
 
         // make sure that output being spent matches up correctly with the
@@ -2112,15 +2112,15 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         TIME_MEASURE_START(aa);
         if (!check_tx_input(in_to_key, tx_prefix_hash, tx.signatures[sig_index], pubkeys[sig_index], pmax_used_block_height))
         {
-        	it->second[in_to_key.k_image] = false;
-            LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-            if (pmax_used_block_height) // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
-            {
-                LOG_PRINT_L1("  *pmax_used_block_height: " << *pmax_used_block_height);
-            }
+          it->second[in_to_key.k_image] = false;
+          LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+          if (pmax_used_block_height) // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
+          {
+            LOG_PRINT_L1("  *pmax_used_block_height: " << *pmax_used_block_height);
+          }
 
-            KILL_IOSERVICE();
-            return false;
+          KILL_IOSERVICE();
+          return false;
         }
 
         if (threads > 1)
@@ -2131,21 +2131,21 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         }
         else
         {
-            check_ring_signature(tx_prefix_hash, in_to_key.k_image, pubkeys[sig_index], tx.signatures[sig_index], results[sig_index]);
-            if (!results[sig_index])
+          check_ring_signature(tx_prefix_hash, in_to_key.k_image, pubkeys[sig_index], tx.signatures[sig_index], results[sig_index]);
+          if (!results[sig_index])
+          {
+            it->second[in_to_key.k_image] = false;
+            LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+
+            if (pmax_used_block_height)  // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
             {
-            	it->second[in_to_key.k_image] = false;
-                LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-
-                if (pmax_used_block_height)  // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
-                {
-                    LOG_PRINT_L1("*pmax_used_block_height: " << *pmax_used_block_height);
-                }
-
-                KILL_IOSERVICE();
-                return false;
+              LOG_PRINT_L1("*pmax_used_block_height: " << *pmax_used_block_height);
             }
-        	it->second[in_to_key.k_image] = true;
+
+            KILL_IOSERVICE();
+            return false;
+          }
+          it->second[in_to_key.k_image] = true;
         }
 
         sig_index++;
@@ -2155,21 +2155,21 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
 
     if (threads > 1)
     {
-    	// save results to table, passed or otherwise
-    	bool failed = false;
-    	for (size_t i = 0; i < tx.vin.size(); i++)
-    	{
-    		const txin_to_key& in_to_key = boost::get<txin_to_key>(tx.vin[i]);
-    		it->second[in_to_key.k_image] = results[i];
-    		if(!failed && !results[i])
-    			failed = true;
-    	}
+      // save results to table, passed or otherwise
+      bool failed = false;
+      for (size_t i = 0; i < tx.vin.size(); i++)
+      {
+        const txin_to_key& in_to_key = boost::get<txin_to_key>(tx.vin[i]);
+        it->second[in_to_key.k_image] = results[i];
+        if(!failed && !results[i])
+          failed = true;
+      }
 
-        if (failed)
-        {
-        	LOG_PRINT_L1("Failed to check ring signatures!, t_loop: " << t_t1);
-            return false;
-        }
+      if (failed)
+      {
+        LOG_PRINT_L1("Failed to check ring signatures!, t_loop: " << t_t1);
+        return false;
+      }
     }
     LOG_PRINT_L1("t_loop: " << t_t1);
     return true;
@@ -3154,9 +3154,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
     TIME_MEASURE_FINISH(scantable);
     if (total_txs > 0)
     {
-        m_fake_scan_time = scantable / total_txs;
-    	if(m_show_time_stats)
-            LOG_PRINT_L0("Prepare scantable took: " << scantable << " ms");
+      m_fake_scan_time = scantable / total_txs;
+      if(m_show_time_stats)
+        LOG_PRINT_L0("Prepare scantable took: " << scantable << " ms");
     }
 
     return true;

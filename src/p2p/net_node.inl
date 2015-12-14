@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 // IP blocking adapted from Boolberry
@@ -34,7 +34,7 @@
 
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/thread/thread.hpp> 
+#include <boost/thread/thread.hpp>
 #include <atomic>
 
 #include "version.h"
@@ -89,17 +89,17 @@ namespace nodetool
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
-    
-    const command_line::arg_descriptor<bool>        arg_no_igd				= {"no-igd", "Disable UPnP port mapping"};
-    const command_line::arg_descriptor<bool>        arg_offline				= {"offline", "Do not listen for peers, nor connect to any"};
-    const command_line::arg_descriptor<int64_t>     arg_out_peers 			= {"out-peers", "set max limit of out peers", -1};
-    const command_line::arg_descriptor<int>    		arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
-    
-    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_up      	= {"limit-rate-up", "set limit-rate-up [kB/s]", -1};
-    const command_line::arg_descriptor<int64_t>    	arg_limit_rate_down     = {"limit-rate-down", "set limit-rate-down [kB/s]", -1};
-    const command_line::arg_descriptor<int64_t>    arg_limit_rate      	    = {"limit-rate", "set limit-rate [kB/s]", -1};
-    
-    const command_line::arg_descriptor<bool>		arg_save_graph			= {"save-graph", "Save data for dr monero", false};
+
+    const command_line::arg_descriptor<bool>        arg_no_igd  = {"no-igd", "Disable UPnP port mapping"};
+    const command_line::arg_descriptor<bool>        arg_offline = {"offline", "Do not listen for peers, nor connect to any"};
+    const command_line::arg_descriptor<int64_t>     arg_out_peers = {"out-peers", "set max limit of out peers", -1};
+    const command_line::arg_descriptor<int> arg_tos_flag = {"tos-flag", "set TOS flag", -1};
+
+    const command_line::arg_descriptor<int64_t> arg_limit_rate_up = {"limit-rate-up", "set limit-rate-up [kB/s]", -1};
+    const command_line::arg_descriptor<int64_t> arg_limit_rate_down = {"limit-rate-down", "set limit-rate-down [kB/s]", -1};
+    const command_line::arg_descriptor<int64_t> arg_limit_rate = {"limit-rate", "set limit-rate [kB/s]", -1};
+
+    const command_line::arg_descriptor<bool> arg_save_graph = {"save-graph", "Save data for dr monero", false};
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -113,7 +113,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_peer);
     command_line::add_arg(desc, arg_p2p_add_priority_node);
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
-    command_line::add_arg(desc, arg_p2p_seed_node);    
+    command_line::add_arg(desc, arg_p2p_seed_node);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_igd);
     command_line::add_arg(desc, arg_offline);
@@ -254,7 +254,7 @@ namespace nodetool
     m_offline = command_line::get_arg(vm, arg_offline);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
-    {       
+    {
       std::vector<std::string> perrs = command_line::get_arg(vm, arg_p2p_add_peer);
       for(const std::string& pr_str: perrs)
       {
@@ -265,24 +265,24 @@ namespace nodetool
         m_command_line_peers.push_back(pe);
       }
     }
-    
+
     if(command_line::has_arg(vm, arg_save_graph))
     {
-	  set_save_graph(true);
-	}
+      set_save_graph(true);
+    }
 
     if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
         return false;
     }
-    
+
     if (command_line::has_arg(vm, arg_p2p_add_priority_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_priority_node, m_priority_peers))
         return false;
     }
-    
+
     if (command_line::has_arg(vm, arg_p2p_seed_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, m_seed_nodes))
@@ -291,21 +291,21 @@ namespace nodetool
 
     if(command_line::has_arg(vm, arg_p2p_hide_my_port))
       m_hide_my_port = true;
-      
+
     if ( !set_max_out_peers(vm, command_line::get_arg(vm, arg_out_peers) ) )
-		return false;
-		
-	if ( !set_tos_flag(vm, command_line::get_arg(vm, arg_tos_flag) ) )
-		return false;
+      return false;
 
-	if ( !set_rate_up_limit(vm, command_line::get_arg(vm, arg_limit_rate_up) ) )
-		return false;
+    if ( !set_tos_flag(vm, command_line::get_arg(vm, arg_tos_flag) ) )
+      return false;
 
-	if ( !set_rate_down_limit(vm, command_line::get_arg(vm, arg_limit_rate_down) ) )
-		return false;
+    if ( !set_rate_up_limit(vm, command_line::get_arg(vm, arg_limit_rate_up) ) )
+      return false;
 
-	if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
-		return false; 
+    if ( !set_rate_down_limit(vm, command_line::get_arg(vm, arg_limit_rate_down) ) )
+      return false;
+
+    if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
+      return false;
 
     return true;
   }
@@ -370,7 +370,7 @@ namespace nodetool
       // add the result addresses as seed nodes
       // TODO: at some point add IPv6 support, but that won't be relevant
       // for some time yet.
-      
+
       std::vector<std::vector<std::string>> dns_results;
       dns_results.resize(m_seed_nodes_list.size());
 
@@ -484,7 +484,7 @@ namespace nodetool
 
     for(auto& p: m_command_line_peers)
       m_peerlist.append_with_peer_white(p);
-    
+
     //only in case if we really sure that we have external visible ip
     m_have_address = true;
     m_ip_address = 0;
@@ -512,48 +512,48 @@ namespace nodetool
 
     // Add UPnP port mapping
     if(m_no_igd == false) {
-		LOG_PRINT_L0("Attempting to add IGD port mapping.");
-		int result;
+      LOG_PRINT_L0("Attempting to add IGD port mapping.");
+      int result;
 #if MINIUPNPC_API_VERSION > 13
-		// default according to miniupnpc.h
-		unsigned char ttl = 2;
-		UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, ttl, &result);
+      // default according to miniupnpc.h
+      unsigned char ttl = 2;
+      UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, ttl, &result);
 #else
-		UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
+      UPNPDev* deviceList = upnpDiscover(1000, NULL, NULL, 0, 0, &result);
 #endif
-		UPNPUrls urls;
-		IGDdatas igdData;
-		char lanAddress[64];
-		result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
-		freeUPNPDevlist(deviceList);
-		if (result != 0) {
-		  if (result == 1) {
-			std::ostringstream portString;
-			portString << m_listenning_port;
-			
-			// Delete the port mapping before we create it, just in case we have dangling port mapping from the daemon not being shut down correctly
-			UPNP_DeletePortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), "TCP", 0);
+      UPNPUrls urls;
+      IGDdatas igdData;
+      char lanAddress[64];
+      result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+      freeUPNPDevlist(deviceList);
+      if (result != 0) {
+        if (result == 1) {
+          std::ostringstream portString;
+          portString << m_listenning_port;
 
-			int portMappingResult;
-			portMappingResult = UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0");
-			if (portMappingResult != 0) {
-			  LOG_ERROR("UPNP_AddPortMapping failed, error: " << strupnperror(portMappingResult));
-			} else {
-			  LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
-			}
-		  } else if (result == 2) {
-			LOG_PRINT_L0("IGD was found but reported as not connected.");
-		  } else if (result == 3) {
-			LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
-		  } else {
-			LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
-		  }
+          // Delete the port mapping before we create it, just in case we have dangling port mapping from the daemon not being shut down correctly
+          UPNP_DeletePortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), "TCP", 0);
 
-		  FreeUPNPUrls(&urls);
-		} else {
-		  LOG_PRINT_L0("No IGD was found.");
-		}
-	}
+          int portMappingResult;
+          portMappingResult = UPNP_AddPortMapping(urls.controlURL, igdData.first.servicetype, portString.str().c_str(), portString.str().c_str(), lanAddress, CRYPTONOTE_NAME, "TCP", 0, "0");
+          if (portMappingResult != 0) {
+            LOG_ERROR("UPNP_AddPortMapping failed, error: " << strupnperror(portMappingResult));
+          } else {
+            LOG_PRINT_GREEN("Added IGD port mapping.", LOG_LEVEL_0);
+          }
+        } else if (result == 2) {
+          LOG_PRINT_L0("IGD was found but reported as not connected.");
+        } else if (result == 3) {
+          LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
+        } else {
+          LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
+        }
+
+        FreeUPNPUrls(&urls);
+      } else {
+        LOG_PRINT_L0("No IGD was found.");
+      }
+    }
     return res;
   }
   //-----------------------------------------------------------------------------------
@@ -566,30 +566,30 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::run()
   {
-	  // creating thread to log number of connections
-      mPeersLoggerThread.reset(new std::thread([&]()
-      {
-			_note("Thread monitor number of peers - start");
-		while (!is_closing)
-		{ // main loop of thread
-			//number_of_peers = m_net_server.get_config_object().get_connections_count();
-			unsigned int number_of_peers = 0;
-			m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
-			{
-				if (!cntxt.m_is_income) ++number_of_peers;
-				return true;
-			}); // lambda
-				
-			m_current_number_of_out_peers = number_of_peers;
-			if (epee::net_utils::data_logger::is_dying())
-				break;
-			epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
-				
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-		} // main loop of thread
-			_note("Thread monitor number of peers - done");
-      })); // lambda
-      
+    // creating thread to log number of connections
+    mPeersLoggerThread.reset(new std::thread([&]()
+    {
+      _note("Thread monitor number of peers - start");
+      while (!is_closing)
+      { // main loop of thread
+        //number_of_peers = m_net_server.get_config_object().get_connections_count();
+        unsigned int number_of_peers = 0;
+        m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+        {
+          if (!cntxt.m_is_income) ++number_of_peers;
+          return true;
+        }); // lambda
+
+        m_current_number_of_out_peers = number_of_peers;
+        if (epee::net_utils::data_logger::is_dying())
+          break;
+        epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      } // main loop of thread
+      _note("Thread monitor number of peers - done");
+    })); // lambda
+
     //here you can set worker threads count
     int thrds_count = 10;
 
@@ -620,7 +620,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::deinit()
   {
-	kill();
+    kill();
     m_peerlist.deinit();
     m_net_server.deinit_server();
     return store_config();
@@ -662,7 +662,7 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
- 
+
 
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context_, bool just_take_peerlist)
@@ -671,11 +671,11 @@ namespace nodetool
     typename COMMAND_HANDSHAKE::response rsp;
     get_local_node_data(arg.node_data);
     m_payload_handler.get_payload_sync_data(arg.payload_data);
-    
+
     epee::simple_event ev;
     std::atomic<bool> hsh_result(false);
-    
-    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(), 
+
+    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(),
       [this, &pi, &ev, &hsh_result, &just_take_peerlist](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
     {
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ev.raise();});
@@ -744,7 +744,7 @@ namespace nodetool
     typename COMMAND_TIMED_SYNC::request arg = AUTO_VAL_INIT(arg);
     m_payload_handler.get_payload_sync_data(arg.payload_data);
 
-    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_TIMED_SYNC::response>(context_.m_connection_id, COMMAND_TIMED_SYNC::ID, arg, m_net_server.get_config_object(), 
+    bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_TIMED_SYNC::response>(context_.m_connection_id, COMMAND_TIMED_SYNC::ID, arg, m_net_server.get_config_object(),
       [this](int code, const typename COMMAND_TIMED_SYNC::response& rsp, p2p_connection_context& context)
     {
       if(code < 0)
@@ -835,16 +835,16 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, bool white)
   {
-	if (m_current_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
-	{
-		return false;
-	}
-	else if (m_current_number_of_out_peers > m_config.m_net_config.connections_count)
-	{
-		m_net_server.get_config_object().del_out_connections(1);
-		m_current_number_of_out_peers --; // atomic variable, update time = 1s
-		return false;
-	}
+    if (m_current_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
+    {
+      return false;
+    }
+    else if (m_current_number_of_out_peers > m_config.m_net_config.connections_count)
+    {
+      m_net_server.get_config_object().del_out_connections(1);
+      m_current_number_of_out_peers --; // atomic variable, update time = 1s
+      return false;
+    }
     LOG_PRINT_L1("Connecting to " << epee::string_tools::get_ip_string_from_int32(na.ip)  << ":"
         << epee::string_tools::num_to_string_fast(na.port) << "(white=" << white << ", last_seen: "
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
@@ -946,12 +946,12 @@ namespace nodetool
 
       ++try_count;
 
-			_note("Considering connecting (out) to peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)  << ":" << boost::lexical_cast<std::string>(pe.adr.port));
+      _note("Considering connecting (out) to peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)  << ":" << boost::lexical_cast<std::string>(pe.adr.port));
 
       if(is_peer_used(pe)) {
-				_note("Peer is used");
+        _note("Peer is used");
         continue;
-			}
+      }
 
       if(!is_remote_ip_allowed(pe.adr.ip))
         continue;
@@ -963,11 +963,11 @@ namespace nodetool
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
                     << "[white=" << use_white_list
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
-      
+
       if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list)) {
-				_note("Handshake failed");
+        _note("Handshake failed");
         continue;
-			}
+      }
 
       return true;
     }
@@ -986,7 +986,7 @@ namespace nodetool
       size_t try_count = 0;
       size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
       while(true)
-      {        
+      {
         if(m_net_server.is_stop_signal_sent())
           return false;
 
@@ -1135,7 +1135,7 @@ namespace nodetool
     node_data.peer_id = m_config.m_peer_id;
     if(!m_hide_my_port)
       node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
-    else 
+    else
       node_data.my_port = 0;
     node_data.network_id = m_network_id;
     return true;
@@ -1515,92 +1515,92 @@ namespace nodetool
 
     return true;
   }
-  
+
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max)
-	{		
-		if(max == -1) {
-			m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
-			epee::net_utils::data_logger::get_instance().add_data("peers_limit", m_config.m_net_config.connections_count);
-			return true;
-		}
-		epee::net_utils::data_logger::get_instance().add_data("peers_limit", max);
-		m_config.m_net_config.connections_count = max;
-		return true;
-	}
-	
+  {
+    if(max == -1) {
+      m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+      epee::net_utils::data_logger::get_instance().add_data("peers_limit", m_config.m_net_config.connections_count);
+      return true;
+    }
+    epee::net_utils::data_logger::get_instance().add_data("peers_limit", max);
+    m_config.m_net_config.connections_count = max;
+    return true;
+  }
+
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::delete_connections(size_t count)
   {
-		m_net_server.get_config_object().del_out_connections(count);
+    m_net_server.get_config_object().del_out_connections(count);
   }
-  
-  	  template<class t_payload_net_handler>
+
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_tos_flag(const boost::program_options::variables_map& vm, int flag)
-	{
-		if(flag==-1){
-			return true;
-		}
-		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_tos_flag(flag);
-		_dbg1("Set ToS flag  " << flag);
-		return true;
-	}
-	
-	  template<class t_payload_net_handler>
-	bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit)
-	{
-		this->islimitup=true;
-
-		if (limit==-1) {
-			limit=default_limit_up;
-			this->islimitup=false;
-		}
-		
-		limit *= 1024;
-		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
-		LOG_PRINT_L0("Set limit-up to " << limit/1024 << " kB/s");
-		return true;
-	}
-	
-  template<class t_payload_net_handler>
-	bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit)
-	{
-		this->islimitdown=true;
-		if(limit==-1) {
-			limit=default_limit_down;
-			this->islimitdown=false;
-		}
-		limit *= 1024;
-		epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
-		LOG_PRINT_L0("Set limit-down to " << limit/1024 << " kB/s");
-		return true;
-	}
+  {
+    if(flag==-1){
+      return true;
+    }
+    epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_tos_flag(flag);
+    _dbg1("Set ToS flag  " << flag);
+    return true;
+  }
 
   template<class t_payload_net_handler>
-	bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit)
-	{
-		int64_t limit_up = 0;
-		int64_t limit_down = 0;
-		
-		if(limit == -1)
-		{
-			limit_up = default_limit_up * 1024;
-			limit_down = default_limit_down * 1024;
-		}
-		else
-		{
-			limit_up = limit * 1024;
-			limit_down = limit * 1024;
-		}		
-		if(!this->islimitup) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit(limit_up);
-			LOG_PRINT_L0("Set limit-up to " << limit_up/1024 << " kB/s");
-        }
-		if(!this->islimitdown) {
-			epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit(limit_down);	
-			LOG_PRINT_L0("Set limit-down to " << limit_down/1024 << " kB/s");
-        }
+  bool node_server<t_payload_net_handler>::set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit)
+  {
+    this->islimitup=true;
 
-		return true;
-	}
+    if (limit==-1) {
+      limit=default_limit_up;
+      this->islimitup=false;
+    }
+
+    limit *= 1024;
+    epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit( limit );
+    LOG_PRINT_L0("Set limit-up to " << limit/1024 << " kB/s");
+    return true;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit)
+  {
+    this->islimitdown=true;
+    if(limit==-1) {
+      limit=default_limit_down;
+      this->islimitdown=false;
+    }
+    limit *= 1024;
+    epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit( limit );
+    LOG_PRINT_L0("Set limit-down to " << limit/1024 << " kB/s");
+    return true;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit)
+  {
+    int64_t limit_up = 0;
+    int64_t limit_down = 0;
+
+    if(limit == -1)
+    {
+      limit_up = default_limit_up * 1024;
+      limit_down = default_limit_down * 1024;
+    }
+    else
+    {
+      limit_up = limit * 1024;
+      limit_down = limit * 1024;
+    }
+    if(!this->islimitup) {
+      epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit(limit_up);
+      LOG_PRINT_L0("Set limit-up to " << limit_up/1024 << " kB/s");
+    }
+    if(!this->islimitdown) {
+      epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit(limit_down);
+      LOG_PRINT_L0("Set limit-down to " << limit_down/1024 << " kB/s");
+    }
+
+    return true;
+  }
 }

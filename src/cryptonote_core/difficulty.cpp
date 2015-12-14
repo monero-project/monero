@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <algorithm>
@@ -53,40 +53,40 @@ namespace cryptonote {
 #else
 
   static inline void mul(uint64_t a, uint64_t b, uint64_t &low, uint64_t &high) {
-	// __int128 isn't part of the standard, so the previous function wasn't portable. mul128() in Windows is fine,
-	// but this portable function should be used elsewhere. Credit for this function goes to latexi95.
+    // __int128 isn't part of the standard, so the previous function wasn't portable. mul128() in Windows is fine,
+    // but this portable function should be used elsewhere. Credit for this function goes to latexi95.
 
-	uint64_t aLow = a & 0xFFFFFFFF;
-	uint64_t aHigh = a >> 32;
-	uint64_t bLow = b & 0xFFFFFFFF;
-	uint64_t bHigh = b >> 32;
- 
-	uint64_t res = aLow * bLow;
-	uint64_t lowRes1 = res & 0xFFFFFFFF;
-	uint64_t carry = res >> 32;
- 
-	res = aHigh * bLow + carry;
-	uint64_t highResHigh1 = res >> 32;
-	uint64_t highResLow1 = res & 0xFFFFFFFF;
- 
-	res = aLow * bHigh;
-	uint64_t lowRes2 = res & 0xFFFFFFFF;
-	carry = res >> 32;
- 
-	res = aHigh * bHigh + carry;
-	uint64_t highResHigh2 = res >> 32;
-	uint64_t highResLow2 = res & 0xFFFFFFFF;
- 
-	//Addition
- 
-	uint64_t r = highResLow1 + lowRes2;
-	carry = r >> 32;
-	low = (r << 32) | lowRes1;
-	r = highResHigh1 + highResLow2 + carry;
-	uint64_t d3 = r & 0xFFFFFFFF;
-	carry = r >> 32;
-	r = highResHigh2 + carry;
-	high = d3 | (r << 32);
+    uint64_t aLow = a & 0xFFFFFFFF;
+    uint64_t aHigh = a >> 32;
+    uint64_t bLow = b & 0xFFFFFFFF;
+    uint64_t bHigh = b >> 32;
+
+    uint64_t res = aLow * bLow;
+    uint64_t lowRes1 = res & 0xFFFFFFFF;
+    uint64_t carry = res >> 32;
+
+    res = aHigh * bLow + carry;
+    uint64_t highResHigh1 = res >> 32;
+    uint64_t highResLow1 = res & 0xFFFFFFFF;
+
+    res = aLow * bHigh;
+    uint64_t lowRes2 = res & 0xFFFFFFFF;
+    carry = res >> 32;
+
+    res = aHigh * bHigh + carry;
+    uint64_t highResHigh2 = res >> 32;
+    uint64_t highResLow2 = res & 0xFFFFFFFF;
+
+    //Addition
+
+    uint64_t r = highResLow1 + lowRes2;
+    carry = r >> 32;
+    low = (r << 32) | lowRes1;
+    r = highResHigh1 + highResLow2 + carry;
+    uint64_t d3 = r & 0xFFFFFFFF;
+    carry = r >> 32;
+    r = highResHigh2 + carry;
+    high = d3 | (r << 32);
   }
 
 #endif

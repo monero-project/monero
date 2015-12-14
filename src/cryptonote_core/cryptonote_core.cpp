@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "include_base_utils.h"
@@ -63,7 +63,7 @@ namespace cryptonote
               m_blockchain_storage(&m_mempool),
 #endif
               m_miner(this),
-              m_miner_address(boost::value_initialized<account_public_address>()), 
+              m_miner_address(boost::value_initialized<account_public_address>()),
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
@@ -176,10 +176,10 @@ namespace cryptonote
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, command_line::arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
-    
+
     if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
-		test_drop_download();
-    
+      test_drop_download();
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -331,7 +331,7 @@ namespace cryptonote
       db->set_auto_remove_logs(auto_remove_logs);
       db->open(filename, db_flags);
       if(!db->m_open)
-    	  return false;
+        return false;
     }
     catch (const DB_ERROR& e)
     {
@@ -374,12 +374,12 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
     bool core::deinit()
   {
-	m_miner.stop();
-	m_mempool.deinit();
-	if (!m_fast_exit)
-	{
-		m_blockchain_storage.deinit();
-	}
+    m_miner.stop();
+    m_mempool.deinit();
+    if (!m_fast_exit)
+    {
+      m_blockchain_storage.deinit();
+    }
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -395,28 +395,28 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   void core::test_drop_download()
   {
-	  m_test_drop_download = false;
+    m_test_drop_download = false;
   }
   //-----------------------------------------------------------------------------------------------
   void core::test_drop_download_height(uint64_t height)
   {
-	  m_test_drop_download_height = height;
+    m_test_drop_download_height = height;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_test_drop_download() const
   {
-	  return m_test_drop_download;
+    return m_test_drop_download;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_test_drop_download_height() const
   {
-	  if (m_test_drop_download_height == 0)
-		return true;
-		
-	  if (get_blockchain_storage().get_current_blockchain_height() <= m_test_drop_download_height)
-		return true;
+    if (m_test_drop_download_height == 0)
+      return true;
 
-	  return false;
+    if (get_blockchain_storage().get_current_blockchain_height() <= m_test_drop_download_height)
+      return true;
+
+    return false;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed)
@@ -852,14 +852,14 @@ namespace cryptonote
   {
     if(!m_starter_message_showed)
     {
-      LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL 
-        << "The daemon will start synchronizing with the network. It may take up to several hours." << ENDL 
+      LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL
+        << "The daemon will start synchronizing with the network. It may take up to several hours." << ENDL
         << ENDL
         << "You can set the level of process detailization* through \"set_log <level>\" command*, where <level> is between 0 (no details) and 4 (very verbose)." << ENDL
         << ENDL
         << "Use \"help\" command to see the list of available commands." << ENDL
         << ENDL
-        << "Note: in case you need to interrupt the process, use \"exit\" command. Otherwise, the current progress won't be saved." << ENDL 
+        << "Note: in case you need to interrupt the process, use \"exit\" command. Otherwise, the current progress won't be saved." << ENDL
         << "**********************************************************************");
       m_starter_message_showed = true;
     }
@@ -915,6 +915,6 @@ namespace cryptonote
   {
     raise(SIGTERM);
   }
-  
+
   std::atomic<bool> core::m_fast_exit(false);
 }

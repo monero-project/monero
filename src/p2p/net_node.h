@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
@@ -83,15 +83,15 @@ namespace nodetool
     typedef t_payload_net_handler payload_net_handler;
 
     node_server(t_payload_net_handler& payload_handler)
-		:m_payload_handler(payload_handler),
+      :m_payload_handler(payload_handler),
     m_current_number_of_out_peers(0),
-		m_allow_local_ip(false),
-		m_hide_my_port(false),
+    m_allow_local_ip(false),
+    m_hide_my_port(false),
     m_no_igd(false),
     m_offline(false),
     m_save_graph(false),
     is_closing(false),
-		m_net_server( epee::net_utils::e_connection_type_P2P ) // this is a P2P connection of the main p2p node server, because this is class node_server<>
+    m_net_server( epee::net_utils::e_connection_type_P2P ) // this is a P2P connection of the main p2p node server, because this is class node_server<>
     {}
     virtual ~node_server()
     {}
@@ -128,7 +128,7 @@ namespace nodetool
     , "seeds.moneroseeds.ch"
     , "seeds.moneroseeds.li"
     };
-    
+
     bool islimitup=false;
     bool islimitdown=false;
 
@@ -201,7 +201,7 @@ namespace nodetool
     bool try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, bool white = true);
     size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
-    bool is_addr_connected(const net_address& peer);  
+    bool is_addr_connected(const net_address& peer);
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
     bool make_expected_connections_count(bool white_list, size_t expected_connections);
@@ -215,20 +215,20 @@ namespace nodetool
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
-	bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
-	bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
-	
-	bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
-  	bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
-  	bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
+    bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
+    bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
+
+    bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
+    bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
+    bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
     void kill() { ///< will be called e.g. from deinit()
-			_info("Killing the net_node");
-			is_closing = true;
-			if(mPeersLoggerThread != nullptr)
-			mPeersLoggerThread->join(); // make sure the thread finishes
-			_info("Joined extra background net_node threads");
-		}
+      _info("Killing the net_node");
+      is_closing = true;
+      if(mPeersLoggerThread != nullptr)
+        mPeersLoggerThread->join(); // make sure the thread finishes
+      _info("Joined extra background net_node threads");
+    }
 
     //debug functions
     std::string print_connections_container();
@@ -247,16 +247,16 @@ namespace nodetool
       END_KV_SERIALIZE_MAP()
     };
 
-	public:
+  public:
     config m_config; // TODO was private, add getters?
     std::atomic<unsigned int> m_current_number_of_out_peers;
 
-	void set_save_graph(bool save_graph)
-	{
-		m_save_graph = save_graph;
-		epee::net_utils::connection_basic::set_save_graph(save_graph);
-	}
-	private:
+    void set_save_graph(bool save_graph)
+    {
+      m_save_graph = save_graph;
+      epee::net_utils::connection_basic::set_save_graph(save_graph);
+    }
+  private:
     std::string m_config_folder;
 
     bool m_have_address;
@@ -270,7 +270,7 @@ namespace nodetool
     bool m_offline;
     std::atomic<bool> m_save_graph;
     std::atomic<bool> is_closing;
-	std::unique_ptr<std::thread> mPeersLoggerThread;
+    std::unique_ptr<std::thread> mPeersLoggerThread;
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;
 
