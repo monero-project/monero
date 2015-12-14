@@ -2900,7 +2900,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
                     crypto::hash tophash = m_db->top_block_hash();
                     if (block.prev_id != tophash)
                     {
-                        LOG_PRINT_L0("Skipping prepare blocks. New blocks don't belong to chain.")
+                        LOG_PRINT_L1("Skipping prepare blocks. New blocks don't belong to chain.")
                                 return true;
                     }
                 }
