@@ -87,5 +87,6 @@ namespace tests
     bool get_test_drop_download_height() {return true;}
     bool prepare_handle_incoming_blocks(const std::list<cryptonote::block_complete_entry>  &blocks) { return true; }
     bool cleanup_handle_incoming_blocks(bool force_sync = false) { return true; }
+    uint64_t get_target_blockchain_height() const { return 1; }
   };
 }
