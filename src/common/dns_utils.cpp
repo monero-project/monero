@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -86,7 +86,7 @@ get_builtin_cert(void)
 static const char*
 get_builtin_ds(void)
 {
-	return
+  return
 ". IN DS 19036 8 2 49AAC11D7B6F6446702E54A1607371607A1A41855200FD2CE1CDDE32F24E8FB5\n";
 }
 
@@ -211,23 +211,23 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
     ub_ctx_hosts(m_data->m_ub_context, NULL);
   }
 
-	#ifdef DEVELOPER_LIBUNBOUND_OLD
-		#pragma message "Using the work around for old libunbound"
-		{ // work around for bug https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=515 needed for it to compile on e.g. Debian 7
-			char * ds_copy = NULL; // this will be the writable copy of string that bugged version of libunbound requires
-			try {
-				char * ds_copy = strdup( ::get_builtin_ds() );
-				ub_ctx_add_ta(m_data->m_ub_context, ds_copy);
-			} catch(...) { // probably not needed but to work correctly in every case...
-				if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
-				throw ;
-			}
-			if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
-		}
-	#else
-		// normal version for fixed libunbound
-		ub_ctx_add_ta(m_data->m_ub_context, ::get_builtin_ds() );
-	#endif
+  #ifdef DEVELOPER_LIBUNBOUND_OLD
+    #pragma message "Using the work around for old libunbound"
+    { // work around for bug https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=515 needed for it to compile on e.g. Debian 7
+      char * ds_copy = NULL; // this will be the writable copy of string that bugged version of libunbound requires
+      try {
+        char * ds_copy = strdup( ::get_builtin_ds() );
+        ub_ctx_add_ta(m_data->m_ub_context, ds_copy);
+      } catch(...) { // probably not needed but to work correctly in every case...
+        if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
+        throw ;
+      }
+      if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
+    }
+  #else
+    // normal version for fixed libunbound
+    ub_ctx_add_ta(m_data->m_ub_context, ::get_builtin_ds() );
+  #endif
 
 }
 
