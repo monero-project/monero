@@ -172,3 +172,8 @@ Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
 
 See README.i18n
 
+## Using Tor
+
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmonerod command line.
+Be aware that your DNS use will probably go over clearnet. These come in two flavours: request for checkpoint data, and request for OpenAlias data. The first one is mostly harmless (your ISP can tell you're using monero). The second one leaks information about your transaction recipients, so do not use OpenAlias if you want DNS privacy.
+
