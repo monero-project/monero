@@ -114,7 +114,7 @@ bool t_daemon::run(bool interactive)
   {
     throw std::runtime_error{"Can't run stopped daemon"};
   }
-  tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop, this));
+  tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop_p2p, this));
 
   try
   {
