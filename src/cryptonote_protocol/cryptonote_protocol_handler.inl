@@ -536,10 +536,12 @@ namespace cryptonote
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler(
         boost::bind(&t_core::resume_mine, &m_core));
 
-			LOG_PRINT_CCONTEXT_YELLOW( "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size() , LOG_LEVEL_0);
+      LOG_PRINT_CCONTEXT_YELLOW( "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size() , LOG_LEVEL_1);
 			
       if (m_core.get_test_drop_download() && m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
 				
+  		  uint64_t previous_height = m_core.get_current_blockchain_height();
+
   		  m_core.prepare_handle_incoming_blocks(arg.blocks);
 		  BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
 		  {
@@ -589,9 +591,15 @@ namespace cryptonote
 				
 				epee::net_utils::data_logger::get_instance().add_data("calc_time", block_process_time + transactions_process_time);
 				epee::net_utils::data_logger::get_instance().add_data("block_processing", 1);
+
 								
 		  } // each download block
 		  m_core.cleanup_handle_incoming_blocks();	
+
+		  if (m_core.get_current_blockchain_height() > previous_height)
+		  {
+			  LOG_PRINT_CCONTEXT_YELLOW( "Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height() , LOG_LEVEL_0);
+		  }
 		} // if not DISCARD BLOCK
 
 		  
@@ -652,7 +660,7 @@ namespace cryptonote
         }
         context.m_needed_objects.erase(it++);
       }
-      LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size() << ", txs.size()=" << req.txs.size()
+      LOG_PRINT_CCONTEXT_L1("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size() << ", txs.size()=" << req.txs.size()
 				<< "requested blocks count=" << count << " / " << count_limit);
 		//epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
 		
@@ -667,9 +675,9 @@ namespace cryptonote
 		//std::string blob; // for calculate size of request
 		//epee::serialization::store_t_to_binary(r, blob);
 		//epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
-		LOG_PRINT_CCONTEXT_L0("r = " << 200);
+		LOG_PRINT_CCONTEXT_L1("r = " << 200);
 		
-      LOG_PRINT_CCONTEXT_L0("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
+      LOG_PRINT_CCONTEXT_L1("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
     }else
     { 
