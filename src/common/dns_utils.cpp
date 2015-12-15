@@ -183,12 +183,33 @@ struct DNSResolverData
 
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
+  int use_dns_public = 0;
+  const char* dns_public_addr = "8.8.4.4";
+  if (auto res = getenv("DNS_PUBLIC"))
+  {
+    std::string dns_public(res);
+    // TODO: could allow parsing of IP and protocol: e.g. DNS_PUBLIC=tcp:8.8.8.8
+    if (dns_public == "tcp")
+    {
+      LOG_PRINT_L0("Using public DNS server: " << dns_public_addr << " (TCP)");
+      use_dns_public = 1;
+    }
+  }
+
   // init libunbound context
   m_data->m_ub_context = ub_ctx_create();
 
-  // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
-  ub_ctx_resolvconf(m_data->m_ub_context, NULL);
-  ub_ctx_hosts(m_data->m_ub_context, NULL);
+  if (use_dns_public)
+  {
+    ub_ctx_set_fwd(m_data->m_ub_context, dns_public_addr);
+    ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
+    ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
+  }
+  else {
+    // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
+    ub_ctx_resolvconf(m_data->m_ub_context, NULL);
+    ub_ctx_hosts(m_data->m_ub_context, NULL);
+  }
 
 	#ifdef DEVELOPER_LIBUNBOUND_OLD
 		#pragma message "Using the work around for old libunbound"
