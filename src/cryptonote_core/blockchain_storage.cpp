@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <algorithm>
@@ -97,11 +97,11 @@ bool blockchain_storage::init(const std::string& config_folder, bool testnet)
   {
 
       // checkpoints
-      
+
       // mainchain
-      for (size_t height=0; height < m_blocks.size(); ++height) 
+      for (size_t height=0; height < m_blocks.size(); ++height)
       {
-	CHECK_AND_ASSERT_MES((!m_checkpoints.is_in_checkpoint_zone(height)) || m_checkpoints.check_block(height,get_block_hash(m_blocks[height].bl)),false,"checkpoint fail, blockchain.bin invalid");
+        CHECK_AND_ASSERT_MES((!m_checkpoints.is_in_checkpoint_zone(height)) || m_checkpoints.check_block(height,get_block_hash(m_blocks[height].bl)),false,"checkpoint fail, blockchain.bin invalid");
       }
 
       // check alt chains
@@ -110,7 +110,7 @@ bool blockchain_storage::init(const std::string& config_folder, bool testnet)
       // see issue #118
       BOOST_FOREACH(blocks_ext_by_hash::value_type& alt_block, m_alternative_chains)
       {
-	CHECK_AND_ASSERT_MES(m_checkpoints.is_alternative_block_allowed(m_blocks.size()-1,alt_block.second.height),false,"stored alternative block not allowed, blockchain.bin invalid");
+        CHECK_AND_ASSERT_MES(m_checkpoints.is_alternative_block_allowed(m_blocks.size()-1,alt_block.second.height),false,"stored alternative block not allowed, blockchain.bin invalid");
       }
       #endif
   }
@@ -661,7 +661,7 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
   b.timestamp = time(NULL);
   height = m_blocks.size();
   diffic = get_difficulty_for_next_block();
-  CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
+  CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
   median_size = m_current_block_cumul_sz_limit / 2;
   already_generated_coins = m_blocks.back().already_generated_coins;
@@ -1072,13 +1072,13 @@ bool blockchain_storage::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDO
       size_t try_count = 0;
       for(uint64_t j = 0; j != req.outs_count && try_count < up_index_limit;)
       {
-	// triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+        // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
         uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-	double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-	size_t i = (size_t)(frac*up_index_limit);
-	// just in case rounding up to 1 occurs after sqrt
-	if (i == up_index_limit)
-	  --i;
+        double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+        size_t i = (size_t)(frac*up_index_limit);
+        // just in case rounding up to 1 occurs after sqrt
+        if (i == up_index_limit)
+          --i;
         if(used.count(i))
           continue;
         bool added = add_out_to_get_random_outs(amount_outs, result_outs, amount, i);
@@ -1155,27 +1155,27 @@ uint64_t blockchain_storage::block_difficulty(size_t i) const
 //------------------------------------------------------------------
 double blockchain_storage::get_avg_block_size( size_t count) const
 {
-		if (count > get_current_blockchain_height()) return 500;
+  if (count > get_current_blockchain_height()) return 500;
 
-		double average = 0;
-		_dbg1_c("net/blksize", "HEIGHT: " << get_current_blockchain_height());
-		_dbg1_c("net/blksize", "BLOCK ID BY HEIGHT: " << get_block_id_by_height(get_current_blockchain_height()) );
-		_dbg1_c("net/blksize", "BLOCK TAIL ID: " << get_tail_id() );
-		std::vector<size_t> size_vector;	
+  double average = 0;
+  _dbg1_c("net/blksize", "HEIGHT: " << get_current_blockchain_height());
+  _dbg1_c("net/blksize", "BLOCK ID BY HEIGHT: " << get_block_id_by_height(get_current_blockchain_height()) );
+  _dbg1_c("net/blksize", "BLOCK TAIL ID: " << get_tail_id() );
+  std::vector<size_t> size_vector;
 
-		get_backward_blocks_sizes(get_current_blockchain_height() - count, size_vector, count);
+  get_backward_blocks_sizes(get_current_blockchain_height() - count, size_vector, count);
 
-		std::vector<size_t>::iterator it;
-		it = size_vector.begin();
-		while (it != size_vector.end()) {
-			average += *it;
-			_dbg2_c("net/blksize", "VECTOR ELEMENT: " << (*it) );
-			it++;
-		}	
-		average = average / count;
-		_dbg1_c("net/blksize", "VECTOR SIZE: " << size_vector.size() << " average=" << average);		
-		
-		return average;
+  std::vector<size_t>::iterator it;
+  it = size_vector.begin();
+  while (it != size_vector.end()) {
+    average += *it;
+    _dbg2_c("net/blksize", "VECTOR ELEMENT: " << (*it) );
+    it++;
+  }
+  average = average / count;
+  _dbg1_c("net/blksize", "VECTOR SIZE: " << size_vector.size() << " average=" << average);
+
+  return average;
 }
 //------------------------------------------------------------------
 void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_index) const
@@ -1248,7 +1248,7 @@ bool blockchain_storage::find_blockchain_supplement(const uint64_t req_start_blo
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   if(req_start_block > 0) {
-     start_height = req_start_block; 
+     start_height = req_start_block;
   } else {
     if(!find_blockchain_supplement(qblock_ids, start_height))
       return false;
@@ -1739,9 +1739,9 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   bei.block_cumulative_size = cumulative_block_size;
   bei.cumulative_difficulty = current_diffic;
 
-  // In the "tail" state when the minimum subsidy (implemented in get_block_reward) is in effect, the number of 
-  // coins will eventually exceed MONEY_SUPPLY and overflow a uint64. To prevent overflow, cap already_generated_coins 
-  // at MONEY_SUPPLY. already_generated_coins is only used to compute the block subsidy and MONEY_SUPPLY yields a 
+  // In the "tail" state when the minimum subsidy (implemented in get_block_reward) is in effect, the number of
+  // coins will eventually exceed MONEY_SUPPLY and overflow a uint64. To prevent overflow, cap already_generated_coins
+  // at MONEY_SUPPLY. already_generated_coins is only used to compute the block subsidy and MONEY_SUPPLY yields a
   // subsidy of 0 under the base formula and therefore the minimum subsidy >0 in the tail state.
 
   bei.already_generated_coins = base_reward < (MONEY_SUPPLY-already_generated_coins) ? already_generated_coins + base_reward : MONEY_SUPPLY;
@@ -1770,7 +1770,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size
     << ", " << block_processing_time << "("<< target_calculating_time << "/" << longhash_calculating_time << ")ms");
 
-	epee::net_utils::data_logger::get_instance().add_data("blockchain_processing_time", block_processing_time);
+  epee::net_utils::data_logger::get_instance().add_data("blockchain_processing_time", block_processing_time);
 
   bvc.m_added_to_main_chain = true;
   /*if(!m_orphanes_reorganize_in_work)
@@ -1837,13 +1837,13 @@ void blockchain_storage::check_against_checkpoints(const checkpoints& points, bo
       // if asked to enforce checkpoints, roll back to a couple of blocks before the checkpoint
       if (enforce)
       {
-	LOG_ERROR("Local blockchain failed to pass a checkpoint, rolling back!");
-	std::list<block> empty;
-	rollback_blockchain_switching(empty, pt.first - 2);
+        LOG_ERROR("Local blockchain failed to pass a checkpoint, rolling back!");
+        std::list<block> empty;
+        rollback_blockchain_switching(empty, pt.first - 2);
       }
       else
       {
-	LOG_ERROR("WARNING: local blockchain failed to pass a MoneroPulse checkpoint, and you could be on a fork. You should either sync up from scratch, OR download a fresh blockchain bootstrap, OR enable checkpoint enforcing with the --enforce-dns-checkpointing command-line option");
+        LOG_ERROR("WARNING: local blockchain failed to pass a MoneroPulse checkpoint, and you could be on a fork. You should either sync up from scratch, OR download a fresh blockchain bootstrap, OR enable checkpoint enforcing with the --enforce-dns-checkpointing command-line option");
       }
     }
   }

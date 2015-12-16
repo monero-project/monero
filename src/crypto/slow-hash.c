@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <assert.h>
@@ -104,33 +104,33 @@
 #endif
 
 #define pre_aes() \
-    j = state_index(a); \
-	_c = _mm_load_si128(R128(&hp_state[j])); \
-	_a = _mm_load_si128(R128(a)); \
+  j = state_index(a); \
+  _c = _mm_load_si128(R128(&hp_state[j])); \
+  _a = _mm_load_si128(R128(a)); \
 
 /*
  * An SSE-optimized implementation of the second half of CryptoNight step 3.
- * After using AES to mix a scratchpad value into _c (done by the caller), 
- * this macro xors it with _b and stores the result back to the same index (j) that it 
+ * After using AES to mix a scratchpad value into _c (done by the caller),
+ * this macro xors it with _b and stores the result back to the same index (j) that it
  * loaded the scratchpad value from.  It then performs a second random memory
  * read/write from the scratchpad, but this time mixes the values using a 64
  * bit multiply.
  * This code is based upon an optimized implementation by dga.
  */
 #define post_aes() \
-	_mm_store_si128(R128(c), _c); \
-	_b = _mm_xor_si128(_b, _c); \
-	_mm_store_si128(R128(&hp_state[j]), _b); \
-	j = state_index(c); \
-	p = U64(&hp_state[j]); \
-	b[0] = p[0]; b[1] = p[1]; \
-	__mul(); \
-	a[0] += hi; a[1] += lo; \
-	p = U64(&hp_state[j]); \
-	p[0] = a[0];  p[1] = a[1]; \
-	a[0] ^= b[0]; a[1] ^= b[1]; \
-	_b = _c; \
- 
+  _mm_store_si128(R128(c), _c); \
+  _b = _mm_xor_si128(_b, _c); \
+  _mm_store_si128(R128(&hp_state[j]), _b); \
+  j = state_index(c); \
+  p = U64(&hp_state[j]); \
+  b[0] = p[0]; b[1] = p[1]; \
+  __mul(); \
+  a[0] += hi; a[1] += lo; \
+  p = U64(&hp_state[j]); \
+  p[0] = a[0];  p[1] = a[1]; \
+  a[0] ^= b[0]; a[1] ^= b[1]; \
+  _b = _c; \
+
 #if defined(_MSC_VER)
 #define THREADV __declspec(thread)
 #else
@@ -226,14 +226,14 @@ STATIC INLINE void aes_256_assist2(__m128i* t1, __m128i * t3)
     *t3 = _mm_xor_si128(*t3, t2);
 }
 
-/** 
+/**
  * @brief expands 'key' into a form it can be used for AES encryption.
- * 
+ *
  * This is an SSE-optimized implementation of AES key schedule generation.  It
  * expands the key into multiple round keys, each of which is used in one round
  * of the AES encryption used to fill (and later, extract randomness from)
  * the large 2MB buffer.  Note that CryptoNight does not use a completely
- * standard AES encryption for its buffer expansion, so do not copy this 
+ * standard AES encryption for its buffer expansion, so do not copy this
  * function outside of Monero without caution!  This version uses the hardware
  * AESKEYGENASSIST instruction to speed key generation, and thus requires
  * CPU AES support.
@@ -402,7 +402,7 @@ BOOL SetLockPagesPrivilege(HANDLE hProcess, BOOL bEnable)
 /**
  * @brief allocate the 2MB scratch buffer using OS support for huge pages, if available
  *
- * This function tries to allocate the 2MB scratch buffer using a single 
+ * This function tries to allocate the 2MB scratch buffer using a single
  * 2MB "huge page" (instead of the usual 4KB page sizes) to reduce TLB misses
  * during the random accesses to the scratch buffer.  This is one of the
  * important speed optimizations needed to make CryptoNight faster.
@@ -423,7 +423,7 @@ void slow_hash_allocate_state(void)
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__)
     hp_state = mmap(0, MEMORY, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANON, 0, 0);    
+                    MAP_PRIVATE | MAP_ANON, 0, 0);
 #else
     hp_state = mmap(0, MEMORY, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, 0, 0);
@@ -562,7 +562,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
      */
 
     _b = _mm_load_si128(R128(b));
-    // Two independent versions, one with AES, one without, to ensure that 
+    // Two independent versions, one with AES, one without, to ensure that
     // the useAes test is only performed once, not every iteration.
     if(useAes)
     {
@@ -665,59 +665,59 @@ static void (*const extra_hashes[4])(const void *, size_t, char *) = {
 
 STATIC INLINE void ___mul128(uint32_t *a, uint32_t *b, uint32_t *h, uint32_t *l)
 {
-	// ND: 64x64 multiplication for ARM7
-	__asm__ __volatile__
-	(
-			  //  lo    hi
-		"umull %[r0], %[r1], %[b], %[d]\n\t"  // bd [r0 = bd.lo]
-		"umull %[r2], %[r3], %[b], %[c]\n\t"  // bc
-		"umull %[b],  %[c],  %[a], %[c]\n\t"  // ac
-		"adds  %[r1], %[r1], %[r2]\n\t"       // r1 = bd.hi + bc.lo
-		"adcs  %[r2], %[r3], %[b]\n\t"        // r2 = ac.lo + bc.hi + carry
-		"adc   %[r3], %[c],  #0\n\t"          // r3 = ac.hi + carry
-		"umull %[b],  %[a],  %[a], %[d]\n\t"  // ad
-		"adds  %[r1], %[r1], %[b]\n\t"        // r1 = bd.hi + bc.lo + ad.lo
-		"adcs  %[r2], %[r2], %[a]\n\t"        // r2 = ac.lo + bc.hi + ad.hi + carry
-		"adc   %[r3], %[r3], #0\n\t"          // r3 = ac.hi + carry
-		: [r0]"=&r"(l[0]), [r1]"=&r"(l[1]), [r2]"=&r"(h[0]), [r3]"=&r"(h[1])
-		: [a]"r"(a[1]), [b]"r"(a[0]), [c]"r"(b[1]), [d]"r"(b[0])
-		: "cc"
-	);
+  // ND: 64x64 multiplication for ARM7
+  __asm__ __volatile__
+    (
+     //  lo    hi
+     "umull %[r0], %[r1], %[b], %[d]\n\t"  // bd [r0 = bd.lo]
+     "umull %[r2], %[r3], %[b], %[c]\n\t"  // bc
+     "umull %[b],  %[c],  %[a], %[c]\n\t"  // ac
+     "adds  %[r1], %[r1], %[r2]\n\t"       // r1 = bd.hi + bc.lo
+     "adcs  %[r2], %[r3], %[b]\n\t"        // r2 = ac.lo + bc.hi + carry
+     "adc   %[r3], %[c],  #0\n\t"          // r3 = ac.hi + carry
+     "umull %[b],  %[a],  %[a], %[d]\n\t"  // ad
+     "adds  %[r1], %[r1], %[b]\n\t"        // r1 = bd.hi + bc.lo + ad.lo
+     "adcs  %[r2], %[r2], %[a]\n\t"        // r2 = ac.lo + bc.hi + ad.hi + carry
+     "adc   %[r3], %[r3], #0\n\t"          // r3 = ac.hi + carry
+     : [r0]"=&r"(l[0]), [r1]"=&r"(l[1]), [r2]"=&r"(h[0]), [r3]"=&r"(h[1])
+     : [a]"r"(a[1]), [b]"r"(a[0]), [c]"r"(b[1]), [d]"r"(b[0])
+     : "cc"
+    );
 }
 
 STATIC INLINE void mul(const uint8_t* a, const uint8_t* b, uint8_t* res)
 {
-	___mul128((uint32_t *) a, (uint32_t *) b, (uint32_t *) (res + 0), (uint32_t *) (res + 8));
+  ___mul128((uint32_t *) a, (uint32_t *) b, (uint32_t *) (res + 0), (uint32_t *) (res + 8));
 }
 
 STATIC INLINE void sum_half_blocks(uint8_t* a, const uint8_t* b)
 {
-	uint64_t a0, a1, b0, b1;
-	a0 = U64(a)[0];
-	a1 = U64(a)[1];
-	b0 = U64(b)[0];
-	b1 = U64(b)[1];
-	a0 += b0;
-	a1 += b1;
-	U64(a)[0] = a0;
-	U64(a)[1] = a1;
+  uint64_t a0, a1, b0, b1;
+  a0 = U64(a)[0];
+  a1 = U64(a)[1];
+  b0 = U64(b)[0];
+  b1 = U64(b)[1];
+  a0 += b0;
+  a1 += b1;
+  U64(a)[0] = a0;
+  U64(a)[1] = a1;
 }
 
 STATIC INLINE void swap_blocks(uint8_t *a, uint8_t *b)
 {
-	uint64_t t[2];
-	U64(t)[0] = U64(a)[0];
-	U64(t)[1] = U64(a)[1];
-	U64(a)[0] = U64(b)[0];
-	U64(a)[1] = U64(b)[1];
-	U64(b)[0] = U64(t)[0];
-	U64(b)[1] = U64(t)[1];
+  uint64_t t[2];
+  U64(t)[0] = U64(a)[0];
+  U64(t)[1] = U64(a)[1];
+  U64(a)[0] = U64(b)[0];
+  U64(a)[1] = U64(b)[1];
+  U64(b)[0] = U64(t)[0];
+  U64(b)[1] = U64(t)[1];
 }
 
 STATIC INLINE void xor_blocks(uint8_t* a, const uint8_t* b)
 {
-	U64(a)[0] ^= U64(b)[0];
-	U64(a)[1] ^= U64(b)[1];
+  U64(a)[0] ^= U64(b)[0];
+  U64(a)[1] ^= U64(b)[1];
 }
 
 #pragma pack(push, 1)
@@ -774,25 +774,25 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
 
     for(i = 0; i < ITER / 2; i++)
     {
-		#define MASK ((uint32_t)(((MEMORY / AES_BLOCK_SIZE) - 1) << 4))
-		#define state_index(x) ((*(uint32_t *) x) & MASK)
+      #define MASK ((uint32_t)(((MEMORY / AES_BLOCK_SIZE) - 1) << 4))
+      #define state_index(x) ((*(uint32_t *) x) & MASK)
 
-        // Iteration 1
-        p = &long_state[state_index(a)];
-        aesb_single_round(p, p, a);
+      // Iteration 1
+      p = &long_state[state_index(a)];
+      aesb_single_round(p, p, a);
 
-        xor_blocks(b, p);
-        swap_blocks(b, p);
-        swap_blocks(a, b);
+      xor_blocks(b, p);
+      swap_blocks(b, p);
+      swap_blocks(a, b);
 
-        // Iteration 2
-        p = &long_state[state_index(a)];
+      // Iteration 2
+      p = &long_state[state_index(a)];
 
-        mul(a, p, d);
-        sum_half_blocks(b, d);
-        swap_blocks(b, p);
-        xor_blocks(b, p);
-        swap_blocks(a, b);
+      mul(a, p, d);
+      sum_half_blocks(b, d);
+      swap_blocks(b, p);
+      xor_blocks(b, p);
+      swap_blocks(a, b);
     }
 
     memcpy(text, state.init, INIT_SIZE_BYTE);
@@ -874,13 +874,13 @@ static void copy_block(uint8_t* dst, const uint8_t* src) {
 }
 
 static void swap_blocks(uint8_t *a, uint8_t *b){
-	uint64_t t[2];
-	U64(t)[0] = U64(a)[0];
-	U64(t)[1] = U64(a)[1];
-	U64(a)[0] = U64(b)[0];
-	U64(a)[1] = U64(b)[1];
-	U64(b)[0] = U64(t)[0];
-	U64(b)[1] = U64(t)[1];
+  uint64_t t[2];
+  U64(t)[0] = U64(a)[0];
+  U64(t)[1] = U64(a)[1];
+  U64(a)[0] = U64(b)[0];
+  U64(a)[1] = U64(b)[1];
+  U64(b)[0] = U64(t)[0];
+  U64(b)[1] = U64(t)[1];
 }
 
 static void xor_blocks(uint8_t* a, const uint8_t* b) {
@@ -916,11 +916,11 @@ void cn_slow_hash(const void *data, size_t length, char *hash) {
   memcpy(text, state.init, INIT_SIZE_BYTE);
   memcpy(aes_key, state.hs.b, AES_KEY_SIZE);
   aes_ctx = (oaes_ctx *) oaes_alloc();
-  
+
   oaes_key_import_data(aes_ctx, aes_key, AES_KEY_SIZE);
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
-    for (j = 0; j < INIT_SIZE_BLK; j++) {    
-		  aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
+    for (j = 0; j < INIT_SIZE_BLK; j++) {
+      aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
     }
     memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
   }
@@ -938,7 +938,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash) {
     /* Iteration 1 */
     j = e2i(a, MEMORY / AES_BLOCK_SIZE);
     copy_block(c, &long_state[j * AES_BLOCK_SIZE]);
-	  aesb_single_round(c, c, a);
+    aesb_single_round(c, c, a);
     xor_blocks(b, c);
     swap_blocks(b, c);
     copy_block(&long_state[j * AES_BLOCK_SIZE], c);
@@ -961,7 +961,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash) {
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
     for (j = 0; j < INIT_SIZE_BLK; j++) {
       xor_blocks(&text[j * AES_BLOCK_SIZE], &long_state[i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE]);
-	    aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
+      aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
     }
   }
   memcpy(state.init, text, INIT_SIZE_BYTE);

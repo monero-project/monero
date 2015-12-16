@@ -1,21 +1,21 @@
 // Copyright (c) 2014, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -85,7 +85,7 @@
  *   size_t      get_block_size(height)
  *   difficulty  get_block_cumulative_difficulty(height)
  *   uint64_t    get_block_already_generated_coins(height)
- *   uint64_t    get_block_timestamp(height) 
+ *   uint64_t    get_block_timestamp(height)
  *   uint64_t    get_top_block_timestamp()
  *   hash        get_block_hash_from_height(height)
  *   blocks      get_blocks_range(height1, height2)
@@ -139,12 +139,12 @@ typedef std::pair<crypto::hash, uint64_t> tx_out_index;
 #pragma pack(push, 1)
 struct output_data_t
 {
-	crypto::public_key pubkey;
-	uint64_t unlock_time;
-	uint64_t height;
+  crypto::public_key pubkey;
+  uint64_t unlock_time;
+  uint64_t height;
 };
 #pragma pack(pop)
-	
+
 /***********************************
  * Exception Definitions
  ***********************************/
@@ -300,7 +300,7 @@ private:
 
   /*********************************************************************
    * private concrete members
-   *********************************************************************/ 
+   *********************************************************************/
   // private version of pop_block, for undoing if an add_block goes tits up
   void pop_block();
 
@@ -479,7 +479,7 @@ public:
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) = 0;
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) = 0;
   virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) = 0;
-  
+
   virtual bool can_thread_bulk_indices() const = 0;
 
   // return a vector of indices corresponding to the global output index for

@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "checkpoints_create.h"
@@ -46,11 +46,11 @@ namespace
       bool ok = false;
       for (const auto& record_in_b : b)
       {
-	if (record_in_a == record_in_b)
-	{
-	  ok = true;
-	  break;
-	}
+        if (record_in_a == record_in_b)
+        {
+          ok = true;
+          break;
+        }
       }
       if (!ok) return false;
     }
@@ -62,25 +62,25 @@ namespace
 namespace cryptonote
 {
 
-struct t_hashline 
+struct t_hashline
 {
-	uint64_t height;
-	std::string hash;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(height)
-        KV_SERIALIZE(hash)
-      END_KV_SERIALIZE_MAP()
+  uint64_t height;
+  std::string hash;
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(height)
+    KV_SERIALIZE(hash)
+  END_KV_SERIALIZE_MAP()
 };
 
 struct t_hash_json {
- 	std::vector<t_hashline> hashlines;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(hashlines)
-      END_KV_SERIALIZE_MAP()
+  std::vector<t_hashline> hashlines;
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(hashlines)
+  END_KV_SERIALIZE_MAP()
 };
 
 bool create_checkpoints(cryptonote::checkpoints& checkpoints)
-{      
+{
   ADD_CHECKPOINT(1,     "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148");
   ADD_CHECKPOINT(10,    "c0e3b387e47042f72d8ccdca88071ff96bff1ac7cde09ae113dbb7ad3fe92381");
   ADD_CHECKPOINT(100,   "ac3e11ca545e57c49fca2b4e8c48c03c23be047c43e471e1394528b1f9f80b2d");
@@ -126,11 +126,11 @@ bool load_checkpoints_from_json(cryptonote::checkpoints& checkpoints, std::strin
       uint64_t height;
       height = it->height;
       if (height <= prev_max_height) {
-	LOG_PRINT_L1("ignoring checkpoint height " << height);
+        LOG_PRINT_L1("ignoring checkpoint height " << height);
       } else {
-	std::string blockhash = it->hash;
-	LOG_PRINT_L1("Adding checkpoint height " << height << ", hash=" << blockhash);
-	ADD_CHECKPOINT(height, blockhash);
+        std::string blockhash = it->hash;
+        LOG_PRINT_L1("Adding checkpoint height " << height << ", hash=" << blockhash);
+        ADD_CHECKPOINT(height, blockhash);
       }
       ++it;
   }
@@ -142,15 +142,15 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
 {
   // All four MoneroPulse domains have DNSSEC on and valid
   static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
-						   , "checkpoints.moneropulse.org"
-						   , "checkpoints.moneropulse.net"
-						   , "checkpoints.moneropulse.co"
+                                                   , "checkpoints.moneropulse.org"
+                                                   , "checkpoints.moneropulse.net"
+                                                   , "checkpoints.moneropulse.co"
   };
 
   static const std::vector<std::string> testnet_dns_urls = { "testpoints.moneropulse.se"
-							   , "testpoints.moneropulse.org"
-							   , "testpoints.moneropulse.net"
-							   , "testpoints.moneropulse.co"
+                                                           , "testpoints.moneropulse.org"
+                                                           , "testpoints.moneropulse.net"
+                                                           , "testpoints.moneropulse.co"
   };
 
   std::vector<std::vector<std::string> > records;
@@ -220,8 +220,8 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
     {
       if (dns_records_match(records[i], records[j]))
       {
-	good_records_index = i;
-	break;
+        good_records_index = i;
+        break;
       }
     }
     if (good_records_index >= 0) break;
@@ -246,7 +246,7 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
       std::stringstream ss(record.substr(0, pos));
       if (!(ss >> height))
       {
-	continue;
+        continue;
       }
 
       // parse the second part as crypto::hash,
@@ -254,7 +254,7 @@ bool load_checkpoints_from_dns(cryptonote::checkpoints& checkpoints, bool testne
       std::string hashStr = record.substr(pos + 1);
       if (!epee::string_tools::parse_tpod_from_hex_string(hashStr, hash))
       {
-	continue;
+        continue;
       }
 
       ADD_CHECKPOINT(height, hashStr);

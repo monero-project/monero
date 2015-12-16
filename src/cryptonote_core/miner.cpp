@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2015, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <sstream>
@@ -68,9 +68,9 @@ namespace cryptonote
     m_thread_index(0),
     m_phandler(phandler),
     m_height(0),
-    m_pausers_count(0), 
+    m_pausers_count(0),
     m_threads_total(0),
-    m_starter_nonce(0), 
+    m_starter_nonce(0),
     m_last_hr_merge_time(0),
     m_hashes(0),
     m_do_print_hashrate(false),
@@ -109,7 +109,7 @@ namespace cryptonote
     block bl = AUTO_VAL_INIT(bl);
     difficulty_type di = AUTO_VAL_INIT(di);
     uint64_t height = AUTO_VAL_INIT(height);
-    cryptonote::blobdata extra_nonce; 
+    cryptonote::blobdata extra_nonce;
     if(m_extra_messages.size() && m_config.current_extra_message_index < m_extra_messages.size())
     {
       extra_nonce = m_extra_messages[m_config.current_extra_message_index];
@@ -135,7 +135,7 @@ namespace cryptonote
       merge_hr();
       return true;
     });
-    
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -227,7 +227,7 @@ namespace cryptonote
   uint32_t miner::get_threads_count() const {
     return m_threads_total;
   }
-  //----------------------------------------------------------------------------------------------------- 
+  //-----------------------------------------------------------------------------------------------------
   bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs)
   {
     m_mine_address = adr;
@@ -346,7 +346,7 @@ namespace cryptonote
     difficulty_type local_diff = 0;
     uint32_t local_template_ver = 0;
     block b;
-	  slow_hash_allocate_state();
+    slow_hash_allocate_state();
     while(!m_stop)
     {
       if(m_pausers_count)//anti split workaround
@@ -357,7 +357,6 @@ namespace cryptonote
 
       if(local_template_ver != m_template_no)
       {
-        
         CRITICAL_REGION_BEGIN(m_template_lock);
         b = m_template;
         local_diff = m_diffic;
@@ -395,7 +394,7 @@ namespace cryptonote
       nonce+=m_threads_total;
       ++m_hashes;
     }
-	  slow_hash_free_state();
+    slow_hash_free_state();
     LOG_PRINT_L0("Miner thread stopped ["<< th_local_index << "]");
     return true;
   }

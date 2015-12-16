@@ -65,9 +65,9 @@ set(cryptonote_core_private_headers
   hardfork.h)
 
 if(PER_BLOCK_CHECKPOINT)
-	set(Blocks "blocks")
+  set(Blocks "blocks")
 else()
-	set(Blocks "")
+  set(Blocks "")
 endif()
 
 bitmonero_private_headers(cryptonote_core
@@ -86,7 +86,7 @@ target_link_libraries(cryptonote_core
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
   LINK_PRIVATE
-    ${Blocks}  
+    ${Blocks}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}

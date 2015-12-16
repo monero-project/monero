@@ -1,20 +1,20 @@
 // Copyright (c) 2014, The Monero Project
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -72,19 +72,19 @@ struct lmdb_cur
     done = false;
   }
 
-	~lmdb_cur()
-	{
-		close();
-	}
+  ~lmdb_cur()
+  {
+    close();
+  }
 
-	operator MDB_cursor*()
-	{
-		return m_cur;
-	}
-	operator MDB_cursor**()
-	{
-		return &m_cur;
-	}
+  operator MDB_cursor*()
+  {
+    return m_cur;
+  }
+  operator MDB_cursor**()
+  {
+    return &m_cur;
+  }
 
   void close()
   {
@@ -103,8 +103,8 @@ private:
 template<typename T>
 struct MDB_val_copy: public MDB_val
 {
-	MDB_val_copy(const T &t) :
-			t_copy(t)
+  MDB_val_copy(const T &t) :
+    t_copy(t)
   {
     mv_size = sizeof (T);
     mv_data = &t_copy;
@@ -116,8 +116,8 @@ private:
 template<>
 struct MDB_val_copy<cryptonote::blobdata>: public MDB_val
 {
-	MDB_val_copy(const cryptonote::blobdata &bd) :
-			data(new char[bd.size()])
+  MDB_val_copy(const cryptonote::blobdata &bd) :
+    data(new char[bd.size()])
   {
     memcpy(data.get(), bd.data(), bd.size());
     mv_size = bd.size();
@@ -130,8 +130,8 @@ private:
 template<>
 struct MDB_val_copy<const char*>: public MDB_val
 {
-	MDB_val_copy(const char *s) :
-			data(strdup(s))
+  MDB_val_copy(const char *s) :
+    data(strdup(s))
   {
     mv_size = strlen(s) + 1; // include the NUL, makes it easier for compares
     mv_data = data.get();
@@ -160,16 +160,16 @@ auto compare_uint8 = [](const MDB_val *a, const MDB_val *b)
 
 int compare_hash32(const MDB_val *a, const MDB_val *b)
 {
-	uint32_t *va = (uint32_t*) a->mv_data;
-	uint32_t *vb = (uint32_t*) b->mv_data;
-	for (int n = 7; n >= 0; n--)
-	{
-		if (va[n] == vb[n])
-			continue;
-		return va[n] < vb[n] ? -1 : 1;
-	}
+  uint32_t *va = (uint32_t*) a->mv_data;
+  uint32_t *vb = (uint32_t*) b->mv_data;
+  for (int n = 7; n >= 0; n--)
+  {
+    if (va[n] == vb[n])
+      continue;
+    return va[n] < vb[n] ? -1 : 1;
+  }
 
-	return 0;
+  return 0;
 }
 
 int compare_string(const MDB_val *a, const MDB_val *b)
@@ -313,18 +313,18 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   // check disk capacity
   try
   {
-	boost::filesystem::path path(m_folder);
-	boost::filesystem::space_info si = boost::filesystem::space(path);
-	if(si.available < add_size)
-	{
-	  LOG_PRINT_RED_L0("!! WARNING: Insufficient free space to extend database !!: " << si.available / 1LL << 20L);
-	  return;
-	}
+    boost::filesystem::path path(m_folder);
+    boost::filesystem::space_info si = boost::filesystem::space(path);
+    if(si.available < add_size)
+    {
+      LOG_PRINT_RED_L0("!! WARNING: Insufficient free space to extend database !!: " << si.available / 1LL << 20L);
+      return;
+    }
   }
   catch(...)
   {
-	// print something but proceed.
-	LOG_PRINT_YELLOW("Unable to query free disk space.", LOG_LEVEL_0);
+    // print something but proceed.
+    LOG_PRINT_YELLOW("Unable to query free disk space.", LOG_LEVEL_0);
   }
 
   MDB_envinfo mei;
@@ -417,7 +417,7 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
   }
   return false;
 #else
-	return false;
+  return false;
 #endif
 }
 
@@ -505,7 +505,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
 }
 
 void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-		const crypto::hash& blk_hash)
+    const crypto::hash& blk_hash)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -685,15 +685,15 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
 
   if (tx_output.target.type() == typeid(txout_to_key))
   {
-		output_data_t od;
-		od.pubkey = boost::get < txout_to_key > (tx_output.target).key;
-		od.unlock_time = unlock_time;
-		od.height = m_height;
+    output_data_t od;
+    od.pubkey = boost::get < txout_to_key > (tx_output.target).key;
+    od.unlock_time = unlock_time;
+    od.height = m_height;
 
-		MDB_val_copy<output_data_t> data(od);
-		//MDB_val_copy<crypto::public_key> val_pubkey(boost::get<txout_to_key>(tx_output.target).key);
-		if (mdb_put(*m_write_txn, m_output_keys, &k, &data, 0))
-			throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
+    MDB_val_copy<output_data_t> data(od);
+    //MDB_val_copy<crypto::public_key> val_pubkey(boost::get<txout_to_key>(tx_output.target).key);
+    if (mdb_put(*m_write_txn, m_output_keys, &k, &data, 0))
+      throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
   }
 
   m_num_outputs++;
@@ -891,17 +891,17 @@ tx_out BlockchainLMDB::output_from_blob(const blobdata& blob) const
   return o;
 }
 
-uint64_t BlockchainLMDB::get_output_global_index(const uint64_t& amount, const uint64_t& index) 
+uint64_t BlockchainLMDB::get_output_global_index(const uint64_t& amount, const uint64_t& index)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-	std::vector <uint64_t> offsets;
-	std::vector <uint64_t> global_indices;
-	offsets.push_back(index);
-	get_output_global_indices(amount, offsets, global_indices);
-	if (!global_indices.size())
+  std::vector <uint64_t> offsets;
+  std::vector <uint64_t> global_indices;
+  offsets.push_back(index);
+  get_output_global_indices(amount, offsets, global_indices);
+  if (!global_indices.size())
     throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
 
-	return global_indices[0];
+  return global_indices[0];
 }
 
 void BlockchainLMDB::check_open() const
@@ -956,7 +956,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   // check for existing LMDB files in base directory
   boost::filesystem::path old_files = direc.parent_path();
-	if (boost::filesystem::exists(old_files / "data.mdb") || boost::filesystem::exists(old_files / "lock.mdb"))
+  if (boost::filesystem::exists(old_files / "data.mdb") || boost::filesystem::exists(old_files / "lock.mdb"))
   {
     LOG_PRINT_L0("Found existing LMDB files in " << old_files.string());
     LOG_PRINT_L0("Move data.mdb and/or lock.mdb to " << filename << ", or delete them, and then restart");
@@ -1022,7 +1022,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   lmdb_db_open(txn, LMDB_OUTPUT_TXS, MDB_INTEGERKEY | MDB_CREATE, m_output_txs, "Failed to open db handle for m_output_txs");
   lmdb_db_open(txn, LMDB_OUTPUT_INDICES, MDB_INTEGERKEY | MDB_CREATE, m_output_indices, "Failed to open db handle for m_output_indices");
-	lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS,	MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
+  lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
   lmdb_db_open(txn, LMDB_OUTPUT_KEYS, MDB_INTEGERKEY | MDB_CREATE, m_output_keys, "Failed to open db handle for m_output_keys");
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_spent_keys");
@@ -1057,26 +1057,26 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   bool compatible = true;
 
-	// ND: This "new" version of the lmdb database is incompatible with
-	// the previous version. Ensure that the output_keys database is
-	// sizeof(output_data_t) in length. Otherwise, inform user and
-	// terminate.
-	if(m_height > 0)
-	{
-	    MDB_val_copy<uint64_t> k(0);
-	    MDB_val v;
-	    auto get_result = mdb_get(txn, m_output_keys, &k, &v);
-	    if(get_result != MDB_SUCCESS)
-	    {
-	    	txn.abort();
-	    	m_open = false;
-	    	return;
-	    }
+  // ND: This "new" version of the lmdb database is incompatible with
+  // the previous version. Ensure that the output_keys database is
+  // sizeof(output_data_t) in length. Otherwise, inform user and
+  // terminate.
+  if(m_height > 0)
+  {
+    MDB_val_copy<uint64_t> k(0);
+    MDB_val v;
+    auto get_result = mdb_get(txn, m_output_keys, &k, &v);
+    if(get_result != MDB_SUCCESS)
+    {
+      txn.abort();
+      m_open = false;
+      return;
+    }
 
-	    // LOG_PRINT_L0("Output keys size: " << v.mv_size);
-	    if(v.mv_size != sizeof(output_data_t))
-	      compatible = false;
-	}
+    // LOG_PRINT_L0("Output keys size: " << v.mv_size);
+    if(v.mv_size != sizeof(output_data_t))
+      compatible = false;
+  }
 
   MDB_val_copy<const char*> k("version");
   MDB_val v;
@@ -1721,11 +1721,11 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
 
 output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index)
 {
-	LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-	check_open();
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
 
-	uint64_t glob_index = get_output_global_index(amount, index);
-	return get_output_key(glob_index);
+  uint64_t glob_index = get_output_global_index(amount, index);
+  return get_output_key(glob_index);
 }
 
 tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t& index) const
@@ -1760,14 +1760,14 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t&
 tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-	std::vector < uint64_t > offsets;
-	std::vector<tx_out_index> indices;
-	offsets.push_back(index);
-	get_output_tx_and_index(amount, offsets, indices);
-	if (!indices.size())
+  std::vector < uint64_t > offsets;
+  std::vector<tx_out_index> indices;
+  offsets.push_back(index);
+  get_output_tx_and_index(amount, offsets, indices);
+  if (!indices.size())
     throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
 
-	return indices[0];
+  return indices[0];
 }
 
 std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& h) const
@@ -2152,7 +2152,7 @@ void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
 }
 
 uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-		const std::vector<transaction>& txs)
+    const std::vector<transaction>& txs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2235,192 +2235,192 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
 }
 
 void BlockchainLMDB::get_output_tx_and_index_from_global(const std::vector<uint64_t> &global_indices,
-		std::vector<tx_out_index> &tx_out_indices) const
+    std::vector<tx_out_index> &tx_out_indices) const
 {
-	LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-	check_open();
-	tx_out_indices.clear();
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  tx_out_indices.clear();
 
-	TXN_PREFIX_RDONLY();
+  TXN_PREFIX_RDONLY();
 
-	for (const uint64_t &index : global_indices)
-	{
-		MDB_val_copy<uint64_t> k(index);
-		MDB_val v;
+  for (const uint64_t &index : global_indices)
+  {
+    MDB_val_copy<uint64_t> k(index);
+    MDB_val v;
 
-		auto get_result = mdb_get(*txn_ptr, m_output_txs, &k, &v);
-		if (get_result == MDB_NOTFOUND)
-			throw1(OUTPUT_DNE("output with given index not in db"));
-		else if (get_result)
-			throw0(DB_ERROR("DB error attempting to fetch output tx hash"));
+    auto get_result = mdb_get(*txn_ptr, m_output_txs, &k, &v);
+    if (get_result == MDB_NOTFOUND)
+      throw1(OUTPUT_DNE("output with given index not in db"));
+    else if (get_result)
+      throw0(DB_ERROR("DB error attempting to fetch output tx hash"));
 
-		crypto::hash tx_hash = *(const crypto::hash*) v.mv_data;
+    crypto::hash tx_hash = *(const crypto::hash*) v.mv_data;
 
-		get_result = mdb_get(*txn_ptr, m_output_indices, &k, &v);
-		if (get_result == MDB_NOTFOUND)
-			throw1(OUTPUT_DNE("output with given index not in db"));
-		else if (get_result)
-			throw0(DB_ERROR("DB error attempting to fetch output tx index"));
+    get_result = mdb_get(*txn_ptr, m_output_indices, &k, &v);
+    if (get_result == MDB_NOTFOUND)
+      throw1(OUTPUT_DNE("output with given index not in db"));
+    else if (get_result)
+      throw0(DB_ERROR("DB error attempting to fetch output tx index"));
 
-		auto result = tx_out_index(tx_hash, *(const uint64_t *) v.mv_data);
-		tx_out_indices.push_back(result);
-	}
+    auto result = tx_out_index(tx_hash, *(const uint64_t *) v.mv_data);
+    tx_out_indices.push_back(result);
+  }
 
-	TXN_POSTFIX_SUCCESS();
+  TXN_POSTFIX_SUCCESS();
 }
 
 void BlockchainLMDB::get_output_global_indices(const uint64_t& amount, const std::vector<uint64_t> &offsets,
-		std::vector<uint64_t> &global_indices)
+    std::vector<uint64_t> &global_indices)
 {
-	LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-	TIME_MEASURE_START(txx);
-	check_open();
-	global_indices.clear();
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  TIME_MEASURE_START(txx);
+  check_open();
+  global_indices.clear();
 
-	uint64_t max = 0;
-	for (const uint64_t &index : offsets)
-	{
-		if (index > max)
-			max = index;
-	}
+  uint64_t max = 0;
+  for (const uint64_t &index : offsets)
+  {
+    if (index > max)
+      max = index;
+  }
 
-	TXN_PREFIX_RDONLY();
+  TXN_PREFIX_RDONLY();
 
-	lmdb_cur cur(*txn_ptr, m_output_amounts);
+  lmdb_cur cur(*txn_ptr, m_output_amounts);
 
-	MDB_val_copy<uint64_t> k(amount);
-	MDB_val v;
-	auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
-	if (result == MDB_NOTFOUND)
-		throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
-	else if (result)
-		throw0(DB_ERROR("DB error attempting to get an output"));
+  MDB_val_copy<uint64_t> k(amount);
+  MDB_val v;
+  auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
+  else if (result)
+    throw0(DB_ERROR("DB error attempting to get an output"));
 
-	size_t num_elems = 0;
-	mdb_cursor_count(cur, &num_elems);
-	if (max <= 1 && num_elems <= max)
-		throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but output not found"));
+  size_t num_elems = 0;
+  mdb_cursor_count(cur, &num_elems);
+  if (max <= 1 && num_elems <= max)
+    throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but output not found"));
 
-	uint64_t t_dbmul = 0;
-	uint64_t t_dbscan = 0;
-	if (max <= 1)
-	{
-		for (const uint64_t& index : offsets)
-		{
-			mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
-			for (uint64_t i = 0; i < index; ++i)
-			{
-				mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
-			}
+  uint64_t t_dbmul = 0;
+  uint64_t t_dbscan = 0;
+  if (max <= 1)
+  {
+    for (const uint64_t& index : offsets)
+    {
+      mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
+      for (uint64_t i = 0; i < index; ++i)
+      {
+        mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
+      }
 
-			mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
-			uint64_t glob_index = *(const uint64_t*) v.mv_data;
-			LOG_PRINT_L3("Amount: " << amount << " M0->v: " << glob_index);
-			global_indices.push_back(glob_index);
-		}
-	}
-	else
-	{
-		uint32_t curcount = 0;
-		uint32_t blockstart = 0;
-		for (const uint64_t& index : offsets)
-		{
-			if (index >= num_elems)
-			{
-				LOG_PRINT_L1("Index: " << index << " Elems: " << num_elems << " partial results found for get_output_tx_and_index");
-				break;
-			}
-			while (index >= curcount)
-			{
-				TIME_MEASURE_START(db1);
-				if (mdb_cursor_get(cur, &k, &v, curcount == 0 ? MDB_GET_MULTIPLE : MDB_NEXT_MULTIPLE) != 0)
-				{
-					// allow partial results
-					result = false;
-					break;
-				}
+      mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
+      uint64_t glob_index = *(const uint64_t*) v.mv_data;
+      LOG_PRINT_L3("Amount: " << amount << " M0->v: " << glob_index);
+      global_indices.push_back(glob_index);
+    }
+  }
+  else
+  {
+    uint32_t curcount = 0;
+    uint32_t blockstart = 0;
+    for (const uint64_t& index : offsets)
+    {
+      if (index >= num_elems)
+      {
+        LOG_PRINT_L1("Index: " << index << " Elems: " << num_elems << " partial results found for get_output_tx_and_index");
+        break;
+      }
+      while (index >= curcount)
+      {
+        TIME_MEASURE_START(db1);
+        if (mdb_cursor_get(cur, &k, &v, curcount == 0 ? MDB_GET_MULTIPLE : MDB_NEXT_MULTIPLE) != 0)
+        {
+          // allow partial results
+          result = false;
+          break;
+        }
 
-				int count = v.mv_size / sizeof(uint64_t);
+        int count = v.mv_size / sizeof(uint64_t);
 
-				blockstart = curcount;
-				curcount += count;
-				TIME_MEASURE_FINISH(db1);
-				t_dbmul += db1;
-			}
+        blockstart = curcount;
+        curcount += count;
+        TIME_MEASURE_FINISH(db1);
+        t_dbmul += db1;
+      }
 
-			LOG_PRINT_L3("Records returned: " << curcount << " Index: " << index);
-			TIME_MEASURE_START(db2);
-			uint64_t actual_index = index - blockstart;
-			uint64_t glob_index = ((const uint64_t*) v.mv_data)[actual_index];
+      LOG_PRINT_L3("Records returned: " << curcount << " Index: " << index);
+      TIME_MEASURE_START(db2);
+      uint64_t actual_index = index - blockstart;
+      uint64_t glob_index = ((const uint64_t*) v.mv_data)[actual_index];
 
-			LOG_PRINT_L3("Amount: " << amount << " M1->v: " << glob_index);
-			global_indices.push_back(glob_index);
+      LOG_PRINT_L3("Amount: " << amount << " M1->v: " << glob_index);
+      global_indices.push_back(glob_index);
 
-			TIME_MEASURE_FINISH(db2);
-			t_dbscan += db2;
+      TIME_MEASURE_FINISH(db2);
+      t_dbscan += db2;
 
-		}
-	}
+    }
+  }
 
-	cur.close();
-	TXN_POSTFIX_SUCCESS();
+  cur.close();
+  TXN_POSTFIX_SUCCESS();
 
-	TIME_MEASURE_FINISH(txx);
-	LOG_PRINT_L3("txx: " << txx << " db1: " << t_dbmul << " db2: " << t_dbscan);
+  TIME_MEASURE_FINISH(txx);
+  LOG_PRINT_L3("txx: " << txx << " db1: " << t_dbmul << " db2: " << t_dbscan);
 }
 
 void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs)
 {
-	LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-	TIME_MEASURE_START(db3);
-	check_open();
-	outputs.clear();
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  TIME_MEASURE_START(db3);
+  check_open();
+  outputs.clear();
 
-	std::vector <uint64_t> global_indices;
-	get_output_global_indices(amount, offsets, global_indices);
+  std::vector <uint64_t> global_indices;
+  get_output_global_indices(amount, offsets, global_indices);
 
-	if (global_indices.size() > 0)
-	{
-		TXN_PREFIX_RDONLY();
+  if (global_indices.size() > 0)
+  {
+    TXN_PREFIX_RDONLY();
 
-		for (const uint64_t &index : global_indices)
-		{
-			MDB_val_copy<uint64_t> k(index);
-			MDB_val v;
+    for (const uint64_t &index : global_indices)
+    {
+      MDB_val_copy<uint64_t> k(index);
+      MDB_val v;
 
-			auto get_result = mdb_get(*txn_ptr, m_output_keys, &k, &v);
-			if (get_result == MDB_NOTFOUND)
-				throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
-			else if (get_result)
-				throw0(DB_ERROR("Error attempting to retrieve an output pubkey from the db"));
+      auto get_result = mdb_get(*txn_ptr, m_output_keys, &k, &v);
+      if (get_result == MDB_NOTFOUND)
+        throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
+      else if (get_result)
+        throw0(DB_ERROR("Error attempting to retrieve an output pubkey from the db"));
 
-			output_data_t data = *(const output_data_t *) v.mv_data;
-			outputs.push_back(data);
-		}
+      output_data_t data = *(const output_data_t *) v.mv_data;
+      outputs.push_back(data);
+    }
 
-		TXN_POSTFIX_SUCCESS();
-	}
+    TXN_POSTFIX_SUCCESS();
+  }
 
-	TIME_MEASURE_FINISH(db3);
-	LOG_PRINT_L3("db3: " << db3);
+  TIME_MEASURE_FINISH(db3);
+  LOG_PRINT_L3("db3: " << db3);
 }
 
 void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices)
 {
-	LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-	check_open();
-	indices.clear();
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  indices.clear();
 
-	std::vector <uint64_t> global_indices;
-	get_output_global_indices(amount, offsets, global_indices);
+  std::vector <uint64_t> global_indices;
+  get_output_global_indices(amount, offsets, global_indices);
 
-	TIME_MEASURE_START(db3);
-	if(global_indices.size() > 0)
-	{
-		get_output_tx_and_index_from_global(global_indices, indices);
-	}
-	TIME_MEASURE_FINISH(db3);
-	LOG_PRINT_L3("db3: " << db3);
+  TIME_MEASURE_START(db3);
+  if(global_indices.size() > 0)
+  {
+    get_output_tx_and_index_from_global(global_indices, indices);
+  }
+  TIME_MEASURE_FINISH(db3);
+  LOG_PRINT_L3("db3: " << db3);
 }
 
 void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
