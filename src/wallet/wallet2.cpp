@@ -48,6 +48,7 @@ using namespace epee;
 #include "cryptonote_protocol/blobdatatype.h"
 #include "mnemonics/electrum-words.h"
 #include "common/dns_utils.h"
+#include "common/util.h"
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
@@ -1283,8 +1284,20 @@ void wallet2::store()
 
   std::string buf;
   bool r = ::serialization::dump_binary(cache_file_data, buf);
-  r = r && epee::file_io_utils::save_string_to_file(m_wallet_file, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
+
+  // save to new file, rename main to old, rename new to main
+  // at all times, there should be a valid file on disk
+  const std::string new_file = m_wallet_file + ".new";
+  const std::string old_file = m_wallet_file + ".old";
+  r = epee::file_io_utils::save_string_to_file(new_file, buf);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, new_file);
+  boost::filesystem::remove(old_file); // probably does not exist
+  std::error_code e = tools::replace_file(m_wallet_file, old_file);
+  THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
+  e = tools::replace_file(new_file, m_wallet_file);
+  THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
+  boost::filesystem::remove(old_file);
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::unlocked_balance() const

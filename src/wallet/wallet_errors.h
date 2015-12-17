@@ -192,6 +192,12 @@ namespace tools
       {
       }
 
+      explicit file_error_base(std::string&& loc, const std::string& file, const std::error_code &e)
+        : wallet_logic_error(std::move(loc), std::string(file_error_messages[msg_index]) +  " \"" + file + "\": " + e.message())
+        , m_file(file)
+      {
+      }
+
       const std::string& file() const { return m_file; }
 
       std::string to_string() const { return wallet_logic_error::to_string(); }
