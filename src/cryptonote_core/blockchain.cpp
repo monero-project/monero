@@ -2059,7 +2059,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
   boost::asio::io_service ioservice;
   boost::thread_group threadpool;
 
-  std::auto_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
+  std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
   if(threads > 1)
   {
     for (int i = 0; i < threads; i++)
