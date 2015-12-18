@@ -490,6 +490,9 @@ namespace IPC
       }
       uint64_t height = core->get_current_blockchain_height();
       wap_proto_set_height(message, height);
+      std::string top_block_hash = epee::string_tools::pod_to_hex(core->get_blockchain_storage().get_tail_id());
+      zchunk_t *top_block_hash_chunk = zchunk_new(top_block_hash.c_str(), top_block_hash.size());
+      wap_proto_set_top_block_hash(message, &top_block_hash_chunk);
       wap_proto_set_target_height(message, core->get_target_blockchain_height());
       wap_proto_set_difficulty(message, core->get_blockchain_storage().get_difficulty_for_next_block());
       wap_proto_set_target(message, core->get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET);

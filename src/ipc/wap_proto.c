@@ -52,6 +52,7 @@ struct _wap_proto_t {
     byte in_pool;                       //  In pool
     zchunk_t *address;                  //  address
     uint64_t thread_count;              //  thread_count
+    zchunk_t *top_block_hash;           //  Top block hash
     uint64_t target_height;             //  Target Height
     uint64_t difficulty;                //  Difficulty
     uint64_t target;                    //  Target
@@ -282,6 +283,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zframe_destroy (&self->random_outputs);
         zchunk_destroy (&self->tx_data);
         zchunk_destroy (&self->address);
+        zchunk_destroy (&self->top_block_hash);
         zframe_destroy (&self->white_list);
         zframe_destroy (&self->gray_list);
         zchunk_destroy (&self->hash);
@@ -527,6 +529,17 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
         case WAP_PROTO_GET_INFO_OK:
             GET_NUMBER4 (self->status);
             GET_NUMBER8 (self->height);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: top_block_hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->top_block_hash);
+                self->top_block_hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
             GET_NUMBER8 (self->target_height);
             GET_NUMBER8 (self->difficulty);
             GET_NUMBER8 (self->target);
@@ -1024,6 +1037,9 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_GET_INFO_OK:
             frame_size += 4;            //  status
             frame_size += 8;            //  height
+            frame_size += 4;            //  Size is 4 octets
+            if (self->top_block_hash)
+                frame_size += zchunk_size (self->top_block_hash);
             frame_size += 8;            //  target_height
             frame_size += 8;            //  difficulty
             frame_size += 8;            //  target
@@ -1332,6 +1348,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_GET_INFO_OK:
             PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->height);
+            if (self->top_block_hash) {
+                PUT_NUMBER4 (zchunk_size (self->top_block_hash));
+                memcpy (self->needle,
+                        zchunk_data (self->top_block_hash),
+                        zchunk_size (self->top_block_hash));
+                self->needle += zchunk_size (self->top_block_hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             PUT_NUMBER8 (self->target_height);
             PUT_NUMBER8 (self->difficulty);
             PUT_NUMBER8 (self->target);
@@ -1851,6 +1876,7 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("WAP_PROTO_GET_INFO_OK:");
             zsys_debug ("    status=%ld", (long) self->status);
             zsys_debug ("    height=%ld", (long) self->height);
+            zsys_debug ("    top_block_hash=[ ... ]");
             zsys_debug ("    target_height=%ld", (long) self->target_height);
             zsys_debug ("    difficulty=%ld", (long) self->difficulty);
             zsys_debug ("    target=%ld", (long) self->target);
@@ -2852,6 +2878,39 @@ wap_proto_set_thread_count (wap_proto_t *self, uint64_t thread_count)
 {
     assert (self);
     self->thread_count = thread_count;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get the top_block_hash field without transferring ownership
+
+zchunk_t *
+wap_proto_top_block_hash (wap_proto_t *self)
+{
+    assert (self);
+    return self->top_block_hash;
+}
+
+//  Get the top_block_hash field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_top_block_hash (wap_proto_t *self)
+{
+    zchunk_t *top_block_hash = self->top_block_hash;
+    self->top_block_hash = NULL;
+    return top_block_hash;
+}
+
+//  Set the top_block_hash field, transferring ownership from caller
+
+void
+wap_proto_set_top_block_hash (wap_proto_t *self, zchunk_t **chunk_p)
+{
+    assert (self);
+    assert (chunk_p);
+    zchunk_destroy (&self->top_block_hash);
+    self->top_block_hash = *chunk_p;
+    *chunk_p = NULL;
 }
 
 
@@ -4142,6 +4201,8 @@ wap_proto_test (bool verbose)
 
     wap_proto_set_status (self, 123);
     wap_proto_set_height (self, 123);
+    zchunk_t *get_info_ok_top_block_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_top_block_hash (self, &get_info_ok_top_block_hash);
     wap_proto_set_target_height (self, 123);
     wap_proto_set_difficulty (self, 123);
     wap_proto_set_target (self, 123);
@@ -4162,6 +4223,9 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
         assert (wap_proto_height (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_top_block_hash (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_info_ok_top_block_hash);
         assert (wap_proto_target_height (self) == 123);
         assert (wap_proto_difficulty (self) == 123);
         assert (wap_proto_target (self) == 123);

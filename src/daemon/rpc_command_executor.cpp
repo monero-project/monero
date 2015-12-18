@@ -259,9 +259,12 @@ bool t_rpc_command_executor::show_difficulty() {
     return true;
   }
   uint64_t height = wap_client_height(ipc_client);
+  zchunk_t *top_block_hash_chunk = wap_client_top_block_hash(ipc_client);
+  std::string top_block_hash((const char *)zchunk_data(top_block_hash_chunk), zchunk_size(top_block_hash_chunk));
   uint64_t difficulty = wap_client_difficulty(ipc_client);
   uint64_t target = wap_client_target(ipc_client);
   tools::success_msg_writer() <<   "BH: " << height
+                              << ", TH: " << top_block_hash
                               << ", DIFF: " << difficulty
                               << ", HR: " << (int) difficulty / (int)target << " H/s";
   return true;

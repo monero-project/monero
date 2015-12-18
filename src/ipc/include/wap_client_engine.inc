@@ -3088,6 +3088,7 @@ struct _wap_client_t {
     zframe_t *o_indexes;        //  Returned by actor reply
     zframe_t *random_outputs;   //  Returned by actor reply
     uint64_t height;            //  Returned by actor reply
+    zchunk_t *top_block_hash;   //  Returned by actor reply
     uint64_t target_height;     //  Returned by actor reply
     uint64_t difficulty;        //  Returned by actor reply
     uint64_t target;            //  Returned by actor reply
@@ -3179,6 +3180,7 @@ wap_client_destroy (wap_client_t **self_p)
         zchunk_destroy (&self->tx_data);
         zframe_destroy (&self->o_indexes);
         zframe_destroy (&self->random_outputs);
+        zchunk_destroy (&self->top_block_hash);
         zframe_destroy (&self->white_list);
         zframe_destroy (&self->gray_list);
         zchunk_destroy (&self->address);
@@ -3300,7 +3302,8 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "GET INFO OK")) {
-                    zsock_recv (self->actor, "4888888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->target, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
+                    zchunk_destroy (&self->top_block_hash);
+                    zsock_recv (self->actor, "48p88888888881", &self->status, &self->height, &self->top_block_hash, &self->target_height, &self->difficulty, &self->target, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
                 }
                 else
                 if (streq (reply, "START MINING OK")) {
@@ -4014,6 +4017,17 @@ wap_client_height (wap_client_t *self)
 {
     assert (self);
     return self->height;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received top_block_hash
+
+zchunk_t *
+wap_client_top_block_hash (wap_client_t *self)
+{
+    assert (self);
+    return self->top_block_hash;
 }
 
 

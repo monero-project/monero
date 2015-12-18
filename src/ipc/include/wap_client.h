@@ -247,6 +247,10 @@ WAP_EXPORT zframe_t *
 WAP_EXPORT uint64_t 
     wap_client_height (wap_client_t *self);
 
+//  Return last received top_block_hash
+WAP_EXPORT zchunk_t *
+    wap_client_top_block_hash (wap_client_t *self);
+
 //  Return last received target_height
 WAP_EXPORT uint64_t 
     wap_client_target_height (wap_client_t *self);

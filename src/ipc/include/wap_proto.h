@@ -97,6 +97,7 @@ ERROR.
     GET_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 4    Status
         height              number 8    Height
+        top_block_hash      chunk       Top block hash
         target_height       number 8    Target Height
         difficulty          number 8    Difficulty
         target              number 8    Target
@@ -547,6 +548,16 @@ uint64_t
     wap_proto_thread_count (wap_proto_t *self);
 void
     wap_proto_set_thread_count (wap_proto_t *self, uint64_t thread_count);
+
+//  Get a copy of the top_block_hash field
+zchunk_t *
+    wap_proto_top_block_hash (wap_proto_t *self);
+//  Get the top_block_hash field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_top_block_hash (wap_proto_t *self);
+//  Set the top_block_hash field, transferring ownership from caller
+void
+    wap_proto_set_top_block_hash (wap_proto_t *self, zchunk_t **chunk_p);
 
 //  Get/set the target_height field
 uint64_t
