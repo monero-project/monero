@@ -229,7 +229,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
           // process the other outs from that tx
           boost::asio::io_service ioservice;
           boost::thread_group threadpool;
-          std::auto_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
+          std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
           for (int i = 0; i < threads; i++)
           {
             threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
@@ -265,7 +265,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     {
       boost::asio::io_service ioservice;
       boost::thread_group threadpool;
-      std::auto_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
+      std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
       for (int i = 0; i < threads; i++)
       {
         threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
