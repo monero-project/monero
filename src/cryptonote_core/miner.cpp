@@ -257,7 +257,7 @@ namespace cryptonote
       m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
     }
 
-    LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" )
+    LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" );
     return true;
   }
   //-----------------------------------------------------------------------------------------------------

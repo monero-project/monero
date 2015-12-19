@@ -397,7 +397,7 @@ uint64_t BootstrapFile::seek_to_first_chunk(std::ifstream& import_file)
     throw std::runtime_error("Error in deserialization of bootstrap::file_info");
   LOG_PRINT_L0("bootstrap file v" << unsigned(bfi.major_version) << "." << unsigned(bfi.minor_version));
   LOG_PRINT_L0("bootstrap magic size: " << sizeof(file_magic));
-  LOG_PRINT_L0("bootstrap header size: " << bfi.header_size)
+  LOG_PRINT_L0("bootstrap header size: " << bfi.header_size);
 
   uint64_t full_header_size = sizeof(file_magic) + bfi.header_size;
   import_file.seekg(full_header_size);

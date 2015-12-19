@@ -515,7 +515,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
     simple_core.m_storage.get_db().show_stats();
 #endif
-    LOG_PRINT_L0("Number of blocks imported: " << num_imported)
+    LOG_PRINT_L0("Number of blocks imported: " << num_imported);
     if (h > 0)
       // TODO: if there was an error, the last added block is probably at zero-based height h-2
       LOG_PRINT_L0("Finished at block: " << h-1 << "  total blocks: " << h);
