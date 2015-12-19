@@ -3173,9 +3173,9 @@ HardFork::State Blockchain::get_hard_fork_state() const
   return m_hardfork->get_state();
 }
 
-bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
+bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
-  return m_hardfork->get_voting_info(version, window, votes, threshold, voting);
+  return m_hardfork->get_voting_info(version, window, votes, threshold, earliest_height, voting);
 }
 
 bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const

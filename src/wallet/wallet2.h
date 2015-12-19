@@ -372,6 +372,7 @@ namespace tools
     crypto::hash get_payment_id(const pending_tx &ptx) const;
     void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
+    bool use_fork_rules(uint8_t version);
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -552,7 +553,8 @@ namespace tools
     // randomly select inputs for transaction
     // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
-    uint64_t found_money = select_transfers(needed_money, 0 == fake_outputs_count, dust_policy.dust_threshold, selected_transfers);
+    const bool add_dust = (0 == fake_outputs_count) && !use_fork_rules(2); // first fork has version 2
+    uint64_t found_money = select_transfers(needed_money, add_dust, dust_policy.dust_threshold, selected_transfers);
     THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
 
     typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
