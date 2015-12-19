@@ -182,6 +182,7 @@ ERROR.
         window              number 4    Window
         votes               number 4    Votes
         threshold           number 4    Threshold
+        earliest_height     number 8    Earliest height
         voting              number 1    Voting
         hfstate             number 4    State
 
@@ -740,6 +741,12 @@ uint32_t
     wap_proto_threshold (wap_proto_t *self);
 void
     wap_proto_set_threshold (wap_proto_t *self, uint32_t threshold);
+
+//  Get/set the earliest_height field
+uint64_t
+    wap_proto_earliest_height (wap_proto_t *self);
+void
+    wap_proto_set_earliest_height (wap_proto_t *self, uint64_t earliest_height);
 
 //  Get/set the voting field
 byte

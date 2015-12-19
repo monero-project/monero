@@ -796,7 +796,8 @@ namespace IPC
 
       uint32_t window, votes, threshold;
       uint8_t voting;
-      bool enabled = blockchain.get_hard_fork_voting_info(version, window, votes, threshold, voting);
+      uint64_t earliest_height;
+      bool enabled = blockchain.get_hard_fork_voting_info(version, window, votes, threshold, earliest_height, voting);
       cryptonote::HardFork::State hfstate = blockchain.get_hard_fork_state();
 
       wap_proto_set_hfversion(message, blockchain.get_current_hard_fork_version());
@@ -804,6 +805,7 @@ namespace IPC
       wap_proto_set_window(message, window);
       wap_proto_set_votes(message, votes);
       wap_proto_set_threshold(message, threshold);
+      wap_proto_set_earliest_height(message, earliest_height);
       wap_proto_set_voting(message, voting);
       wap_proto_set_hfstate(message, hfstate);
 

@@ -355,6 +355,10 @@ WAP_EXPORT uint32_t
 WAP_EXPORT uint32_t 
     wap_client_threshold (wap_client_t *self);
 
+//  Return last received earliest_height
+WAP_EXPORT uint64_t 
+    wap_client_earliest_height (wap_client_t *self);
+
 //  Return last received voting
 WAP_EXPORT uint8_t 
     wap_client_voting (wap_client_t *self);

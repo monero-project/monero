@@ -80,6 +80,7 @@ struct _wap_proto_t {
     uint32_t window;                    //  Window
     uint32_t votes;                     //  Votes
     uint32_t threshold;                 //  Threshold
+    uint64_t earliest_height;           //  Earliest height
     byte voting;                        //  Voting
     uint32_t hfstate;                   //  State
     zframe_t *connections;              //  Connections
@@ -705,6 +706,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER4 (self->window);
             GET_NUMBER4 (self->votes);
             GET_NUMBER4 (self->threshold);
+            GET_NUMBER8 (self->earliest_height);
             GET_NUMBER1 (self->voting);
             GET_NUMBER4 (self->hfstate);
             break;
@@ -1119,6 +1121,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  window
             frame_size += 4;            //  votes
             frame_size += 4;            //  threshold
+            frame_size += 8;            //  earliest_height
             frame_size += 1;            //  voting
             frame_size += 4;            //  hfstate
             break;
@@ -1482,6 +1485,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->window);
             PUT_NUMBER4 (self->votes);
             PUT_NUMBER4 (self->threshold);
+            PUT_NUMBER8 (self->earliest_height);
             PUT_NUMBER1 (self->voting);
             PUT_NUMBER4 (self->hfstate);
             break;
@@ -2008,6 +2012,7 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    window=%ld", (long) self->window);
             zsys_debug ("    votes=%ld", (long) self->votes);
             zsys_debug ("    threshold=%ld", (long) self->threshold);
+            zsys_debug ("    earliest_height=%ld", (long) self->earliest_height);
             zsys_debug ("    voting=%ld", (long) self->voting);
             zsys_debug ("    hfstate=%ld", (long) self->hfstate);
             break;
@@ -3476,6 +3481,24 @@ wap_proto_set_threshold (wap_proto_t *self, uint32_t threshold)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the earliest_height field
+
+uint64_t
+wap_proto_earliest_height (wap_proto_t *self)
+{
+    assert (self);
+    return self->earliest_height;
+}
+
+void
+wap_proto_set_earliest_height (wap_proto_t *self, uint64_t earliest_height)
+{
+    assert (self);
+    self->earliest_height = earliest_height;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the voting field
 
 byte
@@ -4509,6 +4532,7 @@ wap_proto_test (bool verbose)
     wap_proto_set_window (self, 123);
     wap_proto_set_votes (self, 123);
     wap_proto_set_threshold (self, 123);
+    wap_proto_set_earliest_height (self, 123);
     wap_proto_set_voting (self, 123);
     wap_proto_set_hfstate (self, 123);
     //  Send twice
@@ -4524,6 +4548,7 @@ wap_proto_test (bool verbose)
         assert (wap_proto_window (self) == 123);
         assert (wap_proto_votes (self) == 123);
         assert (wap_proto_threshold (self) == 123);
+        assert (wap_proto_earliest_height (self) == 123);
         assert (wap_proto_voting (self) == 123);
         assert (wap_proto_hfstate (self) == 123);
     }

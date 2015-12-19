@@ -557,13 +557,14 @@ signal_have_get_block_template_ok (client_t *self)
 static void
 signal_have_get_hard_fork_info_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s41144414", "GET HARD FORK INFO OK",
+    zsock_send (self->cmdpipe, "s411444814", "GET HARD FORK INFO OK",
         wap_proto_status (self->message), 
         wap_proto_hfversion (self->message), 
         wap_proto_enabled (self->message), 
         wap_proto_window (self->message), 
         wap_proto_votes (self->message), 
         wap_proto_threshold (self->message), 
+        wap_proto_earliest_height (self->message), 
         wap_proto_voting (self->message), 
         wap_proto_hfstate (self->message));
 }

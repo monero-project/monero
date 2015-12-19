@@ -184,6 +184,11 @@ namespace cryptonote
     uint8_t get_current_version() const;
 
     /**
+     * @brief returns the earliest block a given version may activate
+     */
+    uint64_t get_earliest_ideal_height_for_version(uint8_t version) const;
+
+    /**
      * @brief returns information about current voting state
      *
      * returns true if the given version is enabled (ie, the current version
@@ -193,8 +198,9 @@ namespace cryptonote
      * @param window the number of blocks considered in voting
      * @param votes number of votes for next version
      * @param threshold number of votes needed to switch to next version
+     * @param earliest_height earliest height at which the version can take effect
      */
-    bool get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
+    bool get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const;
 
     /**
      * @brief returns the size of the voting window in blocks

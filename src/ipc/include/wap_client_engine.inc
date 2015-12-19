@@ -3115,6 +3115,7 @@ struct _wap_client_t {
     uint32_t window;            //  Returned by actor reply
     uint32_t votes;             //  Returned by actor reply
     uint32_t threshold;         //  Returned by actor reply
+    uint64_t earliest_height;   //  Returned by actor reply
     uint8_t voting;             //  Returned by actor reply
     uint32_t hfstate;           //  Returned by actor reply
     zframe_t *connections;      //  Returned by actor reply
@@ -3353,7 +3354,7 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "GET HARD FORK INFO OK")) {
-                    zsock_recv (self->actor, "41144414", &self->status, &self->hfversion, &self->enabled, &self->window, &self->votes, &self->threshold, &self->voting, &self->hfstate);
+                    zsock_recv (self->actor, "411444814", &self->status, &self->hfversion, &self->enabled, &self->window, &self->votes, &self->threshold, &self->earliest_height, &self->voting, &self->hfstate);
                 }
                 else
                 if (streq (reply, "GET CONNECTIONS LIST OK")) {
@@ -4314,6 +4315,17 @@ wap_client_threshold (wap_client_t *self)
 {
     assert (self);
     return self->threshold;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received earliest_height
+
+uint64_t 
+wap_client_earliest_height (wap_client_t *self)
+{
+    assert (self);
+    return self->earliest_height;
 }
 
 
