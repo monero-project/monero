@@ -430,7 +430,7 @@ namespace boost
       a & x.m_change;
       a & x.m_sent_time;
       a & x.m_tx;
-      if (ver < 9)
+      if (ver < 10)
         return;
       a & x.m_dests;
       a & x.m_payment_id;
@@ -443,7 +443,7 @@ namespace boost
       a & x.m_amount_out;
       a & x.m_change;
       a & x.m_block_height;
-      if (ver < 9)
+      if (ver < 10)
         return;
       a & x.m_dests;
       a & x.m_payment_id;
