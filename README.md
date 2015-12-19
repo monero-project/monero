@@ -178,3 +178,8 @@ While Monero isn't made to integrate with Tor, it can be used wrapped with torso
 
 DNS_PUBLIC=tcp torsocks bitmonerod --p2p-bind-ip 127.0.0.1
 
+## Using readline
+
+While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
+rlwrap bin/simplewallet --wallet-file /path/to/wallet
+
