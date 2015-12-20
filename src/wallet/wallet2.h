@@ -408,6 +408,9 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 10)
+BOOST_CLASS_VERSION(tools::wallet2::payment_details, 0)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 1)
+BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 1)
 
 namespace boost
 {
@@ -430,7 +433,7 @@ namespace boost
       a & x.m_change;
       a & x.m_sent_time;
       a & x.m_tx;
-      if (ver < 9)
+      if (ver < 1)
         return;
       a & x.m_dests;
       a & x.m_payment_id;
@@ -443,7 +446,7 @@ namespace boost
       a & x.m_amount_out;
       a & x.m_change;
       a & x.m_block_height;
-      if (ver < 9)
+      if (ver < 1)
         return;
       a & x.m_dests;
       a & x.m_payment_id;
