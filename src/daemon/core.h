@@ -32,8 +32,6 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "misc_log_ex.h"
-#include <stdexcept>
-#include <boost/program_options.hpp>
 #include "daemon/command_line_args.h"
 
 namespace daemonize
