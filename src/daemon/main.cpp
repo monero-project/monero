@@ -40,7 +40,6 @@
 #include "misc_log_ex.h"
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
-#include <boost/program_options.hpp>
 #include "daemon/command_line_args.h"
 #include "blockchain_db/db_types.h"
 

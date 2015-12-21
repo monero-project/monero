@@ -28,6 +28,9 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <memory>
+#include <stdexcept>
+#include "misc_log_ex.h"
 #include "daemon/daemon.h"
 
 #include "common/util.h"
@@ -35,7 +38,6 @@
 #include "daemon/p2p.h"
 #include "daemon/protocol.h"
 #include "daemon/command_server.h"
-#include "misc_log_ex.h"
 #include "version.h"
 #include "../../contrib/epee/include/syncobj.h"
 #include "daemon_ipc_handlers.h"
@@ -43,9 +45,7 @@
 
 using namespace epee;
 
-#include <boost/program_options.hpp>
 #include <functional>
-#include <memory>
 
 unsigned int epee::g_test_dbg_lock_sleep = 0;
 

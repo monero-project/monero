@@ -31,7 +31,6 @@
 
 #include "common/command_line.h"
 #include "cryptonote_config.h"
-#include <boost/program_options.hpp>
 
 namespace daemon_args
 {

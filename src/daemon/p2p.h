@@ -31,11 +31,8 @@
 #pragma once
 
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
-#include "daemon/protocol.h"
-#include "misc_log_ex.h"
 #include "p2p/net_node.h"
-#include <stdexcept>
-#include <boost/program_options.hpp>
+#include "daemon/protocol.h"
 
 namespace daemonize
 {
