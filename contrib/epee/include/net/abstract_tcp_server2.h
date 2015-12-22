@@ -110,6 +110,8 @@ namespace net_utils
 
 
 		bool speed_limit_is_enabled() const; ///< tells us should we be sleeping here (e.g. do not sleep on RPC connections)
+
+    bool cancel();
     
   private:
     //----------------- i_service_endpoint ---------------------
@@ -302,6 +304,9 @@ namespace net_utils
 
     /// The next connection to be accepted
     connection_ptr new_connection_;
+
+    std::mutex connections_mutex;
+    std::deque<connection_ptr> connections_;
 
   }; // class <>boosted_tcp_server
 
