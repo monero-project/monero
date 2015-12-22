@@ -174,8 +174,9 @@ See README.i18n
 
 ## Using Tor
 
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmonerod command line.
-Be aware that your DNS use will probably go over clearnet. These come in two flavours: request for checkpoint data, and request for OpenAlias data. The first one is mostly harmless (your ISP can tell you're using monero). The second one leaks information about your transaction recipients, so do not use OpenAlias if you want DNS privacy.
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmonerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. Example:
+
+DNS_PUBLIC=tcp torsocks bitmonerod --p2p-bind-ip 127.0.0.1
 
 ## Using readline
 
