@@ -30,12 +30,7 @@
 
 #pragma once
 
-#include "daemon/core.h"
-#include "daemon/p2p.h"
-#include "misc_log_ex.h"
 #include "rpc/core_rpc_server.h"
-#include <boost/program_options.hpp>
-#include <stdexcept>
 
 namespace daemonize
 {
