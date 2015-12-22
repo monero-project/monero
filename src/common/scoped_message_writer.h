@@ -88,7 +88,7 @@ public:
     {
       m_flush = false;
 
-      LOG_PRINT(m_oss.str(), m_log_level)
+      LOG_PRINT(m_oss.str(), m_log_level);
 
       if (epee::log_space::console_color_default == m_color)
       {

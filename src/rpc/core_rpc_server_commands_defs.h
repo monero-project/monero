@@ -877,6 +877,7 @@ namespace cryptonote
       uint32_t threshold;
       uint8_t voting;
       uint32_t state;
+      uint64_t earliest_height;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -887,6 +888,7 @@ namespace cryptonote
         KV_SERIALIZE(threshold)
         KV_SERIALIZE(voting)
         KV_SERIALIZE(state)
+        KV_SERIALIZE(earliest_height)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };

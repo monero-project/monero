@@ -2176,7 +2176,7 @@ uint8_t BlockchainBDB::get_hard_fork_version(uint64_t height) const
 
 void BlockchainBDB::checkpoint_worker() const
 {
-    LOG_PRINT_L0("Entering BDB checkpoint thread.")
+    LOG_PRINT_L0("Entering BDB checkpoint thread.");
     int count = 0;
     while(m_run_checkpoint && m_open)
     {
@@ -2188,12 +2188,12 @@ void BlockchainBDB::checkpoint_worker() const
             count = 0;
             if(m_env->txn_checkpoint(0, 0, 0) != 0)
             {
-                LOG_PRINT_L0("BDB txn_checkpoint failed.")
+                LOG_PRINT_L0("BDB txn_checkpoint failed.");
                 break;
             }
         }
     }
-    LOG_PRINT_L0("Leaving BDB checkpoint thread.")
+    LOG_PRINT_L0("Leaving BDB checkpoint thread.");
 }
 
 void BlockchainBDB::fixup()

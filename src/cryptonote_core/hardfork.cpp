@@ -355,7 +355,16 @@ uint8_t HardFork::get_ideal_version(uint64_t height) const
   return original_version;
 }
 
-bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
+uint64_t HardFork::get_earliest_ideal_height_for_version(uint8_t version) const
+{
+  for (unsigned int n = heights.size() - 1; n > 0; --n) {
+    if (heights[n].version <= version)
+      return heights[n].height;
+  }
+  return 0;
+}
+
+bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
   CRITICAL_REGION_LOCAL(lock);
 
@@ -367,6 +376,7 @@ bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &vote
       votes += last_versions[n];
   threshold = (window * heights[current_version].threshold + 99) / 100;
   assert((votes >= threshold) == enabled);
+  earliest_height = get_earliest_ideal_height_for_version(version);
   voting = heights.back().version;
   return enabled;
 }

@@ -2339,9 +2339,44 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
 }
 
 //----------------------------------------------------------------------------------------------------
+bool wallet2::use_fork_rules(uint8_t version)
+{
+  cryptonote::COMMAND_RPC_GET_HEIGHT::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_HEIGHT::response res = AUTO_VAL_INIT(res);
+  epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
+  epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, false, "Failed to get current blockchain height");
+
+  m_daemon_rpc_mutex.lock();
+  req_t.jsonrpc = "2.0";
+  req_t.id = epee::serialization::storage_entry(0);
+  req_t.method = "hard_fork_info";
+  req_t.params.version = version;
+  r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, false, "Failed to get hard fork status");
+
+  bool close_enough = res.height >=  resp_t.result.earliest_height - 10; // start using the rules a bit beforehand
+  if (close_enough)
+    LOG_PRINT_L2("Using HF1 rules");
+  else
+    LOG_PRINT_L2("Not using HF1 rules");
+  return close_enough;
+}
+//----------------------------------------------------------------------------------------------------
 std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
 {
-  tx_dust_policy dust_policy(::config::DEFAULT_DUST_THRESHOLD);
+  // From hard fork 1, we don't consider small amounts to be dust anymore
+  const bool hf1_rules = use_fork_rules(2); // first hard fork has version 2
+  tx_dust_policy dust_policy(hf1_rules ? 0 : ::config::DEFAULT_DUST_THRESHOLD);
 
   size_t num_dust_outputs = 0;
   for (transfer_container::const_iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)

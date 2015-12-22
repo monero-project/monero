@@ -380,7 +380,7 @@ namespace nodetool
       {
         boost::thread* th = new boost::thread([=, &dns_results, &addr_str]
         {
-          LOG_PRINT_L4("dns_threads[" << result_index << "] created for: " << addr_str)
+          LOG_PRINT_L4("dns_threads[" << result_index << "] created for: " << addr_str);
           // TODO: care about dnssec avail/valid
           bool avail, valid;
           std::vector<std::string> addr_list;

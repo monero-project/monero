@@ -394,7 +394,7 @@ bool Blockchain::deinit()
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
-  LOG_PRINT_L0("Closing IO Service.")
+  LOG_PRINT_L0("Closing IO Service.");
     // stop async service
     m_async_work_idle.reset();
   m_async_pool.join_all();
@@ -2898,7 +2898,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
           crypto::hash tophash = m_db->top_block_hash();
           if (block.prev_id != tophash)
           {
-            LOG_PRINT_L1("Skipping prepare blocks. New blocks don't belong to chain.")
+            LOG_PRINT_L1("Skipping prepare blocks. New blocks don't belong to chain.");
             return true;
           }
         }
@@ -2958,7 +2958,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
 
   if (blocks_exist)
   {
-    LOG_PRINT_L0("Skipping prepare blocks. Blocks exist.")
+    LOG_PRINT_L0("Skipping prepare blocks. Blocks exist.");
     return true;
   }
 
@@ -3173,9 +3173,9 @@ HardFork::State Blockchain::get_hard_fork_state() const
   return m_hardfork->get_state();
 }
 
-bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
+bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
-  return m_hardfork->get_voting_info(version, window, votes, threshold, voting);
+  return m_hardfork->get_voting_info(version, window, votes, threshold, earliest_height, voting);
 }
 
 bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const

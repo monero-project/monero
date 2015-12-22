@@ -897,7 +897,7 @@ namespace cryptonote
     const Blockchain &blockchain = m_core.get_blockchain_storage();
     uint8_t version = req.version > 0 ? req.version : blockchain.get_ideal_hard_fork_version();
     res.version = blockchain.get_current_hard_fork_version();
-    res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.voting);
+    res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.earliest_height, res.voting);
     res.state = blockchain.get_hard_fork_state();
     res.status = CORE_RPC_STATUS_OK;
     return true;
