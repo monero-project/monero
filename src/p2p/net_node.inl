@@ -570,7 +570,7 @@ namespace nodetool
     mPeersLoggerThread.reset(new std::thread([&]()
     {
       _note("Thread monitor number of peers - start");
-      while (!is_closing)
+      while (!is_closing && !m_net_server.is_stop_signal_sent())
       { // main loop of thread
         //number_of_peers = m_net_server.get_config_object().get_connections_count();
         unsigned int number_of_peers = 0;
