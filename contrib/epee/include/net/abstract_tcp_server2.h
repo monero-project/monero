@@ -279,6 +279,8 @@ namespace net_utils
 
     bool is_thread_worker();
 
+    bool cleanup_connections();
+
     /// The io_service used to perform asynchronous operations.
     std::unique_ptr<boost::asio::io_service> m_io_service_local_instance;
     boost::asio::io_service& io_service_;    
@@ -306,7 +308,7 @@ namespace net_utils
     connection_ptr new_connection_;
 
     std::mutex connections_mutex;
-    std::deque<connection_ptr> connections_;
+    std::deque<std::pair<boost::system_time, connection_ptr>> connections_;
 
   }; // class <>boosted_tcp_server
 
