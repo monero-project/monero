@@ -88,10 +88,10 @@ namespace wallet_rpc
 
       struct response
       {
-          std::string   height;
-          BEGIN_KV_SERIALIZE_MAP()
-            KV_SERIALIZE(height)
-          END_KV_SERIALIZE_MAP()
+        uint64_t  height;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(height)
+        END_KV_SERIALIZE_MAP()
       };
     };
 
