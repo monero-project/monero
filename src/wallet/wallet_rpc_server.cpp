@@ -115,7 +115,21 @@ namespace tools
     }
     return true;
   }
-
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_getheight(const wallet_rpc::COMMAND_RPC_GET_HEIGHT::request& req, wallet_rpc::COMMAND_RPC_GET_HEIGHT::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      res.height = m_wallet.get_blockchain_current_height();
+    }
+    catch (std::exception& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
   {
@@ -652,3 +666,4 @@ namespace tools
   }
   //------------------------------------------------------------------------------------------------------------------------------
 }
+
