@@ -1293,9 +1293,11 @@ void wallet2::store()
   r = epee::file_io_utils::save_string_to_file(new_file, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, new_file);
   boost::filesystem::remove(old_file); // probably does not exist
-  std::error_code e = tools::replace_file(m_wallet_file, old_file);
-  THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
-  e = tools::replace_file(new_file, m_wallet_file);
+  if (boost::filesystem::exists(m_wallet_file)) {
+    std::error_code e = tools::replace_file(m_wallet_file, old_file);
+    THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
+  }
+  std::error_code e = tools::replace_file(new_file, m_wallet_file
   THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
   boost::filesystem::remove(old_file);
 }
