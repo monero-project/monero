@@ -210,7 +210,7 @@ TEST(steps_asap, Success)
   hf.init();
 
   for (uint64_t h = 0; h < 10; ++h) {
-    db.add_block(mkblock(10), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(9), 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 
@@ -450,6 +450,7 @@ TEST(reorganize, changed)
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
     ASSERT_TRUE(hf.add_fork(2, 2, 1));
     ASSERT_TRUE(hf.add_fork(3, 5, 2));
+    ASSERT_TRUE(hf.add_fork(4, 555, 222));
     hf.init();
 
 #define ADD(v, h, a) \

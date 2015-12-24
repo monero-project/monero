@@ -28,6 +28,7 @@
 
 set(unit_tests_sources
   address_from_url.cpp
+  ban.cpp
   base58.cpp
   blockchain_db.cpp
   block_reward.cpp
