@@ -1297,7 +1297,7 @@ void wallet2::store()
     std::error_code e = tools::replace_file(m_wallet_file, old_file);
     THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
   }
-  std::error_code e = tools::replace_file(new_file, m_wallet_file
+  std::error_code e = tools::replace_file(new_file, m_wallet_file);
   THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
   boost::filesystem::remove(old_file);
 }
