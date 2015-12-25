@@ -22,6 +22,15 @@
 #else
 #define	Z	"z"
 #endif
+#ifdef MDB_VL32
+#ifdef _WIN32
+#define	Y	"I64"
+#else
+#define	Y	"ll"
+#endif
+#else
+#define Y	Z
+#endif
 
 static void prstat(MDB_stat *ms)
 {
@@ -29,15 +38,15 @@ static void prstat(MDB_stat *ms)
 	printf("  Page size: %u\n", ms->ms_psize);
 #endif
 	printf("  Tree depth: %u\n", ms->ms_depth);
-	printf("  Branch pages: %"Z"u\n", ms->ms_branch_pages);
-	printf("  Leaf pages: %"Z"u\n", ms->ms_leaf_pages);
-	printf("  Overflow pages: %"Z"u\n", ms->ms_overflow_pages);
-	printf("  Entries: %"Z"u\n", ms->ms_entries);
+	printf("  Branch pages: %"Y"u\n", ms->ms_branch_pages);
+	printf("  Leaf pages: %"Y"u\n", ms->ms_leaf_pages);
+	printf("  Overflow pages: %"Y"u\n", ms->ms_overflow_pages);
+	printf("  Entries: %"Y"u\n", ms->ms_entries);
 }
 
 static void usage(char *prog)
 {
-	fprintf(stderr, "usage: %s dbpath [-V] [-n] [-e] [-r[r]] [-f[f[f]]] [-a|-s subdb]\n", prog);
+	fprintf(stderr, "usage: %s [-V] [-n] [-e] [-r[r]] [-f[f[f]]] [-a|-s subdb] dbpath\n", prog);
 	exit(EXIT_FAILURE);
 }
 
@@ -125,11 +134,11 @@ int main(int argc, char *argv[])
 		(void)mdb_env_info(env, &mei);
 		printf("Environment Info\n");
 		printf("  Map address: %p\n", mei.me_mapaddr);
-		printf("  Map size: %"Z"u\n", mei.me_mapsize);
+		printf("  Map size: %"Y"u\n", mei.me_mapsize);
 		printf("  Page size: %u\n", mst.ms_psize);
-		printf("  Max pages: %"Z"u\n", mei.me_mapsize / mst.ms_psize);
-		printf("  Number of pages used: %"Z"u\n", mei.me_last_pgno+1);
-		printf("  Last transaction ID: %"Z"u\n", mei.me_last_txnid);
+		printf("  Max pages: %"Y"u\n", mei.me_mapsize / mst.ms_psize);
+		printf("  Number of pages used: %"Y"u\n", mei.me_last_pgno+1);
+		printf("  Last transaction ID: %"Y"u\n", mei.me_last_txnid);
 		printf("  Max readers: %u\n", mei.me_maxreaders);
 		printf("  Number of readers used: %u\n", mei.me_numreaders);
 	}
