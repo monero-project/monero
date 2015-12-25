@@ -155,7 +155,15 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
 
   if (!found)
   {
-    m_db->get_output_key(tx_in_to_key.amount, absolute_offsets, outputs);
+    try
+    {
+      m_db->get_output_key(tx_in_to_key.amount, absolute_offsets, outputs);
+    }
+    catch (...)
+    {
+      LOG_PRINT_L0("Output does not exist! amount = " << tx_in_to_key.amount);
+      return false;
+    }
   }
   else
   {
@@ -167,7 +175,15 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
       std::vector<output_data_t> add_outputs;
       for (size_t i = outputs.size(); i < absolute_offsets.size(); i++)
         add_offsets.push_back(absolute_offsets[i]);
-      m_db->get_output_key(tx_in_to_key.amount, add_offsets, add_outputs);
+      try
+      {
+        m_db->get_output_key(tx_in_to_key.amount, add_offsets, add_outputs);
+      }
+      catch (...)
+      {
+        LOG_PRINT_L0("Output does not exist! amount = " << tx_in_to_key.amount);
+        return false;
+      }
       outputs.insert(outputs.end(), add_outputs.begin(), add_outputs.end());
     }
   }
