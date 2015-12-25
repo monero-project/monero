@@ -269,6 +269,7 @@ namespace cryptonote
     uint64_t get_adjusted_time() const;
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps);
     bool update_next_cumulative_size_limit();
+    void return_tx_to_pool(const std::vector<transaction> &txs);
 
     bool check_for_double_spend(const transaction& tx, key_images_container& keys_this_block) const;
     void get_timestamp_and_difficulty(uint64_t &timestamp, difficulty_type &difficulty, const int offset) const;
