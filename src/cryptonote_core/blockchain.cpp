@@ -1327,8 +1327,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
       bool r = switch_to_alternative_blockchain(alt_chain, true);
 
-      bvc.m_added_to_main_chain = r;
-      bvc.m_verifivation_failed = !r;
+      if(r) bvc.m_added_to_main_chain = true;
+      else bvc.m_verifivation_failed = true;
 
       return r;
     }
