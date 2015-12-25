@@ -129,7 +129,6 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
 
     // ND: Disable locking and make method private.
     //CRITICAL_REGION_LOCAL(m_blockchain_lock);
-
     // verify that the input has key offsets (that it exists properly, really)
     if(!tx_in_to_key.key_offsets.size())
         return false;
@@ -155,7 +154,15 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
 
     if (!found)
     {
-        m_db->get_output_data(tx_in_to_key.amount, absolute_offsets, outputs);
+        try
+        {
+          m_db->get_output_data(tx_in_to_key.amount, absolute_offsets, outputs);
+        }
+        catch (...)
+        {
+            LOG_PRINT_L0("Output does not exist! amount = " << tx_in_to_key.amount);
+            return false;
+        }
     }
     else
     {
