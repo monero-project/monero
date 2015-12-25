@@ -2231,7 +2231,7 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
   {
     // ND: Instead of calling get_current_blockchain_height(), call m_db->height()
     //    directly as get_current_blockchain_height() locks the recursive mutex.
-    if(m_db->height() + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
+    if(m_db->height()-1 + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
       return true;
     else
       return false;
