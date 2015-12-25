@@ -79,7 +79,7 @@ bool gen_block_big_major_version::generate(std::vector<test_event_entry>& events
   BLOCK_VALIDATION_INIT_GENERATE();
 
   block blk_1;
-  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_major_ver, CURRENT_BLOCK_MAJOR_VERSION + 1);
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_major_ver, 255);
   events.push_back(blk_1);
 
   DO_CALLBACK(events, "check_block_purged");
@@ -92,7 +92,7 @@ bool gen_block_big_minor_version::generate(std::vector<test_event_entry>& events
   BLOCK_VALIDATION_INIT_GENERATE();
 
   block blk_1;
-  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_minor_ver, 0, CURRENT_BLOCK_MINOR_VERSION + 1);
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_minor_ver, 0, 255);
   events.push_back(blk_1);
 
   DO_CALLBACK(events, "check_block_accepted");
