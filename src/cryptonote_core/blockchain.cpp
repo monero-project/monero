@@ -797,7 +797,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
       // rollback_blockchain_switching should be moved to two different
       // functions: rollback and apply_chain, but for now we pretend it is
       // just the latter (because the rollback was done above).
-      rollback_blockchain_switching(disconnected_chain, m_db->height());
+      rollback_blockchain_switching(disconnected_chain, split_height);
 
       // FIXME: Why do we keep invalid blocks around?  Possibly in case we hear
       // about them again so we can immediately dismiss them, but needs some
