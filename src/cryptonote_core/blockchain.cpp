@@ -717,6 +717,12 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  // fail if rollback_height passed is too high
+  if (rollback_height > m_db->height())
+  {
+    return true;
+  }
+
   m_timestamps_and_difficulties_height = 0;
 
   // remove blocks from blockchain until we get back to where we should be.
