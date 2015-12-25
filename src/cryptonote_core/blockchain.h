@@ -880,10 +880,11 @@ namespace cryptonote
      * @param fee the total fees collected in the block
      * @param base_reward return-by-reference the new block's generated coins
      * @param already_generated_coins the amount of currency generated prior to this block
+     * @param partial_block_reward whether the block reward was less than allowed
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
