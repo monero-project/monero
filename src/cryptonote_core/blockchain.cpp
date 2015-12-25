@@ -1301,10 +1301,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
             LOG_PRINT_GREEN("###### REORGANIZE on height: " << alt_chain.front()->second.height << " of " << m_db->height() - 1 << " with cum_difficulty " << m_db->get_block_cumulative_difficulty(m_db->height() - 1) << std::endl << " alternative blockchain size: " << alt_chain.size() << " with cum_difficulty " << bei.cumulative_difficulty, LOG_LEVEL_0);
 
             bool r = switch_to_alternative_blockchain(alt_chain, false);
-            if (r)
-                bvc.m_added_to_main_chain = true;
-            else
-                bvc.m_verifivation_failed = true;
+            if(r) bvc.m_added_to_main_chain = true;
+            else bvc.m_verifivation_failed = true;
             return r;
         }
         else
