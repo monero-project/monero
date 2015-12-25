@@ -618,7 +618,8 @@ bool gen_block_invalid_binary_format::check_block_verification_context(const cry
   }
   else
   {
-    return !bvc.m_added_to_main_chain && (bvc.m_already_exists || bvc.m_marked_as_orphaned || bvc.m_verifivation_failed);
+    return (!bvc.m_added_to_main_chain && (bvc.m_already_exists || bvc.m_marked_as_orphaned || bvc.m_verifivation_failed))
+      || (bvc.m_added_to_main_chain && bvc.m_partial_block_reward);
   }
 }
 
