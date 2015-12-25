@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/range/adaptor/reversed.hpp>
+
 #include "blockchain_db.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
@@ -133,13 +135,13 @@ void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
   blk = get_top_block();
 
   remove_block();
-  
-  remove_transaction(get_transaction_hash(blk.miner_tx));
-  for (const auto& h : blk.tx_hashes)
+
+  for (const auto& h : boost::adaptors::reverse(blk.tx_hashes))
   {
     txs.push_back(get_tx(h));
     remove_transaction(h);
   }
+  remove_transaction(get_transaction_hash(blk.miner_tx));
 }
 
 bool BlockchainDB::is_open() const
