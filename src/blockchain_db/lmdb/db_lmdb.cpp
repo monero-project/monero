@@ -722,15 +722,15 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transa
     size_t num_elems = 0;
     mdb_cursor_count(cur, &num_elems);
 
-    mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
+    mdb_cursor_get(cur, &k, &v, MDB_LAST_DUP);
 
-    for (uint64_t i = 0; i < num_elems; ++i)
+    for (uint64_t i = num_elems; i > 0; --i)
     {
-      const tx_out tx_output = tx.vout[i];
+      const tx_out tx_output = tx.vout[i-1];
       remove_output(*(const uint64_t*)v.mv_data, tx_output.amount);
-      if (i < num_elems - 1)
+      if (i > 1)
       {
-        mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
+        mdb_cursor_get(cur, &k, &v, MDB_PREV_DUP);
       }
     }
   }
@@ -806,22 +806,23 @@ void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const uin
   size_t num_elems = 0;
   mdb_cursor_count(cur, &num_elems);
 
-  mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
+  mdb_cursor_get(cur, &k, &v, MDB_LAST_DUP);
 
   uint64_t amount_output_index = 0;
   uint64_t goi = 0;
   bool found_index = false;
-  for (uint64_t i = 0; i < num_elems; ++i)
+  for (uint64_t i = num_elems; i > 0; --i)
   {
     mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
     goi = *(const uint64_t *)v.mv_data;
     if (goi == global_output_index)
     {
-      amount_output_index = i;
+      amount_output_index = i-1;
       found_index = true;
       break;
     }
-    mdb_cursor_get(cur, &k, &v, MDB_NEXT_DUP);
+    if (i > 1)
+      mdb_cursor_get(cur, &k, &v, MDB_PREV_DUP);
   }
   if (found_index)
   {
