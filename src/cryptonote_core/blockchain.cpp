@@ -1997,9 +1997,7 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
     return false;
 }
 //------------------------------------------------------------------
-// This function validates transaction inputs and their keys.  Previously
-// it also performed double spend checking, but that has been moved to its
-// own function.
+// This function validates transaction inputs and their keys.
 // FIXME: consider moving functionality specific to one input into
 //        check_tx_input() rather than here, and use this function simply
 //        to iterate the inputs as necessary (splitting the task
@@ -2104,6 +2102,12 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
 
         // make sure tx output has key offset(s) (is signed to be used)
         CHECK_AND_ASSERT_MES(in_to_key.key_offsets.size(), false, "empty in_to_key.key_offsets in transaction with id " << get_transaction_hash(tx));
+
+        if(have_tx_keyimg_as_spent(in_to_key.k_image))
+        {
+            LOG_PRINT_L1("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
+            return false;
+        }
 
         // basically, make sure number of inputs == number of signatures
         CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
