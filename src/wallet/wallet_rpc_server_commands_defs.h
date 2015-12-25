@@ -78,6 +78,23 @@ namespace wallet_rpc
     };
   };
 
+    struct COMMAND_RPC_GET_HEIGHT
+    {
+      struct request
+      {
+        BEGIN_KV_SERIALIZE_MAP()
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct response
+      {
+        uint64_t  height;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(height)
+        END_KV_SERIALIZE_MAP()
+      };
+    };
+
   struct transfer_destination
   {
     uint64_t amount;
