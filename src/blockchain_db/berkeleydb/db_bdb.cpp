@@ -391,6 +391,10 @@ void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_out
         if (m_output_keys->put(DB_DEFAULT_TX, &k, &data, 0))
             throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
     }
+    else
+    {
+      throw0(DB_ERROR("Wrong output type: expected txout_to_key"));
+    }
 
     m_num_outputs++;
 }

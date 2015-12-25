@@ -2246,6 +2246,11 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
         return false;
       }
 
+      // The original code includes a check for the output corresponding to this input
+      // to be a txout_to_key. This is removed, as the database does not store this info,
+      // but only txout_to_key outputs are stored in the DB in the first place, done in
+      // Blockchain*::add_output
+
       m_output_keys.push_back(pubkey);
       return true;
     }
