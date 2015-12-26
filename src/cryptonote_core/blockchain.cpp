@@ -499,11 +499,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  m_transactions.clear();
-  m_blocks.clear();
-  m_blocks_index.clear();
   m_alternative_chains.clear();
-  m_outputs.clear();
   m_db->reset();
 
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
@@ -1251,7 +1247,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     {
       // if block parent is not part of main chain or an alternate chain,
       // we ignore it
-      CHECK_AND_ASSERT_MES(parent_in_main, false, "internal error: broken imperative condition it_main_prev != m_blocks_index.end()");
+      CHECK_AND_ASSERT_MES(parent_in_main, false, "internal error: broken imperative condition: parent_in_main");
 
       complete_timestamps_vector(m_db->get_block_height(b.prev_id), timestamps);
     }
