@@ -695,6 +695,10 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
     if (mdb_put(*m_write_txn, m_output_keys, &k, &data, 0))
       throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
   }
+  else
+  {
+    throw0(DB_ERROR("Wrong output type: expected txout_to_key"));
+  }
 
   m_num_outputs++;
 }

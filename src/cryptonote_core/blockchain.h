@@ -253,7 +253,7 @@ namespace cryptonote
     bool handle_alternative_block(const block& b, const crypto::hash& id, block_verification_context& bvc);
     difficulty_type get_next_difficulty_for_alternative_chain(const std::list<blocks_ext_by_hash::iterator>& alt_chain, block_extended_info& bei) const;
     bool prevalidate_miner_transaction(const block& b, uint64_t height);
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward);
     bool validate_transaction(const block& b, uint64_t height, const transaction& tx);
     bool rollback_blockchain_switching(std::list<block>& original_chain, uint64_t rollback_height);
     bool add_transaction_from_block(const transaction& tx, const crypto::hash& tx_id, const crypto::hash& bl_id, uint64_t bl_height);
@@ -269,6 +269,7 @@ namespace cryptonote
     uint64_t get_adjusted_time() const;
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps);
     bool update_next_cumulative_size_limit();
+    void return_tx_to_pool(const std::vector<transaction> &txs);
 
     bool check_for_double_spend(const transaction& tx, key_images_container& keys_this_block) const;
     void get_timestamp_and_difficulty(uint64_t &timestamp, difficulty_type &difficulty, const int offset) const;

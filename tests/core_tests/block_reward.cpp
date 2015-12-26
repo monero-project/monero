@@ -80,7 +80,7 @@ namespace
     generator.get_last_n_block_sizes(block_sizes, get_block_hash(blk_prev), median_block_count);
 
     size_t median = misc_utils::median(block_sizes);
-    median = std::max(median, static_cast<size_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE));
+    median = std::max(median, static_cast<size_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1));
 
     transaction miner_tx;
     bool r = construct_miner_tx_by_size(miner_tx, get_block_height(blk_prev) + 1, generator.get_already_generated_coins(blk_prev),
@@ -249,11 +249,11 @@ bool gen_block_reward::check_block_rewards(cryptonote::core& /*c*/, size_t /*ev_
   DEFINE_TESTS_ERROR_CONTEXT("gen_block_reward_without_txs::check_block_rewards");
 
   std::array<uint64_t, 7> blk_rewards;
-  blk_rewards[0] = MONEY_SUPPLY >> 18;
+  blk_rewards[0] = MONEY_SUPPLY >> EMISSION_SPEED_FACTOR_PER_MINUTE;
   uint64_t cumulative_reward = blk_rewards[0];
   for (size_t i = 1; i < blk_rewards.size(); ++i)
   {
-    blk_rewards[i] = (MONEY_SUPPLY - cumulative_reward) >> 18;
+    blk_rewards[i] = (MONEY_SUPPLY - cumulative_reward) >> EMISSION_SPEED_FACTOR_PER_MINUTE;
     cumulative_reward += blk_rewards[i];
   }
 

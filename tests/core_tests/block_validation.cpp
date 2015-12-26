@@ -79,7 +79,7 @@ bool gen_block_big_major_version::generate(std::vector<test_event_entry>& events
   BLOCK_VALIDATION_INIT_GENERATE();
 
   block blk_1;
-  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_major_ver, CURRENT_BLOCK_MAJOR_VERSION + 1);
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_major_ver, 255);
   events.push_back(blk_1);
 
   DO_CALLBACK(events, "check_block_purged");
@@ -92,7 +92,7 @@ bool gen_block_big_minor_version::generate(std::vector<test_event_entry>& events
   BLOCK_VALIDATION_INIT_GENERATE();
 
   block blk_1;
-  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_minor_ver, 0, CURRENT_BLOCK_MINOR_VERSION + 1);
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_minor_ver, 0, 255);
   events.push_back(blk_1);
 
   DO_CALLBACK(events, "check_block_accepted");
@@ -578,7 +578,7 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   while (diffic < 1500);
 
   blk_last = boost::get<block>(events.back());
-  MAKE_TX(events, tx_0, miner_account, miner_account, MK_COINS(120), boost::get<block>(events[1]));
+  MAKE_TX(events, tx_0, miner_account, miner_account, MK_COINS(30), boost::get<block>(events[1]));
   DO_CALLBACK(events, "corrupt_blocks_boundary");
 
   block blk_test;
@@ -618,7 +618,8 @@ bool gen_block_invalid_binary_format::check_block_verification_context(const cry
   }
   else
   {
-    return !bvc.m_added_to_main_chain && (bvc.m_already_exists || bvc.m_marked_as_orphaned || bvc.m_verifivation_failed);
+    return (!bvc.m_added_to_main_chain && (bvc.m_already_exists || bvc.m_marked_as_orphaned || bvc.m_verifivation_failed))
+      || (bvc.m_added_to_main_chain && bvc.m_partial_block_reward);
   }
 }
 

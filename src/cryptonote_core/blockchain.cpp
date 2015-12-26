@@ -155,7 +155,15 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
 
   if (!found)
   {
-    m_db->get_output_key(tx_in_to_key.amount, absolute_offsets, outputs);
+    try
+    {
+      m_db->get_output_key(tx_in_to_key.amount, absolute_offsets, outputs);
+    }
+    catch (...)
+    {
+      LOG_PRINT_L0("Output does not exist! amount = " << tx_in_to_key.amount);
+      return false;
+    }
   }
   else
   {
@@ -167,7 +175,15 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
       std::vector<output_data_t> add_outputs;
       for (size_t i = outputs.size(); i < absolute_offsets.size(); i++)
         add_offsets.push_back(absolute_offsets[i]);
-      m_db->get_output_key(tx_in_to_key.amount, add_offsets, add_outputs);
+      try
+      {
+        m_db->get_output_key(tx_in_to_key.amount, add_offsets, add_outputs);
+      }
+      catch (...)
+      {
+        LOG_PRINT_L0("Output does not exist! amount = " << tx_in_to_key.amount);
+        return false;
+      }
       outputs.insert(outputs.end(), add_outputs.begin(), add_outputs.end());
     }
   }
@@ -474,6 +490,7 @@ block Blockchain::pop_block_from_blockchain()
       }
     }
   }
+  m_tx_pool.on_blockchain_dec(m_blocks.size()-1, get_tail_id());
 
   return popped_block;
 }
@@ -701,6 +718,12 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  // fail if rollback_height passed is too high
+  if (rollback_height > m_db->height())
+  {
+    return true;
+  }
+
   m_timestamps_and_difficulties_height = 0;
 
   // remove blocks from blockchain until we get back to where we should be.
@@ -775,7 +798,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
       // rollback_blockchain_switching should be moved to two different
       // functions: rollback and apply_chain, but for now we pretend it is
       // just the latter (because the rollback was done above).
-      rollback_blockchain_switching(disconnected_chain, m_db->height());
+      rollback_blockchain_switching(disconnected_chain, split_height);
 
       // FIXME: Why do we keep invalid blocks around?  Possibly in case we hear
       // about them again so we can immediately dismiss them, but needs some
@@ -918,13 +941,14 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
 }
 //------------------------------------------------------------------
 // This function validates the miner transaction reward
-bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins)
+bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   //validate reward
   uint64_t money_in_use = 0;
   BOOST_FOREACH(auto& o, b.miner_tx.vout)
     money_in_use += o.amount;
+  partial_block_reward = false;
 
   std::vector<size_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
@@ -954,6 +978,8 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     // emission. This modifies the emission curve very slightly.
     CHECK_AND_ASSERT_MES(money_in_use - fee <= base_reward, false, "base reward calculation bug");
     base_reward = money_in_use - fee;
+    if(base_reward + fee != money_in_use)
+      partial_block_reward = true;
   }
   return true;
 }
@@ -1301,8 +1327,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
       bool r = switch_to_alternative_blockchain(alt_chain, true);
 
-      bvc.m_added_to_main_chain = r;
-      bvc.m_verifivation_failed = !r;
+      if(r) bvc.m_added_to_main_chain = true;
+      else bvc.m_verifivation_failed = true;
 
       return r;
     }
@@ -1982,9 +2008,7 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
   return false;
 }
 //------------------------------------------------------------------
-// This function validates transaction inputs and their keys.  Previously
-// it also performed double spend checking, but that has been moved to its
-// own function.
+// This function validates transaction inputs and their keys.
 bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2085,6 +2109,12 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
 
     // make sure tx output has key offset(s) (is signed to be used)
     CHECK_AND_ASSERT_MES(in_to_key.key_offsets.size(), false, "empty in_to_key.key_offsets in transaction with id " << get_transaction_hash(tx));
+
+    if(have_tx_keyimg_as_spent(in_to_key.k_image))
+    {
+      LOG_PRINT_L1("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
+      return false;
+    }
 
     // basically, make sure number of inputs == number of signatures
     CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
@@ -2201,7 +2231,7 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
   {
     // ND: Instead of calling get_current_blockchain_height(), call m_db->height()
     //    directly as get_current_blockchain_height() locks the recursive mutex.
-    if(m_db->height() + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
+    if(m_db->height()-1 + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
       return true;
     else
       return false;
@@ -2245,6 +2275,11 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
         LOG_PRINT_L1("One of outputs for one of inputs has wrong tx.unlock_time = " << unlock_time);
         return false;
       }
+
+      // The original code includes a check for the output corresponding to this input
+      // to be a txout_to_key. This is removed, as the database does not store this info,
+      // but only txout_to_key outputs are stored in the DB in the first place, done in
+      // Blockchain*::add_output
 
       m_output_keys.push_back(pubkey);
       return true;
@@ -2328,6 +2363,23 @@ bool Blockchain::check_block_timestamp(const block& b) const
   return check_block_timestamp(timestamps, b);
 }
 //------------------------------------------------------------------
+void Blockchain::return_tx_to_pool(const std::vector<transaction> &txs)
+{
+  for (auto& tx : txs)
+  {
+    cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+    // We assume that if they were in a block, the transactions are already
+    // known to the network as a whole. However, if we had mined that block,
+    // that might not be always true. Unlikely though, and always relaying
+    // these again might cause a spike of traffic as many nodes re-relay
+    // all the transactions in a popped block when a reorg happens.
+    if (!m_tx_pool.add_tx(tx, tvc, true, true))
+    {
+      LOG_PRINT_L0("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
+    }
+  }
+}
+//------------------------------------------------------------------
 //      Needs to validate the block and acquire each transaction from the
 //      transaction mem_pool, then pass the block and transactions to
 //      m_db->add_block()
@@ -2339,16 +2391,17 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   TIME_MEASURE_START(t1);
 
+  if(bl.prev_id != get_tail_id())
+  {
+    LOG_PRINT_L1("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
+    return false;
+  }
+
   // this is a cheap test
   if (!m_hardfork->check(bl))
   {
     LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)m_hardfork->get_current_version());
-    return false;
-  }
-
-  if(bl.prev_id != get_tail_id())
-  {
-    LOG_PRINT_L1("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
+    bvc.m_verifivation_failed = true;
     return false;
   }
 
@@ -2463,7 +2516,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   uint64_t t_exists = 0;
   uint64_t t_pool = 0;
   uint64_t t_dblspnd = 0;
-  bool add_tx_to_pool = false;
   TIME_MEASURE_FINISH(t3);
 
 // XXX old code adds miner tx here
@@ -2485,7 +2537,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     {
       LOG_PRINT_L1("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
       bvc.m_verifivation_failed = true;
-      break;
+      return_tx_to_pool(txs);
+      return false;
     }
 
     TIME_MEASURE_FINISH(aa);
@@ -2497,7 +2550,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     {
       LOG_PRINT_L1("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
       bvc.m_verifivation_failed = true;
-      break;
+      return_tx_to_pool(txs);
+      return false;
     }
 
     TIME_MEASURE_FINISH(bb);
@@ -2533,8 +2587,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         add_block_as_invalid(bl, id);
         LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
         bvc.m_verifivation_failed = true;
-        add_tx_to_pool = true;
-        break;
+        return_tx_to_pool(txs);
+        return false;
       }
     }
 #if defined(PER_BLOCK_CHECKPOINT)
@@ -2549,8 +2603,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         add_block_as_invalid(bl, id);
         LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
         bvc.m_verifivation_failed = true;
-        add_tx_to_pool = true;
-        break;
+        return_tx_to_pool(txs);
+        return false;
       }
     }
 #endif
@@ -2565,10 +2619,12 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   TIME_MEASURE_START(vmt);
   uint64_t base_reward = 0;
   uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
-  if(!validate_miner_transaction(bl, cumulative_block_size, fee_summary, base_reward, already_generated_coins))
+  if(!validate_miner_transaction(bl, cumulative_block_size, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward))
   {
     LOG_PRINT_L1("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
+    return_tx_to_pool(txs);
+    return false;
   }
 
   TIME_MEASURE_FINISH(vmt);
@@ -2588,40 +2644,30 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
   TIME_MEASURE_START(addblock);
   uint64_t new_height = 0;
-  bool add_success = true;
   if (!bvc.m_verifivation_failed)
   {
     try
     {
       new_height = m_db->add_block(bl, block_size, cumulative_difficulty, already_generated_coins, txs);
     }
+    catch (const KEY_IMAGE_EXISTS& e)
+    {
+      LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+      bvc.m_verifivation_failed = true;
+      return_tx_to_pool(txs);
+      return false;
+    }
     catch (const std::exception& e)
     {
       //TODO: figure out the best way to deal with this failure
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
-      add_success = false;
+      return_tx_to_pool(txs);
+      return false;
     }
   }
-
-  // if we failed for any reason to verify the block, return taken
-  // transactions to the tx_pool.
-  if ((bvc.m_verifivation_failed && add_tx_to_pool) || !add_success)
+  else
   {
-    // return taken transactions to transaction pool
-    for (auto& tx : txs)
-    {
-      cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      // We assume that if they were in a block, the transactions are already
-      // known to the network as a whole. However, if we had mined that block,
-      // that might not be always true. Unlikely though, and always relaying
-      // these again might cause a spike of traffic as many nodes re-relay
-      // all the transactions in a popped block when a reorg happens.
-      if (!m_tx_pool.add_tx(tx, tvc, true, true))
-      {
-        LOG_PRINT_L0("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
-      }
-    }
-    return false;
+    LOG_ERROR("Blocks that failed verification should not reach here");
   }
 
   TIME_MEASURE_FINISH(addblock);
