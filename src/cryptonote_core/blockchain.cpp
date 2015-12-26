@@ -490,7 +490,7 @@ block Blockchain::pop_block_from_blockchain()
       }
     }
   }
-  m_tx_pool.on_blockchain_dec(m_blocks.size()-1, get_tail_id());
+  m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
 
   return popped_block;
 }
