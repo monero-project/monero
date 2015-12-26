@@ -405,6 +405,9 @@ private:
   uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
   void checkpoint_worker() const;
   void check_open() const;
+
+  virtual bool is_read_only() const;
+
   //
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();

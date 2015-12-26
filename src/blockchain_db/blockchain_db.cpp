@@ -199,6 +199,11 @@ void BlockchainDB::show_stats()
 
 void BlockchainDB::fixup()
 {
+  if (is_read_only()) {
+    LOG_PRINT_L1("Database is opened read only - skipping fixup check");
+    return;
+  }
+
   // There was a bug that would cause key images for transactions without
   // any outputs to not be added to the spent key image set. There are two
   // instances of such transactions, in blocks 202612 and 685498.

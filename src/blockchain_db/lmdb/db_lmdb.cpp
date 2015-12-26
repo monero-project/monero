@@ -2496,8 +2496,22 @@ uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
   return ret;
 }
 
+bool BlockchainLMDB::is_read_only() const
+{
+  unsigned int flags;
+  auto result = mdb_env_get_flags(m_env, &flags);
+  if (result)
+    throw0(DB_ERROR(std::string("Error getting database environment info: ").append(mdb_strerror(result)).c_str()));
+
+  if (flags & MDB_RDONLY)
+    return true;
+
+  return false;
+}
+
 void BlockchainLMDB::fixup()
 {
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   // Always call parent as well
   BlockchainDB::fixup();
 }
