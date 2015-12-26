@@ -266,6 +266,8 @@ private:
 
   void check_open() const;
 
+  virtual bool is_read_only() const;
+
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
 

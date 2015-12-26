@@ -2200,8 +2200,14 @@ void BlockchainBDB::checkpoint_worker() const
     LOG_PRINT_L0("Leaving BDB checkpoint thread.");
 }
 
+bool BlockchainBDB::is_read_only() const
+{
+  return false;
+}
+
 void BlockchainBDB::fixup()
 {
+  LOG_PRINT_L3("BlockchainBDB::" << __func__);
   // Always call parent as well
   BlockchainDB::fixup();
 }
