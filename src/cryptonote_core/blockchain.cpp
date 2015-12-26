@@ -453,11 +453,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
-    m_transactions.clear();
-    m_blocks.clear();
-    m_blocks_index.clear();
     m_alternative_chains.clear();
-    m_outputs.clear();
     m_db->reset();
 
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
