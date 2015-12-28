@@ -57,6 +57,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::run()
   {
+    m_stop = false;
     m_net_server.add_idle_handler([this](){
       try {
         m_wallet.refresh();
@@ -65,6 +66,14 @@ namespace tools
       }
       return true;
     }, 20000);
+    m_net_server.add_idle_handler([this](){
+      if (m_stop.load(std::memory_order_relaxed))
+      {
+        send_stop_signal();
+        return false;
+      }
+      return true;
+    }, 500);
 
     //DO NOT START THIS SERVER IN MORE THEN 1 THREADS WITHOUT REFACTORING
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
@@ -648,8 +657,8 @@ namespace tools
 
     try
     {
-      send_stop_signal();
       m_wallet.store();
+      m_stop.store(true, std::memory_order_relaxed);
     }
     catch (std::exception& e)
     {

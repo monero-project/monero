@@ -102,5 +102,6 @@ namespace tools
       wallet2& m_wallet;
       std::string m_port;
       std::string m_bind_ip;
+      std::atomic<bool> m_stop;
   };
 }
