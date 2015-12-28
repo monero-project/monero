@@ -266,6 +266,28 @@ namespace cryptonote
 
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
 
+    // check for blockchain.bin
+    bool old_blockchain_found = false;
+    try
+    {
+      const boost::filesystem::path old_files = folder.parent_path();
+      if (boost::filesystem::exists(folder.parent_path() / "blockchain.bin"))
+      {
+        LOG_PRINT_L0("Found old-style blockchain.bin in " << old_files.string());
+        LOG_PRINT_L0("Monero now uses a new format. You can either remove blockchain.bin to start syncing");
+        LOG_PRINT_L0("the blockchain anew, or use blockchain_export and blockchain_import to convert your");
+        LOG_PRINT_L0("existing blockchain.bin to the new format. See README.md for instructions.");
+        old_blockchain_found = true;
+      }
+    }
+    // folder might not be a directory, etc, etc
+    catch (...) {}
+
+    if (old_blockchain_found)
+    {
+      throw DB_ERROR("Database could not be opened");
+    }
+
     const std::string filename = folder.string();
     // temporarily default to fastest:async:1000
     blockchain_db_sync_mode sync_mode = db_async;
