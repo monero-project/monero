@@ -130,13 +130,16 @@ private:
 template<>
 struct MDB_val_copy<const char*>: public MDB_val
 {
-  MDB_val_copy(const char *s) :
-    data(strdup(s))
+  MDB_val_copy(const char *s):
+    len(strlen(s)),
+    data(new char[len+1])
   {
-    mv_size = strlen(s) + 1; // include the NUL, makes it easier for compares
+    memcpy(data.get(), s, len+1);
+    mv_size = len + 1; // include the NUL, makes it easier for compares
     mv_data = data.get();
   }
 private:
+  size_t len;
   std::unique_ptr<char[]> data;
 };
 
