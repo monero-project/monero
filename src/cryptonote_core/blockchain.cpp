@@ -2113,6 +2113,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
     if(have_tx_keyimg_as_spent(in_to_key.k_image))
     {
       LOG_PRINT_L1("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
+      KILL_IOSERVICE();
       return false;
     }
 
@@ -2126,6 +2127,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
       if(!itk->second)
       {
         LOG_PRINT_L1("Failed ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+        KILL_IOSERVICE();
         return false;
       }
 
