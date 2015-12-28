@@ -926,6 +926,8 @@ BlockchainLMDB::~BlockchainLMDB()
   // batch transaction shouldn't be active at this point. If it is, consider it aborted.
   if (m_batch_active)
     batch_abort();
+  if (m_open)
+    close();
 }
 
 BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
@@ -1156,6 +1158,7 @@ void BlockchainLMDB::close()
 
   // FIXME: not yet thread safe!!!  Use with care.
   mdb_env_close(m_env);
+  m_open = false;
 }
 
 void BlockchainLMDB::sync()
