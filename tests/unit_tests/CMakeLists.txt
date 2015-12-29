@@ -32,6 +32,7 @@ set(unit_tests_sources
   base58.cpp
   blockchain_db.cpp
   block_reward.cpp
+  canonical_amounts.cpp
   chacha8.cpp
   checkpoints.cpp
   decompose_amount_into_digits.cpp

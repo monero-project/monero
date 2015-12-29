@@ -210,7 +210,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
     last_versions[n] = 0;
   const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size  -1) : 0;
   const uint8_t start_version = height == 0 ? original_version : db.get_hard_fork_version(height);
-  while (heights[current_fork_index].version > start_version) {
+  while (current_fork_index > 0 && heights[current_fork_index].version > start_version) {
     db.set_hard_fork_starting_height(heights[current_fork_index].version, std::numeric_limits<uint64_t>::max());
     --current_fork_index;
   }
