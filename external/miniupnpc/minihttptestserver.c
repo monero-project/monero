@@ -1,7 +1,7 @@
-/* $Id: minihttptestserver.c,v 1.16 2014/04/01 15:08:28 nanard Exp $ */
+/* $Id: minihttptestserver.c,v 1.19 2015/11/17 09:07:17 nanard Exp $ */
 /* Project : miniUPnP
  * Author : Thomas Bernard
- * Copyright (c) 2011-2014 Thomas Bernard
+ * Copyright (c) 2011-2015 Thomas Bernard
  * This software is subject to the conditions detailed in the
  * LICENCE file provided in this distribution.
  * */
@@ -17,6 +17,10 @@
 #include <signal.h>
 #include <time.h>
 #include <errno.h>
+
+#ifndef INADDR_LOOPBACK
+#define INADDR_LOOPBACK         0x7f000001
+#endif
 
 #define CRAP_LENGTH (2048)
 
@@ -104,6 +108,8 @@ char * build_chunked_response(int content_length, int * response_len)
 	/* allocate to have some margin */
 	buffer_length = 256 + content_length + (content_length >> 4);
 	response_buffer = malloc(buffer_length);
+	if(response_buffer == NULL)
+		return NULL;
 	*response_len = snprintf(response_buffer, buffer_length,
 	                         "HTTP/1.1 200 OK\r\n"
 	                         "Content-Type: text/plain\r\n"
@@ -112,6 +118,10 @@ char * build_chunked_response(int content_length, int * response_len)
 
 	/* build the content */
 	content_buffer = malloc(content_length);
+	if(content_buffer == NULL) {
+		free(response_buffer);
+		return NULL;
+	}
 	build_content(content_buffer, content_length);
 
 	/* chunk it */
@@ -414,7 +424,14 @@ void handle_http_connection(int c)
 		             "Content-Length: %d\r\n"
 		             "\r\n", content_length);
 		response_len = content_length+n+CRAP_LENGTH;
-		response_buffer = realloc(response_buffer, response_len);
+		p = realloc(response_buffer, response_len);
+		if(p == NULL) {
+			/* error 500 */
+			free(response_buffer);
+			response_buffer = NULL;
+			break;
+		}
+		response_buffer = p;
 		build_content(response_buffer + n, content_length);
 		build_crap(response_buffer + n + content_length, CRAP_LENGTH);
 		break;
@@ -445,7 +462,14 @@ void handle_http_connection(int c)
 		             "Content-Type: text/plain\r\n"
 		             "\r\n");
 		response_len = content_length+n;
-		response_buffer = realloc(response_buffer, response_len);
+		p = realloc(response_buffer, response_len);
+		if(p == NULL) {
+			/* Error 500 */
+			free(response_buffer);
+			response_buffer = NULL;
+			break;
+		}
+		response_buffer = p;
 		build_content(response_buffer + n, response_len - n);
 	}
 
@@ -564,12 +588,16 @@ int main(int argc, char * * argv) {
 		if(f) {
 			char * buffer;
 			buffer = malloc(16*1024);
-			build_content(buffer, 16*1024);
-			i = fwrite(buffer, 1, 16*1024, f);
-			if(i != 16*1024) {
-				fprintf(stderr, "error writing to file %s : %dbytes written (out of %d)\n", expected_file_name, i, 16*1024);
+			if(buffer == NULL) {
+				fprintf(stderr, "memory allocation error\n");
+			} else {
+				build_content(buffer, 16*1024);
+				i = fwrite(buffer, 1, 16*1024, f);
+				if(i != 16*1024) {
+					fprintf(stderr, "error writing to file %s : %dbytes written (out of %d)\n", expected_file_name, i, 16*1024);
+				}
+				free(buffer);
 			}
-			free(buffer);
 			fclose(f);
 		} else {
 			fprintf(stderr, "error opening file %s for writing\n", expected_file_name);

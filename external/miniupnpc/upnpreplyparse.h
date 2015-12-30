@@ -1,4 +1,4 @@
-/* $Id: upnpreplyparse.h,v 1.17 2013/06/06 21:36:40 nanard Exp $ */
+/* $Id: upnpreplyparse.h,v 1.19 2014/10/27 16:33:19 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2013 Thomas Bernard
@@ -8,25 +8,19 @@
 #ifndef UPNPREPLYPARSE_H_INCLUDED
 #define UPNPREPLYPARSE_H_INCLUDED
 
-#if defined(NO_SYS_QUEUE_H) || defined(_WIN32) || defined(__HAIKU__)
-#include "bsdqueue.h"
-#else
-#include <sys/queue.h>
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct NameValue {
-    LIST_ENTRY(NameValue) entries;
-    char name[64];
-    char value[128];
+	struct NameValue * l_next;
+	char name[64];
+	char value[128];
 };
 
 struct NameValueParserData {
-    LIST_HEAD(listhead, NameValue) head;
-    char curelt[64];
+	struct NameValue * l_head;
+	char curelt[64];
 	char * portListing;
 	int portListingLength;
 	int topelt;

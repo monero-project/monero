@@ -161,6 +161,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\minissdpc.c"
+				>
+			</File>
+			<File
 				RelativePath="..\miniupnpc.c"
 				>
 			</File>
@@ -185,6 +189,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\upnpdev.c"
+				>
+			</File>
+			<File
 				RelativePath="..\upnperrors.c"
 				>
 			</File>
@@ -199,10 +207,6 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\bsdqueue.h"
-				>
-			</File>
-			<File
 				RelativePath="..\connecthostport.h"
 				>
 			</File>
@@ -216,6 +220,10 @@
 			</File>
 			<File
 				RelativePath="..\minisoap.h"
+				>
+			</File>
+			<File
+				RelativePath="..\minissdpc.h"
 				>
 			</File>
 			<File
@@ -248,6 +256,10 @@
 			</File>
 			<File
 				RelativePath="..\upnpcommands.h"
+				>
+			</File>
+			<File
+				RelativePath="..\upnpdev.h"
 				>
 			</File>
 			<File

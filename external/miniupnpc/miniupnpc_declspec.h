@@ -1,5 +1,5 @@
-#ifndef DECLSPEC_H_INCLUDED
-#define DECLSPEC_H_INCLUDED
+#ifndef MINIUPNPC_DECLSPEC_H_INCLUDED
+#define MINIUPNPC_DECLSPEC_H_INCLUDED
 
 #if defined(_WIN32) && !defined(MINIUPNP_STATICLIB)
 	/* for windows dll */
@@ -17,5 +17,5 @@
 	#endif
 #endif
 
-#endif
+#endif /* MINIUPNPC_DECLSPEC_H_INCLUDED */
 
