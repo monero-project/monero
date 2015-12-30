@@ -3,14 +3,9 @@ Project web page: http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 github: https://github.com/miniupnp/miniupnp
 freecode: http://freecode.com/projects/miniupnp
 Author: Thomas Bernard
-Copyright (c) 2005-2012 Thomas Bernard
+Copyright (c) 2005-2014 Thomas Bernard
 This software is subject to the conditions detailed in the
 LICENSE file provided within this distribution.
-
-
-For the comfort of Win32 users, bsdqueue.h is included in the distribution.
-Its licence is included in the header of the file.
-bsdqueue.h is a copy of the sys/queue.h of an OpenBSD system.
 
 
 * miniUPnP Client - miniUPnPc *

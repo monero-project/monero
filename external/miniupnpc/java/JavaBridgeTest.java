@@ -29,7 +29,7 @@ public class JavaBridgeTest {
             return;
         }
 
-        devlist = miniupnpc.upnpDiscover(UPNP_DELAY, (String) null, (String) null, 0, 0, IntBuffer.allocate(1));
+        devlist = miniupnpc.upnpDiscover(UPNP_DELAY, (String) null, (String) null, 0, 0, (byte)2, IntBuffer.allocate(1));
         if (devlist != null) {
             System.out.println("List of UPNP devices found on the network :");
             for (UPNPDev device = devlist; device != null; device = device.pNext) {
