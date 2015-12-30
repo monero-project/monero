@@ -1282,16 +1282,18 @@ void wallet2::store()
   crypto::chacha8(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), key, cache_file_data.iv, &cipher[0]);
   cache_file_data.cache_data = cipher;
 
-  std::string buf;
-  bool r = ::serialization::dump_binary(cache_file_data, buf);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
-
   // save to new file, rename main to old, rename new to main
   // at all times, there should be a valid file on disk
   const std::string new_file = m_wallet_file + ".new";
   const std::string old_file = m_wallet_file + ".old";
-  r = epee::file_io_utils::save_string_to_file(new_file, buf);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, new_file);
+
+  // save to new file
+  std::ofstream ostr(new_file);
+  binary_archive<true> oar(ostr);
+  bool success = ::serialization::serialize(oar, cache_file_data);
+  THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
+
+  // rename
   boost::filesystem::remove(old_file); // probably does not exist
   if (boost::filesystem::exists(m_wallet_file)) {
     std::error_code e = tools::replace_file(m_wallet_file, old_file);
