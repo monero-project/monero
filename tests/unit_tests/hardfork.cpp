@@ -283,7 +283,6 @@ TEST(reorganize, Same)
 
 TEST(reorganize, Changed)
 {
-  int history = 4;
   TestDB db;
   HardFork hf(db, 1, 0, 1, 1, 4, 100);
 
