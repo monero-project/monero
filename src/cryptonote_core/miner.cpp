@@ -278,14 +278,17 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::stop()
   {
+    if (!is_mining())
+      return true;
+
     send_stop_signal();
     CRITICAL_REGION_LOCAL(m_threads_lock);
 
     BOOST_FOREACH(boost::thread& th, m_threads)
       th.join();
 
-    m_threads.clear();
     LOG_PRINT_L0("Mining has been stopped, " << m_threads.size() << " finished" );
+    m_threads.clear();
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
