@@ -459,12 +459,9 @@ void event_base_free(struct event_base *base)
 	verbose(VERB_CLIENT, "winsock_event event_base_free");
         if(!base)
                 return;
-	if(base->items)
-		free(base->items);
-        if(base->times)
-                free(base->times);
-        if(base->signals)
-                free(base->signals);
+	free(base->items);
+        free(base->times);
+        free(base->signals);
         free(base);
 }
 

@@ -569,7 +569,7 @@ do_infra_rtt(struct replay_runtime* runtime)
 	free(dp);
 }
 
-/** perform exponential backoff on the timout */
+/** perform exponential backoff on the timeout */
 static void
 expon_timeout_backoff(struct replay_runtime* runtime)
 {

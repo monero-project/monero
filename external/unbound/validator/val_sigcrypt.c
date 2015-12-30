@@ -57,7 +57,7 @@
 #include "sldns/wire2str.h"
 
 #include <ctype.h>
-#if !defined(HAVE_SSL) && !defined(HAVE_NSS)
+#if !defined(HAVE_SSL) && !defined(HAVE_NSS) && !defined(HAVE_NETTLE)
 #error "Need crypto library to do digital signature cryptography"
 #endif
 
@@ -795,10 +795,6 @@ canonical_compare(struct ub_packed_rrset_key* rrset, size_t i, size_t j)
 
 	if(i==j)
 		return 0;
-	/* in case rdata-len is to be compared for canonical order
-	c = memcmp(d->rr_data[i], d->rr_data[j], 2);
-	if(c != 0)
-		return c; */
 
 	switch(type) {
 		/* These RR types have only a name as RDATA. 

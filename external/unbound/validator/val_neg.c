@@ -38,7 +38,7 @@
  *
  * This file contains helper functions for the validator module.
  * The functions help with aggressive negative caching.
- * This creates new denials of existance, and proofs for absence of types
+ * This creates new denials of existence, and proofs for absence of types
  * from cached NSEC records.
  */
 #include "config.h"

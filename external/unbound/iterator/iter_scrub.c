@@ -405,7 +405,43 @@ scrub_normalize(sldns_buffer* pkt, struct msg_parse* msg,
 
 		/* Follow the CNAME chain. */
 		if(rrset->type == LDNS_RR_TYPE_CNAME) {
+			struct rrset_parse* nx = rrset->rrset_all_next;
 			uint8_t* oldsname = sname;
+			/* see if the next one is a DNAME, if so, swap them */
+			if(nx && nx->section == LDNS_SECTION_ANSWER &&
+				nx->type == LDNS_RR_TYPE_DNAME &&
+				nx->rr_count == 1 &&
+				pkt_strict_sub(pkt, sname, nx->dname)) {
+				/* there is a DNAME after this CNAME, it 
+				 * is in the ANSWER section, and the DNAME
+				 * applies to the name we cover */
+				/* check if the alias of the DNAME equals
+				 * this CNAME */
+				uint8_t alias[LDNS_MAX_DOMAINLEN+1];
+				size_t aliaslen = 0;
+				uint8_t* t = NULL;
+				size_t tlen = 0;
+				if(synth_cname(sname, snamelen, nx, alias,
+					&aliaslen, pkt) &&
+					parse_get_cname_target(rrset, &t, &tlen) &&
+			   		dname_pkt_compare(pkt, alias, t) == 0) {
+					/* the synthesized CNAME equals the
+					 * current CNAME.  This CNAME is the
+					 * one that the DNAME creates, and this
+					 * CNAME is better capitalised */
+					verbose(VERB_ALGO, "normalize: re-order of DNAME and its CNAME");
+					if(prev) prev->rrset_all_next = nx;
+					else msg->rrset_first = nx;
+					if(nx->rrset_all_next == NULL)
+						msg->rrset_last = rrset;
+					rrset->rrset_all_next =
+						nx->rrset_all_next;
+					nx->rrset_all_next = rrset;
+					prev = nx;
+				}
+			}
+
+			/* move to next name in CNAME chain */
 			if(!parse_get_cname_target(rrset, &sname, &snamelen))
 				return 0;
 			prev = rrset;
@@ -638,7 +674,7 @@ scrub_sanitize(sldns_buffer* pkt, struct msg_parse* msg,
 	 * children of the originating zone. The idea here is that, 
 	 * as far as we know, the server that we contacted is ONLY 
 	 * authoritative for the originating zone. It, of course, MAY 
-	 * be authoriative for any other zones, and of course, MAY 
+	 * be authoritative for any other zones, and of course, MAY 
 	 * NOT be authoritative for some subdomains of the originating 
 	 * zone. */
 	prev = NULL;

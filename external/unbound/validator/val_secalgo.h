@@ -44,6 +44,21 @@
 #define VALIDATOR_VAL_SECALGO_H
 struct sldns_buffer;
 
+/** Return size of nsec3 hash algorithm, 0 if not supported */
+size_t nsec3_hash_algo_size_supported(int id);
+
+/**
+ * Hash a single hash call of an NSEC3 hash algorithm.
+ * Iterations and salt are done by the caller.
+ * @param algo: nsec3 hash algorithm.
+ * @param buf: the buffer to digest
+ * @param len: length of buffer to digest.
+ * @param res: result stored here (must have sufficient space).
+ * @return false on failure.
+*/
+int secalgo_nsec3_hash(int algo, unsigned char* buf, size_t len,
+        unsigned char* res);
+
 /**
  * Return size of DS digest according to its hash algorithm.
  * @param algo: DS digest algo.

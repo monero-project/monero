@@ -95,7 +95,7 @@
  * signed yet; avoids attacks on system clock).  The
  * last-successful-RFC5011-probe (if available) has to be more than 30 days
  * in the past (otherwise, RFC5011 should have worked).  This keeps
- * unneccesary https traffic down.  If the main certificate is expired, it
+ * unnecessary https traffic down.  If the main certificate is expired, it
  * fails.
  *
  * The dates on the keys in the xml are checked (uses the libexpat xml
@@ -1520,7 +1520,11 @@ xml_entitydeclhandler(void *userData,
 	const XML_Char *ATTR_UNUSED(publicId),
 	const XML_Char *ATTR_UNUSED(notationName))
 {
+#if HAVE_DECL_XML_STOPPARSER
 	(void)XML_StopParser((XML_Parser)userData, XML_FALSE);
+#else
+	(void)userData;
+#endif
 }
 
 /**
@@ -1828,6 +1832,12 @@ write_unsigned_root(const char* root_anchor_file)
 			root_anchor_file);
 		if(verb && errno != 0) printf("%s\n", strerror(errno));
 	}
+	fflush(out);
+#ifdef HAVE_FSYNC
+	fsync(fileno(out));
+#else
+	FlushFileBuffers((HANDLE)_fileno(out));
+#endif
 	fclose(out);
 }
 
@@ -1854,6 +1864,12 @@ write_root_anchor(const char* root_anchor_file, BIO* ds)
 			root_anchor_file);
 		if(verb && errno != 0) printf("%s\n", strerror(errno));
 	}
+	fflush(out);
+#ifdef HAVE_FSYNC
+	fsync(fileno(out));
+#else
+	FlushFileBuffers((HANDLE)_fileno(out));
+#endif
 	fclose(out);
 }
 

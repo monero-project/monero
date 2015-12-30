@@ -36,7 +36,7 @@
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  testenv   to make test environment and run bash "
-	@echo "            usefull in case you don't want to install unbound but want to test examples"
+	@echo "            useful in case you don't want to install unbound but want to test examples"
 	@echo "  doc       to make documentation"
 	@echo "  clean     clean all"
 

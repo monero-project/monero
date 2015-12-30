@@ -499,8 +499,7 @@ replay_scenario_delete(struct replay_scenario* scen)
 	struct replay_range* rng, *rngn;
 	if(!scen)
 		return;
-	if(scen->title)
-		free(scen->title);
+	free(scen->title);
 	mom = scen->mom_first;
 	while(mom) {
 		momn = mom->mom_next;
@@ -909,118 +908,127 @@ macro_assign(rbtree_t* store, char* name, char* value)
 	return x->value != NULL;
 }
 
+/* testbound assert function for selftest.  counts the number of tests */
+#define tb_assert(x) \
+	do { if(!(x)) fatal_exit("%s:%d: %s: assertion %s failed", \
+		__FILE__, __LINE__, __func__, #x); \
+		num_asserts++; \
+	} while(0);
+
 void testbound_selftest(void)
 {
 	/* test the macro store */
 	rbtree_t* store = macro_store_create();
 	char* v;
 	int r;
-	log_assert(store);
+	int num_asserts = 0;
+	tb_assert(store);
 
 	v = macro_lookup(store, "bla");
-	log_assert(strcmp(v, "") == 0);
+	tb_assert(strcmp(v, "") == 0);
 	free(v);
 
 	v = macro_lookup(store, "vlerk");
-	log_assert(strcmp(v, "") == 0);
+	tb_assert(strcmp(v, "") == 0);
 	free(v);
 
 	r = macro_assign(store, "bla", "waarde1");
-	log_assert(r);
+	tb_assert(r);
 
 	v = macro_lookup(store, "vlerk");
-	log_assert(strcmp(v, "") == 0);
+	tb_assert(strcmp(v, "") == 0);
 	free(v);
 
 	v = macro_lookup(store, "bla");
-	log_assert(strcmp(v, "waarde1") == 0);
+	tb_assert(strcmp(v, "waarde1") == 0);
 	free(v);
 
 	r = macro_assign(store, "vlerk", "kanteel");
-	log_assert(r);
+	tb_assert(r);
 
 	v = macro_lookup(store, "bla");
-	log_assert(strcmp(v, "waarde1") == 0);
+	tb_assert(strcmp(v, "waarde1") == 0);
 	free(v);
 
 	v = macro_lookup(store, "vlerk");
-	log_assert(strcmp(v, "kanteel") == 0);
+	tb_assert(strcmp(v, "kanteel") == 0);
 	free(v);
 
 	r = macro_assign(store, "bla", "ww");
-	log_assert(r);
+	tb_assert(r);
 
 	v = macro_lookup(store, "bla");
-	log_assert(strcmp(v, "ww") == 0);
+	tb_assert(strcmp(v, "ww") == 0);
 	free(v);
 
-	log_assert( macro_length("}") == 1);
-	log_assert( macro_length("blabla}") == 7);
-	log_assert( macro_length("bla${zoink}bla}") == 7+8);
-	log_assert( macro_length("bla${zoink}${bla}bla}") == 7+8+6);
+	tb_assert( macro_length("}") == 1);
+	tb_assert( macro_length("blabla}") == 7);
+	tb_assert( macro_length("bla${zoink}bla}") == 7+8);
+	tb_assert( macro_length("bla${zoink}${bla}bla}") == 7+8+6);
 
 	v = macro_process(store, NULL, "");
-	log_assert( v && strcmp(v, "") == 0);
+	tb_assert( v && strcmp(v, "") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "${}");
-	log_assert( v && strcmp(v, "") == 0);
+	tb_assert( v && strcmp(v, "") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "blabla ${} dinges");
-	log_assert( v && strcmp(v, "blabla  dinges") == 0);
+	tb_assert( v && strcmp(v, "blabla  dinges") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "1${$bla}2${$bla}3");
-	log_assert( v && strcmp(v, "1ww2ww3") == 0);
+	tb_assert( v && strcmp(v, "1ww2ww3") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "it is ${ctime 123456}");
-	log_assert( v && strcmp(v, "it is Fri Jan  2 10:17:36 1970") == 0);
+	tb_assert( v && strcmp(v, "it is Fri Jan  2 10:17:36 1970") == 0);
 	free(v);
 
 	r = macro_assign(store, "t1", "123456");
-	log_assert(r);
+	tb_assert(r);
 	v = macro_process(store, NULL, "it is ${ctime ${$t1}}");
-	log_assert( v && strcmp(v, "it is Fri Jan  2 10:17:36 1970") == 0);
+	tb_assert( v && strcmp(v, "it is Fri Jan  2 10:17:36 1970") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "it is ${ctime $t1}");
-	log_assert( v && strcmp(v, "it is Fri Jan  2 10:17:36 1970") == 0);
+	tb_assert( v && strcmp(v, "it is Fri Jan  2 10:17:36 1970") == 0);
 	free(v);
 
 	r = macro_assign(store, "x", "1");
-	log_assert(r);
+	tb_assert(r);
 	r = macro_assign(store, "y", "2");
-	log_assert(r);
+	tb_assert(r);
 	v = macro_process(store, NULL, "${$x + $x}");
-	log_assert( v && strcmp(v, "2") == 0);
+	tb_assert( v && strcmp(v, "2") == 0);
 	free(v);
 	v = macro_process(store, NULL, "${$x - $x}");
-	log_assert( v && strcmp(v, "0") == 0);
+	tb_assert( v && strcmp(v, "0") == 0);
 	free(v);
 	v = macro_process(store, NULL, "${$y * $y}");
-	log_assert( v && strcmp(v, "4") == 0);
+	tb_assert( v && strcmp(v, "4") == 0);
 	free(v);
 	v = macro_process(store, NULL, "${32 / $y + $x + $y}");
-	log_assert( v && strcmp(v, "19") == 0);
+	tb_assert( v && strcmp(v, "19") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "${32 / ${$y+$y} + ${${100*3}/3}}");
-	log_assert( v && strcmp(v, "108") == 0);
+	tb_assert( v && strcmp(v, "108") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "${1 2 33 2 1}");
-	log_assert( v && strcmp(v, "1 2 33 2 1") == 0);
+	tb_assert( v && strcmp(v, "1 2 33 2 1") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "${123 3 + 5}");
-	log_assert( v && strcmp(v, "123 8") == 0);
+	tb_assert( v && strcmp(v, "123 8") == 0);
 	free(v);
 
 	v = macro_process(store, NULL, "${123 glug 3 + 5}");
-	log_assert( v && strcmp(v, "123 glug 8") == 0);
+	tb_assert( v && strcmp(v, "123 glug 8") == 0);
 	free(v);
 
 	macro_store_delete(store);
+	printf("selftest successful (%d checks).\n", num_asserts);
 }

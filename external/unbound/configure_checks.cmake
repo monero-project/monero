@@ -71,6 +71,7 @@ check_function_exists(inet_ntop HAVE_INET_NTOP)
 check_function_exists(inet_pton HAVE_INET_PTON)
 check_function_exists(initgroups HAVE_INITGROUPS)
 check_function_exists(ioctlsocket HAVE_IOCTLSOCKET)
+check_function_exists(isblank HAVE_ISBLANK)
 check_function_exists(kill HAVE_KILL)
 check_function_exists(localtime_r HAVE_LOCALTIME_R)
 check_function_exists(malloc HAVE_MALLOC)
@@ -211,7 +212,7 @@ set(UNBOUND_PIDFILE "${CMAKE_INSTALL_PREFIX}/etc/unbound/unbound.pid"
 
 # Copied from configure.ac.
 set(WINVER 0x0502)
-set(PACKAGE_VERSION "1.4.23")
+set(PACKAGE_VERSION "1.5.8")
 set(PACKAGE_NAME "${PROJECT_NAME}")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(MAXSYSLOGMSGLEN 10240)

@@ -255,7 +255,7 @@ iter_filter_unsuitable(struct iter_env* iter_env, struct module_env* env,
 			return -1; /* server is lame */
 		else if(rtt >= USEFUL_SERVER_TOP_TIMEOUT)
 			/* server is unresponsive,
-			 * we used to return TOP_TIMOUT, but fairly useless,
+			 * we used to return TOP_TIMEOUT, but fairly useless,
 			 * because if == TOP_TIMEOUT is dropped because
 			 * blacklisted later, instead, remove it here, so
 			 * other choices (that are not blacklisted) can be
@@ -306,7 +306,7 @@ iter_fill_rtt(struct iter_env* iter_env, struct module_env* env,
 	return got_it;
 }
 
-/** filter the addres list, putting best targets at front,
+/** filter the address list, putting best targets at front,
  * returns number of best targets (or 0, no suitable targets) */
 static int
 iter_filter_order(struct iter_env* iter_env, struct module_env* env,

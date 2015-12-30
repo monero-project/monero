@@ -1,5 +1,5 @@
 /*
- * validator/val_nsec.c - validator NSEC denial of existance functions.
+ * validator/val_nsec.c - validator NSEC denial of existence functions.
  *
  * Copyright (c) 2007, NLnet Labs. All rights reserved.
  *
@@ -38,7 +38,7 @@
  *
  * This file contains helper functions for the validator module.
  * The functions help with NSEC checking, the different NSEC proofs
- * for denial of existance, and proofs for presence of types.
+ * for denial of existence, and proofs for presence of types.
  */
 #include "config.h"
 #include "validator/val_nsec.h"
@@ -279,7 +279,7 @@ val_nsec_prove_nodata_dsreply(struct module_env* env, struct val_env* ve,
 		return sec_status_insecure;
 	}
 
-	/* NSEC proof did not conlusively point to DS or no DS */
+	/* NSEC proof did not conclusively point to DS or no DS */
 	return sec_status_unchecked;
 }
 
@@ -339,6 +339,28 @@ int nsec_proves_nodata(struct ub_packed_rrset_key* nsec,
 				}
 				*wc = ce;
 				return 1;
+			}
+		} else {
+			/* See if the next owner name covers a wildcard
+			 * empty non-terminal. */
+			while (dname_strict_subdomain_c(nm, nsec->rk.dname)) {
+				/* wildcard does not apply if qname below
+				 * the name that exists under the '*' */
+				if (dname_subdomain_c(qinfo->qname, nm))
+					break;
+				/* but if it is a wildcard and qname is below
+				 * it, then the wildcard applies. The wildcard
+				 * is an empty nonterminal. nodata proven. */
+				if (dname_is_wild(nm)) {
+					size_t ce_len = ln;
+					uint8_t* ce = nm;
+					dname_remove_label(&ce, &ce_len);
+					if(dname_strict_subdomain_c(qinfo->qname, ce)) {
+						*wc = ce;
+						return 1;
+					}
+				}
+				dname_remove_label(&nm, &ln);
 			}
 		}
 

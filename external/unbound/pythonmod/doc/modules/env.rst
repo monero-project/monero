@@ -68,7 +68,7 @@ Module event
    
 .. data:: module_event_error
 
-   Error occured.
+   Error occurred.
 
 Security status
 ~~~~~~~~~~~~~~~~

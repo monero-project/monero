@@ -97,6 +97,10 @@
    don't. */
 #cmakedefine HAVE_DECL_STRLCPY
 
+/* Define to 1 if you have the declaration of `XML_StopParser', and to 0 if
+   you don't. */
+#cmakedefine HAVE_DECL_XML_STOPPARSER
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #cmakedefine HAVE_DLFCN_H
 
@@ -154,6 +158,9 @@
 /* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
 #cmakedefine HAVE_FSEEKO
 
+/* Define to 1 if you have the `fsync' function. */
+#cmakedefine HAVE_FSYNC
+
 /* Whether getaddrinfo is available */
 #cmakedefine HAVE_GETADDRINFO
 
@@ -208,6 +215,9 @@
 /* Define to 1 if you have the <iphlpapi.h> header file. */
 #cmakedefine HAVE_IPHLPAPI_H
 
+/* Define to 1 if you have the `isblank' function. */
+#undef HAVE_ISBLANK
+
 /* Define to 1 if you have the `kill' function. */
 #cmakedefine HAVE_KILL
 
@@ -234,6 +244,9 @@
 
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #cmakedefine HAVE_NETINET_IN_H
+
+/* Use libnettle for crypto */
+#cmakedefine HAVE_NETTLE
 
 /* Use libnss for crypto */
 #cmakedefine HAVE_NSS
@@ -283,7 +296,7 @@
 /* Define to 1 if you have the `recvmsg' function. */
 #cmakedefine HAVE_RECVMSG
 
-/* Define to 1 if you have the `sbrk' function. */
+/* define if you have the sbrk() call */
 #cmakedefine HAVE_SBRK
 
 /* Define to 1 if you have the `sendmsg' function. */
@@ -537,6 +550,9 @@
 
 /* The size of `time_t', as computed by sizeof. */
 #undef SIZEOF_TIME_T
+
+/* define if (v)snprintf does not return length needed, (but length used) */
+#undef SNPRINTF_RET_BROKEN
 
 /* Define to 1 if you have the ANSI C header files. */
 #cmakedefine STDC_HEADERS
@@ -861,13 +877,13 @@
 #endif
 
 
-#ifndef HAVE_SNPRINTF
+#if !defined(HAVE_SNPRINTF) || defined(SNPRINTF_RET_BROKEN)
 #define snprintf snprintf_unbound
 #define vsnprintf vsnprintf_unbound
 #include <stdarg.h>
 int snprintf (char *str, size_t count, const char *fmt, ...);
 int vsnprintf (char *str, size_t count, const char *fmt, va_list arg);
-#endif /* HAVE_SNPRINTF */
+#endif /* HAVE_SNPRINTF or SNPRINTF_RET_BROKEN */
 
 
 #ifndef HAVE_INET_PTON
@@ -962,6 +978,11 @@ int memcmp(const void *x, const void *y, size_t n);
 #ifndef HAVE_CTIME_R
 #define ctime_r unbound_ctime_r
 char *ctime_r(const time_t *timep, char *buf);
+#endif
+
+#ifndef HAVE_ISBLANK
+#define isblank unbound_isblank
+int isblank(int c);
 #endif
 
 #if !defined(HAVE_STRPTIME) || !defined(STRPTIME_WORKS)

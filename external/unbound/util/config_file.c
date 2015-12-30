@@ -100,7 +100,7 @@ config_create(void)
 	cfg->tcp_upstream = 0;
 	cfg->ssl_service_key = NULL;
 	cfg->ssl_service_pem = NULL;
-	cfg->ssl_port = 443;
+	cfg->ssl_port = 853;
 	cfg->ssl_upstream = 0;
 	cfg->use_syslog = 1;
 	cfg->log_time_ascii = 0;
@@ -174,7 +174,7 @@ config_create(void)
 	cfg->harden_dnssec_stripped = 1;
 	cfg->harden_below_nxdomain = 0;
 	cfg->harden_referral_path = 0;
-	cfg->harden_algo_downgrade = 1;
+	cfg->harden_algo_downgrade = 0;
 	cfg->use_caps_bits_for_id = 0;
 	cfg->caps_whitelist = NULL;
 	cfg->private_address = NULL;
@@ -240,6 +240,7 @@ config_create(void)
 	cfg->ratelimit_for_domain = NULL;
 	cfg->ratelimit_below_domain = NULL;
 	cfg->ratelimit_factor = 10;
+	cfg->qname_minimisation = 0;
 	return cfg;
 error_exit:
 	config_delete(cfg); 
@@ -473,6 +474,7 @@ int config_set_option(struct config_file* cfg, const char* opt,
 	else S_MEMSIZE("ratelimit-size:", ratelimit_size)
 	else S_POW2("ratelimit-slabs:", ratelimit_slabs)
 	else S_NUMBER_OR_ZERO("ratelimit-factor:", ratelimit_factor)
+	else S_YNO("qname-minimisation:", qname_minimisation)
 	/* val_sig_skew_min and max are copied into val_env during init,
 	 * so this does not update val_env with set_option */
 	else if(strcmp(opt, "val-sig-skew-min:") == 0)
@@ -747,6 +749,7 @@ config_get_option(struct config_file* cfg, const char* opt,
 	else O_DEC(opt, "ratelimit-factor", ratelimit_factor)
 	else O_DEC(opt, "val-sig-skew-min", val_sig_skew_min)
 	else O_DEC(opt, "val-sig-skew-max", val_sig_skew_max)
+	else O_YNO(opt, "qname-minimisation", qname_minimisation)
 	/* not here:
 	 * outgoing-permit, outgoing-avoid - have list of ports
 	 * local-zone - zones and nodefault variables
@@ -1554,6 +1557,28 @@ w_lookup_reg_str(const char* key, const char* name)
 		if(!result) log_err("out of memory");
 	}
 	return result;
+}
+
+void w_config_adjust_directory(struct config_file* cfg)
+{
+	if(cfg->directory && cfg->directory[0]) {
+		TCHAR dirbuf[2*MAX_PATH+4];
+		if(strcmp(cfg->directory, "%EXECUTABLE%") == 0) {
+			/* get executable path, and if that contains
+			 * directories, snip off the filename part */
+			dirbuf[0] = 0;
+			if(!GetModuleFileName(NULL, dirbuf, MAX_PATH))
+				log_err("could not GetModuleFileName");
+			if(strrchr(dirbuf, '\\')) {
+				(strrchr(dirbuf, '\\'))[0] = 0;
+			} else log_err("GetModuleFileName had no path");
+			if(dirbuf[0]) {
+				/* adjust directory for later lookups to work*/
+				free(cfg->directory);
+				cfg->directory = memdup(dirbuf, strlen(dirbuf)+1);
+			}
+		}
+	}
 }
 #endif /* UB_ON_WINDOWS */
 

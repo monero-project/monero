@@ -44,6 +44,9 @@
  */
 
 #include "config.h"
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
 #include "util/log.h"
 #include "util/rbtree.h"
 #include "util/locks.h"
