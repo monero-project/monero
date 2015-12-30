@@ -1,30 +1,29 @@
-// Copyright (C) 2011 Milo Yip
+// Tencent is pleased to support the open source community by making RapidJSON available.
+// 
+// Copyright (C) 2015 THL A29 Limited, a Tencent company, and Milo Yip. All rights reserved.
 //
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
+// Licensed under the MIT License (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
 //
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
+// http://opensource.org/licenses/MIT
 //
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
+// Unless required by applicable law or agreed to in writing, software distributed 
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR 
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the 
+// specific language governing permissions and limitations under the License.
 
 #ifndef RAPIDJSON_STRINGBUFFER_H_
 #define RAPIDJSON_STRINGBUFFER_H_
 
 #include "rapidjson.h"
+
+#if RAPIDJSON_HAS_CXX11_RVALUE_REFS
+#include <utility> // std::move
+#endif
+
 #include "internal/stack.h"
 
-namespace rapidjson {
+RAPIDJSON_NAMESPACE_BEGIN
 
 //! Represents an in-memory output stream.
 /*!
@@ -33,10 +32,20 @@ namespace rapidjson {
     \note implements Stream concept
 */
 template <typename Encoding, typename Allocator = CrtAllocator>
-struct GenericStringBuffer {
+class GenericStringBuffer {
+public:
     typedef typename Encoding::Ch Ch;
 
     GenericStringBuffer(Allocator* allocator = 0, size_t capacity = kDefaultCapacity) : stack_(allocator, capacity) {}
+
+#if RAPIDJSON_HAS_CXX11_RVALUE_REFS
+    GenericStringBuffer(GenericStringBuffer&& rhs) : stack_(std::move(rhs.stack_)) {}
+    GenericStringBuffer& operator=(GenericStringBuffer&& rhs) {
+        if (&rhs != this)
+            stack_ = std::move(rhs.stack_);
+        return *this;
+    }
+#endif
 
     void Put(Ch c) { *stack_.template Push<Ch>() = c; }
     void Flush() {}
@@ -63,6 +72,11 @@ struct GenericStringBuffer {
 
     static const size_t kDefaultCapacity = 256;
     mutable internal::Stack<Allocator> stack_;
+
+private:
+    // Prohibit copy constructor & assignment operator.
+    GenericStringBuffer(const GenericStringBuffer&);
+    GenericStringBuffer& operator=(const GenericStringBuffer&);
 };
 
 //! String buffer with UTF8 encoding
@@ -74,6 +88,6 @@ inline void PutN(GenericStringBuffer<UTF8<> >& stream, char c, size_t n) {
     std::memset(stream.stack_.Push<char>(n), c, n * sizeof(c));
 }
 
-} // namespace rapidjson
+RAPIDJSON_NAMESPACE_END
 
 #endif // RAPIDJSON_STRINGBUFFER_H_

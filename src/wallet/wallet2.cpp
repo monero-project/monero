@@ -958,7 +958,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
 
   // The contents should be JSON if the wallet follows the new format.
   rapidjson::Document json;
-  if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
+  if (json.Parse(account_data.c_str()).HasParseError())
   {
     is_old_file_format = true;
     m_watch_only = false;
@@ -1036,7 +1036,7 @@ bool wallet2::verify_password(const std::string& password) const
 
   // The contents should be JSON if the wallet follows the new format.
   rapidjson::Document json;
-  if (json.Parse(account_data.c_str(), keys_file_data.account_data.size()).HasParseError())
+  if (json.Parse(account_data.c_str()).HasParseError())
   {
     // old format before JSON wallet key file format
   }
