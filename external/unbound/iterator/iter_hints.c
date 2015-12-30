@@ -135,7 +135,7 @@ compile_time_root_prime(int do_ip4, int do_ip6)
 	if(!ah(dp, "E.ROOT-SERVERS.NET.", "192.203.230.10")) goto failed;
 	if(!ah(dp, "F.ROOT-SERVERS.NET.", "192.5.5.241"))	goto failed;
 	if(!ah(dp, "G.ROOT-SERVERS.NET.", "192.112.36.4"))	goto failed;
-	if(!ah(dp, "H.ROOT-SERVERS.NET.", "128.63.2.53"))	goto failed;
+	if(!ah(dp, "H.ROOT-SERVERS.NET.", "198.97.190.53"))	goto failed;
 	if(!ah(dp, "I.ROOT-SERVERS.NET.", "192.36.148.17"))	goto failed;
 	if(!ah(dp, "J.ROOT-SERVERS.NET.", "192.58.128.30"))	goto failed;
 	if(!ah(dp, "K.ROOT-SERVERS.NET.", "193.0.14.129"))	goto failed;
@@ -148,7 +148,7 @@ compile_time_root_prime(int do_ip4, int do_ip6)
 	if(!ah(dp, "C.ROOT-SERVERS.NET.", "2001:500:2::c")) goto failed;
 	if(!ah(dp, "D.ROOT-SERVERS.NET.", "2001:500:2d::d")) goto failed;
 	if(!ah(dp, "F.ROOT-SERVERS.NET.", "2001:500:2f::f")) goto failed;
-	if(!ah(dp, "H.ROOT-SERVERS.NET.", "2001:500:1::803f:235")) goto failed;
+	if(!ah(dp, "H.ROOT-SERVERS.NET.", "2001:500:1::53")) goto failed;
 	if(!ah(dp, "I.ROOT-SERVERS.NET.", "2001:7fe::53")) goto failed;
 	if(!ah(dp, "J.ROOT-SERVERS.NET.", "2001:503:c27::2:30")) goto failed;
 	if(!ah(dp, "K.ROOT-SERVERS.NET.", "2001:7fd::1")) goto failed;

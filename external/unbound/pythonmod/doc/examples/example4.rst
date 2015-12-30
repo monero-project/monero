@@ -24,7 +24,7 @@ DNS query and word lookup
 
 Let's define the following format od DNS queries: ``word1[.]word2[.] ... wordN[.]{en,cs}[._dict_.cz.]``.
 Word lookup is done by simple ``dict`` lookup from broken DNS request.
-Query name is divided into a list of labels. This list is accesible as qname_list attribute.
+Query name is divided into a list of labels. This list is accessible as qname_list attribute.
 ::
 
    aword = ' '.join(qstate.qinfo.qname_list[0:-4]) #skip last four labels

@@ -9,7 +9,7 @@ Synchronized with database engine, for example *MySQL*.
 
 Firewall control
 ----------------
-Control firewall (e.g. enable incomming SSH connection) with DNS query signed with private key. 
+Control firewall (e.g. enable incoming SSH connection) with DNS query signed with private key. 
 So firewall can blocks every service during normal operation.
 
 Scriptable DNS-based blacklist (DNS-BL_)

@@ -697,6 +697,9 @@ int sldns_wire2str_rdata_scan(uint8_t** d, size_t* dlen, char** s,
 		}
 		w += n;
 	}
+	if(*dlen != 0) {
+		goto failed;
+	}
 	return w;
 }
 

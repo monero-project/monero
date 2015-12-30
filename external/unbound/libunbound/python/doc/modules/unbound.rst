@@ -42,7 +42,7 @@ Class ub_result
 	 	False, if validation failed or domain queried has no security info.
 	 
 	  	It is possible to get a result with no data (havedata is false),
-	  	and secure is true. This means that the non-existance of the data
+	  	and secure is true. This means that the non-existence of the data
 	  	was cryptographically proven (with signatures).
 
 	.. attribute:: bogus

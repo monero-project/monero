@@ -68,6 +68,8 @@
 /* nss3 */
 #include "secport.h"
 #include "pk11pub.h"
+#elif defined(HAVE_NETTLE)
+#include "yarrow.h"
 #endif
 
 /** 
@@ -76,7 +78,7 @@
  */
 #define MAX_VALUE 0x7fffffff
 
-#ifndef HAVE_NSS
+#if defined(HAVE_SSL)
 void
 ub_systemseed(unsigned int ATTR_UNUSED(seed))
 {
@@ -110,7 +112,7 @@ ub_random_max(struct ub_randstate* state, long int x)
 	return (long)arc4random_uniform((uint32_t)x);
 }
 
-#else
+#elif defined(HAVE_NSS)
 
 /* not much to remember for NSS since we use its pk11_random, placeholder */
 struct ub_randstate {
@@ -144,6 +146,72 @@ long int ub_random(struct ub_randstate* ATTR_UNUSED(state))
 	return x & MAX_VALUE;
 }
 
+#elif defined(HAVE_NETTLE)
+
+/**
+ * libnettle implements a Yarrow-256 generator (SHA256 + AES),
+ * and we have to ensure it is seeded before use.
+ */
+struct ub_randstate {
+	struct yarrow256_ctx ctx;
+	int seeded;
+};
+
+void ub_systemseed(unsigned int ATTR_UNUSED(seed))
+{
+/**
+ * We seed on init and not here, as we need the ctx to re-seed.
+ * This also means that re-seeding is not supported.
+ */
+	log_err("Re-seeding not supported, generator untouched");
+}
+
+struct ub_randstate* ub_initstate(unsigned int seed,
+	struct ub_randstate* ATTR_UNUSED(from))
+{
+	struct ub_randstate* s = (struct ub_randstate*)calloc(1, sizeof(*s));
+	uint8_t buf[YARROW256_SEED_FILE_SIZE];
+	if(!s) {
+		log_err("malloc failure in random init");
+		return NULL;
+	}
+	/* Setup Yarrow context */
+	yarrow256_init(&s->ctx, 0, NULL);
+
+	if(getentropy(buf, sizeof(buf)) != -1) {
+		/* got entropy */
+		yarrow256_seed(&s->ctx, YARROW256_SEED_FILE_SIZE, buf);
+		s->seeded = yarrow256_is_seeded(&s->ctx);
+	} else {
+		/* Stretch the uint32 input seed and feed it to Yarrow */
+		uint32_t v = seed;
+		size_t i;
+		for(i=0; i < (YARROW256_SEED_FILE_SIZE/sizeof(seed)); i++) {
+			memmove(buf+i*sizeof(seed), &v, sizeof(seed));
+			v = v*seed + (uint32_t)i;
+		}
+		yarrow256_seed(&s->ctx, YARROW256_SEED_FILE_SIZE, buf);
+		s->seeded = yarrow256_is_seeded(&s->ctx);
+	}
+
+	return s;
+}
+
+long int ub_random(struct ub_randstate* s)
+{
+	/* random 31 bit value. */
+	long int x = 0;
+	if (!s || !s->seeded) {
+		log_err("Couldn't generate randomness, Yarrow-256 generator not yet seeded");
+	} else {
+		yarrow256_random(&s->ctx, sizeof(x), (uint8_t *)&x);
+	}
+	return x & MAX_VALUE;
+}
+#endif /* HAVE_SSL or HAVE_NSS or HAVE_NETTLE */
+
+
+#if defined(HAVE_NSS) || defined(HAVE_NETTLE)
 long int
 ub_random_max(struct ub_randstate* state, long int x)
 {
@@ -155,12 +223,11 @@ ub_random_max(struct ub_randstate* state, long int x)
 		v = ub_random(state);
 	return (v % x);
 }
-#endif /* HAVE_NSS */
+#endif /* HAVE_NSS or HAVE_NETTLE */
 
 void 
 ub_randfree(struct ub_randstate* s)
 {
-	if(s)
-		free(s);
+	free(s);
 	/* user app must do RAND_cleanup(); */
 }

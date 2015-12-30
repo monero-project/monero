@@ -1195,6 +1195,14 @@ void autr_write_file(struct module_env* env, struct trust_anchor* tp)
 		fatal_exit("could not completely write: %s", fname);
 		return;
 	}
+	if(fflush(out) != 0)
+		log_err("could not fflush(%s): %s", fname, strerror(errno));
+#ifdef HAVE_FSYNC
+	if(fsync(fileno(out)) != 0)
+		log_err("could not fsync(%s): %s", fname, strerror(errno));
+#else
+	FlushFileBuffers((HANDLE)_fileno(out));
+#endif
 	if(fclose(out) != 0) {
 		fatal_exit("could not complete write: %s: %s",
 			fname, strerror(errno));
@@ -2162,7 +2170,7 @@ int autr_process_prime(struct module_env* env, struct val_env* ve,
 	if(!verify_dnskey(env, ve, tp, dnskey_rrset)) {
 		verbose(VERB_ALGO, "autotrust: dnskey did not verify.");
 		/* only increase failure count if this is not the first prime,
-		 * this means there was a previous succesful probe */
+		 * this means there was a previous successful probe */
 		if(tp->autr->last_success) {
 			tp->autr->query_failed += 1;
 			autr_write_file(env, tp);

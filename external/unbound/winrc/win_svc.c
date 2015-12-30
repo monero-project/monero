@@ -333,15 +333,17 @@ service_init(int r, struct daemon** d, struct config_file** c)
 	verbose(VERB_QUERY, "winservice - apply settings");
 	/* apply settings and init */
 	verbosity = cfg->verbosity + service_cmdline_verbose;
+	w_config_adjust_directory(cfg);
 	if(cfg->directory && cfg->directory[0]) {
-		if(chdir(cfg->directory)) {
+		char* dir = cfg->directory;
+		if(chdir(dir)) {
 			log_err("could not chdir to %s: %s", 
-				cfg->directory, strerror(errno));
+				dir, strerror(errno));
 			if(errno != ENOENT)
 				return 0;
 			log_warn("could not change directory - continuing");
 		} else
-			verbose(VERB_QUERY, "chdir to %s", cfg->directory);
+			verbose(VERB_QUERY, "chdir to %s", dir);
 	}
 	log_init(cfg->logfile, cfg->use_syslog, cfg->chrootdir);
 	if(!r) report_status(SERVICE_START_PENDING, NO_ERROR, 2400);

@@ -347,12 +347,12 @@ DNSMessage
    
    .. method:: __init__(self, rr_name, rr_type, rr_class = RR_CLASS_IN, query_flags = 0, default_ttl = 0)
    
-      Prepares an answer (DNS packet) from qiven information. Query flags are combination of PKT_xx contants.
+      Prepares an answer (DNS packet) from given information. Query flags are combination of PKT_xx constants.
       
    .. method:: set_return_msg(self, qstate)
    
       This method fills qstate return message according to the given informations. 
-		It takes lists of RRs in each section of answer, created necessray RRsets in wire format and store the result in :attr:`qstate.return_msg`.
+		It takes lists of RRs in each section of answer, created necessary RRsets in wire format and store the result in :attr:`qstate.return_msg`.
 		Returns 1 if OK.
    
    .. attribute:: rr_name

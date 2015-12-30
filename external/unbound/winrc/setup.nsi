@@ -1,6 +1,8 @@
 # The NSIS (http://nsis.sourceforge.net) install script.
 # This script is BSD licensed.
-SetCompressor /solid /final lzma
+
+# use the default compression to help anti-virus in scanning us
+#SetCompressor /solid /final lzma
 
 !include LogicLib.nsh
 !include MUI2.nsh
@@ -92,6 +94,7 @@ section "-hidden.postinstall"
 	File "unbound-website.url"
 	File "service.conf"
 	File "..\doc\example.conf"
+	File "..\doc\Changelog"
 
 	# Store Root Key choice
 	SectionGetFlags ${SectionRootKey} $R0
@@ -178,6 +181,7 @@ section "un.Unbound"
 	Delete "$INSTDIR\unbound-website.url"
 	Delete "$INSTDIR\service.conf"
 	Delete "$INSTDIR\example.conf"
+	Delete "$INSTDIR\Changelog"
 	Delete "$INSTDIR\root.key"
 	RMDir "$INSTDIR"
 

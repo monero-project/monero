@@ -1,5 +1,5 @@
 /*
- * validator/val_nsec.h - validator NSEC denial of existance functions.
+ * validator/val_nsec.h - validator NSEC denial of existence functions.
  *
  * Copyright (c) 2007, NLnet Labs. All rights reserved.
  *
@@ -38,7 +38,7 @@
  *
  * This file contains helper functions for the validator module.
  * The functions help with NSEC checking, the different NSEC proofs
- * for denial of existance, and proofs for presence of types.
+ * for denial of existence, and proofs for presence of types.
  */
 
 #ifndef VALIDATOR_VAL_NSEC_H
@@ -54,7 +54,7 @@ struct key_entry_key;
 /**
  * Check DS absence.
  * There is a NODATA reply to a DS that needs checking.
- * NSECs can prove this is not a delegation point, or sucessfully prove
+ * NSECs can prove this is not a delegation point, or successfully prove
  * that there is no DS. Or this fails.
  *
  * @param env: module env for rrsig verification routines.

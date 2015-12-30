@@ -204,7 +204,8 @@ extern int yydebug;
      VAR_RATELIMIT_FACTOR = 413,
      VAR_CAPS_WHITELIST = 414,
      VAR_CACHE_MAX_NEGATIVE_TTL = 415,
-     VAR_PERMIT_SMALL_HOLDDOWN = 416
+     VAR_PERMIT_SMALL_HOLDDOWN = 416,
+     VAR_QNAME_MINIMISATION = 417
    };
 #endif
 /* Tokens.  */
@@ -367,6 +368,7 @@ extern int yydebug;
 #define VAR_CAPS_WHITELIST 414
 #define VAR_CACHE_MAX_NEGATIVE_TTL 415
 #define VAR_PERMIT_SMALL_HOLDDOWN 416
+#define VAR_QNAME_MINIMISATION 417
 
 
 
@@ -380,7 +382,7 @@ typedef union YYSTYPE
 
 
 /* Line 2058 of yacc.c  */
-#line 384 "util/configparser.h"
+#line 386 "util/configparser.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

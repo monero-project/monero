@@ -30,7 +30,9 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
 #include <stdio.h>
 #include <termios.h>
 #include <fcntl.h>
@@ -39,10 +41,14 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+#ifdef HAVE_SYS_SHA2_H
 #include <sys/sha2.h>
 #define SHA512_Init SHA512Init
 #define SHA512_Update SHA512Update
 #define SHA512_Final SHA512Final
+#else
+#include "openssl/sha.h"
+#endif
 
 #include <sys/vfs.h>
 #include <sys/statfs.h>

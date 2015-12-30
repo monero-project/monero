@@ -1,5 +1,5 @@
 /*
- * validator/val_nsec3.c - validator NSEC3 denial of existance functions.
+ * validator/val_nsec3.c - validator NSEC3 denial of existence functions.
  *
  * Copyright (c) 2007, NLnet Labs. All rights reserved.
  *
@@ -38,18 +38,12 @@
  *
  * This file contains helper functions for the validator module.
  * The functions help with NSEC3 checking, the different NSEC3 proofs
- * for denial of existance, and proofs for presence of types.
+ * for denial of existence, and proofs for presence of types.
  */
 #include "config.h"
 #include <ctype.h>
-#ifdef HAVE_OPENSSL_SSL_H
-#include "openssl/ssl.h"
-#endif
-#ifdef HAVE_NSS
-/* nss3 */
-#include "sechash.h"
-#endif
 #include "validator/val_nsec3.h"
+#include "validator/val_secalgo.h"
 #include "validator/validator.h"
 #include "validator/val_kentry.h"
 #include "services/cache/rrset.h"
@@ -370,8 +364,8 @@ filter_next(struct nsec3_filter* filter, size_t* rrsetnum, int* rrnum)
 /**
  * Start iterating over NSEC3 records.
  * @param filter: the filter structure, must have been filter_init-ed.
- * @param rrsetnum: can be undefined on call, inited.
- * @param rrnum: can be undefined on call, inited.
+ * @param rrsetnum: can be undefined on call, initialised.
+ * @param rrnum: can be undefined on call, initialised.
  * @return first rrset of an NSEC3, together with rrnum this points to
  *	the first RR to examine. Is NULL on empty list.
  */
@@ -545,46 +539,24 @@ nsec3_get_hashed(sldns_buffer* buf, uint8_t* nm, size_t nmlen, int algo,
 	query_dname_tolower(sldns_buffer_begin(buf));
 	sldns_buffer_write(buf, salt, saltlen);
 	sldns_buffer_flip(buf);
-	switch(algo) {
-#if defined(HAVE_EVP_SHA1) || defined(HAVE_NSS)
-		case NSEC3_HASH_SHA1:
-#ifdef HAVE_SSL
-			hash_len = SHA_DIGEST_LENGTH;
-#else
-			hash_len = SHA1_LENGTH;
-#endif
-			if(hash_len > max)
-				return 0;
-#  ifdef HAVE_SSL
-			(void)SHA1((unsigned char*)sldns_buffer_begin(buf),
-				(unsigned long)sldns_buffer_limit(buf),
-				(unsigned char*)res);
-#  else
-			(void)HASH_HashBuf(HASH_AlgSHA1, (unsigned char*)res,
-				(unsigned char*)sldns_buffer_begin(buf),
-				(unsigned long)sldns_buffer_limit(buf));
-#  endif
-			for(i=0; i<iter; i++) {
-				sldns_buffer_clear(buf);
-				sldns_buffer_write(buf, res, hash_len);
-				sldns_buffer_write(buf, salt, saltlen);
-				sldns_buffer_flip(buf);
-#  ifdef HAVE_SSL
-				(void)SHA1(
-					(unsigned char*)sldns_buffer_begin(buf),
-					(unsigned long)sldns_buffer_limit(buf),
-					(unsigned char*)res);
-#  else
-				(void)HASH_HashBuf(HASH_AlgSHA1,
-					(unsigned char*)res,
-					(unsigned char*)sldns_buffer_begin(buf),
-					(unsigned long)sldns_buffer_limit(buf));
-#  endif
-			}
-			break;
-#endif /* HAVE_EVP_SHA1 or NSS */
-		default:
-			log_err("nsec3 hash of unknown algo %d", algo);
+	hash_len = nsec3_hash_algo_size_supported(algo);
+	if(hash_len == 0) {
+		log_err("nsec3 hash of unknown algo %d", algo);
+		return 0;
+	}
+	if(hash_len > max)
+		return 0;
+	if(!secalgo_nsec3_hash(algo, (unsigned char*)sldns_buffer_begin(buf),
+		sldns_buffer_limit(buf), (unsigned char*)res))
+		return 0;
+	for(i=0; i<iter; i++) {
+		sldns_buffer_clear(buf);
+		sldns_buffer_write(buf, res, hash_len);
+		sldns_buffer_write(buf, salt, saltlen);
+		sldns_buffer_flip(buf);
+		if(!secalgo_nsec3_hash(algo,
+			(unsigned char*)sldns_buffer_begin(buf),
+			sldns_buffer_limit(buf), (unsigned char*)res))
 			return 0;
 	}
 	return hash_len;
@@ -607,50 +579,24 @@ nsec3_calc_hash(struct regional* region, sldns_buffer* buf,
 	query_dname_tolower(sldns_buffer_begin(buf));
 	sldns_buffer_write(buf, salt, saltlen);
 	sldns_buffer_flip(buf);
-	switch(algo) {
-#if defined(HAVE_EVP_SHA1) || defined(HAVE_NSS)
-		case NSEC3_HASH_SHA1:
-#ifdef HAVE_SSL
-			c->hash_len = SHA_DIGEST_LENGTH;
-#else
-			c->hash_len = SHA1_LENGTH;
-#endif
-			c->hash = (uint8_t*)regional_alloc(region, 
-				c->hash_len);
-			if(!c->hash)
-				return 0;
-#  ifdef HAVE_SSL
-			(void)SHA1((unsigned char*)sldns_buffer_begin(buf),
-				(unsigned long)sldns_buffer_limit(buf),
-				(unsigned char*)c->hash);
-#  else
-			(void)HASH_HashBuf(HASH_AlgSHA1,
-				(unsigned char*)c->hash,
-				(unsigned char*)sldns_buffer_begin(buf),
-				(unsigned long)sldns_buffer_limit(buf));
-#  endif
-			for(i=0; i<iter; i++) {
-				sldns_buffer_clear(buf);
-				sldns_buffer_write(buf, c->hash, c->hash_len);
-				sldns_buffer_write(buf, salt, saltlen);
-				sldns_buffer_flip(buf);
-#  ifdef HAVE_SSL
-				(void)SHA1(
-					(unsigned char*)sldns_buffer_begin(buf),
-					(unsigned long)sldns_buffer_limit(buf),
-					(unsigned char*)c->hash);
-#  else
-				(void)HASH_HashBuf(HASH_AlgSHA1,
-					(unsigned char*)c->hash,
-					(unsigned char*)sldns_buffer_begin(buf),
-					(unsigned long)sldns_buffer_limit(buf));
-#  endif
-			}
-			break;
-#endif /* HAVE_EVP_SHA1 or NSS */
-		default:
-			log_err("nsec3 hash of unknown algo %d", algo);
-			return -1;
+	c->hash_len = nsec3_hash_algo_size_supported(algo);
+	if(c->hash_len == 0) {
+		log_err("nsec3 hash of unknown algo %d", algo);
+		return -1;
+	}
+	c->hash = (uint8_t*)regional_alloc(region, c->hash_len);
+	if(!c->hash)
+		return 0;
+	(void)secalgo_nsec3_hash(algo, (unsigned char*)sldns_buffer_begin(buf),
+		sldns_buffer_limit(buf), (unsigned char*)c->hash);
+	for(i=0; i<iter; i++) {
+		sldns_buffer_clear(buf);
+		sldns_buffer_write(buf, c->hash, c->hash_len);
+		sldns_buffer_write(buf, salt, saltlen);
+		sldns_buffer_flip(buf);
+		(void)secalgo_nsec3_hash(algo,
+			(unsigned char*)sldns_buffer_begin(buf),
+			sldns_buffer_limit(buf), (unsigned char*)c->hash);
 	}
 	return 1;
 }

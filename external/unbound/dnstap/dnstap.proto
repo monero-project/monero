@@ -105,7 +105,7 @@ message Message {
 
     enum Type {
         // AUTH_QUERY is a DNS query message received from a resolver by an
-        // authoritative name server, from the perspective of the authorative
+        // authoritative name server, from the perspective of the authoritative
         // name server.
         AUTH_QUERY = 1;
 

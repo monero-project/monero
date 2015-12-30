@@ -342,7 +342,7 @@ enum sldns_enum_rdf_type
 
         /** A <character-string> encoding of the value field as specified 
          * [RFC1035], Section 5.1., encoded as remaining rdata.
-         * For CAA.
+         * For CAA, URI.
          */
         LDNS_RDF_TYPE_LONG_STR,
 
