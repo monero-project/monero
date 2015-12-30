@@ -801,6 +801,7 @@ bool wallet2::clear()
 {
   m_blockchain.clear();
   m_transfers.clear();
+  m_key_images.clear();
   m_local_bc_height = 1;
   return true;
 }
@@ -1429,6 +1430,20 @@ void wallet2::rescan_spent()
       td.m_spent = daemon_resp.spent_status[i];
     }
   }
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::rescan_blockchain(bool refresh)
+{
+  clear();
+
+  cryptonote::block genesis;
+  generate_genesis(genesis);
+  crypto::hash genesis_hash = get_block_hash(genesis);
+  m_blockchain.push_back(genesis_hash);
+  m_local_bc_height = 1;
+
+  if (refresh)
+    this->refresh();
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_transfer_unlocked(const transfer_details& td) const

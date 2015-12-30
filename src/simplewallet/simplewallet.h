@@ -132,6 +132,8 @@ namespace cryptonote
     bool get_tx_key(const std::vector<std::string> &args);
     bool check_tx_key(const std::vector<std::string> &args);
     bool show_transfers(const std::vector<std::string> &args);
+    bool rescan_blockchain(const std::vector<std::string> &args);
+    bool refresh_main(uint64_t start_height, bool reset = false);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();

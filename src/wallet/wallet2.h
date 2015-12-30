@@ -280,6 +280,7 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments) const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     void rescan_spent();
+    void rescan_blockchain(bool refresh = true);
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
