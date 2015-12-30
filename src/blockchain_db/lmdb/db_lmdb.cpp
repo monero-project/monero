@@ -130,13 +130,16 @@ private:
 template<>
 struct MDB_val_copy<const char*>: public MDB_val
 {
-  MDB_val_copy(const char *s) :
-    data(strdup(s))
+  MDB_val_copy(const char *s):
+    size(strlen(s)+1), // include the NUL, makes it easier for compares
+    data(new char[size])
   {
-    mv_size = strlen(s) + 1; // include the NUL, makes it easier for compares
+    mv_size = size;
     mv_data = data.get();
+    memcpy(mv_data, s, size);
   }
 private:
+  size_t size;
   std::unique_ptr<char[]> data;
 };
 
@@ -923,6 +926,8 @@ BlockchainLMDB::~BlockchainLMDB()
   // batch transaction shouldn't be active at this point. If it is, consider it aborted.
   if (m_batch_active)
     batch_abort();
+  if (m_open)
+    close();
 }
 
 BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
@@ -1153,6 +1158,7 @@ void BlockchainLMDB::close()
 
   // FIXME: not yet thread safe!!!  Use with care.
   mdb_env_close(m_env);
+  m_open = false;
 }
 
 void BlockchainLMDB::sync()
