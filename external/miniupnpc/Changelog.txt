@@ -1,5 +1,72 @@
-$Id: Changelog.txt,v 1.198 2014/09/11 14:13:31 nanard Exp $
+$Id: Changelog.txt,v 1.219 2015/10/26 17:05:06 nanard Exp $
 miniUPnP client Changelog.
+
+2015/10/26:
+  snprintf() overflow check. check overflow in simpleUPnPcommand2()
+
+2015/10/25:
+  fix compilation with old macs
+  fix compilation with mingw32 (for Appveyor)
+  fix python module for python <= 2.3
+
+2015/10/08:
+  Change sameport to localport
+    see https://github.com/miniupnp/miniupnp/pull/120
+  increments API_VERSION to 15
+
+2015/09/15:
+  Fix buffer overflow in igd_desc_parse.c/IGDstartelt()
+    Discovered by Aleksandar Nikolic of Cisco Talos
+
+2015/08/28:
+  move ssdpDiscoverDevices() to minissdpc.c
+
+2015/08/27:
+  avoid unix socket leak in getDevicesFromMiniSSDPD()
+
+2015/08/16:
+  Also accept "Up" as ConnectionStatus value
+
+2015/07/23:
+  split getDevicesFromMiniSSDPD
+  add ttl argument to upnpDiscover() functions
+  increments API_VERSION to 14
+
+2015/07/22:
+  Read USN from SSDP messages.
+
+2015/07/15:
+  Check malloc/calloc
+
+2015/06/16:
+  update getDevicesFromMiniSSDPD() to process longer minissdpd
+    responses
+
+2015/05/22:
+  add searchalltypes param to upnpDiscoverDevices()
+  increments API_VERSION to 13
+
+2015/04/30:
+  upnpc: output version on the terminal
+
+2015/04/27:
+  _BSD_SOURCE is deprecated in favor of _DEFAULT_SOURCE
+  fix CMakeLists.txt COMPILE_DEFINITIONS
+  fix getDevicesFromMiniSSDPD() not setting scope_id
+  improve -r command of upnpc command line tool
+
+2014/11/17:
+  search all :
+    upnpDiscoverDevices() / upnpDiscoverAll() functions
+    listdevices executable
+  increment API_VERSION to 12
+  validate igd_desc_parse
+
+2014/11/13:
+  increment API_VERSION to 11
+
+2014/11/05:
+  simplified function GetUPNPUrls()
 
 2014/09/11:
   use remoteHost arg of DeletePortMapping

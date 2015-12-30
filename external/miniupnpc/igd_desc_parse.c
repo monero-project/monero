@@ -1,8 +1,8 @@
-/* $Id: igd_desc_parse.c,v 1.15 2014/07/01 13:01:17 nanard Exp $ */
+/* $Id: igd_desc_parse.c,v 1.17 2015/09/15 13:30:04 nanard Exp $ */
 /* Project : miniupnp
  * http://miniupnp.free.fr/
  * Author : Thomas Bernard
- * Copyright (c) 2005-2014 Thomas Bernard
+ * Copyright (c) 2005-2015 Thomas Bernard
  * This software is subject to the conditions detailed in the
  * LICENCE file provided in this distribution. */
 
@@ -15,11 +15,9 @@
 void IGDstartelt(void * d, const char * name, int l)
 {
 	struct IGDdatas * datas = (struct IGDdatas *)d;
-        if (l >= MINIUPNPC_URL_MAXSIZE) {
-          printf("Attempt to exploit miniupnpc buffer overflow\n");
-          l = MINIUPNPC_URL_MAXSIZE - 1;
-        }
-	memcpy( datas->cureltname, name, l);
+	if(l >= MINIUPNPC_URL_MAXSIZE)
+		l = MINIUPNPC_URL_MAXSIZE-1;
+	memcpy(datas->cureltname, name, l);
 	datas->cureltname[l] = '\0';
 	datas->level++;
 	if( (l==7) && !memcmp(name, "service", l) ) {
@@ -92,6 +90,7 @@ void IGDdata(void * d, const char * data, int l)
 	}
 }
 
+#ifdef DEBUG
 void printIGD(struct IGDdatas * d)
 {
 	printf("urlbase = '%s'\n", d->urlbase);
@@ -120,5 +119,5 @@ void printIGD(struct IGDdatas * d)
 	printf(" eventSubURL = '%s'\n", d->IPv6FC.eventsuburl);
 	printf(" SCPDURL = '%s'\n", d->IPv6FC.scpdurl);
 }
-
+#endif /* DEBUG */
 
