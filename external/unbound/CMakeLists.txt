@@ -30,6 +30,15 @@ cmake_minimum_required(VERSION 2.8.7)
 
 project(unbound C)
 
+if (APPLE)
+  if (not OpenSSL_DIR)
+      EXECUTE_PROCESS(COMMAND brew --prefix openssl
+        OUTPUT_VARIABLE OPENSSL_ROOT_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "Using OpenSSL found at ${OPENSSL_ROOT_DIR}")
+  endif()
+endif()
+
 find_package(OpenSSL REQUIRED)
 find_package(Threads)
 

@@ -1,3 +1,175 @@
+15 December 2015: Ralph
+	- Fix #729: omit use of escape sequences in echo since they are not 
+	  portable (unbound-control-setup).
+
+11 December 2015: Wouter
+	- remove NULL-checks before free, patch from Michael McConville.
+	- updated ax_pthread.m4 to version 21 with clang support, this
+	  removes a warning from compilation.
+	- OSX portability, detect if sbrk is deprecated.
+	- OSX clang, stop -pthread unused during link stage warnings.
+	- OSX clang new flto check.
+
+10 December 2015: Wouter
+	- 1.5.7 release
+	- trunk has 1.5.8 in development.
+
+8 December 2015: Wouter
+	- Fixup 724 for unbound-control.
+
+7 December 2015: Ralph
+	- Do not minimise forwarded requests.
+
+4 December 2015: Wouter
+	- Removed unneeded whitespace from example.conf.
+
+3 December 2015: Ralph
+	- (after rc1 tag)
+	- Committed fix to qname minimisation and unit test case for it.
+	
+3 December 2015: Wouter
+	- iana portlist update.
+	- 1.5.7rc1 prerelease tag.
+
+2 December 2015: Wouter
+	- Fixup 724: Fix PCA prompt for unbound-service-install.exe.
+	  re-enable stdout printout.
+	- For 724: Add Changelog to windows binary dist.
+
+1 December 2015: Ralph
+	- Qname minimisation review fixes
+
+1 December 2015: Wouter
+	- Fixup 724 fix for fname_after_chroot() calls.
+	- Remove stdout printout for unbound-service-install.exe
+	- .gitignore for git users.
+
+30 November 2015: Ralph
+	- Implemented qname minimisation
+
+30 November 2015: Wouter
+	- Fix for #724: conf syntax to read files from run dir (on Windows).
+
+25 November 2015: Wouter
+	- Fix for #720, fix unbound-control-setup windows batch file.
+
+24 November 2015: Wouter
+	- Fix #720: add windows scripts to zip bundle.
+	- iana portlist update.
+
+20 November 2015: Wouter
+	- Added assert on rrset cache correctness.
+	- Fix that malformed EDNS query gets a response without malformed EDNS.
+
+18 November 2015: Wouter
+	- newer acx_nlnetlabs.m4.
+	- spelling fixes from Igor Sobrado Delgado.
+
+17 November 2015: Wouter
+	- Fix #594. libunbound: optionally use libnettle for crypto.
+	  Contributed by Luca Bruno.  Added --with-nettle for use with
+	  --with-libunbound-only.
+	- refactor nsec3 hash implementation to be more library-portable.
+	- iana portlist update.
+	- Fixup DER encoded DSA signatures for libnettle.
+
+16 November 2015: Wouter
+	- Fix for lenient accept of reverse order DNAME and CNAME.
+
+6 November 2015: Wouter
+	- Change example.conf: ftp.internic.net to https://www.internic.net
+
+5 November 2015: Wouter
+	- ACX_SSL_CHECKS no longer adds -ldl needlessly.
+
+3 November 2015: Wouter
+	- Fix #718: Fix unbound-control-setup with support for env
+	  without HEREDOC bash support.
+
+29 October 2015: Wouter
+	- patch from Doug Hogan for SSL_OP_NO_SSLvx options.
+	- Fix #716: nodata proof with empty non-terminals and wildcards.
+
+28 October 2015: Wouter
+	- Fix checklock testcode for linux threads on exit.
+
+27 October 2015: Wouter
+	- isblank() compat implementation.
+	- detect libexpat without xml_StopParser function.
+	- portability fixes.
+	- portability, replace snprintf if return value broken.
+
+23 October 2015: Wouter
+	- Fix #714: Document config to block private-address for IPv4
+	  mapped IPv6 addresses.
+
+22 October 2015: Wouter
+	- Fix #712: unbound-anchor appears to not fsync root.key.
+
+20 October 2015: Wouter
+	- 1.5.6 release.
+	- trunk tracks development of 1.5.7.
+
+15 October 2015: Wouter
+	- Fix segfault in the dns64 module in the formaterror error path.
+	- Fix sldns_wire2str_rdata_scan for malformed RRs.
+	- tag for 1.5.6rc1 release.
+
+14 October 2015: Wouter
+	- ANY responses include DNAME records if present, as per Evan Hunt's
+	  remark in dnsop.
+	- Fix manpage to suggest using SIGTERM to terminate the server.
+
+9 October 2015: Wouter
+	- Default for ssl-port is port 853, the temporary port assignment
+	  for secure domain name system traffic.
+	  If you used to rely on the older default of port 443, you have
+	  to put a clause in unbound.conf for that.  The new value is likely
+	  going to be the standardised port number for this traffic.
+	- iana portlist update.
+
+6 October 2015: Wouter
+	- 1.5.5 release.
+	- trunk tracks the development of 1.5.6.
+
+28 September 2015: Wouter
+	- MAX_TARGET_COUNT increased to 64, to fix up sporadic resolution
+	  failures.
+	- tag for 1.5.5rc1 release.
+	- makedist.sh: pgp sig echo commands.
+
+25 September 2015: Wouter
+	- Fix unbound-control flush that does not succeed in removing data.
+
+22 September 2015: Wouter
+	- Fix config globbed include chroot treatment, this fixes reload of
+	  globs (patch from Dag-Erling Smørgrav).
+	- iana portlist update.
+	- Fix #702: New IPs for for h.root-servers.net.
+	- Remove confusion comment from canonical_compare() function.
+	- Fix #705: ub_ctx_set_fwd() return value mishandled on windows.
+	- testbound selftest also works in non-debug mode.
+	- Fix minor error in unbound.conf.5.in
+	- Fix unbound.conf(5) access-control description for precedence
+	  and default.
+
+31 August 2015: Wouter
+	- changed windows setup compression to be more transparent.
+
+28 August 2015: Wouter
+	- Fix #697: Get PY_MAJOR_VERSION failure at configure for python
+	  2.4 to 2.6.
+	- Feature #699: --enable-pie option to that builds PIE binary.
+	- Feature #700: --enable-relro-now option that enables full read-only
+	  relocation.
+
+24 August 2015: Wouter
+	- Fix deadlock for local data add and zone add when unbound-control
+	  list_local_data printout is interrupted.
+	- iana portlist update.
+	- Change default of harden-algo-downgrade to off.  This is lenient
+	  for algorithm rollover.
+
 13 August 2015: Wouter
 	- 5011 implementation does not insist on all algorithms, when
 	  harden-algo-downgrade is turned off.
@@ -693,7 +865,7 @@
 	  existence in 4592.  NSEC empty non-terminals exist and thus the
 	  RCODE should have been NOERROR. If this occurs, and the RRsets
 	  are secure, we set the RCODE to NOERROR and the security status
-	  of the reponse is also considered secure.
+	  of the response is also considered secure.
 
 14 February 2014: Wouter
 	- Works on Minix (3.2.1).
@@ -1465,7 +1637,7 @@
 	- Fix getaddrinfowithincludes on windows with fedora16 mingw32-gcc.
 	- Fix warnings with gcc 4.6 in compat/inet_ntop.c.
 	- Fix warning unused in compat/strptime.c.
-	- Fix malloc detection and double defintion.
+	- Fix malloc detection and double definition.
 
 2 December 2011: Wouter
 	- configure generated with autoconf 2.68.
@@ -4910,7 +5082,7 @@
 	- Advertise builtin select libevent alternative when no libevent
 	  is found.
 	- signit can generate NSEC3 hashes, for generating tests.
-	- multiple nsec3 paramaters in message test.
+	- multiple nsec3 parameters in message test.
 	- too high nsec3 iterations becomes insecure test.
 
 21 September 2007: Wouter
@@ -4981,7 +5153,7 @@
 	- testbound can replay a TCP query (set MATCH TCP in the QUERY).
 	- DS and noDS referral validation test.
 	- if you configure many trust anchors, parent trust anchors can
-	  securely deny existance of child trust anchors, if validated.
+	  securely deny existence of child trust anchors, if validated.
 	- not all *.name NSECs are present because a wildcard was matched,
 	  and *.name NSECs can prove nodata for empty nonterminals.
 	  Also, for wildcard name NSECs, check they are not from the parent
@@ -5288,7 +5460,7 @@
 
 17 July 2007: Wouter
 	- forward zone options in config file.
-	- forward per zone in iterator. takes precendence over stubs.
+	- forward per zone in iterator. takes precedence over stubs.
 	- fixup commithooks.
 	- removed forward-to and forward-to-port features, subsumed by
 	  new forward zones.
@@ -5389,7 +5561,7 @@
 	  ldns and libevent are linked statically. Default is off.
 	- make install and make uninstall. Works with static-exe and without.
 	  installation of unbound binary and manual pages.
-	- alignement problem fix on solaris 64.
+	- alignment problem fix on solaris 64.
 	- fixup address in case of TCP error.
 
 12 June 2007: Wouter
@@ -5472,7 +5644,7 @@
 	- removed FLAG_CD from message and rrset caches. This was useful for
 	  an agnostic forwarder, but not for a sophisticated (trust value per
 	  rrset enabled) cache.
-	- iterator reponse typing.
+	- iterator response typing.
 	- iterator cname handle.
 	- iterator prime start.
 	- subquery work.
@@ -5492,7 +5664,7 @@
 	- Acknowledge use of unbound-java code in iterator. Nicer readme.
 	- services/cache/dns.c DNS Cache. Hybrid cache uses msgcache and
 	  rrset cache from module environment.
-	- packed rrset key has type and class as easily accessable struct
+	- packed rrset key has type and class as easily accessible struct
 	  members. They are still kept in network format for fast msg encode.
 	- dns cache find_delegation routine.
 	- iterator main functions setup.
@@ -5576,7 +5748,7 @@
 	- EDNS read from query, used to make reply smaller.
 	- advertised edns value constants.
 	- EDNS BADVERS response, if asked for too high edns version.
-	- EDNS extended error reponses once the EDNS record from the query
+	- EDNS extended error responses once the EDNS record from the query
 	  has successfully been parsed.
 
 4 May 2007: Wouter

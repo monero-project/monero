@@ -214,7 +214,7 @@ void delete_entry(struct entry* list);
  * @param in: file to read from. Filepos must be at the start of a new line.
  * @param name: name of the file for prettier errors.
  * @param pstate: file parse state with lineno, default_ttl,
- * 	oirigin and prev_rr name.
+ * 	origin and prev_rr name.
  * @param skip_whitespace: skip leftside whitespace.
  * @return: The entry read (malloced) or NULL if no entry could be read.
  */

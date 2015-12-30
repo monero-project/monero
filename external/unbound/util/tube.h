@@ -83,7 +83,7 @@ struct tube {
 
 	/** background write queue, commpoint to write results back */
 	struct comm_point* res_com;
-	/** are we curently writing a result, 0 if not, else bytecount into
+	/** are we currently writing a result, 0 if not, else bytecount into
 	 * the res_list first entry. */
 	size_t res_write;
 	/** list of outstanding results to be written back */

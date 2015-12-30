@@ -46,7 +46,12 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+
+#if defined(HAVE_SSL)
 #include <openssl/sha.h>
+#elif defined(HAVE_NETTLE)
+#include <nettle/sha.h>
+#endif
 
 #include <linux/types.h>
 #include <linux/random.h>
@@ -67,9 +72,21 @@
 			HD(b); \
 	} while (0)
 
+#if defined(HAVE_SSL)
+#define CRYPTO_SHA512_CTX		SHA512_CTX
+#define CRYPTO_SHA512_INIT(x)		SHA512_Init(x)
+#define CRYPTO_SHA512_FINAL(r, c)	SHA512_Final(r, c)
 #define HR(x, l) (SHA512_Update(&ctx, (char *)(x), (l)))
 #define HD(x)	 (SHA512_Update(&ctx, (char *)&(x), sizeof (x)))
 #define HF(x)    (SHA512_Update(&ctx, (char *)&(x), sizeof (void*)))
+#elif defined(HAVE_NETTLE)
+#define CRYPTO_SHA512_CTX		struct sha512_ctx
+#define CRYPTO_SHA512_INIT(x)		sha512_init(x)
+#define CRYPTO_SHA512_FINAL(r, c)	sha512_digest(c, SHA512_DIGEST_SIZE, r)
+#define HR(x, l) (sha512_update(&ctx, (l), (uint8_t *)(x)))
+#define HD(x)	 (sha512_update(&ctx, sizeof (x), (uint8_t *)&(x)))
+#define HF(x)    (sha512_update(&ctx, sizeof (void*), (uint8_t *)&(x)))
+#endif
 
 int	getentropy(void *buf, size_t len);
 
@@ -122,7 +139,7 @@ getentropy(void *buf, size_t len)
 	 * Try to use sysctl CTL_KERN, KERN_RANDOM, RANDOM_UUID.
 	 * sysctl is a failsafe API, so it guarantees a result.  This
 	 * should work inside a chroot, or when file descriptors are
-	 * exhuasted.
+	 * exhausted.
 	 *
 	 * However this can fail if the Linux kernel removes support
 	 * for sysctl.  Starting in 2007, there have been efforts to
@@ -337,7 +354,7 @@ getentropy_fallback(void *buf, size_t len)
 	struct rusage ru;
 	sigset_t sigset;
 	struct stat st;
-	SHA512_CTX ctx;
+	CRYPTO_SHA512_CTX ctx;
 	static pid_t lastpid;
 	pid_t pid;
 	size_t i, ii, m;
@@ -354,7 +371,7 @@ getentropy_fallback(void *buf, size_t len)
 	}
 	for (i = 0; i < len; ) {
 		int j;
-		SHA512_Init(&ctx);
+		CRYPTO_SHA512_INIT(&ctx);
 		for (j = 0; j < repeat; j++) {
 			HX((e = gettimeofday(&tv, NULL)) == -1, tv);
 			if (e != -1) {
@@ -526,7 +543,7 @@ getentropy_fallback(void *buf, size_t len)
 #  endif
 #endif /* HAVE_GETAUXVAL */
 
-		SHA512_Final(results, &ctx);
+		CRYPTO_SHA512_FINAL(results, &ctx);
 		memcpy((char*)buf + i, results, min(sizeof(results), len - i));
 		i += min(sizeof(results), len - i);
 	}

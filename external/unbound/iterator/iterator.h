@@ -54,7 +54,7 @@ struct iter_priv;
 struct rbtree_t;
 
 /** max number of targets spawned for a query and its subqueries */
-#define MAX_TARGET_COUNT	32
+#define MAX_TARGET_COUNT	64
 /** max number of query restarts. Determines max number of CNAME chain. */
 #define MAX_RESTART_COUNT       8
 /** max number of referrals. Makes sure resolver does not run away */
@@ -112,6 +112,32 @@ struct iter_env {
 	 * array of max_dependency_depth+1 size.
 	 */
 	int* target_fetch_policy;
+
+	/** ip6.arpa dname in wireformat, used for qname-minimisation */
+	uint8_t* ip6arpa_dname;
+};
+
+/**
+ * QNAME minimisation state
+ */
+enum minimisation_state {
+	/**
+	 * (Re)start minimisation. Outgoing QNAME should be set to dp->name.
+	 * State entered on new query or after following refferal or CNAME.
+	 */
+	INIT_MINIMISE_STATE = 0,
+	/**
+	 * QNAME minimisataion ongoing. Increase QNAME on every iteration.
+	 */
+	MINIMISE_STATE,
+	/**
+	 * Don't increment QNAME this iteration
+	 */
+	SKIP_MINIMISE_STATE,
+	/**
+	 * Send out full QNAME + original QTYPE
+	 */
+	DONOT_MINIMISE_STATE,
 };
 
 /**
@@ -322,6 +348,15 @@ struct iter_qstate {
 
 	/** list of pending queries to authoritative servers. */
 	struct outbound_list outlist;
+
+	/** QNAME minimisation state */
+	enum minimisation_state minimisation_state;
+
+	/**
+	 * The query info that is sent upstream. Will be a subset of qchase
+	 * when qname minimisation is enabled.
+	 */
+	struct query_info qinfo_out;
 };
 
 /**

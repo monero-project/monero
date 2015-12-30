@@ -328,10 +328,10 @@ if [ "$DOWIN" = "yes" ]; then
     $strip unbound-service-install.exe
     $strip unbound-service-remove.exe
     cd tmp.$$
-    cp ../doc/example.conf example.conf
-    cp ../unbound.exe ../unbound-anchor.exe ../unbound-host.exe ../unbound-control.exe ../unbound-checkconf.exe ../unbound-service-install.exe ../unbound-service-remove.exe ../LICENSE ../winrc/unbound-control-setup.cmd ../winrc/unbound-website.url ../winrc/service.conf ../winrc/README.txt .
+    cp ../doc/example.conf ../doc/Changelog .
+    cp ../unbound.exe ../unbound-anchor.exe ../unbound-host.exe ../unbound-control.exe ../unbound-checkconf.exe ../unbound-service-install.exe ../unbound-service-remove.exe ../LICENSE ../winrc/unbound-control-setup.cmd ../winrc/unbound-website.url ../winrc/service.conf ../winrc/README.txt ../contrib/create_unbound_ad_servers.cmd ../contrib/warmup.cmd ../contrib/unbound_cache.cmd .
     # zipfile
-    zip ../$file LICENSE README.txt unbound.exe unbound-anchor.exe unbound-host.exe unbound-control.exe unbound-checkconf.exe unbound-service-install.exe unbound-service-remove.exe unbound-control-setup.cmd example.conf service.conf unbound-website.url
+    zip ../$file LICENSE README.txt unbound.exe unbound-anchor.exe unbound-host.exe unbound-control.exe unbound-checkconf.exe unbound-service-install.exe unbound-service-remove.exe unbound-control-setup.cmd example.conf service.conf unbound-website.url create_unbound_ad_servers.cmd warmup.cmd unbound_cache.cmd Changelog
     info "Testing $file"
     (cd .. ; zip -T $file )
     # installer
@@ -451,6 +451,10 @@ tar czf ../unbound-$version.tar.gz unbound-$version || error_cleanup "Failed to 
 cleanup
 
 storehash unbound-$version.tar.gz
+echo "create unbound-$version.tar.gz.asc with:"
+echo "  gpg --armor --detach-sign unbound-$version.tar.gz"
+echo "  gpg --armor --detach-sign unbound-$version.zip"
+echo "  gpg --armor --detach-sign unbound_setup_$version.exe"
 
 info "Unbound distribution created successfully."
 

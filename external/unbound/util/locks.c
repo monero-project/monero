@@ -232,7 +232,7 @@ void ub_thread_create(ub_thread_t* thr, void* (*func)(void*), void* arg)
 		0, /* default flags, run immediately */
 		NULL); /* do not store thread identifier anywhere */
 #else
-	/* the begintheadex routine setups for the C lib; aligns stack */
+	/* the beginthreadex routine setups for the C lib; aligns stack */
 	*thr=(ub_thread_t)_beginthreadex(NULL, 0, (void*)func, arg, 0, NULL);
 #endif
 	if(*thr == NULL) {

@@ -72,10 +72,10 @@ if /I "%arg%"=="-d" set DESTDIR=%2
 
 rem go!:
 echo setup in directory %DESTDIR%
-cd %$DESTDIR%
+cd %DESTDIR%
 
 rem create certificate keys; do not recreate if they already exist.
-if exist $SVR_BASE.key (
+if exist %SVR_BASE%.key (
 echo %SVR_BASE%.key exists
 goto next
 )

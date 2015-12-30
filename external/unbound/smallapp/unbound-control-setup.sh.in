@@ -107,16 +107,15 @@ else
 fi
 
 # create self-signed cert for server
-cat >request.cfg <<EOF
-[req]
-default_bits=$BITS
-default_md=$HASH
-prompt=no
-distinguished_name=req_distinguished_name
+echo "[req]" > request.cfg
+echo "default_bits=$BITS" >> request.cfg
+echo "default_md=$HASH" >> request.cfg
+echo "prompt=no" >> request.cfg
+echo "distinguished_name=req_distinguished_name" >> request.cfg
+echo "" >> request.cfg
+echo "[req_distinguished_name]" >> request.cfg
+echo "commonName=$SERVERNAME" >> request.cfg
 
-[req_distinguished_name]
-commonName=$SERVERNAME
-EOF
 test -f request.cfg || error "could not create request.cfg"
 
 echo "create $SVR_BASE.pem (self signed certificate)"
@@ -125,16 +124,15 @@ openssl req -key $SVR_BASE.key -config request.cfg  -new -x509 -days $DAYS -out 
 openssl x509 -in $SVR_BASE.pem -addtrust serverAuth -out $SVR_BASE"_trust.pem"
 
 # create client request and sign it, piped
-cat >request.cfg <<EOF
-[req]
-default_bits=$BITS
-default_md=$HASH
-prompt=no
-distinguished_name=req_distinguished_name
+echo "[req]" > request.cfg
+echo "default_bits=$BITS" >> request.cfg
+echo "default_md=$HASH" >> request.cfg
+echo "prompt=no" >> request.cfg
+echo "distinguished_name=req_distinguished_name" >> request.cfg
+echo "" >> request.cfg
+echo "[req_distinguished_name]" >> request.cfg
+echo "commonName=$CLIENTNAME" >> request.cfg
 
-[req_distinguished_name]
-commonName=$CLIENTNAME
-EOF
 test -f request.cfg || error "could not create request.cfg"
 
 echo "create $CTL_BASE.pem (signed client certificate)"

@@ -618,8 +618,10 @@ dns64_synth_aaaa_data(const struct ub_packed_rrset_key* fk,
 	dd->rr_ttl = (time_t*)&dd->rr_data[dd->count];
 	for(i = 0; i < fd->count; ++i) {
 		if (fd->rr_len[i] != 6 || fd->rr_data[i][0] != 0
-		    || fd->rr_data[i][1] != 4)
+		    || fd->rr_data[i][1] != 4) {
+			*dd_out = NULL;
 			return;
+		}
 		dd->rr_len[i] = 18;
 		dd->rr_data[i] =
 		    (uint8_t*)&dd->rr_ttl[dd->count] + 18*i;
@@ -638,6 +640,7 @@ dns64_synth_aaaa_data(const struct ub_packed_rrset_key* fk,
 	 */
 	if(!dk) {
 		log_err("no key");
+		*dd_out = NULL;
 		return;
 	}
 
@@ -646,6 +649,7 @@ dns64_synth_aaaa_data(const struct ub_packed_rrset_key* fk,
 
 	if(!dk->rk.dname) {
 		log_err("out of memory");
+		*dd_out = NULL;
 		return;
 	}
 

@@ -283,7 +283,7 @@ struct config_file {
 	struct config_str2list* local_zones;
 	/** local zones nodefault list */
 	struct config_strlist* local_zones_nodefault;
-	/** local data RRs configged */
+	/** local data RRs configured */
 	struct config_strlist* local_data;
 	/** unblock lan zones (reverse lookups for 10/8 and so on) */
 	int unblock_lan_zones;
@@ -364,6 +364,8 @@ struct config_file {
 	struct config_str2list* ratelimit_below_domain;
 	/** ratelimit factor, 0 blocks all, 10 allows 1/10 of traffic */
 	int ratelimit_factor;
+	/** minimise outgoing QNAME and hide original QTYPE if possible */
+	int qname_minimisation;
 };
 
 /** from cfg username, after daemonise setup performed */
@@ -739,6 +741,9 @@ void ub_c_error_msg(const char* fmt, ...) ATTR_FORMAT(printf, 1, 2);
  * 	exist on an error (logged with log_err) was encountered.
  */
 char* w_lookup_reg_str(const char* key, const char* name);
+
+/** Modify directory in options for module file name */
+void w_config_adjust_directory(struct config_file* cfg);
 #endif /* UB_ON_WINDOWS */
 
 #endif /* UTIL_CONFIG_FILE_H */

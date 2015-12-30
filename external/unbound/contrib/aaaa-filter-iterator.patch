@@ -312,7 +312,7 @@
 +	/**
  	 * Each time a delegation point changes for a given query or a 
  	 * query times out and/or wakes up, this state is (re)visited. 
- 	 * This state is reponsible for iterating through a list of 
+ 	 * This state is responsible for iterating through a list of 
 @@ -309,6 +320,13 @@ struct iter_qstate {
  	 */
  	int refetch_glue;

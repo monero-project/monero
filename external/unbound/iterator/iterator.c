@@ -64,6 +64,7 @@
 #include "util/random.h"
 #include "sldns/rrdef.h"
 #include "sldns/wire2str.h"
+#include "sldns/str2wire.h"
 #include "sldns/parseutil.h"
 #include "sldns/sbuffer.h"
 
@@ -81,6 +82,21 @@ iter_init(struct module_env* env, int id)
 		log_err("iterator: could not apply configuration settings.");
 		return 0;
 	}
+	if(env->cfg->qname_minimisation) {
+		uint8_t dname[LDNS_MAX_DOMAINLEN+1];
+		size_t len = sizeof(dname);
+		if(sldns_str2wire_dname_buf("ip6.arpa.", dname, &len) != 0) {
+			log_err("ip6.arpa. parse error");
+			return 0;
+		}
+		iter_env->ip6arpa_dname = (uint8_t*)malloc(len);
+		if(!iter_env->ip6arpa_dname) {
+			log_err("malloc failure");
+			return 0;
+		}
+		memcpy(iter_env->ip6arpa_dname, dname, len);
+	}
+
 	return 1;
 }
 
@@ -101,6 +117,7 @@ iter_deinit(struct module_env* env, int id)
 	if(!env || !env->modinfo[id])
 		return;
 	iter_env = (struct iter_env*)env->modinfo[id];
+	free(iter_env->ip6arpa_dname);
 	free(iter_env->target_fetch_policy);
 	priv_delete(iter_env->priv);
 	donotq_delete(iter_env->donotq);
@@ -145,6 +162,12 @@ iter_new(struct module_qstate* qstate, int id)
 	/* Start with the (current) qname. */
 	iq->qchase = qstate->qinfo;
 	outbound_list_init(&iq->outlist);
+	if (qstate->env->cfg->qname_minimisation)
+		iq->minimisation_state = INIT_MINIMISE_STATE;
+	else
+		iq->minimisation_state = DONOT_MINIMISE_STATE;
+	
+	memset(&iq->qinfo_out, 0, sizeof(struct query_info));
 	return 1;
 }
 
@@ -176,7 +199,7 @@ next_state(struct iter_qstate* iq, enum iter_state nextstate)
 /**
  * Transition an event to its final state. Final states always either return
  * a result up the module chain, or reactivate a dependent event. Which
- * final state to transtion to is set in the module state for the event when
+ * final state to transition to is set in the module state for the event when
  * it was created, and depends on the original purpose of the event.
  *
  * The response is stored in the qstate->buf buffer.
@@ -506,7 +529,7 @@ target_count_increase(struct iter_qstate* iq, int num)
 /**
  * Generate a subrequest.
  * Generate a local request event. Local events are tied to this module, and
- * have a correponding (first tier) event that is waiting for this event to
+ * have a corresponding (first tier) event that is waiting for this event to
  * resolve to continue.
  *
  * @param qname The query name for this request.
@@ -590,6 +613,11 @@ generate_sub_request(uint8_t* qname, size_t qnamelen, uint16_t qtype,
 		subiq->qchase = subq->qinfo;
 		subiq->chase_flags = subq->query_flags;
 		subiq->refetch_glue = 0;
+		if(qstate->env->cfg->qname_minimisation)
+			subiq->minimisation_state = INIT_MINIMISE_STATE;
+		else
+			subiq->minimisation_state = DONOT_MINIMISE_STATE;
+		memset(&subiq->qinfo_out, 0, sizeof(struct query_info));
 	}
 	return 1;
 }
@@ -1042,6 +1070,8 @@ processInitRequest(struct module_qstate* qstate, struct iter_qstate* iq,
 			iq->query_restart_count++;
 			iq->sent_count = 0;
 			sock_list_insert(&qstate->reply_origin, NULL, 0, qstate->region);
+			if(qstate->env->cfg->qname_minimisation)
+				iq->minimisation_state = INIT_MINIMISE_STATE;
 			return next_state(iq, INIT_REQUEST_STATE);
 		}
 
@@ -1062,6 +1092,7 @@ processInitRequest(struct module_qstate* qstate, struct iter_qstate* iq,
 			return error_response(qstate, id, LDNS_RCODE_SERVFAIL);
 		}
 		iq->refetch_glue = 0;
+		iq->minimisation_state = DONOT_MINIMISE_STATE;
 		/* the request has been forwarded.
 		 * forwarded requests need to be immediately sent to the 
 		 * next state, QUERYTARGETS. */
@@ -1599,6 +1630,8 @@ processLastResort(struct module_qstate* qstate, struct iter_qstate* iq,
 			iq->refetch_glue = 1;
 			iq->query_restart_count++;
 			iq->sent_count = 0;
+			if(qstate->env->cfg->qname_minimisation)
+				iq->minimisation_state = INIT_MINIMISE_STATE;
 			return next_state(iq, INIT_REQUEST_STATE);
 		}
 	}
@@ -1975,9 +2008,78 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 		}
 	}
 
+	if(iq->minimisation_state == INIT_MINIMISE_STATE) {
+		/* (Re)set qinfo_out to (new) delegation point, except
+ 		 * when qinfo_out is already a subdomain of dp. This happens
+		 * when resolving ip6.arpa dnames. */
+		if(!(iq->qinfo_out.qname_len 
+			&& dname_subdomain_c(iq->qchase.qname, 
+				iq->qinfo_out.qname)
+			&& dname_subdomain_c(iq->qinfo_out.qname, 
+				iq->dp->name))) {
+			iq->qinfo_out.qname = iq->dp->name;
+			iq->qinfo_out.qname_len = iq->dp->namelen;
+			iq->qinfo_out.qtype = LDNS_RR_TYPE_NS;
+			iq->qinfo_out.qclass = iq->qchase.qclass;
+		}
+
+		iq->minimisation_state = MINIMISE_STATE;
+	}
+	if(iq->minimisation_state == MINIMISE_STATE) {
+		int labdiff = dname_count_labels(iq->qchase.qname) -
+			dname_count_labels(iq->qinfo_out.qname);
+
+		iq->qinfo_out.qname = iq->qchase.qname;
+		iq->qinfo_out.qname_len = iq->qchase.qname_len;
+
+		/* Special treatment for ip6.arpa lookups.
+		 * Reverse IPv6 dname has 34 labels, increment the IP part 
+		 * (usually first 32 labels) by 8 labels (7 more than the 
+		 * default 1 label increment). */
+		if(labdiff <= 32 &&
+			dname_subdomain_c(iq->qchase.qname, ie->ip6arpa_dname)) {
+			labdiff -= 7;
+			/* Small chance of zone cut after first label. Stop
+			 * minimising */
+			if(labdiff <= 1)
+				labdiff = 0;
+		}
+
+		if(labdiff > 1) {
+			verbose(VERB_QUERY, "removing %d labels", labdiff-1);
+			dname_remove_labels(&iq->qinfo_out.qname, 
+				&iq->qinfo_out.qname_len, 
+				labdiff-1);
+		}
+		if(labdiff < 1 || 
+			(labdiff < 2 && iq->qchase.qtype == LDNS_RR_TYPE_DS))
+			/* Stop minimising this query, resolve "as usual" */
+			iq->minimisation_state = DONOT_MINIMISE_STATE;
+		else {
+			struct dns_msg* msg = dns_cache_lookup(qstate->env, 
+				iq->qinfo_out.qname, iq->qinfo_out.qname_len, 
+				iq->qinfo_out.qtype, iq->qinfo_out.qclass, 
+				qstate->query_flags, qstate->region, 
+				qstate->env->scratch);
+			if(msg && msg->rep->an_numrrsets == 0
+				&& FLAGS_GET_RCODE(msg->rep->flags) == 
+				LDNS_RCODE_NOERROR)
+				/* no need to send query if it is already 
+				 * cached as NOERROR/NODATA */
+				return 1;
+		}
+		
+	}
+	if(iq->minimisation_state == SKIP_MINIMISE_STATE)
+		/* Do not increment qname, continue incrementing next 
+		 * iteration */
+		iq->minimisation_state = MINIMISE_STATE;
+	if(iq->minimisation_state == DONOT_MINIMISE_STATE)
+		iq->qinfo_out = iq->qchase;
+
 	/* We have a valid target. */
 	if(verbosity >= VERB_QUERY) {
-		log_query_info(VERB_QUERY, "sending query:", &iq->qchase);
+		log_query_info(VERB_QUERY, "sending query:", &iq->qinfo_out);
 		log_name_addr(VERB_QUERY, "sending to target:", iq->dp->name, 
 			&target->addr, target->addrlen);
 		verbose(VERB_ALGO, "dnssec status: %s%s",
@@ -1986,8 +2088,8 @@ processQueryTargets(struct module_qstate* qstate, struct iter_qstate* iq,
 	}
 	fptr_ok(fptr_whitelist_modenv_send_query(qstate->env->send_query));
 	outq = (*qstate->env->send_query)(
-		iq->qchase.qname, iq->qchase.qname_len, 
-		iq->qchase.qtype, iq->qchase.qclass, 
+		iq->qinfo_out.qname, iq->qinfo_out.qname_len, 
+		iq->qinfo_out.qtype, iq->qinfo_out.qclass, 
 		iq->chase_flags | (iq->chase_to_rd?BIT_RD:0), EDNS_DO|BIT_CD, 
 		iq->dnssec_expected, iq->caps_fallback || is_caps_whitelisted(
 		ie, iq), &target->addr, target->addrlen, iq->dp->name,
@@ -2042,6 +2144,9 @@ processQueryResponse(struct module_qstate* qstate, struct iter_qstate* iq,
 	enum response_type type;
 	iq->num_current_queries--;
 	if(iq->response == NULL) {
+		/* Don't increment qname when QNAME minimisation is enabled */
+		if (qstate->env->cfg->qname_minimisation)
+			iq->minimisation_state = SKIP_MINIMISE_STATE;
 		iq->chase_to_rd = 0;
 		iq->dnssec_lame_query = 0;
 		verbose(VERB_ALGO, "query response was timeout");
@@ -2142,6 +2247,15 @@ processQueryResponse(struct module_qstate* qstate, struct iter_qstate* iq,
 			sock_list_insert(&qstate->reply_origin, 
 				&qstate->reply->addr, qstate->reply->addrlen, 
 				qstate->region);
+		if(iq->minimisation_state != DONOT_MINIMISE_STATE) {
+			/* Best effort qname-minimisation. 
+			 * Stop minimising and send full query when RCODE
+			 * is not NOERROR */
+			if(FLAGS_GET_RCODE(iq->response->rep->flags) != 
+				LDNS_RCODE_NOERROR)
+				iq->minimisation_state = DONOT_MINIMISE_STATE;
+			return next_state(iq, QUERYTARGETS_STATE);
+		}
 		return final_state(iq);
 	} else if(type == RESPONSE_TYPE_REFERRAL) {
 		/* REFERRAL type responses get a reset of the 
@@ -2201,6 +2315,8 @@ processQueryResponse(struct module_qstate* qstate, struct iter_qstate* iq,
 		 * point to the referral. */
 		iq->deleg_msg = iq->response;
 		iq->dp = delegpt_from_message(iq->response, qstate->region);
+		if (qstate->env->cfg->qname_minimisation)
+			iq->minimisation_state = INIT_MINIMISE_STATE;
 		if(!iq->dp)
 			return error_response(qstate, id, LDNS_RCODE_SERVFAIL);
 		if(!cache_fill_missing(qstate->env, iq->qchase.qclass, 
@@ -2280,6 +2396,8 @@ processQueryResponse(struct module_qstate* qstate, struct iter_qstate* iq,
 		/* set the current request's qname to the new value. */
 		iq->qchase.qname = sname;
 		iq->qchase.qname_len = snamelen;
+		if (qstate->env->cfg->qname_minimisation)
+			iq->minimisation_state = INIT_MINIMISE_STATE;
 		/* Clear the query state, since this is a query restart. */
 		iq->deleg_msg = NULL;
 		iq->dp = NULL;
@@ -2353,6 +2471,8 @@ processQueryResponse(struct module_qstate* qstate, struct iter_qstate* iq,
 	/* LAME, THROWAWAY and "unknown" all end up here.
 	 * Recycle to the QUERYTARGETS state to hopefully try a 
 	 * different target. */
+	if (qstate->env->cfg->qname_minimisation)
+		iq->minimisation_state = DONOT_MINIMISE_STATE;
 	return next_state(iq, QUERYTARGETS_STATE);
 }
 
@@ -2968,7 +3088,7 @@ process_response(struct module_qstate* qstate, struct iter_qstate* iq,
 	prs->flags &= ~BIT_CD;
 
 	/* normalize and sanitize: easy to delete items from linked lists */
-	if(!scrub_message(pkt, prs, &iq->qchase, iq->dp->name, 
+	if(!scrub_message(pkt, prs, &iq->qinfo_out, iq->dp->name, 
 		qstate->env->scratch, qstate->env, ie)) {
 		/* if 0x20 enabled, start fallback, but we have no message */
 		if(event == module_event_capsfail && !iq->caps_fallback) {

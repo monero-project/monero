@@ -749,7 +749,7 @@ validate_nodata_response(struct module_env* env, struct val_env* ve,
 	/* Since we are here, there must be nothing in the ANSWER section to
 	 * validate. */
 	/* (Note: CNAME/DNAME responses will not directly get here --
-	 * instead, they are chased down into indiviual CNAME validations,
+	 * instead, they are chased down into individual CNAME validations,
 	 * and at the end of the cname chain a POSITIVE, or CNAME_NOANSWER 
 	 * validation.) */
 	
@@ -1597,7 +1597,7 @@ processFindKey(struct module_qstate* qstate, struct val_qstate* vq, int id)
 		target_key_name) != 0) {
 		/* check if there is a cache entry : pick up an NSEC if
 		 * there is no DS, check if that NSEC has DS-bit unset, and
-		 * thus can disprove the secure delagation we seek.
+		 * thus can disprove the secure delegation we seek.
 		 * We can then use that NSEC even in the absence of a SOA
 		 * record that would be required by the iterator to supply
 		 * a completely protocol-correct response. 
@@ -1829,7 +1829,7 @@ processValidate(struct module_qstate* qstate, struct val_qstate* vq,
  * @return  true if there is no DLV.
  * 	false: processing is finished for the validator operate().
  * 	This function may exit in three ways:
- *         o	no DLV (agressive cache), so insecure. (true)
+ *         o	no DLV (aggressive cache), so insecure. (true)
  *         o	error - stop processing (false)
  *         o	DLV lookup was started, stop processing (false)
  */

@@ -2,7 +2,11 @@
 # Copyright 2009, Wouter Wijngaards, NLnet Labs.   
 # BSD licensed.
 #
-# Version 27
+# Version 31
+# 2015-12-11 FLTO check for new OSX, clang.
+# 2015-11-18 spelling check fix.
+# 2015-11-05 ACX_SSL_CHECKS no longer adds -ldl needlessly.
+# 2015-08-28 ACX_CHECK_PIE and ACX_CHECK_RELRO_NOW added.
 # 2015-03-17 AHX_CONFIG_REALLOCARRAY added
 # 2013-09-19 FLTO help text improved.
 # 2013-07-18 Enable ACX_CHECK_COMPILER_FLAG to test for -Wstrict-prototypes
@@ -23,7 +27,7 @@
 # 2010-07-02 Add check for ss_family (for minix).
 # 2010-04-26 Fix to use CPPFLAGS for CHECK_COMPILER_FLAGS.
 # 2010-03-01 Fix RPATH using CONFIG_COMMANDS to run at the very end.
-# 2010-02-18 WITH_SSL outputs the LIBSSL_LDFLAGS, LIBS, CPPFLAGS seperate, -ldl
+# 2010-02-18 WITH_SSL outputs the LIBSSL_LDFLAGS, LIBS, CPPFLAGS separate, -ldl
 # 2010-02-01 added ACX_CHECK_MEMCMP_SIGNED, AHX_MEMCMP_BROKEN
 # 2010-01-20 added AHX_COONFIG_STRLCAT
 # 2009-07-14 U_CHAR detection improved for windows crosscompile.
@@ -94,6 +98,8 @@
 # ACX_CHECK_MEMCMP_SIGNED	- check if memcmp uses signed characters.
 # AHX_MEMCMP_BROKEN		- replace memcmp func for CHECK_MEMCMP_SIGNED.
 # ACX_CHECK_SS_FAMILY           - check for sockaddr_storage.ss_family
+# ACX_CHECK_PIE			- add --enable-pie option and check if works
+# ACX_CHECK_RELRO_NOW		- add --enable-relro-now option and check it
 #
 
 dnl Escape backslashes as \\, for C:\ paths, for the C preprocessor defines.
@@ -418,7 +424,7 @@ AC_DEFUN([ACX_CHECK_FLTO], [
         BAKCFLAGS="$CFLAGS"
         CFLAGS="$CFLAGS -flto"
         AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])], [
-            if $CC $CFLAGS -o conftest conftest.c 2>&1 | grep "warning: no debug symbols in executable" >/dev/null; then
+            if $CC $CFLAGS -o conftest conftest.c 2>&1 | $GREP -e "warning: no debug symbols in executable" -e "warning: object" >/dev/null; then
                 CFLAGS="$BAKCFLAGS"
                 AC_MSG_RESULT(no)
             else
@@ -712,12 +718,6 @@ AC_DEFUN([ACX_SSL_CHECKS], [
         fi
         AC_SUBST(HAVE_SSL)
         AC_SUBST(RUNTIME_PATH)
-	# openssl engine functionality needs dlopen().
-	BAKLIBS="$LIBS"
-	AC_SEARCH_LIBS([dlopen], [dl])
-	if test "$LIBS" != "$BAKLIBS"; then
-		LIBSSL_LIBS="$LIBSSL_LIBS -ldl"
-	fi
     fi
 AC_CHECK_HEADERS([openssl/ssl.h],,, [AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([openssl/err.h],,, [AC_INCLUDES_DEFAULT])
@@ -1385,5 +1385,47 @@ AC_DEFUN([ACX_CHECK_SS_FAMILY],
 #include <arpa/inet.h>
 #endif
 ]) ])
+
+dnl Check if CC and linker support -fPIE and -pie.
+dnl If so, sets them in CFLAGS / LDFLAGS.
+AC_DEFUN([ACX_CHECK_PIE], [
+    AC_ARG_ENABLE([pie], AS_HELP_STRING([--enable-pie], [Enable Position-Independent Executable (eg. to fully benefit from ASLR, small performance penalty)]))
+    AS_IF([test "x$enable_pie" = "xyes"], [
+	AC_MSG_CHECKING([if $CC supports PIE])
+	BAKLDFLAGS="$LDFLAGS"
+	BAKCFLAGS="$CFLAGS"
+	LDFLAGS="$LDFLAGS -pie"
+	CFLAGS="$CFLAGS -fPIE"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])], [
+	    if $CC $CFLAGS $LDFLAGS -o conftest conftest.c 2>&1 | grep "warning: no debug symbols in executable" >/dev/null; then
+		LDFLAGS="$BAKLDFLAGS"
+		AC_MSG_RESULT(no)
+	    else
+		AC_MSG_RESULT(yes)
+	    fi
+	    rm -f conftest conftest.c conftest.o
+	], [LDFLAGS="$BAKLDFLAGS" ; CFLAGS="$BAKCFLAGS" ; AC_MSG_RESULT(no)])
+    ])
+])
+
+dnl Check if linker supports -Wl,-z,relro,-z,now.
+dnl If so, adds it to LDFLAGS.
+AC_DEFUN([ACX_CHECK_RELRO_NOW], [
+    AC_ARG_ENABLE([relro_now], AS_HELP_STRING([--enable-relro-now], [Enable full relocation binding at load-time (RELRO NOW, to protect GOT and .dtor areas)]))
+    AS_IF([test "x$enable_relro_now" = "xyes"], [
+	AC_MSG_CHECKING([if $CC supports -Wl,-z,relro,-z,now])
+	BAKLDFLAGS="$LDFLAGS"
+	LDFLAGS="$LDFLAGS -Wl,-z,relro,-z,now"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])], [
+	    if $CC $CFLAGS $LDFLAGS -o conftest conftest.c 2>&1 | grep "warning: no debug symbols in executable" >/dev/null; then
+		LDFLAGS="$BAKLDFLAGS"
+		AC_MSG_RESULT(no)
+	    else
+		AC_MSG_RESULT(yes)
+	    fi
+	    rm -f conftest conftest.c conftest.o
+	], [LDFLAGS="$BAKLDFLAGS" ; AC_MSG_RESULT(no)])
+    ])
+])
 
 dnl End of file
