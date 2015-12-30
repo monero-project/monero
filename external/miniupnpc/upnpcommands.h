@@ -1,7 +1,7 @@
-/* $Id: upnpcommands.h,v 1.27 2014/02/17 15:38:26 nanard Exp $ */
+/* $Id: upnpcommands.h,v 1.30 2015/07/15 12:21:28 nanard Exp $ */
 /* Miniupnp project : http://miniupnp.free.fr/
  * Author : Thomas Bernard
- * Copyright (c) 2005-2014 Thomas Bernard
+ * Copyright (c) 2005-2015 Thomas Bernard
  * This software is subject to the conditions detailed in the
  * LICENCE file provided within this distribution */
 #ifndef UPNPCOMMANDS_H_INCLUDED
@@ -9,7 +9,7 @@
 
 #include "upnpreplyparse.h"
 #include "portlistingparse.h"
-#include "declspec.h"
+#include "miniupnpc_declspec.h"
 #include "miniupnpctypes.h"
 
 /* MiniUPnPc return codes : */
@@ -18,6 +18,7 @@
 #define UPNPCOMMAND_INVALID_ARGS (-2)
 #define UPNPCOMMAND_HTTP_ERROR (-3)
 #define UPNPCOMMAND_INVALID_RESPONSE (-4)
+#define UPNPCOMMAND_MEM_ALLOC_ERROR (-5)
 
 #ifdef __cplusplus
 extern "C" {

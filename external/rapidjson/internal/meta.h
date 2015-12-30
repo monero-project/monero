@@ -1,29 +1,21 @@
-// Copyright (C) 2011 Milo Yip
+// Tencent is pleased to support the open source community by making RapidJSON available.
+// 
+// Copyright (C) 2015 THL A29 Limited, a Tencent company, and Milo Yip. All rights reserved.
 //
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
+// Licensed under the MIT License (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
 //
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
+// http://opensource.org/licenses/MIT
 //
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
+// Unless required by applicable law or agreed to in writing, software distributed 
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR 
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the 
+// specific language governing permissions and limitations under the License.
 
 #ifndef RAPIDJSON_INTERNAL_META_H_
 #define RAPIDJSON_INTERNAL_META_H_
 
-#ifndef RAPIDJSON_RAPIDJSON_H_
-#error <rapidjson.h> not yet included. Do not include this file directly.
-#endif
+#include "../rapidjson.h"
 
 #ifdef __GNUC__
 RAPIDJSON_DIAG_PUSH
@@ -39,7 +31,7 @@ RAPIDJSON_DIAG_OFF(6334)
 #endif
 
 //@cond RAPIDJSON_INTERNAL
-namespace rapidjson {
+RAPIDJSON_NAMESPACE_BEGIN
 namespace internal {
 
 // Helper to wrap/convert arbitrary types to void, useful for arbitrary type matching
@@ -157,29 +149,29 @@ template <typename T> struct RemoveSfinaeTag;
 template <typename T> struct RemoveSfinaeTag<SfinaeTag&(*)(T)> { typedef T Type; };
 
 #define RAPIDJSON_REMOVEFPTR_(type) \
-    typename ::rapidjson::internal::RemoveSfinaeTag \
-        < ::rapidjson::internal::SfinaeTag&(*) type>::Type
+    typename ::RAPIDJSON_NAMESPACE::internal::RemoveSfinaeTag \
+        < ::RAPIDJSON_NAMESPACE::internal::SfinaeTag&(*) type>::Type
 
 #define RAPIDJSON_ENABLEIF(cond) \
-    typename ::rapidjson::internal::EnableIf \
+    typename ::RAPIDJSON_NAMESPACE::internal::EnableIf \
         <RAPIDJSON_REMOVEFPTR_(cond)>::Type * = NULL
 
 #define RAPIDJSON_DISABLEIF(cond) \
-    typename ::rapidjson::internal::DisableIf \
+    typename ::RAPIDJSON_NAMESPACE::internal::DisableIf \
         <RAPIDJSON_REMOVEFPTR_(cond)>::Type * = NULL
 
 #define RAPIDJSON_ENABLEIF_RETURN(cond,returntype) \
-    typename ::rapidjson::internal::EnableIf \
+    typename ::RAPIDJSON_NAMESPACE::internal::EnableIf \
         <RAPIDJSON_REMOVEFPTR_(cond), \
          RAPIDJSON_REMOVEFPTR_(returntype)>::Type
 
 #define RAPIDJSON_DISABLEIF_RETURN(cond,returntype) \
-    typename ::rapidjson::internal::DisableIf \
+    typename ::RAPIDJSON_NAMESPACE::internal::DisableIf \
         <RAPIDJSON_REMOVEFPTR_(cond), \
          RAPIDJSON_REMOVEFPTR_(returntype)>::Type
 
 } // namespace internal
-} // namespace rapidjson
+RAPIDJSON_NAMESPACE_END
 //@endcond
 
 #if defined(__GNUC__) || defined(_MSC_VER)

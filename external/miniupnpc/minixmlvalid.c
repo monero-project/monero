@@ -1,4 +1,4 @@
-/* $Id: minixmlvalid.c,v 1.6 2012/05/01 16:24:07 nanard Exp $ */
+/* $Id: minixmlvalid.c,v 1.7 2015/07/15 12:41:15 nanard Exp $ */
 /* MiniUPnP Project
  * http://miniupnp.tuxfamily.org/ or http://miniupnp.free.fr/
  * minixmlvalid.c :
@@ -128,6 +128,11 @@ int testxmlparser(const char * xml, int size)
 	struct xmlparser parser;
 	evtlist.n = 0;
 	evtlist.events = malloc(sizeof(struct event)*100);
+	if(evtlist.events == NULL)
+	{
+		fprintf(stderr, "Memory allocation error.\n");
+		return -1;
+	}
 	memset(&parser, 0, sizeof(parser));
 	parser.xmlstart = xml;
 	parser.xmlsize = size;
