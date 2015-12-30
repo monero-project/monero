@@ -31,7 +31,7 @@ cmake_minimum_required(VERSION 2.8.7)
 project(unbound C)
 
 if (APPLE)
-  if (not OpenSSL_DIR)
+  if (NOT OpenSSL_DIR)
       EXECUTE_PROCESS(COMMAND brew --prefix openssl
         OUTPUT_VARIABLE OPENSSL_ROOT_DIR
         OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -166,6 +166,11 @@ elseif (APPLE)
 elseif (WIN32)
   list(APPEND compat_src
     compat/getentropy_win.c)
+endif ()
+
+if (NOT HAVE_ISBLANK)
+  list(APPEND compat_src
+    compat/isblank.c)
 endif ()
 
 if (NOT HAVE_GETADDRINFO)
