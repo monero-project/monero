@@ -18,7 +18,7 @@ endif()
 option (UPNPC_BUILD_STATIC "Build static library" TRUE)
 option (UPNPC_BUILD_SHARED "Build shared library" TRUE)
 if (NOT WIN32)
-  option (UPNPC_BUILD_TESTS "Build test executables" TRUE)
+  option (UPNPC_BUILD_TESTS "Build test executables" FALSE)
 endif (NOT WIN32)
 option (NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
 
@@ -62,7 +62,7 @@ if (CMAKE_COMPILER_IS_GNUC)
   endif (NOT CONFIGURED)
 endif ()
 
-configure_file (${CMAKE_SOURCE_DIR}/miniupnpcstrings.h.cmake ${CMAKE_BINARY_DIR}/miniupnpcstrings.h)
+configure_file (miniupnpcstrings.h.cmake ${CMAKE_BINARY_DIR}/miniupnpcstrings.h)
 include_directories (${CMAKE_BINARY_DIR})
 
 set (MINIUPNPC_SOURCES
