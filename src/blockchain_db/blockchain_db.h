@@ -503,6 +503,8 @@ public:
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) = 0;
   virtual uint8_t get_hard_fork_version(uint64_t height) const = 0;
 
+  virtual bool is_read_only() const = 0;
+
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
 
