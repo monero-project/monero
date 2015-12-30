@@ -195,8 +195,6 @@ namespace cryptonote
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
     // main chain
-    blocks_container m_blocks;               // height  -> block_extended_info
-    blocks_by_id_index m_blocks_index;       // crypto::hash -> height
     transactions_container m_transactions;
     size_t m_current_block_cumul_sz_limit;
 
@@ -230,7 +228,6 @@ namespace cryptonote
 
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
-    outputs_container m_outputs;
 
 
     checkpoints m_checkpoints;
