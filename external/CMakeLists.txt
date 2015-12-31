@@ -60,9 +60,6 @@ else()
     message(STATUS "Using miniupnpc from local source tree (/external/miniupnpc)")
   endif()
 
-  set(UPNPC_BUILD_STATIC ON CACHE BOOL "Build static library")
-  set(UPNPC_BUILD_SHARED OFF CACHE BOOL "Build shared library")
-  set(UPNPC_BUILD_TESTS OFF CACHE BOOL "Build test executables")
   add_subdirectory(miniupnpc)
 
   set_property(TARGET upnpc-static PROPERTY FOLDER "external")
