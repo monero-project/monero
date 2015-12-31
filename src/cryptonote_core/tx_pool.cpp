@@ -612,6 +612,9 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     m_config_folder = config_folder;
+    if (m_config_folder.empty())
+      return true;
+
     std::string state_file_path = config_folder + "/" + CRYPTONOTE_POOLDATA_FILENAME;
     boost::system::error_code ec;
     if(!boost::filesystem::exists(state_file_path, ec))
@@ -648,6 +651,9 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::deinit()
   {
+    if (m_config_folder.empty())
+      return true;
+
     if (!tools::create_directories_if_necessary(m_config_folder))
     {
       LOG_PRINT_L1("Failed to create data directory: " << m_config_folder);

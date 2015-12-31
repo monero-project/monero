@@ -222,7 +222,7 @@ namespace cryptonote
   {
     bool r = handle_command_line(vm);
 
-    r = m_mempool.init(m_config_folder);
+    r = m_mempool.init(m_fakechain ? std::string() : m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
 #if BLOCKCHAIN_DB == DB_LMDB
