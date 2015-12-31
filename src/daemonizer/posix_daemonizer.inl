@@ -81,7 +81,7 @@ namespace daemonizer
     }
     else
     {
-      //LOG_PRINT_L0(CRYPTONOTE_NAME << " v" << MONERO_VERSION_FULL);
+      //LOG_PRINT_L0("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL);
       return executor.run_interactive(vm);
     }
   }

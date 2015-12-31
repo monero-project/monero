@@ -2467,14 +2467,14 @@ int main(int argc, char* argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      success_msg_writer() << CRYPTONOTE_NAME << " " << sw::tr("wallet") << " v" << MONERO_VERSION_FULL;
+      success_msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
       success_msg_writer() << sw::tr("Usage:") << " simplewallet [--wallet-file=<file>|--generate-new-wallet=<file>] [--daemon-address=<host>:<port>] [<COMMAND>]";
       success_msg_writer() << desc_all;
       return false;
     }
     else if (command_line::get_arg(vm, command_line::arg_version))
     {
-      success_msg_writer() << CRYPTONOTE_NAME << " " << sw::tr("wallet") << " v" << MONERO_VERSION_FULL;
+      success_msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
       return false;
     }
 
@@ -2507,7 +2507,7 @@ int main(int argc, char* argv[])
     LOG_LEVEL_4
     );
 
-  message_writer(epee::log_space::console_color_white, true) << CRYPTONOTE_NAME << " " << sw::tr("wallet") << " v" << MONERO_VERSION_FULL;
+  message_writer(epee::log_space::console_color_white, true) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
 
   if(command_line::has_arg(vm, arg_log_level))
     log_level = command_line::get_arg(vm, arg_log_level);
