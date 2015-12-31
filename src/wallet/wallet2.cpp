@@ -648,21 +648,30 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched)
   refresh(start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks)
+void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, bool &error)
 {
-  // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
-  cryptonote::block bl;
-  std::list<cryptonote::block_complete_entry>::const_reverse_iterator i = prev_blocks.rbegin();
-  for (size_t n = 0; n < std::min((size_t)3, prev_blocks.size()); ++n)
-  {
-    bool ok = cryptonote::parse_and_validate_block_from_blob(i->block, bl);
-    THROW_WALLET_EXCEPTION_IF(!ok, error::block_parse_error, i->block);
-    short_chain_history.push_front(cryptonote::get_block_hash(bl));
-    ++i;
-  }
+  error = false;
 
-  // pull the new blocks
-  pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
+  try
+  {
+    // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
+    cryptonote::block bl;
+    std::list<cryptonote::block_complete_entry>::const_reverse_iterator i = prev_blocks.rbegin();
+    for (size_t n = 0; n < std::min((size_t)3, prev_blocks.size()); ++n)
+    {
+      bool ok = cryptonote::parse_and_validate_block_from_blob(i->block, bl);
+      THROW_WALLET_EXCEPTION_IF(!ok, error::block_parse_error, i->block);
+      short_chain_history.push_front(cryptonote::get_block_hash(bl));
+      ++i;
+    }
+
+    // pull the new blocks
+    pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
+  }
+  catch(...)
+  {
+    error = true;
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
@@ -689,7 +698,8 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       // pull the next set of blocks while we're processing the current one
       uint64_t next_blocks_start_height;
       std::list<cryptonote::block_complete_entry> next_blocks;
-      pull_thread = std::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks);});
+      bool error = false;
+      pull_thread = std::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, error);});
 
       process_blocks(blocks_start_height, blocks, added_blocks);
       blocks_fetched += added_blocks;
@@ -700,6 +710,12 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       // switch to the new blocks from the daemon
       blocks_start_height = next_blocks_start_height;
       blocks = next_blocks;
+
+      // handle error from async fetching thread
+      if (error)
+      {
+        throw std::runtime_error("proxy exception in refresh thread");
+      }
     }
     catch (const std::exception&)
     {
@@ -785,6 +801,7 @@ bool wallet2::clear()
 {
   m_blockchain.clear();
   m_transfers.clear();
+  m_key_images.clear();
   m_local_bc_height = 1;
   return true;
 }
@@ -1413,6 +1430,20 @@ void wallet2::rescan_spent()
       td.m_spent = daemon_resp.spent_status[i];
     }
   }
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::rescan_blockchain(bool refresh)
+{
+  clear();
+
+  cryptonote::block genesis;
+  generate_genesis(genesis);
+  crypto::hash genesis_hash = get_block_hash(genesis);
+  m_blockchain.push_back(genesis_hash);
+  m_local_bc_height = 1;
+
+  if (refresh)
+    this->refresh();
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_transfer_unlocked(const transfer_details& td) const

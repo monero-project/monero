@@ -2078,6 +2078,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
 
   boost::asio::io_service ioservice;
   boost::thread_group threadpool;
+  bool ioservice_active = false;
 
   std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
   if(threads > 1)
@@ -2086,15 +2087,19 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
     {
       threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
     }
+    ioservice_active = true;
   }
 
 #define KILL_IOSERVICE()  \
-        if(threads > 1) \
+        if(ioservice_active) \
         { \
             work.reset(); \
             threadpool.join_all(); \
             ioservice.stop(); \
-        } \
+            ioservice_active = false; \
+        }
+
+  epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
 
   for (const auto& txin : tx.vin)
   {
@@ -2109,7 +2114,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
     if(have_tx_keyimg_as_spent(in_to_key.k_image))
     {
       LOG_PRINT_L1("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
-      KILL_IOSERVICE();
       return false;
     }
 
@@ -2123,7 +2127,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
       if(!itk->second)
       {
         LOG_PRINT_L1("Failed ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-        KILL_IOSERVICE();
         return false;
       }
 
@@ -2145,7 +2148,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
         LOG_PRINT_L1("  *pmax_used_block_height: " << *pmax_used_block_height);
       }
 
-      KILL_IOSERVICE();
       return false;
     }
 
@@ -2168,7 +2170,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
           LOG_PRINT_L1("*pmax_used_block_height: " << *pmax_used_block_height);
         }
 
-        KILL_IOSERVICE();
         return false;
       }
       it->second[in_to_key.k_image] = true;

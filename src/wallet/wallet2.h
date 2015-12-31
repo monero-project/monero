@@ -280,6 +280,7 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments) const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     void rescan_spent();
+    void rescan_blockchain(bool refresh = true);
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
@@ -359,7 +360,7 @@ namespace tools
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
     void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks);
-    void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks);
+    void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, bool &error);
     void process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);

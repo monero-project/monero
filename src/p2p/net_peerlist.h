@@ -80,8 +80,6 @@ namespace nodetool
     bool set_peer_just_seen(peerid_type peer, const net_address& addr);
     bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_ip_allowed(uint32_t ip);
-    void trim_white_peerlist();
-    void trim_gray_peerlist();
 
     
   private:
@@ -166,6 +164,8 @@ namespace nodetool
 
   private: 
     bool peers_indexed_from_old(const peers_indexed_old& pio, peers_indexed& pi);
+    void trim_white_peerlist();
+    void trim_gray_peerlist();
 
     friend class boost::serialization::access;
     epee::critical_section m_peerlist_lock;
