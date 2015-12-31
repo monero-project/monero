@@ -216,7 +216,7 @@
 #cmakedefine HAVE_IPHLPAPI_H
 
 /* Define to 1 if you have the `isblank' function. */
-#undef HAVE_ISBLANK
+#cmakedefine HAVE_ISBLANK
 
 /* Define to 1 if you have the `kill' function. */
 #cmakedefine HAVE_KILL
