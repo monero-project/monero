@@ -66,15 +66,16 @@ public:
     m_core.set_cryptonote_protocol(&protocol);
   }
 
-  void run()
+  bool run()
   {
     //initialize core here
     LOG_PRINT_L0("Initializing core...");
     if (!m_core.init(m_vm_HACK))
     {
-      throw std::runtime_error("Failed to initialize core");
+      return false;
     }
     LOG_PRINT_L0("Core initialized OK");
+    return true;
   }
 
   cryptonote::core & get()
