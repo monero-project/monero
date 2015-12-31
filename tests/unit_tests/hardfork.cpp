@@ -102,6 +102,7 @@ public:
   virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const { return true; }
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const { return true; }
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const { return true; }
+  virtual bool is_read_only() const { return false; }
 
   virtual void add_block( const block& blk
                         , const size_t& block_size
@@ -282,7 +283,6 @@ TEST(reorganize, Same)
 
 TEST(reorganize, Changed)
 {
-  int history = 4;
   TestDB db;
   HardFork hf(db, 1, 0, 1, 1, 4, 100);
 
