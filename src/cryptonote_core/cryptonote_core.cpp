@@ -231,6 +231,26 @@ namespace cryptonote
     bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
 
+    boost::filesystem::path folder(m_config_folder);
+    if (m_fakechain)
+      folder /= "fake";
+    //
+    // check for blockchain.bin
+    try
+    {
+      const boost::filesystem::path old_files = folder;
+      if (boost::filesystem::exists(old_files / "blockchain.bin"))
+      {
+        LOG_PRINT_RED_L0("Found old-style blockchain.bin in " << old_files.string());
+        LOG_PRINT_RED_L0("Monero now uses a new format. You can either remove blockchain.bin to start syncing");
+        LOG_PRINT_RED_L0("the blockchain anew, or use blockchain_export and blockchain_import to convert your");
+        LOG_PRINT_RED_L0("existing blockchain.bin to the new format. See README.md for instructions.");
+        return false;
+      }
+    }
+    // folder might not be a directory, etc, etc
+    catch (...) { }
+
     BlockchainDB* db = nullptr;
     uint64_t BDB_FAST_MODE = 0;
     uint64_t BDB_FASTEST_MODE = 0;
@@ -257,36 +277,8 @@ namespace cryptonote
       return false;
     }
 
-    boost::filesystem::path folder(m_config_folder);
-
-    if (m_fakechain)
-      folder /= "fake";
-
     folder /= db->get_db_name();
-
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
-
-    // check for blockchain.bin
-    bool old_blockchain_found = false;
-    try
-    {
-      const boost::filesystem::path old_files = folder.parent_path();
-      if (boost::filesystem::exists(folder.parent_path() / "blockchain.bin"))
-      {
-        LOG_PRINT_L0("Found old-style blockchain.bin in " << old_files.string());
-        LOG_PRINT_L0("Monero now uses a new format. You can either remove blockchain.bin to start syncing");
-        LOG_PRINT_L0("the blockchain anew, or use blockchain_export and blockchain_import to convert your");
-        LOG_PRINT_L0("existing blockchain.bin to the new format. See README.md for instructions.");
-        old_blockchain_found = true;
-      }
-    }
-    // folder might not be a directory, etc, etc
-    catch (...) {}
-
-    if (old_blockchain_found)
-    {
-      throw DB_ERROR("Database could not be opened");
-    }
 
     const std::string filename = folder.string();
     // temporarily default to fastest:async:1000
