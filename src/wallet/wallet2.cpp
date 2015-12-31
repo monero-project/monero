@@ -1305,9 +1305,11 @@ void wallet2::store()
   const std::string old_file = m_wallet_file + ".old";
 
   // save to new file
-  std::ofstream ostr(new_file);
+  std::ofstream ostr;
+  ostr.open(new_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
   binary_archive<true> oar(ostr);
   bool success = ::serialization::serialize(oar, cache_file_data);
+  ostr.close();
   THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
 
   // rename
