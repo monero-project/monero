@@ -122,7 +122,8 @@ bool t_daemon::run(bool interactive)
   {
     daemonize::t_command_server* rpc_commands = NULL;
 
-    mp_internals->core.run();
+    if (!mp_internals->core.run())
+      return false;
 
     if (interactive)
     {
