@@ -141,7 +141,7 @@ set(common_src
 
 set(compat_src)
 
-foreach (symbol IN ITEMS ctime_r gmtime_r inet_aton inet_ntop inet_pton malloc memcmp memmove snprintf strlcat strlcpy strptime explicit_bzero arc4random arc4random_uniform sha512 reallocarray)
+foreach (symbol IN ITEMS ctime_r gmtime_r inet_aton inet_ntop inet_pton isblank malloc memcmp memmove snprintf strlcat strlcpy strptime explicit_bzero arc4random arc4random_uniform sha512 reallocarray)
   string(TOUPPER "${symbol}" upper_sym)
   if (NOT HAVE_${upper_sym})
     list(APPEND compat_src
@@ -166,11 +166,6 @@ elseif (APPLE)
 elseif (WIN32)
   list(APPEND compat_src
     compat/getentropy_win.c)
-endif ()
-
-if (NOT HAVE_ISBLANK)
-  list(APPEND compat_src
-    compat/isblank.c)
 endif ()
 
 if (NOT HAVE_GETADDRINFO)
