@@ -67,7 +67,7 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 
 ### Overview:
 
-Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Dependencies: GCC 4.7.3 or later, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
 Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, bison or yacc
 
 **Basic Process:**
@@ -99,7 +99,11 @@ The instructions above should provide enough detail.
 
 ### On OS X:
 
+**Basic Process:**
+
 The project can be built from scratch by following instructions for Unix and Linux above.
+
+**Alternate Process:**
 
 Alternatively, it can be built in an easier and more automated fashion using Homebrew:
 
@@ -109,7 +113,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
+Dependencies: mingw-w64, msys2, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
 
 **Preparing the Build Environment**
 
