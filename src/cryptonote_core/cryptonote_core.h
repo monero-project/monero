@@ -102,10 +102,11 @@ namespace cryptonote
       * @param tx_blob the tx to handle
       * @param tvc metadata about the transaction's validity
       * @param keeped_by_block if the transaction has been in a block
+      * @param relayed whether the tx was already relayed from a peer
       *
       * @return true if the transaction made it to the transaction pool, otherwise false
       */
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
 
      /**
       * @brief handles an incoming block
@@ -603,9 +604,10 @@ namespace cryptonote
       * @param tx_hash the transaction's hash
       * @param tx_prefix_hash the transaction prefix' hash
       * @param blob_size the size of the transaction
+      * @param relayed whether the tx was relayed
       *
       */
-     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block);
+     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -615,12 +617,13 @@ namespace cryptonote
       * @param tx the transaction to add
       * @param tvc return-by-reference metadata about the transaction's verification process
       * @param keeped_by_block whether or not the transaction has been in a block
+      * @param relayed whether or not the transaction was relayed
       *
       * @return true if the transaction is already in the transaction pool,
       * is already in a block on the Blockchain, or is successfully added
       * to the transaction pool
       */
-     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
+     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
 
      /**
       * @copydoc Blockchain::add_new_block
@@ -714,6 +717,13 @@ namespace cryptonote
       */
      bool check_fork_time();
 
+     /**
+      * @brief relay an arbitrary set of transactions from the txpool
+      *
+      * @return true
+      */
+     bool relay_txpool_transactions();
+
      static std::atomic<bool> m_fast_exit; //!< whether or not to deinit Blockchain on exit
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
@@ -741,6 +751,7 @@ namespace cryptonote
 
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval; //!< interval for manual storing of Blockchain, if enabled
      epee::math_helper::once_a_time_seconds<60*60*2, false> m_fork_moaner; //!< interval for checking HardFork status
+     epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
