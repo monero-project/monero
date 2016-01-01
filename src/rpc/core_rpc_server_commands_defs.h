@@ -458,8 +458,10 @@ namespace cryptonote
       uint64_t height;
       uint64_t depth;
       std::string hash;
+      std::string tx_tree_hash;
       difficulty_type difficulty;
       uint64_t reward;
+      uint64_t txcount;
       
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(major_version)
@@ -471,8 +473,10 @@ namespace cryptonote
         KV_SERIALIZE(height)
         KV_SERIALIZE(depth)
         KV_SERIALIZE(hash)
+        KV_SERIALIZE(tx_tree_hash)
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(reward)
+        KV_SERIALIZE(txcount)
       END_KV_SERIALIZE_MAP()
   };
 
