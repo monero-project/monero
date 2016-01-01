@@ -45,7 +45,7 @@ static std::map<std::string,std::string> i18n_entries;
 // #define i18n_log(x) do { std::cout << __FILE__ << ":" << __LINE__ << ": " << x << std::endl; std::cout << std::flush; } while(0)
 #define i18n_log(x) ((void)0)
 
-static std::string get_language()
+std::string i18n_get_language()
 {
   const char *e;
 
@@ -111,9 +111,9 @@ static std::string utf8(const unsigned char *data, uint32_t len)
   return std::string((const char *)data,len);
 }
 
-int i18n_set_language(const char *directory, const char *base)
+int i18n_set_language(const char *directory, const char *base, std::string language)
 {
-  std::string language, filename, contents;
+  std::string filename, contents;
   const unsigned char *data;
   size_t datalen;
   size_t idx;
@@ -128,7 +128,8 @@ int i18n_set_language(const char *directory, const char *base)
   if (!directory || !base)
     return -1;
 
-  language = get_language();
+  if (language.empty())
+    language = i18n_get_language();
   filename = std::string(directory) + "/" + base + "_" + language + ".qm";
   i18n_log("Loading translations for language " << language);
 

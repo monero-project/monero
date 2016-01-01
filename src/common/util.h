@@ -88,6 +88,8 @@ namespace tools
    */
   std::error_code replace_file(const std::string& replacement_name, const std::string& replaced_name);
 
+  bool sanitize_locale();
+
   inline crypto::hash get_proof_of_trust_hash(const nodetool::proof_of_trust& pot)
   {
     std::string s;
