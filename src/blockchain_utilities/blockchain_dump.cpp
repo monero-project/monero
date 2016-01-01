@@ -406,7 +406,7 @@ int main(int argc, char* argv[])
         {
           try
           {
-            output_data_t od = db->get_output_key(idx);
+            output_data_t od = db->get_output_data(idx);
             start_struct(d, boost::lexical_cast<std::string>(idx));
               write_pod(d, "pubkey", string_tools::pod_to_hex(od.pubkey));
               write_pod(d, "unlock_time", od.unlock_time);
