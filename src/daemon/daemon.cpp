@@ -117,7 +117,7 @@ bool t_daemon::run(bool interactive)
 
   try
   {
-    daemonize::t_command_server* rpc_commands;
+    daemonize::t_command_server* rpc_commands = NULL;
 
     mp_internals->core.run();
 
@@ -133,6 +133,8 @@ bool t_daemon::run(bool interactive)
     if (interactive)
     {
       rpc_commands->stop_handling();
+      delete rpc_commands;
+      rpc_commands = NULL;
       IPC::Daemon::stop();
     }
 

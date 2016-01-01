@@ -32,8 +32,8 @@ typedef enum {
     terminate_event = 1,
     open_event = 2,
     blocks_event = 3,
-    put_event = 4,
-    get_event = 5,
+    send_raw_transaction_event = 4,
+    get_tx_event = 5,
     save_bc_event = 6,
     start_event = 7,
     stop_event = 8,
@@ -49,11 +49,17 @@ typedef enum {
     stop_save_graph_event = 18,
     get_block_hash_event = 19,
     get_block_template_event = 20,
-    close_event = 21,
-    ping_event = 22,
-    expired_event = 23,
-    exception_event = 24,
-    settled_event = 25
+    get_hard_fork_info_event = 21,
+    get_connections_list_event = 22,
+    stop_daemon_event = 23,
+    get_block_by_height_event = 24,
+    get_block_by_hash_event = 25,
+    get_key_image_status_event = 26,
+    close_event = 27,
+    ping_event = 28,
+    expired_event = 29,
+    exception_event = 30,
+    settled_event = 31
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -72,8 +78,8 @@ s_event_name [] = {
     "terminate",
     "OPEN",
     "BLOCKS",
-    "PUT",
-    "GET",
+    "SEND_RAW_TRANSACTION",
+    "GET_TX",
     "SAVE_BC",
     "START",
     "STOP",
@@ -89,6 +95,12 @@ s_event_name [] = {
     "STOP_SAVE_GRAPH",
     "GET_BLOCK_HASH",
     "GET_BLOCK_TEMPLATE",
+    "GET_HARD_FORK_INFO",
+    "GET_CONNECTIONS_LIST",
+    "STOP_DAEMON",
+    "GET_BLOCK_BY_HEIGHT",
+    "GET_BLOCK_BY_HASH",
+    "GET_KEY_IMAGE_STATUS",
     "CLOSE",
     "PING",
     "expired",
@@ -194,6 +206,18 @@ static void
     get_block_hash (client_t *self);
 static void
     get_block_template (client_t *self);
+static void
+    get_hard_fork_info (client_t *self);
+static void
+    get_connections_list (client_t *self);
+static void
+    stop_daemon (client_t *self);
+static void
+    get_block_by_height (client_t *self);
+static void
+    get_block_by_hash (client_t *self);
+static void
+    get_key_image_status (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -390,8 +414,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_BLOCKS:
             return blocks_event;
             break;
-        case WAP_PROTO_PUT:
-            return put_event;
+        case WAP_PROTO_SEND_RAW_TRANSACTION:
+            return send_raw_transaction_event;
             break;
         case WAP_PROTO_OUTPUT_INDEXES:
             return output_indexes_event;
@@ -402,8 +426,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_GET_HEIGHT:
             return get_height_event;
             break;
-        case WAP_PROTO_GET:
-            return get_event;
+        case WAP_PROTO_GET_TX:
+            return get_tx_event;
             break;
         case WAP_PROTO_SAVE_BC:
             return save_bc_event;
@@ -440,6 +464,24 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_STOP:
             return stop_event;
+            break;
+        case WAP_PROTO_GET_HARD_FORK_INFO:
+            return get_hard_fork_info_event;
+            break;
+        case WAP_PROTO_GET_CONNECTIONS_LIST:
+            return get_connections_list_event;
+            break;
+        case WAP_PROTO_STOP_DAEMON:
+            return stop_daemon_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HEIGHT:
+            return get_block_by_height_event;
+            break;
+        case WAP_PROTO_GET_BLOCK_BY_HASH:
+            return get_block_by_hash_event;
+            break;
+        case WAP_PROTO_GET_KEY_IMAGE_STATUS:
+            return get_key_image_status_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -674,7 +716,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == put_event) {
+                if (self->event == send_raw_transaction_event) {
                     if (!self->exception) {
                         //  send transaction
                         if (self->server->verbose)
@@ -682,17 +724,17 @@ s_client_execute (s_client_t *self, event_t event)
                         send_transaction (&self->client);
                     }
                     if (!self->exception) {
-                        //  send PUT_OK
+                        //  send SEND_RAW_TRANSACTION_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send PUT_OK",
+                            zsys_debug ("%s:         $ send SEND_RAW_TRANSACTION_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_PUT_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SEND_RAW_TRANSACTION_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }
                 }
                 else
-                if (self->event == get_event) {
+                if (self->event == get_tx_event) {
                     if (!self->exception) {
                         //  retrieve transaction
                         if (self->server->verbose)
@@ -700,11 +742,11 @@ s_client_execute (s_client_t *self, event_t event)
                         retrieve_transaction (&self->client);
                     }
                     if (!self->exception) {
-                        //  send GET_OK
+                        //  send GET_TX_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send GET_OK",
+                            zsys_debug ("%s:         $ send GET_TX_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_TX_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }
@@ -975,6 +1017,114 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_BLOCK_TEMPLATE_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_TEMPLATE_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_hard_fork_info_event) {
+                    if (!self->exception) {
+                        //  get_hard_fork_info
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get_hard_fork_info", self->log_prefix);
+                        get_hard_fork_info (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_HARD_FORK_INFO_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_HARD_FORK_INFO_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_HARD_FORK_INFO_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_connections_list_event) {
+                    if (!self->exception) {
+                        //  get connections list
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get connections list", self->log_prefix);
+                        get_connections_list (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_CONNECTIONS_LIST_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_CONNECTIONS_LIST_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_CONNECTIONS_LIST_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == stop_daemon_event) {
+                    if (!self->exception) {
+                        //  stop daemon
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ stop daemon", self->log_prefix);
+                        stop_daemon (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send STOP_DAEMON_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send STOP_DAEMON_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_STOP_DAEMON_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_block_by_height_event) {
+                    if (!self->exception) {
+                        //  get block by height
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get block by height", self->log_prefix);
+                        get_block_by_height (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_BY_HEIGHT_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_BY_HEIGHT_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_block_by_hash_event) {
+                    if (!self->exception) {
+                        //  get block by hash
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get block by hash", self->log_prefix);
+                        get_block_by_hash (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BLOCK_BY_HASH_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_BLOCK_BY_HASH_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_BLOCK_BY_HASH_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_key_image_status_event) {
+                    if (!self->exception) {
+                        //  get key image status
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get key image status", self->log_prefix);
+                        get_key_image_status (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_KEY_IMAGE_STATUS_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_KEY_IMAGE_STATUS_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_KEY_IMAGE_STATUS_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

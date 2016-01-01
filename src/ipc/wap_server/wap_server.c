@@ -173,7 +173,7 @@ store_transaction (client_t *self)
 static void
 retrieve_transaction (client_t *self)
 {
-
+    IPC::Daemon::get_transaction(self->message);
 }
 
 
@@ -383,3 +383,64 @@ get_block_template (client_t *self)
 {
     IPC::Daemon::get_block_template(self->message);
 }
+
+//  ---------------------------------------------------------------------------
+//  get_hard_fork_info
+//
+
+static void
+get_hard_fork_info (client_t *self)
+{
+    IPC::Daemon::get_hard_fork_info(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  get_connections_list
+//
+
+static void
+get_connections_list (client_t *self)
+{
+    IPC::Daemon::get_connections_list(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  stop_daemon
+//
+
+static void
+stop_daemon (client_t *self)
+{
+    IPC::Daemon::stop_daemon(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  get_block_by_height
+//
+
+static void
+get_block_by_height (client_t *self)
+{
+    IPC::Daemon::get_block_by_height(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  get_block_by_hash
+//
+
+static void
+get_block_by_hash (client_t *self)
+{
+    IPC::Daemon::get_block_by_hash(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  get_key_image_status
+//
+
+static void
+get_key_image_status (client_t *self)
+{
+    IPC::Daemon::get_key_image_status(self->message);
+}
+

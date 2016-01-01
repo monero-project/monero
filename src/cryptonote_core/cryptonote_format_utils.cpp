@@ -901,6 +901,16 @@ namespace cryptonote
     return p;
   }
   //---------------------------------------------------------------
+  bool parse_and_validate_block_header_from_blob(const blobdata& b_blob, block_header& b)
+  {
+    std::stringstream ss;
+    ss << b_blob;
+    binary_archive<false> ba(ss);
+    bool r = ::serialization::serialize(ba, b);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to parse block header from blob");
+    return true;
+  }
+  //---------------------------------------------------------------
   bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b)
   {
     std::stringstream ss;

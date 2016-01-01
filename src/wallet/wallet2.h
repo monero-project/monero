@@ -304,10 +304,10 @@ namespace tools
 
     static std::string address_from_txt_record(const std::string& s);
 
-    uint64_t start_mining(const std::string &address, uint64_t thread_count);
-    uint64_t stop_mining();
-    uint64_t get_height(uint64_t &height);
-    uint64_t save_bc();
+    int start_mining(const std::string &address, uint64_t thread_count);
+    int stop_mining();
+    int get_height(uint64_t &height);
+    int save_bc();
 
     bool always_confirm_transfers() const { return m_always_confirm_transfers; }
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
@@ -524,9 +524,8 @@ namespace tools
       }
 
       zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
-      int rc = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
+      int status = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
 
-      uint64_t status = wap_client_status(ipc_client);
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
       // TODO: Use a code to string mapping of errors
       THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_RANDOM_OUTS_FAILED, error::get_random_outs_error, "IPC::STATUS_RANDOM_OUTS_FAILED");

@@ -36,23 +36,23 @@ BLOCKS-OK, or ERROR if the request is invalid.
         start_height        number 8    
 
     BLOCKS_OK - Daemon returns a set of blocks to the wallet.
-        status              number 8    
+        status              number 4    Status
         start_height        number 8    
         curr_height         number 8    
         block_data          msg         Frames of block data
 
-    PUT - Wallet sends a raw transaction to the daemon. Daemon replies with
-PUT-OK, or ERROR.
+    SEND_RAW_TRANSACTION - Wallet sends a raw transaction to the daemon. Daemon replies with
+SEND-RAW-TRANSACTION-OK, or ERROR.
         tx_as_hex           chunk       Transaction as hex
 
-    PUT_OK - Daemon confirms that it accepted the raw transaction.
-        status              number 8    Transaction ID
+    SEND_RAW_TRANSACTION_OK - Daemon confirms that it accepted the raw transaction.
+        status              number 4    Status
 
     OUTPUT_INDEXES - Ask for tx output indexes.
         tx_id               chunk       Transaction ID
 
     OUTPUT_INDEXES_OK - Daemon returns tx output indexes.
-        status              number 8    Status
+        status              number 4    Status
         o_indexes           frame       Output Indexes
 
     RANDOM_OUTS - Get random outputs for amounts.
@@ -60,26 +60,29 @@ PUT-OK, or ERROR.
         amounts             frame       Amounts
 
     RANDOM_OUTS_OK - Daemon returns random outputs for amounts.
-        status              number 8    Status
+        status              number 4    Status
         random_outputs      frame       Outputs
 
     GET_HEIGHT - Get height.
 
     GET_HEIGHT_OK - Daemon returns height.
-        status              number 8    Status
+        status              number 4    Status
         height              number 8    Height
 
-    GET - Wallet requests transaction data from the daemon. Daemon replies
+    GET_TX - Wallet requests transaction data from the daemon. Daemon replies
 with GET-OK, or ERROR.
         tx_id               chunk       Transaction ID
+        as_json             number 1    As JSON
 
-    GET_OK - Daemon replies with transaction data.
+    GET_TX_OK - Daemon replies with transaction data.
+        status              number 4    Status
         tx_data             chunk       Transaction data
+        in_pool             number 1    In pool
 
     SAVE_BC - save_bc command. Details tbd.
 
     SAVE_BC_OK - Daemon replies to a save_bc command.
-        status              number 8    Status
+        status              number 4    Status
 
     START - Wallet asks daemon to start mining. Daemon replies with START-OK, or
 ERROR.
@@ -87,12 +90,12 @@ ERROR.
         thread_count        number 8    
 
     START_OK - Daemon replies to a start mining request.
-        status              number 8    
+        status              number 4    
 
     GET_INFO - getinfo IPC
 
     GET_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         height              number 8    Height
         target_height       number 8    Target Height
         difficulty          number 8    Difficulty
@@ -103,18 +106,19 @@ ERROR.
         incoming_connections_count  number 8  Incoming Connections Count
         white_peerlist_size  number 8   White Peerlist Size
         grey_peerlist_size  number 8    Grey Peerlist Size
+        testnet             number 1    Testnet
 
     GET_PEER_LIST - get_peer_list IPC
 
     GET_PEER_LIST_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         white_list          frame       White list
         gray_list           frame       Gray list
 
     GET_MINING_STATUS - get_mining_status IPC
 
     GET_MINING_STATUS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         active              number 1    Active
         speed               number 8    Speed
         thread_count        number 8    Threads count
@@ -124,29 +128,29 @@ ERROR.
         visible             number 1    Visible
 
     SET_LOG_HASH_RATE_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     SET_LOG_LEVEL - set_log_level IPC
         level               number 1    Level
 
     SET_LOG_LEVEL_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     START_SAVE_GRAPH - start_save_graph IPC
 
     START_SAVE_GRAPH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     STOP_SAVE_GRAPH - stop_save_graph IPC
 
     STOP_SAVE_GRAPH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
 
     GET_BLOCK_HASH - get_block_hash IPC
         height              number 8    Height
 
     GET_BLOCK_HASH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         hash                chunk       Hash
 
     GET_BLOCK_TEMPLATE - get_block_template IPC
@@ -154,7 +158,7 @@ ERROR.
         address             chunk       Address
 
     GET_BLOCK_TEMPLATE_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
-        status              number 8    Status
+        status              number 4    Status
         reserved_offset     number 8    Rservered Offset
         height              number 8    Height
         difficulty          number 8    Difficulty
@@ -165,6 +169,76 @@ ERROR.
 ERROR.
 
     STOP_OK - Daemon replies to a stop mining request.
+
+    GET_HARD_FORK_INFO - get_hard_fork_info IPC
+        hfversion           number 1    Version
+
+    GET_HARD_FORK_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+        hfversion           number 1    Version
+        enabled             number 1    Enabled
+        window              number 4    Window
+        votes               number 4    Votes
+        threshold           number 4    Threshold
+        voting              number 1    Voting
+        hfstate             number 4    State
+
+    GET_CONNECTIONS_LIST - get_connections_list IPC
+
+    GET_CONNECTIONS_LIST_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+        connections         frame       Connections
+
+    STOP_DAEMON - stop_daemon IPC
+
+    STOP_DAEMON_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+
+    GET_BLOCK_BY_HEIGHT - get_block_by_height IPC
+        height              number 8    Height
+        header_only         number 1    Header-only
+        as_json             number 1    As JSON
+
+    GET_BLOCK_BY_HEIGHT_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+        block               chunk       Block blob
+        major_version       number 1    
+        minor_version       number 1    
+        timestamp           number 8    
+        prev_hash           chunk       
+        nonce               number 4    
+        orphan              number 1    
+        height              number 8    
+        depth               number 8    
+        hash                chunk       
+        difficulty          number 8    
+        reward              number 8    
+
+    GET_BLOCK_BY_HASH - get_block_by_hash IPC
+        hash                chunk       Hash
+        header_only         number 1    Header-only
+        as_json             number 1    As JSON
+
+    GET_BLOCK_BY_HASH_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+        block               chunk       Block blob
+        major_version       number 1    
+        minor_version       number 1    
+        timestamp           number 8    
+        prev_hash           chunk       
+        nonce               number 4    
+        height              number 8    
+        depth               number 8    
+        hash                chunk       
+        difficulty          number 8    
+        reward              number 8    
+
+    GET_KEY_IMAGE_STATUS - Request whether key images are spent
+        key_images          frame       
+
+    GET_KEY_IMAGE_STATUS_OK - Daemon returns spent status for the key images.
+        status              number 4    Status
+        spent               frame       Key image spent status
 
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
@@ -196,16 +270,16 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_OPEN_OK                   2
 #define WAP_PROTO_BLOCKS                    3
 #define WAP_PROTO_BLOCKS_OK                 4
-#define WAP_PROTO_PUT                       5
-#define WAP_PROTO_PUT_OK                    6
+#define WAP_PROTO_SEND_RAW_TRANSACTION      5
+#define WAP_PROTO_SEND_RAW_TRANSACTION_OK   6
 #define WAP_PROTO_OUTPUT_INDEXES            7
 #define WAP_PROTO_OUTPUT_INDEXES_OK         8
 #define WAP_PROTO_RANDOM_OUTS               9
 #define WAP_PROTO_RANDOM_OUTS_OK            10
 #define WAP_PROTO_GET_HEIGHT                11
 #define WAP_PROTO_GET_HEIGHT_OK             12
-#define WAP_PROTO_GET                       13
-#define WAP_PROTO_GET_OK                    14
+#define WAP_PROTO_GET_TX                    13
+#define WAP_PROTO_GET_TX_OK                 14
 #define WAP_PROTO_SAVE_BC                   15
 #define WAP_PROTO_SAVE_BC_OK                16
 #define WAP_PROTO_START                     17
@@ -230,11 +304,23 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_BLOCK_TEMPLATE_OK     36
 #define WAP_PROTO_STOP                      37
 #define WAP_PROTO_STOP_OK                   38
-#define WAP_PROTO_CLOSE                     39
-#define WAP_PROTO_CLOSE_OK                  40
-#define WAP_PROTO_PING                      41
-#define WAP_PROTO_PING_OK                   42
-#define WAP_PROTO_ERROR                     43
+#define WAP_PROTO_GET_HARD_FORK_INFO        39
+#define WAP_PROTO_GET_HARD_FORK_INFO_OK     40
+#define WAP_PROTO_GET_CONNECTIONS_LIST      41
+#define WAP_PROTO_GET_CONNECTIONS_LIST_OK   42
+#define WAP_PROTO_STOP_DAEMON               43
+#define WAP_PROTO_STOP_DAEMON_OK            44
+#define WAP_PROTO_GET_BLOCK_BY_HEIGHT       45
+#define WAP_PROTO_GET_BLOCK_BY_HEIGHT_OK    46
+#define WAP_PROTO_GET_BLOCK_BY_HASH         47
+#define WAP_PROTO_GET_BLOCK_BY_HASH_OK      48
+#define WAP_PROTO_GET_KEY_IMAGE_STATUS      49
+#define WAP_PROTO_GET_KEY_IMAGE_STATUS_OK   50
+#define WAP_PROTO_CLOSE                     51
+#define WAP_PROTO_CLOSE_OK                  52
+#define WAP_PROTO_PING                      53
+#define WAP_PROTO_PING_OK                   54
+#define WAP_PROTO_ERROR                     55
 
 #include <czmq.h>
 
@@ -307,10 +393,10 @@ void
     wap_proto_set_start_height (wap_proto_t *self, uint64_t start_height);
 
 //  Get/set the status field
-uint64_t
+uint32_t
     wap_proto_status (wap_proto_t *self);
 void
-    wap_proto_set_status (wap_proto_t *self, uint64_t status);
+    wap_proto_set_status (wap_proto_t *self, uint32_t status);
 
 //  Get/set the curr_height field
 uint64_t
@@ -390,6 +476,12 @@ uint64_t
 void
     wap_proto_set_height (wap_proto_t *self, uint64_t height);
 
+//  Get/set the as_json field
+byte
+    wap_proto_as_json (wap_proto_t *self);
+void
+    wap_proto_set_as_json (wap_proto_t *self, byte as_json);
+
 //  Get a copy of the tx_data field
 zchunk_t *
     wap_proto_tx_data (wap_proto_t *self);
@@ -399,6 +491,12 @@ zchunk_t *
 //  Set the tx_data field, transferring ownership from caller
 void
     wap_proto_set_tx_data (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get/set the in_pool field
+byte
+    wap_proto_in_pool (wap_proto_t *self);
+void
+    wap_proto_set_in_pool (wap_proto_t *self, byte in_pool);
 
 //  Get a copy of the address field
 zchunk_t *
@@ -469,6 +567,12 @@ uint64_t
     wap_proto_grey_peerlist_size (wap_proto_t *self);
 void
     wap_proto_set_grey_peerlist_size (wap_proto_t *self, uint64_t grey_peerlist_size);
+
+//  Get/set the testnet field
+byte
+    wap_proto_testnet (wap_proto_t *self);
+void
+    wap_proto_set_testnet (wap_proto_t *self, byte testnet);
 
 //  Get a copy of the white_list field
 zframe_t *
@@ -555,6 +659,136 @@ zchunk_t *
 //  Set the block_template_blob field, transferring ownership from caller
 void
     wap_proto_set_block_template_blob (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get/set the hfversion field
+byte
+    wap_proto_hfversion (wap_proto_t *self);
+void
+    wap_proto_set_hfversion (wap_proto_t *self, byte hfversion);
+
+//  Get/set the enabled field
+byte
+    wap_proto_enabled (wap_proto_t *self);
+void
+    wap_proto_set_enabled (wap_proto_t *self, byte enabled);
+
+//  Get/set the window field
+uint32_t
+    wap_proto_window (wap_proto_t *self);
+void
+    wap_proto_set_window (wap_proto_t *self, uint32_t window);
+
+//  Get/set the votes field
+uint32_t
+    wap_proto_votes (wap_proto_t *self);
+void
+    wap_proto_set_votes (wap_proto_t *self, uint32_t votes);
+
+//  Get/set the threshold field
+uint32_t
+    wap_proto_threshold (wap_proto_t *self);
+void
+    wap_proto_set_threshold (wap_proto_t *self, uint32_t threshold);
+
+//  Get/set the voting field
+byte
+    wap_proto_voting (wap_proto_t *self);
+void
+    wap_proto_set_voting (wap_proto_t *self, byte voting);
+
+//  Get/set the hfstate field
+uint32_t
+    wap_proto_hfstate (wap_proto_t *self);
+void
+    wap_proto_set_hfstate (wap_proto_t *self, uint32_t hfstate);
+
+//  Get a copy of the connections field
+zframe_t *
+    wap_proto_connections (wap_proto_t *self);
+//  Get the connections field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_connections (wap_proto_t *self);
+//  Set the connections field, transferring ownership from caller
+void
+    wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the header_only field
+byte
+    wap_proto_header_only (wap_proto_t *self);
+void
+    wap_proto_set_header_only (wap_proto_t *self, byte header_only);
+
+//  Get a copy of the block field
+zchunk_t *
+    wap_proto_block (wap_proto_t *self);
+//  Get the block field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_block (wap_proto_t *self);
+//  Set the block field, transferring ownership from caller
+void
+    wap_proto_set_block (wap_proto_t *self, zchunk_t **chunk_p);
+
+//  Get/set the major_version field
+byte
+    wap_proto_major_version (wap_proto_t *self);
+void
+    wap_proto_set_major_version (wap_proto_t *self, byte major_version);
+
+//  Get/set the minor_version field
+byte
+    wap_proto_minor_version (wap_proto_t *self);
+void
+    wap_proto_set_minor_version (wap_proto_t *self, byte minor_version);
+
+//  Get/set the timestamp field
+uint64_t
+    wap_proto_timestamp (wap_proto_t *self);
+void
+    wap_proto_set_timestamp (wap_proto_t *self, uint64_t timestamp);
+
+//  Get/set the nonce field
+uint32_t
+    wap_proto_nonce (wap_proto_t *self);
+void
+    wap_proto_set_nonce (wap_proto_t *self, uint32_t nonce);
+
+//  Get/set the orphan field
+byte
+    wap_proto_orphan (wap_proto_t *self);
+void
+    wap_proto_set_orphan (wap_proto_t *self, byte orphan);
+
+//  Get/set the depth field
+uint64_t
+    wap_proto_depth (wap_proto_t *self);
+void
+    wap_proto_set_depth (wap_proto_t *self, uint64_t depth);
+
+//  Get/set the reward field
+uint64_t
+    wap_proto_reward (wap_proto_t *self);
+void
+    wap_proto_set_reward (wap_proto_t *self, uint64_t reward);
+
+//  Get a copy of the key_images field
+zframe_t *
+    wap_proto_key_images (wap_proto_t *self);
+//  Get the key_images field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_key_images (wap_proto_t *self);
+//  Set the key_images field, transferring ownership from caller
+void
+    wap_proto_set_key_images (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get a copy of the spent field
+zframe_t *
+    wap_proto_spent (wap_proto_t *self);
+//  Get the spent field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_spent (wap_proto_t *self);
+//  Set the spent field, transferring ownership from caller
+void
+    wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p);
 
 //  Get/set the reason field
 const char *

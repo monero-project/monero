@@ -489,6 +489,7 @@ namespace IPC
       wap_proto_set_incoming_connections_count(message, total_connections - outgoing_connections_count);
       wap_proto_set_white_peerlist_size(message, p2p->get_peerlist_manager().get_white_peers_count());
       wap_proto_set_grey_peerlist_size(message, p2p->get_peerlist_manager().get_gray_peers_count());
+      wap_proto_set_testnet(message, testnet);
       wap_proto_set_status(message, STATUS_OK);
     }
 
@@ -732,5 +733,329 @@ namespace IPC
       wap_proto_set_block_template_blob(message, &blob_chunk);
       wap_proto_set_status(message, STATUS_OK);
     }
+
+    /*!
+     * \brief get_hard_fork_info IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_hard_fork_info(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      const cryptonote::Blockchain &blockchain = core->get_blockchain_storage();
+
+      uint8_t version = wap_proto_hfversion(message);
+      if (version == 0)
+      {
+        version = blockchain.get_current_hard_fork_version();
+      }
+
+      uint32_t window, votes, threshold;
+      uint8_t voting;
+      bool enabled = blockchain.get_hard_fork_voting_info(version, window, votes, threshold, voting);
+      cryptonote::HardFork::State hfstate = blockchain.get_hard_fork_state();
+
+      wap_proto_set_hfversion(message, blockchain.get_current_hard_fork_version());
+      wap_proto_set_enabled(message, enabled);
+      wap_proto_set_window(message, window);
+      wap_proto_set_votes(message, votes);
+      wap_proto_set_threshold(message, threshold);
+      wap_proto_set_voting(message, voting);
+      wap_proto_set_hfstate(message, hfstate);
+
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_connections_list IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_connections_list(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      const std::list<cryptonote::connection_info> connections = p2p->get_payload_object().get_connections();
+
+      // We are using JSON to encode blocks. The JSON string will sit in a 
+      // 0MQ frame which gets sent in a zmsg_t object. One could put each block
+      // a different frame too.
+
+      // First create a rapidjson object and then stringify it.
+      rapidjson::Document result_json;
+      result_json.SetObject();
+      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+      rapidjson::Value connections_json(rapidjson::kArrayType);
+      std::string blob;
+      BOOST_FOREACH(auto &c, connections)
+      {
+        rapidjson::Value this_connection(rapidjson::kObjectType);
+        rapidjson::Value string_value(rapidjson::kStringType);
+        this_connection.AddMember("incoming", c.incoming, allocator);
+        this_connection.AddMember("localhost", c.localhost, allocator);
+        this_connection.AddMember("local_ip", c.local_ip, allocator);
+        string_value.SetString(c.ip.c_str(), c.ip.length(), allocator);
+        this_connection.AddMember("ip", string_value.Move(), allocator);
+        string_value.SetString(c.port.c_str(), c.port.length(), allocator);
+        this_connection.AddMember("port", string_value.Move(), allocator);
+        string_value.SetString(c.peer_id.c_str(), c.peer_id.length(), allocator);
+        this_connection.AddMember("peer_id", string_value.Move(), allocator);
+        this_connection.AddMember("recv_count", c.recv_count, allocator);
+        this_connection.AddMember("recv_idle_time", c.recv_idle_time, allocator);
+        this_connection.AddMember("send_count", c.send_count, allocator);
+        this_connection.AddMember("send_idle_time", c.send_idle_time, allocator);
+        string_value.SetString(c.state.c_str(), c.state.length(), allocator);
+        this_connection.AddMember("state", string_value.Move(), allocator);
+        this_connection.AddMember("live_time", c.live_time, allocator);
+        this_connection.AddMember("avg_download", c.avg_download, allocator);
+        this_connection.AddMember("current_download", c.current_download, allocator);
+        this_connection.AddMember("avg_upload", c.avg_upload, allocator);
+        this_connection.AddMember("current_upload", c.current_upload, allocator);
+
+        connections_json.PushBack(this_connection, allocator);
+      }
+      result_json.AddMember("connections", connections_json, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      result_json.Accept(writer);
+      std::string connections_string = buffer.GetString();
+      zframe_t *connections_frame = zframe_new(connections_string.c_str(), connections_string.length());
+      wap_proto_set_connections(message, &connections_frame);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief stop_daemon IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void stop_daemon(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      p2p->send_stop_signal();
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    void get_block_by_worker(wap_proto_t *message, const crypto::hash &hash, bool header_only, bool as_json) {
+      const cryptonote::Blockchain &blockchain =  core->get_blockchain_storage();
+      cryptonote::block block;
+      if (!blockchain.get_block_by_hash(hash, block))
+      {
+        wap_proto_set_status(message, STATUS_BLOCK_NOT_FOUND);
+        return;
+      }
+      zchunk_t *chunk = NULL;
+      if (header_only)
+      {
+        if (as_json)
+        {
+          std::string repr = cryptonote::obj_to_json_str((cryptonote::block_header&)block);
+          chunk = zchunk_new((const char *)repr.c_str(), repr.size());
+        }
+        else
+        {
+          cryptonote::blobdata blob = t_serializable_object_to_blob((cryptonote::block_header&)block);
+          chunk = zchunk_new((const char *)blob.data(), blob.size());
+        }
+      }
+      else
+      {
+        if (as_json)
+        {
+          std::string repr = cryptonote::obj_to_json_str(block);
+          chunk = zchunk_new((const char *)repr.c_str(), repr.size());
+        }
+        else
+        {
+          cryptonote::blobdata blob = t_serializable_object_to_blob(block);
+          chunk = zchunk_new((const char *)blob.data(), blob.size());
+        }
+      }
+      wap_proto_set_block(message, &chunk);
+      wap_proto_set_major_version(message, block.major_version);
+      wap_proto_set_major_version(message, block.minor_version);
+      wap_proto_set_timestamp(message, block.timestamp);
+      std::string hash_str = string_tools::pod_to_hex(block.prev_id);
+      zchunk_t *hash_chunk = zchunk_new((void*)(hash_str.c_str()), hash_str.length());
+      wap_proto_set_prev_hash(message, &hash_chunk);
+      wap_proto_set_nonce(message, block.nonce);
+      wap_proto_set_orphan(message, false);
+      uint64_t block_height = boost::get<cryptonote::txin_gen>(block.miner_tx.vin.front()).height;
+      wap_proto_set_height(message, block_height);
+      wap_proto_set_depth(message, core->get_current_blockchain_height() - block_height - 1);
+      hash_str = string_tools::pod_to_hex(hash);
+      hash_chunk = zchunk_new((void*)(hash_str.c_str()), hash_str.length());
+      wap_proto_set_hash(message, &hash_chunk);
+      wap_proto_set_difficulty(message, blockchain.block_difficulty(block_height));
+      wap_proto_set_reward(message, [](const cryptonote::block &b){uint64_t reward = 0; BOOST_FOREACH(const cryptonote::tx_out& out, b.miner_tx.vout) { reward += out.amount; } return reward;}(block));
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_block_by_hash IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_block_by_hash(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      zchunk_t *hash_chunk = wap_proto_hash(message);
+      if (zchunk_size(hash_chunk) != sizeof(crypto::hash))
+      {
+        wap_proto_set_status(message, STATUS_WRONG_BLOCK_ID_LENGTH);
+        return;
+      }
+      const crypto::hash hash = *reinterpret_cast<const crypto::hash*>(zchunk_data(hash_chunk));
+      bool header_only = wap_proto_header_only(message);
+      bool as_json = wap_proto_as_json(message);
+      get_block_by_worker(message, hash, header_only, as_json);
+    }
+
+    /*!
+     * \brief get_block_by_height IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_block_by_height(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      uint64_t height = wap_proto_height(message);
+      if (core->get_current_blockchain_height() <= height)
+      {
+        wap_proto_set_status(message, STATUS_HEIGHT_TOO_BIG);
+        return;
+      }
+      bool header_only = wap_proto_header_only(message);
+      bool as_json = wap_proto_as_json(message);
+      const cryptonote::Blockchain &blockchain =  core->get_blockchain_storage();
+      crypto::hash hash = blockchain.get_block_id_by_height(height);
+      if (hash == cryptonote::null_hash)
+      {
+        wap_proto_set_status(message, STATUS_BLOCK_NOT_FOUND);
+        return;
+      }
+      get_block_by_worker(message, hash, header_only, as_json);
+    }
+
+    /*!
+     * \brief get_transaction IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_transaction(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      zchunk_t *hash_chunk = wap_proto_tx_id(message);
+      if (zchunk_size(hash_chunk) != sizeof(crypto::hash))
+      {
+        wap_proto_set_status(message, STATUS_WRONG_TX_ID_LENGTH);
+        return;
+      }
+      const crypto::hash hash = *reinterpret_cast<const crypto::hash*>(zchunk_data(hash_chunk));
+      std::vector<crypto::hash> hashes;
+      hashes.push_back(hash);
+      std::list<crypto::hash> missed_txs;
+      std::list<cryptonote::transaction> txs;
+      bool in_pool = false;
+      core->get_transactions(hashes, txs, missed_txs);
+      if (!missed_txs.empty()) {
+        std::list<cryptonote::transaction> pool_txs;
+        if (core->get_pool_transactions(pool_txs)) {
+          for (std::list<cryptonote::transaction>::const_iterator i = pool_txs.begin(); i != pool_txs.end(); ++i) {
+            std::list<crypto::hash>::iterator mi = std::find(missed_txs.begin(), missed_txs.end(), get_transaction_hash(*i));
+            if (mi != missed_txs.end())
+            {
+              missed_txs.erase(mi);
+              txs.push_back(*i);
+              in_pool = true;
+            }
+          }
+        }
+      }
+      if (txs.empty()) {
+        wap_proto_set_status(message, STATUS_TX_NOT_FOUND);
+        return;
+      }
+      wap_proto_set_in_pool(message, in_pool);
+      zchunk_t *chunk = NULL;
+      bool as_json = wap_proto_as_json(message);
+      if (as_json)
+      {
+        std::string repr = cryptonote::obj_to_json_str(txs.front());
+        chunk = zchunk_new((const char *)repr.c_str(), repr.size());
+      }
+      else
+      {
+        cryptonote::blobdata blob = t_serializable_object_to_blob(txs.front());
+        chunk = zchunk_new((const char *)blob.data(), blob.size());
+      }
+      wap_proto_set_tx_data(message, &chunk);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_key_image_status IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_key_image_status(wap_proto_t *message) {
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      zframe_t *frame = wap_proto_key_images(message);
+      size_t n_bytes = zframe_size(frame);
+      if (n_bytes % sizeof(crypto::key_image)) {
+        wap_proto_set_status(message, STATUS_WRONG_KEY_IMAGE_LENGTH);
+        return;
+      }
+      size_t n_key_images = n_bytes / sizeof(crypto::key_image);
+      const crypto::key_image *key_image_data = reinterpret_cast<const crypto::key_image*>(zframe_data(frame));
+
+      std::vector<crypto::key_image> key_images;
+      key_images.reserve(n_key_images);
+      for (size_t n = 0; n < n_key_images; ++n) {
+        key_images.push_back(key_image_data[n]);
+      }
+
+      std::vector<bool> spent_status;
+      bool r = core->are_key_images_spent(key_images, spent_status);
+      if (!r || spent_status.size() != n_key_images) {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+
+      bool *spent_data = new bool[n_key_images];
+      for (size_t n = 0; n < n_key_images; ++n)
+        spent_data[n] = spent_status[n];
+      frame = zframe_new(spent_data, n_key_images * sizeof(bool));
+      wap_proto_set_spent(message, &frame);
+
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
   }
 }

@@ -57,29 +57,14 @@ using namespace epee;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
+#include "ipc_util.h"
+
 /*!
  * \namespace IPC
  * \brief Namespace pertaining to IPC.
  */
 namespace IPC
 {
-  // A bunch of response statuses and error codes
-  const uint64_t STATUS_OK = 0;
-  const uint64_t STATUS_CORE_BUSY = 1;
-  const uint64_t STATUS_WRONG_ADDRESS = 2;
-  const uint64_t STATUS_MINING_NOT_STARTED = 3;
-  const uint64_t STATUS_WRONG_BLOCK_ID_LENGTH = 4;
-  const uint64_t STATUS_INTERNAL_ERROR = 5;
-  const uint64_t STATUS_INVALID_TX = 6;
-  const uint64_t STATUS_TX_VERIFICATION_FAILED = 7;
-  const uint64_t STATUS_TX_NOT_RELAYED = 8;
-  const uint64_t STATUS_RANDOM_OUTS_FAILED = 9;
-  const uint64_t STATUS_MINING_NOT_STOPPED = 10;
-  const uint64_t STATUS_NOT_MINING = 11;
-  const uint64_t STATUS_INVALID_LOG_LEVEL = 12;
-  const uint64_t STATUS_ERROR_STORING_BLOCKCHAIN = 13;
-  const uint64_t STATUS_HEIGHT_TOO_BIG = 13;
-  const uint64_t STATUS_RESERVE_SIZE_TOO_BIG = 14;
   /*!
    * \namespace Daemon
    * \brief Namespace pertaining to Daemon IPC.
@@ -103,6 +88,13 @@ namespace IPC
     void get_output_indexes(wap_proto_t *message);
     void get_random_outs(wap_proto_t *message);
     void save_bc(wap_proto_t *message);
+    void get_hard_fork_info(wap_proto_t *message);
+    void get_connections_list(wap_proto_t *message);
+    void stop_daemon(wap_proto_t *message);
+    void get_block_by_height(wap_proto_t *message);
+    void get_block_by_hash(wap_proto_t *message);
+    void get_transaction(wap_proto_t *message);
+    void get_key_image_status(wap_proto_t *message);
 
     /*!
      * \brief initializes it with objects necessary to handle IPC requests and starts

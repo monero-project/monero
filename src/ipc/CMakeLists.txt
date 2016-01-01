@@ -35,11 +35,15 @@ set(client_ipc_sources
   wap_client/wap_client.c
   wap_proto.c)
 
-set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} PROPERTIES LANGUAGE CXX)
-set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} PROPERTIES COMPILE_FLAGS "-Wno-error -fpermissive")
+set(ipc_util_sources
+  ipc_util.cpp)
+
+set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} ${ipc_util_sources} PROPERTIES LANGUAGE CXX)
+set_source_files_properties(${server_ipc_sources} ${client_ipc_sources} ${ipc_util_sources} PROPERTIES COMPILE_FLAGS "-Wno-error -fpermissive")
 
 set(server_ipc_headers)
 set(client_ipc_headers)
+set(ipc_util_headers)
 
 bitmonero_add_library(server_ipc
   ${server_ipc_sources}
@@ -58,3 +62,7 @@ target_link_libraries(client_ipc
     cryptonote_core
     ${ZMQ_LIB}
     ${CZMQ_LIB})
+
+bitmonero_add_library(ipc_util
+  ${ipc_util_sources}
+  ${ipc_util_headers})

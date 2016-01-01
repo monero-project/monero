@@ -116,6 +116,7 @@ namespace cryptonote
     , std::string const & genesis_tx
     , uint32_t nonce
     );
+  bool parse_and_validate_block_header_from_blob(const blobdata& b_blob, block_header& b);
   bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b);
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money);
   uint64_t get_outs_money_amount(const transaction& tx);
