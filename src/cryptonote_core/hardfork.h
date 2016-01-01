@@ -48,7 +48,7 @@ namespace cryptonote
     static const time_t DEFAULT_FORKED_TIME = 31557600; // a year in seconds
     static const time_t DEFAULT_UPDATE_TIME = 31557600 / 2;
     static const uint64_t DEFAULT_WINDOW_SIZE = 10080; // supermajority window check length - a week
-    static const int DEFAULT_THRESHOLD_PERCENT = 80;
+    static const uint8_t DEFAULT_THRESHOLD_PERCENT = 80;
 
     /**
      * @brief creates a new HardFork object
@@ -57,9 +57,21 @@ namespace cryptonote
      * @param forked_time the time in seconds before thinking we're forked
      * @param update_time the time in seconds before thinking we need to update
      * @param window_size the size of the window in blocks to consider for version voting
-     * @param threshold_percent the size of the majority in percents
+     * @param default_threshold_percent the size of the majority in percents
      */
-    HardFork(cryptonote::BlockchainDB &db, uint8_t original_version = 1, uint64_t original_version_till_height = DEFAULT_ORIGINAL_VERSION_TILL_HEIGHT, time_t forked_time = DEFAULT_FORKED_TIME, time_t update_time = DEFAULT_UPDATE_TIME, uint64_t window_size = DEFAULT_WINDOW_SIZE, int threshold_percent = DEFAULT_THRESHOLD_PERCENT);
+    HardFork(cryptonote::BlockchainDB &db, uint8_t original_version = 1, uint64_t original_version_till_height = DEFAULT_ORIGINAL_VERSION_TILL_HEIGHT, time_t forked_time = DEFAULT_FORKED_TIME, time_t update_time = DEFAULT_UPDATE_TIME, uint64_t window_size = DEFAULT_WINDOW_SIZE, uint8_t default_threshold_percent = DEFAULT_THRESHOLD_PERCENT);
+
+    /**
+     * @brief add a new hardfork height
+     *
+     * returns true if no error, false otherwise
+     *
+     * @param version the major block version for the fork
+     * @param height The height the hardfork takes effect
+     * @param threshold The threshold of votes needed for this fork (0-100)
+     * @param time Approximate time of the hardfork (seconds since epoch)
+     */
+    bool add(uint8_t version, uint64_t height, uint8_t threshold, time_t time);
 
     /**
      * @brief add a new hardfork height
@@ -156,6 +168,13 @@ namespace cryptonote
     uint8_t get_ideal_version() const;
 
     /**
+     * @brief returns the "ideal" version for a given height
+     *
+     * @param height height of the block to check
+     */
+    uint8_t get_ideal_version(uint64_t height) const;
+
+    /**
      * @brief returns the current version
      *
      * This is the latest version that's past its trigger date and had enough votes
@@ -199,23 +218,23 @@ namespace cryptonote
     time_t forked_time;
     time_t update_time;
     uint64_t window_size;
-    int threshold_percent;
+    uint8_t default_threshold_percent;
 
     uint8_t original_version;
     uint64_t original_version_till_height;
 
     struct Params {
       uint8_t version;
+      uint8_t threshold;
       uint64_t height;
       time_t time;
-      Params(uint8_t version, uint64_t height, time_t time): version(version), height(height), time(time) {}
+      Params(uint8_t version, uint64_t height, uint8_t threshold, time_t time): version(version), threshold(threshold), height(height), time(time) {}
     };
     std::vector<Params> heights;
 
     std::deque<uint8_t> versions; /* rolling window of the last N blocks' versions */
     unsigned int last_versions[256]; /* count of the block versions in the last N blocks */
     uint32_t current_fork_index;
-    uint32_t vote_threshold;
 
     mutable epee::critical_section lock;
   };
