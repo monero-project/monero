@@ -249,7 +249,7 @@ bool t_rpc_command_executor::show_status() {
 
   tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, net hash %s, v%u, %s, %u+%u connections")
     % (unsigned long long)height
-    % (unsigned long long)(target_height ? target_height : height)
+    % (unsigned long long)(target_height >= height ? target_height : height)
     % (100.0f * height / (target_height ? target_height < height ? height : target_height : height))
     % (testnet ? "testnet" : "mainnet")
     % [&difficulty]()->std::string {
