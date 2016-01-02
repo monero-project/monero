@@ -390,11 +390,12 @@ signal_have_random_outs_ok (client_t *self)
 static void
 signal_have_get_info_ok (client_t *self)
 {
-    zsock_send (self->cmdpipe, "s488888888881", "GET INFO OK",
+    zsock_send (self->cmdpipe, "s4888888888881", "GET INFO OK",
         wap_proto_status (self->message),
         wap_proto_height (self->message),
         wap_proto_target_height (self->message),
         wap_proto_difficulty (self->message),
+        wap_proto_target (self->message),
         wap_proto_tx_count (self->message),
         wap_proto_tx_pool_size (self->message),
         wap_proto_alt_blocks_count (self->message),

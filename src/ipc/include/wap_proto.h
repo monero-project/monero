@@ -99,6 +99,7 @@ ERROR.
         height              number 8    Height
         target_height       number 8    Target Height
         difficulty          number 8    Difficulty
+        target              number 8    Target
         tx_count            number 8    TX Count
         tx_pool_size        number 8    TX Pool Size
         alt_blocks_count    number 8    Alt Blocks Count
@@ -558,6 +559,12 @@ uint64_t
     wap_proto_difficulty (wap_proto_t *self);
 void
     wap_proto_set_difficulty (wap_proto_t *self, uint64_t difficulty);
+
+//  Get/set the target field
+uint64_t
+    wap_proto_target (wap_proto_t *self);
+void
+    wap_proto_set_target (wap_proto_t *self, uint64_t target);
 
 //  Get/set the tx_count field
 uint64_t

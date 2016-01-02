@@ -54,6 +54,7 @@ struct _wap_proto_t {
     uint64_t thread_count;              //  thread_count
     uint64_t target_height;             //  Target Height
     uint64_t difficulty;                //  Difficulty
+    uint64_t target;                    //  Target
     uint64_t tx_count;                  //  TX Count
     uint64_t tx_pool_size;              //  TX Pool Size
     uint64_t alt_blocks_count;          //  Alt Blocks Count
@@ -528,6 +529,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->height);
             GET_NUMBER8 (self->target_height);
             GET_NUMBER8 (self->difficulty);
+            GET_NUMBER8 (self->target);
             GET_NUMBER8 (self->tx_count);
             GET_NUMBER8 (self->tx_pool_size);
             GET_NUMBER8 (self->alt_blocks_count);
@@ -1024,6 +1026,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 8;            //  height
             frame_size += 8;            //  target_height
             frame_size += 8;            //  difficulty
+            frame_size += 8;            //  target
             frame_size += 8;            //  tx_count
             frame_size += 8;            //  tx_pool_size
             frame_size += 8;            //  alt_blocks_count
@@ -1331,6 +1334,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->height);
             PUT_NUMBER8 (self->target_height);
             PUT_NUMBER8 (self->difficulty);
+            PUT_NUMBER8 (self->target);
             PUT_NUMBER8 (self->tx_count);
             PUT_NUMBER8 (self->tx_pool_size);
             PUT_NUMBER8 (self->alt_blocks_count);
@@ -1849,6 +1853,7 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    height=%ld", (long) self->height);
             zsys_debug ("    target_height=%ld", (long) self->target_height);
             zsys_debug ("    difficulty=%ld", (long) self->difficulty);
+            zsys_debug ("    target=%ld", (long) self->target);
             zsys_debug ("    tx_count=%ld", (long) self->tx_count);
             zsys_debug ("    tx_pool_size=%ld", (long) self->tx_pool_size);
             zsys_debug ("    alt_blocks_count=%ld", (long) self->alt_blocks_count);
@@ -2883,6 +2888,24 @@ wap_proto_set_difficulty (wap_proto_t *self, uint64_t difficulty)
 {
     assert (self);
     self->difficulty = difficulty;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the target field
+
+uint64_t
+wap_proto_target (wap_proto_t *self)
+{
+    assert (self);
+    return self->target;
+}
+
+void
+wap_proto_set_target (wap_proto_t *self, uint64_t target)
+{
+    assert (self);
+    self->target = target;
 }
 
 
@@ -4121,6 +4144,7 @@ wap_proto_test (bool verbose)
     wap_proto_set_height (self, 123);
     wap_proto_set_target_height (self, 123);
     wap_proto_set_difficulty (self, 123);
+    wap_proto_set_target (self, 123);
     wap_proto_set_tx_count (self, 123);
     wap_proto_set_tx_pool_size (self, 123);
     wap_proto_set_alt_blocks_count (self, 123);
@@ -4140,6 +4164,7 @@ wap_proto_test (bool verbose)
         assert (wap_proto_height (self) == 123);
         assert (wap_proto_target_height (self) == 123);
         assert (wap_proto_difficulty (self) == 123);
+        assert (wap_proto_target (self) == 123);
         assert (wap_proto_tx_count (self) == 123);
         assert (wap_proto_tx_pool_size (self) == 123);
         assert (wap_proto_alt_blocks_count (self) == 123);

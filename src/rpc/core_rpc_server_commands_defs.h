@@ -269,6 +269,7 @@ namespace cryptonote
       uint64_t height;
       uint64_t target_height;
       uint64_t difficulty;
+      uint64_t target;
       uint64_t tx_count;
       uint64_t tx_pool_size;
       uint64_t alt_blocks_count;
@@ -283,6 +284,7 @@ namespace cryptonote
         KV_SERIALIZE(height)
         KV_SERIALIZE(target_height)
         KV_SERIALIZE(difficulty)
+        KV_SERIALIZE(target)
         KV_SERIALIZE(tx_count)
         KV_SERIALIZE(tx_pool_size)
         KV_SERIALIZE(alt_blocks_count)

@@ -3090,6 +3090,7 @@ struct _wap_client_t {
     uint64_t height;            //  Returned by actor reply
     uint64_t target_height;     //  Returned by actor reply
     uint64_t difficulty;        //  Returned by actor reply
+    uint64_t target;            //  Returned by actor reply
     uint64_t tx_count;          //  Returned by actor reply
     uint64_t tx_pool_size;      //  Returned by actor reply
     uint64_t alt_blocks_count;  //  Returned by actor reply
@@ -3299,7 +3300,7 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "GET INFO OK")) {
-                    zsock_recv (self->actor, "488888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
+                    zsock_recv (self->actor, "4888888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->target, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
                 }
                 else
                 if (streq (reply, "START MINING OK")) {
@@ -4035,6 +4036,17 @@ wap_client_difficulty (wap_client_t *self)
 {
     assert (self);
     return self->difficulty;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received target
+
+uint64_t 
+wap_client_target (wap_client_t *self)
+{
+    assert (self);
+    return self->target;
 }
 
 

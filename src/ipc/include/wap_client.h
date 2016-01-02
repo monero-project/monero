@@ -255,6 +255,10 @@ WAP_EXPORT uint64_t
 WAP_EXPORT uint64_t 
     wap_client_difficulty (wap_client_t *self);
 
+//  Return last received target
+WAP_EXPORT uint64_t 
+    wap_client_target (wap_client_t *self);
+
 //  Return last received tx_count
 WAP_EXPORT uint64_t 
     wap_client_tx_count (wap_client_t *self);

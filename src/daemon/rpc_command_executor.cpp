@@ -260,9 +260,10 @@ bool t_rpc_command_executor::show_difficulty() {
   }
   uint64_t height = wap_client_height(ipc_client);
   uint64_t difficulty = wap_client_difficulty(ipc_client);
+  uint64_t target = wap_client_target(ipc_client);
   tools::success_msg_writer() <<   "BH: " << height
                               << ", DIFF: " << difficulty
-                              << ", HR: " << (int) difficulty / 60L << " H/s";
+                              << ", HR: " << (int) difficulty / (int)target << " H/s";
   return true;
 }
 
@@ -280,6 +281,7 @@ bool t_rpc_command_executor::show_status() {
   uint64_t height = wap_client_height(ipc_client);
   uint64_t target_height = wap_client_target_height(ipc_client);
   uint64_t difficulty = wap_client_difficulty(ipc_client);
+  uint64_t target = wap_client_target(ipc_client);
   bool testnet = wap_client_testnet(ipc_client);
   uint64_t outgoing_connections_count = wap_client_outgoing_connections_count(ipc_client);
   uint64_t incoming_connections_count = wap_client_incoming_connections_count(ipc_client);
@@ -297,8 +299,8 @@ bool t_rpc_command_executor::show_status() {
     % (unsigned long long)(target_height >= height ? target_height : height)
     % (100.0f * height / (target_height ? target_height < height ? height : target_height : height))
     % (testnet ? "testnet" : "mainnet")
-    % [&difficulty]()->std::string {
-      float hr = difficulty / 60.0f;
+    % [&difficulty, &target]()->std::string {
+      float hr = difficulty / target;
       if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
       if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
       if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();

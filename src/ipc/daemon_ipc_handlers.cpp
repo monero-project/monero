@@ -478,6 +478,7 @@ namespace IPC
       wap_proto_set_height(message, height);
       wap_proto_set_target_height(message, core->get_target_blockchain_height());
       wap_proto_set_difficulty(message, core->get_blockchain_storage().get_difficulty_for_next_block());
+      wap_proto_set_target(message, core->get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET);
       wap_proto_set_tx_count(message, core->get_blockchain_storage().get_total_transactions() - height);
       wap_proto_set_tx_pool_size(message, core->get_pool_transactions_count());
       wap_proto_set_alt_blocks_count(message, core->get_blockchain_storage().get_alternative_blocks_count());
