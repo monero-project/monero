@@ -483,7 +483,7 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
   if(!genesis_included)
     ids.push_back(m_blockchain[0]);
 }
-void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_complete_entry> &blocks) {
+void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::vector<cryptonote::block_complete_entry> &blocks) {
   zframe_t *frame = zmsg_first(msg);
   THROW_WALLET_EXCEPTION_IF(!frame, error::get_blocks_error, "getblocks");
   size_t size = zframe_size(frame);
@@ -492,6 +492,7 @@ void wallet2::get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_c
   THROW_WALLET_EXCEPTION_IF(size < 8, error::get_blocks_error, "getblocks");
   uint64_t nblocks = IPC::read64be(block_data);
   block_data += 8; size -= 8;
+  blocks.reserve(nblocks);
   for (uint64_t n = 0; n < nblocks; ++n) {
     block_complete_entry be;
     THROW_WALLET_EXCEPTION_IF(size < 4, error::get_blocks_error, "getblocks");
@@ -550,7 +551,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "get_blocks");
-  std::list<block_complete_entry> blocks;
+  std::vector<block_complete_entry> blocks;
   zmsg_t *msg = wap_client_msg_data(ipc_client); 
   get_blocks_from_zmq_msg(msg, blocks);
 
@@ -562,7 +563,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
     std::vector<cryptonote::block> round_blocks(threads);
     std::deque<bool> error(threads);
     size_t blocks_size = blocks.size();
-    std::list<block_complete_entry>::const_iterator blocki = blocks.begin();
+    std::vector<block_complete_entry>::const_iterator blocki = blocks.begin();
 
     for (size_t b = 0; b < blocks_size; b += threads)
     {
@@ -576,7 +577,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
         threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
       }
 
-      std::list<block_complete_entry>::const_iterator tmpblocki = blocki;
+      std::vector<block_complete_entry>::const_iterator tmpblocki = blocki;
       for (size_t i = 0; i < round_size; ++i)
       {
         ioservice.dispatch(boost::bind(&wallet2::parse_block_round, this, std::cref(tmpblocki->block),
