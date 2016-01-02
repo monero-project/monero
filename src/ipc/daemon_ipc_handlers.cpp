@@ -57,6 +57,7 @@ namespace
     /*!< Pointer to p2p node server */
   zactor_t *server = NULL; /*!< 0MQ server */
   bool testnet = false; /*!< testnet mode or not */
+  bool restricted = false; /*!< only command suitable for public use */
 
   /*!
    * \brief Checks if core is busy
@@ -129,13 +130,14 @@ namespace IPC
      */
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
-      bool p_testnet)
+      bool p_testnet, bool p_restricted)
     {
       if (server)
         stop();
       p2p = &p_p2p;
       core = &p_core;
       testnet = p_testnet;
+      restricted = p_restricted;
       server = zactor_new (wap_server, NULL);
       zsock_send (server, "ss", "BIND", "ipc://@/monero");
       zsock_send (server, "sss", "SET", "server/timeout", "5000");
@@ -158,6 +160,10 @@ namespace IPC
      */
     void start_mining(wap_proto_t *message)
     {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
@@ -192,6 +198,10 @@ namespace IPC
      */
     void stop_mining(wap_proto_t *message)
     {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!core->get_miner().stop())
       {
         wap_proto_set_status(message, STATUS_MINING_NOT_STOPPED);
@@ -453,6 +463,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void save_bc(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
@@ -498,6 +512,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void get_peer_list(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       std::list<nodetool::peerlist_entry> white_list;
       std::list<nodetool::peerlist_entry> gray_list;
       p2p->get_peerlist_manager().get_peerlist_full(white_list, gray_list);
@@ -561,6 +579,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void get_mining_status(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_ready()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
@@ -586,6 +608,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void set_log_hash_rate(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (core->get_miner().is_mining())
       {
         core->get_miner().do_print_hashrate(wap_proto_visible(message));
@@ -603,6 +629,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void set_log_level(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       // zproto supports only unsigned integers afaik. so the log level is sent as
       // one and casted to signed int here.
       int8_t level = (int8_t)wap_proto_level(message);
@@ -625,6 +655,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void start_save_graph(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       p2p->set_save_graph(true);
       wap_proto_set_status(message, STATUS_OK);
     }
@@ -635,6 +669,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void stop_save_graph(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       p2p->set_save_graph(false);
       wap_proto_set_status(message, STATUS_OK);
     }
@@ -837,6 +875,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void stop_daemon(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_ready())
       {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
@@ -1154,6 +1196,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void set_out_peers(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_ready())
       {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
@@ -1171,6 +1217,10 @@ namespace IPC
      */
     void get_bans(wap_proto_t *message)
     {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
@@ -1219,6 +1269,10 @@ namespace IPC
      */
     void set_bans(wap_proto_t *message)
     {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;

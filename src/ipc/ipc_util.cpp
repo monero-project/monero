@@ -60,6 +60,7 @@ namespace
     "wrong key image length",
     "bad JSON syntax",
     "bad IP address",
+    "restricted command",
     "not implemented",
   };
 }

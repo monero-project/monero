@@ -104,6 +104,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_rpc_bind_ip);
       command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_rpc_bind_port);
       command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
+      command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_restricted_rpc);
 
       visible_options.add(core_settings);
       all_options.add(visible_options);

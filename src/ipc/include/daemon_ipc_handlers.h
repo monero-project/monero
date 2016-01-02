@@ -110,7 +110,7 @@ namespace IPC
      */
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
-      bool p_testnet);
+      bool p_testnet, bool p_restricted_rpc);
 
     /*!
      * \brief stops the IPC server
