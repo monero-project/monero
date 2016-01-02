@@ -377,7 +377,7 @@ namespace tools
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
     void get_blocks_from_zmq_msg(zmsg_t *msg, std::vector<cryptonote::block_complete_entry> &blocks);
-    void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, std::vector<cryptonote::block_complete_entry> &blocks);
+    void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks);
     void process_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
