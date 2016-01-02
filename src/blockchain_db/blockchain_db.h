@@ -1004,6 +1004,13 @@ public:
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
   /**
+   * @brief return index of the first element
+   *
+   * should be hidden, but isn't
+   */
+  virtual uint64_t get_indexing_base() const { return 0; }
+
+  /**
    * @brief get some of an output's data
    *
    * The subclass should return the public key, unlock time, and block height

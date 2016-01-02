@@ -236,19 +236,16 @@ int main(int argc, char* argv[])
   BlockchainDB* db;
   int mdb_flags = 0;
   std::string db_type = command_line::get_arg(vm, arg_db_type);
-  size_t base_idx = 0;
   if (db_type.empty() || db_type == "lmdb")
   {
     db = new BlockchainLMDB();
     mdb_flags |= MDB_RDONLY;
-    base_idx = 0;
   }
 #ifdef BERKELEY_DB
   else if (db_type == "berkeley")
   {
     db = new BlockchainBDB();
     // can't open readonly due to the way flags are split in db_bdb.cpp
-    base_idx = 1;
   }
 #endif
   else
@@ -259,6 +256,7 @@ int main(int argc, char* argv[])
   boost::filesystem::path folder(m_config_folder);
   folder /= db->get_db_name();
   const std::string filename = folder.string();
+  uint64_t base_idx = db->get_indexing_base();
 
   LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
   try
