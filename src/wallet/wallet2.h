@@ -378,6 +378,7 @@ namespace tools
     bool clear();
     void get_blocks_from_zmq_msg(zmsg_t *msg, std::vector<cryptonote::block_complete_entry> &blocks);
     void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks);
+    void pull_next_blocks(uint64_t start_height, uint64_t& blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, std::vector<cryptonote::block_complete_entry> &blocks);
     void process_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
@@ -410,6 +411,8 @@ namespace tools
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
     std::atomic<bool> m_run;
+
+    std::mutex m_daemon_rpc_mutex;
 
     i_wallet2_callback* m_callback;
     bool m_testnet;
@@ -578,6 +581,8 @@ namespace tools
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
     if(fake_outputs_count)
     {
+      std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+
       connect_to_daemon();
       THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
       uint64_t outs_count = fake_outputs_count + 1;

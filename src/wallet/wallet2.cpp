@@ -270,6 +270,8 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     if(!outs.empty() && tx_money_got_in_outs)
     {
+      std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+
       connect_to_daemon();
       THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_output_indexes");
 
@@ -525,6 +527,8 @@ void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::bl
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks)
 {
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+
   connect_to_daemon();
   THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_blocks");
 
@@ -540,6 +544,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, 
   for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
     zlist_append(list, *it);
   }
+
   int status = wap_client_blocks(ipc_client, &list, start_height);
   THROW_WALLET_EXCEPTION_IF(status < 0, error::no_connection_to_daemon, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_blocks");
@@ -671,6 +676,23 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched)
   refresh(start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, std::vector<cryptonote::block_complete_entry> &blocks)
+{
+  // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
+  cryptonote::block bl;
+  std::vector<cryptonote::block_complete_entry>::const_reverse_iterator i = prev_blocks.rbegin();
+  for (size_t n = 0; n < std::min((size_t)3, prev_blocks.size()); ++n)
+  {
+    bool ok = cryptonote::parse_and_validate_block_from_blob(i->block, bl);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::block_parse_error, i->block);
+    short_chain_history.push_front(cryptonote::get_block_hash(bl));
+    ++i;
+  }
+
+  // pull the new blocks
+  pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {
   received_money = false;
@@ -679,30 +701,32 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? get_transaction_hash(m_transfers.back().m_tx) : null_hash;
   std::list<crypto::hash> short_chain_history;
+  std::thread pull_thread;
+  uint64_t blocks_start_height;
+  std::vector<cryptonote::block_complete_entry> blocks;
 
+  // pull the first set of blocks
   get_short_chain_history(short_chain_history);
+  pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
+
   while(m_run.load(std::memory_order_relaxed))
   {
     try
     {
-      uint64_t blocks_start_height;
-      std::vector<cryptonote::block_complete_entry> blocks;
-      pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
+      // pull the next set of blocks while we're processing the current one
+      uint64_t next_blocks_start_height;
+      std::vector<cryptonote::block_complete_entry> next_blocks;
+      pull_thread = std::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks);});
+
       process_blocks(blocks_start_height, blocks, added_blocks);
       blocks_fetched += added_blocks;
+      pull_thread.join();
       if(!added_blocks)
         break;
-      cryptonote::block bl;
 
-      // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
-      std::vector<cryptonote::block_complete_entry>::const_reverse_iterator i = blocks.rbegin();
-      for (int n = 0; n < 3; ++n)
-      {
-        bool ok = cryptonote::parse_and_validate_block_from_blob(i->block, bl);
-        THROW_WALLET_EXCEPTION_IF(!ok, error::block_parse_error, i->block);
-        short_chain_history.push_front(cryptonote::get_block_hash(bl));
-        ++i;
-      }
+      // switch to the new blocks from the daemon
+      blocks_start_height = next_blocks_start_height;
+      blocks = next_blocks;
     }
     catch (const std::exception&)
     {
@@ -1637,6 +1661,8 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
 // take a pending tx and actually send it to the daemon
 void wallet2::commit_tx(pending_tx& ptx)
 {
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+
   using namespace cryptonote;
 
   connect_to_daemon();
@@ -1822,6 +1848,8 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
   if(fake_outputs_count)
   {
+    std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+
     connect_to_daemon();
     THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
     uint64_t outs_count = fake_outputs_count + 1;
@@ -1833,6 +1861,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
         " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size()));
       amounts.push_back(it->amount());
     }
+
     zframe_t *amounts_frame = zframe_new(&amounts[0], amounts.size() * sizeof(uint64_t));
     int status = wap_client_random_outs(ipc_client, outs_count, &amounts_frame);
     THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "getrandomouts");
@@ -2443,6 +2472,7 @@ void wallet2::generate_genesis(cryptonote::block& b) {
 }
 
 void wallet2::stop_ipc_client() {
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
   if (ipc_client) {
     wap_client_destroy(&ipc_client);
   }
@@ -2457,6 +2487,7 @@ void wallet2::connect_to_daemon() {
 }
 
 int wallet2::start_mining(const std::string &address, uint64_t thread_count) {
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
   zchunk_t *address_chunk = zchunk_new((void*)address.c_str(), address.length());
   int status = wap_client_start_mining(ipc_client, &address_chunk, thread_count);
   zchunk_destroy(&address_chunk);
@@ -2465,12 +2496,14 @@ int wallet2::start_mining(const std::string &address, uint64_t thread_count) {
 }
 
 int wallet2::stop_mining() {
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
   int status = wap_client_stop_mining(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status < 0, error::no_connection_to_daemon, "stop_mining");
   return status;
 }
 
 int wallet2::get_height(uint64_t &height) {
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
   int status = wap_client_get_height(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status < 0, error::no_connection_to_daemon, "get_height");
   height = wap_client_height(ipc_client);
@@ -2478,6 +2511,7 @@ int wallet2::get_height(uint64_t &height) {
 }
 
 int wallet2::save_bc() {
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
   int status = wap_client_save_bc(ipc_client);
   THROW_WALLET_EXCEPTION_IF(status < 0, error::no_connection_to_daemon, "save_bc");
   return status;
