@@ -160,7 +160,6 @@ bool t_rpc_command_executor::print_peer_list() {
   }
 
   rapidjson::Document response_json;
-  rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
   rapidjson::Value result_json;
   result_json.SetObject();
 
@@ -316,7 +315,6 @@ bool t_rpc_command_executor::print_connections() {
   }
 
   rapidjson::Document response_json;
-  rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
   rapidjson::Value result_json;
   result_json.SetObject();
 
