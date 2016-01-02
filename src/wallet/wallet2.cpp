@@ -523,11 +523,10 @@ void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::bl
     bl_id = get_block_hash(bl);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
+void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, std::vector<cryptonote::block_complete_entry> &blocks)
 {
   connect_to_daemon();
   THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_blocks");
-  blocks_added = 0;
 
   std::list<crypto::hash> block_ids;
   get_short_chain_history(block_ids);
@@ -543,19 +542,24 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_added)
     zlist_append(list, *it);
   }
   int status = wap_client_blocks(ipc_client, &list, start_height);
-  for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
-    delete *it;
-  }
-  zlist_destroy(&list);
   THROW_WALLET_EXCEPTION_IF(status < 0, error::no_connection_to_daemon, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_CORE_BUSY, error::daemon_busy, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status == IPC::STATUS_INTERNAL_ERROR, error::daemon_internal_error, "get_blocks");
   THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_blocks_error, "get_blocks");
-  std::vector<block_complete_entry> blocks;
+  for (std::list<char*>::iterator it = size_prepended_block_ids.begin(); it != size_prepended_block_ids.end(); it++) {
+    delete *it;
+  }
+  zlist_destroy(&list);
   zmsg_t *msg = wap_client_msg_data(ipc_client); 
   get_blocks_from_zmq_msg(msg, blocks);
+  blocks_start_height = wap_client_start_height(ipc_client);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::process_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added)
+{
+  size_t current_index = start_height;
+  blocks_added = 0;
 
-  uint64_t current_index = wap_client_start_height(ipc_client);
   int threads = std::thread::hardware_concurrency();
   if (threads > 1)
   {
@@ -680,7 +684,10 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   {
     try
     {
-      pull_blocks(start_height, added_blocks);
+      uint64_t blocks_start_height;
+      std::vector<cryptonote::block_complete_entry> blocks;
+      pull_blocks(start_height, blocks_start_height, blocks);
+      process_blocks(blocks_start_height, blocks, added_blocks);
       blocks_fetched += added_blocks;
       if(!added_blocks)
         break;
