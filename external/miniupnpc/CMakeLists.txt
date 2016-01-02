@@ -4,6 +4,7 @@ project (miniupnpc C)
 set (MINIUPNPC_VERSION 1.9)
 set (MINIUPNPC_API_VERSION 15)
 
+if (0)
 #[[ - we comment out this block as we don't support these other build types
 if (NOT CMAKE_BUILD_TYPE)
   if (WIN32)
@@ -15,7 +16,8 @@ if (NOT CMAKE_BUILD_TYPE)
         "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel."
         FORCE)
 endif()
-]]
+#]]
+endif (0)
 
 option (UPNPC_BUILD_STATIC "Build static library" TRUE)
 option (UPNPC_BUILD_SHARED "Build shared library" FALSE)
@@ -41,6 +43,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   add_definitions (-D_DARWIN_C_SOURCE)
 endif ()
 
+if (0)
 #[[ - we comment out this block as we already set flags
 # Set compiler specific build flags
 if (CMAKE_COMPILER_IS_GNUC)
@@ -64,7 +67,8 @@ if (CMAKE_COMPILER_IS_GNUC)
 
   endif (NOT CONFIGURED)
 endif ()
-]]
+#]]
+endif (0)
 
 configure_file (miniupnpcstrings.h.cmake ${CMAKE_BINARY_DIR}/miniupnpcstrings.h)
 include_directories (${CMAKE_BINARY_DIR})
