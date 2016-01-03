@@ -419,7 +419,7 @@ namespace log_space
       std::string buf(buffer, buffer_len);
       for(size_t i = 0; i!= buf.size(); i++)
       {
-        if(buf[i] == 7 || buf[i] == -107)
+        if(buf[i] == 7 || (buf[i]&0xff) == 0x95)
           buf[i] = '^';
       }
 

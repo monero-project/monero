@@ -768,13 +768,6 @@
 #define _LARGEFILE_SOURCE 1
 #endif 
 
-
-
-
-#ifndef UNBOUND_DEBUG
-#  define NDEBUG
-#endif
-
 /** Use small-ldns codebase */
 #define USE_SLDNS 1
 #ifdef HAVE_SSL
