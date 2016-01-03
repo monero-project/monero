@@ -306,7 +306,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
 
       connect_to_daemon();
-      THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_output_indexes");
+      THROW_WALLET_EXCEPTION_IF(!check_connection_unlocked(), error::no_connection_to_daemon, "get_output_indexes");
 
       //good news - got money! take care about it
       //usually we have only one transfer for user in transaction
@@ -563,7 +563,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, 
   std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
 
   connect_to_daemon();
-  THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_blocks");
+  THROW_WALLET_EXCEPTION_IF(!check_connection_unlocked(), error::no_connection_to_daemon, "get_blocks");
 
   const std::list<crypto::hash> &block_ids = short_chain_history;
   std::list<char*> size_prepended_block_ids;
@@ -1217,9 +1217,15 @@ bool wallet2::prepare_file_names(const std::string& file_path)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::check_connection()
+bool wallet2::check_connection_unlocked()
 {
   return ipc_client && wap_client_connected(ipc_client);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::check_connection()
+{
+  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+  return check_connection_unlocked();
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const
@@ -1726,7 +1732,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   using namespace cryptonote;
 
   connect_to_daemon();
-  THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "send_raw_transaction");
+  THROW_WALLET_EXCEPTION_IF(!check_connection_unlocked(), error::no_connection_to_daemon, "send_raw_transaction");
   std::string tx_as_hex_string = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
   zchunk_t *tx_as_hex = zchunk_new((void*)tx_as_hex_string.c_str(), tx_as_hex_string.length());
   int status = wap_client_send_raw_transaction(ipc_client, &tx_as_hex);
@@ -1911,7 +1917,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
 
     connect_to_daemon();
-    THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
+    THROW_WALLET_EXCEPTION_IF(!check_connection_unlocked(), error::no_connection_to_daemon, "get_random_outs");
     uint64_t outs_count = fake_outputs_count + 1;
     std::vector<uint64_t> amounts;
     BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
@@ -2539,7 +2545,8 @@ void wallet2::stop_ipc_client() {
 }
 
 void wallet2::connect_to_daemon() {
-  if (check_connection()) {
+  // this function should assert the m_daemon_rpc_mutex is held, no API for this though
+  if (check_connection_unlocked()) {
     return;
   }
   ipc_client = wap_client_new();

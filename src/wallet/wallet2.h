@@ -396,6 +396,8 @@ namespace tools
     void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
 
+    bool check_connection_unlocked();
+
     cryptonote::account_base m_account;
     std::string m_daemon_address;
     std::string m_wallet_file;
@@ -588,7 +590,7 @@ namespace tools
       std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
 
       connect_to_daemon();
-      THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
+      THROW_WALLET_EXCEPTION_IF(!check_connection_unlocked(), error::no_connection_to_daemon, "get_random_outs");
       uint64_t outs_count = fake_outputs_count + 1;
       std::vector<uint64_t> amounts;
       BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
