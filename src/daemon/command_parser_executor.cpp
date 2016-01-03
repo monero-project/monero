@@ -405,7 +405,7 @@ bool t_command_parser_executor::ban(const std::vector<std::string>& args)
   time_t seconds = P2P_IP_BLOCKTIME;
   if (args.size() > 1)
   {
-    seconds = std::stoi(args[0]);
+    seconds = std::stoi(args[1]);
     if (seconds == 0)
     {
       return false;
