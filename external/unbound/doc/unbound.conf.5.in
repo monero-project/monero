@@ -296,7 +296,7 @@ trust (very large) TTL values.
 .TP
 .B cache\-min\-ttl: \fI<seconds>
 Time to live minimum for RRsets and messages in the cache. Default is 0.
-If the the minimum kicks in, the data is cached for longer than the domain
+If the minimum kicks in, the data is cached for longer than the domain
 owner intended, and thus less queries are made to look up the data.
 Zero makes sure the data in the cache is as the domain owner intended,
 higher values, especially more than an hour or so, can lead to trouble as 
@@ -362,7 +362,7 @@ The public key certificate pem file for the ssl service.  Default is "",
 turned off.
 .TP
 .B ssl\-port: \fI<number>
-The port number on which to provide TCP SSL service, default 443, only
+The port number on which to provide TCP SSL service, default 853, only
 interfaces configured with that port number as @number get the SSL service.
 .TP
 .B do\-daemonize: \fI<yes or no>
@@ -373,6 +373,7 @@ a daemon. Default is yes.
 The netblock is given as an IP4 or IP6 address with /size appended for a 
 classless network block. The action can be \fIdeny\fR, \fIrefuse\fR, 
 \fIallow\fR, \fIallow_snoop\fR, \fIdeny_non_local\fR or \fIrefuse_non_local\fR.
+The most specific netblock match is used, if none match \fIdeny\fR is used.
 .IP
 The action \fIdeny\fR stops queries from hosts from that netblock.
 .IP
@@ -443,6 +444,8 @@ requires privileges, then a reload will fail; a restart is needed.
 .TP
 .B directory: \fI<directory>
 Sets the working directory for the program. Default is "@UNBOUND_RUN_DIR@".
+On Windows the string "%EXECUTABLE%" tries to change to the directory
+that unbound.exe resides in.
 .TP
 .B logfile: \fI<filename>
 If "" is given, logging goes to stderr, or nowhere once daemonized.
@@ -480,7 +483,7 @@ kill \-HUP `cat @UNBOUND_PIDFILE@`
 .fi
 triggers a reload,
 .nf
-kill \-QUIT `cat @UNBOUND_PIDFILE@` 
+kill \-TERM `cat @UNBOUND_PIDFILE@` 
 .fi
 gracefully terminates.
 .TP
@@ -567,7 +570,7 @@ to increase the max depth that is checked to.
 .B harden\-algo\-downgrade: \fI<yes or no>
 Harden against algorithm downgrade when multiple algorithms are
 advertised in the DS record.  If no, allows the weakest algorithm to
-validate the zone.  Default is yes.  Zone signers must produce zones
+validate the zone.  Default is no.  Zone signers must produce zones
 that allow this feature to work, but sometimes they do not, and turning
 this option off avoids that validation failure.
 .TP
@@ -584,23 +587,30 @@ queries.  For domains that do not support 0x20 and also fail with fallback
 because they keep sending different answers, like some load balancers.
 Can be given multiple times, for different domains.
 .TP
+.B qname\-minimisation: \fI<yes or no>
+Send minimum amount of information to upstream servers to enhance privacy.
+Only sent minimum required labels of the QNAME and set QTYPE to NS when 
+possible. Best effort approach, full QNAME and original QTYPE will be sent when
+upstream replies with a RCODE other than NOERROR. Default is off.
+.TP
 .B private\-address: \fI<IP address or subnet>
 Give IPv4 of IPv6 addresses or classless subnets. These are addresses
-on your private network, and are not allowed to be returned for public
-internet names.  Any occurence of such addresses are removed from
-DNS answers. Additionally, the DNSSEC validator may mark the answers
-bogus. This protects against so\-called DNS Rebinding, where a user browser
-is turned into a network proxy, allowing remote access through the browser
-to other parts of your private network.  Some names can be allowed to
-contain your private addresses, by default all the \fBlocal\-data\fR
-that you configured is allowed to, and you can specify additional
-names using \fBprivate\-domain\fR.  No private addresses are enabled
-by default.  We consider to enable this for the RFC1918 private IP
-address space by default in later releases. That would enable private 
-addresses for 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 
-fd00::/8 and fe80::/10, since the RFC standards say these addresses 
-should not be visible on the public internet.  Turning on 127.0.0.0/8 
-would hinder many spamblocklists as they use that.
+on your private network, and are not allowed to be returned for
+public internet names.  Any occurrence of such addresses are removed
+from DNS answers. Additionally, the DNSSEC validator may mark the
+answers bogus. This protects against so\-called DNS Rebinding, where
+a user browser is turned into a network proxy, allowing remote access
+through the browser to other parts of your private network.  Some names
+can be allowed to contain your private addresses, by default all the
+\fBlocal\-data\fR that you configured is allowed to, and you can specify
+additional names using \fBprivate\-domain\fR.  No private addresses are
+enabled by default.  We consider to enable this for the RFC1918 private
+IP address space by default in later releases. That would enable private
+addresses for 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16
+fd00::/8 and fe80::/10, since the RFC standards say these addresses
+should not be visible on the public internet.  Turning on 127.0.0.0/8
+would hinder many spamblocklists as they use that.  Adding ::ffff:0:0/96
+stops IPv4-mapped IPv6 addresses from bypassing the filter.
 .TP
 .B private\-domain: \fI<domain name>
 Allow this domain, and all its subdomains to contain private addresses.
@@ -745,7 +755,7 @@ Instruct the validator to remove data from the additional section of secure
 messages that are not signed properly. Messages that are insecure, bogus,
 indeterminate or unchecked are not affected. Default is yes. Use this setting
 to protect the users that rely on this validator for authentication from 
-protentially bad data in the additional section.
+potentially bad data in the additional section.
 .TP
 .B val\-log\-level: \fI<number>
 Have the validator print validation failures to the log.  Regardless of
@@ -1032,7 +1042,7 @@ If set to 0, all queries are dropped for domains where the limit is
 exceeded.  If set to another value, 1 in that number is allowed through
 to complete.  Default is 10, allowing 1/10 traffic to flow normally.
 This can make ordinary queries complete (if repeatedly queried for),
-and enter the cache, whilst also mitigiting the traffic flow by the
+and enter the cache, whilst also mitigating the traffic flow by the
 factor given.
 .TP 5
 .B ratelimit\-for\-domain: \fI<domain> <number qps>

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -57,6 +57,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::run()
   {
+    m_stop = false;
     m_net_server.add_idle_handler([this](){
       try {
         m_wallet.refresh();
@@ -65,6 +66,14 @@ namespace tools
       }
       return true;
     }, 20000);
+    m_net_server.add_idle_handler([this](){
+      if (m_stop.load(std::memory_order_relaxed))
+      {
+        send_stop_signal();
+        return false;
+      }
+      return true;
+    }, 500);
 
     //DO NOT START THIS SERVER IN MORE THEN 1 THREADS WITHOUT REFACTORING
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
@@ -115,7 +124,21 @@ namespace tools
     }
     return true;
   }
-
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_getheight(const wallet_rpc::COMMAND_RPC_GET_HEIGHT::request& req, wallet_rpc::COMMAND_RPC_GET_HEIGHT::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      res.height = m_wallet.get_blockchain_current_height();
+    }
+    catch (std::exception& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
   {
@@ -591,11 +614,6 @@ namespace tools
       }
     }
 
-    if (!transfers_found)
-    {
-      return false;
-    }
-  
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -628,4 +646,51 @@ namespace tools
 
       return true;
   }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_rescan_blockchain(const wallet_rpc::COMMAND_RPC_RESCAN_BLOCKCHAIN::request& req, wallet_rpc::COMMAND_RPC_RESCAN_BLOCKCHAIN::response& res, epee::json_rpc::error& er)
+  {
+    if (m_wallet.restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
+    try
+    {
+      m_wallet.rescan_blockchain();
+    }
+    catch (std::exception& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_stop_wallet(const wallet_rpc::COMMAND_RPC_STOP_WALLET::request& req, wallet_rpc::COMMAND_RPC_STOP_WALLET::response& res, epee::json_rpc::error& er)
+  {
+    if (m_wallet.restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
+    try
+    {
+      m_wallet.store();
+      m_stop.store(true, std::memory_order_relaxed);
+    }
+    catch (std::exception& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }
+

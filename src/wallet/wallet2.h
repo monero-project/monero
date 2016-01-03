@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -80,9 +80,19 @@ namespace tools
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_keys(false), m_default_mixin(0) {}
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_keys(false), m_default_mixin(0) {
+    enum RefreshType {
+      RefreshFull,
+      RefreshOptimizeCoinbase,
+      RefreshNoCoinbase,
+      RefreshDefault = RefreshOptimizeCoinbase,
+    };
+
+  private:
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true) {}
+
+  public:
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true) {
       ipc_client = NULL;
       connect_to_daemon();
       if (!ipc_client) {
@@ -94,6 +104,7 @@ namespace tools
     ~wallet2() {
       stop_ipc_client();
     };
+
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -119,6 +130,8 @@ namespace tools
       cryptonote::transaction m_tx;
       uint64_t m_change;
       time_t m_sent_time;
+      std::vector<cryptonote::tx_destination_entry> m_dests;
+      crypto::hash m_payment_id;
     };
 
     struct confirmed_transfer_details
@@ -127,9 +140,12 @@ namespace tools
       uint64_t m_amount_out;
       uint64_t m_change;
       uint64_t m_block_height;
-      confirmed_transfer_details() {}
+      std::vector<cryptonote::tx_destination_entry> m_dests;
+      crypto::hash m_payment_id;
+
+      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(cryptonote::null_hash) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
+        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
     };
 
     typedef std::vector<transfer_details> transfer_container;
@@ -143,6 +159,7 @@ namespace tools
       std::list<transfer_container::iterator> selected_transfers;
       std::string key_images;
       crypto::secret_key tx_key;
+      std::vector<cryptonote::tx_destination_entry> dests;
     };
 
     struct keys_file_data
@@ -242,6 +259,9 @@ namespace tools
     void refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money);
     bool refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok);
 
+    void set_refresh_type(RefreshType refresh_type) { m_refresh_type = refresh_type; }
+    RefreshType get_refresh_type() const { return m_refresh_type; }
+
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
     bool watch_only() const { return m_watch_only; }
@@ -275,6 +295,7 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments) const;
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     void rescan_spent();
+    void rescan_blockchain(bool refresh = true);
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
@@ -328,10 +349,12 @@ namespace tools
 
     bool always_confirm_transfers() const { return m_always_confirm_transfers; }
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
-    bool store_tx_keys() const { return m_store_tx_keys; }
-    void store_tx_keys(bool store) { m_store_tx_keys = store; }
+    bool store_tx_info() const { return m_store_tx_info; }
+    void store_tx_info(bool store) { m_store_tx_info = store; }
     uint32_t default_mixin() const { return m_default_mixin; }
     void default_mixin(uint32_t m) { m_default_mixin = m; }
+    bool auto_refresh() const { return m_auto_refresh; }
+    void auto_refresh(bool r) { m_auto_refresh = r; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
@@ -350,23 +373,32 @@ namespace tools
      * \param password       Password of wallet file
      */
     void load_keys(const std::string& keys_file_name, const std::string& password);
-    void process_new_transaction(const cryptonote::transaction& tx, uint64_t height);
-    void process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
+    void process_new_transaction(const cryptonote::transaction& tx, uint64_t height, bool miner_tx);
+    void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
-    void get_blocks_from_zmq_msg(zmsg_t *msg, std::list<cryptonote::block_complete_entry> &blocks);
-    void pull_blocks(uint64_t start_height, uint64_t& blocks_added);
+    void get_blocks_from_zmq_msg(zmsg_t *msg, std::vector<cryptonote::block_complete_entry> &blocks);
+    void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks);
+    void pull_next_blocks(uint64_t start_height, uint64_t& blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, std::vector<cryptonote::block_complete_entry> &blocks, bool &error);
+    void process_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
-    void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t change_amount);
+    void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t spent, uint64_t received);
+    void add_unconfirmed_tx(const cryptonote::transaction& tx, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void connect_to_daemon();
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
     bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
+    crypto::hash get_payment_id(const pending_tx &ptx) const;
+    void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
+    void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
+    bool use_fork_rules(uint8_t version);
+
+    bool check_connection_unlocked();
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -387,6 +419,8 @@ namespace tools
 
     std::atomic<bool> m_run;
 
+    std::mutex m_daemon_rpc_mutex;
+
     i_wallet2_callback* m_callback;
     bool m_testnet;
     bool m_restricted;
@@ -395,11 +429,16 @@ namespace tools
     wap_client_t *ipc_client;
     bool m_watch_only; /*!< no spend key */
     bool m_always_confirm_transfers;
-    bool m_store_tx_keys; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
+    bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
     uint32_t m_default_mixin;
+    RefreshType m_refresh_type;
+    bool m_auto_refresh;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 9)
+BOOST_CLASS_VERSION(tools::wallet2, 10)
+BOOST_CLASS_VERSION(tools::wallet2::payment_details, 0)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 1)
+BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 1)
 
 namespace boost
 {
@@ -422,6 +461,10 @@ namespace boost
       a & x.m_change;
       a & x.m_sent_time;
       a & x.m_tx;
+      if (ver < 1)
+        return;
+      a & x.m_dests;
+      a & x.m_payment_id;
     }
 
     template <class Archive>
@@ -431,6 +474,10 @@ namespace boost
       a & x.m_amount_out;
       a & x.m_change;
       a & x.m_block_height;
+      if (ver < 1)
+        return;
+      a & x.m_dests;
+      a & x.m_payment_id;
     }
 
     template <class Archive>
@@ -440,6 +487,13 @@ namespace boost
       a & x.m_amount;
       a & x.m_block_height;
       a & x.m_unlock_time;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive& a, cryptonote::tx_destination_entry& x, const boost::serialization::version_type ver)
+    {
+      a & x.amount;
+      a & x.addr;
     }
   }
 }
@@ -529,7 +583,8 @@ namespace tools
     // randomly select inputs for transaction
     // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
-    uint64_t found_money = select_transfers(needed_money, 0 == fake_outputs_count, dust_policy.dust_threshold, selected_transfers);
+    const bool add_dust = (0 == fake_outputs_count) && !use_fork_rules(2); // first fork has version 2
+    uint64_t found_money = select_transfers(needed_money, add_dust, dust_policy.dust_threshold, selected_transfers);
     THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
 
     typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
@@ -538,8 +593,10 @@ namespace tools
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
     if(fake_outputs_count)
     {
+      std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+
       connect_to_daemon();
-      THROW_WALLET_EXCEPTION_IF(!check_connection(), error::no_connection_to_daemon, "get_random_outs");
+      THROW_WALLET_EXCEPTION_IF(!check_connection_unlocked(), error::no_connection_to_daemon, "get_random_outs");
       uint64_t outs_count = fake_outputs_count + 1;
       std::vector<uint64_t> amounts;
       BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
@@ -560,10 +617,9 @@ namespace tools
   
       // Convert ZMQ response back into RPC response object.
       zframe_t *outputs_frame = wap_client_random_outputs(ipc_client);
-      uint64_t frame_size = zframe_size(outputs_frame);
       char *frame_data = reinterpret_cast<char*>(zframe_data(outputs_frame));
       rapidjson::Document json;
-      THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data, frame_size).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
+      THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
       for (rapidjson::SizeType i = 0; i < json["outputs"].Size(); i++) {
         COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount output;
         output.amount = json["outputs"][i]["amount"].GetInt64();
@@ -672,6 +728,7 @@ namespace tools
     ptx.change_dts = change_dts;
     ptx.selected_transfers = selected_transfers;
     ptx.tx_key = tx_key;
+    ptx.dests = dsts;
   }
 
 

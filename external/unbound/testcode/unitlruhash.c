@@ -359,7 +359,7 @@ testlookup_unlim(struct lruhash* table, testdata_t** ref)
 static void
 test_long_table(struct lruhash* table) 
 {
-	/* assuming it all fits in the hastable, this check will work */
+	/* assuming it all fits in the hashtable, this check will work */
 	testdata_t* ref[HASHTESTMAX * 100];
 	size_t i;
 	memset(ref, 0, sizeof(ref));

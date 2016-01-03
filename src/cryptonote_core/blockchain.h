@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -113,7 +113,7 @@ namespace cryptonote
      *
      * @return true on success, false if any initialization steps fail
      */
-    bool init(BlockchainDB* db, const bool testnet = false);
+    bool init(BlockchainDB* db, const bool testnet = false, const bool fakechain = false);
 
     /**
      * @brief Uninitializes the blockchain state
@@ -606,7 +606,9 @@ namespace cryptonote
     HardFork::State get_hard_fork_state() const;
     uint8_t get_current_hard_fork_version() const { return m_hardfork->get_current_version(); }
     uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
-    bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
+    uint8_t get_ideal_hard_fork_version(uint64_t height) const { return m_hardfork->get_ideal_version(height); }
+
+    bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const;
 
     bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
     bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const block&)>) const;
@@ -669,10 +671,6 @@ namespace cryptonote
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
     // main chain
-    // TODO: evaluate whether or not each is still needed or left over from blockchain_storage
-    blocks_container m_blocks;               // height  -> block_extended_info
-    blocks_by_id_index m_blocks_index;       // crypto::hash -> height
-    transactions_container m_transactions;
     size_t m_current_block_cumul_sz_limit;
 
     // metadata containers
@@ -706,7 +704,6 @@ namespace cryptonote
 
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
-    outputs_container m_outputs;
 
 
     checkpoints m_checkpoints;
@@ -878,10 +875,11 @@ namespace cryptonote
      * @param fee the total fees collected in the block
      * @param base_reward return-by-reference the new block's generated coins
      * @param already_generated_coins the amount of currency generated prior to this block
+     * @param partial_block_reward whether the block reward was less than allowed
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
@@ -1013,6 +1011,7 @@ namespace cryptonote
      * @return true
      */
     bool update_next_cumulative_size_limit();
+    void return_tx_to_pool(const std::vector<transaction> &txs);
 
     /**
      * @brief make sure a transaction isn't attempting a double-spend

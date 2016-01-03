@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -68,14 +68,17 @@ namespace cryptonote
     bool deinit();
     bool run();
     void stop();
+    void interrupt();
 
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
     std::string get_commands_str();
   private:
-    void handle_command_line(const boost::program_options::variables_map& vm);
+    bool handle_command_line(const boost::program_options::variables_map& vm);
 
     bool run_console_handler();
+
+    void wallet_refresh_thread();
 
     bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, bool testnet, const std::string &old_language);
@@ -99,8 +102,10 @@ namespace cryptonote
      */
     bool seed_set_language(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_always_confirm_transfers(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_store_tx_keys(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_store_tx_info(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_default_mixin(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_auto_refresh(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_refresh_type(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -127,10 +132,13 @@ namespace cryptonote
     bool get_tx_key(const std::vector<std::string> &args);
     bool check_tx_key(const std::vector<std::string> &args);
     bool show_transfers(const std::vector<std::string> &args);
+    bool rescan_blockchain(const std::vector<std::string> &args);
+    bool refresh_main(uint64_t start_height, bool reset = false);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
     bool ask_wallet_create_if_needed();
+
     /*!
      * \brief Prints the seed with a nice message
      * \param seed seed to print
@@ -175,9 +183,9 @@ namespace cryptonote
           m_blockchain_height = (std::max)(m_blockchain_height, height);
         }
 
-        if (std::chrono::milliseconds(1) < current_time - m_print_time || force)
+        if (std::chrono::milliseconds(20) < current_time - m_print_time || force)
         {
-          std::cout << QT_TRANSLATE_NOOP("cryptonote::simple_wallet", "Height ") << height << " / " << m_blockchain_height << '\r';
+          std::cout << QT_TRANSLATE_NOOP("cryptonote::simple_wallet", "Height ") << height << " / " << m_blockchain_height << '\r' << std::flush;
           m_print_time = current_time;
         }
       }
@@ -222,10 +230,19 @@ namespace cryptonote
     std::string m_daemon_host;
     int m_daemon_port;
 
+    tools::wallet2::RefreshType m_refresh_type;
+
     epee::console_handlers_binder m_cmd_binder;
 
     std::unique_ptr<tools::wallet2> m_wallet;
     epee::net_utils::http::http_simple_client m_http_client;
     refresh_progress_reporter_t m_refresh_progress_reporter;
+
+    std::atomic<bool> m_auto_refresh_run;
+    bool m_auto_refresh_refreshing;
+    std::thread m_auto_refresh_thread;
+    std::mutex m_auto_refresh_mutex;
+    std::condition_variable m_auto_refresh_cond;
+    std::atomic<bool> m_in_manual_refresh;
   };
 }

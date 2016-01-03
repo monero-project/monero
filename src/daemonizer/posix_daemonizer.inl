@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -74,9 +74,9 @@ namespace daemonizer
   {
     if (command_line::has_arg(vm, arg_detach))
     {
-      auto daemon = executor.create_daemon(vm);
       tools::success_msg_writer() << "Forking to background...";
       posix::fork();
+      auto daemon = executor.create_daemon(vm);
       return daemon.run();
     }
     else

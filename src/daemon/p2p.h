@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,11 +31,8 @@
 #pragma once
 
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
-#include "daemon/protocol.h"
-#include "misc_log_ex.h"
 #include "p2p/net_node.h"
-#include <stdexcept>
-#include <boost/program_options.hpp>
+#include "daemon/protocol.h"
 
 namespace daemonize
 {

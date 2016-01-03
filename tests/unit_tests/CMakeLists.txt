@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2015, The Monero Project
+# Copyright (c) 2014-2016, The Monero Project
 #
 # All rights reserved.
 #
@@ -28,9 +28,11 @@
 
 set(unit_tests_sources
   address_from_url.cpp
+  ban.cpp
   base58.cpp
   blockchain_db.cpp
   block_reward.cpp
+  canonical_amounts.cpp
   chacha8.cpp
   checkpoints.cpp
   decompose_amount_into_digits.cpp

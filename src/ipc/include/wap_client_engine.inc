@@ -28,8 +28,8 @@ typedef enum {
     expect_get_tx_ok_state = 5,
     expect_send_raw_transaction_ok_state = 6,
     expect_save_bc_ok_state = 7,
-    expect_start_ok_state = 8,
-    expect_stop_ok_state = 9,
+    expect_start_mining_ok_state = 8,
+    expect_stop_mining_ok_state = 9,
     expect_output_indexes_ok_state = 10,
     expect_random_outs_ok_state = 11,
     expect_get_height_ok_state = 12,
@@ -48,10 +48,14 @@ typedef enum {
     expect_get_block_by_height_ok_state = 25,
     expect_get_block_by_hash_ok_state = 26,
     expect_get_key_image_status_ok_state = 27,
-    expect_close_ok_state = 28,
-    defaults_state = 29,
-    have_error_state = 30,
-    reexpect_open_ok_state = 31
+    expect_get_tx_pool_ok_state = 28,
+    expect_set_out_peers_ok_state = 29,
+    expect_get_bans_ok_state = 30,
+    expect_set_bans_ok_state = 31,
+    expect_close_ok_state = 32,
+    defaults_state = 33,
+    have_error_state = 34,
+    reexpect_open_ok_state = 35
 } state_t;
 
 typedef enum {
@@ -64,8 +68,8 @@ typedef enum {
     get_tx_event = 6,
     send_raw_transaction_event = 7,
     save_bc_event = 8,
-    start_event = 9,
-    stop_event = 10,
+    start_mining_event = 9,
+    stop_mining_event = 10,
     output_indexes_event = 11,
     random_outs_event = 12,
     get_height_event = 13,
@@ -84,37 +88,45 @@ typedef enum {
     get_block_by_height_event = 26,
     get_block_by_hash_event = 27,
     get_key_image_status_event = 28,
-    destructor_event = 29,
-    blocks_ok_event = 30,
-    get_tx_ok_event = 31,
-    send_raw_transaction_ok_event = 32,
-    save_bc_ok_event = 33,
-    start_ok_event = 34,
-    stop_ok_event = 35,
-    output_indexes_ok_event = 36,
-    random_outs_ok_event = 37,
-    get_height_ok_event = 38,
-    get_info_ok_event = 39,
-    get_peer_list_ok_event = 40,
-    get_mining_status_ok_event = 41,
-    set_log_hash_rate_ok_event = 42,
-    set_log_level_ok_event = 43,
-    start_save_graph_ok_event = 44,
-    stop_save_graph_ok_event = 45,
-    get_block_hash_ok_event = 46,
-    get_block_template_ok_event = 47,
-    get_hard_fork_info_ok_event = 48,
-    get_connections_list_ok_event = 49,
-    stop_daemon_ok_event = 50,
-    get_block_by_height_ok_event = 51,
-    get_block_by_hash_ok_event = 52,
-    get_key_image_status_ok_event = 53,
-    close_ok_event = 54,
-    ping_ok_event = 55,
-    error_event = 56,
-    exception_event = 57,
-    command_invalid_event = 58,
-    other_event = 59
+    get_tx_pool_event = 29,
+    set_out_peers_event = 30,
+    get_bans_event = 31,
+    set_bans_event = 32,
+    destructor_event = 33,
+    blocks_ok_event = 34,
+    get_tx_ok_event = 35,
+    send_raw_transaction_ok_event = 36,
+    save_bc_ok_event = 37,
+    start_mining_ok_event = 38,
+    stop_mining_ok_event = 39,
+    output_indexes_ok_event = 40,
+    random_outs_ok_event = 41,
+    get_height_ok_event = 42,
+    get_info_ok_event = 43,
+    get_peer_list_ok_event = 44,
+    get_mining_status_ok_event = 45,
+    set_log_hash_rate_ok_event = 46,
+    set_log_level_ok_event = 47,
+    start_save_graph_ok_event = 48,
+    stop_save_graph_ok_event = 49,
+    get_block_hash_ok_event = 50,
+    get_block_template_ok_event = 51,
+    get_hard_fork_info_ok_event = 52,
+    get_connections_list_ok_event = 53,
+    stop_daemon_ok_event = 54,
+    get_block_by_height_ok_event = 55,
+    get_block_by_hash_ok_event = 56,
+    get_key_image_status_ok_event = 57,
+    get_tx_pool_ok_event = 58,
+    set_out_peers_ok_event = 59,
+    get_bans_ok_event = 60,
+    set_bans_ok_event = 61,
+    close_ok_event = 62,
+    ping_ok_event = 63,
+    error_event = 64,
+    exception_event = 65,
+    command_invalid_event = 66,
+    other_event = 67
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -128,8 +140,8 @@ s_state_name [] = {
     "expect get tx ok",
     "expect send raw transaction ok",
     "expect save bc ok",
-    "expect start ok",
-    "expect stop ok",
+    "expect start mining ok",
+    "expect stop mining ok",
     "expect output indexes ok",
     "expect random outs ok",
     "expect get height ok",
@@ -148,6 +160,10 @@ s_state_name [] = {
     "expect get block by height ok",
     "expect get block by hash ok",
     "expect get key image status ok",
+    "expect get tx pool ok",
+    "expect set out peers ok",
+    "expect get bans ok",
+    "expect set bans ok",
     "expect close ok",
     "defaults",
     "have error",
@@ -165,8 +181,8 @@ s_event_name [] = {
     "GET_TX",
     "SEND_RAW_TRANSACTION",
     "SAVE_BC",
-    "START",
-    "STOP",
+    "START_MINING",
+    "STOP_MINING",
     "OUTPUT_INDEXES",
     "RANDOM_OUTS",
     "GET_HEIGHT",
@@ -185,13 +201,17 @@ s_event_name [] = {
     "GET_BLOCK_BY_HEIGHT",
     "GET_BLOCK_BY_HASH",
     "GET_KEY_IMAGE_STATUS",
+    "GET_TX_POOL",
+    "SET_OUT_PEERS",
+    "GET_BANS",
+    "SET_BANS",
     "destructor",
     "BLOCKS_OK",
     "GET_TX_OK",
     "SEND_RAW_TRANSACTION_OK",
     "SAVE_BC_OK",
-    "START_OK",
-    "STOP_OK",
+    "START_MINING_OK",
+    "STOP_MINING_OK",
     "OUTPUT_INDEXES_OK",
     "RANDOM_OUTS_OK",
     "GET_HEIGHT_OK",
@@ -210,6 +230,10 @@ s_event_name [] = {
     "GET_BLOCK_BY_HEIGHT_OK",
     "GET_BLOCK_BY_HASH_OK",
     "GET_KEY_IMAGE_STATUS_OK",
+    "GET_TX_POOL_OK",
+    "SET_OUT_PEERS_OK",
+    "GET_BANS_OK",
+    "SET_BANS_OK",
     "CLOSE_OK",
     "PING_OK",
     "ERROR",
@@ -243,9 +267,12 @@ struct _client_args_t {
     uint64_t height;
     uint64_t reserve_size;
     uint8_t hfversion;
+    uint8_t fast;
     uint8_t header_only;
     zchunk_t *hash;
     zframe_t *key_images;
+    uint64_t num_out_peers;
+    zframe_t *bans;
 };
 
 typedef struct {
@@ -307,7 +334,7 @@ static void
 static void
     prepare_send_raw_transaction_command (client_t *self);
 static void
-    prepare_start_command (client_t *self);
+    prepare_start_mining_command (client_t *self);
 static void
     prepare_get_output_indexes_command (client_t *self);
 static void
@@ -323,11 +350,19 @@ static void
 static void
     prepare_hard_fork_info_command (client_t *self);
 static void
+    prepare_stop_daemon_command (client_t *self);
+static void
     prepare_get_block_by_height_command (client_t *self);
 static void
     prepare_get_block_by_hash_command (client_t *self);
 static void
     prepare_get_key_image_status_command (client_t *self);
+static void
+    prepare_set_out_peers_command (client_t *self);
+static void
+    prepare_get_bans_command (client_t *self);
+static void
+    prepare_set_bans_command (client_t *self);
 static void
     check_if_connection_is_dead (client_t *self);
 static void
@@ -339,9 +374,9 @@ static void
 static void
     signal_have_save_bc_ok (client_t *self);
 static void
-    signal_have_start_ok (client_t *self);
+    signal_have_start_mining_ok (client_t *self);
 static void
-    signal_have_stop_ok (client_t *self);
+    signal_have_stop_mining_ok (client_t *self);
 static void
     signal_have_output_indexes_ok (client_t *self);
 static void
@@ -378,6 +413,14 @@ static void
     signal_have_get_block_by_hash_ok (client_t *self);
 static void
     signal_have_get_key_image_status_ok (client_t *self);
+static void
+    signal_have_get_tx_pool_ok (client_t *self);
+static void
+    signal_have_set_out_peers_ok (client_t *self);
+static void
+    signal_have_get_bans_ok (client_t *self);
+static void
+    signal_have_set_bans_ok (client_t *self);
 static void
     signal_failure (client_t *self);
 static void
@@ -442,6 +485,7 @@ s_client_destroy (s_client_t **self_p)
         zchunk_destroy (&self->args.address);
         zchunk_destroy (&self->args.hash);
         zframe_destroy (&self->args.key_images);
+        zframe_destroy (&self->args.bans);
         client_terminate (&self->client);
         wap_proto_destroy (&self->message);
         zsock_destroy (&self->msgpipe);
@@ -637,11 +681,11 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_SAVE_BC_OK:
             return save_bc_ok_event;
             break;
-        case WAP_PROTO_START:
-            return start_event;
+        case WAP_PROTO_START_MINING:
+            return start_mining_event;
             break;
-        case WAP_PROTO_START_OK:
-            return start_ok_event;
+        case WAP_PROTO_START_MINING_OK:
+            return start_mining_ok_event;
             break;
         case WAP_PROTO_GET_INFO:
             return get_info_event;
@@ -697,11 +741,11 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
         case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
             return get_block_template_ok_event;
             break;
-        case WAP_PROTO_STOP:
-            return stop_event;
+        case WAP_PROTO_STOP_MINING:
+            return stop_mining_event;
             break;
-        case WAP_PROTO_STOP_OK:
-            return stop_ok_event;
+        case WAP_PROTO_STOP_MINING_OK:
+            return stop_mining_ok_event;
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO:
             return get_hard_fork_info_event;
@@ -738,6 +782,30 @@ s_protocol_event (s_client_t *self, wap_proto_t *message)
             break;
         case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
             return get_key_image_status_ok_event;
+            break;
+        case WAP_PROTO_GET_TX_POOL:
+            return get_tx_pool_event;
+            break;
+        case WAP_PROTO_GET_TX_POOL_OK:
+            return get_tx_pool_ok_event;
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            return set_out_peers_event;
+            break;
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            return set_out_peers_ok_event;
+            break;
+        case WAP_PROTO_GET_BANS:
+            return get_bans_event;
+            break;
+        case WAP_PROTO_GET_BANS_OK:
+            return get_bans_ok_event;
+            break;
+        case WAP_PROTO_SET_BANS:
+            return set_bans_event;
+            break;
+        case WAP_PROTO_SET_BANS_OK:
+            return set_bans_ok_event;
             break;
         case WAP_PROTO_CLOSE_OK:
             return close_ok_event;
@@ -969,36 +1037,36 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = expect_save_bc_ok_state;
                 }
                 else
-                if (self->event == start_event) {
+                if (self->event == start_mining_event) {
                     if (!self->exception) {
-                        //  prepare start command
+                        //  prepare start mining command
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ prepare start command", self->log_prefix);
-                        prepare_start_command (&self->client);
+                            zsys_debug ("%s:         $ prepare start mining command", self->log_prefix);
+                        prepare_start_mining_command (&self->client);
                     }
                     if (!self->exception) {
-                        //  send START
+                        //  send START_MINING
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ send START",
+                            zsys_debug ("%s:         $ send START_MINING",
                                 self->log_prefix);
-                        wap_proto_set_id (self->message, WAP_PROTO_START);
+                        wap_proto_set_id (self->message, WAP_PROTO_START_MINING);
                         wap_proto_send (self->message, self->dealer);
                     }
                     if (!self->exception)
-                        self->state = expect_start_ok_state;
+                        self->state = expect_start_mining_ok_state;
                 }
                 else
-                if (self->event == stop_event) {
+                if (self->event == stop_mining_event) {
                     if (!self->exception) {
-                        //  send STOP
+                        //  send STOP_MINING
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ send STOP",
+                            zsys_debug ("%s:         $ send STOP_MINING",
                                 self->log_prefix);
-                        wap_proto_set_id (self->message, WAP_PROTO_STOP);
+                        wap_proto_set_id (self->message, WAP_PROTO_STOP_MINING);
                         wap_proto_send (self->message, self->dealer);
                     }
                     if (!self->exception)
-                        self->state = expect_stop_ok_state;
+                        self->state = expect_stop_mining_ok_state;
                 }
                 else
                 if (self->event == output_indexes_event) {
@@ -1227,6 +1295,12 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == stop_daemon_event) {
                     if (!self->exception) {
+                        //  prepare stop daemon command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare stop daemon command", self->log_prefix);
+                        prepare_stop_daemon_command (&self->client);
+                    }
+                    if (!self->exception) {
                         //  send STOP_DAEMON
                         if (wap_client_verbose)
                             zsys_debug ("%s:         $ send STOP_DAEMON",
@@ -1293,6 +1367,76 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_get_key_image_status_ok_state;
+                }
+                else
+                if (self->event == get_tx_pool_event) {
+                    if (!self->exception) {
+                        //  send GET_TX_POOL
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send GET_TX_POOL",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_TX_POOL);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_tx_pool_ok_state;
+                }
+                else
+                if (self->event == set_out_peers_event) {
+                    if (!self->exception) {
+                        //  prepare set out peers command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare set out peers command", self->log_prefix);
+                        prepare_set_out_peers_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_OUT_PEERS
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send SET_OUT_PEERS",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_SET_OUT_PEERS);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_set_out_peers_ok_state;
+                }
+                else
+                if (self->event == get_bans_event) {
+                    if (!self->exception) {
+                        //  prepare get bans command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare get bans command", self->log_prefix);
+                        prepare_get_bans_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BANS
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send GET_BANS",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_GET_BANS);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_get_bans_ok_state;
+                }
+                else
+                if (self->event == set_bans_event) {
+                    if (!self->exception) {
+                        //  prepare set bans command
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ prepare set bans command", self->log_prefix);
+                        prepare_set_bans_command (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_BANS
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ send SET_BANS",
+                                self->log_prefix);
+                        wap_proto_set_id (self->message, WAP_PROTO_SET_BANS);
+                        wap_proto_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_set_bans_ok_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -1508,13 +1652,13 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
-            case expect_start_ok_state:
-                if (self->event == start_ok_event) {
+            case expect_start_mining_ok_state:
+                if (self->event == start_mining_ok_event) {
                     if (!self->exception) {
-                        //  signal have start ok
+                        //  signal have start mining ok
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ signal have start ok", self->log_prefix);
-                        signal_have_start_ok (&self->client);
+                            zsys_debug ("%s:         $ signal have start mining ok", self->log_prefix);
+                        signal_have_start_mining_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -1547,13 +1691,13 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
-            case expect_stop_ok_state:
-                if (self->event == stop_ok_event) {
+            case expect_stop_mining_ok_state:
+                if (self->event == stop_mining_ok_event) {
                     if (!self->exception) {
-                        //  signal have stop ok
+                        //  signal have stop mining ok
                         if (wap_client_verbose)
-                            zsys_debug ("%s:         $ signal have stop ok", self->log_prefix);
-                        signal_have_stop_ok (&self->client);
+                            zsys_debug ("%s:         $ signal have stop mining ok", self->log_prefix);
+                        signal_have_stop_mining_ok (&self->client);
                     }
                     if (!self->exception)
                         self->state = connected_state;
@@ -2288,6 +2432,162 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_get_tx_pool_ok_state:
+                if (self->event == get_tx_pool_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get tx pool ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have get tx pool ok", self->log_prefix);
+                        signal_have_get_tx_pool_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
+            case expect_set_out_peers_ok_state:
+                if (self->event == set_out_peers_ok_event) {
+                    if (!self->exception) {
+                        //  signal have set out peers ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have set out peers ok", self->log_prefix);
+                        signal_have_set_out_peers_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
+            case expect_get_bans_ok_state:
+                if (self->event == get_bans_ok_event) {
+                    if (!self->exception) {
+                        //  signal have get bans ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have get bans ok", self->log_prefix);
+                        signal_have_get_bans_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
+            case expect_set_bans_ok_state:
+                if (self->event == set_bans_ok_event) {
+                    if (!self->exception) {
+                        //  signal have set bans ok
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ signal have set bans ok", self->log_prefix);
+                        signal_have_set_bans_ok (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (wap_client_verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_error_state;
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                }
+                break;
+
             case expect_close_ok_state:
                 if (self->event == close_ok_event) {
                     if (!self->exception) {
@@ -2569,14 +2869,14 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, get_info_event);
     }
     else
-    if (streq (method, "START")) {
+    if (streq (method, "START MINING")) {
         zchunk_destroy (&self->args.address);
         zsock_recv (self->cmdpipe, "p8", &self->args.address, &self->args.thread_count);
-        s_client_execute (self, start_event);
+        s_client_execute (self, start_mining_event);
     }
     else
-    if (streq (method, "STOP")) {
-        s_client_execute (self, stop_event);
+    if (streq (method, "STOP MINING")) {
+        s_client_execute (self, stop_mining_event);
     }
     else
     if (streq (method, "GET PEER LIST")) {
@@ -2626,6 +2926,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "STOP DAEMON")) {
+        zsock_recv (self->cmdpipe, "1", &self->args.fast);
         s_client_execute (self, stop_daemon_event);
     }
     else
@@ -2644,6 +2945,25 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         zframe_destroy (&self->args.key_images);
         zsock_recv (self->cmdpipe, "p", &self->args.key_images);
         s_client_execute (self, get_key_image_status_event);
+    }
+    else
+    if (streq (method, "GET TX POOL")) {
+        s_client_execute (self, get_tx_pool_event);
+    }
+    else
+    if (streq (method, "SET OUT PEERS")) {
+        zsock_recv (self->cmdpipe, "8", &self->args.num_out_peers);
+        s_client_execute (self, set_out_peers_event);
+    }
+    else
+    if (streq (method, "GET BANS")) {
+        s_client_execute (self, get_bans_event);
+    }
+    else
+    if (streq (method, "SET BANS")) {
+        zframe_destroy (&self->args.bans);
+        zsock_recv (self->cmdpipe, "p", &self->args.bans);
+        s_client_execute (self, set_bans_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -2762,14 +3082,16 @@ struct _wap_client_t {
     char *reason;               //  Returned by actor reply
     uint64_t start_height;      //  Returned by actor reply
     uint64_t curr_height;       //  Returned by actor reply
-    zmsg_t *block_data;         //  Returned by actor reply
+    zmsg_t *msg_data;           //  Returned by actor reply
     zchunk_t *tx_data;          //  Returned by actor reply
     uint8_t in_pool;            //  Returned by actor reply
     zframe_t *o_indexes;        //  Returned by actor reply
     zframe_t *random_outputs;   //  Returned by actor reply
     uint64_t height;            //  Returned by actor reply
+    zchunk_t *top_block_hash;   //  Returned by actor reply
     uint64_t target_height;     //  Returned by actor reply
     uint64_t difficulty;        //  Returned by actor reply
+    uint64_t target;            //  Returned by actor reply
     uint64_t tx_count;          //  Returned by actor reply
     uint64_t tx_pool_size;      //  Returned by actor reply
     uint64_t alt_blocks_count;  //  Returned by actor reply
@@ -2793,6 +3115,7 @@ struct _wap_client_t {
     uint32_t window;            //  Returned by actor reply
     uint32_t votes;             //  Returned by actor reply
     uint32_t threshold;         //  Returned by actor reply
+    uint64_t earliest_height;   //  Returned by actor reply
     uint8_t voting;             //  Returned by actor reply
     uint32_t hfstate;           //  Returned by actor reply
     zframe_t *connections;      //  Returned by actor reply
@@ -2805,6 +3128,7 @@ struct _wap_client_t {
     uint64_t depth;             //  Returned by actor reply
     uint64_t reward;            //  Returned by actor reply
     zframe_t *spent;            //  Returned by actor reply
+    zframe_t *bans;             //  Returned by actor reply
 };
 
 
@@ -2853,10 +3177,11 @@ wap_client_destroy (wap_client_t **self_p)
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
         zstr_free (&self->reason);
-        zmsg_destroy (&self->block_data);
+        zmsg_destroy (&self->msg_data);
         zchunk_destroy (&self->tx_data);
         zframe_destroy (&self->o_indexes);
         zframe_destroy (&self->random_outputs);
+        zchunk_destroy (&self->top_block_hash);
         zframe_destroy (&self->white_list);
         zframe_destroy (&self->gray_list);
         zchunk_destroy (&self->address);
@@ -2866,6 +3191,7 @@ wap_client_destroy (wap_client_t **self_p)
         zframe_destroy (&self->connections);
         zchunk_destroy (&self->block);
         zframe_destroy (&self->spent);
+        zframe_destroy (&self->bans);
         free (self);
         *self_p = NULL;
     }
@@ -2945,8 +3271,8 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "BLOCKS OK")) {
-                    zmsg_destroy (&self->block_data);
-                    zsock_recv (self->actor, "488p", &self->status, &self->start_height, &self->curr_height, &self->block_data);
+                    zmsg_destroy (&self->msg_data);
+                    zsock_recv (self->actor, "488p", &self->status, &self->start_height, &self->curr_height, &self->msg_data);
                 }
                 else
                 if (streq (reply, "SEND RAW TRANSACTION OK")) {
@@ -2977,14 +3303,15 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "GET INFO OK")) {
-                    zsock_recv (self->actor, "488888888881", &self->status, &self->height, &self->target_height, &self->difficulty, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
+                    zchunk_destroy (&self->top_block_hash);
+                    zsock_recv (self->actor, "48p88888888881", &self->status, &self->height, &self->top_block_hash, &self->target_height, &self->difficulty, &self->target, &self->tx_count, &self->tx_pool_size, &self->alt_blocks_count, &self->outgoing_connections_count, &self->incoming_connections_count, &self->white_peerlist_size, &self->grey_peerlist_size, &self->testnet);
                 }
                 else
-                if (streq (reply, "START OK")) {
+                if (streq (reply, "START MINING OK")) {
                     zsock_recv (self->actor, "4", &self->status);
                 }
                 else
-                if (streq (reply, "STOP OK")) {
+                if (streq (reply, "STOP MINING OK")) {
                     zsock_recv (self->actor, "4", &self->status);
                 }
                 else
@@ -3027,7 +3354,7 @@ s_accept_reply (wap_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "GET HARD FORK INFO OK")) {
-                    zsock_recv (self->actor, "41144414", &self->status, &self->hfversion, &self->enabled, &self->window, &self->votes, &self->threshold, &self->voting, &self->hfstate);
+                    zsock_recv (self->actor, "411444814", &self->status, &self->hfversion, &self->enabled, &self->window, &self->votes, &self->threshold, &self->earliest_height, &self->voting, &self->hfstate);
                 }
                 else
                 if (streq (reply, "GET CONNECTIONS LIST OK")) {
@@ -3056,6 +3383,24 @@ s_accept_reply (wap_client_t *self, ...)
                 if (streq (reply, "GET KEY IMAGE STATUS OK")) {
                     zframe_destroy (&self->spent);
                     zsock_recv (self->actor, "4p", &self->status, &self->spent);
+                }
+                else
+                if (streq (reply, "GET TX POOL OK")) {
+                    zmsg_destroy (&self->msg_data);
+                    zsock_recv (self->actor, "4p", &self->status, &self->msg_data);
+                }
+                else
+                if (streq (reply, "SET OUT PEERS OK")) {
+                    zsock_recv (self->actor, "4", &self->status);
+                }
+                else
+                if (streq (reply, "GET BANS OK")) {
+                    zframe_destroy (&self->bans);
+                    zsock_recv (self->actor, "4p", &self->status, &self->bans);
+                }
+                else
+                if (streq (reply, "SET BANS OK")) {
+                    zsock_recv (self->actor, "4", &self->status);
                 }
                 break;
             }
@@ -3242,33 +3587,33 @@ wap_client_get_info (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  Send start command to server.                                                   
+//  Send start mining command to server.                                            
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_start (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count)
+wap_client_start_mining (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count)
 {
     assert (self);
 
-    zsock_send (self->actor, "sp8", "START", *address_p, thread_count);
+    zsock_send (self->actor, "sp8", "START MINING", *address_p, thread_count);
     *address_p = NULL;          //  Take ownership of address
-    if (s_accept_reply (self, "START OK", "FAILURE", NULL))
+    if (s_accept_reply (self, "START MINING OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
 
 
 //  ---------------------------------------------------------------------------
-//  Send stop command to server.                                                    
+//  Send stop mining command to server.                                             
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_stop (wap_client_t *self)
+wap_client_stop_mining (wap_client_t *self)
 {
     assert (self);
 
-    zsock_send (self->actor, "s", "STOP");
-    if (s_accept_reply (self, "STOP OK", "FAILURE", NULL))
+    zsock_send (self->actor, "s", "STOP MINING");
+    if (s_accept_reply (self, "STOP MINING OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
@@ -3440,11 +3785,11 @@ wap_client_get_connections_list (wap_client_t *self)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int 
-wap_client_stop_daemon (wap_client_t *self)
+wap_client_stop_daemon (wap_client_t *self, uint8_t fast)
 {
     assert (self);
 
-    zsock_send (self->actor, "s", "STOP DAEMON");
+    zsock_send (self->actor, "s1", "STOP DAEMON", fast);
     if (s_accept_reply (self, "STOP DAEMON OK", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -3502,6 +3847,71 @@ wap_client_get_key_image_status (wap_client_t *self, zframe_t **key_images_p)
 
 
 //  ---------------------------------------------------------------------------
+//  Request tx pool from the daemon.                                                
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_tx_pool (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "GET TX POOL");
+    if (s_accept_reply (self, "GET TX POOL OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Set the max number of out peers                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_set_out_peers (wap_client_t *self, uint64_t num_out_peers)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s8", "SET OUT PEERS", num_out_peers);
+    if (s_accept_reply (self, "SET OUT PEERS OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Get list of banned peers                                                        
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_get_bans (wap_client_t *self)
+{
+    assert (self);
+
+    zsock_send (self->actor, "s", "GET BANS");
+    if (s_accept_reply (self, "GET BANS OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Ban/unban peers                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int 
+wap_client_set_bans (wap_client_t *self, zframe_t **bans_p)
+{
+    assert (self);
+
+    zsock_send (self->actor, "sp", "SET BANS", *bans_p);
+    *bans_p = NULL;             //  Take ownership of bans
+    if (s_accept_reply (self, "SET BANS OK", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Return last received status
 
 int 
@@ -3546,13 +3956,13 @@ wap_client_curr_height (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  Return last received block_data
+//  Return last received msg_data
 
 zmsg_t *
-wap_client_block_data (wap_client_t *self)
+wap_client_msg_data (wap_client_t *self)
 {
     assert (self);
-    return self->block_data;
+    return self->msg_data;
 }
 
 
@@ -3612,6 +4022,17 @@ wap_client_height (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  Return last received top_block_hash
+
+zchunk_t *
+wap_client_top_block_hash (wap_client_t *self)
+{
+    assert (self);
+    return self->top_block_hash;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Return last received target_height
 
 uint64_t 
@@ -3630,6 +4051,17 @@ wap_client_difficulty (wap_client_t *self)
 {
     assert (self);
     return self->difficulty;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received target
+
+uint64_t 
+wap_client_target (wap_client_t *self)
+{
+    assert (self);
+    return self->target;
 }
 
 
@@ -3887,6 +4319,17 @@ wap_client_threshold (wap_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  Return last received earliest_height
+
+uint64_t 
+wap_client_earliest_height (wap_client_t *self)
+{
+    assert (self);
+    return self->earliest_height;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Return last received voting
 
 uint8_t 
@@ -4015,4 +4458,15 @@ wap_client_spent (wap_client_t *self)
 {
     assert (self);
     return self->spent;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received bans
+
+zframe_t *
+wap_client_bans (wap_client_t *self)
+{
+    assert (self);
+    return self->bans;
 }

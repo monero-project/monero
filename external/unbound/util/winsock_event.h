@@ -201,7 +201,7 @@ struct event {
 	int stick_events;
 
 	/** true if this event is a signaling WSAEvent by the user. 
-	 * User created and user closed WSAEvent. Only signaled/unsigneled,
+	 * User created and user closed WSAEvent. Only signaled/unsignaled,
 	 * no read/write/distinctions needed. */
 	int is_signal;
 	/** used during callbacks to see which events were just checked */

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -48,7 +48,7 @@ using namespace epee;
 
 namespace tools
 {
-  std::function<void(void)> signal_handler::m_handler; 
+  std::function<void(int)> signal_handler::m_handler;
 
 #ifdef WIN32
   std::string get_windows_version_display_string()
@@ -402,8 +402,13 @@ std::string get_nix_version_display_string()
     }
     catch (...)
     {
+#if defined(__MINGW32__) || defined(__MINGW__)
+      putenv("LC_ALL=C");
+      putenv("LANG=C");
+#else
       setenv("LC_ALL", "C", 1);
       setenv("LANG", "C", 1);
+#endif
       return true;
     }
     return false;

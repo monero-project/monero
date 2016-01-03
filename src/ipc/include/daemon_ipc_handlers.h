@@ -95,6 +95,10 @@ namespace IPC
     void get_block_by_hash(wap_proto_t *message);
     void get_transaction(wap_proto_t *message);
     void get_key_image_status(wap_proto_t *message);
+    void get_tx_pool(wap_proto_t *message);
+    void set_out_peers(wap_proto_t *message);
+    void get_bans(wap_proto_t *message);
+    void set_bans(wap_proto_t *message);
 
     /*!
      * \brief initializes it with objects necessary to handle IPC requests and starts
@@ -106,7 +110,7 @@ namespace IPC
      */
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
-      bool p_testnet);
+      bool p_testnet, bool p_restricted_rpc);
 
     /*!
      * \brief stops the IPC server

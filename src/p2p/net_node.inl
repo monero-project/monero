@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+// IP blocking adapted from Boolberry
+
 #pragma once
 
 #include <algorithm>
@@ -47,7 +49,6 @@
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "data_logger.hpp"
-#include "daemon/command_line_args.h"
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
@@ -90,6 +91,7 @@ namespace nodetool
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
     
     const command_line::arg_descriptor<bool>        arg_no_igd				= {"no-igd", "Disable UPnP port mapping"};
+    const command_line::arg_descriptor<bool>        arg_offline				= {"offline", "Do not listen for peers, nor connect to any"};
     const command_line::arg_descriptor<int64_t>     arg_out_peers 			= {"out-peers", "set max limit of out peers", -1};
     const command_line::arg_descriptor<int>    		arg_tos_flag      		= {"tos-flag", "set TOS flag", -1};
     
@@ -114,6 +116,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_seed_node);    
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_igd);
+    command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_out_peers);
     command_line::add_arg(desc, arg_tos_flag);
     command_line::add_arg(desc, arg_limit_rate_up);
@@ -132,8 +135,17 @@ namespace nodetool
     p2p_data.open( state_file_path , std::ios_base::binary | std::ios_base::in);
     if(!p2p_data.fail())
     {
-      boost::archive::binary_iarchive a(p2p_data);
-      a >> *this;
+      try
+      {
+        boost::archive::binary_iarchive a(p2p_data);
+        a >> *this;
+      }
+      catch (const std::exception &e)
+      {
+        LOG_ERROR("Failed to load p2p config file, falling back to default config");
+        m_peerlist = peerlist_manager(); // it was probably half clobbered by the failed load
+        make_default_config();
+      }
     }else
     {
       make_default_config();
@@ -161,9 +173,62 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_remote_ip_allowed(uint32_t addr)
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
+    auto it = m_blocked_ips.find(addr);
+    if(it == m_blocked_ips.end())
+      return true;
+    if(time(nullptr) >= it->second)
+    {
+      m_blocked_ips.erase(it);
+      LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.", LOG_LEVEL_0);
+      return true;
+    }
+    return false;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_default_config()
   {
     m_config.m_peer_id  = crypto::rand<uint64_t>();
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::block_ip(uint32_t addr, time_t seconds)
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
+    m_blocked_ips[addr] = time(nullptr) + seconds;
+    LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.", LOG_LEVEL_0);
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::unblock_ip(uint32_t addr)
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
+    auto i = m_blocked_ips.find(addr);
+    if (i == m_blocked_ips.end())
+      return false;
+    m_blocked_ips.erase(i);
+    LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.", LOG_LEVEL_0);
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::add_ip_fail(uint32_t address)
+  {
+    CRITICAL_REGION_LOCAL(m_ip_fails_score_lock);
+    uint64_t fails = ++m_ip_fails_score[address];
+    LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(address) << " fail score=" << fails, LOG_LEVEL_1);
+    if(fails > P2P_IP_FAILS_BEFORE_BLOCK)
+    {
+      auto it = m_ip_fails_score.find(address);
+      CHECK_AND_ASSERT_MES(it != m_ip_fails_score.end(), false, "internal error");
+      it->second = P2P_IP_FAILS_BEFORE_BLOCK/2;
+      block_ip(address);
+    }
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -186,6 +251,7 @@ namespace nodetool
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
     m_no_igd = command_line::get_arg(vm, arg_no_igd);
+    m_offline = command_line::get_arg(vm, arg_offline);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {       
@@ -287,7 +353,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
     std::set<std::string> full_addrs;
-    bool testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     if (testnet)
     {
@@ -314,7 +380,7 @@ namespace nodetool
       {
         boost::thread* th = new boost::thread([=, &dns_results, &addr_str]
         {
-          LOG_PRINT_L4("dns_threads[" << result_index << "] created for: " << addr_str)
+          LOG_PRINT_L4("dns_threads[" << result_index << "] created for: " << addr_str);
           // TODO: care about dnssec avail/valid
           bool avail, valid;
           std::vector<std::string> addr_list;
@@ -428,6 +494,11 @@ namespace nodetool
     m_net_server.set_threads_prefix("P2P");
     m_net_server.get_config_object().m_pcommands_handler = this;
     m_net_server.get_config_object().m_invoke_timeout = P2P_DEFAULT_INVOKE_TIMEOUT;
+    m_net_server.set_connection_filter(this);
+
+    // from here onwards, it's online stuff
+    if (m_offline)
+      return res;
 
     //try to bind
     LOG_PRINT_L0("Binding on " << m_bind_ip << ":" << m_port);
@@ -499,7 +570,7 @@ namespace nodetool
       mPeersLoggerThread.reset(new std::thread([&]()
       {
 			_note("Thread monitor number of peers - start");
-		while (!is_closing)
+		while (!is_closing && !m_net_server.is_stop_signal_sent())
 		{ // main loop of thread
 			//number_of_peers = m_net_server.get_config_object().get_connections_count();
 			unsigned int number_of_peers = 0;
@@ -624,6 +695,7 @@ namespace nodetool
       if(!handle_remote_peerlist(rsp.local_peerlist, rsp.node_data.local_time, context))
       {
         LOG_ERROR_CCONTEXT("COMMAND_HANDSHAKE: failed to handle_remote_peerlist(...), closing connection.");
+        add_ip_fail(context.m_remote_ip);
         return;
       }
       hsh_result = true;
@@ -685,6 +757,7 @@ namespace nodetool
       {
         LOG_ERROR_CCONTEXT("COMMAND_TIMED_SYNC: failed to handle_remote_peerlist(...), closing connection.");
         m_net_server.get_config_object().close(context.m_connection_id );
+        add_ip_fail(context.m_remote_ip);
       }
       if(!context.m_is_income)
         m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_ip, context.m_remote_port);
@@ -831,6 +904,20 @@ namespace nodetool
 
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_addr_recently_failed(const net_address& addr)
+  {
+    CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
+    auto it = m_conn_fails_cache.find(addr);
+    if(it == m_conn_fails_cache.end())
+      return false;
+
+    if(time(NULL) - it->second > P2P_FAILED_ADDR_FORGET_SECONDS)
+      return false;
+    else
+      return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_new_connection_from_peerlist(bool use_white_list)
   {
     size_t local_peers_count = use_white_list ? m_peerlist.get_white_peers_count():m_peerlist.get_gray_peers_count();
@@ -866,7 +953,13 @@ namespace nodetool
         continue;
 			}
 
-      LOG_PRINT_L1("Selected peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)
+      if(!is_remote_ip_allowed(pe.adr.ip))
+        continue;
+
+      if(is_addr_recently_failed(pe.adr))
+        continue;
+
+      LOG_PRINT_L2("Selected peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
                     << "[white=" << use_white_list
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
@@ -941,6 +1034,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_expected_connections_count(bool white_list, size_t expected_connections)
   {
+    if (m_offline)
+      return true;
+
     size_t conn_count = get_outgoing_connections_count();
     //add new connections from white peers
     while(conn_count < expected_connections)
@@ -1270,6 +1366,7 @@ namespace nodetool
 
       LOG_PRINT_CCONTEXT_L1("WRONG NETWORK AGENT CONNECTED! id=" << epee::string_tools::get_str_from_guid_a(arg.node_data.network_id));
       drop_connection(context);
+      add_ip_fail(context.m_remote_ip);
       return 1;
     }
 
@@ -1277,6 +1374,7 @@ namespace nodetool
     {
       LOG_ERROR_CCONTEXT("COMMAND_HANDSHAKE came not from incoming connection");
       drop_connection(context);
+      add_ip_fail(context.m_remote_ip);
       return 1;
     }
 

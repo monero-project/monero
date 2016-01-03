@@ -39,7 +39,7 @@ struct _wap_proto_t {
     uint64_t start_height;              //  start_height
     uint32_t status;                    //  Status
     uint64_t curr_height;               //  curr_height
-    zmsg_t *block_data;                 //  Frames of block data
+    zmsg_t *msg_data;                   //  Frames of block data
     zchunk_t *tx_as_hex;                //  Transaction as hex
     zchunk_t *tx_id;                    //  Transaction ID
     zframe_t *o_indexes;                //  Output Indexes
@@ -52,8 +52,10 @@ struct _wap_proto_t {
     byte in_pool;                       //  In pool
     zchunk_t *address;                  //  address
     uint64_t thread_count;              //  thread_count
+    zchunk_t *top_block_hash;           //  Top block hash
     uint64_t target_height;             //  Target Height
     uint64_t difficulty;                //  Difficulty
+    uint64_t target;                    //  Target
     uint64_t tx_count;                  //  TX Count
     uint64_t tx_pool_size;              //  TX Pool Size
     uint64_t alt_blocks_count;          //  Alt Blocks Count
@@ -78,9 +80,11 @@ struct _wap_proto_t {
     uint32_t window;                    //  Window
     uint32_t votes;                     //  Votes
     uint32_t threshold;                 //  Threshold
+    uint64_t earliest_height;           //  Earliest height
     byte voting;                        //  Voting
     uint32_t hfstate;                   //  State
     zframe_t *connections;              //  Connections
+    byte fast;                          //  Fast exit
     byte header_only;                   //  Header-only
     zchunk_t *block;                    //  Block blob
     byte major_version;                 //  major_version
@@ -92,6 +96,8 @@ struct _wap_proto_t {
     uint64_t reward;                    //  reward
     zframe_t *key_images;               //  key_images
     zframe_t *spent;                    //  Key image spent status
+    uint64_t num_out_peers;             //  num_out_peers
+    zframe_t *bans;                     //  List of banned peers
     char reason [256];                  //  Printable explanation
 };
 
@@ -270,7 +276,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zframe_destroy (&self->routing_id);
         if (self->block_ids)
             zlist_destroy (&self->block_ids);
-        zmsg_destroy (&self->block_data);
+        zmsg_destroy (&self->msg_data);
         zchunk_destroy (&self->tx_as_hex);
         zchunk_destroy (&self->tx_id);
         zframe_destroy (&self->o_indexes);
@@ -278,6 +284,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zframe_destroy (&self->random_outputs);
         zchunk_destroy (&self->tx_data);
         zchunk_destroy (&self->address);
+        zchunk_destroy (&self->top_block_hash);
         zframe_destroy (&self->white_list);
         zframe_destroy (&self->gray_list);
         zchunk_destroy (&self->hash);
@@ -287,6 +294,7 @@ wap_proto_destroy (wap_proto_t **self_p)
         zchunk_destroy (&self->block);
         zframe_destroy (&self->key_images);
         zframe_destroy (&self->spent);
+        zframe_destroy (&self->bans);
 
         //  Free object itself
         free (self);
@@ -379,11 +387,11 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->start_height);
             GET_NUMBER8 (self->curr_height);
             //  Get zero or more remaining frames
-            zmsg_destroy (&self->block_data);
+            zmsg_destroy (&self->msg_data);
             if (zsock_rcvmore (input))
-                self->block_data = zmsg_recv (input);
+                self->msg_data = zmsg_recv (input);
             else
-                self->block_data = zmsg_new ();
+                self->msg_data = zmsg_new ();
             break;
 
         case WAP_PROTO_SEND_RAW_TRANSACTION:
@@ -497,7 +505,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER4 (self->status);
             break;
 
-        case WAP_PROTO_START:
+        case WAP_PROTO_START_MINING:
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -512,7 +520,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER8 (self->thread_count);
             break;
 
-        case WAP_PROTO_START_OK:
+        case WAP_PROTO_START_MINING_OK:
             GET_NUMBER4 (self->status);
             break;
 
@@ -522,8 +530,20 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
         case WAP_PROTO_GET_INFO_OK:
             GET_NUMBER4 (self->status);
             GET_NUMBER8 (self->height);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("wap_proto: top_block_hash is missing data");
+                    goto malformed;
+                }
+                zchunk_destroy (&self->top_block_hash);
+                self->top_block_hash = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
             GET_NUMBER8 (self->target_height);
             GET_NUMBER8 (self->difficulty);
+            GET_NUMBER8 (self->target);
             GET_NUMBER8 (self->tx_count);
             GET_NUMBER8 (self->tx_pool_size);
             GET_NUMBER8 (self->alt_blocks_count);
@@ -669,10 +689,10 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             }
             break;
 
-        case WAP_PROTO_STOP:
+        case WAP_PROTO_STOP_MINING:
             break;
 
-        case WAP_PROTO_STOP_OK:
+        case WAP_PROTO_STOP_MINING_OK:
             break;
 
         case WAP_PROTO_GET_HARD_FORK_INFO:
@@ -686,6 +706,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             GET_NUMBER4 (self->window);
             GET_NUMBER4 (self->votes);
             GET_NUMBER4 (self->threshold);
+            GET_NUMBER8 (self->earliest_height);
             GET_NUMBER1 (self->voting);
             GET_NUMBER4 (self->hfstate);
             break;
@@ -705,6 +726,7 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             break;
 
         case WAP_PROTO_STOP_DAEMON:
+            GET_NUMBER1 (self->fast);
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
@@ -845,6 +867,55 @@ wap_proto_recv (wap_proto_t *self, zsock_t *input)
             self->spent = zframe_recv (input);
             break;
 
+        case WAP_PROTO_GET_TX_POOL:
+            break;
+
+        case WAP_PROTO_GET_TX_POOL_OK:
+            GET_NUMBER4 (self->status);
+            //  Get zero or more remaining frames
+            zmsg_destroy (&self->msg_data);
+            if (zsock_rcvmore (input))
+                self->msg_data = zmsg_recv (input);
+            else
+                self->msg_data = zmsg_new ();
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS:
+            GET_NUMBER8 (self->num_out_peers);
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            GET_NUMBER4 (self->status);
+            break;
+
+        case WAP_PROTO_GET_BANS:
+            break;
+
+        case WAP_PROTO_GET_BANS_OK:
+            GET_NUMBER4 (self->status);
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: bans is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->bans);
+            self->bans = zframe_recv (input);
+            break;
+
+        case WAP_PROTO_SET_BANS:
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("wap_proto: bans is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->bans);
+            self->bans = zframe_recv (input);
+            break;
+
+        case WAP_PROTO_SET_BANS_OK:
+            GET_NUMBER4 (self->status);
+            break;
+
         case WAP_PROTO_CLOSE:
             break;
 
@@ -956,20 +1027,24 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_SAVE_BC_OK:
             frame_size += 4;            //  status
             break;
-        case WAP_PROTO_START:
+        case WAP_PROTO_START_MINING:
             frame_size += 4;            //  Size is 4 octets
             if (self->address)
                 frame_size += zchunk_size (self->address);
             frame_size += 8;            //  thread_count
             break;
-        case WAP_PROTO_START_OK:
+        case WAP_PROTO_START_MINING_OK:
             frame_size += 4;            //  status
             break;
         case WAP_PROTO_GET_INFO_OK:
             frame_size += 4;            //  status
             frame_size += 8;            //  height
+            frame_size += 4;            //  Size is 4 octets
+            if (self->top_block_hash)
+                frame_size += zchunk_size (self->top_block_hash);
             frame_size += 8;            //  target_height
             frame_size += 8;            //  difficulty
+            frame_size += 8;            //  target
             frame_size += 8;            //  tx_count
             frame_size += 8;            //  tx_pool_size
             frame_size += 8;            //  alt_blocks_count
@@ -1046,11 +1121,15 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             frame_size += 4;            //  window
             frame_size += 4;            //  votes
             frame_size += 4;            //  threshold
+            frame_size += 8;            //  earliest_height
             frame_size += 1;            //  voting
             frame_size += 4;            //  hfstate
             break;
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
             frame_size += 4;            //  status
+            break;
+        case WAP_PROTO_STOP_DAEMON:
+            frame_size += 1;            //  fast
             break;
         case WAP_PROTO_STOP_DAEMON_OK:
             frame_size += 4;            //  status
@@ -1113,6 +1192,23 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
             frame_size += 4;            //  status
             break;
+        case WAP_PROTO_GET_TX_POOL_OK:
+            frame_size += 4;            //  status
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            frame_size += 8;            //  num_out_peers
+            break;
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            frame_size += 4;            //  status
+            break;
+        case WAP_PROTO_GET_BANS_OK:
+            frame_size += 4;            //  status
+            break;
+        case WAP_PROTO_SET_BANS:
+            break;
+        case WAP_PROTO_SET_BANS_OK:
+            frame_size += 4;            //  status
+            break;
         case WAP_PROTO_ERROR:
             frame_size += 2;            //  status
             frame_size += 1 + strlen (self->reason);
@@ -1124,7 +1220,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
     self->needle = (byte *) zmq_msg_data (&frame);
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
-    bool have_block_data = false;
+    bool have_msg_data = false;
     size_t nbr_frames = 1;              //  Total number of frames to send
 
     switch (self->id) {
@@ -1152,8 +1248,8 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->start_height);
             PUT_NUMBER8 (self->curr_height);
-            nbr_frames += self->block_data? zmsg_size (self->block_data): 1;
-            have_block_data = true;
+            nbr_frames += self->msg_data? zmsg_size (self->msg_data): 1;
+            have_msg_data = true;
             break;
 
         case WAP_PROTO_SEND_RAW_TRANSACTION:
@@ -1235,7 +1331,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->status);
             break;
 
-        case WAP_PROTO_START:
+        case WAP_PROTO_START_MINING:
             if (self->address) {
                 PUT_NUMBER4 (zchunk_size (self->address));
                 memcpy (self->needle,
@@ -1248,15 +1344,25 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER8 (self->thread_count);
             break;
 
-        case WAP_PROTO_START_OK:
+        case WAP_PROTO_START_MINING_OK:
             PUT_NUMBER4 (self->status);
             break;
 
         case WAP_PROTO_GET_INFO_OK:
             PUT_NUMBER4 (self->status);
             PUT_NUMBER8 (self->height);
+            if (self->top_block_hash) {
+                PUT_NUMBER4 (zchunk_size (self->top_block_hash));
+                memcpy (self->needle,
+                        zchunk_data (self->top_block_hash),
+                        zchunk_size (self->top_block_hash));
+                self->needle += zchunk_size (self->top_block_hash);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             PUT_NUMBER8 (self->target_height);
             PUT_NUMBER8 (self->difficulty);
+            PUT_NUMBER8 (self->target);
             PUT_NUMBER8 (self->tx_count);
             PUT_NUMBER8 (self->tx_pool_size);
             PUT_NUMBER8 (self->alt_blocks_count);
@@ -1379,6 +1485,7 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             PUT_NUMBER4 (self->window);
             PUT_NUMBER4 (self->votes);
             PUT_NUMBER4 (self->threshold);
+            PUT_NUMBER8 (self->earliest_height);
             PUT_NUMBER1 (self->voting);
             PUT_NUMBER4 (self->hfstate);
             break;
@@ -1386,6 +1493,10 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         case WAP_PROTO_GET_CONNECTIONS_LIST_OK:
             PUT_NUMBER4 (self->status);
             nbr_frames++;
+            break;
+
+        case WAP_PROTO_STOP_DAEMON:
+            PUT_NUMBER1 (self->fast);
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
@@ -1500,6 +1611,33 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
             nbr_frames++;
             break;
 
+        case WAP_PROTO_GET_TX_POOL_OK:
+            PUT_NUMBER4 (self->status);
+            nbr_frames += self->msg_data? zmsg_size (self->msg_data): 1;
+            have_msg_data = true;
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS:
+            PUT_NUMBER8 (self->num_out_peers);
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            PUT_NUMBER4 (self->status);
+            break;
+
+        case WAP_PROTO_GET_BANS_OK:
+            PUT_NUMBER4 (self->status);
+            nbr_frames++;
+            break;
+
+        case WAP_PROTO_SET_BANS:
+            nbr_frames++;
+            break;
+
+        case WAP_PROTO_SET_BANS_OK:
+            PUT_NUMBER4 (self->status);
+            break;
+
         case WAP_PROTO_ERROR:
             PUT_NUMBER2 (self->status);
             PUT_STRING (self->reason);
@@ -1570,13 +1708,29 @@ wap_proto_send (wap_proto_t *self, zsock_t *output)
         else
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
-    //  Now send the block_data if necessary
-    if (have_block_data) {
-        if (self->block_data) {
-            zframe_t *frame = zmsg_first (self->block_data);
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_GET_BANS_OK) {
+        //  If bans isn't set, send an empty frame
+        if (self->bans)
+            zframe_send (&self->bans, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
+    //  Now send any frame fields, in order
+    if (self->id == WAP_PROTO_SET_BANS) {
+        //  If bans isn't set, send an empty frame
+        if (self->bans)
+            zframe_send (&self->bans, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+    }
+    //  Now send the msg_data if necessary
+    if (have_msg_data) {
+        if (self->msg_data) {
+            zframe_t *frame = zmsg_first (self->msg_data);
             while (frame) {
                 zframe_send (&frame, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
-                frame = zmsg_next (self->block_data);
+                frame = zmsg_next (self->msg_data);
             }
         }
         else
@@ -1623,9 +1777,9 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             zsys_debug ("    start_height=%ld", (long) self->start_height);
             zsys_debug ("    curr_height=%ld", (long) self->curr_height);
-            zsys_debug ("    block_data=");
-            if (self->block_data)
-                zmsg_print (self->block_data);
+            zsys_debug ("    msg_data=");
+            if (self->msg_data)
+                zmsg_print (self->msg_data);
             else
                 zsys_debug ("(NULL)");
             break;
@@ -1707,14 +1861,14 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
-        case WAP_PROTO_START:
-            zsys_debug ("WAP_PROTO_START:");
+        case WAP_PROTO_START_MINING:
+            zsys_debug ("WAP_PROTO_START_MINING:");
             zsys_debug ("    address=[ ... ]");
             zsys_debug ("    thread_count=%ld", (long) self->thread_count);
             break;
 
-        case WAP_PROTO_START_OK:
-            zsys_debug ("WAP_PROTO_START_OK:");
+        case WAP_PROTO_START_MINING_OK:
+            zsys_debug ("WAP_PROTO_START_MINING_OK:");
             zsys_debug ("    status=%ld", (long) self->status);
             break;
 
@@ -1726,8 +1880,10 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("WAP_PROTO_GET_INFO_OK:");
             zsys_debug ("    status=%ld", (long) self->status);
             zsys_debug ("    height=%ld", (long) self->height);
+            zsys_debug ("    top_block_hash=[ ... ]");
             zsys_debug ("    target_height=%ld", (long) self->target_height);
             zsys_debug ("    difficulty=%ld", (long) self->difficulty);
+            zsys_debug ("    target=%ld", (long) self->target);
             zsys_debug ("    tx_count=%ld", (long) self->tx_count);
             zsys_debug ("    tx_pool_size=%ld", (long) self->tx_pool_size);
             zsys_debug ("    alt_blocks_count=%ld", (long) self->alt_blocks_count);
@@ -1835,12 +1991,12 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    block_template_blob=[ ... ]");
             break;
 
-        case WAP_PROTO_STOP:
-            zsys_debug ("WAP_PROTO_STOP:");
+        case WAP_PROTO_STOP_MINING:
+            zsys_debug ("WAP_PROTO_STOP_MINING:");
             break;
 
-        case WAP_PROTO_STOP_OK:
-            zsys_debug ("WAP_PROTO_STOP_OK:");
+        case WAP_PROTO_STOP_MINING_OK:
+            zsys_debug ("WAP_PROTO_STOP_MINING_OK:");
             break;
 
         case WAP_PROTO_GET_HARD_FORK_INFO:
@@ -1856,6 +2012,7 @@ wap_proto_print (wap_proto_t *self)
             zsys_debug ("    window=%ld", (long) self->window);
             zsys_debug ("    votes=%ld", (long) self->votes);
             zsys_debug ("    threshold=%ld", (long) self->threshold);
+            zsys_debug ("    earliest_height=%ld", (long) self->earliest_height);
             zsys_debug ("    voting=%ld", (long) self->voting);
             zsys_debug ("    hfstate=%ld", (long) self->hfstate);
             break;
@@ -1876,6 +2033,7 @@ wap_proto_print (wap_proto_t *self)
 
         case WAP_PROTO_STOP_DAEMON:
             zsys_debug ("WAP_PROTO_STOP_DAEMON:");
+            zsys_debug ("    fast=%ld", (long) self->fast);
             break;
 
         case WAP_PROTO_STOP_DAEMON_OK:
@@ -1947,6 +2105,58 @@ wap_proto_print (wap_proto_t *self)
                 zframe_print (self->spent, NULL);
             else
                 zsys_debug ("(NULL)");
+            break;
+
+        case WAP_PROTO_GET_TX_POOL:
+            zsys_debug ("WAP_PROTO_GET_TX_POOL:");
+            break;
+
+        case WAP_PROTO_GET_TX_POOL_OK:
+            zsys_debug ("WAP_PROTO_GET_TX_POOL_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    msg_data=");
+            if (self->msg_data)
+                zmsg_print (self->msg_data);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS:
+            zsys_debug ("WAP_PROTO_SET_OUT_PEERS:");
+            zsys_debug ("    num_out_peers=%ld", (long) self->num_out_peers);
+            break;
+
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            zsys_debug ("WAP_PROTO_SET_OUT_PEERS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            break;
+
+        case WAP_PROTO_GET_BANS:
+            zsys_debug ("WAP_PROTO_GET_BANS:");
+            break;
+
+        case WAP_PROTO_GET_BANS_OK:
+            zsys_debug ("WAP_PROTO_GET_BANS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    bans=");
+            if (self->bans)
+                zframe_print (self->bans, NULL);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
+        case WAP_PROTO_SET_BANS:
+            zsys_debug ("WAP_PROTO_SET_BANS:");
+            zsys_debug ("    bans=");
+            if (self->bans)
+                zframe_print (self->bans, NULL);
+            else
+                zsys_debug ("(NULL)");
+            break;
+
+        case WAP_PROTO_SET_BANS_OK:
+            zsys_debug ("WAP_PROTO_SET_BANS_OK:");
+            zsys_debug ("    status=%ld", (long) self->status);
             break;
 
         case WAP_PROTO_CLOSE:
@@ -2066,11 +2276,11 @@ wap_proto_command (wap_proto_t *self)
         case WAP_PROTO_SAVE_BC_OK:
             return ("SAVE_BC_OK");
             break;
-        case WAP_PROTO_START:
-            return ("START");
+        case WAP_PROTO_START_MINING:
+            return ("START_MINING");
             break;
-        case WAP_PROTO_START_OK:
-            return ("START_OK");
+        case WAP_PROTO_START_MINING_OK:
+            return ("START_MINING_OK");
             break;
         case WAP_PROTO_GET_INFO:
             return ("GET_INFO");
@@ -2126,11 +2336,11 @@ wap_proto_command (wap_proto_t *self)
         case WAP_PROTO_GET_BLOCK_TEMPLATE_OK:
             return ("GET_BLOCK_TEMPLATE_OK");
             break;
-        case WAP_PROTO_STOP:
-            return ("STOP");
+        case WAP_PROTO_STOP_MINING:
+            return ("STOP_MINING");
             break;
-        case WAP_PROTO_STOP_OK:
-            return ("STOP_OK");
+        case WAP_PROTO_STOP_MINING_OK:
+            return ("STOP_MINING_OK");
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO:
             return ("GET_HARD_FORK_INFO");
@@ -2167,6 +2377,30 @@ wap_proto_command (wap_proto_t *self)
             break;
         case WAP_PROTO_GET_KEY_IMAGE_STATUS_OK:
             return ("GET_KEY_IMAGE_STATUS_OK");
+            break;
+        case WAP_PROTO_GET_TX_POOL:
+            return ("GET_TX_POOL");
+            break;
+        case WAP_PROTO_GET_TX_POOL_OK:
+            return ("GET_TX_POOL_OK");
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            return ("SET_OUT_PEERS");
+            break;
+        case WAP_PROTO_SET_OUT_PEERS_OK:
+            return ("SET_OUT_PEERS_OK");
+            break;
+        case WAP_PROTO_GET_BANS:
+            return ("GET_BANS");
+            break;
+        case WAP_PROTO_GET_BANS_OK:
+            return ("GET_BANS_OK");
+            break;
+        case WAP_PROTO_SET_BANS:
+            return ("SET_BANS");
+            break;
+        case WAP_PROTO_SET_BANS_OK:
+            return ("SET_BANS_OK");
             break;
         case WAP_PROTO_CLOSE:
             return ("CLOSE");
@@ -2299,34 +2533,34 @@ wap_proto_set_curr_height (wap_proto_t *self, uint64_t curr_height)
 
 
 //  --------------------------------------------------------------------------
-//  Get the block_data field without transferring ownership
+//  Get the msg_data field without transferring ownership
 
 zmsg_t *
-wap_proto_block_data (wap_proto_t *self)
+wap_proto_msg_data (wap_proto_t *self)
 {
     assert (self);
-    return self->block_data;
+    return self->msg_data;
 }
 
-//  Get the block_data field and transfer ownership to caller
+//  Get the msg_data field and transfer ownership to caller
 
 zmsg_t *
-wap_proto_get_block_data (wap_proto_t *self)
+wap_proto_get_msg_data (wap_proto_t *self)
 {
-    zmsg_t *block_data = self->block_data;
-    self->block_data = NULL;
-    return block_data;
+    zmsg_t *msg_data = self->msg_data;
+    self->msg_data = NULL;
+    return msg_data;
 }
 
-//  Set the block_data field, transferring ownership from caller
+//  Set the msg_data field, transferring ownership from caller
 
 void
-wap_proto_set_block_data (wap_proto_t *self, zmsg_t **msg_p)
+wap_proto_set_msg_data (wap_proto_t *self, zmsg_t **msg_p)
 {
     assert (self);
     assert (msg_p);
-    zmsg_destroy (&self->block_data);
-    self->block_data = *msg_p;
+    zmsg_destroy (&self->msg_data);
+    self->msg_data = *msg_p;
     *msg_p = NULL;
 }
 
@@ -2653,6 +2887,39 @@ wap_proto_set_thread_count (wap_proto_t *self, uint64_t thread_count)
 
 
 //  --------------------------------------------------------------------------
+//  Get the top_block_hash field without transferring ownership
+
+zchunk_t *
+wap_proto_top_block_hash (wap_proto_t *self)
+{
+    assert (self);
+    return self->top_block_hash;
+}
+
+//  Get the top_block_hash field and transfer ownership to caller
+
+zchunk_t *
+wap_proto_get_top_block_hash (wap_proto_t *self)
+{
+    zchunk_t *top_block_hash = self->top_block_hash;
+    self->top_block_hash = NULL;
+    return top_block_hash;
+}
+
+//  Set the top_block_hash field, transferring ownership from caller
+
+void
+wap_proto_set_top_block_hash (wap_proto_t *self, zchunk_t **chunk_p)
+{
+    assert (self);
+    assert (chunk_p);
+    zchunk_destroy (&self->top_block_hash);
+    self->top_block_hash = *chunk_p;
+    *chunk_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the target_height field
 
 uint64_t
@@ -2685,6 +2952,24 @@ wap_proto_set_difficulty (wap_proto_t *self, uint64_t difficulty)
 {
     assert (self);
     self->difficulty = difficulty;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the target field
+
+uint64_t
+wap_proto_target (wap_proto_t *self)
+{
+    assert (self);
+    return self->target;
+}
+
+void
+wap_proto_set_target (wap_proto_t *self, uint64_t target)
+{
+    assert (self);
+    self->target = target;
 }
 
 
@@ -3196,6 +3481,24 @@ wap_proto_set_threshold (wap_proto_t *self, uint32_t threshold)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the earliest_height field
+
+uint64_t
+wap_proto_earliest_height (wap_proto_t *self)
+{
+    assert (self);
+    return self->earliest_height;
+}
+
+void
+wap_proto_set_earliest_height (wap_proto_t *self, uint64_t earliest_height)
+{
+    assert (self);
+    self->earliest_height = earliest_height;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the voting field
 
 byte
@@ -3261,6 +3564,24 @@ wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p)
     zframe_destroy (&self->connections);
     self->connections = *frame_p;
     *frame_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the fast field
+
+byte
+wap_proto_fast (wap_proto_t *self)
+{
+    assert (self);
+    return self->fast;
+}
+
+void
+wap_proto_set_fast (wap_proto_t *self, byte fast)
+{
+    assert (self);
+    self->fast = fast;
 }
 
 
@@ -3508,6 +3829,57 @@ wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the num_out_peers field
+
+uint64_t
+wap_proto_num_out_peers (wap_proto_t *self)
+{
+    assert (self);
+    return self->num_out_peers;
+}
+
+void
+wap_proto_set_num_out_peers (wap_proto_t *self, uint64_t num_out_peers)
+{
+    assert (self);
+    self->num_out_peers = num_out_peers;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get the bans field without transferring ownership
+
+zframe_t *
+wap_proto_bans (wap_proto_t *self)
+{
+    assert (self);
+    return self->bans;
+}
+
+//  Get the bans field and transfer ownership to caller
+
+zframe_t *
+wap_proto_get_bans (wap_proto_t *self)
+{
+    zframe_t *bans = self->bans;
+    self->bans = NULL;
+    return bans;
+}
+
+//  Set the bans field, transferring ownership from caller
+
+void
+wap_proto_set_bans (wap_proto_t *self, zframe_t **frame_p)
+{
+    assert (self);
+    assert (frame_p);
+    zframe_destroy (&self->bans);
+    self->bans = *frame_p;
+    *frame_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the reason field
 
 const char *
@@ -3614,9 +3986,9 @@ wap_proto_test (bool verbose)
     wap_proto_set_status (self, 123);
     wap_proto_set_start_height (self, 123);
     wap_proto_set_curr_height (self, 123);
-    zmsg_t *blocks_ok_block_data = zmsg_new ();
-    wap_proto_set_block_data (self, &blocks_ok_block_data);
-    zmsg_addstr (wap_proto_block_data (self), "Captcha Diem");
+    zmsg_t *blocks_ok_msg_data = zmsg_new ();
+    wap_proto_set_msg_data (self, &blocks_ok_msg_data);
+    zmsg_addstr (wap_proto_msg_data (self), "Captcha Diem");
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -3627,12 +3999,12 @@ wap_proto_test (bool verbose)
         assert (wap_proto_status (self) == 123);
         assert (wap_proto_start_height (self) == 123);
         assert (wap_proto_curr_height (self) == 123);
-        assert (zmsg_size (wap_proto_block_data (self)) == 1);
-        char *content = zmsg_popstr (wap_proto_block_data (self));
+        assert (zmsg_size (wap_proto_msg_data (self)) == 1);
+        char *content = zmsg_popstr (wap_proto_msg_data (self));
         assert (streq (content, "Captcha Diem"));
         zstr_free (&content);
         if (instance == 1)
-            zmsg_destroy (&blocks_ok_block_data);
+            zmsg_destroy (&blocks_ok_msg_data);
     }
     wap_proto_set_id (self, WAP_PROTO_SEND_RAW_TRANSACTION);
 
@@ -3809,10 +4181,10 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
     }
-    wap_proto_set_id (self, WAP_PROTO_START);
+    wap_proto_set_id (self, WAP_PROTO_START_MINING);
 
-    zchunk_t *start_address = zchunk_new ("Captcha Diem", 12);
-    wap_proto_set_address (self, &start_address);
+    zchunk_t *start_mining_address = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_address (self, &start_mining_address);
     wap_proto_set_thread_count (self, 123);
     //  Send twice
     wap_proto_send (self, output);
@@ -3823,10 +4195,10 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (memcmp (zchunk_data (wap_proto_address (self)), "Captcha Diem", 12) == 0);
         if (instance == 1)
-            zchunk_destroy (&start_address);
+            zchunk_destroy (&start_mining_address);
         assert (wap_proto_thread_count (self) == 123);
     }
-    wap_proto_set_id (self, WAP_PROTO_START_OK);
+    wap_proto_set_id (self, WAP_PROTO_START_MINING_OK);
 
     wap_proto_set_status (self, 123);
     //  Send twice
@@ -3852,8 +4224,11 @@ wap_proto_test (bool verbose)
 
     wap_proto_set_status (self, 123);
     wap_proto_set_height (self, 123);
+    zchunk_t *get_info_ok_top_block_hash = zchunk_new ("Captcha Diem", 12);
+    wap_proto_set_top_block_hash (self, &get_info_ok_top_block_hash);
     wap_proto_set_target_height (self, 123);
     wap_proto_set_difficulty (self, 123);
+    wap_proto_set_target (self, 123);
     wap_proto_set_tx_count (self, 123);
     wap_proto_set_tx_pool_size (self, 123);
     wap_proto_set_alt_blocks_count (self, 123);
@@ -3871,8 +4246,12 @@ wap_proto_test (bool verbose)
         assert (wap_proto_routing_id (self));
         assert (wap_proto_status (self) == 123);
         assert (wap_proto_height (self) == 123);
+        assert (memcmp (zchunk_data (wap_proto_top_block_hash (self)), "Captcha Diem", 12) == 0);
+        if (instance == 1)
+            zchunk_destroy (&get_info_ok_top_block_hash);
         assert (wap_proto_target_height (self) == 123);
         assert (wap_proto_difficulty (self) == 123);
+        assert (wap_proto_target (self) == 123);
         assert (wap_proto_tx_count (self) == 123);
         assert (wap_proto_tx_pool_size (self) == 123);
         assert (wap_proto_alt_blocks_count (self) == 123);
@@ -4113,7 +4492,7 @@ wap_proto_test (bool verbose)
         if (instance == 1)
             zchunk_destroy (&get_block_template_ok_block_template_blob);
     }
-    wap_proto_set_id (self, WAP_PROTO_STOP);
+    wap_proto_set_id (self, WAP_PROTO_STOP_MINING);
 
     //  Send twice
     wap_proto_send (self, output);
@@ -4123,7 +4502,7 @@ wap_proto_test (bool verbose)
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
     }
-    wap_proto_set_id (self, WAP_PROTO_STOP_OK);
+    wap_proto_set_id (self, WAP_PROTO_STOP_MINING_OK);
 
     //  Send twice
     wap_proto_send (self, output);
@@ -4153,6 +4532,7 @@ wap_proto_test (bool verbose)
     wap_proto_set_window (self, 123);
     wap_proto_set_votes (self, 123);
     wap_proto_set_threshold (self, 123);
+    wap_proto_set_earliest_height (self, 123);
     wap_proto_set_voting (self, 123);
     wap_proto_set_hfstate (self, 123);
     //  Send twice
@@ -4168,6 +4548,7 @@ wap_proto_test (bool verbose)
         assert (wap_proto_window (self) == 123);
         assert (wap_proto_votes (self) == 123);
         assert (wap_proto_threshold (self) == 123);
+        assert (wap_proto_earliest_height (self) == 123);
         assert (wap_proto_voting (self) == 123);
         assert (wap_proto_hfstate (self) == 123);
     }
@@ -4200,6 +4581,7 @@ wap_proto_test (bool verbose)
     }
     wap_proto_set_id (self, WAP_PROTO_STOP_DAEMON);
 
+    wap_proto_set_fast (self, 123);
     //  Send twice
     wap_proto_send (self, output);
     wap_proto_send (self, output);
@@ -4207,6 +4589,7 @@ wap_proto_test (bool verbose)
     for (instance = 0; instance < 2; instance++) {
         wap_proto_recv (self, input);
         assert (wap_proto_routing_id (self));
+        assert (wap_proto_fast (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_STOP_DAEMON_OK);
 
@@ -4374,6 +4757,115 @@ wap_proto_test (bool verbose)
         assert (zframe_streq (wap_proto_spent (self), "Captcha Diem"));
         if (instance == 1)
             zframe_destroy (&get_key_image_status_ok_spent);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_TX_POOL);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_TX_POOL_OK);
+
+    wap_proto_set_status (self, 123);
+    zmsg_t *get_tx_pool_ok_msg_data = zmsg_new ();
+    wap_proto_set_msg_data (self, &get_tx_pool_ok_msg_data);
+    zmsg_addstr (wap_proto_msg_data (self), "Captcha Diem");
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (zmsg_size (wap_proto_msg_data (self)) == 1);
+        char *content = zmsg_popstr (wap_proto_msg_data (self));
+        assert (streq (content, "Captcha Diem"));
+        zstr_free (&content);
+        if (instance == 1)
+            zmsg_destroy (&get_tx_pool_ok_msg_data);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_OUT_PEERS);
+
+    wap_proto_set_num_out_peers (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_num_out_peers (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_OUT_PEERS_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BANS);
+
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+    }
+    wap_proto_set_id (self, WAP_PROTO_GET_BANS_OK);
+
+    wap_proto_set_status (self, 123);
+    zframe_t *get_bans_ok_bans = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_bans (self, &get_bans_ok_bans);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
+        assert (zframe_streq (wap_proto_bans (self), "Captcha Diem"));
+        if (instance == 1)
+            zframe_destroy (&get_bans_ok_bans);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_BANS);
+
+    zframe_t *set_bans_bans = zframe_new ("Captcha Diem", 12);
+    wap_proto_set_bans (self, &set_bans_bans);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (zframe_streq (wap_proto_bans (self), "Captcha Diem"));
+        if (instance == 1)
+            zframe_destroy (&set_bans_bans);
+    }
+    wap_proto_set_id (self, WAP_PROTO_SET_BANS_OK);
+
+    wap_proto_set_status (self, 123);
+    //  Send twice
+    wap_proto_send (self, output);
+    wap_proto_send (self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        wap_proto_recv (self, input);
+        assert (wap_proto_routing_id (self));
+        assert (wap_proto_status (self) == 123);
     }
     wap_proto_set_id (self, WAP_PROTO_CLOSE);
 

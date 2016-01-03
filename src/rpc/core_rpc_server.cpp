@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -40,7 +40,6 @@ using namespace epee;
 #include "misc_language.h"
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
-#include "daemon/command_line_args.h"
 
 namespace cryptonote
 {
@@ -51,6 +50,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_testnet_rpc_bind_port);
+    command_line::add_arg(desc, arg_restricted_rpc);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(
@@ -69,6 +69,7 @@ namespace cryptonote
 
     m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
     m_port = command_line::get_arg(vm, p2p_bind_arg);
+    m_restricted = command_line::get_arg(vm, arg_restricted_rpc);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -76,7 +77,7 @@ namespace cryptonote
       const boost::program_options::variables_map& vm
     )
   {
-    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     m_net_server.set_threads_prefix("RPC");
     bool r = handle_command_line(vm);
@@ -116,7 +117,14 @@ namespace cryptonote
   bool core_rpc_server::on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res)
   {
     CHECK_CORE_BUSY();
-    res.height = m_core.get_current_blockchain_height();
+    crypto::hash top_hash;
+    if (!m_core.get_blockchain_top(res.height, top_hash))
+    {
+      res.status = "Failed";
+      return false;
+    }
+    ++res.height; // turn top block height into blockchain height
+    res.top_block_hash = string_tools::pod_to_hex(top_hash);
     res.target_height = m_core.get_target_blockchain_height();
     res.difficulty = m_core.get_blockchain_storage().get_difficulty_for_next_block();
     res.tx_count = m_core.get_blockchain_storage().get_total_transactions() - res.height; //without coinbase
@@ -801,6 +809,7 @@ namespace cryptonote
     res.height = m_core.get_current_blockchain_height();
     res.target_height = m_core.get_target_blockchain_height();
     res.difficulty = m_core.get_blockchain_storage().get_difficulty_for_next_block();
+    res.target = m_core.get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET;
     res.tx_count = m_core.get_blockchain_storage().get_total_transactions() - res.height; //without coinbase
     res.tx_pool_size = m_core.get_pool_transactions_count();
     res.alt_blocks_count = m_core.get_blockchain_storage().get_alternative_blocks_count();
@@ -826,7 +835,7 @@ namespace cryptonote
     const Blockchain &blockchain = m_core.get_blockchain_storage();
     uint8_t version = req.version > 0 ? req.version : blockchain.get_ideal_hard_fork_version();
     res.version = blockchain.get_current_hard_fork_version();
-    res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.voting);
+    res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.earliest_height, res.voting);
     res.state = blockchain.get_hard_fork_state();
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -835,6 +844,49 @@ namespace cryptonote
     error_resp.message = "Hard fork inoperative in memory mode.";
     return false;
 #endif
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_bans(const COMMAND_RPC_GETBANS::request& req, COMMAND_RPC_GETBANS::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    std::map<uint32_t, time_t> blocked_ips = m_p2p.get_blocked_ips();
+    for (std::map<uint32_t, time_t>::const_iterator i = blocked_ips.begin(); i != blocked_ips.end(); ++i)
+    {
+      COMMAND_RPC_GETBANS::ban b;
+      b.ip = i->first;
+      b.seconds = i->second;
+      res.bans.push_back(b);
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_bans(const COMMAND_RPC_SETBANS::request& req, COMMAND_RPC_SETBANS::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    for (auto i = req.bans.begin(); i != req.bans.end(); ++i)
+    {
+      if (i->ban)
+        m_p2p.block_ip(i->ip, i->seconds);
+      else
+        m_p2p.unblock_ip(i->ip);
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_fast_exit(const COMMAND_RPC_FAST_EXIT::request& req, COMMAND_RPC_FAST_EXIT::response& res)
@@ -893,6 +945,12 @@ namespace cryptonote
       "testnet-rpc-bind-port"
     , "Port for testnet RPC server"
     , std::to_string(config::testnet::RPC_DEFAULT_PORT)
+    };
+
+  const command_line::arg_descriptor<bool> core_rpc_server::arg_restricted_rpc = {
+      "restricted-rpc"
+    , "Restrict RPC to view only commands"
+    , false
     };
 
 }  // namespace cryptonote

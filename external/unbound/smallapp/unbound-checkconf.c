@@ -335,7 +335,9 @@ morechecks(struct config_file* cfg, const char* fname)
 	if(cfg->edns_buffer_size > cfg->msg_buffer_size)
 		fatal_exit("edns-buffer-size larger than msg-buffer-size, "
 			"answers will not fit in processing buffer");
-
+#ifdef UB_ON_WINDOWS
+	w_config_adjust_directory(cfg);
+#endif
 	if(cfg->chrootdir && cfg->chrootdir[0] && 
 		cfg->chrootdir[strlen(cfg->chrootdir)-1] == '/')
 		fatal_exit("chootdir %s has trailing slash '/' please remove.",

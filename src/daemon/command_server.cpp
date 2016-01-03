@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -187,6 +187,21 @@ t_command_server::t_command_server()
       "hard_fork_info"
     , std::bind(&t_command_parser_executor::hard_fork_info, &m_parser, p::_1)
     , "Print hard fork voting information"
+    );
+    m_command_lookup.set_handler(
+      "bans"
+    , std::bind(&t_command_parser_executor::show_bans, &m_parser, p::_1)
+    , "Show the currently banned IPs"
+    );
+    m_command_lookup.set_handler(
+      "ban"
+    , std::bind(&t_command_parser_executor::ban, &m_parser, p::_1)
+    , "Ban a given IP for a time"
+    );
+    m_command_lookup.set_handler(
+      "unban"
+    , std::bind(&t_command_parser_executor::unban, &m_parser, p::_1)
+    , "Unban a given IP"
     );
 }
 

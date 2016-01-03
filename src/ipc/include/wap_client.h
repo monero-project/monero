@@ -107,15 +107,15 @@ WAP_EXPORT int
 WAP_EXPORT int 
     wap_client_get_info (wap_client_t *self);
 
-//  Send start command to server.                                                   
+//  Send start mining command to server.                                            
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_start (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count);
+    wap_client_start_mining (wap_client_t *self, zchunk_t **address_p, uint64_t thread_count);
 
-//  Send stop command to server.                                                    
+//  Send stop mining command to server.                                             
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_stop (wap_client_t *self);
+    wap_client_stop_mining (wap_client_t *self);
 
 //  Get peer list                                                                   
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -170,7 +170,7 @@ WAP_EXPORT int
 //  Stop daemon                                                                     
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
-    wap_client_stop_daemon (wap_client_t *self);
+    wap_client_stop_daemon (wap_client_t *self, uint8_t fast);
 
 //  Get block by height                                                             
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -186,6 +186,26 @@ WAP_EXPORT int
 //  Returns >= 0 if successful, -1 if interrupted.
 WAP_EXPORT int 
     wap_client_get_key_image_status (wap_client_t *self, zframe_t **key_images_p);
+
+//  Request tx pool from the daemon.                                                
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_tx_pool (wap_client_t *self);
+
+//  Set the max number of out peers                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_set_out_peers (wap_client_t *self, uint64_t num_out_peers);
+
+//  Get list of banned peers                                                        
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_get_bans (wap_client_t *self);
+
+//  Ban/unban peers                                                                 
+//  Returns >= 0 if successful, -1 if interrupted.
+WAP_EXPORT int 
+    wap_client_set_bans (wap_client_t *self, zframe_t **bans_p);
 
 //  Return last received status
 WAP_EXPORT int 
@@ -203,9 +223,9 @@ WAP_EXPORT uint64_t
 WAP_EXPORT uint64_t 
     wap_client_curr_height (wap_client_t *self);
 
-//  Return last received block_data
+//  Return last received msg_data
 WAP_EXPORT zmsg_t *
-    wap_client_block_data (wap_client_t *self);
+    wap_client_msg_data (wap_client_t *self);
 
 //  Return last received tx_data
 WAP_EXPORT zchunk_t *
@@ -227,6 +247,10 @@ WAP_EXPORT zframe_t *
 WAP_EXPORT uint64_t 
     wap_client_height (wap_client_t *self);
 
+//  Return last received top_block_hash
+WAP_EXPORT zchunk_t *
+    wap_client_top_block_hash (wap_client_t *self);
+
 //  Return last received target_height
 WAP_EXPORT uint64_t 
     wap_client_target_height (wap_client_t *self);
@@ -234,6 +258,10 @@ WAP_EXPORT uint64_t
 //  Return last received difficulty
 WAP_EXPORT uint64_t 
     wap_client_difficulty (wap_client_t *self);
+
+//  Return last received target
+WAP_EXPORT uint64_t 
+    wap_client_target (wap_client_t *self);
 
 //  Return last received tx_count
 WAP_EXPORT uint64_t 
@@ -327,6 +355,10 @@ WAP_EXPORT uint32_t
 WAP_EXPORT uint32_t 
     wap_client_threshold (wap_client_t *self);
 
+//  Return last received earliest_height
+WAP_EXPORT uint64_t 
+    wap_client_earliest_height (wap_client_t *self);
+
 //  Return last received voting
 WAP_EXPORT uint8_t 
     wap_client_voting (wap_client_t *self);
@@ -374,6 +406,10 @@ WAP_EXPORT uint64_t
 //  Return last received spent
 WAP_EXPORT zframe_t *
     wap_client_spent (wap_client_t *self);
+
+//  Return last received bans
+WAP_EXPORT zframe_t *
+    wap_client_bans (wap_client_t *self);
 
 //  Self test of this class
 WAP_EXPORT void

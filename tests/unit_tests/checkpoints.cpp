@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -35,7 +35,7 @@
 using namespace cryptonote;
 
 
-TEST(checkpoints_is_alternative_block_allowed, handles_empty_checkpoins)
+TEST(checkpoints_is_alternative_block_allowed, handles_empty_checkpoints)
 {
   checkpoints cp;
 

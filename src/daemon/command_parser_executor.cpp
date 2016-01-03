@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -263,7 +263,7 @@ bool t_command_parser_executor::stop_daemon(const std::vector<std::string>& args
 {
   if (!args.empty()) return false;
 
-  return m_executor.stop_daemon();
+  return m_executor.stop_daemon(false);
 }
 
 bool t_command_parser_executor::print_status(const std::vector<std::string>& args)
@@ -333,7 +333,7 @@ bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& a
 bool t_command_parser_executor::fast_exit(const std::vector<std::string>& args)
 {
 	if (!args.empty()) return false;
-	return m_executor.fast_exit();
+	return m_executor.stop_daemon(true);
 }
 
 bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)
@@ -385,6 +385,35 @@ bool t_command_parser_executor::hard_fork_info(const std::vector<std::string>& a
     return false;
   }
   return m_executor.hard_fork_info(version);
+}
+
+bool t_command_parser_executor::show_bans(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+  return m_executor.print_bans();
+}
+
+bool t_command_parser_executor::ban(const std::vector<std::string>& args)
+{
+  if (args.size() != 1 && args.size() != 2) return false;
+  std::string ip = args[0];
+  time_t seconds = P2P_IP_BLOCKTIME;
+  if (args.size() > 1)
+  {
+    seconds = std::stoi(args[1]);
+    if (seconds == 0)
+    {
+      return false;
+    }
+  }
+  return m_executor.ban(ip, seconds);
+}
+
+bool t_command_parser_executor::unban(const std::vector<std::string>& args)
+{
+  if (args.size() != 1) return false;
+  std::string ip = args[0];
+  return m_executor.unban(ip);
 }
 
 

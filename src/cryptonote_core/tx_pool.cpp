@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -113,7 +113,7 @@ namespace cryptonote
     needed_fee *= FEE_PER_KB;
     if (!kept_by_block && fee < needed_fee /*&& fee < MINING_ALLOWED_LEGACY_FEE*/)
     {
-      LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minumim fee: " << print_money(needed_fee));
+      LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minimum fee: " << print_money(needed_fee));
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -612,6 +612,9 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     m_config_folder = config_folder;
+    if (m_config_folder.empty())
+      return true;
+
     std::string state_file_path = config_folder + "/" + CRYPTONOTE_POOLDATA_FILENAME;
     boost::system::error_code ec;
     if(!boost::filesystem::exists(state_file_path, ec))
@@ -648,6 +651,9 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::deinit()
   {
+    if (m_config_folder.empty())
+      return true;
+
     if (!tools::create_directories_if_necessary(m_config_folder))
     {
       LOG_PRINT_L1("Failed to create data directory: " << m_config_folder);

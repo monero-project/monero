@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -77,6 +77,23 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
   };
+
+    struct COMMAND_RPC_GET_HEIGHT
+    {
+      struct request
+      {
+        BEGIN_KV_SERIALIZE_MAP()
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct response
+      {
+        uint64_t  height;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(height)
+        END_KV_SERIALIZE_MAP()
+      };
+    };
 
   struct transfer_destination
   {
@@ -355,6 +372,36 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(standard_address)
         KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_STOP_WALLET
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_RESCAN_BLOCKCHAIN
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
   };

@@ -1,4 +1,4 @@
-// Copyright (c) 2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -46,6 +46,11 @@ static uint8_t get_block_vote(const cryptonote::block &b)
   return b.minor_version;
 }
 
+static uint8_t get_block_version(const cryptonote::block &b)
+{
+  return b.major_version;
+}
+
 HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, uint8_t default_threshold_percent):
   db(db),
   original_version(original_version),
@@ -61,7 +66,7 @@ HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint6
     throw "default_threshold_percent needs to be between 0 and 100";
 }
 
-bool HardFork::add(uint8_t version, uint64_t height, uint8_t threshold, time_t time)
+bool HardFork::add_fork(uint8_t version, uint64_t height, uint8_t threshold, time_t time)
 {
   CRITICAL_REGION_LOCAL(lock);
 
@@ -82,42 +87,44 @@ bool HardFork::add(uint8_t version, uint64_t height, uint8_t threshold, time_t t
   return true;
 }
 
-bool HardFork::add(uint8_t version, uint64_t height, time_t time)
+bool HardFork::add_fork(uint8_t version, uint64_t height, time_t time)
 {
-  return add(version, height, default_threshold_percent, time);
+  return add_fork(version, height, default_threshold_percent, time);
 }
 
-uint8_t HardFork::get_effective_version(uint8_t version) const
+uint8_t HardFork::get_effective_version(uint8_t voting_version) const
 {
   if (!heights.empty()) {
     uint8_t max_version = heights.back().version;
-    if (version > max_version)
-      version = max_version;
+    if (voting_version > max_version)
+      voting_version = max_version;
   }
-  return version;
+  return voting_version;
 }
 
-bool HardFork::do_check(uint8_t version) const
+bool HardFork::do_check(uint8_t block_version, uint8_t voting_version) const
 {
-  return version >= heights[current_fork_index].version;
+  return block_version >= heights[current_fork_index].version
+      && block_version <= get_ideal_version()
+      && voting_version >= heights[current_fork_index].version;
 }
 
 bool HardFork::check(const cryptonote::block &block) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  return do_check(get_block_vote(block));
+  return do_check(::get_block_version(block), ::get_block_vote(block));
 }
 
-bool HardFork::add(uint8_t block_version, uint64_t height)
+bool HardFork::add(uint8_t block_version, uint8_t voting_version, uint64_t height)
 {
   CRITICAL_REGION_LOCAL(lock);
 
-  if (!do_check(block_version))
+  if (!do_check(block_version, voting_version))
     return false;
 
   db.set_hard_fork_version(height, heights[current_fork_index].version);
 
-  const uint8_t version = get_effective_version(block_version);
+  voting_version = get_effective_version(voting_version);
 
   while (versions.size() >= window_size) {
     const uint8_t old_version = versions.front();
@@ -126,8 +133,8 @@ bool HardFork::add(uint8_t block_version, uint64_t height)
     versions.pop_front();
   }
 
-  last_versions[version]++;
-  versions.push_back(version);
+  last_versions[voting_version]++;
+  versions.push_back(voting_version);
 
   uint8_t voted = get_voted_fork_index(height + 1);
   if (voted > current_fork_index) {
@@ -143,7 +150,7 @@ bool HardFork::add(uint8_t block_version, uint64_t height)
 
 bool HardFork::add(const cryptonote::block &block, uint64_t height)
 {
-  return add(get_block_vote(block), height);
+  return add(::get_block_version(block), ::get_block_vote(block), height);
 }
 
 void HardFork::init()
@@ -185,7 +192,7 @@ uint8_t HardFork::get_block_version(uint64_t height) const
     return original_version;
 
   const cryptonote::block &block = db.get_block_from_height(height);
-  return get_block_vote(block);
+  return ::get_block_version(block);
 }
 
 bool HardFork::reorganize_from_block_height(uint64_t height)
@@ -203,7 +210,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
     last_versions[n] = 0;
   const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size  -1) : 0;
   const uint8_t start_version = height == 0 ? original_version : db.get_hard_fork_version(height);
-  while (heights[current_fork_index].version > start_version) {
+  while (current_fork_index > 0 && heights[current_fork_index].version > start_version) {
     db.set_hard_fork_starting_height(heights[current_fork_index].version, std::numeric_limits<uint64_t>::max());
     --current_fork_index;
   }
@@ -225,7 +232,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
 
   const uint64_t bc_height = db.height();
   for (uint64_t h = height + 1; h < bc_height; ++h) {
-    add(get_block_version(h), h);
+    add(db.get_block_from_height(h), h);
   }
 
   db.batch_stop();
@@ -258,7 +265,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
     versions.push_back(v);
   }
 
-  uint8_t lastv = db.get_hard_fork_version(height);
+  uint8_t lastv = db.get_hard_fork_version(db.height() - 1);
   current_fork_index = 0;
   while (current_fork_index + 1 < heights.size() && heights[current_fork_index].version != lastv)
     ++current_fork_index;
@@ -348,7 +355,16 @@ uint8_t HardFork::get_ideal_version(uint64_t height) const
   return original_version;
 }
 
-bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const
+uint64_t HardFork::get_earliest_ideal_height_for_version(uint8_t version) const
+{
+  for (unsigned int n = heights.size() - 1; n > 0; --n) {
+    if (heights[n].version <= version)
+      return heights[n].height;
+  }
+  return 0;
+}
+
+bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
   CRITICAL_REGION_LOCAL(lock);
 
@@ -359,7 +375,8 @@ bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &vote
   for (size_t n = version; n < 256; ++n)
       votes += last_versions[n];
   threshold = (window * heights[current_version].threshold + 99) / 100;
-  assert((votes >= threshold) == enabled);
+  //assert((votes >= threshold) == enabled);
+  earliest_height = get_earliest_ideal_height_for_version(version);
   voting = heights.back().version;
   return enabled;
 }

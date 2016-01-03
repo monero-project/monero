@@ -239,7 +239,7 @@ namespace
     uint64_t threads_count = request_json["threads_count"].GetUint();
 
     zchunk_t *address_chunk = zchunk_new((void*)miner_address.c_str(), miner_address.length());
-    int status = wap_client_start(ipc_client, &address_chunk, threads_count);
+    int status = wap_client_start_mining(ipc_client, &address_chunk, threads_count);
     zchunk_destroy(&address_chunk);
     if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
@@ -275,7 +275,7 @@ namespace
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
     }
-    int status = wap_client_stop(ipc_client);
+    int status = wap_client_stop_mining(ipc_client);
     if (status < 0) {
       return ns_rpc_create_error(buf, len, req, daemon_connection_error,
         "Couldn't connect to daemon.", "{}");
@@ -379,9 +379,8 @@ namespace
     zframe_t *white_list_frame = wap_client_white_list(ipc_client);
     rapidjson::Document white_list_json;
     char *data = reinterpret_cast<char*>(zframe_data(white_list_frame));
-    size_t size = zframe_size(white_list_frame);
 
-    if (white_list_json.Parse(data, size).HasParseError()) {
+    if (white_list_json.Parse(data).HasParseError()) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Couldn't parse JSON sent by daemon.", "{}");
     }
@@ -391,9 +390,8 @@ namespace
     zframe_t *gray_list_frame = wap_client_gray_list(ipc_client);
     rapidjson::Document gray_list_json;
     data = reinterpret_cast<char*>(zframe_data(gray_list_frame));
-    size = zframe_size(gray_list_frame);
 
-    if (gray_list_json.Parse(data, size).HasParseError()) {
+    if (gray_list_json.Parse(data).HasParseError()) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Couldn't parse JSON sent by daemon.", "{}");
     }
@@ -845,16 +843,15 @@ namespace
     result_json.SetObject();
     rapidjson::Value blocks(rapidjson::kArrayType);
 
-    zframe_t *frame = zmsg_first(wap_client_block_data(ipc_client));
+    zframe_t *frame = zmsg_first(wap_client_msg_data(ipc_client));
     if (!frame) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Internal error.", "{}");
     }
-    size_t size = zframe_size(frame);
     char *block_data = reinterpret_cast<char*>(zframe_data(frame));
 
     rapidjson::Document json;
-    if (json.Parse(block_data, size).HasParseError()) {
+    if (json.Parse(block_data).HasParseError()) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Internal error.", "{}");
     }

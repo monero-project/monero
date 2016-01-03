@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 //
@@ -28,6 +28,9 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <memory>
+#include <stdexcept>
+#include "misc_log_ex.h"
 #include "daemon/daemon.h"
 
 #include "common/util.h"
@@ -35,16 +38,14 @@
 #include "daemon/p2p.h"
 #include "daemon/protocol.h"
 #include "daemon/command_server.h"
-#include "misc_log_ex.h"
 #include "version.h"
 #include "../../contrib/epee/include/syncobj.h"
 #include "daemon_ipc_handlers.h"
+#include "rpc/core_rpc_server.h"
 
 using namespace epee;
 
-#include <boost/program_options.hpp>
 #include <functional>
-#include <memory>
 
 unsigned int epee::g_test_dbg_lock_sleep = 0;
 
@@ -57,6 +58,7 @@ public:
   t_core core;
   t_p2p p2p;
   bool testnet_mode;
+  bool restricted_rpc;
 
   t_internals(
       boost::program_options::variables_map const & vm
@@ -68,7 +70,8 @@ public:
     // Handle circular dependencies
     protocol.set_p2p_endpoint(p2p.get());
     core.set_protocol(protocol.get());
-    testnet_mode = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    testnet_mode = command_line::get_arg(vm, command_line::arg_testnet_on);
+    restricted_rpc = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc);
   }
 };
 
@@ -113,17 +116,18 @@ bool t_daemon::run(bool interactive)
   {
     throw std::runtime_error{"Can't run stopped daemon"};
   }
-  tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop, this));
+  tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop_p2p, this));
 
   try
   {
     daemonize::t_command_server* rpc_commands = NULL;
 
-    mp_internals->core.run();
+    if (!mp_internals->core.run())
+      return false;
 
     if (interactive)
     {
-      IPC::Daemon::init(mp_internals->core.get(), mp_internals->p2p.get(), mp_internals->testnet_mode);
+      IPC::Daemon::init(mp_internals->core.get(), mp_internals->p2p.get(), mp_internals->testnet_mode, mp_internals->restricted_rpc);
       rpc_commands = new daemonize::t_command_server();
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }

@@ -39,6 +39,11 @@
 
 #include "daemon_ipc_handlers.h"
 
+// for tx_info and spent_key_image_info, maybe they should be moved elsewhere
+#include "rpc/core_rpc_server_commands_defs.h"
+////#include "serialization/serialization.h"
+//#include "serialization/vector.h"
+
 #include <iostream>
 
 /*!
@@ -52,6 +57,7 @@ namespace
     /*!< Pointer to p2p node server */
   zactor_t *server = NULL; /*!< 0MQ server */
   bool testnet = false; /*!< testnet mode or not */
+  bool restricted = false; /*!< only command suitable for public use */
 
   /*!
    * \brief Checks if core is busy
@@ -124,13 +130,14 @@ namespace IPC
      */
     void init(cryptonote::core &p_core,
       nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > &p_p2p,
-      bool p_testnet)
+      bool p_testnet, bool p_restricted)
     {
       if (server)
         stop();
       p2p = &p_p2p;
       core = &p_core;
       testnet = p_testnet;
+      restricted = p_restricted;
       server = zactor_new (wap_server, NULL);
       zsock_send (server, "ss", "BIND", "ipc://@/monero");
       zsock_send (server, "sss", "SET", "server/timeout", "5000");
@@ -153,6 +160,10 @@ namespace IPC
      */
     void start_mining(wap_proto_t *message)
     {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
@@ -187,6 +198,10 @@ namespace IPC
      */
     void stop_mining(wap_proto_t *message)
     {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!core->get_miner().stop())
       {
         wap_proto_set_status(message, STATUS_MINING_NOT_STOPPED);
@@ -228,50 +243,43 @@ namespace IPC
         return;
       }
 
-      // We are using JSON to encode blocks. The JSON string will sit in a 
-      // 0MQ frame which gets sent in a zmsg_t object. One could put each block
-      // a different frame too.
+      // we need this to be fast, as refreshing from the wallet is something
+      // the user waits through, so we don't encode to JSON (and decode on the
+      // wallet side). Instead we sent:
+      //  - uin64_t nblocks (big endian)
+      //  - That many blocks, consisting of:
+      //    - string (4 byte length prefixed)
+      //    - uint32_t ntransactions (big endian)
+      //    - That many transactions, consisting of:
+      //      - string (4 byte length prefixed)
+      std::string block_string;
+      cryptonote::blobdata blob;
 
-      // First create a rapidjson object and then stringify it.
-      rapidjson::Document result_json;
-      result_json.SetObject();
-      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
-      rapidjson::Value block_json(rapidjson::kArrayType);
-      std::string blob;
-      BOOST_FOREACH(auto &b, bs)
-      {
-        rapidjson::Value this_block(rapidjson::kObjectType);
-        blob = block_to_blob(b.first);
-        rapidjson::Value string_value(rapidjson::kStringType);
-        string_value.SetString(blob.c_str(), blob.length(), allocator);
-        this_block.AddMember("block", string_value.Move(), allocator);
-        rapidjson::Value txs_blocks(rapidjson::kArrayType);
-        BOOST_FOREACH(auto &t, b.second)
-        {
-          rapidjson::Value string_value(rapidjson::kStringType);
-          blob = cryptonote::tx_to_blob(t);
-          string_value.SetString(blob.c_str(), blob.length(), allocator);
-          txs_blocks.PushBack(string_value.Move(), allocator);
+      block_string.resize(block_string.size()+8);
+      IPC::write64be((uint8_t*)block_string.c_str() + block_string.size() - 8, bs.size());
+      for (std::list<std::pair<cryptonote::block, std::list<cryptonote::transaction>>>::const_iterator i = bs.begin(); i != bs.end(); ++i) {
+        block_string.resize(block_string.size()+4);
+        blob = block_to_blob(i->first);
+        IPC::write32be((uint8_t*)block_string.c_str() + block_string.size() - 4, blob.size());
+        block_string.append(blob);
+        block_string.resize(block_string.size()+4);
+        IPC::write32be((uint8_t*)block_string.c_str() + block_string.size() - 4, i->second.size());
+        for (std::list<cryptonote::transaction>::const_iterator j = i->second.begin(); j != i->second.end(); ++j) {
+          block_string.resize(block_string.size()+4);
+          blob = cryptonote::tx_to_blob(*j);
+          IPC::write32be((uint8_t*)block_string.c_str() + block_string.size() - 4, blob.size());
+          block_string.append(blob);
         }
-        this_block.AddMember("txs", txs_blocks, allocator);
-        block_json.PushBack(this_block, allocator);
       }
 
-      result_json.AddMember("blocks", block_json, allocator);
-
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      result_json.Accept(writer);
-      std::string block_string = buffer.GetString();
+      // put that string in a frame and msg
       zmsg_t *block_data = zmsg_new();
-      // Put the JSON string in a frame.
       zframe_t *frame = zframe_new(block_string.c_str(), block_string.length());
       zmsg_prepend(block_data, &frame);
       wap_proto_set_start_height(message, result_start_height);
       wap_proto_set_curr_height(message, result_current_height);
+      wap_proto_set_msg_data(message, &block_data);
       wap_proto_set_status(message, STATUS_OK);
-      wap_proto_set_block_data(message, &block_data);
-
     }
 
     /*!
@@ -455,6 +463,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void save_bc(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_busy()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
@@ -478,8 +490,12 @@ namespace IPC
       }
       uint64_t height = core->get_current_blockchain_height();
       wap_proto_set_height(message, height);
+      std::string top_block_hash = epee::string_tools::pod_to_hex(core->get_blockchain_storage().get_tail_id());
+      zchunk_t *top_block_hash_chunk = zchunk_new(top_block_hash.c_str(), top_block_hash.size());
+      wap_proto_set_top_block_hash(message, &top_block_hash_chunk);
       wap_proto_set_target_height(message, core->get_target_blockchain_height());
       wap_proto_set_difficulty(message, core->get_blockchain_storage().get_difficulty_for_next_block());
+      wap_proto_set_target(message, core->get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET);
       wap_proto_set_tx_count(message, core->get_blockchain_storage().get_total_transactions() - height);
       wap_proto_set_tx_pool_size(message, core->get_pool_transactions_count());
       wap_proto_set_alt_blocks_count(message, core->get_blockchain_storage().get_alternative_blocks_count());
@@ -499,6 +515,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void get_peer_list(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       std::list<nodetool::peerlist_entry> white_list;
       std::list<nodetool::peerlist_entry> gray_list;
       p2p->get_peerlist_manager().get_peerlist_full(white_list, gray_list);
@@ -562,6 +582,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void get_mining_status(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_ready()) {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
@@ -587,6 +611,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void set_log_hash_rate(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (core->get_miner().is_mining())
       {
         core->get_miner().do_print_hashrate(wap_proto_visible(message));
@@ -604,6 +632,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void set_log_level(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       // zproto supports only unsigned integers afaik. so the log level is sent as
       // one and casted to signed int here.
       int8_t level = (int8_t)wap_proto_level(message);
@@ -626,6 +658,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void start_save_graph(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       p2p->set_save_graph(true);
       wap_proto_set_status(message, STATUS_OK);
     }
@@ -636,6 +672,10 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void stop_save_graph(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       p2p->set_save_graph(false);
       wap_proto_set_status(message, STATUS_OK);
     }
@@ -756,7 +796,8 @@ namespace IPC
 
       uint32_t window, votes, threshold;
       uint8_t voting;
-      bool enabled = blockchain.get_hard_fork_voting_info(version, window, votes, threshold, voting);
+      uint64_t earliest_height;
+      bool enabled = blockchain.get_hard_fork_voting_info(version, window, votes, threshold, earliest_height, voting);
       cryptonote::HardFork::State hfstate = blockchain.get_hard_fork_state();
 
       wap_proto_set_hfversion(message, blockchain.get_current_hard_fork_version());
@@ -764,6 +805,7 @@ namespace IPC
       wap_proto_set_window(message, window);
       wap_proto_set_votes(message, votes);
       wap_proto_set_threshold(message, threshold);
+      wap_proto_set_earliest_height(message, earliest_height);
       wap_proto_set_voting(message, voting);
       wap_proto_set_hfstate(message, hfstate);
 
@@ -838,12 +880,24 @@ namespace IPC
      * \param message 0MQ response object to populate
      */
     void stop_daemon(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
       if (!check_core_ready())
       {
         wap_proto_set_status(message, STATUS_CORE_BUSY);
         return;
       }
-      p2p->send_stop_signal();
+      bool fast = wap_proto_fast(message);
+      if (fast) {
+        cryptonote::core::set_fast_exit();
+        p2p->deinit();
+        core->deinit();
+      }
+      else {
+        p2p->send_stop_signal();
+      }
       wap_proto_set_status(message, STATUS_OK);
     }
 
@@ -1053,6 +1107,205 @@ namespace IPC
         spent_data[n] = spent_status[n];
       frame = zframe_new(spent_data, n_key_images * sizeof(bool));
       wap_proto_set_spent(message, &frame);
+
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_tx_pool IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_tx_pool(wap_proto_t *message)
+    {
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      std::vector<cryptonote::tx_info> transactions;
+      std::vector<cryptonote::spent_key_image_info> key_images;
+      if (!core->get_pool_transactions_and_spent_keys_info(transactions, key_images)) {
+        wap_proto_set_status(message, STATUS_INTERNAL_ERROR);
+        return;
+      }
+
+      // We are using JSON to encode transactions. The JSON string will sit in a 
+      // 0MQ frame which gets sent in a zmsg_t object. One could put each transaction
+      // a different frame too.
+
+      // First create a rapidjson object and then stringify it.
+      rapidjson::Document result_json;
+      result_json.SetObject();
+      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+      rapidjson::Value tx_json(rapidjson::kArrayType), ki_json(rapidjson::kArrayType);
+      rapidjson::Value string_value(rapidjson::kStringType);
+
+      BOOST_FOREACH(auto &txi, transactions)
+      {
+        rapidjson::Value this_tx(rapidjson::kObjectType);
+
+        string_value.SetString(txi.id_hash.c_str(), txi.id_hash.size(), allocator);
+        this_tx.AddMember("id_hash", string_value.Move(), allocator);
+        string_value.SetString(txi.tx_json.c_str(), txi.tx_json.size(), allocator);
+        this_tx.AddMember("tx_json", string_value.Move(), allocator);
+        this_tx.AddMember("blob_size", txi.blob_size, allocator);
+        this_tx.AddMember("fee", txi.fee, allocator);
+        string_value.SetString(txi.max_used_block_id_hash.c_str(), txi.max_used_block_id_hash.size(), allocator);
+        this_tx.AddMember("max_used_block_id_hash", string_value.Move(), allocator);
+        this_tx.AddMember("max_used_block_height", txi.max_used_block_height, allocator);
+        this_tx.AddMember("kept_by_block", txi.kept_by_block, allocator);
+        this_tx.AddMember("last_failed_height", txi.last_failed_height, allocator);
+        string_value.SetString(txi.last_failed_id_hash.c_str(), txi.last_failed_id_hash.size(), allocator);
+        this_tx.AddMember("last_failed_id_hash", string_value.Move(), allocator);
+        this_tx.AddMember("receive_time", txi.receive_time, allocator);
+
+        tx_json.PushBack(this_tx, allocator);
+      }
+      result_json.AddMember("tx_info", tx_json, allocator);
+
+      BOOST_FOREACH(auto &skii, key_images)
+      {
+        rapidjson::Value this_ki(rapidjson::kObjectType);
+
+        string_value.SetString(skii.id_hash.c_str(), skii.id_hash.size(), allocator);
+        this_ki.AddMember("id_hash", string_value.Move(), allocator);
+
+        rapidjson::Value tx_hashes_json(rapidjson::kArrayType);
+        BOOST_FOREACH(auto &tx_hash, skii.txs_hashes)
+        {
+          string_value.SetString(tx_hash.c_str(), tx_hash.size(), allocator);
+          tx_hashes_json.PushBack(string_value.Move(), allocator);
+        }
+        this_ki.AddMember("tx_hashes", tx_hashes_json, allocator);
+
+        ki_json.PushBack(this_ki, allocator);
+      }
+      result_json.AddMember("spent_key_image_info", ki_json, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      result_json.Accept(writer);
+      std::string tx_string = buffer.GetString();
+      zmsg_t *tx_data = zmsg_new();
+      // Put the JSON string in a frame.
+      zframe_t *frame = zframe_new(tx_string.c_str(), tx_string.length());
+      zmsg_prepend(tx_data, &frame);
+      wap_proto_set_msg_data(message, &tx_data);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief set_out_peers IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void set_out_peers(wap_proto_t *message) {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
+      if (!check_core_ready())
+      {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+      uint32_t num_out_peers = wap_proto_num_out_peers(message);
+      LOG_PRINT_L0("set_out_peers not implemented");
+      wap_proto_set_status(message, STATUS_NOT_IMPLEMENTED);
+    }
+
+    /*!
+     * \brief get_bans IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void get_bans(wap_proto_t *message)
+    {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      // We are using JSON to encode the bans list. The JSON string will sit in a 
+      // 0MQ frame which gets sent in a zmsg_t object.
+
+      // First create a rapidjson object and then stringify it.
+      rapidjson::Document result_json;
+      result_json.SetObject();
+      rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+      rapidjson::Value bans_json(rapidjson::kArrayType);
+      rapidjson::Value string_value(rapidjson::kStringType);
+
+      const auto now = time(nullptr);
+      std::map<uint32_t, time_t> blocked_ips = p2p->get_blocked_ips();
+      for (std::map<uint32_t, time_t>::const_iterator i = blocked_ips.begin(); i != blocked_ips.end(); ++i)
+      {
+        rapidjson::Value this_ban(rapidjson::kObjectType);
+
+        std::string ip = epee::string_tools::get_ip_string_from_int32(i->first);
+        string_value.SetString(ip.c_str(), ip.size(), allocator);
+        this_ban.AddMember("ip", string_value.Move(), allocator);
+        uint64_t seconds = i->second >= now ? i->second - now : 0;
+        this_ban.AddMember("seconds", seconds, allocator);
+
+        bans_json.PushBack(this_ban, allocator);
+      }
+      result_json.AddMember("bans", bans_json, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      result_json.Accept(writer);
+      std::string bans_string = buffer.GetString();
+      // Put the JSON string in a frame.
+      zframe_t *frame = zframe_new(bans_string.c_str(), bans_string.length());
+      wap_proto_set_bans(message, &frame);
+      wap_proto_set_status(message, STATUS_OK);
+    }
+
+    /*!
+     * \brief get_bans IPC
+     * 
+     * \param message 0MQ response object to populate
+     */
+    void set_bans(wap_proto_t *message)
+    {
+      if (restricted) {
+        wap_proto_set_status(message, STATUS_RESTRICTED_COMMAND);
+        return;
+      }
+      if (!check_core_busy()) {
+        wap_proto_set_status(message, STATUS_CORE_BUSY);
+        return;
+      }
+
+      zframe_t *bans = wap_proto_bans(message);
+      const char *data = (const char*)zframe_data(bans);
+      rapidjson::Document bans_json;
+      if (bans_json.Parse(data).HasParseError()) {
+        wap_proto_set_status(message, STATUS_BAD_JSON_SYNTAX);
+        return;
+      }
+
+      size_t nbans = bans_json["bans"].Size();
+      for (size_t n = 0; n < nbans; ++n) {
+        uint32_t ip;
+        if (!epee::string_tools::get_ip_int32_from_string(ip, bans_json["bans"][n]["ip"].GetString())) {
+          wap_proto_set_status(message, STATUS_BAD_IP_ADDRESS);
+          return;
+        }
+        bool ban = bans_json["bans"][n]["ban"].GetBool();
+        uint64_t seconds = bans_json["bans"][n]["seconds"].GetUint64(); 
+
+        if (ban)
+          p2p->block_ip(ip, seconds);
+        else
+          p2p->unblock_ip(ip);
+      }
 
       wap_proto_set_status(message, STATUS_OK);
     }

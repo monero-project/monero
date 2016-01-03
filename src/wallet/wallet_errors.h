@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -188,6 +188,12 @@ namespace tools
     {
       explicit file_error_base(std::string&& loc, const std::string& file)
         : wallet_logic_error(std::move(loc), std::string(file_error_messages[msg_index]) +  " \"" + file + '\"')
+        , m_file(file)
+      {
+      }
+
+      explicit file_error_base(std::string&& loc, const std::string& file, const std::error_code &e)
+        : wallet_logic_error(std::move(loc), std::string(file_error_messages[msg_index]) +  " \"" + file + "\": " + e.message())
         , m_file(file)
       {
       }

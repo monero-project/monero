@@ -126,6 +126,10 @@ static void config_start_include_glob(const char* filename)
 #endif
 		;
 		memset(&g, 0, sizeof(g));
+		if(cfg_parser->chroot && strncmp(filename, cfg_parser->chroot,
+			strlen(cfg_parser->chroot)) == 0) {
+			filename += strlen(cfg_parser->chroot);
+		}
 		r = glob(filename, flags, NULL, &g);
 		if(r) {
 			/* some error */
@@ -201,6 +205,7 @@ SQANY     [^\'\n\r\\]|\\.
 	/* note that flex makes the longest match and '.' is any but not nl */
 	LEXOUT(("comment(%s) ", yytext)); /* ignore */ }
 server{COLON}			{ YDVAR(0, VAR_SERVER) }
+qname-minimisation{COLON}	{ YDVAR(1, VAR_QNAME_MINIMISATION) }
 num-threads{COLON}		{ YDVAR(1, VAR_NUM_THREADS) }
 verbosity{COLON}		{ YDVAR(1, VAR_VERBOSITY) }
 port{COLON}			{ YDVAR(1, VAR_PORT) }

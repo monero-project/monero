@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -58,6 +58,10 @@ namespace
     "wrong txid length",
     "tx not found",
     "wrong key image length",
+    "bad JSON syntax",
+    "bad IP address",
+    "restricted command",
+    "not implemented",
   };
 }
 

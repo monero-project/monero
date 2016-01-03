@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -40,7 +40,6 @@
 #include "misc_log_ex.h"
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
-#include <boost/program_options.hpp>
 #include "daemon/command_line_args.h"
 #include "blockchain_db/db_types.h"
 
@@ -73,26 +72,16 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, command_line::arg_help);
       command_line::add_arg(visible_options, command_line::arg_version);
       command_line::add_arg(visible_options, daemon_args::arg_os_version);
-      command_line::add_arg(visible_options, command_line::arg_data_dir, default_data_dir.string());
-      command_line::add_arg(visible_options, command_line::arg_testnet_data_dir, default_testnet_data_dir.string());
       bf::path default_conf = default_data_dir / std::string(CRYPTONOTE_NAME ".conf");
       command_line::add_arg(visible_options, daemon_args::arg_config_file, default_conf.string());
-      command_line::add_arg(visible_options, command_line::arg_test_drop_download);
       command_line::add_arg(visible_options, command_line::arg_test_dbg_lock_sleep);
-      command_line::add_arg(visible_options, command_line::arg_test_drop_download_height);
 
+      cryptonote::core::init_options(core_settings);
+    
       // Settings
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
       command_line::add_arg(core_settings, daemon_args::arg_log_file, default_log.string());
       command_line::add_arg(core_settings, daemon_args::arg_log_level);
-      command_line::add_arg(core_settings, daemon_args::arg_testnet_on);
-      command_line::add_arg(core_settings, daemon_args::arg_dns_checkpoints);
-      command_line::add_arg(core_settings, daemon_args::arg_db_type);
-      command_line::add_arg(core_settings, daemon_args::arg_prep_blocks_threads);
-      command_line::add_arg(core_settings, daemon_args::arg_fast_block_sync);
-      command_line::add_arg(core_settings, daemon_args::arg_db_sync_mode);
-      command_line::add_arg(core_settings, daemon_args::arg_show_time_stats);
-      command_line::add_arg(core_settings, daemon_args::arg_db_auto_remove_logs);
 
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -104,6 +93,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_rpc_bind_ip);
       command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_rpc_bind_port);
       command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
+      command_line::add_arg(hidden_options, cryptonote::core_rpc_server::arg_restricted_rpc);
 
       visible_options.add(core_settings);
       all_options.add(visible_options);
@@ -151,7 +141,7 @@ int main(int argc, char const * argv[])
     
     epee::g_test_dbg_lock_sleep = command_line::get_arg(vm, command_line::arg_test_dbg_lock_sleep);
 
-    std::string db_type = command_line::get_arg(vm, daemon_args::arg_db_type);
+    std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
 
     // verify that blockchaindb type is valid
     if(cryptonote::blockchain_db_types.count(db_type) == 0)
@@ -164,7 +154,7 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    bool testnet_mode = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    bool testnet_mode = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     auto data_dir_arg = testnet_mode ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
 

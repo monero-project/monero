@@ -26,7 +26,7 @@ Throttling work by:
 
 */
 
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 

@@ -1,4 +1,4 @@
-// Copyright (c) 2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -71,7 +71,7 @@ namespace cryptonote
      * @param threshold The threshold of votes needed for this fork (0-100)
      * @param time Approximate time of the hardfork (seconds since epoch)
      */
-    bool add(uint8_t version, uint64_t height, uint8_t threshold, time_t time);
+    bool add_fork(uint8_t version, uint64_t height, uint8_t threshold, time_t time);
 
     /**
      * @brief add a new hardfork height
@@ -79,10 +79,11 @@ namespace cryptonote
      * returns true if no error, false otherwise
      *
      * @param version the major block version for the fork
+     * @param voting_version the minor block version for the fork, used for voting
      * @param height The height the hardfork takes effect
      * @param time Approximate time of the hardfork (seconds since epoch)
      */
-    bool add(uint8_t version, uint64_t height, time_t time);
+    bool add_fork(uint8_t version, uint64_t height, time_t time);
 
     /**
      * @brief initialize the object
@@ -183,6 +184,11 @@ namespace cryptonote
     uint8_t get_current_version() const;
 
     /**
+     * @brief returns the earliest block a given version may activate
+     */
+    uint64_t get_earliest_ideal_height_for_version(uint8_t version) const;
+
+    /**
      * @brief returns information about current voting state
      *
      * returns true if the given version is enabled (ie, the current version
@@ -192,8 +198,9 @@ namespace cryptonote
      * @param window the number of blocks considered in voting
      * @param votes number of votes for next version
      * @param threshold number of votes needed to switch to next version
+     * @param earliest_height earliest height at which the version can take effect
      */
-    bool get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint8_t &voting) const;
+    bool get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const;
 
     /**
      * @brief returns the size of the voting window in blocks
@@ -203,10 +210,10 @@ namespace cryptonote
   private:
 
     uint8_t get_block_version(uint64_t height) const;
-    bool do_check(uint8_t version) const;
+    bool do_check(uint8_t block_version, uint8_t voting_version) const;
     int get_voted_fork_index(uint64_t height) const;
-    uint8_t get_effective_version(uint8_t version) const;
-    bool add(uint8_t block_version, uint64_t height);
+    uint8_t get_effective_version(uint8_t voting_version) const;
+    bool add(uint8_t block_version, uint8_t voting_version, uint64_t height);
 
     bool rescan_from_block_height(uint64_t height);
     bool rescan_from_chain_height(uint64_t height);

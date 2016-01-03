@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -257,7 +257,7 @@ namespace cryptonote
       m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
     }
 
-    LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" )
+    LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" );
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -278,14 +278,17 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::stop()
   {
+    if (!is_mining())
+      return true;
+
     send_stop_signal();
     CRITICAL_REGION_LOCAL(m_threads_lock);
 
     BOOST_FOREACH(boost::thread& th, m_threads)
       th.join();
 
-    m_threads.clear();
     LOG_PRINT_L0("Mining has been stopped, " << m_threads.size() << " finished" );
+    m_threads.clear();
     return true;
   }
   //-----------------------------------------------------------------------------------------------------

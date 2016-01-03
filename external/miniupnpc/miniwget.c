@@ -1,8 +1,8 @@
-/* $Id: miniwget.c,v 1.61 2014/02/05 17:27:48 nanard Exp $ */
+/* $Id: miniwget.c,v 1.70 2015/07/15 12:41:13 nanard Exp $ */
 /* Project : miniupnp
  * Website : http://miniupnp.free.fr/
  * Author : Thomas Bernard
- * Copyright (c) 2005-2014 Thomas Bernard
+ * Copyright (c) 2005-2015 Thomas Bernard
  * This software is subject to the conditions detailed in the
  * LICENCE file provided in this distribution. */
 
@@ -38,6 +38,7 @@
 #include <net/if.h>
 #include <netdb.h>
 #define closesocket close
+#include <strings.h>
 #endif /* #else _WIN32 */
 #ifdef __GNU__
 #define MAXHOSTNAMELEN 64
@@ -84,7 +85,24 @@ getHTTPResponse(int s, int * size)
 	unsigned int chunksize_buf_index;
 
 	header_buf = malloc(header_buf_len);
+	if(header_buf == NULL)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "%s: Memory allocation error\n", "getHTTPResponse");
+#endif /* DEBUG */
+		*size = -1;
+		return NULL;
+	}
 	content_buf = malloc(content_buf_len);
+	if(content_buf == NULL)
+	{
+		free(header_buf);
+#ifdef DEBUG
+		fprintf(stderr, "%s: Memory allocation error\n", "getHTTPResponse");
+#endif /* DEBUG */
+		*size = -1;
+		return NULL;
+	}
 	chunksize_buf[0] = '\0';
 	chunksize_buf_index = 0;
 
@@ -97,7 +115,15 @@ getHTTPResponse(int s, int * size)
 			int colon=0;
 			int valuestart=0;
 			if(header_buf_used + n > header_buf_len) {
-				header_buf = realloc(header_buf, header_buf_used + n);
+				char * tmp = realloc(header_buf, header_buf_used + n);
+				if(tmp == NULL) {
+					/* memory allocation error */
+					free(header_buf);
+					free(content_buf);
+					*size = -1;
+					return NULL;
+				}
+				header_buf = tmp;
 				header_buf_len = header_buf_used + n;
 			}
 			memcpy(header_buf + header_buf_used, buf, n);
@@ -232,13 +258,21 @@ getHTTPResponse(int s, int * size)
 					bytestocopy = ((int)chunksize < (n - i))?chunksize:(unsigned int)(n - i);
 					if((content_buf_used + bytestocopy) > content_buf_len)
 					{
+						char * tmp;
 						if(content_length >= (int)(content_buf_used + bytestocopy)) {
 							content_buf_len = content_length;
 						} else {
 							content_buf_len = content_buf_used + bytestocopy;
 						}
-						content_buf = (char *)realloc((void *)content_buf,
-						                              content_buf_len);
+						tmp = realloc(content_buf, content_buf_len);
+						if(tmp == NULL) {
+							/* memory allocation error */
+							free(content_buf);
+							free(header_buf);
+							*size = -1;
+							return NULL;
+						}
+						content_buf = tmp;
 					}
 					memcpy(content_buf + content_buf_used, buf + i, bytestocopy);
 					content_buf_used += bytestocopy;
@@ -256,13 +290,21 @@ getHTTPResponse(int s, int * size)
 				}
 				if(content_buf_used + n > content_buf_len)
 				{
+					char * tmp;
 					if(content_length >= (int)(content_buf_used + n)) {
 						content_buf_len = content_length;
 					} else {
 						content_buf_len = content_buf_used + n;
 					}
-					content_buf = (char *)realloc((void *)content_buf,
-					                              content_buf_len);
+					tmp = realloc(content_buf, content_buf_len);
+					if(tmp == NULL) {
+						/* memory allocation error */
+						free(content_buf);
+						free(header_buf);
+						*size = -1;
+						return NULL;
+					}
+					content_buf = tmp;
 				}
 				memcpy(content_buf + content_buf_used, buf, n);
 				content_buf_used += n;
@@ -368,10 +410,15 @@ miniwget3(const char * host,
                  "GET %s HTTP/%s\r\n"
 			     "Host: %s:%d\r\n"
 				 "Connection: Close\r\n"
-				 "User-Agent: " OS_STRING ", UPnP/1.0, MiniUPnPc/" MINIUPNPC_VERSION_STRING "\r\n"
+				 "User-Agent: " OS_STRING ", " UPNP_VERSION_STRING ", MiniUPnPc/" MINIUPNPC_VERSION_STRING "\r\n"
 
 				 "\r\n",
 			   path, httpversion, host, port);
+	if ((unsigned int)len >= sizeof(buf))
+	{
+		closesocket(s);
+		return NULL;
+	}
 	sent = 0;
 	/* sending the HTTP request */
 	while(sent < len)

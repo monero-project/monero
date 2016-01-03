@@ -180,6 +180,8 @@ static void usage()
 		SSLeay_version(SSLEAY_VERSION)
 #elif defined(HAVE_NSS)
 		NSS_GetVersion()
+#elif defined(HAVE_NETTLE)
+		"nettle"
 #endif
 		);
 	printf("linked modules:");
@@ -449,6 +451,9 @@ perform_setup(struct daemon* daemon, struct config_file* cfg, int debug_mode,
 			fatal_exit("user '%s' does not exist.", cfg->username);
 		/* endpwent below, in case we need pwd for setusercontext */
 	}
+#endif
+#ifdef UB_ON_WINDOWS
+	w_config_adjust_directory(cfg);
 #endif
 
 	/* init syslog (as root) if needed, before daemonize, otherwise

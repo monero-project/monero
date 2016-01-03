@@ -35,8 +35,8 @@ typedef enum {
     send_raw_transaction_event = 4,
     get_tx_event = 5,
     save_bc_event = 6,
-    start_event = 7,
-    stop_event = 8,
+    start_mining_event = 7,
+    stop_mining_event = 8,
     output_indexes_event = 9,
     random_outs_event = 10,
     get_height_event = 11,
@@ -55,11 +55,15 @@ typedef enum {
     get_block_by_height_event = 24,
     get_block_by_hash_event = 25,
     get_key_image_status_event = 26,
-    close_event = 27,
-    ping_event = 28,
-    expired_event = 29,
-    exception_event = 30,
-    settled_event = 31
+    get_tx_pool_event = 27,
+    set_out_peers_event = 28,
+    get_bans_event = 29,
+    set_bans_event = 30,
+    close_event = 31,
+    ping_event = 32,
+    expired_event = 33,
+    exception_event = 34,
+    settled_event = 35
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -81,8 +85,8 @@ s_event_name [] = {
     "SEND_RAW_TRANSACTION",
     "GET_TX",
     "SAVE_BC",
-    "START",
-    "STOP",
+    "START_MINING",
+    "STOP_MINING",
     "OUTPUT_INDEXES",
     "RANDOM_OUTS",
     "GET_HEIGHT",
@@ -101,6 +105,10 @@ s_event_name [] = {
     "GET_BLOCK_BY_HEIGHT",
     "GET_BLOCK_BY_HASH",
     "GET_KEY_IMAGE_STATUS",
+    "GET_TX_POOL",
+    "SET_OUT_PEERS",
+    "GET_BANS",
+    "SET_BANS",
     "CLOSE",
     "PING",
     "expired",
@@ -218,6 +226,14 @@ static void
     get_block_by_hash (client_t *self);
 static void
     get_key_image_status (client_t *self);
+static void
+    get_tx_pool (client_t *self);
+static void
+    set_out_peers (client_t *self);
+static void
+    get_bans (client_t *self);
+static void
+    set_bans (client_t *self);
 static void
     deregister_wallet (client_t *self);
 static void
@@ -432,8 +448,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_SAVE_BC:
             return save_bc_event;
             break;
-        case WAP_PROTO_START:
-            return start_event;
+        case WAP_PROTO_START_MINING:
+            return start_mining_event;
             break;
         case WAP_PROTO_GET_INFO:
             return get_info_event;
@@ -462,8 +478,8 @@ s_protocol_event (wap_proto_t *message)
         case WAP_PROTO_GET_BLOCK_TEMPLATE:
             return get_block_template_event;
             break;
-        case WAP_PROTO_STOP:
-            return stop_event;
+        case WAP_PROTO_STOP_MINING:
+            return stop_mining_event;
             break;
         case WAP_PROTO_GET_HARD_FORK_INFO:
             return get_hard_fork_info_event;
@@ -482,6 +498,18 @@ s_protocol_event (wap_proto_t *message)
             break;
         case WAP_PROTO_GET_KEY_IMAGE_STATUS:
             return get_key_image_status_event;
+            break;
+        case WAP_PROTO_GET_TX_POOL:
+            return get_tx_pool_event;
+            break;
+        case WAP_PROTO_SET_OUT_PEERS:
+            return set_out_peers_event;
+            break;
+        case WAP_PROTO_GET_BANS:
+            return get_bans_event;
+            break;
+        case WAP_PROTO_SET_BANS:
+            return set_bans_event;
             break;
         case WAP_PROTO_CLOSE:
             return close_event;
@@ -770,7 +798,7 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == start_event) {
+                if (self->event == start_mining_event) {
                     if (!self->exception) {
                         //  start mining process
                         if (self->server->verbose)
@@ -778,17 +806,17 @@ s_client_execute (s_client_t *self, event_t event)
                         start_mining_process (&self->client);
                     }
                     if (!self->exception) {
-                        //  send START_OK
+                        //  send START_MINING_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send START_OK",
+                            zsys_debug ("%s:         $ send START_MINING_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_START_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_START_MINING_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }
                 }
                 else
-                if (self->event == stop_event) {
+                if (self->event == stop_mining_event) {
                     if (!self->exception) {
                         //  stop mining process
                         if (self->server->verbose)
@@ -796,11 +824,11 @@ s_client_execute (s_client_t *self, event_t event)
                         stop_mining_process (&self->client);
                     }
                     if (!self->exception) {
-                        //  send STOP_OK
+                        //  send STOP_MINING_OK
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send STOP_OK",
+                            zsys_debug ("%s:         $ send STOP_MINING_OK",
                                 self->log_prefix);
-                        wap_proto_set_id (self->server->message, WAP_PROTO_STOP_OK);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_STOP_MINING_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }
@@ -1125,6 +1153,78 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ send GET_KEY_IMAGE_STATUS_OK",
                                 self->log_prefix);
                         wap_proto_set_id (self->server->message, WAP_PROTO_GET_KEY_IMAGE_STATUS_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_tx_pool_event) {
+                    if (!self->exception) {
+                        //  get tx pool
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get tx pool", self->log_prefix);
+                        get_tx_pool (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_TX_POOL_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_TX_POOL_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_TX_POOL_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == set_out_peers_event) {
+                    if (!self->exception) {
+                        //  set out peers
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set out peers", self->log_prefix);
+                        set_out_peers (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_OUT_PEERS_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send SET_OUT_PEERS_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SET_OUT_PEERS_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == get_bans_event) {
+                    if (!self->exception) {
+                        //  get bans
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ get bans", self->log_prefix);
+                        get_bans (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send GET_BANS_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GET_BANS_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_GET_BANS_OK);
+                        wap_proto_set_routing_id (self->server->message, self->routing_id);
+                        wap_proto_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == set_bans_event) {
+                    if (!self->exception) {
+                        //  set bans
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set bans", self->log_prefix);
+                        set_bans (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SET_BANS_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send SET_BANS_OK",
+                                self->log_prefix);
+                        wap_proto_set_id (self->server->message, WAP_PROTO_SET_BANS_OK);
                         wap_proto_set_routing_id (self->server->message, self->routing_id);
                         wap_proto_send (self->server->message, self->server->router);
                     }

@@ -6,7 +6,7 @@
 
 */
 
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -100,6 +100,12 @@ public:
   bool stop_save_graph(const std::vector<std::string>& args);
   
   bool hard_fork_info(const std::vector<std::string>& args);
+
+  bool show_bans(const std::vector<std::string>& args);
+
+  bool ban(const std::vector<std::string>& args);
+
+  bool unban(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize

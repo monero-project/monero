@@ -39,7 +39,7 @@ BLOCKS-OK, or ERROR if the request is invalid.
         status              number 4    Status
         start_height        number 8    
         curr_height         number 8    
-        block_data          msg         Frames of block data
+        msg_data            msg         Frames of block data
 
     SEND_RAW_TRANSACTION - Wallet sends a raw transaction to the daemon. Daemon replies with
 SEND-RAW-TRANSACTION-OK, or ERROR.
@@ -84,12 +84,12 @@ with GET-OK, or ERROR.
     SAVE_BC_OK - Daemon replies to a save_bc command.
         status              number 4    Status
 
-    START - Wallet asks daemon to start mining. Daemon replies with START-OK, or
+    START_MINING - Wallet asks daemon to start mining. Daemon replies with START-MINING-OK, or
 ERROR.
         address             chunk       
         thread_count        number 8    
 
-    START_OK - Daemon replies to a start mining request.
+    START_MINING_OK - Daemon replies to a start mining request.
         status              number 4    
 
     GET_INFO - getinfo IPC
@@ -97,8 +97,10 @@ ERROR.
     GET_INFO_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 4    Status
         height              number 8    Height
+        top_block_hash      chunk       Top block hash
         target_height       number 8    Target Height
         difficulty          number 8    Difficulty
+        target              number 8    Target
         tx_count            number 8    TX Count
         tx_pool_size        number 8    TX Pool Size
         alt_blocks_count    number 8    Alt Blocks Count
@@ -165,10 +167,10 @@ ERROR.
         prev_hash           chunk       Previous Hash
         block_template_blob  chunk      Block template blob
 
-    STOP - Wallet asks daemon to start mining. Daemon replies with STOP-OK, or
+    STOP_MINING - Wallet asks daemon to stop mining. Daemon replies with STOP-MINING-OK, or
 ERROR.
 
-    STOP_OK - Daemon replies to a stop mining request.
+    STOP_MINING_OK - Daemon replies to a stop mining request.
 
     GET_HARD_FORK_INFO - get_hard_fork_info IPC
         hfversion           number 1    Version
@@ -180,6 +182,7 @@ ERROR.
         window              number 4    Window
         votes               number 4    Votes
         threshold           number 4    Threshold
+        earliest_height     number 8    Earliest height
         voting              number 1    Voting
         hfstate             number 4    State
 
@@ -190,6 +193,7 @@ ERROR.
         connections         frame       Connections
 
     STOP_DAEMON - stop_daemon IPC
+        fast                number 1    Fast exit
 
     STOP_DAEMON_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
         status              number 4    Status
@@ -240,6 +244,30 @@ ERROR.
         status              number 4    Status
         spent               frame       Key image spent status
 
+    GET_TX_POOL - Wallet requests the tx pool from the daemon.
+
+    GET_TX_POOL_OK - Daemon returns a set of transactions to the wallet.
+        status              number 4    Status
+        msg_data            msg         Frames of transaction data
+
+    SET_OUT_PEERS - Wallet sets the max number of out peers
+        num_out_peers       number 8    
+
+    SET_OUT_PEERS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+
+    GET_BANS - Wallet gets the list of banned peers
+
+    GET_BANS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+        bans                frame       List of banned peers
+
+    SET_BANS - Wallet gives a list of peers to ban or unban
+        bans                frame       List of peers to ban or unban
+
+    SET_BANS_OK - This is a codec for a Bitcoin Wallet Access Protocol (RFC tbd)
+        status              number 4    Status
+
     CLOSE - Wallet closes the connection. This is polite though not mandatory.
 Daemon will reply with CLOSE-OK or ERROR.
 
@@ -282,8 +310,8 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_TX_OK                 14
 #define WAP_PROTO_SAVE_BC                   15
 #define WAP_PROTO_SAVE_BC_OK                16
-#define WAP_PROTO_START                     17
-#define WAP_PROTO_START_OK                  18
+#define WAP_PROTO_START_MINING              17
+#define WAP_PROTO_START_MINING_OK           18
 #define WAP_PROTO_GET_INFO                  19
 #define WAP_PROTO_GET_INFO_OK               20
 #define WAP_PROTO_GET_PEER_LIST             21
@@ -302,8 +330,8 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_BLOCK_HASH_OK         34
 #define WAP_PROTO_GET_BLOCK_TEMPLATE        35
 #define WAP_PROTO_GET_BLOCK_TEMPLATE_OK     36
-#define WAP_PROTO_STOP                      37
-#define WAP_PROTO_STOP_OK                   38
+#define WAP_PROTO_STOP_MINING               37
+#define WAP_PROTO_STOP_MINING_OK            38
 #define WAP_PROTO_GET_HARD_FORK_INFO        39
 #define WAP_PROTO_GET_HARD_FORK_INFO_OK     40
 #define WAP_PROTO_GET_CONNECTIONS_LIST      41
@@ -316,11 +344,19 @@ Daemon will reply with CLOSE-OK or ERROR.
 #define WAP_PROTO_GET_BLOCK_BY_HASH_OK      48
 #define WAP_PROTO_GET_KEY_IMAGE_STATUS      49
 #define WAP_PROTO_GET_KEY_IMAGE_STATUS_OK   50
-#define WAP_PROTO_CLOSE                     51
-#define WAP_PROTO_CLOSE_OK                  52
-#define WAP_PROTO_PING                      53
-#define WAP_PROTO_PING_OK                   54
-#define WAP_PROTO_ERROR                     55
+#define WAP_PROTO_GET_TX_POOL               51
+#define WAP_PROTO_GET_TX_POOL_OK            52
+#define WAP_PROTO_SET_OUT_PEERS             53
+#define WAP_PROTO_SET_OUT_PEERS_OK          54
+#define WAP_PROTO_GET_BANS                  55
+#define WAP_PROTO_GET_BANS_OK               56
+#define WAP_PROTO_SET_BANS                  57
+#define WAP_PROTO_SET_BANS_OK               58
+#define WAP_PROTO_CLOSE                     59
+#define WAP_PROTO_CLOSE_OK                  60
+#define WAP_PROTO_PING                      61
+#define WAP_PROTO_PING_OK                   62
+#define WAP_PROTO_ERROR                     63
 
 #include <czmq.h>
 
@@ -404,15 +440,15 @@ uint64_t
 void
     wap_proto_set_curr_height (wap_proto_t *self, uint64_t curr_height);
 
-//  Get a copy of the block_data field
+//  Get a copy of the msg_data field
 zmsg_t *
-    wap_proto_block_data (wap_proto_t *self);
-//  Get the block_data field and transfer ownership to caller
+    wap_proto_msg_data (wap_proto_t *self);
+//  Get the msg_data field and transfer ownership to caller
 zmsg_t *
-    wap_proto_get_block_data (wap_proto_t *self);
-//  Set the block_data field, transferring ownership from caller
+    wap_proto_get_msg_data (wap_proto_t *self);
+//  Set the msg_data field, transferring ownership from caller
 void
-    wap_proto_set_block_data (wap_proto_t *self, zmsg_t **msg_p);
+    wap_proto_set_msg_data (wap_proto_t *self, zmsg_t **msg_p);
 
 //  Get a copy of the tx_as_hex field
 zchunk_t *
@@ -514,6 +550,16 @@ uint64_t
 void
     wap_proto_set_thread_count (wap_proto_t *self, uint64_t thread_count);
 
+//  Get a copy of the top_block_hash field
+zchunk_t *
+    wap_proto_top_block_hash (wap_proto_t *self);
+//  Get the top_block_hash field and transfer ownership to caller
+zchunk_t *
+    wap_proto_get_top_block_hash (wap_proto_t *self);
+//  Set the top_block_hash field, transferring ownership from caller
+void
+    wap_proto_set_top_block_hash (wap_proto_t *self, zchunk_t **chunk_p);
+
 //  Get/set the target_height field
 uint64_t
     wap_proto_target_height (wap_proto_t *self);
@@ -525,6 +571,12 @@ uint64_t
     wap_proto_difficulty (wap_proto_t *self);
 void
     wap_proto_set_difficulty (wap_proto_t *self, uint64_t difficulty);
+
+//  Get/set the target field
+uint64_t
+    wap_proto_target (wap_proto_t *self);
+void
+    wap_proto_set_target (wap_proto_t *self, uint64_t target);
 
 //  Get/set the tx_count field
 uint64_t
@@ -690,6 +742,12 @@ uint32_t
 void
     wap_proto_set_threshold (wap_proto_t *self, uint32_t threshold);
 
+//  Get/set the earliest_height field
+uint64_t
+    wap_proto_earliest_height (wap_proto_t *self);
+void
+    wap_proto_set_earliest_height (wap_proto_t *self, uint64_t earliest_height);
+
 //  Get/set the voting field
 byte
     wap_proto_voting (wap_proto_t *self);
@@ -711,6 +769,12 @@ zframe_t *
 //  Set the connections field, transferring ownership from caller
 void
     wap_proto_set_connections (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the fast field
+byte
+    wap_proto_fast (wap_proto_t *self);
+void
+    wap_proto_set_fast (wap_proto_t *self, byte fast);
 
 //  Get/set the header_only field
 byte
@@ -789,6 +853,22 @@ zframe_t *
 //  Set the spent field, transferring ownership from caller
 void
     wap_proto_set_spent (wap_proto_t *self, zframe_t **frame_p);
+
+//  Get/set the num_out_peers field
+uint64_t
+    wap_proto_num_out_peers (wap_proto_t *self);
+void
+    wap_proto_set_num_out_peers (wap_proto_t *self, uint64_t num_out_peers);
+
+//  Get a copy of the bans field
+zframe_t *
+    wap_proto_bans (wap_proto_t *self);
+//  Get the bans field and transfer ownership to caller
+zframe_t *
+    wap_proto_get_bans (wap_proto_t *self);
+//  Set the bans field, transferring ownership from caller
+void
+    wap_proto_set_bans (wap_proto_t *self, zframe_t **frame_p);
 
 //  Get/set the reason field
 const char *

@@ -1,4 +1,4 @@
-// Copyright (c) 2014, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -391,6 +391,10 @@ void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_out
         if (m_output_data->put(DB_DEFAULT_TX, &k, &data, 0))
             throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
     }
+    else
+    {
+      throw0(DB_ERROR("Wrong output type: expected txout_to_key"));
+    }
 
     m_num_outputs++;
 }
@@ -588,7 +592,7 @@ bool BlockchainBDB::for_all_blocks(std::function<bool(uint64_t, const crypto::ha
 
     bdb_cur cur(DB_DEFAULT_TX, m_blocks);
 
-    Dbt_copy<uint64_t> k;
+    Dbt_copy<uint32_t> k;
     Dbt_safe v;
     bool ret = true;
     int result;
@@ -759,7 +763,7 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
     }
     else
     {
-        if (!boost::filesystem::create_directory(direc))
+        if (!boost::filesystem::create_directories(direc))
             throw0(DB_OPEN_FAILURE(std::string("Failed to create directory ").append(filename).c_str()));
     }
 
@@ -780,12 +784,12 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
         m_env->set_lk_max_lockers(DB_MAX_LOCKS);
         m_env->set_lk_max_objects(DB_MAX_LOCKS);
         
+        if(m_auto_remove_logs)
+          m_env->log_set_config(DB_LOG_AUTO_REMOVE, 1);
+
         // last parameter left 0, files will be created with default rw access
         m_env->open(filename.c_str(), db_env_open_flags, 0);
         m_env->set_flags(db_flags, 1);
-
-        if(m_auto_remove_logs)
-        	m_env->log_set_config(DB_LOG_AUTO_REMOVE, 1);
 
         // begin transaction to init dbs
         bdb_txn_safe txn;
@@ -964,7 +968,41 @@ void BlockchainBDB::close()
 
     // FIXME: not yet thread safe!!!  Use with care.
     m_open = false;
+
+    // DB_FORCESYNC is only available on newer version of libdb.
+    // The libdb doc says using the DB_FORCESYNC flag to DB_ENV->close
+    // is "similar to calling the DB->close(0) method to close each
+    // database handle". So this is what we do here as a fallback.
+#ifdef DB_FORCESYNC
     m_env->close(DB_FORCESYNC);
+#else
+    m_blocks->close(0);
+    m_block_heights->close(0);
+    m_block_hashes->close(0);
+    m_block_timestamps->close(0);
+    m_block_sizes->close(0);
+    m_block_diffs->close(0);
+    m_block_coins->close(0);
+
+    m_txs->close(0);
+    m_tx_unlocks->close(0);
+    m_tx_heights->close(0);
+    m_tx_outputs->close(0);
+
+    m_output_txs->close(0);
+    m_output_indices->close(0);
+    m_output_amounts->close(0);
+    m_output_data->close(0);
+
+    m_spent_keys->close(0);
+
+    m_hf_starting_heights->close(0);
+    m_hf_versions->close(0);
+
+    m_properties->close(0);
+
+    m_env->close(0);
+#endif
 }
 
 void BlockchainBDB::sync()
@@ -1008,7 +1046,46 @@ void BlockchainBDB::sync()
 void BlockchainBDB::reset()
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    // TODO: this
+    check_open();
+
+    bdb_txn_safe txn;
+    if (m_env->txn_begin(NULL, txn, 0))
+        throw0(DB_ERROR("Failed to create a transaction for the db"));
+    m_write_txn = &txn;
+    try
+    {
+        uint32_t count;
+
+        m_blocks->truncate(*m_write_txn, &count, 0);
+        m_block_heights->truncate(*m_write_txn, &count, 0);
+        m_block_hashes->truncate(*m_write_txn, &count, 0);
+        m_block_timestamps->truncate(*m_write_txn, &count, 0);
+        m_block_sizes->truncate(*m_write_txn, &count, 0);
+        m_block_diffs->truncate(*m_write_txn, &count, 0);
+        m_block_coins->truncate(*m_write_txn, &count, 0);
+
+        m_txs->truncate(*m_write_txn, &count, 0);
+        m_tx_unlocks->truncate(*m_write_txn, &count, 0);
+        m_tx_heights->truncate(*m_write_txn, &count, 0);
+        m_tx_outputs->truncate(*m_write_txn, &count, 0);
+
+        m_output_txs->truncate(*m_write_txn, &count, 0);
+        m_output_indices->truncate(*m_write_txn, &count, 0);
+        m_output_amounts->truncate(*m_write_txn, &count, 0);
+        m_output_data->truncate(*m_write_txn, &count, 0);
+
+        m_spent_keys->truncate(*m_write_txn, &count, 0);
+
+        m_hf_starting_heights->truncate(*m_write_txn, &count, 0);
+        m_hf_versions->truncate(*m_write_txn, &count, 0);
+
+        m_properties->truncate(*m_write_txn, &count, 0);
+    }
+    catch (const std::exception& e)
+    {
+        throw0(DB_ERROR(std::string("Failed to reset database: ").append(e.what()).c_str()));
+    }
+    m_write_txn = NULL;
 }
 
 std::vector<std::string> BlockchainBDB::get_filenames() const
@@ -2103,7 +2180,7 @@ uint8_t BlockchainBDB::get_hard_fork_version(uint64_t height) const
 
 void BlockchainBDB::checkpoint_worker() const
 {
-    LOG_PRINT_L0("Entering BDB checkpoint thread.")
+    LOG_PRINT_L0("Entering BDB checkpoint thread.");
     int count = 0;
     while(m_run_checkpoint && m_open)
     {
@@ -2115,12 +2192,24 @@ void BlockchainBDB::checkpoint_worker() const
             count = 0;
             if(m_env->txn_checkpoint(0, 0, 0) != 0)
             {
-                LOG_PRINT_L0("BDB txn_checkpoint failed.")
+                LOG_PRINT_L0("BDB txn_checkpoint failed.");
                 break;
             }
         }
     }
-    LOG_PRINT_L0("Leaving BDB checkpoint thread.")
+    LOG_PRINT_L0("Leaving BDB checkpoint thread.");
+}
+
+bool BlockchainBDB::is_read_only() const
+{
+  return false;
+}
+
+void BlockchainBDB::fixup()
+{
+  LOG_PRINT_L3("BlockchainBDB::" << __func__);
+  // Always call parent as well
+  BlockchainDB::fixup();
 }
 
 }  // namespace cryptonote

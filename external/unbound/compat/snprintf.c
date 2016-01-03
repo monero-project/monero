@@ -42,6 +42,7 @@
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
+#include <limits.h>
 
 /* for test */
 /* #define SNPRINTF_TEST 1 */
@@ -428,7 +429,7 @@ print_num_llp(char** at, size_t* left, int* ret, void* value,
 	char buf[PRINT_DEC_BUFSZ];
 	int negative = 0;
 	int zero = (value == 0);
-#if defined(UINTPTR_MAX) && defined(UINT32_MAX) && (UINTPTR_MAX == UINT32_MAX)
+#if defined(SIZE_MAX) && defined(UINT32_MAX) && (UINT32_MAX == SIZE_MAX || INT32_MAX == SIZE_MAX)
 	/* avoid warning about upcast on 32bit systems */
 	unsigned long long llvalue = (unsigned long)value;
 #else

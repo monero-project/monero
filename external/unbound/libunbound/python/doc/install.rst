@@ -22,7 +22,7 @@ You need GNU make to compile sources; SWIG and Python devel libraries to compile
 
 **Testing**
 
-If the compilation is successfull, you can test the python LDNS extension module by::
+If the compilation is successful, you can test the python LDNS extension module by::
 
 	> cd contrib/python
 	> make testenv

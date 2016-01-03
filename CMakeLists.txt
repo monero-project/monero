@@ -1,5 +1,5 @@
-# Copyright (c) 2014-2015, The Monero Project
-# 
+# Copyright (c) 2014-2016, The Monero Project
+#
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without modification, are
@@ -68,8 +68,11 @@ if (NOT ${ARCH} STREQUAL "")
 endif()
 
 if(WIN32 OR ARM7 OR ARM6)
-	set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+  set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
+  set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+else()
+  set(CMAKE_C_FLAGS_RELEASE "-Ofast -DNDEBUG -Wno-unused-variable")
+  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -DNDEBUG -Wno-unused-variable")
 endif()
 
 # set this to 0 if per-block checkpoint needs to be disabled
@@ -293,7 +296,10 @@ else()
     endif()
   endif()
   set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-error=sign-compare -Wno-error=strict-aliasing -Wno-error=type-limits -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
-  set(WARNINGS "${WARNINGS} -Wno-error=unused-function -Wno-error=logical-not-parentheses")
+  set(WARNINGS "${WARNINGS} -Wno-error=unused-function")
+  if((NOT (CMAKE_C_COMPILER_ID STREQUAL "GNU")) OR (NOT (CMAKE_C_COMPILER_VERSION VERSION_LESS 5.0)))
+    set(WARNINGS "${WARNINGS} -Wno-error=logical-not-parentheses")
+  endif()
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     set(WARNINGS "${WARNINGS} -Wno-deprecated-register")
   endif()
@@ -312,6 +318,10 @@ else()
     include_directories(SYSTEM src/platform/mingw)
     # mingw doesn't support LTO (multiple definition errors at link time)
     set(USE_LTO_DEFAULT false)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,10485760")
+    if(NOT BUILD_64)
+      add_definitions(-DWINVER=0x0501 -D_WIN32_WINNT=0x0501)
+    endif()
   endif()
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
@@ -342,8 +352,8 @@ else()
 
   if(ARM7)
     message(STATUS "Setting ARM7 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=vfpv4 -funsafe-math-optimizations -mtune=cortex-a7")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=vfpv4 -funsafe-math-optimizations -mtune=cortex-a7")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -mfloat-abi=hard")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -mfloat-abi=hard")
   endif()
 
   if(APPLE)
@@ -354,8 +364,6 @@ else()
   else()
     set(DEBUG_FLAGS "-g3 -O0")
   endif()
-
-  set(RELEASE_FLAGS "-Ofast -DNDEBUG -Wno-unused-variable")
 
   if(NOT DEFINED USE_LTO_DEFAULT)
     set(USE_LTO_DEFAULT true)

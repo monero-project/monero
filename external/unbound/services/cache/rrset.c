@@ -190,6 +190,7 @@ rrset_cache_update(struct rrset_cache* r, struct rrset_ref* ref,
 	uint16_t rrset_type = ntohs(k->rk.type);
 	int equal = 0;
 	log_assert(ref->id != 0 && k->id != 0);
+	log_assert(k->rk.dname != NULL);
 	/* looks up item with a readlock - no editing! */
 	if((e=slabhash_lookup(&r->table, h, k, 0)) != 0) {
 		/* return id and key as they will be used in the cache

@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -98,7 +98,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints()
   {
-    if (m_testnet) return true;
+    if (m_testnet || m_fakechain) return true;
 
     if (m_checkpoints_updating.test_and_set()) return true;
 
@@ -130,20 +130,36 @@ namespace cryptonote
     graceful_exit();
   }
   //-----------------------------------------------------------------------------------
-  void core::init_options(boost::program_options::options_description& /*desc*/)
+  void core::init_options(boost::program_options::options_description& desc)
   {
+    command_line::add_arg(desc, command_line::arg_data_dir, tools::get_default_data_dir());
+    command_line::add_arg(desc, command_line::arg_testnet_data_dir, (boost::filesystem::path(tools::get_default_data_dir()) / "testnet").string());
+
+    command_line::add_arg(desc, command_line::arg_test_drop_download);
+    command_line::add_arg(desc, command_line::arg_test_drop_download_height);
+
+    command_line::add_arg(desc, command_line::arg_testnet_on);
+    command_line::add_arg(desc, command_line::arg_dns_checkpoints);
+    command_line::add_arg(desc, command_line::arg_db_type);
+    command_line::add_arg(desc, command_line::arg_prep_blocks_threads);
+    command_line::add_arg(desc, command_line::arg_fast_block_sync);
+    command_line::add_arg(desc, command_line::arg_db_sync_mode);
+    command_line::add_arg(desc, command_line::arg_show_time_stats);
+    command_line::add_arg(desc, command_line::arg_db_auto_remove_logs);
+    command_line::add_arg(desc, command_line::arg_fakechain);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
   {
-    m_testnet = command_line::get_arg(vm, daemon_args::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    m_fakechain = command_line::get_arg(vm, command_line::arg_fakechain);
 
     auto data_dir_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, data_dir_arg);
 
     auto data_dir = boost::filesystem::path(m_config_folder);
 
-    if (!m_testnet)
+    if (!m_testnet && !m_fakechain)
     {
       cryptonote::checkpoints checkpoints;
       if (!checkpoints.init_default_checkpoints())
@@ -159,7 +175,7 @@ namespace cryptonote
     }
 
 
-    set_enforce_dns_checkpoints(command_line::get_arg(vm, daemon_args::arg_dns_checkpoints));
+    set_enforce_dns_checkpoints(command_line::get_arg(vm, command_line::arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
     
     if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
@@ -207,14 +223,34 @@ namespace cryptonote
   {
     bool r = handle_command_line(vm);
 
-    r = m_mempool.init(m_config_folder);
+    r = m_mempool.init(m_fakechain ? std::string() : m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
 #if BLOCKCHAIN_DB == DB_LMDB
-    std::string db_type = command_line::get_arg(vm, daemon_args::arg_db_type);
-    std::string db_sync_mode = command_line::get_arg(vm, daemon_args::arg_db_sync_mode);
-    bool fast_sync = command_line::get_arg(vm, daemon_args::arg_fast_block_sync) != 0;
-    uint64_t blocks_threads = command_line::get_arg(vm, daemon_args::arg_prep_blocks_threads);
+    std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
+    std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
+    bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
+    uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
+
+    boost::filesystem::path folder(m_config_folder);
+    if (m_fakechain)
+      folder /= "fake";
+    //
+    // check for blockchain.bin
+    try
+    {
+      const boost::filesystem::path old_files = folder;
+      if (boost::filesystem::exists(old_files / "blockchain.bin"))
+      {
+        LOG_PRINT_RED_L0("Found old-style blockchain.bin in " << old_files.string());
+        LOG_PRINT_RED_L0("Monero now uses a new format. You can either remove blockchain.bin to start syncing");
+        LOG_PRINT_RED_L0("the blockchain anew, or use blockchain_export and blockchain_import to convert your");
+        LOG_PRINT_RED_L0("existing blockchain.bin to the new format. See README.md for instructions.");
+        return false;
+      }
+    }
+    // folder might not be a directory, etc, etc
+    catch (...) { }
 
     BlockchainDB* db = nullptr;
     uint64_t BDB_FAST_MODE = 0;
@@ -242,10 +278,7 @@ namespace cryptonote
       return false;
     }
 
-    boost::filesystem::path folder(m_config_folder);
-
     folder /= db->get_db_name();
-
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
 
     const std::string filename = folder.string();
@@ -309,7 +342,7 @@ namespace cryptonote
           blocks_per_sync = 1;
       }
 
-      bool auto_remove_logs = command_line::get_arg(vm, daemon_args::arg_db_auto_remove_logs) != 0;
+      bool auto_remove_logs = command_line::get_arg(vm, command_line::arg_db_auto_remove_logs) != 0;
       db->set_auto_remove_logs(auto_remove_logs);
       db->open(filename, db_flags);
       if(!db->m_open)
@@ -324,9 +357,9 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         blocks_per_sync, sync_mode, fast_sync);
 
-    r = m_blockchain_storage.init(db, m_testnet);
+    r = m_blockchain_storage.init(db, m_testnet, m_fakechain);
 
-    bool show_time_stats = command_line::get_arg(vm, daemon_args::arg_show_time_stats) != 0;
+    bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
 #else
     r = m_blockchain_storage.init(m_config_folder, m_testnet);

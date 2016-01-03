@@ -6,7 +6,7 @@
 
 */
 
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -89,7 +89,7 @@ public:
 
   bool stop_mining();
 
-  bool stop_daemon();
+  bool stop_daemon(bool fast = false);
 
   bool print_status();
 
@@ -104,8 +104,6 @@ public:
   bool set_limit_up(int limit);
 
   bool set_limit_down(int limit);
-
-  bool fast_exit();
   
   bool out_peers(uint64_t limit);
   
@@ -115,9 +113,17 @@ public:
   
   bool hard_fork_info(uint8_t version);
 
+  bool print_bans();
+
+  bool ban(const std::string &ip, time_t seconds);
+
+  bool unban(const std::string &ip);
+
 private:
   bool check_connection_to_daemon() const;
   bool connect_to_daemon();
+
+  bool set_ban(const std::string &ip, bool ban, time_t seconds);
 
 private:
   wap_client_t *ipc_client;

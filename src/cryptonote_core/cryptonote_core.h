@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -758,6 +758,7 @@ namespace cryptonote
      uint64_t m_target_blockchain_height; //!< blockchain height target
 
      bool m_testnet; //!< are we on testnet?
+     bool m_fakechain; //!< when used by core tests
 
      std::string m_checkpoints_path; //!< path to json checkpoints file
      time_t m_last_dns_checkpoints_update; //!< time when dns checkpoints were last updated

@@ -504,12 +504,12 @@ verify_test(void)
 	verifytest_file("testdata/test_signatures.6", "20080416005004");
 	verifytest_file("testdata/test_signatures.7", "20070829144150");
 	verifytest_file("testdata/test_signatures.8", "20070829144150");
-#if (defined(HAVE_EVP_SHA256) || defined(HAVE_NSS)) && defined(USE_SHA2)
+#if (defined(HAVE_EVP_SHA256) || defined(HAVE_NSS) || defined(HAVE_NETTLE)) && defined(USE_SHA2)
 	verifytest_file("testdata/test_sigs.rsasha256", "20070829144150");
 	verifytest_file("testdata/test_sigs.sha1_and_256", "20070829144150");
 	verifytest_file("testdata/test_sigs.rsasha256_draft", "20090101000000");
 #endif
-#if (defined(HAVE_EVP_SHA512) || defined(HAVE_NSS)) && defined(USE_SHA2)
+#if (defined(HAVE_EVP_SHA512) || defined(HAVE_NSS) || defined(HAVE_NETTLE)) && defined(USE_SHA2)
 	verifytest_file("testdata/test_sigs.rsasha512_draft", "20070829144150");
 #endif
 	verifytest_file("testdata/test_sigs.hinfo", "20090107100022");

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,12 +30,7 @@
 
 #pragma once
 
-#include "daemon/core.h"
-#include "daemon/p2p.h"
-#include "misc_log_ex.h"
 #include "rpc/core_rpc_server.h"
-#include <boost/program_options.hpp>
-#include <stdexcept>
 
 namespace daemonize
 {

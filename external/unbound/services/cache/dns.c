@@ -656,8 +656,9 @@ fill_any(struct module_env* env,
 	time_t now = *env->now;
 	struct dns_msg* msg = NULL;
 	uint16_t lookup[] = {LDNS_RR_TYPE_A, LDNS_RR_TYPE_AAAA,
-		LDNS_RR_TYPE_MX, LDNS_RR_TYPE_SOA, LDNS_RR_TYPE_NS, 0};
-	int i, num=5; /* number of RR types to look up */
+		LDNS_RR_TYPE_MX, LDNS_RR_TYPE_SOA, LDNS_RR_TYPE_NS,
+		LDNS_RR_TYPE_DNAME, 0};
+	int i, num=6; /* number of RR types to look up */
 	log_assert(lookup[num] == 0);
 
 	for(i=0; i<num; i++) {

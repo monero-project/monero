@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,8 +31,6 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "misc_log_ex.h"
-#include <stdexcept>
-#include <boost/program_options.hpp>
 #include "daemon/command_line_args.h"
 
 namespace daemonize
@@ -67,15 +65,16 @@ public:
     m_core.set_cryptonote_protocol(&protocol);
   }
 
-  void run()
+  bool run()
   {
     //initialize core here
     LOG_PRINT_L0("Initializing core...");
     if (!m_core.init(m_vm_HACK))
     {
-      throw std::runtime_error("Failed to initialize core");
+      return false;
     }
     LOG_PRINT_L0("Core initialized OK");
+    return true;
   }
 
   cryptonote::core & get()

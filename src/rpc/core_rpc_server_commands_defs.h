@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -269,6 +269,7 @@ namespace cryptonote
       uint64_t height;
       uint64_t target_height;
       uint64_t difficulty;
+      uint64_t target;
       uint64_t tx_count;
       uint64_t tx_pool_size;
       uint64_t alt_blocks_count;
@@ -277,12 +278,14 @@ namespace cryptonote
       uint64_t white_peerlist_size;
       uint64_t grey_peerlist_size;
       bool testnet;
+      std::string top_block_hash;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(height)
         KV_SERIALIZE(target_height)
         KV_SERIALIZE(difficulty)
+        KV_SERIALIZE(target)
         KV_SERIALIZE(tx_count)
         KV_SERIALIZE(tx_pool_size)
         KV_SERIALIZE(alt_blocks_count)
@@ -291,6 +294,7 @@ namespace cryptonote
         KV_SERIALIZE(white_peerlist_size)
         KV_SERIALIZE(grey_peerlist_size)
         KV_SERIALIZE(testnet)
+        KV_SERIALIZE(top_block_hash)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -838,6 +842,7 @@ namespace cryptonote
       uint32_t threshold;
       uint8_t voting;
       uint32_t state;
+      uint64_t earliest_height;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -848,6 +853,72 @@ namespace cryptonote
         KV_SERIALIZE(threshold)
         KV_SERIALIZE(voting)
         KV_SERIALIZE(state)
+        KV_SERIALIZE(earliest_height)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GETBANS
+  {
+    struct ban
+    {
+      uint32_t ip;
+      uint32_t seconds;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(ip)
+        KV_SERIALIZE(seconds)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<ban> bans;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(bans)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SETBANS
+  {
+    struct ban
+    {
+      uint32_t ip;
+      bool ban;
+      uint32_t seconds;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(ip)
+        KV_SERIALIZE(ban)
+        KV_SERIALIZE(seconds)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      std::vector<ban> bans;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(bans)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };

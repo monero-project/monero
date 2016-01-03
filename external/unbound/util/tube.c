@@ -118,10 +118,8 @@ void tube_remove_bg_listen(struct tube* tube)
 		comm_point_delete(tube->listen_com);
 		tube->listen_com = NULL;
 	}
-	if(tube->cmd_msg) {
-		free(tube->cmd_msg);
-		tube->cmd_msg = NULL;
-	}
+	free(tube->cmd_msg);
+	tube->cmd_msg = NULL;
 }
 
 void tube_remove_bg_write(struct tube* tube)

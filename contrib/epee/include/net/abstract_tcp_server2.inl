@@ -55,6 +55,8 @@
 #include "../../../../src/p2p/data_logger.hpp"
 using namespace nOT::nUtils; // TODO
 
+#define CONNECTION_CLEANUP_TIME 30 // seconds
+
 PRAGMA_WARNING_PUSH
 namespace epee
 {
@@ -158,13 +160,16 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         boost::bind(&connection<t_protocol_handler>::handle_read, self,
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred)));
-          
+#if !defined(_WIN32) || !defined(__i686)
+	// not supported before Windows7, too lazy for runtime check
+	// Just exclude for 32bit windows builds
 	//set ToS flag
 	int tos = get_tos_flag();
 	boost::asio::detail::socket_option::integer< IPPROTO_IP, IP_TOS >
 	optionTos( tos );
     socket_.set_option( optionTos );
 	//_dbg1("Set ToS flag to " << tos);
+#endif
 	
 	boost::asio::ip::tcp::no_delay noDelayOption(false);
 	socket_.set_option(noDelayOption);
@@ -565,7 +570,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::close", false);
   }
-
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  bool connection<t_protocol_handler>::cancel()
+  {
+    return close();
+  }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
   void connection<t_protocol_handler>::handle_write(const boost::system::error_code& e, size_t cb)
@@ -781,6 +791,7 @@ POP_WARNINGS
     m_threads_count = threads_count;
     m_main_thread_id = boost::this_thread::get_id();
     log_space::log_singletone::set_thread_log_prefix("[SRV_MAIN]");
+    add_idle_handler(boost::bind(&boosted_tcp_server::cleanup_connections, this), 5000);
     while(!m_stop_signal_sent)
     {
 
@@ -871,8 +882,28 @@ POP_WARNINGS
 	}
     m_stop_signal_sent = true;
     TRY_ENTRY();
+    connections_mutex.lock();
+    for (auto &c: connections_)
+    {
+      c.second->cancel();
+    }
+    connections_.clear();
+    connections_mutex.unlock();
     io_service_.stop();
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::send_stop_signal()", void());
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  bool boosted_tcp_server<t_protocol_handler>::cleanup_connections()
+  {
+    connections_mutex.lock();
+    boost::system_time cutoff = boost::get_system_time() - boost::posix_time::seconds(CONNECTION_CLEANUP_TIME);
+    while (!connections_.empty() && connections_.front().first < cutoff)
+    {
+      connections_.pop_front();
+    }
+    connections_mutex.unlock();
+    return true;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -899,9 +930,7 @@ POP_WARNINGS
         boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
         boost::asio::placeholders::error));
 
-      bool r = conn->start(true, 1 < m_threads_count);
-      if (!r)
-        _erro("[sock " << conn->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
+      conn->start(true, 1 < m_threads_count);
       conn->save_dbg_log();
     }else
     {
@@ -916,6 +945,10 @@ POP_WARNINGS
     TRY_ENTRY();
 
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type) );
+    connections_mutex.lock();
+    connections_.push_back(std::make_pair(boost::get_system_time(), new_connection_l));
+    LOG_PRINT_L2("connections_ size now " << connections_.size());
+    connections_mutex.unlock();
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
     //////////////////////////////////////////////////////////////////////////
@@ -1008,6 +1041,10 @@ POP_WARNINGS
   {
     TRY_ENTRY();    
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type) );
+    connections_mutex.lock();
+    connections_.push_back(std::make_pair(boost::get_system_time(), new_connection_l));
+    LOG_PRINT_L2("connections_ size now " << connections_.size());
+    connections_mutex.unlock();
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
     //////////////////////////////////////////////////////////////////////////

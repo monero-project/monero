@@ -311,7 +311,7 @@ config_file
    
    .. attribute:: local_data
    
-      Local data RRs configged.
+      Local data RRs configured.
 
    .. attribute:: remote_control_enable
    

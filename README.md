@@ -1,6 +1,6 @@
 # Monero
 
-Copyright (c) 2014-2015, The Monero Project
+Copyright (c) 2014-2016, The Monero Project
 
 ## Development Resources
 
@@ -47,7 +47,7 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 ## License
 
-Copyright (c) 2014-2015, The Monero Project
+Copyright (c) 2014-2016, The Monero Project
 
 All rights reserved.
 
@@ -67,7 +67,7 @@ Parts of the project are originally copyright (c) 2012-2013 The Cryptonote devel
 
 ### Overview:
 
-Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)).
+Dependencies: GCC 4.7.3 or later, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
 Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, bison or yacc
 
 **Basic Process:**
@@ -99,7 +99,11 @@ The instructions above should provide enough detail.
 
 ### On OS X:
 
+**Basic Process:**
+
 The project can be built from scratch by following instructions for Unix and Linux above.
+
+**Alternate Process:**
 
 Alternatively, it can be built in an easier and more automated fashion using Homebrew:
 
@@ -109,7 +113,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: mingw-w64, msys2, CMake 2.8.6 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
+Dependencies: mingw-w64, msys2, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
 
 **Preparing the Build Environment**
 
@@ -171,4 +175,15 @@ Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
 ## Internationalization
 
 See README.i18n
+
+## Using Tor
+
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmonerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. Example:
+
+DNS_PUBLIC=tcp torsocks bitmonerod --p2p-bind-ip 127.0.0.1 --no-igd
+
+## Using readline
+
+While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
+rlwrap bin/simplewallet --wallet-file /path/to/wallet
 

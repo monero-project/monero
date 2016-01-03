@@ -36,6 +36,8 @@
 #ifndef IPC_UTIL_H
 #define IPC_UTIL_H
 
+#include <stdint.h>
+
 namespace IPC
 {
   // A bunch of response statuses and error codes
@@ -61,11 +63,52 @@ namespace IPC
     STATUS_WRONG_TX_ID_LENGTH,
     STATUS_TX_NOT_FOUND,
     STATUS_WRONG_KEY_IMAGE_LENGTH,
+    STATUS_BAD_JSON_SYNTAX,
+    STATUS_BAD_IP_ADDRESS,
+    STATUS_RESTRICTED_COMMAND,
+    STATUS_NOT_IMPLEMENTED,
 
     NUM_STATUS_CODES
   };
 
   const char *get_status_string(int code);
+
+  inline void write32be(uint8_t *ptr, uint32_t value) {
+    *ptr++ = (value >> 24) & 0xff;
+    *ptr++ = (value >> 16) & 0xff;
+    *ptr++ = (value >> 8) & 0xff;
+    *ptr++ = (value >> 0) & 0xff;
+  }
+  inline uint32_t read32be(const uint8_t *ptr) {
+    uint32_t value = 0;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    return value;
+  }
+  inline void write64be(uint8_t *ptr, uint64_t value) {
+    *ptr++ = (value >> 56) & 0xff;
+    *ptr++ = (value >> 48) & 0xff;
+    *ptr++ = (value >> 40) & 0xff;
+    *ptr++ = (value >> 32) & 0xff;
+    *ptr++ = (value >> 24) & 0xff;
+    *ptr++ = (value >> 16) & 0xff;
+    *ptr++ = (value >> 8) & 0xff;
+    *ptr++ = (value >> 0) & 0xff;
+  }
+  inline uint64_t read64be(const uint8_t *ptr) {
+    uint64_t value = 0;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    value = (value << 8) | *ptr++;
+    return value;
+  }
 
 }
 

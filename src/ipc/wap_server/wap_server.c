@@ -444,3 +444,43 @@ get_key_image_status (client_t *self)
     IPC::Daemon::get_key_image_status(self->message);
 }
 
+//  ---------------------------------------------------------------------------
+//  get_tx_pool
+//
+
+static void
+get_tx_pool (client_t *self)
+{
+    IPC::Daemon::get_tx_pool(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  set_out_peers
+//
+
+static void
+set_out_peers (client_t *self)
+{
+    IPC::Daemon::set_out_peers(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  set_bans
+//
+
+static void
+get_bans (client_t *self)
+{
+    IPC::Daemon::get_bans(self->message);
+}
+
+//  ---------------------------------------------------------------------------
+//  set_bans
+//
+
+static void
+set_bans (client_t *self)
+{
+    IPC::Daemon::set_bans(self->message);
+}
+

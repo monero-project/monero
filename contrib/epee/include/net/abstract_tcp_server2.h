@@ -110,6 +110,8 @@ namespace net_utils
 
 
 		bool speed_limit_is_enabled() const; ///< tells us should we be sleeping here (e.g. do not sleep on RPC connections)
+
+    bool cancel();
     
   private:
     //----------------- i_service_endpoint ---------------------
@@ -277,6 +279,8 @@ namespace net_utils
 
     bool is_thread_worker();
 
+    bool cleanup_connections();
+
     /// The io_service used to perform asynchronous operations.
     std::unique_ptr<boost::asio::io_service> m_io_service_local_instance;
     boost::asio::io_service& io_service_;    
@@ -302,6 +306,9 @@ namespace net_utils
 
     /// The next connection to be accepted
     connection_ptr new_connection_;
+
+    std::mutex connections_mutex;
+    std::deque<std::pair<boost::system_time, connection_ptr>> connections_;
 
   }; // class <>boosted_tcp_server
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -42,10 +42,11 @@ using namespace cryptonote;
 
 class TestDB: public BlockchainDB {
 public:
-  virtual void open(const std::string& filename, const int db_flags = 0) {
+  TestDB() {
     for (size_t n = 0; n < 256; ++n)
       starting_height[n] = std::numeric_limits<uint64_t>::max();
   }
+  virtual void open(const std::string& filename, const int db_flags = 0) { }
   virtual void close() {}
   virtual void sync() {}
   virtual void reset() {}
@@ -79,12 +80,14 @@ public:
   virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const { return std::vector<transaction>(); }
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const { return 0; }
   virtual uint64_t get_num_outputs(const uint64_t& amount) const { return 1; }
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) { return output_data_t(); }
-  virtual output_data_t get_output_key(const uint64_t& global_index) const { return output_data_t(); }
+  virtual uint64_t get_indexing_base() const { return 0; }
+  virtual output_data_t get_output_data(const uint64_t& amount, const uint64_t& index) { return output_data_t(); }
+  virtual output_data_t get_output_data(const uint64_t& global_index) const { return output_data_t(); }
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const { return tx_out_index(); }
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) { return tx_out_index(); }
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) {}
-  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) {}
+  virtual void get_output_data(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) {}
+
   virtual bool can_thread_bulk_indices() const { return false; }
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const { return std::vector<uint64_t>(); }
   virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const { return std::vector<uint64_t>(); }
@@ -101,6 +104,7 @@ public:
   virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const { return true; }
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const { return true; }
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const { return true; }
+  virtual bool is_read_only() const { return false; }
 
   virtual void add_block( const block& blk
                         , const size_t& block_size
@@ -135,6 +139,7 @@ private:
 static cryptonote::block mkblock(uint8_t version)
 {
   cryptonote::block b;
+  b.major_version = version;
   b.minor_version = version;
   return b;
 }
@@ -144,7 +149,7 @@ TEST(empty_hardforks, Success)
   TestDB db;
   HardFork hf(db);
 
-  ASSERT_TRUE(hf.add(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
   hf.init();
   ASSERT_TRUE(hf.get_state(time(NULL)) == HardFork::Ready);
   ASSERT_TRUE(hf.get_state(time(NULL) + 3600*24*400) == HardFork::Ready);
@@ -163,13 +168,13 @@ TEST(ordering, Success)
   TestDB db;
   HardFork hf(db);
 
-  ASSERT_TRUE(hf.add(2, 2, 1));
-  ASSERT_FALSE(hf.add(3, 3, 1));
-  ASSERT_FALSE(hf.add(3, 2, 2));
-  ASSERT_FALSE(hf.add(2, 3, 2));
-  ASSERT_TRUE(hf.add(3, 10, 2));
-  ASSERT_TRUE(hf.add(4, 20, 3));
-  ASSERT_FALSE(hf.add(5, 5, 4));
+  ASSERT_TRUE(hf.add_fork(2, 2, 1));
+  ASSERT_FALSE(hf.add_fork(3, 3, 1));
+  ASSERT_FALSE(hf.add_fork(3, 2, 2));
+  ASSERT_FALSE(hf.add_fork(2, 3, 2));
+  ASSERT_TRUE(hf.add_fork(3, 10, 2));
+  ASSERT_TRUE(hf.add_fork(4, 20, 3));
+  ASSERT_FALSE(hf.add_fork(5, 5, 4));
 }
 
 TEST(states, Success)
@@ -177,8 +182,8 @@ TEST(states, Success)
   TestDB db;
   HardFork hf(db);
 
-  ASSERT_TRUE(hf.add(1, 0, 0));
-  ASSERT_TRUE(hf.add(2, BLOCKS_PER_YEAR, SECONDS_PER_YEAR));
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(2, BLOCKS_PER_YEAR, SECONDS_PER_YEAR));
 
   ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
   ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
@@ -186,7 +191,7 @@ TEST(states, Success)
   ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + (HardFork::DEFAULT_UPDATE_TIME + HardFork::DEFAULT_FORKED_TIME) / 2) == HardFork::UpdateNeeded);
   ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_FORKED_TIME * 2) == HardFork::LikelyForked);
 
-  ASSERT_TRUE(hf.add(3, BLOCKS_PER_YEAR * 5, SECONDS_PER_YEAR * 5));
+  ASSERT_TRUE(hf.add_fork(3, BLOCKS_PER_YEAR * 5, SECONDS_PER_YEAR * 5));
 
   ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
   ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
@@ -201,14 +206,14 @@ TEST(steps_asap, Success)
   HardFork hf(db, 1,0,1,1,1);
 
   //                 v  h  t
-  ASSERT_TRUE(hf.add(1, 0, 0));
-  ASSERT_TRUE(hf.add(4, 2, 1));
-  ASSERT_TRUE(hf.add(7, 4, 2));
-  ASSERT_TRUE(hf.add(9, 6, 3));
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(4, 2, 1));
+  ASSERT_TRUE(hf.add_fork(7, 4, 2));
+  ASSERT_TRUE(hf.add_fork(9, 6, 3));
   hf.init();
 
   for (uint64_t h = 0; h < 10; ++h) {
-    db.add_block(mkblock(10), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(9), 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 
@@ -229,9 +234,9 @@ TEST(steps_1, Success)
   TestDB db;
   HardFork hf(db, 1,0,1,1,1);
 
-  ASSERT_TRUE(hf.add(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
   for (int n = 1 ; n < 10; ++n)
-    ASSERT_TRUE(hf.add(n+1, n, n));
+    ASSERT_TRUE(hf.add_fork(n+1, n, n));
   hf.init();
 
   for (uint64_t h = 0 ; h < 10; ++h) {
@@ -251,10 +256,10 @@ TEST(reorganize, Same)
     HardFork hf(db, 1, 0, 1, 1, history, 100);
 
     //                 v  h  t
-    ASSERT_TRUE(hf.add(1, 0, 0));
-    ASSERT_TRUE(hf.add(4, 2, 1));
-    ASSERT_TRUE(hf.add(7, 4, 2));
-    ASSERT_TRUE(hf.add(9, 6, 3));
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(4, 2, 1));
+    ASSERT_TRUE(hf.add_fork(7, 4, 2));
+    ASSERT_TRUE(hf.add_fork(9, 6, 3));
     hf.init();
 
     //                                 index  0  1  2  3  4  5  6  7  8  9
@@ -270,26 +275,29 @@ TEST(reorganize, Same)
         uint8_t version = hh >= history ? block_versions[hh - history] : 1;
         ASSERT_EQ(hf.get(hh), version);
       }
+      ASSERT_EQ(hf.get_start_height(1), 0);
+      ASSERT_EQ(hf.get_start_height(4), 2 + history);
+      ASSERT_EQ(hf.get_start_height(7), 4 + history);
+      ASSERT_EQ(hf.get_start_height(9), 6 + history);
     }
   }
 }
 
 TEST(reorganize, Changed)
 {
-  int history = 4;
   TestDB db;
   HardFork hf(db, 1, 0, 1, 1, 4, 100);
 
   //                 v  h  t
-  ASSERT_TRUE(hf.add(1, 0, 0));
-  ASSERT_TRUE(hf.add(4, 2, 1));
-  ASSERT_TRUE(hf.add(7, 4, 2));
-  ASSERT_TRUE(hf.add(9, 6, 3));
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(4, 2, 1));
+  ASSERT_TRUE(hf.add_fork(7, 4, 2));
+  ASSERT_TRUE(hf.add_fork(9, 6, 3));
   hf.init();
 
-  //                                 fork         4     7     9
-  //                                 index  0  1  2  3  4  5  6  7  8  9
-  static const uint8_t block_versions[] = { 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
+  //                                    fork         4     7     9
+  //                                    index  0  1  2  3  4  5  6  7  8  9
+  static const uint8_t block_versions[] =    { 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
   static const uint8_t expected_versions[] = { 1, 1, 1, 1, 1, 1, 4, 4, 7, 7, 9, 9, 9, 9, 9, 9 };
   for (uint64_t h = 0; h < 16; ++h) {
     db.add_block(mkblock(block_versions[h]), 0, 0, 0, crypto::hash());
@@ -301,6 +309,10 @@ TEST(reorganize, Changed)
     for (int hh = 0; hh < 16; ++hh) {
       ASSERT_EQ(hf.get(hh), expected_versions[hh]);
     }
+    ASSERT_EQ(hf.get_start_height(1), 0);
+    ASSERT_EQ(hf.get_start_height(4), 6);
+    ASSERT_EQ(hf.get_start_height(7), 8);
+    ASSERT_EQ(hf.get_start_height(9), 10);
   }
 
   // delay a bit for 9, and go back to 1 to check it stays at 9
@@ -321,6 +333,10 @@ TEST(reorganize, Changed)
   for (int hh = 0; hh < 15; ++hh) {
     ASSERT_EQ(hf.get(hh), expected_versions_new[hh]);
   }
+  ASSERT_EQ(hf.get_start_height(1), 0);
+  ASSERT_EQ(hf.get_start_height(4), 6);
+  ASSERT_EQ(hf.get_start_height(7), 11);
+  ASSERT_EQ(hf.get_start_height(9), 14);
 }
 
 TEST(voting, threshold)
@@ -330,8 +346,8 @@ TEST(voting, threshold)
     HardFork hf(db, 1, 0, 1, 1, 8, threshold);
 
     //                 v  h  t
-    ASSERT_TRUE(hf.add(1, 0, 0));
-    ASSERT_TRUE(hf.add(2, 2, 1));
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 2, 1));
     hf.init();
 
     for (uint64_t h = 0; h <= 8; ++h) {
@@ -359,10 +375,10 @@ TEST(voting, different_thresholds)
     HardFork hf(db, 1, 0, 1, 1, 4, 50); // window size 4
 
     //                 v  h  t
-    ASSERT_TRUE(hf.add(1, 0, 0));
-    ASSERT_TRUE(hf.add(2, 5, 0, 1)); // asap
-    ASSERT_TRUE(hf.add(3, 10, 100, 2)); // all votes
-    ASSERT_TRUE(hf.add(4, 15, 3)); // default 50% votes
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 5, 0, 1)); // asap
+    ASSERT_TRUE(hf.add_fork(3, 10, 100, 2)); // all votes
+    ASSERT_TRUE(hf.add_fork(4, 15, 3)); // default 50% votes
     hf.init();
 
     //                                           0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9
@@ -386,8 +402,8 @@ TEST(new_blocks, denied)
     HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
-    ASSERT_TRUE(hf.add(1, 0, 0));
-    ASSERT_TRUE(hf.add(2, 2, 1));
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 2, 1));
     hf.init();
 
     ASSERT_TRUE(hf.add(mkblock(1), 0));
@@ -411,8 +427,8 @@ TEST(new_version, early)
     HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
-    ASSERT_TRUE(hf.add(1, 0, 0));
-    ASSERT_TRUE(hf.add(2, 4, 1));
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 4, 1));
     hf.init();
 
     ASSERT_TRUE(hf.add(mkblock(2), 0));
@@ -433,9 +449,10 @@ TEST(reorganize, changed)
     HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
-    ASSERT_TRUE(hf.add(1, 0, 0));
-    ASSERT_TRUE(hf.add(2, 2, 1));
-    ASSERT_TRUE(hf.add(3, 5, 2));
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 2, 1));
+    ASSERT_TRUE(hf.add_fork(3, 5, 2));
+    ASSERT_TRUE(hf.add_fork(4, 555, 222));
     hf.init();
 
 #define ADD(v, h, a) \
@@ -487,9 +504,9 @@ TEST(get, higher)
     HardFork hf(db, 1, 0, 1, 1, 4, 50);
 
     //                 v  h  t
-    ASSERT_TRUE(hf.add(1, 0, 0));
-    ASSERT_TRUE(hf.add(2, 2, 1));
-    ASSERT_TRUE(hf.add(3, 5, 2));
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 2, 1));
+    ASSERT_TRUE(hf.add_fork(3, 5, 2));
     hf.init();
 
     ASSERT_EQ(hf.get_ideal_version(0), 1);

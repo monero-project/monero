@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -55,6 +55,7 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
     static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
     static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
+    static const command_line::arg_descriptor<bool> arg_restricted_rpc;
 
     typedef epee::net_utils::connection_context_base connection_context;
 
@@ -79,20 +80,20 @@ namespace cryptonote
       MAP_URI_AUTO_JON2("/gettransactions", on_get_transactions, COMMAND_RPC_GET_TRANSACTIONS)
       MAP_URI_AUTO_JON2("/is_key_image_spent", on_is_key_image_spent, COMMAND_RPC_IS_KEY_IMAGE_SPENT)
       MAP_URI_AUTO_JON2("/sendrawtransaction", on_send_raw_tx, COMMAND_RPC_SEND_RAW_TX)
-      MAP_URI_AUTO_JON2("/start_mining", on_start_mining, COMMAND_RPC_START_MINING)
-      MAP_URI_AUTO_JON2("/stop_mining", on_stop_mining, COMMAND_RPC_STOP_MINING)
-      MAP_URI_AUTO_JON2("/mining_status", on_mining_status, COMMAND_RPC_MINING_STATUS)
-      MAP_URI_AUTO_JON2("/save_bc", on_save_bc, COMMAND_RPC_SAVE_BC)
-      MAP_URI_AUTO_JON2("/get_peer_list", on_get_peer_list, COMMAND_RPC_GET_PEER_LIST)
-      MAP_URI_AUTO_JON2("/set_log_hash_rate", on_set_log_hash_rate, COMMAND_RPC_SET_LOG_HASH_RATE)
-      MAP_URI_AUTO_JON2("/set_log_level", on_set_log_level, COMMAND_RPC_SET_LOG_LEVEL)
+      MAP_URI_AUTO_JON2_IF("/start_mining", on_start_mining, COMMAND_RPC_START_MINING, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/stop_mining", on_stop_mining, COMMAND_RPC_STOP_MINING, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/mining_status", on_mining_status, COMMAND_RPC_MINING_STATUS, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/save_bc", on_save_bc, COMMAND_RPC_SAVE_BC, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/get_peer_list", on_get_peer_list, COMMAND_RPC_GET_PEER_LIST, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/set_log_hash_rate", on_set_log_hash_rate, COMMAND_RPC_SET_LOG_HASH_RATE, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/set_log_level", on_set_log_level, COMMAND_RPC_SET_LOG_LEVEL, !m_restricted)
       MAP_URI_AUTO_JON2("/get_transaction_pool", on_get_transaction_pool, COMMAND_RPC_GET_TRANSACTION_POOL)
-      MAP_URI_AUTO_JON2("/stop_daemon", on_stop_daemon, COMMAND_RPC_STOP_DAEMON)
+      MAP_URI_AUTO_JON2_IF("/stop_daemon", on_stop_daemon, COMMAND_RPC_STOP_DAEMON, !m_restricted)
       MAP_URI_AUTO_JON2("/getinfo", on_get_info, COMMAND_RPC_GET_INFO)
-      MAP_URI_AUTO_JON2("/fast_exit", on_fast_exit, COMMAND_RPC_FAST_EXIT)
-      MAP_URI_AUTO_JON2("/out_peers", on_out_peers, COMMAND_RPC_OUT_PEERS)
-      MAP_URI_AUTO_JON2("/start_save_graph", on_start_save_graph, COMMAND_RPC_START_SAVE_GRAPH)
-      MAP_URI_AUTO_JON2("/stop_save_graph", on_stop_save_graph, COMMAND_RPC_STOP_SAVE_GRAPH)
+      MAP_URI_AUTO_JON2_IF("/fast_exit", on_fast_exit, COMMAND_RPC_FAST_EXIT, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/out_peers", on_out_peers, COMMAND_RPC_OUT_PEERS, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/start_save_graph", on_start_save_graph, COMMAND_RPC_START_SAVE_GRAPH, !m_restricted)
+      MAP_URI_AUTO_JON2_IF("/stop_save_graph", on_stop_save_graph, COMMAND_RPC_STOP_SAVE_GRAPH, !m_restricted)
       BEGIN_JSON_RPC_MAP("/json_rpc")
         MAP_JON_RPC("getblockcount",             on_getblockcount,              COMMAND_RPC_GETBLOCKCOUNT)
         MAP_JON_RPC_WE("on_getblockhash",        on_getblockhash,               COMMAND_RPC_GETBLOCKHASH)
@@ -104,6 +105,8 @@ namespace cryptonote
         MAP_JON_RPC_WE("get_connections",        on_get_connections,            COMMAND_RPC_GET_CONNECTIONS)
         MAP_JON_RPC_WE("get_info",               on_get_info_json,              COMMAND_RPC_GET_INFO)
         MAP_JON_RPC_WE("hard_fork_info",         on_hard_fork_info,             COMMAND_RPC_HARD_FORK_INFO)
+        MAP_JON_RPC_WE("setbans",                on_set_bans,                   COMMAND_RPC_SETBANS)
+        MAP_JON_RPC_WE("getbans",                on_get_bans,                   COMMAND_RPC_GETBANS)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -140,6 +143,8 @@ namespace cryptonote
     bool on_get_connections(const COMMAND_RPC_GET_CONNECTIONS::request& req, COMMAND_RPC_GET_CONNECTIONS::response& res, epee::json_rpc::error& error_resp);
     bool on_get_info_json(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, epee::json_rpc::error& error_resp);
     bool on_hard_fork_info(const COMMAND_RPC_HARD_FORK_INFO::request& req, COMMAND_RPC_HARD_FORK_INFO::response& res, epee::json_rpc::error& error_resp);
+    bool on_set_bans(const COMMAND_RPC_SETBANS::request& req, COMMAND_RPC_SETBANS::response& res, epee::json_rpc::error& error_resp);
+    bool on_get_bans(const COMMAND_RPC_GETBANS::request& req, COMMAND_RPC_GETBANS::response& res, epee::json_rpc::error& error_resp);
     //-----------------------
 
 private:
@@ -159,5 +164,6 @@ private:
     std::string m_port;
     std::string m_bind_ip;
     bool m_testnet;
+    bool m_restricted;
   };
 }

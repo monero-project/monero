@@ -1004,6 +1004,13 @@ public:
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
   /**
+   * @brief return index of the first element
+   *
+   * should be hidden, but isn't
+   */
+  virtual uint64_t get_indexing_base() const { return 0; }
+
+  /**
    * @brief get some of an output's data
    *
    * The subclass should return the public key, unlock time, and block height
@@ -1259,6 +1266,16 @@ public:
    * @param auto_remove whether or not to auto-remove logs
    */
   void set_auto_remove_logs(bool auto_remove) { m_auto_remove_logs = auto_remove; }
+
+  /**
+  * @brief fix up anything that may be wrong due to past bugs
+  */
+  virtual void fixup();
+
+  /**
+  * @brief whether the database was open read only
+  */
+  virtual bool is_read_only() const = 0;
 
   bool m_open;  //!< Whether or not the BlockchainDB is open/ready for use
   mutable epee::critical_section m_synchronization_lock;  //!< A lock, currently for when BlockchainLMDB needs to resize the backing db file

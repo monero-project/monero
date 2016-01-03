@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -45,7 +45,7 @@ namespace
     for (size_t i = 0; i < new_block_count; ++i)
     {
       block blk_next;
-      difficulty_type diffic = next_difficulty(timestamps, cummulative_difficulties);
+      difficulty_type diffic = next_difficulty(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V1);
       if (!generator.construct_block_manually(blk_next, blk_prev, miner_account,
         test_generator::bf_timestamp | test_generator::bf_diffic, 0, 0, blk_prev.timestamp, crypto::hash(), diffic))
         return false;
@@ -79,7 +79,7 @@ bool gen_block_big_major_version::generate(std::vector<test_event_entry>& events
   BLOCK_VALIDATION_INIT_GENERATE();
 
   block blk_1;
-  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_major_ver, CURRENT_BLOCK_MAJOR_VERSION + 1);
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_major_ver, 255);
   events.push_back(blk_1);
 
   DO_CALLBACK(events, "check_block_purged");
@@ -92,7 +92,7 @@ bool gen_block_big_minor_version::generate(std::vector<test_event_entry>& events
   BLOCK_VALIDATION_INIT_GENERATE();
 
   block blk_1;
-  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_minor_ver, 0, CURRENT_BLOCK_MINOR_VERSION + 1);
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_minor_ver, 0, 255);
   events.push_back(blk_1);
 
   DO_CALLBACK(events, "check_block_accepted");
@@ -175,7 +175,7 @@ bool gen_block_invalid_nonce::generate(std::vector<test_event_entry>& events) co
     return false;
 
   // Create invalid nonce
-  difficulty_type diffic = next_difficulty(timestamps, commulative_difficulties);
+  difficulty_type diffic = next_difficulty(timestamps, commulative_difficulties,DIFFICULTY_TARGET_V1);
   assert(1 < diffic);
   const block& blk_last = boost::get<block>(events.back());
   uint64_t timestamp = blk_last.timestamp;
@@ -570,7 +570,7 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   do
   {
     blk_last = boost::get<block>(events.back());
-    diffic = next_difficulty(timestamps, cummulative_difficulties);
+    diffic = next_difficulty(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V1);
     if (!lift_up_difficulty(events, timestamps, cummulative_difficulties, generator, 1, blk_last, miner_account))
       return false;
     std::cout << "Block #" << events.size() << ", difficulty: " << diffic << std::endl;
@@ -578,14 +578,14 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   while (diffic < 1500);
 
   blk_last = boost::get<block>(events.back());
-  MAKE_TX(events, tx_0, miner_account, miner_account, MK_COINS(120), boost::get<block>(events[1]));
+  MAKE_TX(events, tx_0, miner_account, miner_account, MK_COINS(30), boost::get<block>(events[1]));
   DO_CALLBACK(events, "corrupt_blocks_boundary");
 
   block blk_test;
   std::vector<crypto::hash> tx_hashes;
   tx_hashes.push_back(get_transaction_hash(tx_0));
   size_t txs_size = get_object_blobsize(tx_0);
-  diffic = next_difficulty(timestamps, cummulative_difficulties);
+  diffic = next_difficulty(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V1);
   if (!generator.construct_block_manually(blk_test, blk_last, miner_account,
     test_generator::bf_diffic | test_generator::bf_timestamp | test_generator::bf_tx_hashes, 0, 0, blk_last.timestamp,
     crypto::hash(), diffic, transaction(), tx_hashes, txs_size))
@@ -618,7 +618,8 @@ bool gen_block_invalid_binary_format::check_block_verification_context(const cry
   }
   else
   {
-    return !bvc.m_added_to_main_chain && (bvc.m_already_exists || bvc.m_marked_as_orphaned || bvc.m_verifivation_failed);
+    return (!bvc.m_added_to_main_chain && (bvc.m_already_exists || bvc.m_marked_as_orphaned || bvc.m_verifivation_failed))
+      || (bvc.m_added_to_main_chain && bvc.m_partial_block_reward);
   }
 }
 

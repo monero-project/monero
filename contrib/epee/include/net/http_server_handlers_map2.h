@@ -55,8 +55,8 @@
 
 #define MAP_URI_AUTO_XML2(s_pattern, callback_f, command_type) //TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
 
-#define MAP_URI_AUTO_JON2(s_pattern, callback_f, command_type) \
-    else if(query_info.m_URI == s_pattern) \
+#define MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond) \
+    else if((query_info.m_URI == s_pattern) && (cond)) \
     { \
       handled = true; \
       uint64_t ticks = misc_utils::get_tick_count(); \
@@ -79,6 +79,8 @@
       response_info.m_header_info.m_content_type = " application/json"; \
       LOG_PRINT( s_pattern << " processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms", LOG_LEVEL_2); \
     }
+
+#define MAP_URI_AUTO_JON2(s_pattern, callback_f, command_type) MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, true)
 
 #define MAP_URI_AUTO_BIN2(s_pattern, callback_f, command_type) \
     else if(query_info.m_URI == s_pattern) \

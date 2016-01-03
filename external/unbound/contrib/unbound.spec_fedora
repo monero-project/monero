@@ -273,7 +273,7 @@ fi
 - Change make/configure lines to attempt to fix -lphtread linking issue
 
 * Thu Feb 18 2010 Paul Wouters <paul@xelerance.com> - 1.4.1-2
-- Removed dependancy for dnssec-conf
+- Removed dependency for dnssec-conf
 - Added ISC DLV key (formerly in dnssec-conf)
 - Fixup old DLV locations in unbound.conf file via %%post
 - Fix parent child disagreement handling and no-ipv6 present [svn r1953]
@@ -312,7 +312,7 @@ fi
 - Re-enabled glob.patch
 
 * Wed May 20 2009 Paul Wouters <paul@xelerance.com> - 1.2.1-7
-- unbound-iterator.patch was not commited
+- unbound-iterator.patch was not committed
 
 * Wed May 20 2009 Paul Wouters <paul@xelerance.com> - 1.2.1-6
 - Fix for https://bugzilla.redhat.com/show_bug.cgi?id=499793
@@ -338,11 +338,11 @@ fi
 
 * Wed Jan 14 2009 Paul Wouters <paul@xelerance.com - 1.2.0-1
 - Updated to 1.2.0
-- Added dependancy on minimum SSL for CVE-2008-5077
-- Added dependancy on bc for unbound-munin
+- Added dependency on minimum SSL for CVE-2008-5077
+- Added dependency on bc for unbound-munin
 - Added minimum requirement of libevent 1.4.5. Crashes with older versions
   (note: libevent is stale in EL-4 and not in EL-5, needs fixing there)
-- Removed dependancy on selinux-policy (will get used when available)
+- Removed dependency on selinux-policy (will get used when available)
 - Enable options as per draft-wijngaards-dnsext-resolver-side-mitigation-00.txt
 - Enable unwanted-reply-threshold to mitigate against a Kaminsky attack
 - Enable val-clean-additional to drop addition unsigned data from signed
@@ -423,7 +423,7 @@ fi
 - Build against ldns-1.3.0
 
 * Wed May 21 2008 Paul Wouters <paul@xelerance.com> - 1.0.0-1
-- Split of -devel package, fixed dependancies, make rpmlint happy
+- Split of -devel package, fixed dependencies, make rpmlint happy
 
 * Thu Apr 25 2008 Wouter Wijngaards <wouter@nlnetlabs.nl> - 0.12
 - Using parts from ports collection entry by Jaap Akkerhuis.

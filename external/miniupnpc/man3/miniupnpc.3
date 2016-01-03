@@ -25,13 +25,16 @@ through the miniupnpc API. The name of the C functions are matching
 the UPnP methods names. ie: GetGenericPortMappingEntry is
 UPNP_GetGenericPortMappingEntry.
 .SH "API FUNCTIONS"
-.IP "struct UPNPDev * upnpDiscover(int delay, const char * multicastif, const char * minissdpdsock, int sameport, int ipv6, int * error);"
+.IP "struct UPNPDev * upnpDiscover(int delay, const char * multicastif, const char * minissdpdsock, int localport, int ipv6, int * error);"
 execute the discovery process.
 delay (in millisecond) is the maximum time for waiting any device response.
 If available, device list will be obtained from MiniSSDPd.
 Default path for minissdpd socket will be used if minissdpdsock argument is NULL.
 If multicastif is not NULL, it will be used instead of the default multicast interface for sending SSDP discover packets.
-If sameport is not null, SSDP packets will be sent from the source port 1900 (same as destination port) otherwise system assign a source port.
+If localport is set to UPNP_LOCAL_PORT_SAME(1) SSDP packets will be sent 
+from the source port 1900 (same as destination port), if set to 
+UPNP_LOCAL_PORT_ANY(0) system assign a source port, any other value will 
+be attempted as the source port.
 If ipv6 is not 0, IPv6 is used instead of IPv4 for the discovery process.
 .IP "void freeUPNPDevlist(struct UPNPDev * devlist);"
 free the list returned by upnpDiscover().

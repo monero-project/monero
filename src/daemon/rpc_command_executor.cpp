@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015, The Monero Project
+// Copyright (c) 2014-2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -79,6 +79,52 @@ namespace {
       << "difficulty: " << boost::lexical_cast<std::string>(wap_client_difficulty(ipc_client)) << std::endl
       << "reward: " << boost::lexical_cast<std::string>(wap_client_reward(ipc_client));
   }
+
+  template<typename T>
+  void print_tx_info(T &txi, bool full)
+  {
+    tools::msg_writer() << "id: " << txi["id_hash"].GetString();
+    if (full)
+      tools::msg_writer() << txi["tx_json"].GetString();
+    tools::msg_writer() << "blob_size: " << txi["blob_size"].GetUint64() << std::endl
+                        << "fee: " << cryptonote::print_money(txi["fee"].GetUint64()) << std::endl
+                        << "kept_by_block: " << (txi["kept_by_block"] == 0 ? 'F' : 'T') << std::endl
+                        << "max_used_block_height: " << txi["max_used_block_height"].GetUint64() << std::endl
+                        << "max_used_block_id: " << txi["max_used_block_id_hash"].GetString() << std::endl
+                        << "last_failed_height: " << txi["last_failed_height"].GetUint64() << std::endl
+                        << "last_failed_id: " << txi["last_failed_id_hash"].GetString() << std::endl;
+  }
+
+  template<typename T>
+  void print_spent_key_image_info(T &skii)
+  {
+    tools::msg_writer() << "key image: " << skii["id_hash"].GetString();
+    if (skii["tx_hashes"].Size() == 1)
+    {
+      tools::msg_writer() << "  tx: " << skii["tx_hashes"][(rapidjson::SizeType)0].GetString();
+    }
+    else if (skii["tx_hashes"].Size() == 0)
+    {
+      tools::msg_writer() << "  WARNING: spent key image has no txs associated";
+    }
+    else
+    {
+      tools::msg_writer() << "  NOTE: key image for multiple txs: " << skii["tx_hashes"].Size();
+      for (rapidjson::SizeType n = 0; n < skii["tx_hashes"].Size(); ++n) {
+        tools::msg_writer() << "  tx: " << skii["tx_hashes"][n].GetString();
+      }
+    }
+  }
+
+  template<typename T>
+  void print_ban(T &ban)
+  {
+    std::string time_str;
+    std::string ip_str = ban["ip"].GetString();
+    epee::string_tools::xtype_to_string(ban["seconds"].GetUint64(), time_str);
+    tools::msg_writer() << boost::format("%s banned for %s") % ip_str % time_str;
+  }
+
 }
 
 t_rpc_command_executor::t_rpc_command_executor()
@@ -124,16 +170,14 @@ bool t_rpc_command_executor::print_peer_list() {
   }
 
   rapidjson::Document response_json;
-  rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
   rapidjson::Value result_json;
   result_json.SetObject();
 
   zframe_t *white_list_frame = wap_client_white_list(ipc_client);
   rapidjson::Document white_list_json;
   const char *data = reinterpret_cast<const char*>(zframe_data(white_list_frame));
-  size_t size = zframe_size(white_list_frame);
 
-  if (white_list_json.Parse(data, size).HasParseError()) {
+  if (white_list_json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
@@ -145,9 +189,8 @@ bool t_rpc_command_executor::print_peer_list() {
   zframe_t *gray_list_frame = wap_client_gray_list(ipc_client);
   rapidjson::Document gray_list_json;
   data = reinterpret_cast<const char*>(zframe_data(gray_list_frame));
-  size = zframe_size(gray_list_frame);
 
-  if (gray_list_json.Parse(data, size).HasParseError()) {
+  if (gray_list_json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
@@ -214,11 +257,23 @@ bool t_rpc_command_executor::show_difficulty() {
     return true;
   }
   uint64_t height = wap_client_height(ipc_client);
+  zchunk_t *top_block_hash_chunk = wap_client_top_block_hash(ipc_client);
+  std::string top_block_hash((const char *)zchunk_data(top_block_hash_chunk), zchunk_size(top_block_hash_chunk));
   uint64_t difficulty = wap_client_difficulty(ipc_client);
+  uint64_t target = wap_client_target(ipc_client);
   tools::success_msg_writer() <<   "BH: " << height
+                              << ", TH: " << top_block_hash
                               << ", DIFF: " << difficulty
-                              << ", HR: " << (int) difficulty / 60L << " H/s";
+                              << ", HR: " << (int) difficulty / (int)target << " H/s";
   return true;
+}
+
+static std::string get_mining_speed(uint64_t hr)
+{
+  if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
+  if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
+  if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
+  return (boost::format("%.0f H/s") % hr).str();
 }
 
 bool t_rpc_command_executor::show_status() {
@@ -235,6 +290,7 @@ bool t_rpc_command_executor::show_status() {
   uint64_t height = wap_client_height(ipc_client);
   uint64_t target_height = wap_client_target_height(ipc_client);
   uint64_t difficulty = wap_client_difficulty(ipc_client);
+  uint64_t target = wap_client_target(ipc_client);
   bool testnet = wap_client_testnet(ipc_client);
   uint64_t outgoing_connections_count = wap_client_outgoing_connections_count(ipc_client);
   uint64_t incoming_connections_count = wap_client_incoming_connections_count(ipc_client);
@@ -247,18 +303,21 @@ bool t_rpc_command_executor::show_status() {
   uint8_t version = wap_client_hfversion(ipc_client);
   cryptonote::HardFork::State state = (cryptonote::HardFork::State)wap_client_hfstate(ipc_client);
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, net hash %s, v%u, %s, %u+%u connections")
+  status = wap_client_get_mining_status(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+  bool mining_active = wap_client_active(ipc_client);
+  uint64_t mining_speed = wap_client_speed(ipc_client);
+
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u, %s, %u+%u connections")
     % (unsigned long long)height
-    % (unsigned long long)(target_height ? target_height : height)
+    % (unsigned long long)(target_height >= height ? target_height : height)
     % (100.0f * height / (target_height ? target_height < height ? height : target_height : height))
     % (testnet ? "testnet" : "mainnet")
-    % [&difficulty]()->std::string {
-      float hr = difficulty / 60.0f;
-      if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
-      if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
-      if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
-      return (boost::format("%.0f H/s") % hr).str();
-    }()
+    % (mining_active ? "mining at " + get_mining_speed(mining_speed) : "not mining")
+    % get_mining_speed(difficulty / target)
     % (unsigned)version
     % (state == cryptonote::HardFork::Ready ? "up to date" : state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)outgoing_connections_count % (unsigned)incoming_connections_count
@@ -280,7 +339,6 @@ bool t_rpc_command_executor::print_connections() {
   }
 
   rapidjson::Document response_json;
-  rapidjson::Document::AllocatorType &allocator = response_json.GetAllocator();
   rapidjson::Value result_json;
   result_json.SetObject();
 
@@ -291,9 +349,8 @@ bool t_rpc_command_executor::print_connections() {
   }
   rapidjson::Document connections_json;
   const char *data = reinterpret_cast<const char*>(zframe_data(connections_frame));
-  size_t size = zframe_size(connections_frame);
 
-  if (connections_json.Parse(data, size).HasParseError()) {
+  if (connections_json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
@@ -512,106 +569,86 @@ bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
 }
 
 bool t_rpc_command_executor::print_transaction_pool_long() {
-#if 0
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
-
-  std::string fail_message = "Problem fetching transaction pool";
-
-  if (!m_rpc_server->on_get_transaction_pool(req, res))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  if (res.transactions.empty() && res.spent_key_images.empty())
-  {
-    tools::msg_writer() << "Pool is empty" << std::endl;
+  int status = wap_client_get_tx_pool(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
   }
-  if (! res.transactions.empty())
-  {
+  zmsg_t *msg = wap_client_msg_data(ipc_client);
+  if (!msg) {
+    tools::fail_msg_writer() << "Bad message received";
+    return true;
+  }
+  zframe_t *frame = zmsg_first(msg);
+  if (!frame) {
+    tools::fail_msg_writer() << "Bad frame received";
+    return true;
+  }
+  char *data = reinterpret_cast<char*>(zframe_data(frame));
+  rapidjson::Document json;
+  if (json.Parse(data).HasParseError()) {
+    tools::fail_msg_writer() << "Bad JSON received";
+    return true;
+  }
+  if (json["tx_info"].Size() > 0) {
     tools::msg_writer() << "Transactions: ";
-    for (auto & tx_info : res.transactions)
-    {
-      tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                          << tx_info.tx_json << std::endl
-                          << "blob_size: " << tx_info.blob_size << std::endl
-                          << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                          << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
-                          << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                          << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
-                          << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                          << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    for (rapidjson::SizeType i = 0; i < json["tx_info"].Size(); i++) {
+      print_tx_info(json["tx_info"][i], true);
     }
-    if (res.spent_key_images.empty())
-    {
+    if (json["spent_key_image_info"].Size() == 0) {
       tools::msg_writer() << "WARNING: Inconsistent pool state - no spent key images";
     }
   }
-  if (! res.spent_key_images.empty())
-  {
+  if (json["spent_key_image_info"].Size() > 0) {
     tools::msg_writer() << ""; // one newline
     tools::msg_writer() << "Spent key images: ";
-    for (const cryptonote::spent_key_image_info& kinfo : res.spent_key_images)
-    {
-      tools::msg_writer() << "key image: " << kinfo.id_hash;
-      if (kinfo.txs_hashes.size() == 1)
-      {
-        tools::msg_writer() << "  tx: " << kinfo.txs_hashes[0];
-      }
-      else if (kinfo.txs_hashes.size() == 0)
-      {
-        tools::msg_writer() << "  WARNING: spent key image has no txs associated";
-      }
-      else
-      {
-        tools::msg_writer() << "  NOTE: key image for multiple txs: " << kinfo.txs_hashes.size();
-        for (const std::string& tx_id : kinfo.txs_hashes)
-        {
-          tools::msg_writer() << "  tx: " << tx_id;
-        }
-      }
+    for (rapidjson::SizeType i = 0; i < json["spent_key_image_info"].Size(); i++) {
+     print_spent_key_image_info(json["spent_key_image_info"][i]);
     }
-    if (res.transactions.empty())
-    {
+    if (json["tx_info"].Size() == 0) {
       tools::msg_writer() << "WARNING: Inconsistent pool state - no transactions";
     }
   }
-#endif
 
   return true;
 }
 
 bool t_rpc_command_executor::print_transaction_pool_short() {
-#if 0
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
-
-  std::string fail_message = "Problem fetching transaction pool";
-
-  if (!m_rpc_server->on_get_transaction_pool(req, res))
-  {
-    tools::fail_msg_writer() << fail_message.c_str();
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-
-  if (res.transactions.empty())
-  {
+  int status = wap_client_get_tx_pool(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+  zmsg_t *msg = wap_client_msg_data(ipc_client);
+  if (!msg) {
+    tools::fail_msg_writer() << "Bad message received";
+    return true;
+  }
+  zframe_t *frame = zmsg_first(msg);
+  if (!frame) {
+    tools::fail_msg_writer() << "Bad frame received";
+    return true;
+  }
+  char *data = reinterpret_cast<char*>(zframe_data(frame));
+  rapidjson::Document json;
+  if (json.Parse(data).HasParseError()) {
+    tools::fail_msg_writer() << "Bad JSON received";
+    return true;
+  }
+  if (json["tx_info"].Size() == 0) {
     tools::msg_writer() << "Pool is empty" << std::endl;
   }
-  for (auto & tx_info : res.transactions)
-  {
-    tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                        << "blob_size: " << tx_info.blob_size << std::endl
-                        << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                        << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
-                        << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                        << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
-                        << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                        << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+  for (rapidjson::SizeType i = 0; i < json["tx_info"].Size(); i++) {
+    print_tx_info(json["tx_info"][i], false);
   }
-#endif
-
   return true;
 }
 
@@ -623,7 +660,7 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
 
   std::string address_str = cryptonote::get_account_address_as_str(testnet, address);
   zchunk_t *address_chunk = zchunk_new((void*)address_str.c_str(), address_str.length());
-  int status = wap_client_start(ipc_client, &address_chunk, num_threads);
+  int status = wap_client_start_mining(ipc_client, &address_chunk, num_threads);
   zchunk_destroy(&address_chunk);
   if (status < 0) {
     tools::fail_msg_writer() << "Failed to start mining";
@@ -643,7 +680,7 @@ bool t_rpc_command_executor::stop_mining() {
     return true;
   }
 
-  int status = wap_client_stop(ipc_client);
+  int status = wap_client_stop_mining(ipc_client);
   if (status < 0) {
     tools::fail_msg_writer() << "Failed to stop mining";
     return true;
@@ -657,13 +694,13 @@ bool t_rpc_command_executor::stop_mining() {
   return true;
 }
 
-bool t_rpc_command_executor::stop_daemon()
+bool t_rpc_command_executor::stop_daemon(bool fast)
 {
   if (!connect_to_daemon()) {
     tools::fail_msg_writer() << "Failed to connect to daemon";
     return true;
   }
-  int status = wap_client_stop_daemon(ipc_client);
+  int status = wap_client_stop_daemon(ipc_client, fast);
   if (status < 0) {
     tools::fail_msg_writer() << "Failed to stop daemon";
     return true;
@@ -728,45 +765,19 @@ bool t_rpc_command_executor::set_limit_down(int limit)
     return true;
 }
 
-bool t_rpc_command_executor::fast_exit()
-{
-#if 0
-	cryptonote::COMMAND_RPC_FAST_EXIT::request req;
-	cryptonote::COMMAND_RPC_FAST_EXIT::response res;
-	
-	std::string fail_message = "Daemon did not stop";
-	
-	if (!m_rpc_server->on_fast_exit(req, res))
-	{
-		tools::fail_msg_writer() << fail_message.c_str();
-		return true;
-	}
-
-	tools::success_msg_writer() << "Daemon stopped";
-#endif
-	return true;
-}
-
 bool t_rpc_command_executor::out_peers(uint64_t limit)
 {
-#if 0
-	cryptonote::COMMAND_RPC_OUT_PEERS::request req;
-	cryptonote::COMMAND_RPC_OUT_PEERS::response res;
-	
-	epee::json_rpc::error error_resp;
-
-	req.out_peers = limit;
-	
-	std::string fail_message = "Unsuccessful";
-
-	if (!m_rpc_server->on_out_peers(req, res))
-	{
-		tools::fail_msg_writer() << fail_message.c_str();
-		return true;
-	}
-#endif
-
-	return true;
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+  int status = wap_client_set_out_peers(ipc_client, limit);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+  tools::success_msg_writer() << "Out peers set";
+  return true;
 }
 
 bool t_rpc_command_executor::start_save_graph()
@@ -820,6 +831,90 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
       ", " << votes << "/" << window << " votes, threshold " << threshold;
   tools::msg_writer() << "current version " << (uint32_t)hfversion << ", voting for version " << (uint32_t)voting;
   return true;
+}
+
+bool t_rpc_command_executor::print_bans()
+{
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+  int status = wap_client_get_bans(ipc_client);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+
+  zframe_t *bans_frame = wap_client_bans(ipc_client);
+  const char *data = reinterpret_cast<const char*>(zframe_data(bans_frame));
+
+  rapidjson::Document bans_json;
+  if (bans_json.Parse(data).HasParseError()) {
+    tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
+    return true;
+  }
+
+  size_t nbans = bans_json["bans"].Size();
+  tools::success_msg_writer() << nbans << " banned IPs";
+  for (size_t n = 0; n < nbans; ++n) {
+    try {
+      print_ban(bans_json["bans"][n]);
+    }
+    catch(...) {
+      tools::fail_msg_writer() << "Couldn't parse ban record from JSON";
+    }
+  }
+
+  return true;
+}
+
+
+bool t_rpc_command_executor::set_ban(const std::string &ip, bool ban, time_t seconds)
+{
+  if (!connect_to_daemon()) {
+    tools::fail_msg_writer() << "Failed to connect to daemon";
+    return true;
+  }
+
+  // json array of "ip", "ban", "seconds"
+  rapidjson::Document result_json;
+  result_json.SetObject();
+  rapidjson::Document::AllocatorType &allocator = result_json.GetAllocator();
+  rapidjson::Value bans_json(rapidjson::kArrayType);
+  rapidjson::Value string_value(rapidjson::kStringType);
+
+  rapidjson::Value this_ban(rapidjson::kObjectType);
+  string_value.SetString(ip.c_str(), ip.size(), allocator);
+  this_ban.AddMember("ip", string_value.Move(), allocator);
+  this_ban.AddMember("ban", ban, allocator);
+  this_ban.AddMember("seconds", seconds, allocator);
+  bans_json.PushBack(this_ban, allocator);
+  result_json.AddMember("bans", bans_json, allocator);
+
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  result_json.Accept(writer);
+  std::string bans_string = buffer.GetString();
+
+  zframe_t *frame = zframe_new(bans_string.c_str(), bans_string.size());
+  int status = wap_client_set_bans(ipc_client, &frame);
+  zframe_destroy(&frame);
+  if (status) {
+    tools::fail_msg_writer() << "Error: " << IPC::get_status_string(status);
+    return true;
+  }
+
+  return true;
+}
+
+bool t_rpc_command_executor::ban(const std::string &ip, time_t seconds)
+{
+  return set_ban(ip, true, seconds);
+}
+
+bool t_rpc_command_executor::unban(const std::string &ip)
+{
+  return set_ban(ip, false, 0);
 }
 
 }// namespace daemonize

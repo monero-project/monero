@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2015, The Monero Project
-// 
+// Copyright (c) 2014-2016, The Monero Project
+//
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -430,7 +430,7 @@ difficulty_type blockchain_storage::get_difficulty_for_next_block() const
     timestamps.push_back(m_blocks[offset].bl.timestamp);
     commulative_difficulties.push_back(m_blocks[offset].cumulative_difficulty);
   }
-  return next_difficulty(timestamps, commulative_difficulties);
+  return next_difficulty(timestamps, commulative_difficulties,DIFFICULTY_TARGET_V1);
 }
 //------------------------------------------------------------------
 bool blockchain_storage::rollback_blockchain_switching(std::list<block>& original_chain, size_t rollback_height)
@@ -571,7 +571,7 @@ difficulty_type blockchain_storage::get_next_difficulty_for_alternative_chain(co
         break;
     }
   }
-  return next_difficulty(timestamps, commulative_difficulties);
+  return next_difficulty(timestamps, commulative_difficulties,DIFFICULTY_TARGET_V1);
 }
 //------------------------------------------------------------------
 bool blockchain_storage::prevalidate_miner_transaction(const block& b, uint64_t height) const
@@ -606,7 +606,7 @@ bool blockchain_storage::validate_miner_transaction(const block& b, size_t cumul
 
   std::vector<size_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-  if (!get_block_reward(epee::misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward)) {
+  if (!get_block_reward(epee::misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward,0)) {
     LOG_PRINT_L1("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
   }
@@ -661,7 +661,7 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
   b.timestamp = time(NULL);
   height = m_blocks.size();
   diffic = get_difficulty_for_next_block();
-  CHECK_AND_ASSERT_MES(diffic, false, "difficulty owverhead.");
+  CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
   median_size = m_current_block_cumul_sz_limit / 2;
   already_generated_coins = m_blocks.back().already_generated_coins;
@@ -1505,7 +1505,7 @@ bool blockchain_storage::is_tx_spendtime_unlocked(uint64_t unlock_time) const
   {
     //interpret as time
     uint64_t current_time = static_cast<uint64_t>(time(NULL));
-    if(current_time + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS >= unlock_time)
+    if(current_time + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 >= unlock_time)
       return true;
     else
       return false;
