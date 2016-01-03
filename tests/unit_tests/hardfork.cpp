@@ -42,10 +42,11 @@ using namespace cryptonote;
 
 class TestDB: public BlockchainDB {
 public:
-  virtual void open(const std::string& filename, const int db_flags = 0) {
+  TestDB() {
     for (size_t n = 0; n < 256; ++n)
       starting_height[n] = std::numeric_limits<uint64_t>::max();
   }
+  virtual void open(const std::string& filename, const int db_flags = 0) { }
   virtual void close() {}
   virtual void sync() {}
   virtual void reset() {}
