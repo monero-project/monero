@@ -1285,9 +1285,8 @@ namespace IPC
 
       zframe_t *bans = wap_proto_bans(message);
       const char *data = (const char*)zframe_data(bans);
-      size_t size = zframe_size(bans);
       rapidjson::Document bans_json;
-      if (bans_json.Parse(data, size).HasParseError()) {
+      if (bans_json.Parse(data).HasParseError()) {
         wap_proto_set_status(message, STATUS_BAD_JSON_SYNTAX);
         return;
       }

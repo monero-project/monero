@@ -379,9 +379,8 @@ namespace
     zframe_t *white_list_frame = wap_client_white_list(ipc_client);
     rapidjson::Document white_list_json;
     char *data = reinterpret_cast<char*>(zframe_data(white_list_frame));
-    size_t size = zframe_size(white_list_frame);
 
-    if (white_list_json.Parse(data, size).HasParseError()) {
+    if (white_list_json.Parse(data).HasParseError()) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Couldn't parse JSON sent by daemon.", "{}");
     }
@@ -391,9 +390,8 @@ namespace
     zframe_t *gray_list_frame = wap_client_gray_list(ipc_client);
     rapidjson::Document gray_list_json;
     data = reinterpret_cast<char*>(zframe_data(gray_list_frame));
-    size = zframe_size(gray_list_frame);
 
-    if (gray_list_json.Parse(data, size).HasParseError()) {
+    if (gray_list_json.Parse(data).HasParseError()) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Couldn't parse JSON sent by daemon.", "{}");
     }
@@ -850,11 +848,10 @@ namespace
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Internal error.", "{}");
     }
-    size_t size = zframe_size(frame);
     char *block_data = reinterpret_cast<char*>(zframe_data(frame));
 
     rapidjson::Document json;
-    if (json.Parse(block_data, size).HasParseError()) {
+    if (json.Parse(block_data).HasParseError()) {
       return ns_rpc_create_error(buf, len, req, internal_error,
         "Internal error.", "{}");
     }

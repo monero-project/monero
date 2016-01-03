@@ -1953,11 +1953,10 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     THROW_WALLET_EXCEPTION_IF(status != IPC::STATUS_OK, error::get_random_outs_error, "!IPC:STATUS_OK");
     // Convert ZMQ response back into RPC response object.
     zframe_t *outputs_frame = wap_client_random_outputs(ipc_client);
-    uint64_t frame_size = zframe_size(outputs_frame);
     char *frame_data = reinterpret_cast<char*>(zframe_data(outputs_frame));
     rapidjson::Document json;
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
-    THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data, frame_size).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
+    THROW_WALLET_EXCEPTION_IF(json.Parse(frame_data).HasParseError(), error::get_random_outs_error, "Couldn't JSON parse random outputs.");
     for (rapidjson::SizeType i = 0; i < json["outputs"].Size(); i++) {
       COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount output;
       output.amount = json["outputs"][i]["amount"].GetInt64();

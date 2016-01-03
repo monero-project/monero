@@ -176,9 +176,8 @@ bool t_rpc_command_executor::print_peer_list() {
   zframe_t *white_list_frame = wap_client_white_list(ipc_client);
   rapidjson::Document white_list_json;
   const char *data = reinterpret_cast<const char*>(zframe_data(white_list_frame));
-  size_t size = zframe_size(white_list_frame);
 
-  if (white_list_json.Parse(data, size).HasParseError()) {
+  if (white_list_json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
@@ -190,9 +189,8 @@ bool t_rpc_command_executor::print_peer_list() {
   zframe_t *gray_list_frame = wap_client_gray_list(ipc_client);
   rapidjson::Document gray_list_json;
   data = reinterpret_cast<const char*>(zframe_data(gray_list_frame));
-  size = zframe_size(gray_list_frame);
 
-  if (gray_list_json.Parse(data, size).HasParseError()) {
+  if (gray_list_json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
@@ -351,9 +349,8 @@ bool t_rpc_command_executor::print_connections() {
   }
   rapidjson::Document connections_json;
   const char *data = reinterpret_cast<const char*>(zframe_data(connections_frame));
-  size_t size = zframe_size(connections_frame);
 
-  if (connections_json.Parse(data, size).HasParseError()) {
+  if (connections_json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
@@ -591,10 +588,9 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
     tools::fail_msg_writer() << "Bad frame received";
     return true;
   }
-  size_t size = zframe_size(frame);
   char *data = reinterpret_cast<char*>(zframe_data(frame));
   rapidjson::Document json;
-  if (json.Parse(data, size).HasParseError()) {
+  if (json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Bad JSON received";
     return true;
   }
@@ -641,10 +637,9 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
     tools::fail_msg_writer() << "Bad frame received";
     return true;
   }
-  size_t size = zframe_size(frame);
   char *data = reinterpret_cast<char*>(zframe_data(frame));
   rapidjson::Document json;
-  if (json.Parse(data, size).HasParseError()) {
+  if (json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Bad JSON received";
     return true;
   }
@@ -852,10 +847,9 @@ bool t_rpc_command_executor::print_bans()
 
   zframe_t *bans_frame = wap_client_bans(ipc_client);
   const char *data = reinterpret_cast<const char*>(zframe_data(bans_frame));
-  size_t size = zframe_size(bans_frame);
 
   rapidjson::Document bans_json;
-  if (bans_json.Parse(data, size).HasParseError()) {
+  if (bans_json.Parse(data).HasParseError()) {
     tools::fail_msg_writer() << "Couldn't parse JSON sent by daemon.";
     return true;
   }
