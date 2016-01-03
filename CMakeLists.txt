@@ -346,8 +346,8 @@ else()
 
   if(ARM7)
     message(STATUS "Setting ARM7 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=vfpv4 -funsafe-math-optimizations -mtune=cortex-a7")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=vfpv4 -funsafe-math-optimizations -mtune=cortex-a7")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -mfloat-abi=hard")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -mfloat-abi=hard")
   endif()
 
   if(APPLE)
