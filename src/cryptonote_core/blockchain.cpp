@@ -2359,6 +2359,23 @@ bool Blockchain::check_block_timestamp(const block& b) const
     return check_block_timestamp(timestamps, b);
 }
 //------------------------------------------------------------------
+void Blockchain::return_tx_to_pool(const std::vector<transaction> &txs)
+{
+  for (auto& tx : txs)
+  {
+    cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+    // We assume that if they were in a block, the transactions are already
+    // known to the network as a whole. However, if we had mined that block,
+    // that might not be always true. Unlikely though, and always relaying
+    // these again might cause a spike of traffic as many nodes re-relay
+    // all the transactions in a popped block when a reorg happens.
+    if (!m_tx_pool.add_tx(tx, tvc, true, true))
+    {
+      LOG_PRINT_L0("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
+    }
+  }
+}
+//------------------------------------------------------------------
 //      Needs to validate the block and acquire each transaction from the
 //      transaction mem_pool, then pass the block and transactions to
 //      m_db->add_block()
@@ -2370,16 +2387,17 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
     TIME_MEASURE_START(t1);
 
-    // this is a cheap test
-    if (!m_hardfork->check(bl))
+  if(bl.prev_id != get_tail_id())
     {
-        LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)m_hardfork->get_current_version());
+    LOG_PRINT_L1("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
         return false;
     }
 
-    if(bl.prev_id != get_tail_id())
+  // this is a cheap test
+  if (!m_hardfork->check(bl))
     {
-        LOG_PRINT_L1("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
+    LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)m_hardfork->get_current_version());
+    bvc.m_verifivation_failed = true;
         return false;
     }
 
@@ -2493,7 +2511,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     uint64_t t_exists = 0;
     uint64_t t_pool = 0;
     uint64_t t_dblspnd = 0;
-    bool add_tx_to_pool = false;
     TIME_MEASURE_FINISH(t3);
 
 // XXX old code adds miner tx here
@@ -2515,7 +2532,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         {
             LOG_PRINT_L1("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
             bvc.m_verifivation_failed = true;
-            break;
+            return_tx_to_pool(txs);
+            return false;
         }
 
         TIME_MEASURE_FINISH(aa);
@@ -2527,7 +2545,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         {
             LOG_PRINT_L1("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
             bvc.m_verifivation_failed = true;
-            break;
+            return_tx_to_pool(txs);
+            return false;
         }
 
         TIME_MEASURE_FINISH(bb);
@@ -2568,8 +2587,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
                 add_block_as_invalid(bl, id);
                 LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
                 bvc.m_verifivation_failed = true;
-                add_tx_to_pool = true;
-                break;
+              return_tx_to_pool(txs);
+              return false;
             }
         }
 #if defined(PER_BLOCK_CHECKPOINT)
@@ -2584,8 +2603,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
                 add_block_as_invalid(bl, id);
                 LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
                 bvc.m_verifivation_failed = true;
-                add_tx_to_pool = true;
-                break;
+              return_tx_to_pool(txs);
+              return false;
             }
         }
 #endif
@@ -2604,6 +2623,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     {
         LOG_PRINT_L1("Block with id: " << id << " has incorrect miner transaction");
         bvc.m_verifivation_failed = true;
+        return_tx_to_pool(txs);
+        return false;
     }
 
     TIME_MEASURE_FINISH(vmt);
@@ -2623,40 +2644,30 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
     TIME_MEASURE_START(addblock);
     uint64_t new_height = 0;
-    bool add_success = true;
     if (!bvc.m_verifivation_failed)
     {
         try
         {
             new_height = m_db->add_block(bl, block_size, cumulative_difficulty, already_generated_coins, txs);
         }
+        catch (const KEY_IMAGE_EXISTS& e)
+        {
+            LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+            bvc.m_verifivation_failed = true;
+            return_tx_to_pool(txs);
+            return false;
+        }
         catch (const std::exception& e)
         {
             //TODO: figure out the best way to deal with this failure
             LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
-            add_success = false;
+            return_tx_to_pool(txs);
+            return false;
         }
     }
-
-    // if we failed for any reason to verify the block, return taken
-    // transactions to the tx_pool.
-    if ((bvc.m_verifivation_failed && add_tx_to_pool) || !add_success)
+    else
     {
-        // return taken transactions to transaction pool
-        for (auto& tx : txs)
-        {
-            cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-            // We assume that if they were in a block, the transactions are already
-            // known to the network as a whole. However, if we had mined that block,
-            // that might not be always true. Unlikely though, and always relaying
-            // these again might cause a spike of traffic as many nodes re-relay
-            // all the transactions in a popped block when a reorg happens.
-            if (!m_tx_pool.add_tx(tx, tvc, true, true))
-            {
-                LOG_PRINT_L0("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
-            }
-        }
-        return false;
+        LOG_ERROR("Blocks that failed verification should not reach here");
     }
 
     TIME_MEASURE_FINISH(addblock);

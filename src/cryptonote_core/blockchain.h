@@ -1016,6 +1016,7 @@ namespace cryptonote
      * @return true
      */
     bool update_next_cumulative_size_limit();
+    void return_tx_to_pool(const std::vector<transaction> &txs);
 
     /**
      * @brief make sure a transaction isn't attempting a double-spend
