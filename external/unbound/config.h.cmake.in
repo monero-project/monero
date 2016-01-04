@@ -781,8 +781,11 @@
 #endif
 #include <assert.h>
 
-#if STDC_HEADERS
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+
+#if STDC_HEADERS
 #include <stddef.h>
 #endif
 
