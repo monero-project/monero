@@ -1419,15 +1419,15 @@ void wallet2::rescan_spent()
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     transfer_details& td = m_transfers[i];
-    if (td.m_spent != daemon_resp.spent_status[i])
+    if (td.m_spent != (daemon_resp.spent_status[i] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT))
     {
       if (td.m_spent)
       {
-        LOG_PRINT_L1("Marking output " << i << " as unspent, it was marked as spent");
+        LOG_PRINT_L0("Marking output " << i << "(" << td.m_key_image << ") as unspent, it was marked as spent");
       }
       else
       {
-        LOG_PRINT_L1("Marking output " << i << " as spent, it was marked as unspent");
+        LOG_PRINT_L0("Marking output " << i << "(" << td.m_key_image << ") as spent, it was marked as unspent");
       }
       td.m_spent = daemon_resp.spent_status[i];
     }

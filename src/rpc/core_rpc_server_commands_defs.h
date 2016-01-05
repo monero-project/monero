@@ -123,6 +123,12 @@ namespace cryptonote
   //-----------------------------------------------
   struct COMMAND_RPC_IS_KEY_IMAGE_SPENT
   {
+    enum STATUS {
+      UNSPENT = 0,
+      SPENT_IN_BLOCKCHAIN = 1,
+      SPENT_IN_POOL = 2,
+    };
+
     struct request
     {
       std::vector<std::string> key_images;
