@@ -38,6 +38,46 @@
 namespace cryptonote
 {
 
+struct mdb_txn_cursors
+{
+  MDB_cursor *m_txc_blocks;
+  MDB_cursor *m_txc_block_heights;
+  MDB_cursor *m_txc_block_hashes;
+  MDB_cursor *m_txc_block_timestamps;
+  MDB_cursor *m_txc_block_sizes;
+  MDB_cursor *m_txc_block_diffs;
+  MDB_cursor *m_txc_block_coins;
+
+  MDB_cursor *m_txc_output_txs;
+  MDB_cursor *m_txc_output_indices;
+  MDB_cursor *m_txc_output_amounts;
+  MDB_cursor *m_txc_output_keys;
+
+  MDB_cursor *m_txc_txs;
+  MDB_cursor *m_txc_tx_heights;
+  MDB_cursor *m_txc_tx_unlocks;
+  MDB_cursor *m_txc_tx_outputs;
+
+  MDB_cursor *m_txc_spent_keys;
+};
+
+#define m_cur_blocks	m_cursors.m_txc_blocks
+#define m_cur_block_heights	m_cursors.m_txc_block_heights
+#define m_cur_block_hashes	m_cursors.m_txc_block_hashes
+#define m_cur_block_timestamps	m_cursors.m_txc_block_timestamps
+#define m_cur_block_sizes	m_cursors.m_txc_block_sizes
+#define m_cur_block_diffs	m_cursors.m_txc_block_diffs
+#define m_cur_block_coins	m_cursors.m_txc_block_coins
+#define m_cur_output_txs	m_cursors.m_txc_output_txs
+#define m_cur_output_indices	m_cursors.m_txc_output_indices
+#define m_cur_output_amounts	m_cursors.m_txc_output_amounts
+#define m_cur_output_keys	m_cursors.m_txc_output_keys
+#define m_cur_txs	m_cursors.m_txc_txs
+#define m_cur_tx_heights	m_cursors.m_txc_tx_heights
+#define m_cur_tx_unlocks	m_cursors.m_txc_tx_unlocks
+#define m_cur_tx_outputs	m_cursors.m_txc_tx_outputs
+#define m_cur_spent_keys	m_cursors.m_txc_spent_keys
+
 struct mdb_txn_safe
 {
   mdb_txn_safe();
@@ -314,6 +354,8 @@ private:
 
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
+
+  struct mdb_txn_cursors m_cursors;
 
 #if defined(__arm__)
   // force a value so it can compile with 32-bit ARM
