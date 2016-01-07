@@ -2525,13 +2525,14 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
   if (global_indices.size() > 0)
   {
     TXN_PREFIX_RDONLY();
+    lmdb_cur cur(*txn_ptr, m_output_keys);
 
     for (const uint64_t &index : global_indices)
     {
       MDB_val_copy<uint64_t> k(index);
       MDB_val v;
 
-      auto get_result = mdb_get(*txn_ptr, m_output_keys, &k, &v);
+      auto get_result = mdb_cursor_get(cur, &k, &v, MDB_SET);
       if (get_result == MDB_NOTFOUND)
         throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
       else if (get_result)
