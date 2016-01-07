@@ -284,7 +284,7 @@ if(MSVC)
 else()
   set(ARCH native CACHE STRING "CPU to build for: -march value or default")
   # -march=armv7-a conflicts with -mcpu=cortex-a7
-  if(ARCH STREQUAL "default" OR ARM7)
+  if(ARCH STREQUAL "default" OR ARM7 OR ARM6)
     set(ARCH_FLAG "")
   else()
     if(ARCH STREQUAL "x86_64")
