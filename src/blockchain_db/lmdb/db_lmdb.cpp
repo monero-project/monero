@@ -2475,22 +2475,51 @@ void BlockchainLMDB::get_output_global_indices(const uint64_t& amount, const std
         LOG_PRINT_L1("Index: " << index << " Elems: " << num_elems << " partial results found for get_output_tx_and_index");
         break;
       }
-      while (index >= curcount)
+      if (!curcount && index > num_elems/2)
       {
-        TIME_MEASURE_START(db1);
-        if (mdb_cursor_get(cur, &k, &v, curcount == 0 ? MDB_GET_MULTIPLE : MDB_NEXT_MULTIPLE) != 0)
+        mdb_cursor_get(cur, &k, &v, MDB_LAST_DUP);
+        mdb_cursor_get(cur, &k, &v, MDB_PREV);    /* kludge to unset C_EOF */
+        mdb_cursor_get(cur, &k, &v, MDB_NEXT);
+        mdb_cursor_get(cur, &k, &v, MDB_GET_MULTIPLE);
+
+        curcount = num_elems;
+        while(1)
         {
-          // allow partial results
-          result = false;
-          break;
+          TIME_MEASURE_START(db1);
+          int count = v.mv_size / sizeof(uint64_t);
+          curcount -= count;
+          if (curcount > index)
+          {
+            mdb_cursor_get(cur, &k, &v, MDB_PREV_MULTIPLE);
+          } else
+          {
+            blockstart = curcount;
+            curcount += count;
+            break;
+          }
+          TIME_MEASURE_FINISH(db1);
+          t_dbmul += db1;
         }
 
-        int count = v.mv_size / sizeof(uint64_t);
+      } else
+      {
+        while (index >= curcount)
+        {
+          TIME_MEASURE_START(db1);
+          if (mdb_cursor_get(cur, &k, &v, curcount == 0 ? MDB_GET_MULTIPLE : MDB_NEXT_MULTIPLE) != 0)
+          {
+            // allow partial results
+            result = false;
+            break;
+          }
 
-        blockstart = curcount;
-        curcount += count;
-        TIME_MEASURE_FINISH(db1);
-        t_dbmul += db1;
+          int count = v.mv_size / sizeof(uint64_t);
+
+          blockstart = curcount;
+          curcount += count;
+          TIME_MEASURE_FINISH(db1);
+          t_dbmul += db1;
+        }
       }
 
       LOG_PRINT_L3("Records returned: " << curcount << " Index: " << index);
