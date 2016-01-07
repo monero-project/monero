@@ -663,31 +663,71 @@ static void (*const extra_hashes[4])(const void *, size_t, char *) = {
 
 #include "aesb.c"
 
-STATIC INLINE void ___mul128(uint32_t *a, uint32_t *b, uint32_t *h, uint32_t *l)
-{
-  // ND: 64x64 multiplication for ARM7
-  __asm__ __volatile__
-    (
-     //  lo    hi
-     "umull %[r0], %[r1], %[b], %[d]\n\t"  // bd [r0 = bd.lo]
-     "umull %[r2], %[r3], %[b], %[c]\n\t"  // bc
-     "umull %[b],  %[c],  %[a], %[c]\n\t"  // ac
-     "adds  %[r1], %[r1], %[r2]\n\t"       // r1 = bd.hi + bc.lo
-     "adcs  %[r2], %[r3], %[b]\n\t"        // r2 = ac.lo + bc.hi + carry
-     "adc   %[r3], %[c],  #0\n\t"          // r3 = ac.hi + carry
-     "umull %[b],  %[a],  %[a], %[d]\n\t"  // ad
-     "adds  %[r1], %[r1], %[b]\n\t"        // r1 = bd.hi + bc.lo + ad.lo
-     "adcs  %[r2], %[r2], %[a]\n\t"        // r2 = ac.lo + bc.hi + ad.hi + carry
-     "adc   %[r3], %[r3], #0\n\t"          // r3 = ac.hi + carry
-     : [r0]"=&r"(l[0]), [r1]"=&r"(l[1]), [r2]"=&r"(h[0]), [r3]"=&r"(h[1])
-     : [a]"r"(a[1]), [b]"r"(a[0]), [c]"r"(b[1]), [d]"r"(b[0])
-     : "cc"
-    );
-}
+/* The asm corresponds to this C code
+#define SHORT uint32_t
+#define LONG uint64_t
 
-STATIC INLINE void mul(const uint8_t* a, const uint8_t* b, uint8_t* res)
+void mul(const uint8_t *ca, const uint8_t *cb, uint8_t *cres) {
+  const SHORT *aa = (SHORT *)ca;
+  const SHORT *bb = (SHORT *)cb;
+  SHORT *res = (SHORT *)cres;
+  union {
+    SHORT tmp[8];
+    LONG ltmp[4];
+  } t;
+  LONG A = aa[1];
+  LONG a = aa[0];
+  LONG B = bb[1];
+  LONG b = bb[0];
+
+  // Aa * Bb = ab + aB_ + Ab_ + AB__
+  t.ltmp[0] = a * b;
+  t.ltmp[1] = a * B;
+  t.ltmp[2] = A * b;
+  t.ltmp[3] = A * B;
+
+  res[2] = t.tmp[0];
+  t.ltmp[1] += t.tmp[1];
+  t.ltmp[1] += t.tmp[4];
+  t.ltmp[3] += t.tmp[3];
+  t.ltmp[3] += t.tmp[5];
+  res[3] = t.tmp[2];
+  res[0] = t.tmp[6];
+  res[1] = t.tmp[7];
+} */
+
+/* Can work as inline, but actually runs slower. Keep it separate */
+#define mul(a, b, c)	cn_mul128(a, b, c)
+void mul(const uint8_t *ca, const uint8_t *cb, uint8_t *cr)
 {
-  ___mul128((uint32_t *) a, (uint32_t *) b, (uint32_t *) (res + 0), (uint32_t *) (res + 8));
+  const uint32_t *aa = (uint32_t *)ca;
+  const uint32_t *bb = (uint32_t *)cb;
+  uint32_t *r = (uint32_t *)cr;
+  uint32_t t0, t1;
+__asm__ __volatile__(
+  "umull %[t0], %[t1], %[a], %[b]\n\t"
+  "str   %[t0], [%[r], #8]\n\t"
+
+  // accumulating with 0 can never overflow/carry
+  "mov   %[t0], #0\n\t"
+  "umlal %[t1], %[t0], %[a], %[B]\n\t"
+
+  "mov   %[a], #0\n\t"
+  "umlal %[t1], %[a], %[A], %[b]\n\t"
+  "str   %[t1], [%[r], #12]\n\t"
+
+  "mov   %[b], #0\n\t"
+  "umlal %[t0], %[b], %[A], %[B]\n\t"
+
+  // final add may have a carry
+  "adds  %[t0], %[t0], %[a]\n\t"
+  "adc   %[t1], %[b], #0\n\t"
+
+  "str   %[t0], [%[r]]\n\t"
+  "str   %[t1], [%[r], #4]\n\t"
+  : [t0]"=&r"(t0), [t1]"=&r"(t1)
+  : [A]"r"(aa[1]), [a]"r"(aa[0]), [B]"r"(bb[1]), [b]"r"(bb[0]), [r]"r"(r)
+  : "cc", "memory");
 }
 
 STATIC INLINE void sum_half_blocks(uint8_t* a, const uint8_t* b)
