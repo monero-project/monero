@@ -808,9 +808,15 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   }
   else if (command_line::has_arg(vm, arg_password_file))
   {
-    std::ifstream pfs(command_line::get_arg(vm, arg_password_file));
-    std::string password((std::istreambuf_iterator<char>(pfs)),
-                         (std::istreambuf_iterator<char>()));
+    std::string password;
+    bool r = epee::file_io_utils::load_file_to_string(command_line::get_arg(vm, arg_password_file),
+                                                      password);
+    if (!r)
+    {
+      fail_msg_writer() << tr("the password file specified could not be read");
+      return false;
+    }
+
     // Remove line breaks the user might have inserted
     password.erase(std::remove(password.begin() - 1, password.end(), '\n'), password.end());
     password.erase(std::remove(password.end() - 1, password.end(), '\r'), password.end());
