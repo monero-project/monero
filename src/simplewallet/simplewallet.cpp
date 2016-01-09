@@ -812,8 +812,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     std::string password((std::istreambuf_iterator<char>(pfs)),
                          (std::istreambuf_iterator<char>()));
     // Remove line breaks the user might have inserted
-    password.erase(std::remove(password.begin(), password.end(), '\r'), password.end());
-    password.erase(std::remove(password.begin(), password.end(), '\n'), password.end());
+    password.erase(std::remove(password.begin() - 1, password.end(), '\n'), password.end());
+    password.erase(std::remove(password.end() - 1, password.end(), '\r'), password.end());
     pwd_container.password(password.c_str());
   }
   else
