@@ -214,7 +214,7 @@ namespace tools
     // free block size. TODO: fix this so that it actually takes
     // into account the current median block size rather than
     // the minimum block size.
-    void init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = ((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+    void init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = 0);
     bool deinit();
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
@@ -374,6 +374,7 @@ namespace tools
     void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
     bool use_fork_rules(uint8_t version);
+    uint64_t get_upper_tranaction_size_limit();
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -543,6 +544,7 @@ namespace tools
     // throw if attempting a transaction with no destinations
     THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
 
+    uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
     uint64_t needed_money = fee;
 
     // calculate total amount being sent to all destinations
@@ -664,7 +666,7 @@ namespace tools
     crypto::secret_key tx_key;
     bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
-    THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
+    THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
     std::string key_images;
     bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool
