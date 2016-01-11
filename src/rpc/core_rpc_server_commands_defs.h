@@ -295,6 +295,7 @@ namespace cryptonote
         KV_SERIALIZE(height)
         KV_SERIALIZE(target_height)
         KV_SERIALIZE(difficulty)
+        KV_SERIALIZE(target)
         KV_SERIALIZE(tx_count)
         KV_SERIALIZE(tx_pool_size)
         KV_SERIALIZE(alt_blocks_count)

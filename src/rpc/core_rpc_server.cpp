@@ -902,6 +902,7 @@ namespace cryptonote
     res.height = m_core.get_current_blockchain_height();
     res.target_height = m_core.get_target_blockchain_height();
     res.difficulty = m_core.get_blockchain_storage().get_difficulty_for_next_block();
+    res.target = m_core.get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET;
     res.tx_count = m_core.get_blockchain_storage().get_total_transactions() - res.height; //without coinbase
     res.tx_pool_size = m_core.get_pool_transactions_count();
     res.alt_blocks_count = m_core.get_blockchain_storage().get_alternative_blocks_count();
@@ -910,6 +911,7 @@ namespace cryptonote
     res.incoming_connections_count = total_conn - res.outgoing_connections_count;
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
+    res.testnet = m_testnet;
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
