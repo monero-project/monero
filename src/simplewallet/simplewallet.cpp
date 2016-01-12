@@ -37,6 +37,7 @@
 #include <thread>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <ctype.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
@@ -84,6 +85,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_daemon_address = {"daemon-address", sw::tr("Use daemon instance at <host>:<port>"), ""};
   const command_line::arg_descriptor<std::string> arg_daemon_host = {"daemon-host", sw::tr("Use daemon instance at host <arg> instead of localhost"), ""};
   const command_line::arg_descriptor<std::string> arg_password = {"password", sw::tr("Wallet password"), "", true};
+  const command_line::arg_descriptor<std::string> arg_password_file = {"password-file", sw::tr("Wallet password file"), "", true};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Create non-deterministic view and spend keys"), false};
@@ -793,10 +795,32 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (m_daemon_address.empty())
     m_daemon_address = std::string("http://") + m_daemon_host + ":" + std::to_string(m_daemon_port);
 
+  if (has_arg(vm, arg_password) && has_arg(vm, arg_password_file))
+  {
+    fail_msg_writer() << tr("can't specify more than one of --password and --password-file");
+    return false;
+  }
+
   tools::password_container pwd_container;
   if (command_line::has_arg(vm, arg_password))
   {
     pwd_container.password(command_line::get_arg(vm, arg_password));
+  }
+  else if (command_line::has_arg(vm, arg_password_file))
+  {
+    std::string password;
+    bool r = epee::file_io_utils::load_file_to_string(command_line::get_arg(vm, arg_password_file),
+                                                      password);
+    if (!r)
+    {
+      fail_msg_writer() << tr("the password file specified could not be read");
+      return false;
+    }
+
+    // Remove line breaks the user might have inserted
+    password.erase(std::remove(password.begin() - 1, password.end(), '\n'), password.end());
+    password.erase(std::remove(password.end() - 1, password.end(), '\r'), password.end());
+    pwd_container.password(password.c_str());
   }
   else
   {
@@ -2418,6 +2442,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_generate_new_wallet);
   command_line::add_arg(desc_params, arg_generate_from_view_key);
   command_line::add_arg(desc_params, arg_password);
+  command_line::add_arg(desc_params, arg_password_file);
   command_line::add_arg(desc_params, arg_daemon_address);
   command_line::add_arg(desc_params, arg_daemon_host);
   command_line::add_arg(desc_params, arg_daemon_port);
