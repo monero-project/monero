@@ -1419,15 +1419,15 @@ void wallet2::rescan_spent()
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     transfer_details& td = m_transfers[i];
-    if (td.m_spent != daemon_resp.spent_status[i])
+    if (td.m_spent != (daemon_resp.spent_status[i] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT))
     {
       if (td.m_spent)
       {
-        LOG_PRINT_L1("Marking output " << i << " as unspent, it was marked as spent");
+        LOG_PRINT_L0("Marking output " << i << "(" << td.m_key_image << ") as unspent, it was marked as spent");
       }
       else
       {
-        LOG_PRINT_L1("Marking output " << i << " as spent, it was marked as unspent");
+        LOG_PRINT_L0("Marking output " << i << "(" << td.m_key_image << ") as spent, it was marked as unspent");
       }
       td.m_spent = daemon_resp.spent_status[i];
     }
@@ -1880,6 +1880,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   // throw if attempting a transaction with no destinations
   THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
 
+  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
   uint64_t needed_money = fee;
   LOG_PRINT_L2("transfer: starting with fee " << print_money (needed_money));
 
@@ -2005,7 +2006,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   crypto::secret_key tx_key;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
-  THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
+  THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
   std::string key_images;
   bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool
@@ -2066,6 +2067,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   std::vector<TX> txes;
   bool adding_fee; // true if new outputs go towards fee, rather than destinations
   uint64_t needed_fee, available_for_fee = 0;
+  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
 
   // throw if attempting a transaction with no destinations
   THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
@@ -2158,7 +2160,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
 
     // here, check if we need to sent tx and start a new one
     LOG_PRINT_L2("Considering whether to create a tx now, " << tx.selected_transfers.size() << " inputs, tx limit "
-      << m_upper_transaction_size_limit);
+      << upper_transaction_size_limit);
     bool try_tx;
     if (adding_fee)
     {
@@ -2167,7 +2169,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     }
     else
     {
-      try_tx = dsts.empty() || (tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES >= TX_SIZE_TARGET(m_upper_transaction_size_limit));
+      try_tx = dsts.empty() || (tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES >= TX_SIZE_TARGET(upper_transaction_size_limit));
     }
 
     if (try_tx) {
@@ -2290,6 +2292,8 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
 {
   using namespace cryptonote;
 
+  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+
   // select all dust inputs for transaction
   // throw if there are none
   uint64_t money = 0;
@@ -2354,7 +2358,7 @@ void wallet2::transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t n
   crypto::secret_key tx_key;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
-  THROW_WALLET_EXCEPTION_IF(m_upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
+  THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
   std::string key_images;
   bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool
@@ -2407,6 +2411,14 @@ bool wallet2::use_fork_rules(uint8_t version)
   else
     LOG_PRINT_L2("Not using HF1 rules");
   return close_enough;
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_upper_tranaction_size_limit()
+{
+  if (m_upper_transaction_size_limit > 0)
+    return m_upper_transaction_size_limit;
+  uint64_t full_reward_zone = use_fork_rules(2) ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
+  return ((full_reward_zone * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()

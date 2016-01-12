@@ -123,6 +123,12 @@ namespace cryptonote
   //-----------------------------------------------
   struct COMMAND_RPC_IS_KEY_IMAGE_SPENT
   {
+    enum STATUS {
+      UNSPENT = 0,
+      SPENT_IN_BLOCKCHAIN = 1,
+      SPENT_IN_POOL = 2,
+    };
+
     struct request
     {
       std::vector<std::string> key_images;
@@ -289,6 +295,7 @@ namespace cryptonote
         KV_SERIALIZE(height)
         KV_SERIALIZE(target_height)
         KV_SERIALIZE(difficulty)
+        KV_SERIALIZE(target)
         KV_SERIALIZE(tx_count)
         KV_SERIALIZE(tx_pool_size)
         KV_SERIALIZE(alt_blocks_count)

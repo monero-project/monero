@@ -304,7 +304,37 @@ namespace cryptonote
     }
     res.spent_status.clear();
     for (size_t n = 0; n < spent_status.size(); ++n)
-      res.spent_status.push_back(spent_status[n]);
+      res.spent_status.push_back(spent_status[n] ? COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN : COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT);
+
+    // check the pool too
+    std::vector<cryptonote::tx_info> txs;
+    std::vector<cryptonote::spent_key_image_info> ki;
+    r = m_core.get_pool_transactions_and_spent_keys_info(txs, ki);
+    if(!r)
+    {
+      res.status = "Failed";
+      return true;
+    }
+    for (std::vector<cryptonote::spent_key_image_info>::const_iterator i = ki.begin(); i != ki.end(); ++i)
+    {
+      crypto::hash hash;
+      crypto::key_image spent_key_image;
+      if (parse_hash256(i->id_hash, hash))
+      {
+        memcpy(&spent_key_image, &hash, sizeof(hash)); // a bit dodgy, should be other parse functions somewhere
+        for (size_t n = 0; n < res.spent_status.size(); ++n)
+        {
+          if (res.spent_status[n] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT)
+          {
+            if (key_images[n] == spent_key_image)
+            {
+              res.spent_status[n] = COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_POOL;
+              break;
+            }
+          }
+        }
+      }
+    }
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -872,6 +902,7 @@ namespace cryptonote
     res.height = m_core.get_current_blockchain_height();
     res.target_height = m_core.get_target_blockchain_height();
     res.difficulty = m_core.get_blockchain_storage().get_difficulty_for_next_block();
+    res.target = m_core.get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET;
     res.tx_count = m_core.get_blockchain_storage().get_total_transactions() - res.height; //without coinbase
     res.tx_pool_size = m_core.get_pool_transactions_count();
     res.alt_blocks_count = m_core.get_blockchain_storage().get_alternative_blocks_count();
@@ -880,6 +911,7 @@ namespace cryptonote
     res.incoming_connections_count = total_conn - res.outgoing_connections_count;
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
+    res.testnet = m_testnet;
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

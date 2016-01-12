@@ -277,7 +277,7 @@ bool t_rpc_command_executor::show_status() {
     {
       return true;
     }
-    if (!m_rpc_client->rpc_request(mreq, mres, "mining_status", fail_message.c_str()))
+    if (!m_rpc_client->rpc_request(mreq, mres, "/mining_status", fail_message.c_str()))
     {
       return true;
     }
