@@ -177,7 +177,7 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "out_peers"
     , std::bind(&t_command_parser_executor::out_peers, &m_parser, p::_1)
-    , "Set max limit of out peers"
+    , "Set max number of out peers"
     );
     m_command_lookup.set_handler(
       "start_save_graph"

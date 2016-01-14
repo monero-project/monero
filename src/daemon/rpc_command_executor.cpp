@@ -964,7 +964,7 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 		}
 	}
 
-	std::cout << "Max limit of out peers set to " << limit << std::endl;
+	std::cout << "Max number of out peers set to " << limit << std::endl;
 
 	return true;
 }
