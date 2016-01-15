@@ -104,8 +104,7 @@ uint8_t HardFork::get_effective_version(uint8_t voting_version) const
 
 bool HardFork::do_check(uint8_t block_version, uint8_t voting_version) const
 {
-  return block_version >= heights[current_fork_index].version
-      && block_version <= get_ideal_version()
+  return block_version == heights[current_fork_index].version
       && voting_version >= heights[current_fork_index].version;
 }
 
