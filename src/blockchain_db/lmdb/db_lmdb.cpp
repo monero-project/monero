@@ -2434,6 +2434,27 @@ void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::
   LOG_PRINT_L3("db3: " << db3);
 }
 
+void BlockchainLMDB::check_hard_fork_info()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX(0);
+
+  MDB_stat db_stat1, db_stat2;
+  if (mdb_stat(*txn_ptr, m_blocks, &db_stat1))
+    throw0(DB_ERROR("Failed to query m_blocks"));
+  if (mdb_stat(*txn_ptr, m_hf_versions, &db_stat2))
+    throw0(DB_ERROR("Failed to query m_hf_starting_heights"));
+  if (db_stat1.ms_entries != db_stat2.ms_entries)
+  {
+    mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
+    mdb_drop(*txn_ptr, m_hf_versions, 1);
+  }
+
+  TXN_POSTFIX_SUCCESS();
+}
+
 void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);

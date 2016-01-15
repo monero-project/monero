@@ -2150,6 +2150,11 @@ uint64_t BlockchainBDB::get_hard_fork_starting_height(uint8_t version) const
     return result;
 }
 
+void BlockchainBDB::check_hard_fork_info()
+{
+	/* FIXME: Some other time */
+}
+
 void BlockchainBDB::set_hard_fork_version(uint64_t height, uint8_t version)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);

@@ -83,6 +83,7 @@ struct fake_core_lmdb
   }
   ~fake_core_lmdb()
   {
+    m_storage.get_db().check_hard_fork_info();
     m_storage.deinit();
   }
 
