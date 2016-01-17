@@ -128,6 +128,7 @@ public:
   virtual uint8_t get_hard_fork_version(uint64_t height) const {
     return versions[height];
   }
+  virtual void check_hard_fork_info() {}
 
 private:
   std::vector<block> blocks;
