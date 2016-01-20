@@ -654,9 +654,11 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
 
   remove_tx_outputs(tx_hash, tx);
 
-  if (mdb_del(*m_write_txn, m_tx_outputs, &val_h, NULL))
-      throw1(DB_ERROR("Failed to add removal of tx outputs to db transaction"));
-
+  auto result = mdb_del(*m_write_txn, m_tx_outputs, &val_h, NULL);
+  if (result == MDB_NOTFOUND)
+    LOG_PRINT_L1("tx has no outputs to remove: " << tx_hash);
+  else if (result)
+    throw1(DB_ERROR(std::string("Failed to add removal of tx outputs to db transaction: ").append(mdb_strerror(result)).c_str()));
 }
 
 void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time)
@@ -718,7 +720,7 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transa
   auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
   if (result == MDB_NOTFOUND)
   {
-    LOG_ERROR("Attempting to remove a tx's outputs, but none found.  Continuing, but...be wary, because that's weird.");
+    LOG_PRINT_L2("tx has no outputs, so no global output indices");
   }
   else if (result)
   {
