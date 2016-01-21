@@ -139,8 +139,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "DragonFly.*|FreeBSD")
   set(FREEBSD TRUE)
 endif()
 
-# Check if we're on OpenBSD. Compile with gcc 4.9 from packages.
-# Use "env CC=egcc CXX=eg++ CPP=ecpp make release-static-64" or similar.
+# Check if we're on OpenBSD. See the README.md for build instructions.
 if(CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*")
   set(OPENBSD TRUE)
 endif()
