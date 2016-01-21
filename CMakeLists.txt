@@ -139,12 +139,16 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "DragonFly.*|FreeBSD")
   set(FREEBSD TRUE)
 endif()
 
-# TODO: check bsdi, NetBSD, OpenBSD, to see if they need the same FreeBSD changes
+# Check if we're on OpenBSD. Compile with gcc 4.9 from packages.
+# Use "env CC=egcc CXX=eg++ CPP=ecpp make release-static-64" or similar.
+if(CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*")
+  set(OPENBSD TRUE)
+endif()
+
+# TODO: check bsdi, NetBSD, to see if they need the same FreeBSD changes
 #
 # elseif(CMAKE_SYSTEM_NAME MATCHES "kNetBSD.*|NetBSD.*")
 #   set(NETBSD TRUE)
-# elseif(CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*")
-#   set(OPENBSD TRUE)
 # elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
 #   set(BSDI TRUE)
 
@@ -385,11 +389,18 @@ else()
     endif()
   endif()
 
+  if(OPENBSD)
+    # This works around some bugs in the gcc 4.9 package as well as forces Boost to use the multithreaded libs
+    set(CMAKE_AR "ar")
+    set(CMAKE_RANLIB "ranlib")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+  endif()
+
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_FLAGS}")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEBUG_FLAGS}")
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
-  if(STATIC AND NOT APPLE AND NOT FREEBSD)
+  if(STATIC AND NOT APPLE AND NOT FREEBSD AND NOT OPENBSD)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
   endif()
 endif()
@@ -421,7 +432,7 @@ endif()
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi)
-elseif(APPLE OR FREEBSD)
+elseif(APPLE OR FREEBSD OR OPENBSD)
   set(EXTRA_LIBRARIES "")
 elseif(NOT MSVC)
   find_library(RT rt)

@@ -37,13 +37,13 @@ static const char _NR[] = {
 #include <stdlib.h>
 #include <stdio.h>
 
-// Both OS X and FreeBSD don't need malloc.h
-#if !defined(__APPLE__) && !defined(__FreeBSD__)
+// OS X, FreeBSD, and OpenBSD don't need malloc.h
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__OpenBSD__)
  #include <malloc.h>
 #endif
 
-// FreeBSD also doesn't need timeb.h
-#ifndef __FreeBSD__
+// FreeBSD, and OpenBSD also don't need timeb.h
+#if !defined(__FreeBSD__) && !defined(__OpenBSD__)
  #include <sys/timeb.h>
 #else
  #include <sys/time.h>
@@ -470,7 +470,7 @@ OAES_RET oaes_sprintf(
 #ifdef OAES_HAVE_ISAAC
 static void oaes_get_seed( char buf[RANDSIZ + 1] )
 {
-	#ifndef __FreeBSD__
+        #if !defined(__FreeBSD__) && !defined(__OpenBSD__)
 	struct timeb timer;
 	struct tm *gmTimer;
 	char * _test = NULL;
@@ -502,7 +502,7 @@ static void oaes_get_seed( char buf[RANDSIZ + 1] )
 #else
 static uint32_t oaes_get_seed(void)
 {
-	#ifndef __FreeBSD__
+        #if !defined(__FreeBSD__) && !defined(__OpenBSD__)
 	struct timeb timer;
 	struct tm *gmTimer;
 	char * _test = NULL;
