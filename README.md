@@ -170,9 +170,11 @@ You will need to add a few packages to your system. "pkg_add db cmake gcc gcc-li
 
 The Boost package has a bug that will prevent librpc.a from building correctly. In order to fix this, you will have to Build boost yourself from scratch. Follow the directions here (under "Building Boost"):
 https://github.com/bitcoin/bitcoin/blob/master/doc/build-openbsd.md
-You will have to add the serialize, datetime, and regex modules when building as they are needed by Monero.
+
+You will have to add the serialize, datetime, and regex modules to Boost when building as they are needed by Monero.
 
 To build: "env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make"
+
 You may optionally build it statically by using the correct target.
 
 ## Building Documentation
