@@ -382,17 +382,10 @@ else()
       set(RELEASE_FLAGS "${RELEASE_FLAGS} -ffat-lto-objects")
     endif()
     # Since gcc 4.9 the LTO format is non-standard (slim), so we need the gcc-specific ar and ranlib binaries
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9.0))
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9.0) AND NOT OPENBSD)
       set(CMAKE_AR "gcc-ar")
       set(CMAKE_RANLIB "gcc-ranlib")
     endif()
-  endif()
-
-  if(OPENBSD)
-    # This works around some bugs in the gcc 4.9 package as well as forces Boost to use the multithreaded libs
-    set(CMAKE_AR "ar")
-    set(CMAKE_RANLIB "ranlib")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   endif()
 
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_FLAGS}")
