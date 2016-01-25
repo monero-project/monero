@@ -230,8 +230,6 @@ namespace cryptonote
     std::string m_daemon_host;
     int m_daemon_port;
 
-    tools::wallet2::RefreshType m_refresh_type;
-
     epee::console_handlers_binder m_cmd_binder;
 
     std::unique_ptr<tools::wallet2> m_wallet;
