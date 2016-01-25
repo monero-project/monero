@@ -100,6 +100,7 @@ const char kShuffleFlag[] = "shuffle";
 const char kStackTraceDepthFlag[] = "stack_trace_depth";
 const char kStreamResultToFlag[] = "stream_result_to";
 const char kThrowOnFailureFlag[] = "throw_on_failure";
+const char kFlagfileFlag[] = "flagfile";
 
 // A valid random seed must be in [1, kMaxRandomSeed].
 const int kMaxRandomSeed = 99999;
@@ -432,6 +433,10 @@ class OsStackTraceGetterInterface {
   // CurrentStackTrace() will use to find and hide Google Test stack frames.
   virtual void UponLeavingGTest() = 0;
 
+  // This string is inserted in place of stack frames that are part of
+  // Google Test's implementation.
+  static const char* const kElidedFramesMarker;
+
  private:
   GTEST_DISALLOW_COPY_AND_ASSIGN_(OsStackTraceGetterInterface);
 };
@@ -439,26 +444,12 @@ class OsStackTraceGetterInterface {
 // A working implementation of the OsStackTraceGetterInterface interface.
 class OsStackTraceGetter : public OsStackTraceGetterInterface {
  public:
-  OsStackTraceGetter() : caller_frame_(NULL) {}
+  OsStackTraceGetter() {}
 
-  virtual string CurrentStackTrace(int max_depth, int skip_count)
-      GTEST_LOCK_EXCLUDED_(mutex_);
-
-  virtual void UponLeavingGTest() GTEST_LOCK_EXCLUDED_(mutex_);
-
-  // This string is inserted in place of stack frames that are part of
-  // Google Test's implementation.
-  static const char* const kElidedFramesMarker;
+  virtual string CurrentStackTrace(int max_depth, int skip_count);
+  virtual void UponLeavingGTest();
 
  private:
-  Mutex mutex_;  // protects all internal state
-
-  // We save the stack frame below the frame that calls user code.
-  // We do this because the address of the frame immediately below
-  // the user code changes between the call to UponLeavingGTest()
-  // and any calls to CurrentStackTrace() from within the user code.
-  void* caller_frame_;
-
   GTEST_DISALLOW_COPY_AND_ASSIGN_(OsStackTraceGetter);
 };
 
@@ -1041,7 +1032,7 @@ class TestResultAccessor {
 #if GTEST_CAN_STREAM_RESULTS_
 
 // Streams test results to the given port on the given host machine.
-class StreamingListener : public EmptyTestEventListener {
+class GTEST_API_ StreamingListener : public EmptyTestEventListener {
  public:
   // Abstract base class for writing strings to a socket.
   class AbstractSocketWriter {
