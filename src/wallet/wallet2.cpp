@@ -1429,7 +1429,7 @@ void wallet2::rescan_spent()
       {
         LOG_PRINT_L0("Marking output " << i << "(" << td.m_key_image << ") as spent, it was marked as unspent");
       }
-      td.m_spent = daemon_resp.spent_status[i];
+      td.m_spent = daemon_resp.spent_status[i] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
     }
   }
 }
