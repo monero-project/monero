@@ -29,10 +29,10 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 /*! \file serialization.h 
- *  \breif Simple DSL AAPI based on 
+ *  \brief Simple DSL AAPI based on
  *
  * \detailed is_blob_type and  has_free_serializer are
- * both descriptors for dispatching on to the serailize function.
+ * both descriptors for dispatching on to the serialize function.
  *
  * The API itself defines a domain specific language via dirty macro
  * hacks. Greenspun's tenth rule is very much in action throughout
