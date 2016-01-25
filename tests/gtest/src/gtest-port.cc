@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <fstream>
 
 #if GTEST_OS_WINDOWS
 # include <windows.h>
@@ -56,6 +57,11 @@
 # include <fcntl.h>
 # include <sys/procfs.h>
 #endif  // GTEST_OS_QNX
+
+#if GTEST_OS_AIX
+# include <procinfo.h>
+# include <sys/types.h>
+#endif  // GTEST_OS_AIX
 
 #include "gtest/gtest-spi.h"
 #include "gtest/gtest-message.h"
@@ -83,10 +89,31 @@ const int kStdOutFileno = STDOUT_FILENO;
 const int kStdErrFileno = STDERR_FILENO;
 #endif  // _MSC_VER
 
-#if GTEST_OS_MAC
+#if GTEST_OS_LINUX
 
-// Returns the number of threads running in the process, or 0 to indicate that
-// we cannot detect it.
+namespace {
+template <typename T>
+T ReadProcFileField(const string& filename, int field) {
+  std::string dummy;
+  std::ifstream file(filename.c_str());
+  while (field-- > 0) {
+    file >> dummy;
+  }
+  T output = 0;
+  file >> output;
+  return output;
+}
+}  // namespace
+
+// Returns the number of active threads, or 0 when there is an error.
+size_t GetThreadCount() {
+  const string filename =
+      (Message() << "/proc/" << getpid() << "/stat").GetString();
+  return ReadProcFileField<int>(filename, 19);
+}
+
+#elif GTEST_OS_MAC
+
 size_t GetThreadCount() {
   const task_t task = mach_task_self();
   mach_msg_type_number_t thread_count;
@@ -124,6 +151,19 @@ size_t GetThreadCount() {
   }
 }
 
+#elif GTEST_OS_AIX
+
+size_t GetThreadCount() {
+  struct procentry64 entry;
+  pid_t pid = getpid();
+  int status = getprocs64(&entry, sizeof(entry), NULL, 0, &pid, 1);
+  if (status == 1) {
+    return entry.pi_thcount;
+  } else {
+    return 0;
+  }
+}
+
 #else
 
 size_t GetThreadCount() {
@@ -132,7 +172,7 @@ size_t GetThreadCount() {
   return 0;
 }
 
-#endif  // GTEST_OS_MAC
+#endif  // GTEST_OS_LINUX
 
 #if GTEST_IS_THREADSAFE && GTEST_OS_WINDOWS
 
@@ -196,8 +236,8 @@ void Notification::WaitForNotification() {
 }
 
 Mutex::Mutex()
-    : type_(kDynamic),
-      owner_thread_id_(0),
+    : owner_thread_id_(0),
+      type_(kDynamic),
       critical_section_init_phase_(0),
       critical_section_(new CRITICAL_SECTION) {
   ::InitializeCriticalSection(critical_section_);
@@ -865,7 +905,6 @@ GTEST_API_ ::std::string FormatCompilerIndependentFileLocation(
     return file_name + ":" + StreamableToString(line);
 }
 
-
 GTestLog::GTestLog(GTestLogSeverity severity, const char* file, int line)
     : severity_(severity) {
   const char* const marker =
@@ -962,12 +1001,6 @@ class CapturedStream {
   }
 
  private:
-  // Reads the entire content of a file as an std::string.
-  static std::string ReadEntireFile(FILE* file);
-
-  // Returns the size (in bytes) of a file.
-  static size_t GetFileSize(FILE* file);
-
   const int fd_;  // A stream to capture.
   int uncaptured_fd_;
   // Name of the temporary file holding the stderr output.
@@ -975,35 +1008,6 @@ class CapturedStream {
 
   GTEST_DISALLOW_COPY_AND_ASSIGN_(CapturedStream);
 };
-
-// Returns the size (in bytes) of a file.
-size_t CapturedStream::GetFileSize(FILE* file) {
-  fseek(file, 0, SEEK_END);
-  return static_cast<size_t>(ftell(file));
-}
-
-// Reads the entire content of a file as a string.
-std::string CapturedStream::ReadEntireFile(FILE* file) {
-  const size_t file_size = GetFileSize(file);
-  char* const buffer = new char[file_size];
-
-  size_t bytes_last_read = 0;  // # of bytes read in the last fread()
-  size_t bytes_read = 0;       // # of bytes read so far
-
-  fseek(file, 0, SEEK_SET);
-
-  // Keeps reading the file until we cannot read further or the
-  // pre-determined file size is reached.
-  do {
-    bytes_last_read = fread(buffer+bytes_read, 1, file_size-bytes_read, file);
-    bytes_read += bytes_last_read;
-  } while (bytes_last_read > 0 && bytes_read < file_size);
-
-  const std::string content(buffer, bytes_read);
-  delete[] buffer;
-
-  return content;
-}
 
 GTEST_DISABLE_MSC_WARNINGS_POP_()
 
@@ -1051,10 +1055,52 @@ std::string GetCapturedStderr() {
 
 #endif  // GTEST_HAS_STREAM_REDIRECTION
 
-#if GTEST_HAS_DEATH_TEST
+std::string TempDir() {
+#if GTEST_OS_WINDOWS_MOBILE
+  return "\\temp\\";
+#elif GTEST_OS_WINDOWS
+  const char* temp_dir = posix::GetEnv("TEMP");
+  if (temp_dir == NULL || temp_dir[0] == '\0')
+    return "\\temp\\";
+  else if (temp_dir[strlen(temp_dir) - 1] == '\\')
+    return temp_dir;
+  else
+    return std::string(temp_dir) + "\\";
+#elif GTEST_OS_LINUX_ANDROID
+  return "/sdcard/";
+#else
+  return "/tmp/";
+#endif  // GTEST_OS_WINDOWS_MOBILE
+}
 
-// A copy of all command line arguments.  Set by InitGoogleTest().
-::std::vector<testing::internal::string> g_argvs;
+size_t GetFileSize(FILE* file) {
+  fseek(file, 0, SEEK_END);
+  return static_cast<size_t>(ftell(file));
+}
+
+std::string ReadEntireFile(FILE* file) {
+  const size_t file_size = GetFileSize(file);
+  char* const buffer = new char[file_size];
+
+  size_t bytes_last_read = 0;  // # of bytes read in the last fread()
+  size_t bytes_read = 0;       // # of bytes read so far
+
+  fseek(file, 0, SEEK_SET);
+
+  // Keeps reading the file until we cannot read further or the
+  // pre-determined file size is reached.
+  do {
+    bytes_last_read = fread(buffer+bytes_read, 1, file_size-bytes_read, file);
+    bytes_read += bytes_last_read;
+  } while (bytes_last_read > 0 && bytes_read < file_size);
+
+  const std::string content(buffer, bytes_read);
+  delete[] buffer;
+
+  return content;
+}
+
+#if GTEST_HAS_DEATH_TEST
 
 static const ::std::vector<testing::internal::string>* g_injected_test_argvs =
                                         NULL;  // Owned.
@@ -1069,7 +1115,7 @@ const ::std::vector<testing::internal::string>& GetInjectableArgvs() {
   if (g_injected_test_argvs != NULL) {
     return *g_injected_test_argvs;
   }
-  return g_argvs;
+  return GetArgvs();
 }
 #endif  // GTEST_HAS_DEATH_TEST
 
@@ -1143,6 +1189,9 @@ bool ParseInt32(const Message& src_text, const char* str, Int32* value) {
 //
 // The value is considered true iff it's not "0".
 bool BoolFromGTestEnv(const char* flag, bool default_value) {
+#if defined(GTEST_GET_BOOL_FROM_ENV_)
+  return GTEST_GET_BOOL_FROM_ENV_(flag, default_value);
+#endif  // defined(GTEST_GET_BOOL_FROM_ENV_)
   const std::string env_var = FlagToEnvVar(flag);
   const char* const string_value = posix::GetEnv(env_var.c_str());
   return string_value == NULL ?
@@ -1153,6 +1202,9 @@ bool BoolFromGTestEnv(const char* flag, bool default_value) {
 // variable corresponding to the given flag; if it isn't set or
 // doesn't represent a valid 32-bit integer, returns default_value.
 Int32 Int32FromGTestEnv(const char* flag, Int32 default_value) {
+#if defined(GTEST_GET_INT32_FROM_ENV_)
+  return GTEST_GET_INT32_FROM_ENV_(flag, default_value);
+#endif  // defined(GTEST_GET_INT32_FROM_ENV_)
   const std::string env_var = FlagToEnvVar(flag);
   const char* const string_value = posix::GetEnv(env_var.c_str());
   if (string_value == NULL) {
@@ -1175,6 +1227,9 @@ Int32 Int32FromGTestEnv(const char* flag, Int32 default_value) {
 // Reads and returns the string environment variable corresponding to
 // the given flag; if it's not set, returns default_value.
 const char* StringFromGTestEnv(const char* flag, const char* default_value) {
+#if defined(GTEST_GET_STRING_FROM_ENV_)
+  return GTEST_GET_STRING_FROM_ENV_(flag, default_value);
+#endif  // defined(GTEST_GET_STRING_FROM_ENV_)
   const std::string env_var = FlagToEnvVar(flag);
   const char* const value = posix::GetEnv(env_var.c_str());
   return value == NULL ? default_value : value;
