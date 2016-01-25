@@ -1020,7 +1020,6 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
   m_wallet->set_seed_language(mnemonic_language);
-  m_wallet->set_refresh_type(m_refresh_type);
 
   crypto::secret_key recovery_val;
   try
@@ -1069,7 +1068,6 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
-  m_wallet->set_refresh_type(m_refresh_type);
 
   try
   {
@@ -1100,7 +1098,6 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
   m_wallet_file = wallet_file;
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
-  m_wallet->set_refresh_type(m_refresh_type);
 
   try
   {
