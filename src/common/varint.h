@@ -36,7 +36,7 @@
 #include <sstream>
 #include <string>
 /*! \file varint.h
- * \breif provides the implementation of varint's
+ * \brief provides the implementation of varint's
  * 
  * The representation of varints is rather odd. The first bit of each
  * octet is significant, it represents wheter there is another part

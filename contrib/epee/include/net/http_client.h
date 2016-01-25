@@ -509,7 +509,7 @@ using namespace std;
 							if(0 == chunk_size)
 							{
 								//Here is a small confusion
-								//In breif - if the chunk is the last one we need to get terminating sequence
+								//In brief - if the chunk is the last one we need to get terminating sequence
 								//along with the cipher, generally in the "ddd\r\n\r\n" form
 
 								for(it++;it != buff.end(); it++)
