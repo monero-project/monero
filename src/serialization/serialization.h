@@ -29,10 +29,10 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 /*! \file serialization.h 
- *  \breif Simple DSL AAPI based on 
+ *  \brief Simple DSL AAPI based on
  *
  * \detailed is_blob_type and  has_free_serializer are
- * both descriptors for dispatching on to the serailize function.
+ * both descriptors for dispatching on to the serialize function.
  *
  * The API itself defines a domain specific language via dirty macro
  * hacks. Greenspun's tenth rule is very much in action throughout
@@ -170,7 +170,7 @@ inline bool do_serialize(Archive &ar, T &v)
   template <bool W, template <bool> class Archive>			\
   bool do_serialize_object(Archive<W> &ar){
 
-/*! \macro PREPARE_CUSTON_VECTOR_SERIALIZATION
+/*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
  */
 #define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec)			\
   ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
@@ -224,7 +224,7 @@ inline bool do_serialize(Archive &ar, T &v)
     if (!r || !ar.stream().good()) return false;			\
   } while(0);
 
-/*! \macro VARING_FIELD(f)
+/*! \macro VARINT_FIELD(f)
  *  \brief tags and serializes the varint \a f
  */
 #define VARINT_FIELD(f)				\
@@ -234,7 +234,7 @@ inline bool do_serialize(Archive &ar, T &v)
     if (!ar.stream().good()) return false;	\
   } while(0);
 
-/*! \macro VARING_FIELD_N(t, f)
+/*! \macro VARINT_FIELD_N(t, f)
  *
  * \brief tags (as \a t) and serializes the varint \a f
  */
