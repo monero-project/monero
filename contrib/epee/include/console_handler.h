@@ -33,6 +33,9 @@
 #include <mutex>
 #include <thread>
 #include <iostream>
+#ifdef __OpenBSD__
+#include <stdio.h>
+#endif
 
 namespace epee
 {
@@ -129,7 +132,11 @@ namespace epee
     bool wait_stdin_data()
     {
 #if !defined(WIN32)
+      #ifdef __OpenBSD__
+      int stdin_fileno = fileno(stdin);
+      #else
       int stdin_fileno = ::fileno(stdin);
+      #endif
 
       while (m_run.load(std::memory_order_relaxed))
       {

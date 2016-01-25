@@ -35,8 +35,8 @@
 #include <stdint.h>
 #include "gtest/gtest.h"
 
-// Both OS X and FreeBSD don't need malloc.h
-#if !defined(__APPLE__) && !defined(__FreeBSD__)
+// OS X, FreeBSD, and OpenBSD don't need malloc.h
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__OpenBSD__)
  #include <malloc.h>
 #endif
 

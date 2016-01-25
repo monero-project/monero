@@ -137,6 +137,7 @@ static inline uint32_t div128_32(uint64_t dividend_hi, uint64_t dividend_lo, uin
 static inline uint32_t ident32(uint32_t x) { return x; }
 static inline uint64_t ident64(uint64_t x) { return x; }
 
+#ifndef __OpenBSD__
 static inline uint32_t swap32(uint32_t x) {
   x = ((x & 0x00ff00ff) << 8) | ((x & 0xff00ff00) >> 8);
   return (x << 16) | (x >> 16);
@@ -146,6 +147,7 @@ static inline uint64_t swap64(uint64_t x) {
   x = ((x & 0x0000ffff0000ffff) << 16) | ((x & 0xffff0000ffff0000) >> 16);
   return (x << 32) | (x >> 32);
 }
+#endif
 
 #if defined(__GNUC__)
 #define UNUSED __attribute__((unused))
