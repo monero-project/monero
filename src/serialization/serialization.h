@@ -224,7 +224,7 @@ inline bool do_serialize(Archive &ar, T &v)
     if (!r || !ar.stream().good()) return false;			\
   } while(0);
 
-/*! \macro VARING_FIELD(f)
+/*! \macro VARINT_FIELD(f)
  *  \brief tags and serializes the varint \a f
  */
 #define VARINT_FIELD(f)				\
@@ -234,7 +234,7 @@ inline bool do_serialize(Archive &ar, T &v)
     if (!ar.stream().good()) return false;	\
   } while(0);
 
-/*! \macro VARING_FIELD_N(t, f)
+/*! \macro VARINT_FIELD_N(t, f)
  *
  * \brief tags (as \a t) and serializes the varint \a f
  */
