@@ -175,7 +175,7 @@ https://github.com/bitcoin/bitcoin/blob/master/doc/build-openbsd.md
 
 You will have to add the serialization, date_time, and regex modules to Boost when building as they are needed by Monero.
 
-To build: 'env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64'
+To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
 
 ## Building Documentation
 
