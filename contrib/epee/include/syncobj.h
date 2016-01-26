@@ -30,8 +30,6 @@
 #ifndef __WINH_OBJ_H__
 #define __WINH_OBJ_H__
 
-#include <condition_variable>
-#include <mutex>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
@@ -51,22 +49,22 @@ namespace epee
 
     void raise()
     {
-      std::unique_lock<std::mutex> lock(m_mx);
+      boost::unique_lock<boost::mutex> lock(m_mx);
       m_rised = true;
       m_cond_var.notify_one();
     }
 
     void wait()
     {
-      std::unique_lock<std::mutex> lock(m_mx);
+      boost::unique_lock<boost::mutex> lock(m_mx);
       while (!m_rised) 
         m_cond_var.wait(lock);
       m_rised = false;
     }
 
   private:
-    std::mutex m_mx;
-    std::condition_variable m_cond_var;
+    boost::mutex m_mx;
+    boost::condition_variable m_cond_var;
     bool m_rised;
   };
 
