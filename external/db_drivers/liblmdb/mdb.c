@@ -4273,7 +4273,7 @@ mdb_env_set_mapsize(MDB_env *env, mdb_size_t size)
 			size = meta->mm_mapsize;
 		{
 			/* Silently round up to minimum if the size is too small */
-			size_t minsize = (meta->mm_last_pg + 1) * env->me_psize;
+			mdb_size_t minsize = (meta->mm_last_pg + 1) * env->me_psize;
 			if (size < minsize)
 				size = minsize;
 		}
