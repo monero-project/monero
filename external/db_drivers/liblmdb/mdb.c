@@ -1572,8 +1572,9 @@ mdb_strerror(int err)
 	 *	This works as long as no function between the call to mdb_strerror
 	 *	and the actual use of the message uses more than 4K of stack.
 	 */
-	char pad[4096];
-	char buf[1024], *ptr = buf;
+#define MSGSIZE	1024
+#define PADSIZE	4096
+	char buf[MSGSIZE+PADSIZE], *ptr = buf;
 #endif
 	int i;
 	if (!err)
@@ -1605,7 +1606,7 @@ mdb_strerror(int err)
 	buf[0] = 0;
 	FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM |
 		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, err, 0, ptr, sizeof(buf), (va_list *)pad);
+		NULL, err, 0, ptr, MSGSIZE, (va_list *)buf+MSGSIZE);
 	return ptr;
 #else
 	return strerror(err);
