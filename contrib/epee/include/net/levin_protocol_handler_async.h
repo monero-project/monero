@@ -26,6 +26,7 @@
 
 #pragma once
 #include <boost/uuid/uuid_generators.hpp>
+#include <boost/unordered_map.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/smart_ptr/make_shared.hpp>
 
@@ -52,7 +53,7 @@ class async_protocol_handler;
 template<class t_connection_context>
 class async_protocol_handler_config
 {
-  typedef std::map<boost::uuids::uuid, async_protocol_handler<t_connection_context>* > connections_map;
+  typedef boost::unordered_map<boost::uuids::uuid, async_protocol_handler<t_connection_context>* > connections_map;
   critical_section m_connects_lock;
   connections_map m_connects;
 
