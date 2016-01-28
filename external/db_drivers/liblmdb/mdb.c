@@ -1572,8 +1572,9 @@ mdb_strerror(int err)
 	 *	This works as long as no function between the call to mdb_strerror
 	 *	and the actual use of the message uses more than 4K of stack.
 	 */
-	char pad[4096];
-	char buf[1024], *ptr = buf;
+#define MSGSIZE	1024
+#define PADSIZE	4096
+	char buf[MSGSIZE+PADSIZE], *ptr = buf;
 #endif
 	int i;
 	if (!err)
@@ -1605,7 +1606,7 @@ mdb_strerror(int err)
 	buf[0] = 0;
 	FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM |
 		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, err, 0, ptr, sizeof(buf), (va_list *)pad);
+		NULL, err, 0, ptr, MSGSIZE, (va_list *)buf+MSGSIZE);
 	return ptr;
 #else
 	return strerror(err);
@@ -2428,7 +2429,7 @@ mdb_page_alloc(MDB_cursor *mc, int num, MDB_page **mp)
 			rc = MDB_MAP_FULL;
 			goto fail;
 	}
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MDB_VL32)
 	if (!(env->me_flags & MDB_RDONLY)) {
 		void *p;
 		p = (MDB_page *)(env->me_map + env->me_psize * pgno);
@@ -4272,7 +4273,7 @@ mdb_env_set_mapsize(MDB_env *env, mdb_size_t size)
 			size = meta->mm_mapsize;
 		{
 			/* Silently round up to minimum if the size is too small */
-			size_t minsize = (meta->mm_last_pg + 1) * env->me_psize;
+			mdb_size_t minsize = (meta->mm_last_pg + 1) * env->me_psize;
 			if (size < minsize)
 				size = minsize;
 		}

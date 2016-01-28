@@ -120,7 +120,7 @@ void mdb_midl_shrink( MDB_IDL *idp )
 {
 	MDB_IDL ids = *idp;
 	if (*(--ids) > MDB_IDL_UM_MAX &&
-		(ids = realloc(ids, (MDB_IDL_UM_MAX+1) * sizeof(MDB_ID))))
+		(ids = realloc(ids, (MDB_IDL_UM_MAX+2) * sizeof(MDB_ID))))
 	{
 		*ids++ = MDB_IDL_UM_MAX;
 		*idp = ids;
