@@ -596,7 +596,7 @@ bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
   cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req;
   cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::response res;
 
-  std::string fail_message = "Problem checkking key image";
+  std::string fail_message = "Problem checking key image";
 
   req.key_images.push_back(epee::string_tools::pod_to_hex(ki));
   if (m_is_rpc)
@@ -663,6 +663,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
                           << tx_info.tx_json << std::endl
                           << "blob_size: " << tx_info.blob_size << std::endl
                           << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
+                          << "receive_time: " << tx_info.receive_time << std::endl
                           << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                           << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
@@ -738,6 +739,7 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
     tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
                         << "blob_size: " << tx_info.blob_size << std::endl
                         << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
+                        << "receive_time: " << tx_info.receive_time << std::endl
                         << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
                         << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                         << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
