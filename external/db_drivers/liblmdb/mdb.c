@@ -5829,7 +5829,7 @@ retry:
 				if (rc)
 					goto fail;
 				if (!el[x].mref) {
-					munmap(el[x].mptr, el[x].mcnt);
+					munmap(el[x].mptr, env->me_psize * el[x].mcnt);
 					el[x].mptr = id3.mptr;
 					el[x].mcnt = id3.mcnt;
 				} else {
@@ -5881,36 +5881,15 @@ fail:
 			pthread_mutex_unlock(&env->me_rpmutex);
 			return rc;
 		}
-		/* If this page is far enough from the end of the env, scan for
-		 * any overflow pages that would spill onto another block.
-		 * Note we must compare against mt_last_pgno, the last written
-		 * page in the environment. Not mt_next_pgno, which increases
-		 * for every newly allocated (but not yet written) page. If
-		 * we scanned beyond the last written page we'd get a bus error.
-		 */
-		if (pgno + MDB_RPAGE_CHUNK <= txn->mt_last_pgno) {
-			int i;
-			char *cp = (char *)id3.mptr + rem * env->me_psize;
-			for (i=rem; i<MDB_RPAGE_CHUNK;) {
-				p = (MDB_page *)cp;
-				if (IS_OVERFLOW(p)) {
-					int nop = p->mp_pages;
-					if (nop + i > MDB_RPAGE_CHUNK) {
-						munmap(id3.mptr, len);
-						id3.mcnt = nop + i;
-						len = id3.mcnt * env->me_psize;
-						MAP(rc, env, id3.mptr, len, off);
-						if (rc)
-							goto fail;
-						break;
-					}
-					i += nop;
-					cp += nop * env->me_psize;
-				} else {
-					i++;
-					cp += env->me_psize;
-				}
-			}
+		/* check for overflow size */
+		p = (MDB_page *)((char *)id3.mptr + rem * env->me_psize);
+		if (IS_OVERFLOW(p) && p->mp_pages + rem > id3.mcnt) {
+			id3.mcnt = p->mp_pages + rem;
+			munmap(id3.mptr, len);
+			len = id3.mcnt * env->me_psize;
+			MAP(rc, env, id3.mptr, len, off);
+			if (rc)
+				goto fail;
 		}
 		mdb_mid3l_insert(el, &id3);
 		pthread_mutex_unlock(&env->me_rpmutex);
