@@ -81,8 +81,8 @@ namespace cryptonote
 #else
     tx_memory_pool(blockchain_storage& bchs);
 #endif
-    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
-    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
+    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, uint8_t version);
+    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, uint8_t version);
     //gets tx and remove it from pool
     bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed);
 
@@ -105,6 +105,7 @@ namespace cryptonote
     void set_relayed(const std::list<std::pair<crypto::hash, cryptonote::transaction>>& txs);
     size_t get_transactions_count() const;
     std::string print_pool(bool short_format) const;
+    size_t validate(uint8_t version);
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/

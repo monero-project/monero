@@ -478,12 +478,18 @@ block Blockchain::pop_block_from_blockchain()
     if (!is_coinbase(tx))
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+
+      // This is not quite correct, as we really want to add the txes
+      // to the pool based on the version determined after all blocks
+      // are popped.
+      uint8_t version = get_current_hard_fork_version();
+
       // We assume that if they were in a block, the transactions are already
       // known to the network as a whole. However, if we had mined that block,
       // that might not be always true. Unlikely though, and always relaying
       // these again might cause a spike of traffic as many nodes re-relay
       // all the transactions in a popped block when a reorg happens.
-      bool r = m_tx_pool.add_tx(tx, tvc, true, true);
+      bool r = m_tx_pool.add_tx(tx, tvc, true, true, version);
       if (!r)
       {
         LOG_ERROR("Error returning transaction to tx_pool");
@@ -702,7 +708,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_timestamps = timestamps;
     m_difficulties = difficulties;
   }
-  size_t target = get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET;
+  size_t target = get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
   return next_difficulty(timestamps, difficulties, target);
 }
 //------------------------------------------------------------------
@@ -900,7 +906,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   }
 
   // FIXME: This will fail if fork activation heights are subject to voting
-  size_t target = get_ideal_hard_fork_version(bei.height) < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET;
+  size_t target = get_ideal_hard_fork_version(bei.height) < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
 
   // calculate the difficulty target for the block and return it
   return next_difficulty(timestamps, cumulative_difficulties, target);
@@ -2239,7 +2245,7 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
   {
     //interpret as time
     uint64_t current_time = static_cast<uint64_t>(time(NULL));
-    if(current_time + (get_current_hard_fork_version() < 2 ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS) >= unlock_time)
+    if(current_time + (get_current_hard_fork_version() < 2 ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2) >= unlock_time)
       return true;
     else
       return false;
@@ -2364,6 +2370,7 @@ bool Blockchain::check_block_timestamp(const block& b) const
 //------------------------------------------------------------------
 void Blockchain::return_tx_to_pool(const std::vector<transaction> &txs)
 {
+  uint8_t version = get_current_hard_fork_version();
   for (auto& tx : txs)
   {
     cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -2372,7 +2379,7 @@ void Blockchain::return_tx_to_pool(const std::vector<transaction> &txs)
     // that might not be always true. Unlikely though, and always relaying
     // these again might cause a spike of traffic as many nodes re-relay
     // all the transactions in a popped block when a reorg happens.
-    if (!m_tx_pool.add_tx(tx, tvc, true, true))
+    if (!m_tx_pool.add_tx(tx, tvc, true, true, version))
     {
       LOG_PRINT_L0("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
     }
@@ -2698,7 +2705,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 //------------------------------------------------------------------
 bool Blockchain::update_next_cumulative_size_limit()
 {
-  uint64_t full_reward_zone = get_current_hard_fork_version() < 2 ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE;
+  uint64_t full_reward_zone = get_current_hard_fork_version() < 2 ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2;
 
   LOG_PRINT_L3("Blockchain::" << __func__);
   std::vector<size_t> sz;

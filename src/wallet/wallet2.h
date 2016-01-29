@@ -356,7 +356,7 @@ namespace tools
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
-    bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
+    bool is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
     void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks);

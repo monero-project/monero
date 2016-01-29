@@ -301,7 +301,7 @@ bool blockchain_storage::purge_transaction_from_blockchain(const crypto::hash& t
   if(!is_coinbase(tx))
   {
     cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    bool r = m_tx_pool->add_tx(tx, tvc, true, true);
+    bool r = m_tx_pool->add_tx(tx, tvc, true, true, 1);
     CHECK_AND_ASSERT_MES(r, false, "purge_block_data_from_blockchain: failed to add transaction to transaction pool");
   }
 
@@ -1699,7 +1699,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     {
       LOG_PRINT_L1("Block with id: " << id  << "has at least one transaction (id: " << tx_id << ") with wrong inputs.");
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      bool add_res = m_tx_pool->add_tx(tx, tvc, true, relayed);
+      bool add_res = m_tx_pool->add_tx(tx, tvc, true, relayed, 1);
       CHECK_AND_ASSERT_MES2(add_res, "handle_block_to_main_chain: failed to add transaction back to transaction pool");
       purge_block_data_from_blockchain(bl, tx_processed_count);
       add_block_as_invalid(bl, id);
@@ -1712,7 +1712,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     {
        LOG_PRINT_L1("Block with id: " << id << " failed to add transaction to blockchain storage");
        cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-       bool add_res = m_tx_pool->add_tx(tx, tvc, true, relayed);
+       bool add_res = m_tx_pool->add_tx(tx, tvc, true, relayed, 1);
        CHECK_AND_ASSERT_MES2(add_res, "handle_block_to_main_chain: failed to add transaction back to transaction pool");
        purge_block_data_from_blockchain(bl, tx_processed_count);
        bvc.m_verifivation_failed = true;
@@ -1787,8 +1787,8 @@ bool blockchain_storage::update_next_comulative_size_limit()
   get_last_n_blocks_sizes(sz, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
   uint64_t median = epee::misc_utils::median(sz);
-  if(median <= CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE)
-    median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE;
+  if(median <= CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1)
+    median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
 
   m_current_block_cumul_sz_limit = median*2;
   return true;
