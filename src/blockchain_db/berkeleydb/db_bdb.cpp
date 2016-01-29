@@ -419,16 +419,26 @@ void BlockchainBDB::remove_tx_outputs(const crypto::hash& tx_hash, const transac
     }
     else
     {
+        result = cur->get(&k, &v, DB_NEXT_NODUP);
+        if (result != 0 && result != DB_NOTFOUND)
+            throw0(DB_ERROR("DB error attempting to get next non-duplicate tx hash"));
+
+        if (result == 0)
+            result = cur->get(&k, &v, DB_PREV);
+        else if (result == DB_NOTFOUND)
+            result = cur->get(&k, &v, DB_LAST);
+
         db_recno_t num_elems = 0;
         cur->count(&num_elems, 0);
 
-        for (uint64_t i = 0; i < num_elems; ++i)
+        // remove in order: from newest to oldest
+        for (uint64_t i = num_elems; i > 0; --i)
         {
-            const tx_out tx_output = tx.vout[i];
+            const tx_out tx_output = tx.vout[i-1];
             remove_output(v, tx_output.amount);
-            if (i < num_elems - 1)
+            if (i > 1)
             {
-                cur->get(&k, &v, DB_NEXT_DUP);
+                cur->get(&k, &v, DB_PREV_DUP);
             }
         }
     }
