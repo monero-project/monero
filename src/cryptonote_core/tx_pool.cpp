@@ -315,7 +315,8 @@ namespace cryptonote
         {
           m_txs_by_fee.erase(sorted_it);
         }
-        m_transactions.erase(it++);
+        auto pit = it++;
+        m_transactions.erase(pit);
       }else
         ++it;
     }
