@@ -81,8 +81,8 @@ namespace cryptonote
 #else
     tx_memory_pool(blockchain_storage& bchs);
 #endif
-    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
-    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
+    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, uint8_t version);
+    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, uint8_t version);
     //gets tx and remove it from pool
     bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed);
 
@@ -105,11 +105,12 @@ namespace cryptonote
     void set_relayed(const std::list<std::pair<crypto::hash, cryptonote::transaction>>& txs);
     size_t get_transactions_count() const;
     std::string print_pool(bool short_format) const;
+    size_t validate(uint8_t version);
 
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
 
-#define CURRENT_MEMPOOL_ARCHIVE_VER    9
+#define CURRENT_MEMPOOL_ARCHIVE_VER    10
 
     template<class archive_t>
     void serialize(archive_t & a, const unsigned int version)
@@ -119,6 +120,7 @@ namespace cryptonote
       CRITICAL_REGION_LOCAL(m_transactions_lock);
       a & m_transactions;
       a & m_spent_key_images;
+      a & m_timed_out_transactions;
     }
 
     struct tx_details
@@ -160,6 +162,8 @@ namespace cryptonote
     sorted_tx_container m_txs_by_fee;
 
     sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id) const;
+
+    std::unordered_set<crypto::hash> m_timed_out_transactions;
 
     //transactions_container m_alternative_transactions;
 

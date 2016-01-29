@@ -358,6 +358,10 @@ namespace cryptonote
 
     r = m_blockchain_storage.init(db, m_testnet, m_fakechain);
 
+    // now that we have a valid m_blockchain_storage, we can clean out any
+    // transactions in the pool that do not conform to the current fork
+    m_mempool.validate(m_blockchain_storage.get_current_hard_fork_version());
+
     bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
 #else
@@ -607,7 +611,8 @@ namespace cryptonote
       return true;
     }
 
-    return m_mempool.add_tx(tx, tx_hash, blob_size, tvc, keeped_by_block, relayed);
+    uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
+    return m_mempool.add_tx(tx, tx_hash, blob_size, tvc, keeped_by_block, relayed, version);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::relay_txpool_transactions()

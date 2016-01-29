@@ -54,7 +54,8 @@ namespace cryptonote
 {
   namespace
   {
-    size_t const TRANSACTION_SIZE_LIMIT = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+    size_t const TRANSACTION_SIZE_LIMIT_V1 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
+    size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
 
@@ -81,9 +82,17 @@ namespace cryptonote
   }
 #endif
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed)
+  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
   {
-
+    // we do not accept transactions that timed out before, unless they're
+    // kept_by_block
+    if (!kept_by_block && m_timed_out_transactions.find(id) != m_timed_out_transactions.end())
+    {
+      // not clear if we should set that, since verifivation (sic) did not fail before, since
+      // the tx was accepted before timing out.
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
 
     if(!check_inputs_types_supported(tx))
     {
@@ -118,9 +127,10 @@ namespace cryptonote
       return false;
     }
 
-    if (!kept_by_block && blob_size >= TRANSACTION_SIZE_LIMIT)
+    size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
+    if (!kept_by_block && blob_size >= tx_size_limit)
     {
-      LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << TRANSACTION_SIZE_LIMIT);
+      LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << tx_size_limit);
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -217,12 +227,12 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed)
+  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, uint8_t version)
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
     get_transaction_hash(tx, h, blob_size);
-    return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed);
+    return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, version);
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::remove_transaction_keyimages(const transaction& tx)
@@ -313,7 +323,9 @@ namespace cryptonote
         {
           m_txs_by_fee.erase(sorted_it);
         }
-        m_transactions.erase(it++);
+        m_timed_out_transactions.insert(it->first);
+        auto pit = it++;
+        m_transactions.erase(pit);
       }else
         ++it;
     }
@@ -607,6 +619,33 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
+  size_t tx_memory_pool::validate(uint8_t version)
+  {
+    size_t n_removed = 0;
+    size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
+    for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
+      if (it->second.blob_size >= tx_size_limit) {
+        LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
+        remove_transaction_keyimages(it->second.tx);
+        auto sorted_it = find_tx_in_sorted_container(it->first);
+        if (sorted_it == m_txs_by_fee.end())
+        {
+          LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
+        }
+        else
+        {
+          m_txs_by_fee.erase(sorted_it);
+        }
+        auto pit = it++;
+        m_transactions.erase(pit);
+        ++n_removed;
+        continue;
+      }
+      it++;
+    }
+    return n_removed;
+  }
+  //---------------------------------------------------------------------------------
   bool tx_memory_pool::init(const std::string& config_folder)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -627,15 +666,6 @@ namespace cryptonote
       m_transactions.clear();
       m_txs_by_fee.clear();
       m_spent_key_images.clear();
-    }
-
-    for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
-      if (it->second.blob_size >= TRANSACTION_SIZE_LIMIT) {
-        LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
-        remove_transaction_keyimages(it->second.tx);
-        m_transactions.erase(it);
-      }
-      it++;
     }
 
     // no need to store queue of sorted transactions, as it's easy to generate.
