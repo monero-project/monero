@@ -514,20 +514,43 @@ void BlockchainBDB::remove_amount_output_index(const uint64_t amount, const uint
     db_recno_t num_elems = 0;
     cur->count(&num_elems, 0);
 
+    // workaround for Berkeley DB to start at end of k's duplicate list:
+    // if next key exists:
+    //   - move cursor to start of next key's duplicate list, then move back one
+    //     duplicate element to reach the end of the original key's duplicate
+    //     list.
+    //
+    // else if the next key doesn't exist:
+    //   - that means we're already on the last key.
+    //   - move cursor to last element in the db, which is the last element of
+    //     the desired key's duplicate list.
+
+    result = cur->get(&k, &v, DB_NEXT_NODUP);
+    if (result != 0 && result != DB_NOTFOUND)
+      throw0(DB_ERROR("DB error attempting to get next non-duplicate output amount"));
+
+    if (result == 0)
+      result = cur->get(&k, &v, DB_PREV);
+    else if (result == DB_NOTFOUND)
+      result = cur->get(&k, &v, DB_LAST);
+
+    bool found_index = false;
     uint64_t amount_output_index = 0;
     uint64_t goi = 0;
-    bool found_index = false;
-    for (uint64_t i = 0; i < num_elems; ++i)
+
+    for (uint64_t i = num_elems; i > 0; --i)
     {
-        goi = v;
-        if (goi == global_output_index)
-        {
-            amount_output_index = i;
-            found_index = true;
-            break;
-        }
-        cur->get(&k, &v, DB_NEXT_DUP);
+      goi = v;
+      if (goi == global_output_index)
+      {
+        amount_output_index = i-1;
+        found_index = true;
+        break;
+      }
+      if (i > 1)
+        cur->get(&k, &v, DB_PREV_DUP);
     }
+
     if (found_index)
     {
         // found the amount output index
