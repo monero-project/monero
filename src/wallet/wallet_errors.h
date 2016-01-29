@@ -61,6 +61,7 @@ namespace tools
     //         get_blocks_error
     //         get_out_indexes_error
     //         tx_parse_error
+    //         get_tx_pool_error
     //       transfer_error *
     //         get_random_outs_general_error
     //         not_enough_money
@@ -305,6 +306,16 @@ namespace tools
 
     private:
       cryptonote::blobdata m_tx_blob;
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct get_tx_pool_error : public refresh_error
+    {
+      explicit get_tx_pool_error(std::string&& loc)
+        : refresh_error(std::move(loc), "error getting tranaction pool")
+      {
+      }
+
+      std::string to_string() const { return refresh_error::to_string(); }
     };
     //----------------------------------------------------------------------------------------------------
     struct transfer_error : public wallet_logic_error

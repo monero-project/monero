@@ -2298,7 +2298,8 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
-      message_writer() << (boost::format("%8.8s %6.6s %20.20s %s %s %14.14s") % tr("pending") % tr("out") % print_money(amount - pd.m_change) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee)).str();
+      bool failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
+      message_writer() << (boost::format("%8.8s %6.6s %20.20s %s %s %14.14s") % (failed ? tr("failed") : tr("pending")) % tr("out") % print_money(amount - pd.m_change) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee)).str();
     }
   }
 
