@@ -354,9 +354,11 @@ void BlockchainBDB::remove_transaction_data(const crypto::hash& tx_hash, const t
 
     remove_tx_outputs(tx_hash, tx);
 
-    if (m_tx_outputs->del(DB_DEFAULT_TX, &val_h, 0))
+    auto result = m_tx_outputs->del(DB_DEFAULT_TX, &val_h, 0);
+    if (result == DB_NOTFOUND)
+        LOG_PRINT_L1("tx has no outputs to remove: " << tx_hash);
+    else if (result)
         throw1(DB_ERROR("Failed to add removal of tx outputs to db transaction"));
-
 }
 
 void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time)
@@ -411,7 +413,7 @@ void BlockchainBDB::remove_tx_outputs(const crypto::hash& tx_hash, const transac
     auto result = cur->get(&k, &v, DB_SET);
     if (result == DB_NOTFOUND)
     {
-        throw0(OUTPUT_DNE("Attempting to remove a tx's outputs, but none found."));
+        LOG_PRINT_L2("tx has no outputs, so no global output indices");
     }
     else if (result)
     {
