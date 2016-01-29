@@ -84,7 +84,15 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
   {
-
+    // we do not accept transactions that timed out before, unless they're
+    // kept_by_block
+    if (!kept_by_block && m_timed_out_transactions.find(id) != m_timed_out_transactions.end())
+    {
+      // not clear if we should set that, since verifivation (sic) did not fail before, since
+      // the tx was accepted before timing out.
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
 
     if(!check_inputs_types_supported(tx))
     {
@@ -315,6 +323,7 @@ namespace cryptonote
         {
           m_txs_by_fee.erase(sorted_it);
         }
+        m_timed_out_transactions.insert(it->first);
         auto pit = it++;
         m_transactions.erase(pit);
       }else

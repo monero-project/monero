@@ -110,7 +110,7 @@ namespace cryptonote
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
 
-#define CURRENT_MEMPOOL_ARCHIVE_VER    9
+#define CURRENT_MEMPOOL_ARCHIVE_VER    10
 
     template<class archive_t>
     void serialize(archive_t & a, const unsigned int version)
@@ -120,6 +120,7 @@ namespace cryptonote
       CRITICAL_REGION_LOCAL(m_transactions_lock);
       a & m_transactions;
       a & m_spent_key_images;
+      a & m_timed_out_transactions;
     }
 
     struct tx_details
@@ -161,6 +162,8 @@ namespace cryptonote
     sorted_tx_container m_txs_by_fee;
 
     sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id) const;
+
+    std::unordered_set<crypto::hash> m_timed_out_transactions;
 
     //transactions_container m_alternative_transactions;
 
