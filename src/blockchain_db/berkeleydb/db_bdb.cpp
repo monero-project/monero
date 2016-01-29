@@ -354,9 +354,11 @@ void BlockchainBDB::remove_transaction_data(const crypto::hash& tx_hash, const t
 
     remove_tx_outputs(tx_hash, tx);
 
-    if (m_tx_outputs->del(DB_DEFAULT_TX, &val_h, 0))
+    auto result = m_tx_outputs->del(DB_DEFAULT_TX, &val_h, 0);
+    if (result == DB_NOTFOUND)
+        LOG_PRINT_L1("tx has no outputs to remove: " << tx_hash);
+    else if (result)
         throw1(DB_ERROR("Failed to add removal of tx outputs to db transaction"));
-
 }
 
 void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time)
@@ -411,7 +413,7 @@ void BlockchainBDB::remove_tx_outputs(const crypto::hash& tx_hash, const transac
     auto result = cur->get(&k, &v, DB_SET);
     if (result == DB_NOTFOUND)
     {
-        throw0(OUTPUT_DNE("Attempting to remove a tx's outputs, but none found."));
+        LOG_PRINT_L2("tx has no outputs, so no global output indices");
     }
     else if (result)
     {
@@ -419,16 +421,26 @@ void BlockchainBDB::remove_tx_outputs(const crypto::hash& tx_hash, const transac
     }
     else
     {
+        result = cur->get(&k, &v, DB_NEXT_NODUP);
+        if (result != 0 && result != DB_NOTFOUND)
+            throw0(DB_ERROR("DB error attempting to get next non-duplicate tx hash"));
+
+        if (result == 0)
+            result = cur->get(&k, &v, DB_PREV);
+        else if (result == DB_NOTFOUND)
+            result = cur->get(&k, &v, DB_LAST);
+
         db_recno_t num_elems = 0;
         cur->count(&num_elems, 0);
 
-        for (uint64_t i = 0; i < num_elems; ++i)
+        // remove in order: from newest to oldest
+        for (uint64_t i = num_elems; i > 0; --i)
         {
-            const tx_out tx_output = tx.vout[i];
+            const tx_out tx_output = tx.vout[i-1];
             remove_output(v, tx_output.amount);
-            if (i < num_elems - 1)
+            if (i > 1)
             {
-                cur->get(&k, &v, DB_NEXT_DUP);
+                cur->get(&k, &v, DB_PREV_DUP);
             }
         }
     }
@@ -504,20 +516,43 @@ void BlockchainBDB::remove_amount_output_index(const uint64_t amount, const uint
     db_recno_t num_elems = 0;
     cur->count(&num_elems, 0);
 
+    // workaround for Berkeley DB to start at end of k's duplicate list:
+    // if next key exists:
+    //   - move cursor to start of next key's duplicate list, then move back one
+    //     duplicate element to reach the end of the original key's duplicate
+    //     list.
+    //
+    // else if the next key doesn't exist:
+    //   - that means we're already on the last key.
+    //   - move cursor to last element in the db, which is the last element of
+    //     the desired key's duplicate list.
+
+    result = cur->get(&k, &v, DB_NEXT_NODUP);
+    if (result != 0 && result != DB_NOTFOUND)
+      throw0(DB_ERROR("DB error attempting to get next non-duplicate output amount"));
+
+    if (result == 0)
+      result = cur->get(&k, &v, DB_PREV);
+    else if (result == DB_NOTFOUND)
+      result = cur->get(&k, &v, DB_LAST);
+
+    bool found_index = false;
     uint64_t amount_output_index = 0;
     uint64_t goi = 0;
-    bool found_index = false;
-    for (uint64_t i = 0; i < num_elems; ++i)
+
+    for (uint64_t i = num_elems; i > 0; --i)
     {
-        goi = v;
-        if (goi == global_output_index)
-        {
-            amount_output_index = i;
-            found_index = true;
-            break;
-        }
-        cur->get(&k, &v, DB_NEXT_DUP);
+      goi = v;
+      if (goi == global_output_index)
+      {
+        amount_output_index = i-1;
+        found_index = true;
+        break;
+      }
+      if (i > 1)
+        cur->get(&k, &v, DB_PREV_DUP);
     }
+
     if (found_index)
     {
         // found the amount output index
