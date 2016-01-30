@@ -2144,7 +2144,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
 
     // make sure that output being spent matches up correctly with the
     // signature spending it.
-    TIME_MEASURE_START(aa);
     if (!check_tx_input(in_to_key, tx_prefix_hash, tx.signatures[sig_index], pubkeys[sig_index], pmax_used_block_height))
     {
       it->second[in_to_key.k_image] = false;
