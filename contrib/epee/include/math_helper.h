@@ -229,15 +229,6 @@ namespace math_helper
 		}
 
 	}
-PRAGMA_WARNING_PUSH
-PRAGMA_GCC("GCC diagnostic ignored \"-Wstrict-aliasing\"")
-  inline
-  uint64_t generated_random_uint64()
-  {
-    boost::uuids::uuid id___ = boost::uuids::random_generator()();
-    return  *reinterpret_cast<uint64_t*>(&id___.data[0]); //(*reinterpret_cast<uint64_t*>(&id___.data[0]) ^ *reinterpret_cast<uint64_t*>(&id___.data[8]));
-  }
-PRAGMA_WARNING_POP
 	template<int default_interval, bool start_immediate = true>
 	class once_a_time_seconds
 	{
