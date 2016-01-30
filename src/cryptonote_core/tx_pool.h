@@ -239,8 +239,6 @@ namespace boost
       ar & td.last_failed_height;
       ar & td.last_failed_id;
       ar & td.receive_time;
-      if (version < 9)
-        return;
       ar & td.last_relayed_time;
       ar & td.relayed;
     }
