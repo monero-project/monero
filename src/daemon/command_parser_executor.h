@@ -112,6 +112,8 @@ public:
   bool ban(const std::vector<std::string>& args);
 
   bool unban(const std::vector<std::string>& args);
+
+  bool flush_txpool(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize

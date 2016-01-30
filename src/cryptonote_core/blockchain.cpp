@@ -2386,6 +2386,25 @@ void Blockchain::return_tx_to_pool(const std::vector<transaction> &txs)
   }
 }
 //------------------------------------------------------------------
+bool Blockchain::flush_txes_from_pool(const std::list<crypto::hash> &txids)
+{
+  bool res = true;
+  for (const auto &txid: txids)
+  {
+    cryptonote::transaction tx;
+    size_t blob_size;
+    uint64_t fee;
+    bool relayed;
+    LOG_PRINT_L1("Removing txid " << txid << " from the pool");
+    if(!m_tx_pool.take_tx(txid, tx, blob_size, fee, relayed))
+    {
+      LOG_PRINT_L0("Failed to remove txid " << txid << " from the pool");
+      res = false;
+    }
+  }
+  return res;
+}
+//------------------------------------------------------------------
 //      Needs to validate the block and acquire each transaction from the
 //      transaction mem_pool, then pass the block and transactions to
 //      m_db->add_block()

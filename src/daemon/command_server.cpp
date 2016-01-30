@@ -209,6 +209,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::unban, &m_parser, p::_1)
     , "Unban a given IP"
     );
+    m_command_lookup.set_handler(
+      "flush_txpool"
+    , std::bind(&t_command_parser_executor::flush_txpool, &m_parser, p::_1)
+    , "Flush a transaction from the tx pool by its txid, or the whole tx pool"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

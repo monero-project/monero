@@ -164,6 +164,8 @@ namespace cryptonote
 
     bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const;
 
+    bool flush_txes_from_pool(const std::list<crypto::hash> &txids);
+
     bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
     bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const block&)>) const;
     bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const;

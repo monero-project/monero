@@ -1892,6 +1892,25 @@ void blockchain_storage::set_enforce_dns_checkpoints(bool enforce_checkpoints)
   m_enforce_dns_checkpoints = enforce_checkpoints;
 }
 //------------------------------------------------------------------
+bool blockchain_storage::flush_txes_from_pool(const std::list<crypto::hash> &txids)
+{
+  bool res = true;
+  for (const auto &txid: txids)
+  {
+    cryptonote::transaction tx;
+    size_t blob_size;
+    uint64_t fee;
+    bool relayed;
+    LOG_PRINT_L1("Removing txid " << txid << " from the pool");
+    if(!m_tx_pool->take_tx(txid, tx, blob_size, fee, relayed))
+    {
+      LOG_PRINT_L0("Failed to remove txid " << txid << " from the pool");
+      res = false;
+    }
+  }
+  return res;
+}
+//------------------------------------------------------------------
 bool blockchain_storage::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
 {
   for (key_images_container::const_iterator i = m_spent_keys.begin(); i != m_spent_keys.end(); ++i) {
