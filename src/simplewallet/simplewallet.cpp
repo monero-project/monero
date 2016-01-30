@@ -2194,18 +2194,19 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   bool in = true;
   bool out = true;
   bool pending = true;
+  bool failed = true;
   uint64_t min_height = 0;
   uint64_t max_height = (uint64_t)-1;
 
   if(local_args.size() > 3) {
-    fail_msg_writer() << tr("usage: show_transfers [in|out|all|pending] [<min_height> [<max_height>]]");
+    fail_msg_writer() << tr("usage: show_transfers [in|out|all|pending|failed] [<min_height> [<max_height>]]");
     return true;
   }
 
   // optional in/out selector
   if (local_args.size() > 0) {
     if (local_args[0] == "in" || local_args[0] == "incoming") {
-      out = pending = false;
+      out = pending = failed = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "out" || local_args[0] == "outgoing") {
@@ -2213,7 +2214,11 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "pending") {
-      in = out = false;
+      in = out = failed = false;
+      local_args.erase(local_args.begin());
+    }
+    else if (local_args[0] == "failed") {
+      in = out = pending = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "all" || local_args[0] == "both") {
@@ -2287,7 +2292,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   }
 
   // print unconfirmed last
-  if (pending) {
+  if (pending || failed) {
     std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
     m_wallet->get_unconfirmed_payments_out(upayments);
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
@@ -2298,8 +2303,10 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
-      bool failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
-      message_writer() << (boost::format("%8.8s %6.6s %20.20s %s %s %14.14s") % (failed ? tr("failed") : tr("pending")) % tr("out") % print_money(amount - pd.m_change) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee)).str();
+      bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
+      if ((failed && is_failed) || (!is_failed && pending)) {
+        message_writer() << (boost::format("%8.8s %6.6s %20.20s %s %s %14.14s") % (is_failed ? tr("failed") : tr("pending")) % tr("out") % print_money(amount - pd.m_change) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee)).str();
+      }
     }
   }
 
