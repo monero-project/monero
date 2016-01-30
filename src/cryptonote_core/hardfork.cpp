@@ -373,7 +373,7 @@ bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &vote
   votes = 0;
   for (size_t n = version; n < 256; ++n)
       votes += last_versions[n];
-  threshold = (window * heights[current_version].threshold + 99) / 100;
+  threshold = (window * heights[current_fork_index].threshold + 99) / 100;
   //assert((votes >= threshold) == enabled);
   earliest_height = get_earliest_ideal_height_for_version(version);
   voting = heights.back().version;
