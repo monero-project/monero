@@ -224,6 +224,7 @@ namespace cryptonote
       if(b.size() != sizeof(crypto::hash))
       {
         res.status = "Failed, size of data mismatch";
+        return true;
       }
       vh.push_back(*reinterpret_cast<const crypto::hash*>(b.data()));
     }
