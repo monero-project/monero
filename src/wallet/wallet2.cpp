@@ -720,6 +720,8 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
     catch (const std::exception&)
     {
       blocks_fetched += added_blocks;
+      if (pull_thread.joinable())
+        pull_thread.join();
       if(try_count < 3)
       {
         LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
