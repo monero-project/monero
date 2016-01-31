@@ -362,7 +362,7 @@ namespace tools
     void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks);
     void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, bool &error);
     void process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added);
-    uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
+    uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, bool hf2_rules, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
     void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t spent, uint64_t received);
@@ -559,8 +559,9 @@ namespace tools
     // randomly select inputs for transaction
     // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
-    const bool add_dust = (0 == fake_outputs_count) && !use_fork_rules(2); // first fork has version 2
-    uint64_t found_money = select_transfers(needed_money, add_dust, dust_policy.dust_threshold, selected_transfers);
+    bool hf2_rules = use_fork_rules(2); // first fork has version 2
+    const bool add_dust = (0 == fake_outputs_count) && hf2_rules;
+    uint64_t found_money = select_transfers(needed_money, add_dust, dust_policy.dust_threshold, hf2_rules, selected_transfers);
     THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
 
     typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
