@@ -297,7 +297,19 @@ private:
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
 
   // tells the subclass to store an output
-  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) = 0;
+  virtual void add_output(const crypto::hash& tx_hash,
+      const tx_out& tx_output,
+      const uint64_t& local_index,
+      const uint64_t unlock_time,
+      uint64_t& amount_output_index,
+      uint64_t& global_output_index
+      ) = 0;
+
+  // tells the subclass to store indices for a tx's outputs, both amount output indices and global output indices
+  virtual void add_amount_and_global_output_indices(const crypto::hash& tx_hash,
+      const std::vector<uint64_t>& amount_output_indices,
+      const std::vector<uint64_t>& global_output_indices
+      ) = 0;
 
   // tells the subclass to remove an output
   virtual void remove_output(const tx_out& tx_output) = 0;
@@ -501,9 +513,13 @@ public:
 
   virtual bool can_thread_bulk_indices() const = 0;
 
-  // return a vector of indices corresponding to the global output index for
-  // each output in the transaction with hash <h>
-  virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const = 0;
+  // return two vectors of indices: vector of amount output indices and global
+  // output indices, corresponding to each output in the transaction with hash
+  // <h>
+  virtual void get_amount_and_global_output_indices(const crypto::hash& h,
+    std::vector<uint64_t>& amount_output_indices,
+    std::vector<uint64_t>& global_output_indices) const = 0;
+
   // return a vector of indices corresponding to the amount output index for
   // each output in the transaction with hash <h>
   virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const = 0;
