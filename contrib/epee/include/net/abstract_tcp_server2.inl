@@ -141,7 +141,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     context = boost::value_initialized<t_connection_context>();
     long ip_ = boost::asio::detail::socket_ops::host_to_network_long(remote_ep.address().to_v4().to_ulong());
 
-    context.set_details(boost::uuids::random_generator()(), ip_, remote_ep.port(), is_income);
+    // create a random uuid
+    boost::uuids::uuid random_uuid;
+    // that stuff turns out to be included, even though it's from src... Taking advantage
+    crypto::generate_random_bytes(sizeof(random_uuid), &random_uuid);
+
+    context.set_details(random_uuid, ip_, remote_ep.port(), is_income);
     _dbg3("[sock " << socket_.native_handle() << "] new connection from " << print_connection_context_short(context) <<
       " to " << local_ep.address().to_string() << ':' << local_ep.port() <<
       ", total sockets objects " << m_ref_sock_count);
