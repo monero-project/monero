@@ -2043,6 +2043,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
       {
         const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
         uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
+        LOG_PRINT_L2("output size " << print_money(in_to_key.amount) << ": " << n_outputs << " available");
         // n_outputs includes the output we're considering
         if (n_outputs <= 2)
           ++n_unmixable;

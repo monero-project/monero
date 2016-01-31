@@ -1587,7 +1587,7 @@ namespace
 // returns:
 //    direct return: amount of money found
 //    modified reference: selected_transfers, a list of iterators/indices of input sources
-uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers)
+uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, bool hf2_rules, std::list<transfer_container::iterator>& selected_transfers)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -1602,7 +1602,15 @@ uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_
       if (dust < td.amount() && is_valid_decomposed_amount(td.amount()))
         unused_transfers_indices.push_back(i);
       else
-        unused_dust_indices.push_back(i);
+      {
+        // for hf2 rules, we disregard dust, which will be spendable only
+        // via sweep_dust. If we're asked to add dust, though, we still
+        // consider them, as this will be a mixin 0 tx (and thus we may
+        // end up with a tx with one mixable output and N dusty ones).
+        // This should be made better at some point...
+        if (!hf2_rules || add_dust)
+          unused_dust_indices.push_back(i);
+      }
     }
   }
 
