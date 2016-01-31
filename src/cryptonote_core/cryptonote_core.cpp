@@ -218,6 +218,39 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::lock_db_directory(const boost::filesystem::path &path)
+  {
+    // boost doesn't like locking directories...
+    const boost::filesystem::path lock_path = path / ".daemon_lock";
+
+    try
+    {
+      // ensure the file exists
+      std::ofstream(lock_path.string(), std::ios::out).close();
+
+      db_lock = boost::interprocess::file_lock(lock_path.string().c_str());
+      LOG_PRINT_L1("Locking " << lock_path.string());
+      if (!db_lock.try_lock())
+      {
+        LOG_PRINT_L0("Failed to lock " << lock_path.string());
+        return false;
+      }
+      return true;
+    }
+    catch (const std::exception &e)
+    {
+      LOG_PRINT_L0("Error trying to lock " << lock_path.string() << ": " << e.what());
+      return false;
+    }
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::unlock_db_directory()
+  {
+    db_lock.unlock();
+    db_lock = boost::interprocess::file_lock();
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::init(const boost::program_options::variables_map& vm)
   {
     bool r = handle_command_line(vm);
@@ -279,6 +312,13 @@ namespace cryptonote
 
     folder /= db->get_db_name();
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
+
+    if (!lock_db_directory (folder))
+    {
+      LOG_ERROR ("Failed to lock " << folder);
+      delete db;
+      return false;
+    }
 
     const std::string filename = folder.string();
     // temporarily default to fastest:async:1000
@@ -398,6 +438,7 @@ namespace cryptonote
     {
       m_blockchain_storage.deinit();
     }
+    unlock_db_directory();
     return true;
   }
   //-----------------------------------------------------------------------------------------------

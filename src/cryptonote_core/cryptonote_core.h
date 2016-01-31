@@ -34,6 +34,7 @@
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
+#include <boost/interprocess/sync/file_lock.hpp>
 
 #include "p2p/net_node_common.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
@@ -172,6 +173,8 @@ namespace cryptonote
      void graceful_exit();
      bool check_fork_time();
      bool relay_txpool_transactions();
+     bool lock_db_directory(const boost::filesystem::path &path);
+     bool unlock_db_directory();
 
      static std::atomic<bool> m_fast_exit;
      bool m_test_drop_download = true;
@@ -205,6 +208,8 @@ namespace cryptonote
      time_t m_last_json_checkpoints_update;
 
      std::atomic_flag m_checkpoints_updating;
+
+     boost::interprocess::file_lock db_lock;
    };
 }
 
