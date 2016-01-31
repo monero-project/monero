@@ -753,15 +753,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       bool error = false;
       pull_thread = std::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, error);});
 
-      try
-      {
-        process_blocks(blocks_start_height, blocks, added_blocks);
-      }
-      catch (...)
-      {
-        pull_thread.join();
-        throw;
-      }
+      process_blocks(blocks_start_height, blocks, added_blocks);
       blocks_fetched += added_blocks;
       pull_thread.join();
       if(!added_blocks)
