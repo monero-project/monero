@@ -108,6 +108,7 @@ namespace cryptonote
         MAP_JON_RPC_WE("hard_fork_info",         on_hard_fork_info,             COMMAND_RPC_HARD_FORK_INFO)
         MAP_JON_RPC_WE("setbans",                on_set_bans,                   COMMAND_RPC_SETBANS)
         MAP_JON_RPC_WE("getbans",                on_get_bans,                   COMMAND_RPC_GETBANS)
+        MAP_JON_RPC_WE("flush_txpool",           on_flush_txpool,               COMMAND_RPC_FLUSH_TRANSACTION_POOL)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -147,6 +148,7 @@ namespace cryptonote
     bool on_hard_fork_info(const COMMAND_RPC_HARD_FORK_INFO::request& req, COMMAND_RPC_HARD_FORK_INFO::response& res, epee::json_rpc::error& error_resp);
     bool on_set_bans(const COMMAND_RPC_SETBANS::request& req, COMMAND_RPC_SETBANS::response& res, epee::json_rpc::error& error_resp);
     bool on_get_bans(const COMMAND_RPC_GETBANS::request& req, COMMAND_RPC_GETBANS::response& res, epee::json_rpc::error& error_resp);
+    bool on_flush_txpool(const COMMAND_RPC_FLUSH_TRANSACTION_POOL::request& req, COMMAND_RPC_FLUSH_TRANSACTION_POOL::response& res, epee::json_rpc::error& error_resp);
     //-----------------------
 
 private:

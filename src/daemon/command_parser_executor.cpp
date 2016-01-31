@@ -421,5 +421,23 @@ bool t_command_parser_executor::unban(const std::vector<std::string>& args)
   return m_executor.unban(ip);
 }
 
+bool t_command_parser_executor::flush_txpool(const std::vector<std::string>& args)
+{
+  if (args.size() > 1) return false;
+
+  std::string txid;
+  if (args.size() == 1)
+  {
+    crypto::hash hash;
+    if (!parse_hash256(args[0], hash))
+    {
+      std::cout << "failed to parse tx id" << std::endl;
+      return true;
+    }
+    txid = args[0];
+  }
+  return m_executor.flush_txpool(txid);
+}
+
 
 } // namespace daemonize

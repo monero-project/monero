@@ -130,6 +130,7 @@ namespace cryptonote
     bool is_storing_blockchain()const{return m_is_blockchain_storing;}
     uint64_t block_difficulty(size_t i) const;
     double get_avg_block_size( size_t count) const;
+    bool flush_txes_from_pool(const std::list<crypto::hash> &txids);
 
     template<class t_ids_container, class t_blocks_container, class t_missed_container>
     bool get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs) const

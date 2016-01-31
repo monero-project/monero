@@ -965,5 +965,26 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_FLUSH_TRANSACTION_POOL
+  {
+    struct request
+    {
+      std::list<std::string> txids;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txids)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 

@@ -130,6 +130,8 @@ public:
   bool ban(const std::string &ip, time_t seconds);
 
   bool unban(const std::string &ip);
+
+  bool flush_txpool(const std::string &txid);
 };
 
 } // namespace daemonize

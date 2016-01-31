@@ -224,6 +224,7 @@ namespace cryptonote
       if(b.size() != sizeof(crypto::hash))
       {
         res.status = "Failed, size of data mismatch";
+        return true;
       }
       vh.push_back(*reinterpret_cast<const crypto::hash*>(b.data()));
     }
@@ -977,6 +978,60 @@ namespace cryptonote
         m_p2p.block_ip(i->ip, i->seconds);
       else
         m_p2p.unblock_ip(i->ip);
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_flush_txpool(const COMMAND_RPC_FLUSH_TRANSACTION_POOL::request& req, COMMAND_RPC_FLUSH_TRANSACTION_POOL::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    bool failed = false;
+    std::list<crypto::hash> txids;
+    if (req.txids.empty())
+    {
+      std::list<transaction> pool_txs;
+      bool r = m_core.get_pool_transactions(pool_txs);
+      if (!r)
+      {
+        res.status = "Failed to get txpool contents";
+        return true;
+      }
+      for (const auto &tx: pool_txs)
+      {
+        txids.push_back(cryptonote::get_transaction_hash(tx));
+      }
+    }
+    else
+    {
+      for (const auto &str: req.txids)
+      {
+        cryptonote::blobdata txid_data;
+        if(!epee::string_tools::parse_hexstr_to_binbuff(str, txid_data))
+        {
+          failed = true;
+        }
+        crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+        txids.push_back(txid);
+      }
+    }
+    if (!m_core.get_blockchain_storage().flush_txes_from_pool(txids))
+    {
+      res.status = "Failed to remove one more tx";
+      return false;
+    }
+
+    if (failed)
+    {
+      res.status = "Failed to parse txid";
+      return false;
     }
 
     res.status = CORE_RPC_STATUS_OK;

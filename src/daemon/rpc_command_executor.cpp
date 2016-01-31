@@ -1161,4 +1161,34 @@ bool t_rpc_command_executor::unban(const std::string &ip)
     return true;
 }
 
+bool t_rpc_command_executor::flush_txpool(const std::string &txid)
+{
+    cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL::request req;
+    cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    if (!txid.empty())
+      req.txids.push_back(txid);
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "flush_txpool", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_flush_txpool(req, res, error_resp))
+        {
+            tools::fail_msg_writer() << fail_message.c_str();
+            return true;
+        }
+    }
+
+    return true;
+}
+
+
 }// namespace daemonize

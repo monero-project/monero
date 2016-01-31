@@ -674,6 +674,58 @@ void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_hei
   }
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::check_pending_txes()
+{
+  // if we don't have any pending txes, we don't need to check anything
+  if (m_unconfirmed_txs.empty())
+    return;
+
+  // we have at least one pending tx, so get the pool state
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
+  m_daemon_rpc_mutex.lock();
+  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/get_transaction_pool", req, res, m_http_client, 200000);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "check_pending_txes");
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+
+  // remove any pending tx that's not in the pool
+  std::unordered_map<crypto::hash, wallet2::unconfirmed_transfer_details>::iterator it = m_unconfirmed_txs.begin();
+  while (it != m_unconfirmed_txs.end())
+  {
+    const std::string txid = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(it->second.m_tx));
+    bool found = false;
+    for (auto it2: res.transactions)
+    {
+      if (it2.id_hash == txid)
+      {
+        found = true;
+        break;
+      }
+    }
+    auto pit = it++;
+    if (!found)
+    {
+      // we want to avoid a false positive when we ask for the pool just after
+      // a tx is removed from the pool due to being found in a new block, but
+      // just before the block is visible by refresh. So we keep a boolean, so
+      // that the first time we don't see the tx, we set that boolean, and only
+      // delete it the second time it is checked
+      if (pit->second.m_state == wallet2::unconfirmed_transfer_details::pending)
+      {
+        LOG_PRINT_L1("Pending txid " << txid << " not in pool, marking as not in pool");
+        pit->second.m_state = wallet2::unconfirmed_transfer_details::pending_not_in_pool;
+      }
+      else if (pit->second.m_state == wallet2::unconfirmed_transfer_details::pending_not_in_pool)
+      {
+        LOG_PRINT_L1("Pending txid " << txid << " not in pool, marking as failed");
+        pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
+      }
+    }
+  }
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {
   received_money = false;
@@ -734,6 +786,15 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   }
   if(last_tx_hash_id != (m_transfers.size() ? get_transaction_hash(m_transfers.back().m_tx) : null_hash))
     received_money = true;
+
+  try
+  {
+    check_pending_txes();
+  }
+  catch (...)
+  {
+    LOG_PRINT_L1("Failed to check pending transactions");
+  }
 
   LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance: " << print_money(balance()) << ", unlocked: " << print_money(unlocked_balance()));
 }
@@ -1342,7 +1403,8 @@ uint64_t wallet2::balance() const
 
 
   BOOST_FOREACH(auto& utx, m_unconfirmed_txs)
-    amount+= utx.second.m_change;
+    if (utx.second.m_state != wallet2::unconfirmed_transfer_details::failed)
+      amount+= utx.second.m_change;
 
   return amount;
 }
@@ -1565,6 +1627,7 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, const std::v
   utd.m_tx = tx;
   utd.m_dests = dests;
   utd.m_payment_id = payment_id;
+  utd.m_state = wallet2::unconfirmed_transfer_details::pending;
 }
 
 //----------------------------------------------------------------------------------------------------

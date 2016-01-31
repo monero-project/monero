@@ -119,6 +119,7 @@ namespace tools
       time_t m_sent_time;
       std::vector<cryptonote::tx_destination_entry> m_dests;
       crypto::hash m_payment_id;
+      enum { pending, pending_not_in_pool, failed } m_state;
     };
 
     struct confirmed_transfer_details
@@ -375,6 +376,7 @@ namespace tools
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
     bool use_fork_rules(uint8_t version);
     uint64_t get_upper_tranaction_size_limit();
+    void check_pending_txes();
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -412,7 +414,7 @@ namespace tools
 }
 BOOST_CLASS_VERSION(tools::wallet2, 10)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 0)
-BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 1)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 2)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 1)
 
 namespace boost
@@ -440,6 +442,9 @@ namespace boost
         return;
       a & x.m_dests;
       a & x.m_payment_id;
+      if (ver < 2)
+        return;
+      a & x.m_state;
     }
 
     template <class Archive>

@@ -110,7 +110,7 @@ namespace cryptonote
     /*bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);*/
 
-#define CURRENT_MEMPOOL_ARCHIVE_VER    10
+#define CURRENT_MEMPOOL_ARCHIVE_VER    11
 
     template<class archive_t>
     void serialize(archive_t & a, const unsigned int version)
@@ -243,6 +243,9 @@ namespace boost
         return;
       ar & td.last_relayed_time;
       ar & td.relayed;
+      if (version < 11)
+        return;
+      ar & td.kept_by_block;
     }
   }
 }
