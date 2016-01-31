@@ -335,6 +335,9 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 	THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(tx.vout[o].target).key,
 				  error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
+	THROW_WALLET_EXCEPTION_IF(m_key_images.count(td.m_key_image) > 0,
+	  error::wallet_internal_error, "key image " + epee::string_tools::pod_to_hex(td.m_key_image) + " from received output already exists");
+
 	m_key_images[td.m_key_image] = m_transfers.size()-1;
 	LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
 	if (0 != m_callback)
