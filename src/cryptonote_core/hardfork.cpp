@@ -318,9 +318,12 @@ HardFork::State HardFork::get_state() const
 uint8_t HardFork::get(uint64_t height) const
 {
   CRITICAL_REGION_LOCAL(lock);
-  if (height >= db.height()) {
+  if (height > db.height()) {
     assert(false);
     return 255;
+  }
+  if (height == db.height()) {
+    return get_current_version();
   }
   return db.get_hard_fork_version(height);
 }
