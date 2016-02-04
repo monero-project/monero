@@ -267,7 +267,16 @@ namespace cryptonote
     boost::filesystem::path folder(m_config_folder);
     if (m_fakechain)
       folder /= "fake";
-    //
+
+    // make sure the data directory exists, and try to lock it
+    CHECK_AND_ASSERT_MES (boost::filesystem::exists(folder) || boost::filesystem::create_directories(folder), false,
+      std::string("Failed to create directory ").append(folder.string()).c_str());
+    if (!lock_db_directory (folder))
+    {
+      LOG_ERROR ("Failed to lock " << folder);
+      return false;
+    }
+
     // check for blockchain.bin
     try
     {
@@ -312,13 +321,6 @@ namespace cryptonote
 
     folder /= db->get_db_name();
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
-
-    if (!lock_db_directory (folder))
-    {
-      LOG_ERROR ("Failed to lock " << folder);
-      delete db;
-      return false;
-    }
 
     const std::string filename = folder.string();
     // temporarily default to fastest:async:1000
