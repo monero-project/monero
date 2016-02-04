@@ -1376,7 +1376,6 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
                   << " transactions for block with hash: " << get_block_hash(bl)
                   << std::endl
             );
-            rsp.missed_ids.push_back(get_block_hash(bl));
 
             // append missed transaction hashes to response missed_ids field,
             // as done below if any standalone transactions were requested
