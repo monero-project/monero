@@ -469,6 +469,9 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
           try
           {
             simple_core.add_block(b, block_size, cumulative_difficulty, coins_generated, txs);
+            #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
+            simple_core.m_hardfork->add(b, h-1);
+            #endif
           }
           catch (const std::exception& e)
           {
