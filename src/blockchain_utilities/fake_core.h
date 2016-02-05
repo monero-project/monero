@@ -75,7 +75,10 @@ struct fake_core_lmdb
       throw;
     }
 
+    db->check_hard_fork_info();
+
     m_storage.init(db, use_testnet);
+
     if (do_batch)
       m_storage.get_db().set_batch_transactions(do_batch);
     support_batch = true;
