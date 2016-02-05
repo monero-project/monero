@@ -2457,6 +2457,19 @@ void BlockchainLMDB::check_hard_fork_info()
   TXN_POSTFIX_SUCCESS();
 }
 
+void BlockchainLMDB::drop_hard_fork_info()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX(0);
+
+  mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
+  mdb_drop(*txn_ptr, m_hf_versions, 1);
+
+  TXN_POSTFIX_SUCCESS();
+}
+
 void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
