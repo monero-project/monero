@@ -99,7 +99,7 @@ static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
-  m_db(), m_tx_pool(tx_pool), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false),
+  m_db(), m_tx_pool(tx_pool), m_hardfork(), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false),
   m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true), m_sync_counter(0)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -271,14 +271,20 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   m_db = db;
 
   m_testnet = testnet;
-  if (m_testnet) {
-    m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+  if (m_hardfork == nullptr)
+  {
+    if (m_testnet)
+      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+    else
+      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+  }
+  if (m_testnet)
+  {
     for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
       m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
   }
   else
   {
-    m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
     for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
       m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
   }
@@ -338,6 +344,16 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
 
   return true;
+}
+//------------------------------------------------------------------
+bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet, const bool fakechain)
+{
+  if (hf != nullptr)
+    m_hardfork = hf;
+  bool res = init(db, testnet, fakechain);
+  if (hf == nullptr)
+    hf = m_hardfork;
+  return res;
 }
 //------------------------------------------------------------------
 bool Blockchain::store_blockchain()
