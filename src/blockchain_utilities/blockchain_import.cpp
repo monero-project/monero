@@ -500,7 +500,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     catch (const std::exception& e)
     {
       std::cout << refresh_string;
-      LOG_PRINT_RED_L0("exception while reading from file, height=" << h);
+      LOG_PRINT_RED_L0("exception while reading from file, height=" << h << ": " << e.what());
       return 2;
     }
   } // while
