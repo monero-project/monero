@@ -78,6 +78,8 @@ enum {
   HASH_DATA_AREA = 136
 };
 
+void force_software_aes(bool sw);
+
 void cn_fast_hash(const void *data, size_t length, char *hash);
 void cn_slow_hash(const void *data, size_t length, char *hash);
 
