@@ -95,6 +95,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view-only commands"), false};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
+  const command_line::arg_descriptor<bool> arg_software_aes = {"software-aes", "", false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -2453,6 +2454,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_daemon_port);
   command_line::add_arg(desc_params, arg_command);
   command_line::add_arg(desc_params, arg_log_level);
+  command_line::add_arg(desc_params, arg_software_aes);
 
   bf::path default_log {log_space::log_singletone::get_default_log_folder()};
   std::string log_file_name = log_space::log_singletone::get_default_log_file();
@@ -2538,6 +2540,11 @@ int main(int argc, char* argv[])
     );
 
   message_writer(epee::log_space::console_color_white, true) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+
+  if (command_line::has_arg(vm, arg_software_aes)) {
+    LOG_PRINT_L1("Forcing software AES");
+    crypto::force_software_aes(true);
+  }
 
   if(command_line::has_arg(vm, arg_log_level))
     log_level = command_line::get_arg(vm, arg_log_level);

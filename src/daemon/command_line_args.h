@@ -59,6 +59,11 @@ namespace daemon_args
     "os-version"
   , "OS for which this executable was compiled"
   };
+  const command_line::arg_descriptor<int> arg_software_aes = {
+    "software-aes"
+  , ""
+  , false
+  };
 }  // namespace daemon_args
 
 #endif // DAEMON_COMMAND_LINE_ARGS_H

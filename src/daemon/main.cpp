@@ -81,6 +81,7 @@ int main(int argc, char const * argv[])
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
       command_line::add_arg(core_settings, daemon_args::arg_log_file, default_log.string());
       command_line::add_arg(core_settings, daemon_args::arg_log_level);
+      command_line::add_arg(core_settings, daemon_args::arg_software_aes);
 
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -238,6 +239,12 @@ int main(int argc, char const * argv[])
         gCurrentLogger.setDebugLevel(otshell_utils_log_level);
         LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
       }
+    }
+
+    if (command_line::has_arg(vm, daemon_args::arg_software_aes))
+    {
+      LOG_PRINT_L1("Forcing software AES");
+      crypto::force_software_aes(true);
     }
 
     // log_file_path

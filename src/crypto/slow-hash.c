@@ -37,6 +37,13 @@
 #include "hash-ops.h"
 #include "oaes_lib.h"
 
+static bool sw_aes = false;
+
+void force_software_aes(bool sw)
+{
+  sw_aes = sw;
+}
+
 #if defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64))
 // Optimised code below, uses x86-specific intrinsics, SSE2, AES-NI
 // Fall back to more portable code is down at the bottom
@@ -509,7 +516,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     size_t i, j;
     uint64_t *p = NULL;
     oaes_ctx *aes_ctx;
-    int useAes = check_aes_hw();
+    int useAes = !sw_aes && check_aes_hw();
 
     static void (*const extra_hashes[4])(const void *, size_t, char *) =
     {
