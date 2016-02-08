@@ -377,7 +377,7 @@ public:
   virtual void block_txn_stop() = 0;
   virtual void block_txn_abort() = 0;
 
-  virtual void set_hard_fork(HardFork*& hf);
+  virtual void set_hard_fork(HardFork* hf);
 
   // adds a block with the given metadata to the top of the blockchain, returns the new height
   // NOTE: subclass implementations of this (or the functions it calls) need
