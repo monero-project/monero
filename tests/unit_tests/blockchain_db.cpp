@@ -155,7 +155,7 @@ template <typename T>
 class BlockchainDBTest : public testing::Test
 {
 protected:
-  BlockchainDBTest() : m_db(new T())
+  BlockchainDBTest() : m_db(new T()), m_hardfork(*m_db, 1, 0)
   {
     for (auto& i : t_blocks)
     {
@@ -184,10 +184,17 @@ protected:
   }
 
   BlockchainDB* m_db;
+  HardFork m_hardfork;
   std::string m_prefix;
   std::vector<block> m_blocks;
   std::vector<std::vector<transaction> > m_txs;
   std::vector<std::string> m_filenames;
+
+  void init_hard_fork()
+  {
+    m_hardfork.init();
+    m_db->set_hard_fork(&m_hardfork);
+  }
 
   void get_filenames()
   {
@@ -257,6 +264,7 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
   // make sure open does not throw
   ASSERT_NO_THROW(this->m_db->open(fname));
   this->get_filenames();
+  this->init_hard_fork();
 
   // adding a block with no parent in the blockchain should throw.
   // note: this shouldn't be possible, but is a good (and cheap) failsafe.
@@ -300,6 +308,7 @@ TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
   // make sure open does not throw
   ASSERT_NO_THROW(this->m_db->open(fname));
   this->get_filenames();
+  this->init_hard_fork();
 
   ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
 
