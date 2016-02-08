@@ -2507,14 +2507,14 @@ void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t hei
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  TXN_PREFIX(0);
+  TXN_BLOCK_PREFIX(0);
 
   MDB_val_copy<uint8_t> val_key(version);
   MDB_val_copy<uint64_t> val_value(height);
   if (auto result = mdb_put(*txn_ptr, m_hf_starting_heights, &val_key, &val_value, 0))
     throw1(DB_ERROR(std::string("Error adding hard fork starting height to db transaction: ").append(mdb_strerror(result)).c_str()));
 
-  TXN_POSTFIX_SUCCESS();
+  TXN_BLOCK_POSTFIX_SUCCESS();
 }
 
 uint64_t BlockchainLMDB::get_hard_fork_starting_height(uint8_t version) const
@@ -2542,14 +2542,14 @@ void BlockchainLMDB::set_hard_fork_version(uint64_t height, uint8_t version)
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  TXN_PREFIX(0);
+  TXN_BLOCK_PREFIX(0);
 
   MDB_val_copy<uint64_t> val_key(height);
   MDB_val_copy<uint8_t> val_value(version);
   if (auto result = mdb_put(*txn_ptr, m_hf_versions, &val_key, &val_value, 0))
     throw1(DB_ERROR(std::string("Error adding hard fork version to db transaction: ").append(mdb_strerror(result)).c_str()));
 
-  TXN_POSTFIX_SUCCESS();
+  TXN_BLOCK_POSTFIX_SUCCESS();
 }
 
 uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
