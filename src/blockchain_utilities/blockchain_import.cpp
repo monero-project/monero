@@ -400,11 +400,8 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
             // size_t blob_size = 0;
             // get_transaction_hash(tx, hsh, blob_size);
 
-            // we'd need to get the starting heights from the daemon
-            // to be correct once voting kicks in
-            uint64_t v2height = opt_testnet ? 624634 : 1009827;
 
-            uint8_t version = h < v2height ? 1 : 2;
+            uint8_t version = simple_core.m_storage.get_current_hard_fork_version();
             tx_verification_context tvc = AUTO_VAL_INIT(tvc);
             bool r = true;
             r = simple_core.m_pool.add_tx(tx, tvc, true, true, version);
