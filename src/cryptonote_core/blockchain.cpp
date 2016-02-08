@@ -494,6 +494,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_alternative_chains.clear();
   m_db->reset();
+  m_hardfork->init();
 
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);
