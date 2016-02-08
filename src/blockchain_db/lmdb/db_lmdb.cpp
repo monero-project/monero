@@ -2450,9 +2450,28 @@ void BlockchainLMDB::check_hard_fork_info()
     throw0(DB_ERROR("Failed to query m_hf_starting_heights"));
   if (db_stat1.ms_entries != db_stat2.ms_entries)
   {
-    mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
-    mdb_drop(*txn_ptr, m_hf_versions, 1);
+    // Empty, but don't delete. This allows this function to be called after
+    // startup, after the subdbs have already been created, and rest of startup
+    // can proceed. If these don't exist, hard fork's init() will fail.
+    //
+    // If these are empty, hard fork's init() will repopulate the hard fork
+    // data.
+    mdb_drop(*txn_ptr, m_hf_starting_heights, 0);
+    mdb_drop(*txn_ptr, m_hf_versions, 0);
   }
+
+  TXN_POSTFIX_SUCCESS();
+}
+
+void BlockchainLMDB::drop_hard_fork_info()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX(0);
+
+  mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
+  mdb_drop(*txn_ptr, m_hf_versions, 1);
 
   TXN_POSTFIX_SUCCESS();
 }

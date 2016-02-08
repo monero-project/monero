@@ -36,12 +36,21 @@
 
 using namespace cryptonote;
 
+namespace
+{
+  // NOTE: These values should match blockchain.cpp
+  // TODO: Refactor
+  const uint64_t mainnet_hard_fork_version_1_till = 1009826;
+  const uint64_t testnet_hard_fork_version_1_till = 624633;
+}
+
 
 #if !defined(BLOCKCHAIN_DB) || BLOCKCHAIN_DB == DB_LMDB
 
 struct fake_core_lmdb
 {
   Blockchain m_storage;
+  HardFork* m_hardfork = nullptr;
   tx_memory_pool m_pool;
   bool support_batch;
   bool support_add_block;
@@ -75,7 +84,13 @@ struct fake_core_lmdb
       throw;
     }
 
-    m_storage.init(db, use_testnet);
+    db->check_hard_fork_info();
+
+    uint64_t hard_fork_version_1_till = use_testnet ? testnet_hard_fork_version_1_till : mainnet_hard_fork_version_1_till;
+    m_hardfork = new HardFork(*db, 1, hard_fork_version_1_till);
+
+    m_storage.init(db, m_hardfork, use_testnet);
+
     if (do_batch)
       m_storage.get_db().set_batch_transactions(do_batch);
     support_batch = true;

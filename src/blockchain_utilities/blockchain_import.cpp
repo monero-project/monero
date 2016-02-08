@@ -469,6 +469,9 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
           try
           {
             simple_core.add_block(b, block_size, cumulative_difficulty, coins_generated, txs);
+            #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
+            simple_core.m_hardfork->add(b, h-1);
+            #endif
           }
           catch (const std::exception& e)
           {
@@ -500,7 +503,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     catch (const std::exception& e)
     {
       std::cout << refresh_string;
-      LOG_PRINT_RED_L0("exception while reading from file, height=" << h);
+      LOG_PRINT_RED_L0("exception while reading from file, height=" << h << ": " << e.what());
       return 2;
     }
   } // while
@@ -557,6 +560,7 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<uint64_t> arg_block_stop  = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<uint64_t> arg_batch_size  = {"batch-size", "", db_batch_size};
   const command_line::arg_descriptor<uint64_t> arg_pop_blocks  = {"pop-blocks", "Remove blocks from end of blockchain", num_blocks};
+  const command_line::arg_descriptor<bool>        arg_drop_hf  = {"drop-hard-fork", "Drop hard fork subdbs", false};
   const command_line::arg_descriptor<bool>     arg_testnet_on  = {
     "testnet"
       , "Run on testnet."
@@ -589,6 +593,7 @@ int main(int argc, char* argv[])
 
   command_line::add_arg(desc_cmd_only, arg_count_blocks);
   command_line::add_arg(desc_cmd_only, arg_pop_blocks);
+  command_line::add_arg(desc_cmd_only, arg_drop_hf);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
   // call add_options() directly for these arguments since
@@ -760,6 +765,15 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
     return 0;
   }
+
+#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
+  if (! vm["drop-hard-fork"].defaulted())
+  {
+    LOG_PRINT_L0("Dropping hard fork tables...");
+    simple_core.m_storage.get_db().drop_hard_fork_info();
+    return 0;
+  }
+#endif
 
   import_from_file(simple_core, import_file_path, block_stop);
 #endif
