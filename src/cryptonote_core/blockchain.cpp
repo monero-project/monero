@@ -2692,9 +2692,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
   TIME_MEASURE_FINISH(addblock);
 
-  // this will not fail since check succeeded above
-  m_hardfork->add(bl, new_height - 1);
-
   // do this after updating the hard fork state since the size limit may change due to fork
   update_next_cumulative_size_limit();
 

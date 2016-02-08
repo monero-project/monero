@@ -130,6 +130,7 @@ uint64_t BlockchainDB::add_block( const block& blk
   // DB's new height based on this added block is only incremented after this
   // function returns, so height() here returns the new previous height.
   uint64_t prev_height = height();
+  m_hardfork->add(blk, prev_height);
 
   block_txn_stop();
 
