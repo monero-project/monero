@@ -897,6 +897,17 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       for (size_t n = 3; n < parts.size(); ++n)
         m_wallet_file += std::string(":") + parts[n];
 
+      // check the view key matches the given address
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+        fail_msg_writer() << tr("failed to verify view key secret key");
+        return false;
+      }
+      if (address.m_view_public_key != pkey) {
+        fail_msg_writer() << tr("view key does not match standard address");
+        return false;
+      }
+
       bool r = new_wallet(m_wallet_file, pwd_container.password(), address, viewkey, testnet);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
