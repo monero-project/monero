@@ -28,12 +28,15 @@
 #ifndef BLOCKCHAIN_DB_H
 #define BLOCKCHAIN_DB_H
 
+#pragma once
+
 #include <list>
 #include <string>
 #include <exception>
 #include "crypto/hash.h"
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/difficulty.h"
+#include "cryptonote_core/hardfork.h"
 
 /* DB Driver Interface
  *
@@ -322,6 +325,8 @@ protected:
   uint64_t time_commit1 = 0;
   bool m_auto_remove_logs = true;
 
+  HardFork* m_hardfork;
+
 public:
 
   // virtual dtor
@@ -371,6 +376,8 @@ public:
   virtual void block_txn_start() = 0;
   virtual void block_txn_stop() = 0;
   virtual void block_txn_abort() = 0;
+
+  virtual void set_hard_fork(HardFork*& hf);
 
   // adds a block with the given metadata to the top of the blockchain, returns the new height
   // NOTE: subclass implementations of this (or the functions it calls) need

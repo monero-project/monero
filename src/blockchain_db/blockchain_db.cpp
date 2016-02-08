@@ -138,6 +138,11 @@ uint64_t BlockchainDB::add_block( const block& blk
   return prev_height;
 }
 
+void BlockchainDB::set_hard_fork(HardFork*& hf)
+{
+  m_hardfork = hf;
+}
+
 void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
 {
   blk = get_top_block();

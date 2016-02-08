@@ -781,6 +781,8 @@ BlockchainBDB::BlockchainBDB(bool batch_transactions) :
     m_batch_transactions = batch_transactions;
     m_write_txn = nullptr;
     m_height = 0;
+
+    m_hardfork = nullptr;
 }
 
 void BlockchainBDB::open(const std::string& filename, const int db_flags)

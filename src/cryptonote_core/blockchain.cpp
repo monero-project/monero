@@ -290,6 +290,8 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   }
   m_hardfork->init();
 
+  m_db->set_hard_fork(m_hardfork);
+
   // if the blockchain is new, add the genesis block
   // this feels kinda kludgy to do it this way, but can be looked at later.
   // TODO: add function to create and store genesis block,

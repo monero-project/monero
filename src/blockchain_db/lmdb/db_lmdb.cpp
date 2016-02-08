@@ -945,6 +945,8 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
   m_write_batch_txn = nullptr;
   m_batch_active = false;
   m_height = 0;
+
+  m_hardfork = nullptr;
 }
 
 void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
