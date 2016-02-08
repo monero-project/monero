@@ -66,8 +66,6 @@ bool BlocksdatFile::open_writer(const boost::filesystem::path& file_path, uint64
 
   m_raw_data_file = new std::ofstream();
 
-  uint64_t num_blocks = 0;
-
   LOG_PRINT_L0("creating file");
 
   m_raw_data_file->open(file_path.string(), std::ios_base::binary | std::ios_base::out | std::ios::trunc);
