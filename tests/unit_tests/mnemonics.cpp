@@ -45,16 +45,6 @@
 namespace
 {
   /*!
-   * \brief Returns random index from 0 to max-1
-   * \param  max Range maximum
-   * \return     required random index
-   */
-  uint32_t get_random_index(int max)
-  {
-    return rand() % max;
-  }
-
-  /*!
    * \brief Compares vectors for equality
    * \param expected expected vector
    * \param present  current vector
@@ -78,11 +68,17 @@ namespace
     const std::vector<std::string> &word_list = language.get_word_list();
     std::string seed = "", return_seed = "";
     // Generate a random seed without checksum
-    for (int ii = 0; ii < crypto::ElectrumWords::seed_length; ii++)
+    crypto::secret_key randkey;
+    for (size_t ii = 0; ii < sizeof(randkey); ++ii)
     {
-      seed += (word_list[get_random_index(word_list.size())] + ' ');
+      randkey.data[ii] = rand();
     }
-    seed.pop_back();
+    crypto::ElectrumWords::bytes_to_words(randkey, seed, language.get_language_name());
+    // remove the checksum word
+    const char *space = strrchr(seed.c_str(), ' ');
+    ASSERT_TRUE(space != NULL);
+    seed = std::string(seed.c_str(), space-seed.c_str());
+
     std::cout << "Test seed without checksum:\n";
     std::cout << seed << std::endl;
 
