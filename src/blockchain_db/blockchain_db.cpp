@@ -99,6 +99,8 @@ uint64_t BlockchainDB::add_block( const block& blk
                                 , const std::vector<transaction>& txs
                                 )
 {
+  block_txn_start();
+
   TIME_MEASURE_START(time1);
   crypto::hash blk_hash = get_block_hash(blk);
   TIME_MEASURE_FINISH(time1);
@@ -125,9 +127,21 @@ uint64_t BlockchainDB::add_block( const block& blk
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
 
+  // DB's new height based on this added block is only incremented after this
+  // function returns, so height() here returns the new previous height.
+  uint64_t prev_height = height();
+  m_hardfork->add(blk, prev_height);
+
+  block_txn_stop();
+
   ++num_calls;
 
-  return height();
+  return prev_height;
+}
+
+void BlockchainDB::set_hard_fork(HardFork*& hf)
+{
+  m_hardfork = hf;
 }
 
 void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)

@@ -945,6 +945,8 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
   m_write_batch_txn = nullptr;
   m_batch_active = false;
   m_height = 0;
+
+  m_hardfork = nullptr;
 }
 
 void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
@@ -1262,6 +1264,32 @@ void BlockchainLMDB::unlock()
 #define TXN_POSTFIX_SUCCESS() \
   do { \
     if (! m_batch_active) \
+      auto_txn.commit(); \
+  } while(0)
+
+
+// The below two macros are for DB access within block add/remove, whether
+// regular batch txn is in use or not. m_write_txn is used as a batch txn, even
+// if it's only within block add/remove.
+//
+// DB access functions that may be called both within block add/remove and
+// without should use these. If the function will be called ONLY within block
+// add/remove, m_write_txn alone may be used instead of these macros.
+
+#define TXN_BLOCK_PREFIX(flags); \
+  mdb_txn_safe auto_txn; \
+  mdb_txn_safe* txn_ptr = &auto_txn; \
+  if (m_batch_active || m_write_txn) \
+    txn_ptr = m_write_txn; \
+  else \
+  { \
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, flags, auto_txn)) \
+      throw0(DB_ERROR(lmdb_error(std::string("Failed to create a transaction for the db in ")+__FUNCTION__+": ", mdb_res).c_str())); \
+  } \
+
+#define TXN_BLOCK_POSTFIX_SUCCESS() \
+  do { \
+    if (! m_batch_active && ! m_write_txn) \
       auto_txn.commit(); \
   } while(0)
 
@@ -2164,6 +2192,44 @@ void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
   LOG_PRINT_L3("batch transactions " << (m_batch_transactions ? "enabled" : "disabled"));
 }
 
+void BlockchainLMDB::block_txn_start()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if (! m_batch_active && m_write_txn)
+    throw0(DB_ERROR((std::string("Attempted to start new write txn when write txn already exists in ")+__FUNCTION__).c_str()));
+  if (! m_batch_active)
+  {
+    m_write_txn = new mdb_txn_safe();
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+  }
+}
+
+void BlockchainLMDB::block_txn_stop()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if (! m_batch_active)
+  {
+    TIME_MEASURE_START(time1);
+    m_write_txn->commit();
+    TIME_MEASURE_FINISH(time1);
+    time_commit1 += time1;
+
+    delete m_write_txn;
+    m_write_txn = NULL;
+  }
+}
+
+void BlockchainLMDB::block_txn_abort()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if (! m_batch_active)
+  {
+    delete m_write_txn;
+    m_write_txn = NULL;
+  }
+}
+
 uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
     const std::vector<transaction>& txs)
 {
@@ -2180,33 +2246,15 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, c
     }
   }
 
-  mdb_txn_safe txn;
-  if (! m_batch_active)
-  {
-    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, txn))
-      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
-    m_write_txn = &txn;
-  }
-
   uint64_t num_outputs = m_num_outputs;
   try
   {
     BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
-    if (! m_batch_active)
-    {
-      m_write_txn = NULL;
-
-      TIME_MEASURE_START(time1);
-      txn.commit();
-      TIME_MEASURE_FINISH(time1);
-      time_commit1 += time1;
-    }
   }
   catch (...)
   {
     m_num_outputs = num_outputs;
-    if (! m_batch_active)
-      m_write_txn = NULL;
+    block_txn_abort();
     throw;
   }
 
@@ -2481,14 +2529,14 @@ void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t hei
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  TXN_PREFIX(0);
+  TXN_BLOCK_PREFIX(0);
 
   MDB_val_copy<uint8_t> val_key(version);
   MDB_val_copy<uint64_t> val_value(height);
   if (auto result = mdb_put(*txn_ptr, m_hf_starting_heights, &val_key, &val_value, 0))
     throw1(DB_ERROR(std::string("Error adding hard fork starting height to db transaction: ").append(mdb_strerror(result)).c_str()));
 
-  TXN_POSTFIX_SUCCESS();
+  TXN_BLOCK_POSTFIX_SUCCESS();
 }
 
 uint64_t BlockchainLMDB::get_hard_fork_starting_height(uint8_t version) const
@@ -2516,14 +2564,14 @@ void BlockchainLMDB::set_hard_fork_version(uint64_t height, uint8_t version)
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  TXN_PREFIX(0);
+  TXN_BLOCK_PREFIX(0);
 
   MDB_val_copy<uint64_t> val_key(height);
   MDB_val_copy<uint8_t> val_value(version);
   if (auto result = mdb_put(*txn_ptr, m_hf_versions, &val_key, &val_value, 0))
     throw1(DB_ERROR(std::string("Error adding hard fork version to db transaction: ").append(mdb_strerror(result)).c_str()));
 
-  TXN_POSTFIX_SUCCESS();
+  TXN_BLOCK_POSTFIX_SUCCESS();
 }
 
 uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const

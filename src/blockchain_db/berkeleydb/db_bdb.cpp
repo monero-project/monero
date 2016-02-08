@@ -781,6 +781,8 @@ BlockchainBDB::BlockchainBDB(bool batch_transactions) :
     m_batch_transactions = batch_transactions;
     m_write_txn = nullptr;
     m_height = 0;
+
+    m_hardfork = nullptr;
 }
 
 void BlockchainBDB::open(const std::string& filename, const int db_flags)
@@ -1829,6 +1831,21 @@ void BlockchainBDB::set_batch_transactions(bool batch_transactions)
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     m_batch_transactions = batch_transactions;
     LOG_PRINT_L3("batch transactions " << (m_batch_transactions ? "enabled" : "disabled"));
+}
+
+void BlockchainBDB::block_txn_start()
+{
+  // TODO
+}
+
+void BlockchainBDB::block_txn_stop()
+{
+  // TODO
+}
+
+void BlockchainBDB::block_txn_abort()
+{
+  // TODO
 }
 
 uint64_t BlockchainBDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const std::vector<transaction>& txs)

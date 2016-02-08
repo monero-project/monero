@@ -290,6 +290,8 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   }
   m_hardfork->init();
 
+  m_db->set_hard_fork(m_hardfork);
+
   // if the blockchain is new, add the genesis block
   // this feels kinda kludgy to do it this way, but can be looked at later.
   // TODO: add function to create and store genesis block,
@@ -459,6 +461,11 @@ block Blockchain::pop_block_from_blockchain()
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
+      // FIXME: HardFork
+      // Besides the below, popping a block should also remove the last entry
+      // in hf_versions.
+      //
+      // FIXME: HardFork
       // This is not quite correct, as we really want to add the txes
       // to the pool based on the version determined after all blocks
       // are popped.
@@ -2689,9 +2696,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   }
 
   TIME_MEASURE_FINISH(addblock);
-
-  // this will not fail since check succeeded above
-  m_hardfork->add(bl, new_height - 1);
 
   // do this after updating the hard fork state since the size limit may change due to fork
   update_next_cumulative_size_limit();
