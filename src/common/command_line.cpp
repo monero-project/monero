@@ -91,9 +91,4 @@ namespace command_line
   , "Show time-stats when processing blocks/txs and disk synchronization."
   , 0
   };
-  const command_line::arg_descriptor<bool> arg_fakechain  = {
-    "fakechain"
-  , "Use a fake chain for testing purposes."
-  , false
-  };
 }

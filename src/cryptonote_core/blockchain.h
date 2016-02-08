@@ -58,6 +58,7 @@
 namespace cryptonote
 {
   class tx_memory_pool;
+  struct test_options;
 
   enum blockchain_db_sync_mode
   {
@@ -91,8 +92,8 @@ namespace cryptonote
 
     Blockchain(tx_memory_pool& tx_pool);
 
-    bool init(BlockchainDB* db, const bool testnet = false, const bool fakechain = false);
-    bool init(BlockchainDB* db, HardFork*& hf, const bool testnet = false, const bool fakechain = false);
+    bool init(BlockchainDB* db, const bool testnet = false, const cryptonote::test_options *test_options = NULL);
+    bool init(BlockchainDB* db, HardFork*& hf, const bool testnet = false);
     bool deinit();
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }

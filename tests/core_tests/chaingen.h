@@ -471,6 +471,14 @@ inline bool replay_events_through_core(cryptonote::core& cr, const std::vector<t
 }
 //--------------------------------------------------------------------------
 template<class t_test_class>
+struct get_test_options {
+  const std::pair<uint8_t, uint64_t> hard_forks[1] = {std::make_pair(1, 0)};
+  const cryptonote::test_options test_options = {
+    hard_forks
+  };
+};
+//--------------------------------------------------------------------------
+template<class t_test_class>
 inline bool do_replay_events(std::vector<test_event_entry>& events)
 {
   boost::program_options::options_description desc("Allowed options");
@@ -485,15 +493,12 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   if (!r)
     return false;
 
-  // hardcode a --fakechain option for tests
-  static const char * const fakechain[] = {"", "--fakechain"};
-  boost::program_options::store(boost::program_options::parse_command_line(2, fakechain, desc), vm);
-
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core c(&pr);
   // FIXME: make sure that vm has arg_testnet_on set to true or false if
   // this test needs for it to be so.
-  if (!c.init(vm))
+  const get_test_options<t_test_class> gto;
+  if (!c.init(vm, &gto.test_options))
   {
     std::cout << concolor::magenta << "Failed to init core" << concolor::normal << std::endl;
     return false;

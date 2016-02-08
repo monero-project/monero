@@ -50,6 +50,7 @@
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "cryptonote_core/checkpoints_create.h"
+#include "cryptonote_core/cryptonote_core.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -252,10 +253,12 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain)
+bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::test_options *test_options)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  bool fakechain = test_options != NULL;
 
   if (db == nullptr)
   {
@@ -273,12 +276,19 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   m_testnet = testnet;
   if (m_hardfork == nullptr)
   {
-    if (m_testnet)
+    if (fakechain)
+      m_hardfork = new HardFork(*db, 1, 0);
+    else if (m_testnet)
       m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
     else
       m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
   }
-  if (m_testnet)
+  if (fakechain)
+  {
+    for (size_t n = 0; test_options->hard_forks[n].first; ++n)
+      m_hardfork->add_fork(test_options->hard_forks[n].first, test_options->hard_forks[n].second, 0, n + 1);
+  }
+  else if (m_testnet)
   {
     for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
       m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
@@ -348,11 +358,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet, const bool fakechain)
+bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet)
 {
   if (hf != nullptr)
     m_hardfork = hf;
-  bool res = init(db, testnet, fakechain);
+  bool res = init(db, testnet, NULL);
   if (hf == nullptr)
     hf = m_hardfork;
   return res;

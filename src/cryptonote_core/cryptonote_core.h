@@ -56,6 +56,10 @@ DISABLE_VS_WARNINGS(4355)
 
 namespace cryptonote
 {
+   struct test_options {
+     const std::pair<uint8_t, uint64_t> *hard_forks;
+   };
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -81,7 +85,7 @@ namespace cryptonote
      miner& get_miner(){return m_miner;}
      const miner& get_miner()const{return m_miner;}
      static void init_options(boost::program_options::options_description& desc);
-     bool init(const boost::program_options::variables_map& vm);
+     bool init(const boost::program_options::variables_map& vm, const test_options *test_options = NULL);
      bool set_genesis_block(const block& b);
      bool deinit();
      static void set_fast_exit();
