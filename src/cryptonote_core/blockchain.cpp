@@ -461,6 +461,11 @@ block Blockchain::pop_block_from_blockchain()
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
+      // FIXME: HardFork
+      // Besides the below, popping a block should also remove the last entry
+      // in hf_versions.
+      //
+      // FIXME: HardFork
       // This is not quite correct, as we really want to add the txes
       // to the pool based on the version determined after all blocks
       // are popped.
