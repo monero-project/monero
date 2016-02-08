@@ -328,6 +328,10 @@ public:
   virtual void batch_stop();
   virtual void batch_abort();
 
+  virtual void block_txn_start();
+  virtual void block_txn_stop();
+  virtual void block_txn_abort();
+
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
 #if defined(BDB_BULK_CAN_THREAD)

@@ -368,6 +368,10 @@ public:
   virtual void batch_stop() = 0;
   virtual void set_batch_transactions(bool) = 0;
 
+  virtual void block_txn_start() = 0;
+  virtual void block_txn_stop() = 0;
+  virtual void block_txn_abort() = 0;
+
   // adds a block with the given metadata to the top of the blockchain, returns the new height
   // NOTE: subclass implementations of this (or the functions it calls) need
   // to handle undoing any partially-added blocks in the event of a failure.

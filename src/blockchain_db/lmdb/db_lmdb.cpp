@@ -2190,6 +2190,44 @@ void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
   LOG_PRINT_L3("batch transactions " << (m_batch_transactions ? "enabled" : "disabled"));
 }
 
+void BlockchainLMDB::block_txn_start()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if (! m_batch_active && m_write_txn)
+    throw0(DB_ERROR((std::string("Attempted to start new write txn when write txn already exists in ")+__FUNCTION__).c_str()));
+  if (! m_batch_active)
+  {
+    m_write_txn = new mdb_txn_safe();
+    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_txn))
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+  }
+}
+
+void BlockchainLMDB::block_txn_stop()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if (! m_batch_active)
+  {
+    TIME_MEASURE_START(time1);
+    m_write_txn->commit();
+    TIME_MEASURE_FINISH(time1);
+    time_commit1 += time1;
+
+    delete m_write_txn;
+    m_write_txn = NULL;
+  }
+}
+
+void BlockchainLMDB::block_txn_abort()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if (! m_batch_active)
+  {
+    delete m_write_txn;
+    m_write_txn = NULL;
+  }
+}
+
 uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
     const std::vector<transaction>& txs)
 {
