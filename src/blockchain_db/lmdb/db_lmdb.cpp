@@ -2244,33 +2244,15 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, c
     }
   }
 
-  mdb_txn_safe txn;
-  if (! m_batch_active)
-  {
-    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, txn))
-      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
-    m_write_txn = &txn;
-  }
-
   uint64_t num_outputs = m_num_outputs;
   try
   {
     BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
-    if (! m_batch_active)
-    {
-      m_write_txn = NULL;
-
-      TIME_MEASURE_START(time1);
-      txn.commit();
-      TIME_MEASURE_FINISH(time1);
-      time_commit1 += time1;
-    }
   }
   catch (...)
   {
     m_num_outputs = num_outputs;
-    if (! m_batch_active)
-      m_write_txn = NULL;
+    block_txn_abort();
     throw;
   }
 
