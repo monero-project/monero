@@ -189,12 +189,22 @@ STATIC INLINE void xor_blocks(uint8_t *a, const uint8_t *b)
 
 STATIC INLINE int force_software_aes(void)
 {
+  static int use = -1;
+
+  if (use != -1)
+    return use;
+
   const char *env = getenv("MONERO_USE_SOFTWARE_AES");
-  if (!env)
-    return 0;
-  if (!strcmp(env, "0") || !strcmp(env, "no"))
-    return 0;
-  return 1;
+  if (!env) {
+    use = 0;
+  }
+  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
+    use = 0;
+  }
+  else {
+    use = 1;
+  }
+  return use;
 }
 
 STATIC INLINE int check_aes_hw(void)
