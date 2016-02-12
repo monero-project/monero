@@ -439,7 +439,7 @@ elseif(APPLE OR FREEBSD OR OPENBSD)
   set(EXTRA_LIBRARIES "")
 elseif(NOT MSVC)
   find_library(RT rt)
-  set(EXTRA_LIBRARIES ${RT} ${DL})
+  set(EXTRA_LIBRARIES ${RT})
 endif()
 
 include(version.cmake)
