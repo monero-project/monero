@@ -63,15 +63,6 @@ function (bitmonero_add_executable name)
   set_property(TARGET "${name}"
     PROPERTY
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-
-  if (STATIC)
-    set_property(TARGET "${name}"
-      PROPERTY
-        LINK_SEARCH_START_STATIC 1)
-    set_property(TARGET "${name}"
-      PROPERTY
-        LINK_SEARCH_END_STATIC 1)
-  endif ()
 endfunction ()
 
 function (bitmonero_add_library name)
