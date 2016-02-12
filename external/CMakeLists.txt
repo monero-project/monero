@@ -76,7 +76,11 @@ endif()
 find_package(Unbound)
 
 if(NOT UNBOUND_INCLUDE_DIR OR STATIC)
+  # We want unbound config tests to be independent of changes made to this setting.
+  set(CURRENT_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
   add_subdirectory(unbound)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${CURRENT_CMAKE_FIND_LIBRARY_SUFFIXES})
 
   set(UNBOUND_STATIC true PARENT_SCOPE)
   set(UNBOUND_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/unbound/libunbound" PARENT_SCOPE)
