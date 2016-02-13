@@ -235,7 +235,7 @@ mdb_txn_safe::mdb_txn_safe() : m_txn(NULL)
 mdb_txn_safe::~mdb_txn_safe()
 {
   LOG_PRINT_L3("mdb_txn_safe: destructor");
-  if (m_txn != NULL)
+  if (m_txn != nullptr)
   {
     if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
     {
@@ -265,19 +265,19 @@ void mdb_txn_safe::commit(std::string message)
 
   if (auto result = mdb_txn_commit(m_txn))
   {
-    m_txn = NULL;
+    m_txn = nullptr;
     throw0(DB_ERROR((message + ": ").append(mdb_strerror(result)).c_str()));
   }
-  m_txn = NULL;
+  m_txn = nullptr;
 }
 
 void mdb_txn_safe::abort()
 {
   LOG_PRINT_L3("mdb_txn_safe: abort()");
-  if(m_txn != NULL)
+  if(m_txn != nullptr)
   {
     mdb_txn_abort(m_txn);
-    m_txn = NULL;
+    m_txn = nullptr;
   }
   else
   {
@@ -2114,7 +2114,11 @@ void BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
 
   // NOTE: need to make sure it's destroyed properly when done
   if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
+  {
+    delete m_write_batch_txn;
+    m_write_batch_txn = nullptr;
     throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+  }
   // indicates this transaction is for batch transactions, but not whether it's
   // active
   m_write_batch_txn->m_batch_txn = true;
@@ -2195,13 +2199,24 @@ void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
 void BlockchainLMDB::block_txn_start()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  // Distinguish the exceptions here from exceptions that would be thrown while
+  // using the txn and committing it.
+  //
+  // If an exception is thrown in this setup, we don't want the caller to catch
+  // it and proceed as if there were an existing write txn, such as trying to
+  // call block_txn_abort(). It also indicates a serious issue which will
+  // probably be thrown up another layer.
   if (! m_batch_active && m_write_txn)
-    throw0(DB_ERROR((std::string("Attempted to start new write txn when write txn already exists in ")+__FUNCTION__).c_str()));
+    throw0(DB_ERROR_TXN_START((std::string("Attempted to start new write txn when write txn already exists in ")+__FUNCTION__).c_str()));
   if (! m_batch_active)
   {
     m_write_txn = new mdb_txn_safe();
     if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_txn))
-      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+    {
+      delete m_write_txn;
+      m_write_txn = nullptr;
+      throw0(DB_ERROR_TXN_START(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+    }
   }
 }
 
@@ -2216,7 +2231,7 @@ void BlockchainLMDB::block_txn_stop()
     time_commit1 += time1;
 
     delete m_write_txn;
-    m_write_txn = NULL;
+    m_write_txn = nullptr;
   }
 }
 
@@ -2225,8 +2240,19 @@ void BlockchainLMDB::block_txn_abort()
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (! m_batch_active)
   {
-    delete m_write_txn;
-    m_write_txn = NULL;
+    if (m_write_txn != nullptr)
+    {
+      delete m_write_txn;
+      m_write_txn = nullptr;
+    }
+    else
+    {
+      // This would probably mean an earlier exception was caught, but then we
+      // proceeded further than we should have.
+      throw0(DB_ERROR((std::string("BlockchainLMDB::") + __func__ +
+                       std::string(": block-level DB transaction abort called when write txn doesn't exist")
+                      ).c_str()));
+    }
   }
 }
 
@@ -2250,6 +2276,10 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, c
   try
   {
     BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
+  }
+  catch (DB_ERROR_TXN_START& e)
+  {
+    throw;
   }
   catch (...)
   {
@@ -2280,7 +2310,7 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
     BlockchainDB::pop_block(blk, txs);
     if (! m_batch_active)
     {
-      m_write_txn = NULL;
+      m_write_txn = nullptr;
 
       txn.commit();
     }
@@ -2288,7 +2318,7 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
   catch (...)
   {
     m_num_outputs = num_outputs;
-    m_write_txn = NULL;
+    m_write_txn = nullptr;
     throw;
   }
 
