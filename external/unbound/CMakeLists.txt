@@ -40,6 +40,12 @@ if (APPLE)
 endif()
 
 find_package(OpenSSL REQUIRED)
+if(STATIC)
+  if(UNIX)
+    set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS}")
+  endif()
+endif()
+
 find_package(Threads)
 
 include(configure_checks.cmake)
