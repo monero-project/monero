@@ -2233,8 +2233,19 @@ void BlockchainLMDB::block_txn_abort()
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (! m_batch_active)
   {
-    delete m_write_txn;
-    m_write_txn = nullptr;
+    if (m_write_txn != nullptr)
+    {
+      delete m_write_txn;
+      m_write_txn = nullptr;
+    }
+    else
+    {
+      // This would probably mean an earlier exception was caught, but then we
+      // proceeded further than we should have.
+      throw0(DB_ERROR((std::string("BlockchainLMDB::") + __func__ +
+                       std::string(": block-level DB transaction abort called when write txn doesn't exist")
+                      ).c_str()));
+    }
   }
 }
 
