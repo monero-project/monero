@@ -76,6 +76,11 @@ endif()
 find_package(Unbound)
 
 if(NOT UNBOUND_INCLUDE_DIR OR STATIC)
+  # NOTE: If STATIC is true, CMAKE_FIND_LIBRARY_SUFFIXES has been reordered.
+  # unbound has config tests which used OpenSSL libraries, so -ldl may need to
+  # be set in this case.
+  # The unbound CMakeLists.txt can set it, since it's also needed for the
+  # static OpenSSL libraries set up there after with target_link_libraries.
   add_subdirectory(unbound)
 
   set(UNBOUND_STATIC true PARENT_SCOPE)
