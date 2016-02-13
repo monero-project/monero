@@ -497,7 +497,7 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   cryptonote::core c(&pr);
   // FIXME: make sure that vm has arg_testnet_on set to true or false if
   // this test needs for it to be so.
-  const get_test_options<t_test_class> gto;
+  get_test_options<t_test_class> gto;
   if (!c.init(vm, &gto.test_options))
   {
     std::cout << concolor::magenta << "Failed to init core" << concolor::normal << std::endl;
