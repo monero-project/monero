@@ -2114,7 +2114,11 @@ void BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
 
   // NOTE: need to make sure it's destroyed properly when done
   if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
+  {
+    delete m_write_batch_txn;
+    m_write_batch_txn = nullptr;
     throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+  }
   // indicates this transaction is for batch transactions, but not whether it's
   // active
   m_write_batch_txn->m_batch_txn = true;
@@ -2201,7 +2205,11 @@ void BlockchainLMDB::block_txn_start()
   {
     m_write_txn = new mdb_txn_safe();
     if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_txn))
+    {
+      delete m_write_txn;
+      m_write_txn = nullptr;
       throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+    }
   }
 }
 
