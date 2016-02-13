@@ -175,6 +175,14 @@ class DB_ERROR : public DB_EXCEPTION
     DB_ERROR(const char* s) : DB_EXCEPTION(s) { }
 };
 
+// For distinguishing errors trying to set up a DB txn from other errors
+class DB_ERROR_TXN_START : public DB_EXCEPTION
+{
+  public:
+    DB_ERROR_TXN_START() : DB_EXCEPTION("DB Error in starting txn") { }
+    DB_ERROR_TXN_START(const char* s) : DB_EXCEPTION(s) { }
+};
+
 class DB_OPEN_FAILURE : public DB_EXCEPTION
 {
   public:

@@ -2199,8 +2199,15 @@ void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
 void BlockchainLMDB::block_txn_start()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  // Distinguish the exceptions here from exceptions that would be thrown while
+  // using the txn and committing it.
+  //
+  // If an exception is thrown in this setup, we don't want the caller to catch
+  // it and proceed as if there were an existing write txn, such as trying to
+  // call block_txn_abort(). It also indicates a serious issue which will
+  // probably be thrown up another layer.
   if (! m_batch_active && m_write_txn)
-    throw0(DB_ERROR((std::string("Attempted to start new write txn when write txn already exists in ")+__FUNCTION__).c_str()));
+    throw0(DB_ERROR_TXN_START((std::string("Attempted to start new write txn when write txn already exists in ")+__FUNCTION__).c_str()));
   if (! m_batch_active)
   {
     m_write_txn = new mdb_txn_safe();
@@ -2208,7 +2215,7 @@ void BlockchainLMDB::block_txn_start()
     {
       delete m_write_txn;
       m_write_txn = nullptr;
-      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
+      throw0(DB_ERROR_TXN_START(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     }
   }
 }
@@ -2269,6 +2276,10 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, c
   try
   {
     BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
+  }
+  catch (DB_ERROR_TXN_START& e)
+  {
+    throw;
   }
   catch (...)
   {
