@@ -235,7 +235,7 @@ mdb_txn_safe::mdb_txn_safe() : m_txn(NULL)
 mdb_txn_safe::~mdb_txn_safe()
 {
   LOG_PRINT_L3("mdb_txn_safe: destructor");
-  if (m_txn != NULL)
+  if (m_txn != nullptr)
   {
     if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
     {
@@ -265,19 +265,19 @@ void mdb_txn_safe::commit(std::string message)
 
   if (auto result = mdb_txn_commit(m_txn))
   {
-    m_txn = NULL;
+    m_txn = nullptr;
     throw0(DB_ERROR((message + ": ").append(mdb_strerror(result)).c_str()));
   }
-  m_txn = NULL;
+  m_txn = nullptr;
 }
 
 void mdb_txn_safe::abort()
 {
   LOG_PRINT_L3("mdb_txn_safe: abort()");
-  if(m_txn != NULL)
+  if(m_txn != nullptr)
   {
     mdb_txn_abort(m_txn);
-    m_txn = NULL;
+    m_txn = nullptr;
   }
   else
   {
@@ -2216,7 +2216,7 @@ void BlockchainLMDB::block_txn_stop()
     time_commit1 += time1;
 
     delete m_write_txn;
-    m_write_txn = NULL;
+    m_write_txn = nullptr;
   }
 }
 
@@ -2226,7 +2226,7 @@ void BlockchainLMDB::block_txn_abort()
   if (! m_batch_active)
   {
     delete m_write_txn;
-    m_write_txn = NULL;
+    m_write_txn = nullptr;
   }
 }
 
@@ -2280,7 +2280,7 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
     BlockchainDB::pop_block(blk, txs);
     if (! m_batch_active)
     {
-      m_write_txn = NULL;
+      m_write_txn = nullptr;
 
       txn.commit();
     }
@@ -2288,7 +2288,7 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
   catch (...)
   {
     m_num_outputs = num_outputs;
-    m_write_txn = NULL;
+    m_write_txn = nullptr;
     throw;
   }
 
