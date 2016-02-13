@@ -139,7 +139,7 @@ uint64_t BlockchainDB::add_block( const block& blk
   return prev_height;
 }
 
-void BlockchainDB::set_hard_fork(HardFork*& hf)
+void BlockchainDB::set_hard_fork(HardFork* hf)
 {
   m_hardfork = hf;
 }

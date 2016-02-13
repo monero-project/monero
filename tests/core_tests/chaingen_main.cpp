@@ -168,6 +168,13 @@ int main(int argc, char* argv[])
 
     GENERATE_AND_PLAY(gen_block_reward);
 
+    GENERATE_AND_PLAY(gen_v2_tx_mixable_0_mixin);
+    GENERATE_AND_PLAY(gen_v2_tx_mixable_low_mixin);
+    GENERATE_AND_PLAY(gen_v2_tx_unmixable_only);
+    GENERATE_AND_PLAY(gen_v2_tx_unmixable_one);
+    GENERATE_AND_PLAY(gen_v2_tx_unmixable_two);
+    GENERATE_AND_PLAY(gen_v2_tx_dust);
+
     std::cout << (failed_tests.empty() ? concolor::green : concolor::magenta);
     std::cout << "\nREPORT:\n";
     std::cout << "  Test run: " << tests_count << '\n';

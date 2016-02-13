@@ -145,13 +145,11 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_db_sync_mode);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_db_auto_remove_logs);
-    command_line::add_arg(desc, command_line::arg_fakechain);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
   {
     m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
-    m_fakechain = command_line::get_arg(vm, command_line::arg_fakechain);
 
     auto data_dir_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, data_dir_arg);
@@ -251,8 +249,9 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::init(const boost::program_options::variables_map& vm)
+  bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options)
   {
+    m_fakechain = test_options != NULL;
     bool r = handle_command_line(vm);
 
     r = m_mempool.init(m_fakechain ? std::string() : m_config_folder);
@@ -398,7 +397,7 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         blocks_per_sync, sync_mode, fast_sync);
 
-    r = m_blockchain_storage.init(db, m_testnet, m_fakechain);
+    r = m_blockchain_storage.init(db, m_testnet, test_options);
 
     // now that we have a valid m_blockchain_storage, we can clean out any
     // transactions in the pool that do not conform to the current fork

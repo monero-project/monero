@@ -50,6 +50,7 @@
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "cryptonote_core/checkpoints_create.h"
+#include "cryptonote_core/cryptonote_core.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -99,7 +100,7 @@ static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
-  m_db(), m_tx_pool(tx_pool), m_hardfork(), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false),
+  m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false),
   m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true), m_sync_counter(0)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -252,10 +253,12 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain)
+bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::test_options *test_options)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  bool fakechain = test_options != NULL;
 
   if (db == nullptr)
   {
@@ -273,12 +276,19 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   m_testnet = testnet;
   if (m_hardfork == nullptr)
   {
-    if (m_testnet)
+    if (fakechain)
+      m_hardfork = new HardFork(*db, 1, 0);
+    else if (m_testnet)
       m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
     else
       m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
   }
-  if (m_testnet)
+  if (fakechain)
+  {
+    for (size_t n = 0; test_options->hard_forks[n].first; ++n)
+      m_hardfork->add_fork(test_options->hard_forks[n].first, test_options->hard_forks[n].second, 0, n + 1);
+  }
+  else if (m_testnet)
   {
     for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
       m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
@@ -348,11 +358,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const bool fakechain
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet, const bool fakechain)
+bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet)
 {
   if (hf != nullptr)
     m_hardfork = hf;
-  bool res = init(db, testnet, fakechain);
+  bool res = init(db, testnet, NULL);
   if (hf == nullptr)
     hf = m_hardfork;
   return res;
@@ -494,6 +504,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_alternative_chains.clear();
   m_db->reset();
+  m_hardfork->init();
 
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);

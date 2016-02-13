@@ -220,7 +220,8 @@ public:
     bf_prev_id   = 1 << 3,
     bf_miner_tx  = 1 << 4,
     bf_tx_hashes = 1 << 5,
-    bf_diffic    = 1 << 6
+    bf_diffic    = 1 << 6,
+    bf_max_outs  = 1 << 7
   };
 
   void get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const;
@@ -240,7 +241,7 @@ public:
     const cryptonote::account_base& miner_acc, int actual_params = bf_none, uint8_t major_ver = 0,
     uint8_t minor_ver = 0, uint64_t timestamp = 0, const crypto::hash& prev_id = crypto::hash(),
     const cryptonote::difficulty_type& diffic = 1, const cryptonote::transaction& miner_tx = cryptonote::transaction(),
-    const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0);
+    const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0, size_t max_outs = 0);
   bool construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, const std::vector<crypto::hash>& tx_hashes, size_t txs_size);
 
@@ -470,6 +471,14 @@ inline bool replay_events_through_core(cryptonote::core& cr, const std::vector<t
 }
 //--------------------------------------------------------------------------
 template<class t_test_class>
+struct get_test_options {
+  const std::pair<uint8_t, uint64_t> hard_forks[1] = {std::make_pair(1, 0)};
+  const cryptonote::test_options test_options = {
+    hard_forks
+  };
+};
+//--------------------------------------------------------------------------
+template<class t_test_class>
 inline bool do_replay_events(std::vector<test_event_entry>& events)
 {
   boost::program_options::options_description desc("Allowed options");
@@ -484,15 +493,12 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   if (!r)
     return false;
 
-  // hardcode a --fakechain option for tests
-  static const char * const fakechain[] = {"", "--fakechain"};
-  boost::program_options::store(boost::program_options::parse_command_line(2, fakechain, desc), vm);
-
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core c(&pr);
   // FIXME: make sure that vm has arg_testnet_on set to true or false if
   // this test needs for it to be so.
-  if (!c.init(vm))
+  const get_test_options<t_test_class> gto;
+  if (!c.init(vm, &gto.test_options))
   {
     std::cout << concolor::magenta << "Failed to init core" << concolor::normal << std::endl;
     return false;

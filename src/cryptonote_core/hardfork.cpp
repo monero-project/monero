@@ -155,6 +155,11 @@ bool HardFork::add(const cryptonote::block &block, uint64_t height)
 void HardFork::init()
 {
   CRITICAL_REGION_LOCAL(lock);
+
+  // add a placeholder for the default version, to avoid special cases
+  if (heights.empty())
+    heights.push_back(Params(original_version, 0, 0, 0));
+
   versions.clear();
   for (size_t n = 0; n < 256; ++n)
     last_versions[n] = 0;
