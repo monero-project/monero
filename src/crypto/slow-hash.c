@@ -187,6 +187,26 @@ STATIC INLINE void xor_blocks(uint8_t *a, const uint8_t *b)
  * @return true if the CPU supports AES, false otherwise
  */
 
+STATIC INLINE int force_software_aes(void)
+{
+  static int use = -1;
+
+  if (use != -1)
+    return use;
+
+  const char *env = getenv("MONERO_USE_SOFTWARE_AES");
+  if (!env) {
+    use = 0;
+  }
+  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
+    use = 0;
+  }
+  else {
+    use = 1;
+  }
+  return use;
+}
+
 STATIC INLINE int check_aes_hw(void)
 {
     int cpuid_results[4];
@@ -509,7 +529,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     size_t i, j;
     uint64_t *p = NULL;
     oaes_ctx *aes_ctx;
-    int useAes = check_aes_hw();
+    int useAes = !force_software_aes() && check_aes_hw();
 
     static void (*const extra_hashes[4])(const void *, size_t, char *) =
     {
