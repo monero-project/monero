@@ -78,6 +78,17 @@ using namespace cryptonote;
 using namespace epee;
 
 
+std::string join_set_strings(const std::unordered_set<std::string>& db_types_all, const char* delim)
+{
+  std::string result;
+  std::ostringstream s;
+  std::copy(db_types_all.begin(), db_types_all.end(), std::ostream_iterator<std::string>(s, delim));
+  result = s.str();
+  if (result.length() > 0)
+    result.erase(result.end()-strlen(delim), result.end());
+  return result;
+}
+
 // db_type: lmdb, berkeley
 // db_mode: safe, fast, fastest
 int get_db_flags_from_mode(const std::string& db_type, const std::string& db_mode)
@@ -611,6 +622,9 @@ int main(int argc, char* argv[])
   std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
   db_types_all.insert("memory");
 
+  std::string available_dbs = join_set_strings(db_types_all, ", ");
+  available_dbs = "available: " + available_dbs;
+
   uint32_t log_level = LOG_LEVEL_0;
   uint64_t num_blocks = 0;
   uint64_t block_stop = 0;
@@ -642,8 +656,7 @@ int main(int argc, char* argv[])
       , false
   };
   const command_line::arg_descriptor<std::string> arg_database = {
-    "database", "available: memory, lmdb, berkeley"
-      , default_db_type
+    "database", available_dbs.c_str(), default_db_type
   };
   const command_line::arg_descriptor<bool> arg_verify =  {"verify",
     "Verify blocks and transactions during import", true};
