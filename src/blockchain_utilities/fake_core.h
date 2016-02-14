@@ -57,10 +57,10 @@ struct fake_core_db
 
   // for multi_db_runtime:
 #if !defined(BLOCKCHAIN_DB)
-  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int db_flags=0) : m_pool(&m_storage), m_storage(m_pool)
+  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const std::string& db_type="lmdb", const int db_flags=0) : m_pool(&m_storage), m_storage(m_pool)
   // for multi_db_compile:
 #else
-  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int db_flags=0) : m_pool(m_storage), m_storage(m_pool)
+  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const std::string& db_type="lmdb", const int db_flags=0) : m_pool(m_storage), m_storage(m_pool)
 #endif
   {
     m_pool.init(path.string());

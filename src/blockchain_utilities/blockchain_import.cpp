@@ -724,7 +724,7 @@ int main(int argc, char* argv[])
 #if !defined(BLOCKCHAIN_DB)
   if (db_type == "lmdb")
   {
-    fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_flags);
+    fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_type, db_flags);
     import_from_file(simple_core, import_file_path, block_stop);
   }
   else if (db_type == "memory")
@@ -746,7 +746,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 #if BLOCKCHAIN_DB == DB_LMDB
-  fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_flags);
+  fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_type, db_flags);
 #else
   fake_core_memory simple_core(m_config_folder, opt_testnet);
 #endif
