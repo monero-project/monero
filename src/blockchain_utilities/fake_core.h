@@ -33,6 +33,7 @@
 #include "cryptonote_core/blockchain_storage.h" // in-memory DB
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "blockchain_db/berkeleydb/db_bdb.h"
 
 using namespace cryptonote;
 
@@ -65,7 +66,18 @@ struct fake_core_db
   {
     m_pool.init(path.string());
 
-    BlockchainDB* db = new BlockchainLMDB();
+    BlockchainDB* db = nullptr;
+    if (db_type == "lmdb")
+      db = new BlockchainLMDB();
+#if defined(BERKELEY_DB)
+    else if (db_type == "berkeley")
+      db = new BlockchainBDB();
+#endif
+    else
+    {
+      LOG_ERROR("Attempted to use non-existent database type: " << db_type);
+      throw std::runtime_error("Attempting to use non-existent database type");
+    }
 
     boost::filesystem::path folder(path);
 

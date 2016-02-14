@@ -38,6 +38,7 @@
 #include "serialization/binary_utils.h" // dump_binary(), parse_binary()
 #include "serialization/json_utils.h" // dump_json()
 #include "include_base_utils.h"
+#include "blockchain_db/db_types.h"
 
 #include <lmdb.h> // for db flag arguments
 
@@ -101,21 +102,40 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_type, int&
     boost::algorithm::trim(it);
     if (it.empty())
       continue;
-    LOG_PRINT_L1("LMDB flag: " << it);
-    if (it == "nosync")
-      db_flags |= MDB_NOSYNC;
-    else if (it == "nometasync")
-      db_flags |= MDB_NOMETASYNC;
-    else if (it == "writemap")
-      db_flags |= MDB_WRITEMAP;
-    else if (it == "mapasync")
-      db_flags |= MDB_MAPASYNC;
-    else if (it == "nordahead")
-      db_flags |= MDB_NORDAHEAD;
-    else
+    if (db_type == "lmdb")
     {
-      std::cerr << "unrecognized database flag: " << it << ENDL;
-      return 1;
+      LOG_PRINT_L1("LMDB flag: " << it);
+      if (it == "nosync")
+        db_flags |= MDB_NOSYNC;
+      else if (it == "nometasync")
+        db_flags |= MDB_NOMETASYNC;
+      else if (it == "writemap")
+        db_flags |= MDB_WRITEMAP;
+      else if (it == "mapasync")
+        db_flags |= MDB_MAPASYNC;
+      else if (it == "nordahead")
+        db_flags |= MDB_NORDAHEAD;
+      else
+      {
+        std::cerr << "unrecognized database flag: " << it << ENDL;
+        return 1;
+      }
+    }
+#if defined(BERKELEY_DB)
+    else if (db_type == "berkeley")
+    {
+      if (it == "txn_write_nosync")
+        db_flags = DB_TXN_WRITE_NOSYNC;
+      else if (it == "txn_nosync")
+        db_flags = DB_TXN_NOSYNC;
+      else if (it == "txn_sync")
+        db_flags = DB_TXN_SYNC;
+      else
+      {
+        std::cerr << "unrecognized database flag: " << it << ENDL;
+        return 1;
+      }
+#endif
     }
   }
   return 0;
@@ -531,9 +551,14 @@ int main(int argc, char* argv[])
 {
 #if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
   std::string default_db_type = "memory";
+  std::string default_db_engine_compiled = "memory";
 #else
   std::string default_db_type = "lmdb";
+  std::string default_db_engine_compiled = "blockchain_db";
 #endif
+
+  std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
+  db_types_all.insert("memory");
 
   uint32_t log_level = LOG_LEVEL_0;
   uint64_t num_blocks = 0;
@@ -566,7 +591,7 @@ int main(int argc, char* argv[])
       , false
   };
   const command_line::arg_descriptor<std::string> arg_database = {
-    "database", "available: memory, lmdb"
+    "database", "available: memory, lmdb, berkeley"
       , default_db_type
   };
   const command_line::arg_descriptor<bool> arg_verify =  {"verify",
@@ -648,8 +673,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  std::vector<std::string> db_engines {"memory", "lmdb"};
-
   opt_testnet = command_line::get_arg(vm, arg_testnet_on);
   auto data_dir_arg = opt_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
@@ -678,6 +701,7 @@ int main(int argc, char* argv[])
 
 
   std::string db_type;
+  std::string db_engine_compiled;
   int db_flags = 0;
   int res = 0;
   res = parse_db_arguments(db_arg_str, db_type, db_flags);
@@ -687,13 +711,23 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if (std::find(db_engines.begin(), db_engines.end(), db_type) == db_engines.end())
+  if (db_types_all.count(db_type) == 0)
   {
     std::cerr << "Invalid database type: " << db_type << std::endl;
     return 1;
   }
 
+  if ((db_type == "lmdb") || (db_type == "berkeley"))
+  {
+    db_engine_compiled = "blockchain_db";
+  }
+  else
+  {
+    db_engine_compiled = "memory";
+  }
+
   LOG_PRINT_L0("database: " << db_type);
+  LOG_PRINT_L0("database flags: " << db_flags);
   LOG_PRINT_L0("verify:  " << std::boolalpha << opt_verify << std::noboolalpha);
   if (opt_batch)
   {
@@ -722,7 +756,7 @@ int main(int argc, char* argv[])
 
   // for multi_db_runtime:
 #if !defined(BLOCKCHAIN_DB)
-  if (db_type == "lmdb")
+  if (db_type == "lmdb" || db_type == "berkeley")
   {
     fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_type, db_flags);
     import_from_file(simple_core, import_file_path, block_stop);
@@ -740,7 +774,7 @@ int main(int argc, char* argv[])
 
   // for multi_db_compile:
 #else
-  if (db_type != default_db_engine)
+  if (db_engine_compiled != default_db_engine_compiled)
   {
     std::cerr << "Invalid database type for compiled version: " << db_type << std::endl;
     return 1;
