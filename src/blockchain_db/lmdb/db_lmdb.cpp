@@ -486,6 +486,13 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
   {
     LOG_PRINT_L1("No existing blocks to check for average block size");
   }
+  else if (m_cum_count)
+  {
+    avg_block_size = m_cum_size / m_cum_count;
+    LOG_PRINT_L1("average block size across recent " << m_cum_count << " blocks: " << avg_block_size);
+    m_cum_size = 0;
+    m_cum_count = 0;
+  }
   else
   {
     for (uint64_t block_num = block_start; block_num <= block_stop; ++block_num)
@@ -573,6 +580,8 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const
   if (result)
     throw0(DB_ERROR(std::string("Failed to add block hash to db transaction: ").append(mdb_strerror(result)).c_str()));
 
+  m_cum_size += block_size;
+  m_cum_count++;
 }
 
 void BlockchainLMDB::remove_block()
@@ -948,6 +957,8 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
   m_write_batch_txn = nullptr;
   m_batch_active = false;
   m_height = 0;
+  m_cum_size = 0;
+  m_cum_count = 0;
 
   m_hardfork = nullptr;
 }
@@ -1211,6 +1222,8 @@ void BlockchainLMDB::reset()
   txn.commit();
   m_height = 0;
   m_num_outputs = 0;
+  m_cum_size = 0;
+  m_cum_count = 0;
 }
 
 std::vector<std::string> BlockchainLMDB::get_filenames() const
