@@ -428,7 +428,7 @@ void BlockchainLMDB::check_and_resize_for_batch(uint64_t batch_num_blocks)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   LOG_PRINT_L1("[" << __func__ << "] " << "checking DB size");
-  const uint64_t min_increase_size = 128 * (1 << 20);
+  const uint64_t min_increase_size = 512 * (1 << 20);
   uint64_t threshold_size = 0;
   uint64_t increase_size = 0;
   if (batch_num_blocks > 0)
@@ -464,6 +464,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
   // batch size estimate * batch safety factor = final size estimate
   // Takes into account "reasonable" block size increases in batch.
   float batch_safety_factor = 1.7f;
+  float batch_fudge_factor = batch_safety_factor * batch_num_blocks;
   // estimate of stored block expanded from raw block, including denormalization and db overhead.
   // Note that this probably doesn't grow linearly with block size.
   float db_expand_factor = 4.5f;
@@ -502,8 +503,10 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
     avg_block_size = min_block_size;
   LOG_PRINT_L1("estimated average block size for batch: " << avg_block_size);
 
-  threshold_size = avg_block_size * db_expand_factor * batch_num_blocks;
-  threshold_size = threshold_size * batch_safety_factor;
+  // bigger safety margin on smaller block sizes
+  if (batch_fudge_factor < 5000.0)
+    batch_fudge_factor = 5000.0;
+  threshold_size = avg_block_size * db_expand_factor * batch_fudge_factor;
   return threshold_size;
 }
 
