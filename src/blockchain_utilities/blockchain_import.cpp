@@ -77,12 +77,12 @@ using namespace cryptonote;
 using namespace epee;
 
 
-int parse_db_arguments(const std::string& db_arg_str, std::string& db_engine, int& mdb_flags)
+int parse_db_arguments(const std::string& db_arg_str, std::string& db_type, int& db_flags)
 {
   std::vector<std::string> db_args;
   boost::split(db_args, db_arg_str, boost::is_any_of("#"));
-  db_engine = db_args.front();
-  boost::algorithm::trim(db_engine);
+  db_type = db_args.front();
+  boost::algorithm::trim(db_type);
 
   if (db_args.size() == 1)
   {
@@ -103,15 +103,15 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_engine, in
       continue;
     LOG_PRINT_L1("LMDB flag: " << it);
     if (it == "nosync")
-      mdb_flags |= MDB_NOSYNC;
+      db_flags |= MDB_NOSYNC;
     else if (it == "nometasync")
-      mdb_flags |= MDB_NOMETASYNC;
+      db_flags |= MDB_NOMETASYNC;
     else if (it == "writemap")
-      mdb_flags |= MDB_WRITEMAP;
+      db_flags |= MDB_WRITEMAP;
     else if (it == "mapasync")
-      mdb_flags |= MDB_MAPASYNC;
+      db_flags |= MDB_MAPASYNC;
     else if (it == "nordahead")
-      mdb_flags |= MDB_NORDAHEAD;
+      db_flags |= MDB_NORDAHEAD;
     else
     {
       std::cerr << "unrecognized database flag: " << it << ENDL;
@@ -131,7 +131,7 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
     if (simple_core.support_batch)
       use_batch = true;
     else
-      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database engine - ignoring");
+      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database type - ignoring");
   }
 
   if (use_batch)
@@ -176,11 +176,11 @@ template <typename FakeCore>
 int import_from_file(FakeCore& simple_core, const std::string& import_file_path, uint64_t block_stop=0)
 {
 #if !defined(BLOCKCHAIN_DB)
-  static_assert(std::is_same<fake_core_memory, FakeCore>::value || std::is_same<fake_core_lmdb, FakeCore>::value,
+  static_assert(std::is_same<fake_core_memory, FakeCore>::value || std::is_same<fake_core_db, FakeCore>::value,
       "FakeCore constraint error");
 #endif
 #if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
-  if (std::is_same<fake_core_lmdb, FakeCore>::value)
+  if (std::is_same<fake_core_db, FakeCore>::value)
   {
     // Reset stats, in case we're using newly created db, accumulating stats
     // from addition of genesis block.
@@ -250,7 +250,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     if (simple_core.support_batch)
       use_batch = true;
     else
-      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database engine - ignoring");
+      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database type - ignoring");
   }
 
   if (use_batch)
@@ -530,9 +530,9 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 int main(int argc, char* argv[])
 {
 #if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
-  std::string default_db_engine = "memory";
+  std::string default_db_type = "memory";
 #else
-  std::string default_db_engine = "lmdb";
+  std::string default_db_type = "lmdb";
 #endif
 
   uint32_t log_level = LOG_LEVEL_0;
@@ -567,7 +567,7 @@ int main(int argc, char* argv[])
   };
   const command_line::arg_descriptor<std::string> arg_database = {
     "database", "available: memory, lmdb"
-      , default_db_engine
+      , default_db_type
   };
   const command_line::arg_descriptor<bool> arg_verify =  {"verify",
     "Verify blocks and transactions during import", true};
@@ -677,23 +677,23 @@ int main(int argc, char* argv[])
   }
 
 
-  std::string db_engine;
-  int mdb_flags = 0;
+  std::string db_type;
+  int db_flags = 0;
   int res = 0;
-  res = parse_db_arguments(db_arg_str, db_engine, mdb_flags);
+  res = parse_db_arguments(db_arg_str, db_type, db_flags);
   if (res)
   {
     std::cerr << "Error parsing database argument(s)" << ENDL;
     return 1;
   }
 
-  if (std::find(db_engines.begin(), db_engines.end(), db_engine) == db_engines.end())
+  if (std::find(db_engines.begin(), db_engines.end(), db_type) == db_engines.end())
   {
-    std::cerr << "Invalid database engine: " << db_engine << std::endl;
+    std::cerr << "Invalid database type: " << db_type << std::endl;
     return 1;
   }
 
-  LOG_PRINT_L0("database: " << db_engine);
+  LOG_PRINT_L0("database: " << db_type);
   LOG_PRINT_L0("verify:  " << std::boolalpha << opt_verify << std::noboolalpha);
   if (opt_batch)
   {
@@ -722,31 +722,31 @@ int main(int argc, char* argv[])
 
   // for multi_db_runtime:
 #if !defined(BLOCKCHAIN_DB)
-  if (db_engine == "lmdb")
+  if (db_type == "lmdb")
   {
-    fake_core_lmdb simple_core(m_config_folder, opt_testnet, opt_batch, mdb_flags);
+    fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_flags);
     import_from_file(simple_core, import_file_path, block_stop);
   }
-  else if (db_engine == "memory")
+  else if (db_type == "memory")
   {
     fake_core_memory simple_core(m_config_folder, opt_testnet);
     import_from_file(simple_core, import_file_path, block_stop);
   }
   else
   {
-    std::cerr << "database engine unrecognized" << ENDL;
+    std::cerr << "database type unrecognized" << ENDL;
     return 1;
   }
 
   // for multi_db_compile:
 #else
-  if (db_engine != default_db_engine)
+  if (db_type != default_db_engine)
   {
-    std::cerr << "Invalid database engine for compiled version: " << db_engine << std::endl;
+    std::cerr << "Invalid database type for compiled version: " << db_type << std::endl;
     return 1;
   }
 #if BLOCKCHAIN_DB == DB_LMDB
-  fake_core_lmdb simple_core(m_config_folder, opt_testnet, opt_batch, mdb_flags);
+  fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_flags);
 #else
   fake_core_memory simple_core(m_config_folder, opt_testnet);
 #endif

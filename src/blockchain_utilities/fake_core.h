@@ -47,7 +47,7 @@ namespace
 
 #if !defined(BLOCKCHAIN_DB) || BLOCKCHAIN_DB == DB_LMDB
 
-struct fake_core_lmdb
+struct fake_core_db
 {
   Blockchain m_storage;
   HardFork* m_hardfork = nullptr;
@@ -57,10 +57,10 @@ struct fake_core_lmdb
 
   // for multi_db_runtime:
 #if !defined(BLOCKCHAIN_DB)
-  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int mdb_flags=0) : m_pool(&m_storage), m_storage(m_pool)
+  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int db_flags=0) : m_pool(&m_storage), m_storage(m_pool)
   // for multi_db_compile:
 #else
-  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int mdb_flags=0) : m_pool(m_storage), m_storage(m_pool)
+  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int db_flags=0) : m_pool(m_storage), m_storage(m_pool)
 #endif
   {
     m_pool.init(path.string());
@@ -76,7 +76,7 @@ struct fake_core_lmdb
     const std::string filename = folder.string();
     try
     {
-      db->open(filename, mdb_flags);
+      db->open(filename, db_flags);
     }
     catch (const std::exception& e)
     {
@@ -96,7 +96,7 @@ struct fake_core_lmdb
     support_batch = true;
     support_add_block = true;
   }
-  ~fake_core_lmdb()
+  ~fake_core_db()
   {
     m_storage.get_db().check_hard_fork_info();
     m_storage.deinit();
