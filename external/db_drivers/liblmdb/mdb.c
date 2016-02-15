@@ -5,7 +5,7 @@
  *	BerkeleyDB API, but much simplified.
  */
 /*
- * Copyright 2011-2015 Howard Chu, Symas Corp.
+ * Copyright 2011-2016 Howard Chu, Symas Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1075,7 +1075,7 @@ typedef struct MDB_db {
 	pgno_t		md_branch_pages;	/**< number of internal pages */
 	pgno_t		md_leaf_pages;		/**< number of leaf pages */
 	pgno_t		md_overflow_pages;	/**< number of overflow pages */
-	pgno_t		md_entries;		/**< number of data items */
+	mdb_size_t	md_entries;		/**< number of data items */
 	pgno_t		md_root;		/**< the root page of this tree */
 } MDB_db;
 
@@ -1426,7 +1426,7 @@ typedef struct MDB_ntxn {
 #endif
 
 	/** max bytes to write in one call */
-#define MAX_WRITE		(0x80000000U >> (sizeof(ssize_t) == 4))
+#define MAX_WRITE		(0x40000000U >> (sizeof(ssize_t) == 4))
 
 	/** Check \b txn and \b dbi arguments to a function */
 #define TXN_DBI_EXIST(txn, dbi, validity) \
@@ -4160,6 +4160,19 @@ mdb_env_create(MDB_env **env)
 	return MDB_SUCCESS;
 }
 
+#ifdef _WIN32
+/** @brief Map a result from an NTAPI call to WIN32. */
+static DWORD
+mdb_nt2win32(NTSTATUS st)
+{
+	OVERLAPPED o = {0};
+	DWORD br;
+	o.Internal = st;
+	GetOverlappedResult(NULL, &o, &br, FALSE);
+	return GetLastError();
+}
+#endif
+
 static int ESECT
 mdb_env_map(MDB_env *env, void *addr)
 {
@@ -4189,7 +4202,7 @@ mdb_env_map(MDB_env *env, void *addr)
 
 	rc = NtCreateSection(&mh, access, NULL, NULL, secprot, SEC_RESERVE, env->me_fd);
 	if (rc)
-		return rc;
+		return mdb_nt2win32(rc);
 	map = addr;
 #ifdef MDB_VL32
 	msize = NUM_METAS * env->me_psize;
@@ -4201,7 +4214,7 @@ mdb_env_map(MDB_env *env, void *addr)
 	NtClose(mh);
 #endif
 	if (rc)
-		return rc;
+		return mdb_nt2win32(rc);
 	env->me_map = map;
 #else
 #ifdef MDB_VL32
@@ -5256,14 +5269,16 @@ mdb_env_close0(MDB_env *env, int excl)
 	free(env->me_dbflags);
 	free(env->me_path);
 	free(env->me_dirty_list);
-	free(env->me_txn0);
 #ifdef MDB_VL32
+	if (env->me_txn0 && env->me_txn0->mt_rpages)
+		free(env->me_txn0->mt_rpages);
 	{ unsigned int x;
 		for (x=1; x<=env->me_rpages[0].mid; x++)
 		munmap(env->me_rpages[x].mptr, env->me_rpages[x].mcnt * env->me_psize);
 	}
 	free(env->me_rpages);
 #endif
+	free(env->me_txn0);
 	mdb_midl_free(env->me_free_pgs);
 
 	if (env->me_flags & MDB_ENV_TXKEY) {
@@ -5691,7 +5706,8 @@ mdb_rpage_get(MDB_txn *txn, pgno_t pg0, MDB_page **ret)
 #define MAP(rc,env,addr,len,off)	\
 	addr = NULL; \
 	rc = NtMapViewOfSection(env->me_fmh, GetCurrentProcess(), &addr, 0, \
-		len, &off, &len, ViewUnmap, (env->me_flags & MDB_RDONLY) ? 0 : MEM_RESERVE, PAGE_READONLY)
+		len, &off, &len, ViewUnmap, (env->me_flags & MDB_RDONLY) ? 0 : MEM_RESERVE, PAGE_READONLY); \
+	if (rc) rc = mdb_nt2win32(rc)
 #else
 	off_t off;
 	size_t len;
@@ -5765,7 +5781,7 @@ notlocal:
 		pthread_mutex_lock(&env->me_rpmutex);
 retry:
 		y = 0;
-		for (i=1; i<tl[0].mid; i++) {
+		for (i=1; i<=tl[0].mid; i++) {
 			if (!tl[i].mref) {
 				if (!y) y = i;
 				/* tmp overflow pages don't go to env */
@@ -5845,7 +5861,7 @@ retry:
 		if (el[0].mid >= MDB_ERPAGE_MAX - env->me_rpcheck) {
 			/* purge unref'd pages */
 			unsigned i, y = 0;
-			for (i=1; i<el[0].mid; i++) {
+			for (i=1; i<=el[0].mid; i++) {
 				if (!el[i].mref) {
 					if (!y) y = i;
 					munmap(el[i].mptr, env->me_psize * el[i].mcnt);
@@ -6436,8 +6452,10 @@ mdb_cursor_next(MDB_cursor *mc, MDB_val *key, MDB_val *data, MDB_cursor_op op)
 
 	DPRINTF(("cursor_next: top page is %"Y"u in cursor %p",
 		mdb_dbg_pgno(mp), (void *) mc));
-	if (mc->mc_flags & C_DEL)
+	if (mc->mc_flags & C_DEL) {
+		mc->mc_flags ^= C_DEL;
 		goto skip;
+	}
 
 	if (mc->mc_ki[mc->mc_top] + 1u >= NUMKEYS(mp)) {
 		DPUTS("=====> move to next sibling page");
@@ -6522,6 +6540,8 @@ mdb_cursor_prev(MDB_cursor *mc, MDB_val *key, MDB_val *data, MDB_cursor_op op)
 
 	DPRINTF(("cursor_prev: top page is %"Y"u in cursor %p",
 		mdb_dbg_pgno(mp), (void *) mc));
+
+	mc->mc_flags &= ~(C_EOF|C_DEL);
 
 	if (mc->mc_ki[mc->mc_top] == 0)  {
 		DPUTS("=====> move to prev sibling page");
@@ -6972,6 +6992,30 @@ fetchm:
 					mx->mc_db->md_pad;
 				data->mv_data = METADATA(mx->mc_pg[mx->mc_top]);
 				mx->mc_ki[mx->mc_top] = NUMKEYS(mx->mc_pg[mx->mc_top])-1;
+			} else {
+				rc = MDB_NOTFOUND;
+			}
+		}
+		break;
+	case MDB_PREV_MULTIPLE:
+		if (data == NULL) {
+			rc = EINVAL;
+			break;
+		}
+		if (!(mc->mc_db->md_flags & MDB_DUPFIXED)) {
+			rc = MDB_INCOMPATIBLE;
+			break;
+		}
+		if (!(mc->mc_flags & C_INITIALIZED))
+			rc = mdb_cursor_last(mc, key, data);
+		else
+			rc = MDB_SUCCESS;
+		if (rc == MDB_SUCCESS) {
+			MDB_cursor *mx = &mc->mc_xcursor->mx_cursor;
+			if (mx->mc_flags & C_INITIALIZED) {
+				rc = mdb_cursor_sibling(mx, 0);
+				if (rc == MDB_SUCCESS)
+					goto fetchm;
 			} else {
 				rc = MDB_NOTFOUND;
 			}
@@ -7518,7 +7562,7 @@ new_sub:
 		 */
 		if (do_sub) {
 			int xflags, new_dupdata;
-			size_t ecount;
+			mdb_size_t ecount;
 put_sub:
 			xdata.mv_size = 0;
 			xdata.mv_data = "";
@@ -8233,7 +8277,7 @@ mdb_cursor_renew(MDB_txn *txn, MDB_cursor *mc)
 
 /* Return the count of duplicate data items for the current key */
 int
-mdb_cursor_count(MDB_cursor *mc, size_t *countp)
+mdb_cursor_count(MDB_cursor *mc, mdb_size_t *countp)
 {
 	MDB_node	*leaf;
 
@@ -9957,7 +10001,7 @@ mdb_env_copyfd0(MDB_env *env, HANDLE fd)
 	MDB_txn *txn = NULL;
 	mdb_mutexref_t wmutex = NULL;
 	int rc;
-	size_t wsize;
+	mdb_size_t wsize, w3;
 	char *ptr;
 #ifdef _WIN32
 	DWORD len, w2;
@@ -10016,15 +10060,15 @@ mdb_env_copyfd0(MDB_env *env, HANDLE fd)
 	if (rc)
 		goto leave;
 
-	w2 = txn->mt_next_pgno * env->me_psize;
+	w3 = txn->mt_next_pgno * env->me_psize;
 	{
 		mdb_size_t fsize = 0;
 		if ((rc = mdb_fsize(env->me_fd, &fsize)))
 			goto leave;
-		if (w2 > fsize)
-			w2 = fsize;
+		if (w3 > fsize)
+			w3 = fsize;
 	}
-	wsize = w2 - wsize;
+	wsize = w3 - wsize;
 	while (wsize > 0) {
 		if (wsize > MAX_WRITE)
 			w2 = MAX_WRITE;
@@ -10093,7 +10137,7 @@ mdb_env_copy2(MDB_env *env, const char *path, unsigned int flags)
 #ifdef _WIN32
 	rc = utf8_to_utf16(lpath, -1, &wpath, NULL);
 	if (rc)
-		return rc;
+		goto leave;
 	newfd = CreateFileW(wpath, GENERIC_WRITE, 0, NULL, CREATE_NEW,
 				FILE_FLAG_NO_BUFFERING|FILE_FLAG_WRITE_THROUGH, NULL);
 	free(wpath);
