@@ -943,14 +943,14 @@ namespace cryptonote
     HardFork::State state = m_blockchain_storage.get_hard_fork_state();
     switch (state) {
       case HardFork::LikelyForked:
-        LOG_PRINT_L0(ENDL
+        LOG_PRINT_RED_L0(ENDL
           << "**********************************************************************" << ENDL
           << "Last scheduled hard fork is too far in the past." << ENDL
           << "We are most likely forked from the network. Daemon update needed now." << ENDL
           << "**********************************************************************" << ENDL);
         break;
       case HardFork::UpdateNeeded:
-        LOG_PRINT_L0(ENDL
+        LOG_PRINT_RED_L0(ENDL
           << "**********************************************************************" << ENDL
           << "Last scheduled hard fork time shows a daemon update is needed now." << ENDL
           << "**********************************************************************" << ENDL);
