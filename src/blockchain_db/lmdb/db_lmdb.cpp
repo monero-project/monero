@@ -1142,10 +1142,12 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
       LOG_PRINT_RED_L0("Existing lmdb database was made by a later version. We don't know how it will change yet.");
       compatible = false;
     }
-    else if (VERSION > 0 && *(const uint32_t*)v.mv_data < VERSION)
+#if VERSION > 0
+    else if (*(const uint32_t*)v.mv_data < VERSION)
     {
       compatible = false;
     }
+#endif
   }
   else
   {

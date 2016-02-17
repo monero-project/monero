@@ -947,10 +947,12 @@ void BlockchainBDB::open(const std::string& filename, const int db_flags)
                 LOG_PRINT_RED_L0("Existing BerkeleyDB database was made by a later version. We don't know how it will change yet.");
                 compatible = false;
             }
-            else if (VERSION > 0 && result < VERSION)
+#if VERSION > 0
+            else if (result < VERSION)
             {
                 compatible = false;
             }
+#endif
         }
         else
         {
