@@ -144,7 +144,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     // create a random uuid
     boost::uuids::uuid random_uuid;
     // that stuff turns out to be included, even though it's from src... Taking advantage
-    crypto::generate_random_bytes(sizeof(random_uuid), &random_uuid);
+    random_uuid = crypto::rand<boost::uuids::uuid>();
 
     context.set_details(random_uuid, ip_, remote_ep.port(), is_income);
     _dbg3("[sock " << socket_.native_handle() << "] new connection from " << print_connection_context_short(context) <<
