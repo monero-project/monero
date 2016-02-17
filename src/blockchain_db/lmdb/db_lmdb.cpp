@@ -764,7 +764,7 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transa
   }
   else
   {
-    size_t num_elems = 0;
+    mdb_size_t num_elems = 0;
     mdb_cursor_count(cur, &num_elems);
 
     mdb_cursor_get(cur, &k, &v, MDB_LAST_DUP);
@@ -848,7 +848,7 @@ void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const uin
   else if (result)
     throw0(DB_ERROR("DB error attempting to get an output"));
 
-  size_t num_elems = 0;
+  mdb_size_t num_elems = 0;
   mdb_cursor_count(cur, &num_elems);
 
   mdb_cursor_get(cur, &k, &v, MDB_LAST_DUP);
@@ -1777,7 +1777,7 @@ uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
   else if (result)
     throw0(DB_ERROR("DB error attempting to get number of outputs of an amount"));
 
-  size_t num_elems = 0;
+  mdb_size_t num_elems = 0;
   mdb_cursor_count(cur, &num_elems);
 
   TXN_POSTFIX_SUCCESS();
@@ -1873,7 +1873,7 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
   else if (result)
     throw0(DB_ERROR("DB error attempting to get an output"));
 
-  size_t num_elems = 0;
+  mdb_size_t num_elems = 0;
   mdb_cursor_count(cur, &num_elems);
 
   mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
@@ -1925,7 +1925,7 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_amount_output_indices(const crypto:
     else if (result)
       throw0(DB_ERROR("DB error attempting to get an output"));
 
-    size_t num_elems = 0;
+    mdb_size_t num_elems = 0;
     mdb_cursor_count(cur, &num_elems);
 
     mdb_cursor_get(cur, &k, &v, MDB_FIRST_DUP);
@@ -2441,7 +2441,7 @@ void BlockchainLMDB::get_output_global_indices(const uint64_t& amount, const std
   else if (result)
     throw0(DB_ERROR("DB error attempting to get an output"));
 
-  size_t num_elems = 0;
+  mdb_size_t num_elems = 0;
   mdb_cursor_count(cur, &num_elems);
   if (max <= 1 && num_elems <= max)
     throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but output not found"));
