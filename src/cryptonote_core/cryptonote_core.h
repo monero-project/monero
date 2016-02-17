@@ -198,7 +198,7 @@ namespace cryptonote
      std::string m_config_folder;
      cryptonote_protocol_stub m_protocol_stub;
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval;
-     epee::math_helper::once_a_time_seconds<60*60*2, false> m_fork_moaner;
+     epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner;
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed;
