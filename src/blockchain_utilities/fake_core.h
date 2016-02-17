@@ -33,6 +33,7 @@
 #include "cryptonote_core/blockchain_storage.h" // in-memory DB
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "blockchain_db/berkeleydb/db_bdb.h"
 
 using namespace cryptonote;
 
@@ -47,7 +48,7 @@ namespace
 
 #if !defined(BLOCKCHAIN_DB) || BLOCKCHAIN_DB == DB_LMDB
 
-struct fake_core_lmdb
+struct fake_core_db
 {
   Blockchain m_storage;
   HardFork* m_hardfork = nullptr;
@@ -57,15 +58,26 @@ struct fake_core_lmdb
 
   // for multi_db_runtime:
 #if !defined(BLOCKCHAIN_DB)
-  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int mdb_flags=0) : m_pool(&m_storage), m_storage(m_pool)
+  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const std::string& db_type="lmdb", const int db_flags=0) : m_pool(&m_storage), m_storage(m_pool)
   // for multi_db_compile:
 #else
-  fake_core_lmdb(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const int mdb_flags=0) : m_pool(m_storage), m_storage(m_pool)
+  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const std::string& db_type="lmdb", const int db_flags=0) : m_pool(m_storage), m_storage(m_pool)
 #endif
   {
     m_pool.init(path.string());
 
-    BlockchainDB* db = new BlockchainLMDB();
+    BlockchainDB* db = nullptr;
+    if (db_type == "lmdb")
+      db = new BlockchainLMDB();
+#if defined(BERKELEY_DB)
+    else if (db_type == "berkeley")
+      db = new BlockchainBDB();
+#endif
+    else
+    {
+      LOG_ERROR("Attempted to use non-existent database type: " << db_type);
+      throw std::runtime_error("Attempting to use non-existent database type");
+    }
 
     boost::filesystem::path folder(path);
 
@@ -76,7 +88,7 @@ struct fake_core_lmdb
     const std::string filename = folder.string();
     try
     {
-      db->open(filename, mdb_flags);
+      db->open(filename, db_flags);
     }
     catch (const std::exception& e)
     {
@@ -96,7 +108,7 @@ struct fake_core_lmdb
     support_batch = true;
     support_add_block = true;
   }
-  ~fake_core_lmdb()
+  ~fake_core_db()
   {
     m_storage.get_db().check_hard_fork_info();
     m_storage.deinit();
