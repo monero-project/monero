@@ -902,6 +902,10 @@ bool wallet2::clear()
   m_blockchain.clear();
   m_transfers.clear();
   m_key_images.clear();
+  m_unconfirmed_txs.clear();
+  m_payments.clear();
+  m_tx_keys.clear();
+  m_confirmed_txs.clear();
   m_local_bc_height = 1;
   return true;
 }
