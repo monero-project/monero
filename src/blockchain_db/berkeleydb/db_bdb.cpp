@@ -2210,7 +2210,56 @@ uint64_t BlockchainBDB::get_hard_fork_starting_height(uint8_t version) const
 
 void BlockchainBDB::check_hard_fork_info()
 {
-	/* FIXME: Some other time */
+  LOG_PRINT_L3("BlockchainBDB::" << __func__);
+  check_open();
+
+  if (m_hf_versions == nullptr)
+  {
+    LOG_PRINT_L0("hf versions DB not open, so not checking");
+    return;
+  }
+
+  DB_BTREE_STAT* db_stat1, * db_stat2;
+
+  // DB_FAST_STAT can apparently cause an incorrect number of records
+  // to be returned.  The flag should be set to 0 instead if this proves
+  // to be the case.
+
+  // Set txn to NULL and DB_FAST_STAT to zero (0) for reliability.
+  m_blocks->stat(NULL, &db_stat1, 0);
+  m_hf_versions->stat(NULL, &db_stat2, 0);
+  if (db_stat1->bt_nkeys != db_stat2->bt_nkeys)
+  {
+    LOG_PRINT_L0("num blocks " << db_stat1->bt_nkeys << " != " << "num hf_versions " << db_stat2->bt_nkeys << " - will clear the two hard fork DBs");
+
+    bdb_txn_safe txn;
+    bdb_txn_safe* txn_ptr = &txn;
+    if (m_write_txn)
+      txn_ptr = m_write_txn;
+    else
+    {
+      if (m_env->txn_begin(NULL, txn, 0))
+        throw0(DB_ERROR("Failed to create a transaction for the db"));
+    }
+
+    try
+    {
+      uint32_t count;
+      m_hf_starting_heights->truncate(*txn_ptr, &count, 0);
+      LOG_PRINT_L0("hf_starting_heights count: " << count);
+      m_hf_versions->truncate(*txn_ptr, &count, 0);
+      LOG_PRINT_L0("hf_versions count: " << count);
+
+      if (!m_write_txn)
+        txn.commit();
+    }
+    catch (const std::exception& e)
+    {
+      throw0(DB_ERROR(std::string("Failed to clear two hard fork DBs: ").append(e.what()).c_str()));
+    }
+  }
+  delete db_stat1;
+  delete db_stat2;
 }
 
 void BlockchainBDB::drop_hard_fork_info()
