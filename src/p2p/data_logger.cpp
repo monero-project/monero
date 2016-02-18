@@ -31,6 +31,7 @@
 
 #include <boost/chrono.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
 #include <chrono>
 #include "../../contrib/otshell_utils/utils.hpp"
 
@@ -85,7 +86,7 @@ namespace net_utils
 
 		_info_c("dbg/data","Creating thread for data logger"); // create timer thread
 		m_thread_maybe_running=true;
-		std::shared_ptr<std::thread> logger_thread(new std::thread([&]() {
+		std::shared_ptr<boost::thread> logger_thread(new boost::thread([&]() {
 			_info_c("dbg/data","Inside thread for data logger");
 			while (m_state == data_logger_state::state_during_init) { // wait for creation to be done (in other thread, in singleton) before actually running
 				std::this_thread::sleep_for(std::chrono::seconds(1));
