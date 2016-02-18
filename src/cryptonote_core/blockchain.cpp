@@ -334,6 +334,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
     m_db->fixup();
   }
 
+  m_db->block_txn_start(true);
   // check how far behind we are
   uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
   uint64_t timestamp_diff = time(NULL) - top_block_timestamp;
@@ -354,6 +355,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
 #endif
 
   LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
+  m_db->block_txn_stop();
 
   return true;
 }
@@ -549,6 +551,7 @@ bool Blockchain::get_short_chain_history(std::list<crypto::hash>& ids) const
   if(!sz)
     return true;
 
+  m_db->block_txn_start(true);
   bool genesis_included = false;
   uint64_t current_back_offset = 1;
   while(current_back_offset < sz)
@@ -575,6 +578,7 @@ bool Blockchain::get_short_chain_history(std::list<crypto::hash>& ids) const
   {
     ids.push_back(m_db->get_block_hash_from_height(0));
   }
+  m_db->block_txn_stop();
 
   return true;
 }
@@ -996,12 +1000,14 @@ void Blockchain::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) 
   if(h == 0)
     return;
 
+  m_db->block_txn_start(true);
   // add size of last <count> blocks to vector <sz> (or less, if blockchain size < count)
   size_t start_offset = h - std::min<size_t>(h, count);
   for(size_t i = start_offset; i < h; i++)
   {
     sz.push_back(m_db->get_block_size(i));
   }
+  m_db->block_txn_stop();
 }
 //------------------------------------------------------------------
 uint64_t Blockchain::get_current_cumulative_blocksize_limit() const
@@ -2434,9 +2440,12 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   TIME_MEASURE_START(t1);
 
+  m_db->block_txn_start(true);
   if(bl.prev_id != get_tail_id())
   {
     LOG_PRINT_L1("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
+leave:
+    m_db->block_txn_stop();
     return false;
   }
 
@@ -2445,7 +2454,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   {
     LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)m_hardfork->get_current_version());
     bvc.m_verifivation_failed = true;
-    return false;
+    goto leave;
   }
 
   TIME_MEASURE_FINISH(t1);
@@ -2457,7 +2466,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   {
     LOG_PRINT_L1("Block with id: " << id << std::endl << "has invalid timestamp: " << bl.timestamp);
     bvc.m_verifivation_failed = true;
-    return false;
+    goto leave;
   }
 
   TIME_MEASURE_FINISH(t2);
@@ -2497,7 +2506,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     {
       LOG_PRINT_L1("Block with id is INVALID: " << id);
       bvc.m_verifivation_failed = true;
-      return false;
+      goto leave;
     }
     fast_check = true;
   }
@@ -2518,7 +2527,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     {
       LOG_PRINT_L1("Block with id: " << id << std::endl << "does not have enough proof of work: " << proof_of_work << std::endl << "unexpected difficulty: " << current_diffic);
       bvc.m_verifivation_failed = true;
-      return false;
+      goto leave;
     }
   }
 
@@ -2530,7 +2539,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     {
       LOG_ERROR("CHECKPOINT VALIDATION FAILED");
       bvc.m_verifivation_failed = true;
-      return false;
+      goto leave;
     }
   }
 
@@ -2545,7 +2554,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   {
     LOG_PRINT_L1("Block with id: " << id << " failed to pass prevalidation");
     bvc.m_verifivation_failed = true;
-    return false;
+    goto leave;
   }
 
   size_t coinbase_blob_size = get_object_blobsize(bl.miner_tx);
@@ -2581,7 +2590,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
       LOG_PRINT_L1("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
       bvc.m_verifivation_failed = true;
       return_tx_to_pool(txs);
-      return false;
+      goto leave;
     }
 
     TIME_MEASURE_FINISH(aa);
@@ -2594,7 +2603,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
       LOG_PRINT_L1("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
       bvc.m_verifivation_failed = true;
       return_tx_to_pool(txs);
-      return false;
+      goto leave;
     }
 
     TIME_MEASURE_FINISH(bb);
@@ -2631,7 +2640,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
         bvc.m_verifivation_failed = true;
         return_tx_to_pool(txs);
-        return false;
+        goto leave;
       }
     }
 #if defined(PER_BLOCK_CHECKPOINT)
@@ -2647,7 +2656,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
         LOG_PRINT_L1("Block with id " << id << " added as invalid because of wrong inputs in transactions");
         bvc.m_verifivation_failed = true;
         return_tx_to_pool(txs);
-        return false;
+        goto leave;
       }
     }
 #endif
@@ -2667,7 +2676,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     LOG_PRINT_L1("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
     return_tx_to_pool(txs);
-    return false;
+    goto leave;
   }
 
   TIME_MEASURE_FINISH(vmt);
@@ -2685,6 +2694,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   if(precomputed)
     block_processing_time += m_fake_pow_calc_time;
 
+  m_db->block_txn_stop();
   TIME_MEASURE_START(addblock);
   uint64_t new_height = 0;
   if (!bvc.m_verifivation_failed)
@@ -2761,10 +2771,12 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
   crypto::hash id = get_block_hash(bl);
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+  m_db->block_txn_start(true);
   if(have_block(id))
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
+    m_db->block_txn_stop();
     return false;
   }
 
@@ -2773,10 +2785,12 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
   {
     //chain switching or wrong block
     bvc.m_added_to_main_chain = false;
+    m_db->block_txn_stop();
     return handle_alternative_block(bl, id, bvc);
     //never relay alternative blocks
   }
 
+  m_db->block_txn_stop();
   return handle_block_to_main_chain(bl, id, bvc);
 }
 //------------------------------------------------------------------
