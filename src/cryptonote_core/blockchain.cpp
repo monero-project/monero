@@ -1403,6 +1403,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  m_db->block_txn_start(true);
   rsp.current_blockchain_height = get_current_blockchain_height();
   std::list<block> blocks;
   get_blocks(arg.blocks, blocks, rsp.missed_ids);
@@ -1424,6 +1425,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
       // as done below if any standalone transactions were requested
       // and missed.
       rsp.missed_ids.splice(rsp.missed_ids.end(), missed_tx_ids);
+	  m_db->block_txn_stop();
       return false;
     }
 
@@ -1442,6 +1444,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
   for (const auto& tx: txs)
     rsp.txs.push_back(t_serializable_object_to_blob(tx));
 
+  m_db->block_txn_stop();
   return true;
 }
 //------------------------------------------------------------------
@@ -1585,12 +1588,14 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     return false;
   }
 
+  m_db->block_txn_start(true);
   // make sure that the last block in the request's block list matches
   // the genesis block
   auto gen_hash = m_db->get_block_hash_from_height(0);
   if(qblock_ids.back() != gen_hash)
   {
     LOG_PRINT_L1("Client sent wrong NOTIFY_REQUEST_CHAIN: genesis block missmatch: " << std::endl << "id: " << qblock_ids.back() << ", " << std::endl << "expected: " << gen_hash << "," << std::endl << " dropping connection");
+	m_db->block_txn_abort();
     return false;
   }
 
@@ -1612,9 +1617,11 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     catch (const std::exception& e)
     {
       LOG_PRINT_L1("Non-critical error trying to find block by hash in BlockchainDB, hash: " << *bl_it);
+	  m_db->block_txn_abort();
       return false;
     }
   }
+  m_db->block_txn_stop();
 
   // this should be impossible, as we checked that we share the genesis block,
   // but just in case...
@@ -2777,6 +2784,7 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
 {
   const auto& pts = points.get_points();
 
+  m_db->batch_start();
   for (const auto& pt : pts)
   {
     // if the checkpoint is for a block we don't have yet, move on
@@ -2800,6 +2808,7 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
       }
     }
   }
+  m_db->batch_stop();
 }
 //------------------------------------------------------------------
 // returns false if any of the checkpoints loading returns false.

@@ -254,8 +254,11 @@ bool HardFork::reorganize_from_chain_height(uint64_t height)
 bool HardFork::rescan_from_block_height(uint64_t height)
 {
   CRITICAL_REGION_LOCAL(lock);
-  if (height >= db.height())
+  db.block_txn_start(true);
+  if (height >= db.height()) {
+    db.block_txn_stop();
     return false;
+  }
 
   versions.clear();
 
@@ -273,6 +276,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
   current_fork_index = 0;
   while (current_fork_index + 1 < heights.size() && heights[current_fork_index].version != lastv)
     ++current_fork_index;
+  db.block_txn_stop();
 
   return true;
 }

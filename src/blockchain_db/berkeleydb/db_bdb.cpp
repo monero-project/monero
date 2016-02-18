@@ -1835,7 +1835,7 @@ void BlockchainBDB::set_batch_transactions(bool batch_transactions)
     LOG_PRINT_L3("batch transactions " << (m_batch_transactions ? "enabled" : "disabled"));
 }
 
-void BlockchainBDB::block_txn_start()
+void BlockchainBDB::block_txn_start(bool readonly)
 {
   // TODO
 }
