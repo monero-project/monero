@@ -33,7 +33,9 @@
 #include "cryptonote_core/blockchain_storage.h" // in-memory DB
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#if defined(BERKELEY_DB)
 #include "blockchain_db/berkeleydb/db_bdb.h"
+#endif
 
 using namespace cryptonote;
 
