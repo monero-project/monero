@@ -270,7 +270,7 @@ namespace nodetool
     bool m_offline;
     std::atomic<bool> m_save_graph;
     std::atomic<bool> is_closing;
-    std::unique_ptr<std::thread> mPeersLoggerThread;
+    std::unique_ptr<boost::thread> mPeersLoggerThread;
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;
 

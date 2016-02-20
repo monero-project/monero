@@ -567,7 +567,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::run()
   {
     // creating thread to log number of connections
-    mPeersLoggerThread.reset(new std::thread([&]()
+    mPeersLoggerThread.reset(new boost::thread([&]()
     {
       _note("Thread monitor number of peers - start");
       while (!is_closing && !m_net_server.is_stop_signal_sent())
