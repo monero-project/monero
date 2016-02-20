@@ -31,6 +31,7 @@
 #include "cryptonote_protocol/blobdatatype.h" // for type blobdata
 
 #include <unordered_map>
+#include <condition_variable>
 
 // ND: Enables multi-threaded bulk reads for when getting indices.
 //     TODO: Disabled for now, as it doesn't seem to provide noticeable improvements (??. Reason: TBD.
