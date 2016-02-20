@@ -32,12 +32,17 @@
 #include "wallet2.h"
 #include <memory>
 
+unsigned int epee::g_test_dbg_lock_sleep = 0;
+
 namespace Bitmonero {
 
 struct WalletManagerImpl;
 
 namespace {
     static WalletManagerImpl * g_walletManager = nullptr;
+
+
+
 }
 
 
@@ -64,6 +69,8 @@ WalletImpl::WalletImpl()
 
 }
 
+
+Wallet::~Wallet() {}
 
 WalletImpl::~WalletImpl()
 {
@@ -103,6 +110,11 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
     return true;
 }
 
+std::string WalletImpl::seed() const
+{
+    return "";
+}
+
 
 
 ///////////////////////// WalletManager implementation /////////////////////////
@@ -111,13 +123,16 @@ class WalletManagerImpl : public WalletManager
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language);
+    Wallet * openWallet(const std::string &path, const std::string &password);
+    bool walletExists(const std::string &path);
+    int lastError() const;
 
 private:
     WalletManagerImpl() {}
     friend struct WalletManagerFactory;
 };
 
-Wallet *WalletManager::createWallet(const std::string &path, const std::string &password,
+Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
                                     const std::string &language)
 {
     WalletImpl * wallet = new WalletImpl();
@@ -131,6 +146,22 @@ Wallet *WalletManager::createWallet(const std::string &path, const std::string &
 }
 
 
+Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password)
+{
+    return nullptr;
+}
+
+bool WalletManagerImpl::walletExists(const std::string &path)
+{
+    return false;
+}
+
+int WalletManagerImpl::lastError() const
+{
+    return 0;
+}
+
+
 ///////////////////// WalletManagerFactory implementation //////////////////////
 WalletManager *WalletManagerFactory::getWalletManager()
 {
@@ -140,6 +171,9 @@ WalletManager *WalletManagerFactory::getWalletManager()
 
     return g_walletManager;
 }
+
+
+
 
 
 }

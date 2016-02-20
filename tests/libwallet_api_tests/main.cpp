@@ -28,46 +28,42 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
+#include "gtest/gtest.h"
+#include "wallet/wallet2_api.h"
+
+//unsigned int epee::g_test_dbg_lock_sleep = 0;
 
 
-#include <string>
 
-//  Public interface for libwallet library
-namespace Bitmonero {
-
-
-/**
- * @brief Interface for wallet operations.
- *        TODO: check if /include/IWallet.h is still actual
- */
-struct Wallet
+struct WalletManagerTest : public testing::Test
 {
-   // TODO define wallet interface (decide what needed from wallet2)
-   virtual ~Wallet() = 0;
-   virtual std::string seed() const = 0;
+    Bitmonero::WalletManager * wmgr;
+
+    WalletManagerTest()
+    {
+        wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
+    }
+
+
 };
 
-/**
- * @brief WalletManager - provides functions to manage wallets
- */
-struct WalletManager
+TEST(WalletFactoryTest, WalletFactoryReturnsWalletManager)
 {
-    //! creates new wallet
-    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language) = 0;
-    //! opens existing wallet
-    virtual Wallet * openWallet(const std::string &path, const std::string &password) = 0;
-
-    virtual bool walletExists(const std::string &path) = 0;
-
-    virtual int lastError() const = 0;
-};
+     Bitmonero::WalletManager * wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
+     EXPECT_NE(wmgr, nullptr);
+}
 
 
-struct WalletManagerFactory
+TEST_F(WalletManagerTest, WalletManagerReturnsCreatesWallet)
 {
-    static WalletManager * getWalletManager();
-};
+    Bitmonero::Wallet * wallet = wmgr->createWallet("test_wallet", "password", "en_US");
+    EXPECT_TRUE(wallet != nullptr);
 
 }
 
+int main(int argc, char** argv)
+{
+  //epee::debug::get_set_enable_assert(true, false);
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
