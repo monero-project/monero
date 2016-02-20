@@ -1814,9 +1814,18 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
           total_fee += ptx_vector[n].fee;
         }
 
-        std::string prompt_str = (boost::format(tr("Your transaction needs to be split into %llu transactions.  "
-          "This will result in a transaction fee being applied to each transaction, for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
-          ((unsigned long long)ptx_vector.size()) % print_money(total_fee)).str();
+        std::string prompt_str;
+        if (ptx_vector.size() > 1)
+        {
+          prompt_str = (boost::format(tr("Your transaction needs to be split into %llu transactions.  "
+            "This will result in a transaction fee being applied to each transaction, for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+            ((unsigned long long)ptx_vector.size()) % print_money(total_fee)).str();
+        }
+        else
+        {
+          prompt_str = (boost::format(tr("The transaction fee is %s.  Is this okay?  (Y/Yes/N/No)")) %
+            print_money(total_fee)).str();
+        }
         std::string accepted = command_line::input_line(prompt_str);
         if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
         {
