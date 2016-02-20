@@ -102,6 +102,9 @@ target_link_libraries(blockchain_converter
 if(${ARCH_WIDTH} EQUAL 32)
   target_compile_definitions(blockchain_converter
     PUBLIC -DARCH_WIDTH=32)
+elseif(${ARCH_WIDTH} EQUAL 64)
+  target_compile_definitions(blockchain_converter
+    PUBLIC -DARCH_WIDTH=64)
 endif()
 
 add_dependencies(blockchain_converter
@@ -125,6 +128,9 @@ target_link_libraries(blockchain_import
 if(${ARCH_WIDTH} EQUAL 32)
   target_compile_definitions(blockchain_import
     PUBLIC -DARCH_WIDTH=32)
+elseif(${ARCH_WIDTH} EQUAL 64)
+  target_compile_definitions(blockchain_import
+    PUBLIC -DARCH_WIDTH=64)
 endif()
 
 add_dependencies(blockchain_import
