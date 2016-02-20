@@ -99,9 +99,9 @@ target_link_libraries(blockchain_converter
 	blockchain_db
     ${CMAKE_THREAD_LIBS_INIT})
 
-if(${ARCH_WIDTH} EQUAL 32)
+if(ARCH_WIDTH)
   target_compile_definitions(blockchain_converter
-    PUBLIC -DARCH_WIDTH=32)
+    PUBLIC -DARCH_WIDTH=${ARCH_WIDTH})
 endif()
 
 add_dependencies(blockchain_converter
@@ -122,9 +122,9 @@ target_link_libraries(blockchain_import
 	p2p
     ${CMAKE_THREAD_LIBS_INIT})
 
-if(${ARCH_WIDTH} EQUAL 32)
+if(ARCH_WIDTH)
   target_compile_definitions(blockchain_import
-    PUBLIC -DARCH_WIDTH=32)
+    PUBLIC -DARCH_WIDTH=${ARCH_WIDTH})
 endif()
 
 add_dependencies(blockchain_import
