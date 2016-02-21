@@ -44,8 +44,11 @@ namespace Bitmonero {
 struct Wallet
 {
    // TODO define wallet interface (decide what needed from wallet2)
-   virtual ~Wallet() = 0;
-   virtual std::string seed() const = 0;
+    virtual ~Wallet() = 0;
+    virtual std::string seed() const = 0;
+    virtual std::string getSeedLanguage() const = 0;
+    virtual void setSeedLanguage(const std::string &arg) = 0;
+
 };
 
 /**

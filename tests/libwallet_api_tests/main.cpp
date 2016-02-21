@@ -30,7 +30,14 @@
 
 #include "gtest/gtest.h"
 #include "wallet/wallet2_api.h"
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
+#include <iostream>
+#include <vector>
+
+
+using namespace std;
 //unsigned int epee::g_test_dbg_lock_sleep = 0;
 
 
@@ -39,26 +46,44 @@ struct WalletManagerTest : public testing::Test
 {
     Bitmonero::WalletManager * wmgr;
 
+    const char * WALLET_NAME = "testwallet";
+    const char * WALLET_PASS = "password";
+
+
     WalletManagerTest()
     {
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
+        deleteWallet(WALLET_NAME);
     }
 
 
+    ~WalletManagerTest()
+    {
+        deleteWallet(WALLET_NAME);
+    }
+
+
+    void deleteWallet(const std::string & walletname)
+    {
+        boost::filesystem::remove(walletname);
+        boost::filesystem::remove(walletname + ".address.txt");
+        boost::filesystem::remove(walletname + ".keys");
+    }
+
 };
 
-TEST(WalletFactoryTest, WalletFactoryReturnsWalletManager)
-{
-     Bitmonero::WalletManager * wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
-     EXPECT_NE(wmgr, nullptr);
-}
 
-
-TEST_F(WalletManagerTest, WalletManagerReturnsCreatesWallet)
+TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
-    Bitmonero::Wallet * wallet = wmgr->createWallet("test_wallet", "password", "en_US");
+
+    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, "English");
     EXPECT_TRUE(wallet != nullptr);
-
+    EXPECT_TRUE(!wallet->seed().empty());
+    std::vector<std::string> words;
+    std::string seed = wallet->seed();
+    boost::split(words, seed, boost::is_any_of(" "), boost::token_compress_on);
+    EXPECT_TRUE(words.size() == 25);
+    std::cout << "** seed: " << wallet->seed() << std::endl;
 }
 
 int main(int argc, char** argv)

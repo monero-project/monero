@@ -45,6 +45,7 @@ namespace {
 
 }
 
+Wallet::~Wallet() {}
 
 ///////////////////////// Wallet implementation ////////////////////////////////
 class WalletImpl : public Wallet
@@ -55,26 +56,26 @@ public:
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);
     bool open(const std::string &path, const std::string &password);
-
     std::string seed() const;
+    std::string getSeedLanguage() const;
+    void setSeedLanguage(const std::string &arg);
 
 private:
-    std::unique_ptr<tools::wallet2> m_wallet;
+    //std::unique_ptr<tools::wallet2> m_wallet;
+    tools::wallet2 * m_wallet;
 
 };
 
 
 WalletImpl::WalletImpl()
+    :m_wallet(nullptr)
 {
 
 }
 
-
-Wallet::~Wallet() {}
-
 WalletImpl::~WalletImpl()
 {
-    //delete m_wallet;
+    delete m_wallet;
 }
 
 bool WalletImpl::create(const std::string &path, const std::string &password, const std::string &language)
@@ -82,6 +83,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
     bool keys_file_exists;
     bool wallet_file_exists;
     tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+    // TODO: figure out how to setup logger;
     LOG_PRINT_L3("wallet_path: " << path << "");
     LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
                  << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
@@ -94,12 +96,12 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
         return false;
 
     }
-
     // TODO: validate language
-
-
     // TODO: create wallet
-    m_wallet.reset(new tools::wallet2());
+    //m_wallet.reset(new tools::wallet2());
+    m_wallet = new tools::wallet2();
+    m_wallet->set_seed_language(language);
+
     crypto::secret_key recovery_val, secret_key;
     try {
         recovery_val = m_wallet->generate(path, password, secret_key, false, false);
@@ -107,14 +109,27 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
         // TODO: log exception
         return false;
     }
+
     return true;
 }
 
 std::string WalletImpl::seed() const
 {
-    return "";
+    std::string seed;
+    if (m_wallet)
+        m_wallet->get_seed(seed);
+    return seed;
 }
 
+std::string WalletImpl::getSeedLanguage() const
+{
+    return m_wallet->get_seed_language();
+}
+
+void WalletImpl::setSeedLanguage(const std::string &arg)
+{
+    m_wallet->set_seed_language(arg);
+}
 
 
 ///////////////////////// WalletManager implementation /////////////////////////
@@ -141,7 +156,6 @@ Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::stri
         delete wallet;
         wallet = nullptr;
     }
-
     return wallet;
 }
 
