@@ -181,6 +181,17 @@ struct DNSResolverData
   ub_ctx* m_ub_context;
 };
 
+// work around for bug https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=515 needed for it to compile on e.g. Debian 7
+class string_copy {
+public:
+    string_copy(const char *s): str(strdup(s)) {}
+    ~string_copy() { free(str); }
+    operator char*() { return str; }
+
+public:
+    char *str;
+};
+
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
@@ -201,9 +212,9 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (use_dns_public)
   {
-    ub_ctx_set_fwd(m_data->m_ub_context, dns_public_addr);
-    ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
-    ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
+    ub_ctx_set_fwd(m_data->m_ub_context, string_copy(dns_public_addr));
+    ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
+    ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
   }
   else {
     // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
@@ -211,24 +222,7 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
     ub_ctx_hosts(m_data->m_ub_context, NULL);
   }
 
-  #ifdef DEVELOPER_LIBUNBOUND_OLD
-    #pragma message "Using the work around for old libunbound"
-    { // work around for bug https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=515 needed for it to compile on e.g. Debian 7
-      char * ds_copy = NULL; // this will be the writable copy of string that bugged version of libunbound requires
-      try {
-        char * ds_copy = strdup( ::get_builtin_ds() );
-        ub_ctx_add_ta(m_data->m_ub_context, ds_copy);
-      } catch(...) { // probably not needed but to work correctly in every case...
-        if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
-        throw ;
-      }
-      if (ds_copy) { free(ds_copy); ds_copy=NULL; } // for the strdup
-    }
-  #else
-    // normal version for fixed libunbound
-    ub_ctx_add_ta(m_data->m_ub_context, ::get_builtin_ds() );
-  #endif
-
+  ub_ctx_add_ta(m_data->m_ub_context, string_copy(::get_builtin_ds()));
 }
 
 DNSResolver::~DNSResolver()
@@ -258,7 +252,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   ub_result_ptr result;
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, url.c_str(), record_type, DNS_CLASS_IN, &result))
+  if (!ub_resolve(m_data->m_ub_context, string_copy(url.c_str()), record_type, DNS_CLASS_IN, &result))
   {
     dnssec_available = (result->secure || (!result->secure && result->bogus));
     dnssec_valid = result->secure && !result->bogus;
