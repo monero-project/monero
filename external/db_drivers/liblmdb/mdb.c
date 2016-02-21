@@ -1473,6 +1473,8 @@ struct MDB_env {
 #define	MDB_ENV_TXKEY	0x10000000U
 	/** fdatasync is unreliable */
 #define	MDB_FSYNCONLY	0x08000000U
+	/** using a raw block device */
+#define	MDB_RAWPART		0x04000000U
 	uint32_t 	me_flags;		/**< @ref mdb_env */
 	unsigned int	me_psize;	/**< DB page size, inited from me_os_psize */
 	unsigned int	me_os_psize;	/**< OS page size, from #GET_PAGESIZE */
@@ -4081,6 +4083,8 @@ mdb_env_read_header(MDB_env *env, int prev, MDB_meta *meta)
 		p = (MDB_page *)&pbuf;
 
 		if (!F_ISSET(p->mp_flags, P_META)) {
+			if (env->me_flags & MDB_RAWPART)
+				return ENOENT;
 			DPRINTF(("page %"Yu" not a meta page", p->mp_pgno));
 			return MDB_INVALID;
 		}
@@ -4410,7 +4414,7 @@ mdb_env_map(MDB_env *env, void *addr)
 	int prot = PROT_READ;
 	if (flags & MDB_WRITEMAP) {
 		prot |= PROT_WRITE;
-		if (ftruncate(env->me_fd, env->me_mapsize) < 0)
+		if (!(flags & MDB_RAWPART) && ftruncate(env->me_fd, env->me_mapsize) < 0)
 			return ErrCode();
 	}
 	env->me_map = mmap(addr, env->me_mapsize, prot, MAP_SHARED,
@@ -5448,6 +5452,17 @@ mdb_env_open(MDB_env *env, const char *path, unsigned int flags, mdb_mode_t mode
 	if (rc)
 		goto leave;
 #endif
+#endif
+#ifndef _WIN32
+	{
+		struct stat st;
+		rc = stat(path, &st);
+		if (rc)
+			return ErrCode();
+		flags &= ~MDB_RAWPART;
+		if (S_ISBLK(st.st_mode))
+			flags |= MDB_RAWPART | MDB_NOSUBDIR;
+	}
 #endif
 	flags |= MDB_ENV_ACTIVE;	/* tell mdb_env_close0() to clean up */
 
