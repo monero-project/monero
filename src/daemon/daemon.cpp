@@ -46,8 +46,6 @@ using namespace epee;
 
 #include <functional>
 
-unsigned int epee::g_test_dbg_lock_sleep = 0;
-
 namespace daemonize {
 
 struct t_internals {

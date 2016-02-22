@@ -45,8 +45,6 @@
 #include <iostream>
 
 
-unsigned int epee::g_test_dbg_lock_sleep = 0;
-
 namespace
 {
 

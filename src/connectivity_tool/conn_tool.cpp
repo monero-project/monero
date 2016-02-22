@@ -49,8 +49,6 @@ namespace po = boost::program_options;
 using namespace cryptonote;
 using namespace nodetool;
 
-unsigned int epee::g_test_dbg_lock_sleep = 0;
-
 namespace
 {
   const command_line::arg_descriptor<std::string, true> arg_ip           = {"ip", "set ip"};

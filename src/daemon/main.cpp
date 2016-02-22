@@ -132,7 +132,7 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    epee::g_test_dbg_lock_sleep = command_line::get_arg(vm, command_line::arg_test_dbg_lock_sleep);
+    epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, command_line::arg_test_dbg_lock_sleep);
 
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
 

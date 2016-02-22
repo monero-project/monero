@@ -32,8 +32,6 @@
 #include "common/command_line.h"
 #include "version.h"
 
-unsigned int epee::g_test_dbg_lock_sleep = 0;
-
 namespace po = boost::program_options;
 using namespace epee; // log_space
 
