@@ -82,6 +82,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_wallet_file = {"wallet-file", sw::tr("Use wallet <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg> or <address>.wallet by default"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_view_key = {"generate-from-view-key", sw::tr("Generate incoming-only wallet from (address:viewkey:filename) and save it to <filename>"), ""};
+  const command_line::arg_descriptor<std::string> arg_generate_from_keys = {"generate-from-keys", sw::tr("Generate wallet from (address:spendkey:viewkey:filename) and save it to <filename>"), ""};
   const command_line::arg_descriptor<std::string> arg_daemon_address = {"daemon-address", sw::tr("Use daemon instance at <host>:<port>"), ""};
   const command_line::arg_descriptor<std::string> arg_daemon_host = {"daemon-host", sw::tr("Use daemon instance at host <arg> instead of localhost"), ""};
   const command_line::arg_descriptor<std::string> arg_password = {"password", sw::tr("Wallet password"), "", true};
@@ -716,7 +717,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
   // add logic to error out if new wallet requested but named wallet file exists
   if (keys_file_exists || wallet_file_exists)
   {
-    if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty())
+    if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty())
     {
       fail_msg_writer() << tr("attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.");
       return false;
@@ -772,12 +773,12 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     return false;
   }
 
-  if((!m_generate_new.empty()) + (!m_wallet_file.empty()) + (!m_generate_from_view_key.empty()) > 1)
+  if((!m_generate_new.empty()) + (!m_wallet_file.empty()) + (!m_generate_from_view_key.empty()) + (!m_generate_from_keys.empty()) > 1)
   {
-    fail_msg_writer() << tr("can't specify more than one of --generate-new-wallet=\"wallet_name\", --wallet-file=\"wallet_name\" and --generate-from-view-key");
+    fail_msg_writer() << tr("can't specify more than one of --generate-new-wallet=\"wallet_name\", --wallet-file=\"wallet_name\", --generate-from-view-key and --generate-from-keys");
     return false;
   }
-  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty())
+  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_keys.empty())
   {
     if(!ask_wallet_create_if_needed()) return false;
   }
@@ -832,7 +833,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
   }
 
-  if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty())
+  if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty())
   {
     if (m_wallet_file.empty()) m_wallet_file = m_generate_new;  // alias for simplicity later
 
@@ -911,6 +912,72 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       bool r = new_wallet(m_wallet_file, pwd_container.password(), address, viewkey, testnet);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
+    else if (!m_generate_from_keys.empty())
+    {
+      // split address:spendkey:viewkey:filename triple
+      std::vector<std::string> parts;
+      boost::split(parts,m_generate_from_keys, boost::is_any_of(":"));
+      if (parts.size() < 4)
+      {
+        fail_msg_writer() << tr("--generate-from-keys needs a address:spendkey:viewkey:filename quadruplet");
+        return false;
+      }
+
+      // parse address
+      cryptonote::account_public_address address;
+      bool has_payment_id;
+      crypto::hash8 new_payment_id;
+      if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, testnet, parts[0]))
+      {
+          fail_msg_writer() << tr("failed to parse address");
+          return false;
+      }
+
+      // parse spend secret key
+      cryptonote::blobdata spendkey_data;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(parts[1], spendkey_data))
+      {
+        fail_msg_writer() << tr("failed to parse spend key secret key");
+        return false;
+      }
+      crypto::secret_key spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+
+      // parse view secret key
+      cryptonote::blobdata viewkey_data;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(parts[2], viewkey_data))
+      {
+        fail_msg_writer() << tr("failed to parse view key secret key");
+        return false;
+      }
+      crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+
+      // parse filename
+      m_wallet_file = parts[3];
+      for (size_t n = 4; n < parts.size(); ++n)
+        m_wallet_file += std::string(":") + parts[n];
+
+      // check the spend and view keys match the given address
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+        fail_msg_writer() << tr("failed to verify spend key secret key");
+        return false;
+      }
+      if (address.m_spend_public_key != pkey) {
+        fail_msg_writer() << tr("spend key does not match standard address");
+        return false;
+      }
+      if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+        fail_msg_writer() << tr("failed to verify view key secret key");
+        return false;
+      }
+      if (address.m_view_public_key != pkey) {
+        fail_msg_writer() << tr("view key does not match standard address");
+        return false;
+      }
+
+      bool r = new_wallet(m_wallet_file, pwd_container.password(), address, spendkey, viewkey, testnet);
+      CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+    }
     else
     {
       bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet,
@@ -940,6 +1007,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_wallet_file                   = command_line::get_arg(vm, arg_wallet_file);
   m_generate_new                  = command_line::get_arg(vm, arg_generate_new_wallet);
   m_generate_from_view_key        = command_line::get_arg(vm, arg_generate_from_view_key);
+  m_generate_from_keys            = command_line::get_arg(vm, arg_generate_from_keys);
   m_daemon_address                = command_line::get_arg(vm, arg_daemon_address);
   m_daemon_host                   = command_line::get_arg(vm, arg_daemon_host);
   m_daemon_port                   = command_line::get_arg(vm, arg_daemon_port);
@@ -1086,6 +1154,31 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
     message_writer(epee::log_space::console_color_white, true) << tr("Generated new watch-only wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     std::cout << tr("View key: ") << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
+  }
+  catch (const std::exception& e)
+  {
+    fail_msg_writer() << tr("failed to generate new wallet: ") << e.what();
+    return false;
+  }
+
+  m_wallet->init(m_daemon_address);
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
+  const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool testnet)
+{
+  m_wallet_file = wallet_file;
+
+  m_wallet.reset(new tools::wallet2(testnet));
+  m_wallet->callback(this);
+
+  try
+  {
+    m_wallet->generate(wallet_file, password, address, spendkey, viewkey);
+    message_writer(epee::log_space::console_color_white, true) << tr("Generated new wallet: ")
+      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   }
   catch (const std::exception& e)
   {
@@ -2466,6 +2559,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_wallet_file);
   command_line::add_arg(desc_params, arg_generate_new_wallet);
   command_line::add_arg(desc_params, arg_generate_from_view_key);
+  command_line::add_arg(desc_params, arg_generate_from_keys);
   command_line::add_arg(desc_params, arg_password);
   command_line::add_arg(desc_params, arg_password_file);
   command_line::add_arg(desc_params, arg_daemon_address);

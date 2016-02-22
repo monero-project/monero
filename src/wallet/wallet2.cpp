@@ -1186,6 +1186,41 @@ void wallet2::generate(const std::string& wallet_, const std::string& password,
 }
 
 /*!
+* \brief Creates a wallet from a public address and a spend/view secret key pair.
+* \param  wallet_        Name of wallet file
+* \param  password       Password of wallet file
+* \param  spendkey       spend secret key
+* \param  viewkey        view secret key
+*/
+void wallet2::generate(const std::string& wallet_, const std::string& password,
+  const cryptonote::account_public_address &account_public_address,
+  const crypto::secret_key& spendkey, const crypto::secret_key& viewkey)
+{
+  clear();
+  prepare_file_names(wallet_);
+
+  boost::system::error_code ignored_ec;
+  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+
+  m_account.create_from_keys(account_public_address, spendkey, viewkey);
+  m_account_public_address = account_public_address;
+  m_watch_only = false;
+
+  bool r = store_keys(m_keys_file, password, true);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+
+  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+  if(!r) LOG_PRINT_RED_L0("String with address text not saved");
+
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
+
+  store();
+}
+
+/*!
  * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
  * \param wallet_name Name of wallet file (should exist)
  * \param password    Password for wallet file
