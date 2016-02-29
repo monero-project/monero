@@ -381,7 +381,7 @@ public:
   virtual void batch_stop() = 0;
   virtual void set_batch_transactions(bool) = 0;
 
-  virtual void block_txn_start() = 0;
+  virtual void block_txn_start(bool readonly=false) = 0;
   virtual void block_txn_stop() = 0;
   virtual void block_txn_abort() = 0;
 

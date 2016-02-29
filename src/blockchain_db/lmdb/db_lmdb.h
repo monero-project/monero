@@ -30,6 +30,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_protocol/blobdatatype.h" // for type blobdata
+#include <boost/thread/tss.hpp>
 
 #include <lmdb.h>
 
@@ -38,7 +39,7 @@
 namespace cryptonote
 {
 
-struct mdb_txn_cursors
+typedef struct mdb_txn_cursors
 {
   MDB_cursor *m_txc_blocks;
   MDB_cursor *m_txc_block_heights;
@@ -59,24 +60,58 @@ struct mdb_txn_cursors
   MDB_cursor *m_txc_tx_outputs;
 
   MDB_cursor *m_txc_spent_keys;
-};
 
-#define m_cur_blocks	m_cursors.m_txc_blocks
-#define m_cur_block_heights	m_cursors.m_txc_block_heights
-#define m_cur_block_hashes	m_cursors.m_txc_block_hashes
-#define m_cur_block_timestamps	m_cursors.m_txc_block_timestamps
-#define m_cur_block_sizes	m_cursors.m_txc_block_sizes
-#define m_cur_block_diffs	m_cursors.m_txc_block_diffs
-#define m_cur_block_coins	m_cursors.m_txc_block_coins
-#define m_cur_output_txs	m_cursors.m_txc_output_txs
-#define m_cur_output_indices	m_cursors.m_txc_output_indices
-#define m_cur_output_amounts	m_cursors.m_txc_output_amounts
-#define m_cur_output_keys	m_cursors.m_txc_output_keys
-#define m_cur_txs	m_cursors.m_txc_txs
-#define m_cur_tx_heights	m_cursors.m_txc_tx_heights
-#define m_cur_tx_unlocks	m_cursors.m_txc_tx_unlocks
-#define m_cur_tx_outputs	m_cursors.m_txc_tx_outputs
-#define m_cur_spent_keys	m_cursors.m_txc_spent_keys
+  MDB_cursor *m_txc_hf_versions;
+} mdb_txn_cursors;
+
+#define m_cur_blocks	m_cursors->m_txc_blocks
+#define m_cur_block_heights	m_cursors->m_txc_block_heights
+#define m_cur_block_hashes	m_cursors->m_txc_block_hashes
+#define m_cur_block_timestamps	m_cursors->m_txc_block_timestamps
+#define m_cur_block_sizes	m_cursors->m_txc_block_sizes
+#define m_cur_block_diffs	m_cursors->m_txc_block_diffs
+#define m_cur_block_coins	m_cursors->m_txc_block_coins
+#define m_cur_output_txs	m_cursors->m_txc_output_txs
+#define m_cur_output_indices	m_cursors->m_txc_output_indices
+#define m_cur_output_amounts	m_cursors->m_txc_output_amounts
+#define m_cur_output_keys	m_cursors->m_txc_output_keys
+#define m_cur_txs	m_cursors->m_txc_txs
+#define m_cur_tx_heights	m_cursors->m_txc_tx_heights
+#define m_cur_tx_unlocks	m_cursors->m_txc_tx_unlocks
+#define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
+#define m_cur_spent_keys	m_cursors->m_txc_spent_keys
+#define m_cur_hf_versions	m_cursors->m_txc_hf_versions
+
+typedef struct mdb_rflags
+{
+  bool m_rf_txn;
+  bool m_rf_blocks;
+  bool m_rf_block_heights;
+  bool m_rf_block_hashes;
+  bool m_rf_block_timestamps;
+  bool m_rf_block_sizes;
+  bool m_rf_block_diffs;
+  bool m_rf_block_coins;
+  bool m_rf_output_txs;
+  bool m_rf_output_indices;
+  bool m_rf_output_amounts;
+  bool m_rf_output_keys;
+  bool m_rf_txs;
+  bool m_rf_tx_heights;
+  bool m_rf_tx_unlocks;
+  bool m_rf_tx_outputs;
+  bool m_rf_spent_keys;
+  bool m_rf_hf_versions;
+} mdb_rflags;
+
+typedef struct mdb_threadinfo
+{
+  MDB_txn *m_ti_rtxn;	// per-thread read txn
+  mdb_txn_cursors m_ti_rcursors;	// per-thread read cursors
+  mdb_rflags m_ti_rflags;	// per-thread read state
+
+  ~mdb_threadinfo();
+} mdb_threadinfo;
 
 struct mdb_txn_safe
 {
@@ -234,9 +269,11 @@ public:
   virtual void batch_stop();
   virtual void batch_abort();
 
-  virtual void block_txn_start();
+  virtual void block_txn_start(bool readonly);
   virtual void block_txn_stop();
   virtual void block_txn_abort();
+  virtual bool block_rtxn_start() const;
+  virtual void block_rtxn_stop() const;
 
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
@@ -355,7 +392,8 @@ private:
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
 
-  struct mdb_txn_cursors m_cursors;
+  mdb_txn_cursors m_wcursors;
+  mutable boost::thread_specific_ptr<mdb_threadinfo> m_tinfo;
 
 #if defined(__arm__)
   // force a value so it can compile with 32-bit ARM

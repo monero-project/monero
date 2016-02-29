@@ -99,7 +99,7 @@ uint64_t BlockchainDB::add_block( const block& blk
                                 , const std::vector<transaction>& txs
                                 )
 {
-  block_txn_start();
+  block_txn_start(false);
 
   TIME_MEASURE_START(time1);
   crypto::hash blk_hash = get_block_hash(blk);
@@ -227,6 +227,9 @@ void BlockchainDB::fixup()
   static const char * const mainnet_genesis_hex = "418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3";
   crypto::hash mainnet_genesis_hash;
   epee::string_tools::hex_to_pod(mainnet_genesis_hex, mainnet_genesis_hash );
+  set_batch_transactions(true);
+  batch_start();
+
   if (get_block_hash_from_height(0) == mainnet_genesis_hash)
   {
     // block 202612 (511 key images in 511 transactions)
@@ -762,9 +765,6 @@ void BlockchainDB::fixup()
       "633cdedeb3b96ec4f234c670254c6f721e0b368d00b48c6b26759db7d62cf52d",
     };
 
-    set_batch_transactions(true);
-    batch_start();
-
     if (height() > 202612)
     {
       for (const auto &kis: key_images_202612)
@@ -791,9 +791,8 @@ void BlockchainDB::fixup()
         }
       }
     }
-
-    batch_stop();
   }
+  batch_stop();
 }
 
 }  // namespace cryptonote
