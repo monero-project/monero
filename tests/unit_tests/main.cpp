@@ -32,8 +32,6 @@
 
 #include "include_base_utils.h"
 
-unsigned int epee::g_test_dbg_lock_sleep = 0;
-
 int main(int argc, char** argv)
 {
   epee::debug::get_set_enable_assert(true, false);

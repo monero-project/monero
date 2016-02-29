@@ -628,8 +628,6 @@ TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_ser
   ASSERT_EQ(RESERVED_CONN_CNT, m_tcp_server.get_config_object().get_connections_count());
 }
 
-unsigned int epee::g_test_dbg_lock_sleep = 0;
-
 int main(int argc, char** argv)
 {
   epee::debug::get_set_enable_assert(true, false);
