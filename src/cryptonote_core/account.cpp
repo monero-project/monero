@@ -93,9 +93,10 @@ DISABLE_VS_WARNINGS(4244 4345)
     return first;
   }
   //-----------------------------------------------------------------
-  void account_base::create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey)
+  void account_base::create_from_keys(const cryptonote::account_public_address& address, const crypto::secret_key& spendkey, const crypto::secret_key& viewkey)
   {
     m_keys.m_account_address = address;
+    m_keys.m_spend_secret_key = spendkey;
     m_keys.m_view_secret_key = viewkey;
 
     struct tm timestamp;
@@ -107,6 +108,13 @@ DISABLE_VS_WARNINGS(4244 4345)
     timestamp.tm_sec = 0;
 
     m_creation_timestamp = mktime(&timestamp);
+  }
+  //-----------------------------------------------------------------
+  void account_base::create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey)
+  {
+    crypto::secret_key fake;
+    memset(&fake, 0, sizeof(fake));
+    create_from_keys(address, fake, viewkey);
   }
   //-----------------------------------------------------------------
   const account_keys& account_base::get_keys() const
