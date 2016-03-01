@@ -147,6 +147,15 @@ private:
   std::unique_ptr<char[]> data;
 };
 
+int compare_uint64(const MDB_val *a, const MDB_val *b)
+{
+  const uint64_t va = *(const uint64_t*)a->mv_data;
+  const uint64_t vb = *(const uint64_t*)b->mv_data;
+  if (va < vb) return -1;
+  else if (va == vb) return 0;
+  else return 1;
+};
+
 int compare_uint8(const MDB_val *a, const MDB_val *b)
 {
   const uint8_t va = *(const uint8_t*)a->mv_data;
@@ -1092,11 +1101,11 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_TXS, MDB_CREATE, m_txs, "Failed to open db handle for m_txs");
   lmdb_db_open(txn, LMDB_TX_UNLOCKS, MDB_CREATE, m_tx_unlocks, "Failed to open db handle for m_tx_unlocks");
   lmdb_db_open(txn, LMDB_TX_HEIGHTS, MDB_CREATE, m_tx_heights, "Failed to open db handle for m_tx_heights");
-  lmdb_db_open(txn, LMDB_TX_OUTPUTS, MDB_DUPSORT | MDB_INTEGERDUP | MDB_CREATE, m_tx_outputs, "Failed to open db handle for m_tx_outputs");
+  lmdb_db_open(txn, LMDB_TX_OUTPUTS, MDB_DUPSORT | MDB_CREATE, m_tx_outputs, "Failed to open db handle for m_tx_outputs");
 
   lmdb_db_open(txn, LMDB_OUTPUT_TXS, MDB_INTEGERKEY | MDB_CREATE, m_output_txs, "Failed to open db handle for m_output_txs");
   lmdb_db_open(txn, LMDB_OUTPUT_INDICES, MDB_INTEGERKEY | MDB_CREATE, m_output_indices, "Failed to open db handle for m_output_indices");
-  lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS, MDB_INTEGERKEY | MDB_INTEGERDUP| MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
+  lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
   lmdb_db_open(txn, LMDB_OUTPUT_KEYS, MDB_INTEGERKEY | MDB_CREATE, m_output_keys, "Failed to open db handle for m_output_keys");
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_spent_keys");
@@ -1106,12 +1115,15 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
 
+  mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
+  mdb_set_dupsort(txn, m_tx_outputs, compare_uint64);
   mdb_set_compare(txn, m_spent_keys, compare_hash32);
   mdb_set_compare(txn, m_block_heights, compare_hash32);
   mdb_set_compare(txn, m_txs, compare_hash32);
   mdb_set_compare(txn, m_tx_unlocks, compare_hash32);
   mdb_set_compare(txn, m_tx_heights, compare_hash32);
   mdb_set_compare(txn, m_hf_starting_heights, compare_uint8);
+  mdb_set_compare(txn, m_hf_versions, compare_uint64);
   mdb_set_compare(txn, m_properties, compare_string);
 
   // get and keep current height
@@ -2821,7 +2833,7 @@ uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
   MDB_val val_ret;
   auto result = mdb_cursor_get(m_cur_hf_versions, &val_key, &val_ret, MDB_SET);
   if (result == MDB_NOTFOUND || result)
-    throw0(DB_ERROR("Error attempting to retrieve a hard fork version from the db"));
+    throw0(DB_ERROR(std::string("Error attempting to retrieve a hard fork version at height ").append(boost::lexical_cast<std::string>(height)).append(" from the db: ").append(mdb_strerror(result)).c_str()));
 
   uint8_t ret = *(const uint8_t*)val_ret.mv_data;
   TXN_POSTFIX_RDONLY();
