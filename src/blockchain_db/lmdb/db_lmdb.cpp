@@ -1111,7 +1111,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
   lmdb_db_open(txn, LMDB_HF_STARTING_HEIGHTS, MDB_CREATE, m_hf_starting_heights, "Failed to open db handle for m_hf_starting_heights");
-  lmdb_db_open(txn, LMDB_HF_VERSIONS, MDB_INTEGERKEY| MDB_CREATE, m_hf_versions, "Failed to open db handle for m_hf_versions");
+  lmdb_db_open(txn, LMDB_HF_VERSIONS, MDB_CREATE, m_hf_versions, "Failed to open db handle for m_hf_versions");
 
   lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
 
