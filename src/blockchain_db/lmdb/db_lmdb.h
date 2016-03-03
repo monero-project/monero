@@ -43,11 +43,7 @@ typedef struct mdb_txn_cursors
 {
   MDB_cursor *m_txc_blocks;
   MDB_cursor *m_txc_block_heights;
-  MDB_cursor *m_txc_block_hashes;
-  MDB_cursor *m_txc_block_timestamps;
-  MDB_cursor *m_txc_block_sizes;
-  MDB_cursor *m_txc_block_diffs;
-  MDB_cursor *m_txc_block_coins;
+  MDB_cursor *m_txc_block_info;
 
   MDB_cursor *m_txc_output_txs;
   MDB_cursor *m_txc_output_indices;
@@ -66,11 +62,7 @@ typedef struct mdb_txn_cursors
 
 #define m_cur_blocks	m_cursors->m_txc_blocks
 #define m_cur_block_heights	m_cursors->m_txc_block_heights
-#define m_cur_block_hashes	m_cursors->m_txc_block_hashes
-#define m_cur_block_timestamps	m_cursors->m_txc_block_timestamps
-#define m_cur_block_sizes	m_cursors->m_txc_block_sizes
-#define m_cur_block_diffs	m_cursors->m_txc_block_diffs
-#define m_cur_block_coins	m_cursors->m_txc_block_coins
+#define m_cur_block_info	m_cursors->m_txc_block_info
 #define m_cur_output_txs	m_cursors->m_txc_output_txs
 #define m_cur_output_indices	m_cursors->m_txc_output_indices
 #define m_cur_output_amounts	m_cursors->m_txc_output_amounts
@@ -87,11 +79,7 @@ typedef struct mdb_rflags
   bool m_rf_txn;
   bool m_rf_blocks;
   bool m_rf_block_heights;
-  bool m_rf_block_hashes;
-  bool m_rf_block_timestamps;
-  bool m_rf_block_sizes;
-  bool m_rf_block_diffs;
-  bool m_rf_block_coins;
+  bool m_rf_block_info;
   bool m_rf_output_txs;
   bool m_rf_output_indices;
   bool m_rf_output_amounts;
@@ -372,11 +360,7 @@ private:
 
   MDB_dbi m_blocks;
   MDB_dbi m_block_heights;
-  MDB_dbi m_block_hashes;
-  MDB_dbi m_block_timestamps;
-  MDB_dbi m_block_sizes;
-  MDB_dbi m_block_diffs;
-  MDB_dbi m_block_coins;
+  MDB_dbi m_block_info;
 
   MDB_dbi m_txs;
   MDB_dbi m_tx_unlocks;
