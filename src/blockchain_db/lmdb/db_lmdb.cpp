@@ -65,45 +65,6 @@ inline void throw1(const T &e)
   throw e;
 }
 
-//  cursor needs to be closed when it goes out of scope,
-//  this helps if the function using it throws
-struct lmdb_cur
-{
-  lmdb_cur(MDB_txn* txn, MDB_dbi dbi)
-  {
-    if (mdb_cursor_open(txn, dbi, &m_cur))
-      throw0(cryptonote::DB_ERROR("Error opening db cursor"));
-    done = false;
-  }
-
-  ~lmdb_cur()
-  {
-    close();
-  }
-
-  operator MDB_cursor*()
-  {
-    return m_cur;
-  }
-  operator MDB_cursor**()
-  {
-    return &m_cur;
-  }
-
-  void close()
-  {
-    if (!done)
-    {
-      mdb_cursor_close(m_cur);
-      done = true;
-    }
-  }
-
-private:
-  MDB_cursor* m_cur;
-  bool done;
-};
-
 template<typename T>
 struct MDB_val_copy: public MDB_val
 {
@@ -776,12 +737,12 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transa
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 
-  lmdb_cur cur(*m_write_txn, m_tx_outputs);
-
+  mdb_txn_cursors *m_cursors = &m_wcursors;
   MDB_val_copy<crypto::hash> k(tx_hash);
   MDB_val v;
+  CURSOR(tx_outputs)
 
-  auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
+  auto result = mdb_cursor_get(m_cur_tx_outputs, &k, &v, MDB_SET);
   if (result == MDB_NOTFOUND)
   {
     LOG_PRINT_L2("tx has no outputs, so no global output indices");
@@ -793,9 +754,9 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transa
   else
   {
     mdb_size_t num_elems = 0;
-    mdb_cursor_count(cur, &num_elems);
+    mdb_cursor_count(m_cur_tx_outputs, &num_elems);
 
-    mdb_cursor_get(cur, &k, &v, MDB_LAST_DUP);
+    mdb_cursor_get(m_cur_tx_outputs, &k, &v, MDB_LAST_DUP);
 
     for (uint64_t i = num_elems; i > 0; --i)
     {
@@ -803,12 +764,10 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transa
       remove_output(*(const uint64_t*)v.mv_data, tx_output.amount);
       if (i > 1)
       {
-        mdb_cursor_get(cur, &k, &v, MDB_PREV_DUP);
+        mdb_cursor_get(m_cur_tx_outputs, &k, &v, MDB_PREV_DUP);
       }
     }
   }
-
-  cur.close();
 }
 
 // TODO: probably remove this function
@@ -864,29 +823,29 @@ void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const uin
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
-
-  lmdb_cur cur(*m_write_txn, m_output_amounts);
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+  CURSOR(output_amounts);
 
   MDB_val_copy<uint64_t> k(amount);
   MDB_val v;
 
-  auto result = mdb_cursor_get(cur, &k, &v, MDB_SET);
+  auto result = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_SET);
   if (result == MDB_NOTFOUND)
     throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
   else if (result)
     throw0(DB_ERROR("DB error attempting to get an output"));
 
   mdb_size_t num_elems = 0;
-  mdb_cursor_count(cur, &num_elems);
+  mdb_cursor_count(m_cur_output_amounts, &num_elems);
 
-  mdb_cursor_get(cur, &k, &v, MDB_LAST_DUP);
+  mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_LAST_DUP);
 
   uint64_t amount_output_index = 0;
   uint64_t goi = 0;
   bool found_index = false;
   for (uint64_t i = num_elems; i > 0; --i)
   {
-    mdb_cursor_get(cur, &k, &v, MDB_GET_CURRENT);
+    mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_GET_CURRENT);
     goi = *(const uint64_t *)v.mv_data;
     if (goi == global_output_index)
     {
@@ -895,23 +854,21 @@ void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const uin
       break;
     }
     if (i > 1)
-      mdb_cursor_get(cur, &k, &v, MDB_PREV_DUP);
+      mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_PREV_DUP);
   }
   if (found_index)
   {
     // found the amount output index
     // now delete it
-    result = mdb_cursor_del(cur, 0);
+    result = mdb_cursor_del(m_cur_output_amounts, 0);
     if (result)
       throw0(DB_ERROR(std::string("Error deleting amount output index ").append(boost::lexical_cast<std::string>(amount_output_index)).c_str()));
   }
   else
   {
     // not found
-    cur.close();
     throw1(OUTPUT_DNE("Failed to find amount output index"));
   }
-  cur.close();
 }
 
 void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
