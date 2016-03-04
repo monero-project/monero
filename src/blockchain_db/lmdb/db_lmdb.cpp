@@ -2293,6 +2293,10 @@ void BlockchainLMDB::batch_abort()
 void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if ((batch_transactions) && (m_batch_transactions))
+  {
+    LOG_PRINT_L0("WARNING: batch transaction mode already enabled, but asked to enable batch mode");
+  }
   m_batch_transactions = batch_transactions;
   LOG_PRINT_L3("batch transactions " << (m_batch_transactions ? "enabled" : "disabled"));
 }
