@@ -148,6 +148,15 @@ struct output_data_t
 };
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+struct tx_data_t
+{
+  uint64_t tx_index;
+  uint64_t unlock_time;
+  uint64_t height;
+};
+#pragma pack(pop)
+
 /***********************************
  * Exception Definitions
  ***********************************/

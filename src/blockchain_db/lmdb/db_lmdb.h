@@ -52,8 +52,6 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_txs;
   MDB_cursor *m_txc_tx_indices;
-  MDB_cursor *m_txc_tx_heights;
-  MDB_cursor *m_txc_tx_unlocks;
   MDB_cursor *m_txc_tx_outputs;
 
   MDB_cursor *m_txc_spent_keys;
@@ -70,8 +68,6 @@ typedef struct mdb_txn_cursors
 #define m_cur_output_keys	m_cursors->m_txc_output_keys
 #define m_cur_txs	m_cursors->m_txc_txs
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
-#define m_cur_tx_heights	m_cursors->m_txc_tx_heights
-#define m_cur_tx_unlocks	m_cursors->m_txc_tx_unlocks
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
 #define m_cur_hf_versions	m_cursors->m_txc_hf_versions
@@ -88,8 +84,6 @@ typedef struct mdb_rflags
   bool m_rf_output_keys;
   bool m_rf_txs;
   bool m_rf_tx_indices;
-  bool m_rf_tx_heights;
-  bool m_rf_tx_unlocks;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
   bool m_rf_hf_versions;
@@ -368,8 +362,6 @@ private:
 
   MDB_dbi m_txs;
   MDB_dbi m_tx_indices;
-  MDB_dbi m_tx_unlocks;
-  MDB_dbi m_tx_heights;
   MDB_dbi m_tx_outputs;
 
   MDB_dbi m_output_txs;
