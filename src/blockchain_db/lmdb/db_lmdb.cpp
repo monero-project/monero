@@ -647,7 +647,7 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
     throw0(DB_ERROR(lmdb_error("Failed to add tx data to db transaction: ", result).c_str()));
 
   MDB_val_copy<blobdata> blob(tx_to_blob(tx));
-  result = mdb_cursor_put(m_cur_txs, &val_tx_index, &blob, 0);
+  result = mdb_cursor_put(m_cur_txs, &val_tx_index, &blob, MDB_APPEND);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add tx blob to db transaction: ", result).c_str()));
 
@@ -779,7 +779,7 @@ void BlockchainLMDB::add_amount_and_global_output_indices(const uint64_t tx_inde
   v.mv_size = sizeof(uint64_t) * 2 * num_outputs;
   // LOG_PRINT_L1("tx_outputs[tx_hash] size: " << v.mv_size);
 
-  result = mdb_cursor_put(m_cur_tx_outputs, &k_tx_index, &v, 0);
+  result = mdb_cursor_put(m_cur_tx_outputs, &k_tx_index, &v, MDB_APPEND);
   if (result)
     throw0(DB_ERROR(std::string("Failed to add <tx hash, amount output index array> to db transaction: ").append(mdb_strerror(result)).c_str()));
 }
