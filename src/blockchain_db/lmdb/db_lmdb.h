@@ -212,6 +212,7 @@ public:
   virtual uint64_t height() const;
 
   virtual bool tx_exists(const crypto::hash& h) const;
+  virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_index) const;
 
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
@@ -237,11 +238,11 @@ public:
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices);
   virtual void get_output_global_indices(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<uint64_t> &indices);
 
-  virtual void get_amount_and_global_output_indices(const crypto::hash& h,
+  virtual void get_amount_and_global_output_indices(const uint64_t tx_index,
     std::vector<uint64_t>& amount_output_indices,
     std::vector<uint64_t>& global_output_indices) const;
 
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const;
+  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_index) const;
 
   virtual bool has_key_image(const crypto::key_image& img) const;
 
@@ -307,7 +308,7 @@ private:
 
   virtual void remove_output(const tx_out& tx_output);
 
-  void remove_tx_outputs(const crypto::hash& tx_hash, const transaction& tx);
+  void remove_tx_outputs(const uint64_t tx_index, const transaction& tx);
 
   void remove_output(const uint64_t& out_index, const uint64_t amount);
   void remove_amount_output_index(const uint64_t amount, const uint64_t global_output_index);

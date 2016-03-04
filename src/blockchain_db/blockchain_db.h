@@ -473,6 +473,7 @@ public:
 
   // return true if a transaction with hash <h> exists
   virtual bool tx_exists(const crypto::hash& h) const = 0;
+  virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_index) const = 0;
 
   // return unlock time of tx with hash <h>
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const = 0;
@@ -516,13 +517,13 @@ public:
   // return two vectors of indices: vector of amount output indices and global
   // output indices, corresponding to each output in the transaction with hash
   // <h>
-  virtual void get_amount_and_global_output_indices(const crypto::hash& h,
+  virtual void get_amount_and_global_output_indices(const uint64_t tx_index,
     std::vector<uint64_t>& amount_output_indices,
     std::vector<uint64_t>& global_output_indices) const = 0;
 
   // return a vector of indices corresponding to the amount output index for
   // each output in the transaction with hash <h>
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const = 0;
+  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_index) const = 0;
 
   // returns true if key image <img> is present in spent key images storage
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
