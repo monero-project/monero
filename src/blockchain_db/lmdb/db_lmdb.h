@@ -289,7 +289,7 @@ private:
 
   virtual void remove_block();
 
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash);
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash);
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
@@ -301,7 +301,7 @@ private:
       uint64_t& global_output_index
       );
 
-  virtual void add_amount_and_global_output_indices(const crypto::hash& tx_hash,
+  virtual void add_amount_and_global_output_indices(const uint64_t tx_index,
       const std::vector<uint64_t>& amount_output_indices,
       const std::vector<uint64_t>& global_output_indices
       );

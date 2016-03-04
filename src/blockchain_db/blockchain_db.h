@@ -291,7 +291,7 @@ private:
   virtual void remove_block() = 0;
 
   // tells the subclass to store the transaction and its metadata
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
 
   // tells the subclass to remove data about a transaction
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
@@ -306,7 +306,7 @@ private:
       ) = 0;
 
   // tells the subclass to store indices for a tx's outputs, both amount output indices and global output indices
-  virtual void add_amount_and_global_output_indices(const crypto::hash& tx_hash,
+  virtual void add_amount_and_global_output_indices(const uint64_t tx_index,
       const std::vector<uint64_t>& amount_output_indices,
       const std::vector<uint64_t>& global_output_indices
       ) = 0;

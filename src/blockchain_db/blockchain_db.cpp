@@ -82,7 +82,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     }
   }
 
-  add_transaction_data(blk_hash, tx, tx_hash);
+  uint64_t tx_index = add_transaction_data(blk_hash, tx, tx_hash);
 
   std::vector<uint64_t> amount_output_indices;
   std::vector<uint64_t> global_output_indices;
@@ -96,7 +96,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     amount_output_indices.push_back(amount_output_index);
     global_output_indices.push_back(global_output_index);
   }
-  add_amount_and_global_output_indices(tx_hash, amount_output_indices, global_output_indices);
+  add_amount_and_global_output_indices(tx_index, amount_output_indices, global_output_indices);
 }
 
 uint64_t BlockchainDB::add_block( const block& blk
