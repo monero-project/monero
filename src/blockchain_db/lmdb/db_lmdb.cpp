@@ -208,17 +208,19 @@ const char* const LMDB_HF_VERSIONS = "hf_versions";
 
 const char* const LMDB_PROPERTIES = "properties";
 
-inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi, const std::string& error_string)
-{
-  if (mdb_dbi_open(txn, name, flags, &dbi))
-    throw0(cryptonote::DB_OPEN_FAILURE(error_string.c_str()));
-}
 
 const std::string lmdb_error(const std::string& error_string, int mdb_res)
 {
   const std::string full_string = error_string + mdb_strerror(mdb_res);
   return full_string;
 }
+
+inline void lmdb_db_open(MDB_txn* txn, const char* name, int flags, MDB_dbi& dbi, const std::string& error_string)
+{
+  if (auto res = mdb_dbi_open(txn, name, flags, &dbi))
+    throw0(cryptonote::DB_OPEN_FAILURE(lmdb_error(error_string + " : ", res).c_str()));
+}
+
 
 }  // anonymous namespace
 
