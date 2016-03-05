@@ -29,6 +29,8 @@
 #include "bootstrap_file.h"
 #include "blocksdat_file.h"
 #include "common/command_line.h"
+#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/lmdb/db_lmdb.h"
 #include "version.h"
 
 namespace po = boost::program_options;
