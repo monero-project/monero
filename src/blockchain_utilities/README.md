@@ -52,17 +52,67 @@ the `blockchain_import` command again, and it will restart from where it left of
 ## use default settings to import blockchain.raw into database
 $ blockchain_import
 
-## fast import with large batch size, verification off
-$ blockchain_import --batch-size 100000 --verify off
+## fast import with large batch size, database mode "fastest", verification off
+$ blockchain_import --batch-size 20000 --database lmdb#fastest --verify off
 
-## LMDB flags can be set by appending them to the database type:
-## flags: nosync, nometasync, writemap, mapasync
+```
+
+### Import options
+
+`--input-file`
+specifies input file path for importing
+
+default: `<data-dir>/export/blockchain.raw`
+
+`--output-file`
+specifies output file path to export to
+
+default: `<data-dir>/export/blockchain.raw`
+
+`--block-stop`
+stop at block number
+
+`--database <database type>`
+
+`--database <database type>#<flag(s)>`
+
+database type: `lmdb, berkeley, memory`
+
+flags:
+
+The flag after the # is interpreted as a composite mode/flag if there's only
+one (no comma separated arguments).
+
+The composite mode represents multiple DB flags and support different database types:
+
+`safe, fast, fastest`
+
+Database-specific flags can be set instead.
+
+LMDB flags (more than one may be specified):
+
+`nosync, nometasync, writemap, mapasync, nordahead`
+
+BerkeleyDB flags (takes one):
+
+`txn_write_nosync, txn_nosync, txn_sync`
+
+```
+## Examples:
+$ blockchain_import --database lmdb#fastest
+$ blockchain_import --database berkeley#fastest
+
 $ blockchain_import --database lmdb#nosync
 $ blockchain_import --database lmdb#nosync,nometasync
+
+$ blockchain_import --database berkeley#txn_nosync
 ```
+
 
 ### Blockchain converter with batching
 `blockchain_converter` has also been updated and includes batching for faster writes. However, on lower RAM systems, this will be slower than using the exporter and importer utilities. The converter needs to keep the blockchain in memory for the duration of the conversion, like the original bitmonerod, thus leaving less memory available to the destination database to operate.
+
+Due to higher resource use, it is recommended to use the importer with an exported file instead of the converter.
 
 ```bash
 $ blockchain_converter --batch on --batch-size 20000
