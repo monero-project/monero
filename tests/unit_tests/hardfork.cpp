@@ -57,7 +57,7 @@ public:
   virtual void batch_start(uint64_t batch_num_blocks=0) {}
   virtual void batch_stop() {}
   virtual void set_batch_transactions(bool) {}
-  virtual void block_txn_start() {}
+  virtual void block_txn_start(bool readonly=false) {}
   virtual void block_txn_stop() {}
   virtual void block_txn_abort() {}
   virtual void drop_hard_fork_info() {}
