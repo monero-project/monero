@@ -461,6 +461,7 @@ namespace tools
   bool wallet_rpc_server::on_get_payments(const wallet_rpc::COMMAND_RPC_GET_PAYMENTS::request& req, wallet_rpc::COMMAND_RPC_GET_PAYMENTS::response& res, epee::json_rpc::error& er)
   {
     crypto::hash payment_id;
+    crypto::hash8 payment_id8;
     cryptonote::blobdata payment_id_blob;
     if(!epee::string_tools::parse_hexstr_to_binbuff(req.payment_id, payment_id_blob))
     {
@@ -469,14 +470,22 @@ namespace tools
       return false;
     }
 
-    if(sizeof(payment_id) != payment_id_blob.size())
-    {
-      er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-      er.message = "Payment ID has invalid size";
-      return false;
-    }
-
-    payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
+      if(sizeof(payment_id) == payment_id_blob.size())
+      {
+        payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
+      }
+      else if(sizeof(payment_id8) == payment_id_blob.size())
+      {
+        payment_id8 = *reinterpret_cast<const crypto::hash8*>(payment_id_blob.data());
+        memcpy(payment_id.data, payment_id8.data, 8);
+        memset(payment_id.data + 8, 0, 24);
+      }
+      else
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+        er.message = "Payment ID has invalid size: " + req.payment_id;
+        return false;
+      }
 
     res.payments.clear();
     std::list<wallet2::payment_details> payment_list;
