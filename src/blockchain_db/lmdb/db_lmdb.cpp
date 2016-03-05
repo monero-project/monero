@@ -149,8 +149,14 @@ private:
 
 int compare_uint64(const MDB_val *a, const MDB_val *b)
 {
+#ifdef MISALIGNED_OK
   const uint64_t va = *(const uint64_t*)a->mv_data;
   const uint64_t vb = *(const uint64_t*)b->mv_data;
+#else
+  uint64_t va, vb;
+  memcpy(&va, a->mv_data, sizeof(uint64_t));
+  memcpy(&vb, b->mv_data, sizeof(uint64_t));
+#endif
   if (va < vb) return -1;
   else if (va == vb) return 0;
   else return 1;
