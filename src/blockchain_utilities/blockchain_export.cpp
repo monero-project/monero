@@ -31,13 +31,40 @@
 #include "common/command_line.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#if defined(BERKELEY_DB)
+#include "blockchain_db/berkeleydb/db_bdb.h"
+#endif
+#include "blockchain_db/db_types.h"
 #include "version.h"
 
 namespace po = boost::program_options;
 using namespace epee; // log_space
 
+std::string join_set_strings(const std::unordered_set<std::string>& db_types_all, const char* delim)
+{
+  std::string result;
+  std::ostringstream s;
+  std::copy(db_types_all.begin(), db_types_all.end(), std::ostream_iterator<std::string>(s, delim));
+  result = s.str();
+  if (result.length() > 0)
+    result.erase(result.end()-strlen(delim), result.end());
+  return result;
+}
+
 int main(int argc, char* argv[])
 {
+#if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
+  std::string default_db_type = "memory";
+#else
+  std::string default_db_type = "lmdb";
+#endif
+
+  std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
+  db_types_all.insert("memory");
+
+  std::string available_dbs = join_set_strings(db_types_all, ", ");
+  available_dbs = "available: " + available_dbs;
+
   uint32_t log_level = 0;
   uint64_t block_stop = 0;
   bool blocks_dat = false;
@@ -58,6 +85,9 @@ int main(int argc, char* argv[])
       , "Run on testnet."
       , false
   };
+  const command_line::arg_descriptor<std::string> arg_database = {
+    "database", available_dbs.c_str(), default_db_type
+  };
   const command_line::arg_descriptor<bool> arg_blocks_dat = {"blocksdat", "Output in blocks.dat format", blocks_dat};
 
 
@@ -66,6 +96,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_output_file);
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
+  command_line::add_arg(desc_cmd_sett, arg_database);
   command_line::add_arg(desc_cmd_sett, arg_block_stop);
   command_line::add_arg(desc_cmd_sett, arg_blocks_dat);
 
@@ -107,6 +138,20 @@ int main(int argc, char* argv[])
   auto data_dir_arg = opt_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
 
+  std::string db_type = command_line::get_arg(vm, arg_database);
+  if (db_types_all.count(db_type) == 0)
+  {
+    std::cerr << "Invalid database type: " << db_type << std::endl;
+    return 1;
+  }
+#if !defined(BERKELEY_DB)
+  if (db_type == "berkeley")
+  {
+    LOG_ERROR("BerkeleyDB support disabled.");
+    return false;
+  }
+#endif
+
   if (command_line::has_arg(vm, arg_output_file))
     output_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_output_file));
   else
@@ -138,17 +183,33 @@ int main(int argc, char* argv[])
   tx_memory_pool m_mempool(*core_storage);
   core_storage = new Blockchain(m_mempool);
 
-  BlockchainDB* db = new BlockchainLMDB();
+  int db_flags = 0;
+
+  BlockchainDB* db = nullptr;
+  if (db_type == "lmdb")
+  {
+    db_flags |= MDB_RDONLY;
+    db = new BlockchainLMDB();
+  }
+#if defined(BERKELEY_DB)
+  else if (db_type == "berkeley")
+    db = new BlockchainBDB();
+#endif
+  else
+  {
+    LOG_ERROR("Attempted to use non-existent database type: " << db_type);
+    throw std::runtime_error("Attempting to use non-existent database type");
+  }
+  LOG_PRINT_L0("database: " << db_type);
+
   boost::filesystem::path folder(m_config_folder);
   folder /= db->get_db_name();
-  int lmdb_flags = 0;
-  lmdb_flags |= MDB_RDONLY;
   const std::string filename = folder.string();
 
   LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
   try
   {
-    db->open(filename, lmdb_flags);
+    db->open(filename, db_flags);
   }
   catch (const std::exception& e)
   {
