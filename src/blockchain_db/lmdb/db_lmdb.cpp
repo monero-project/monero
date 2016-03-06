@@ -158,6 +158,11 @@ const char* const LMDB_PROPERTIES = "properties";
 const char zerokey[8] = {0};
 const MDB_val zerokval = { sizeof(zerokey), (void *)zerokey };
 
+typedef struct blk_height {
+    crypto::hash key;
+    uint64_t height;
+} blk_height;
+
 const std::string lmdb_error(const std::string& error_string, int mdb_res)
 {
   const std::string full_string = error_string + mdb_strerror(mdb_res);
@@ -519,22 +524,23 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const
   mdb_txn_cursors *m_cursors = &m_wcursors;
 
   CURSOR(block_heights)
-  MDB_val_copy<crypto::hash> val_h(blk_hash);
-  if (mdb_cursor_get(m_cur_block_heights, &val_h, NULL, MDB_SET) == 0)
+  blk_height bh = {blk_hash, m_height};
+  MDB_val val_h = {sizeof(bh), (void *)&bh};
+  if (mdb_cursor_get(m_cur_block_heights, (MDB_val *)&zerokval, &val_h, MDB_GET_BOTH) == 0)
     throw1(BLOCK_EXISTS("Attempting to add block that's already in the db"));
 
   if (m_height > 0)
   {
-    MDB_val_copy<crypto::hash> parent_key(blk.prev_id);
-    MDB_val parent_h;
-    if (mdb_cursor_get(m_cur_block_heights, &parent_key, &parent_h, MDB_SET))
+    blk_height ph = {blk.prev_id, 0};
+    MDB_val parent_key = {sizeof(ph), (void *)&ph};
+    if (mdb_cursor_get(m_cur_block_heights, (MDB_val *)&zerokval, &parent_key, MDB_GET_BOTH))
     {
       LOG_PRINT_L3("m_height: " << m_height);
       LOG_PRINT_L3("parent_key: " << blk.prev_id);
       throw0(DB_ERROR("Failed to get top block hash to check for new block's parent"));
     }
-    uint64_t parent_height = *(const uint64_t *)parent_h.mv_data;
-    if (parent_height != m_height - 1)
+    blk_height *prev = (blk_height *)parent_key.mv_data;
+    if (prev->height != m_height - 1)
       throw0(BLOCK_PARENT_DNE("Top block is not new block's parent"));
   }
 
@@ -557,14 +563,12 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const
   bi.bi_diff = cumulative_difficulty;
   bi.bi_hash = blk_hash;
 
-  MDB_val val;
-  val.mv_data = (void *)&bi;
-  val.mv_size = sizeof(bi);
+  MDB_val val = {sizeof(bi), (void *)&bi};
   result = mdb_cursor_put(m_cur_block_info, &key, &val, MDB_APPEND);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add block info to db transaction: ", result).c_str()));
 
-  result = mdb_cursor_put(m_cur_block_heights, &val_h, &key, 0);
+  result = mdb_cursor_put(m_cur_block_heights, (MDB_val *)&zerokval, &val_h, 0);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add block height by hash to db transaction: ", result).c_str()));
 
@@ -589,9 +593,10 @@ void BlockchainLMDB::remove_block()
 
   // must use h now; deleting from m_block_info will invalidate it
   mdb_block_info *bi = (mdb_block_info *)h.mv_data;
-  h.mv_data = &bi->bi_hash;
-  h.mv_size = sizeof(bi->bi_hash);
-  if (mdb_del(*m_write_txn, m_block_heights, &h, NULL))
+  blk_height bh = {bi->bi_hash, 0};
+  h.mv_data = (void *)&bh;
+  h.mv_size = sizeof(bh);
+  if (mdb_del(*m_write_txn, m_block_heights, (MDB_val *)&zerokval, &h))
       throw1(DB_ERROR("Failed to add removal of block height by hash to db transaction"));
 
   if (mdb_del(*m_write_txn, m_blocks, &k, NULL))
@@ -1070,7 +1075,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_BLOCKS, MDB_INTEGERKEY | MDB_CREATE, m_blocks, "Failed to open db handle for m_blocks");
 
   lmdb_db_open(txn, LMDB_BLOCK_INFO, MDB_INTEGERKEY | MDB_CREATE, m_block_info, "Failed to open db handle for m_block_info");
-  lmdb_db_open(txn, LMDB_BLOCK_HEIGHTS, MDB_CREATE, m_block_heights, "Failed to open db handle for m_block_heights");
+  lmdb_db_open(txn, LMDB_BLOCK_HEIGHTS, MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_block_heights, "Failed to open db handle for m_block_heights");
 
   lmdb_db_open(txn, LMDB_TXS, MDB_INTEGERKEY | MDB_CREATE, m_txs, "Failed to open db handle for m_txs");
   lmdb_db_open(txn, LMDB_TX_INDICES, MDB_CREATE, m_tx_indices, "Failed to open db handle for m_tx_indices");
@@ -1089,7 +1094,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
 
   mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
-  mdb_set_compare(txn, m_block_heights, compare_hash32);
+  mdb_set_dupsort(txn, m_block_heights, compare_hash32);
   mdb_set_compare(txn, m_tx_indices, compare_hash32);
 
   mdb_set_compare(txn, m_hf_starting_heights, compare_uint8);
@@ -1348,8 +1353,9 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h) const
   const mdb_txn_cursors *m_cursors = m_write_txn ? &m_wcursors : &m_tinfo->m_ti_rcursors;
   RCURSOR(block_heights);
 
-  MDB_val_copy<crypto::hash> key(h);
-  auto get_result = mdb_cursor_get(m_cur_block_heights, &key, NULL, MDB_SET);
+  blk_height bh = {h, 0};
+  MDB_val key = {sizeof(bh), (void *)&bh};
+  auto get_result = mdb_cursor_get(m_cur_block_heights, (MDB_val *)&zerokval, &key, MDB_GET_BOTH);
   if (get_result == MDB_NOTFOUND)
   {
     TXN_POSTFIX_RDONLY();
@@ -1380,15 +1386,16 @@ uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h) const
   const mdb_txn_cursors *m_cursors = m_write_txn ? &m_wcursors : &m_tinfo->m_ti_rcursors;
   RCURSOR(block_heights);
 
-  MDB_val_copy<crypto::hash> key(h);
-  MDB_val result;
-  auto get_result = mdb_cursor_get(m_cur_block_heights, &key, &result, MDB_SET);
+  blk_height bh = {h, 0};
+  MDB_val key = {sizeof(bh), (void *)&bh};
+  auto get_result = mdb_cursor_get(m_cur_block_heights, (MDB_val *)&zerokval, &key, MDB_GET_BOTH);
   if (get_result == MDB_NOTFOUND)
     throw1(BLOCK_DNE("Attempted to retrieve non-existent block height"));
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve a block height from the db"));
 
-  uint64_t ret = *(const uint64_t *)result.mv_data;
+  blk_height *bhp = (blk_height *)key.mv_data;
+  uint64_t ret = bhp->height;
   TXN_POSTFIX_RDONLY();
   return ret;
 }
