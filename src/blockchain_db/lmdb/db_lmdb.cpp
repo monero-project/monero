@@ -155,6 +155,8 @@ const char* const LMDB_HF_VERSIONS = "hf_versions";
 
 const char* const LMDB_PROPERTIES = "properties";
 
+const char zerokey[8] = {0};
+const MDB_val zerokval = { sizeof(zerokey), (void *)zerokey };
 
 const std::string lmdb_error(const std::string& error_string, int mdb_res)
 {
@@ -901,16 +903,13 @@ void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
 
   CURSOR(spent_keys)
 
-  MDB_val_copy<crypto::key_image> val_key(k_image);
-  MDB_val unused;
-  if (mdb_cursor_get(m_cur_spent_keys, &val_key, &unused, MDB_SET) == 0)
+  MDB_val k = {sizeof(k_image), (void *)&k_image};
+  if (auto result = mdb_cursor_put(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_NODUPDATA)) {
+    if (result == MDB_KEYEXIST)
       throw1(KEY_IMAGE_EXISTS("Attempting to add spent key image that's already in the db"));
-
-  char anything = '\0';
-  unused.mv_size = sizeof(char);
-  unused.mv_data = &anything;
-  if (auto result = mdb_cursor_put(m_cur_spent_keys, &val_key, &unused, 0))
-    throw1(DB_ERROR(lmdb_error("Error adding spent key image to db transaction: ", result).c_str()));
+    else
+      throw1(DB_ERROR(lmdb_error("Error adding spent key image to db transaction: ", result).c_str()));
+  }
 }
 
 void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
@@ -918,8 +917,8 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  MDB_val_copy<crypto::key_image> k(k_image);
-  auto result = mdb_del(*m_write_txn, m_spent_keys, &k, NULL);
+  MDB_val k = {sizeof(k_image), (void *)&k_image};
+  auto result = mdb_del(*m_write_txn, m_spent_keys, (MDB_val *)&zerokval, &k);
   if (result != 0 && result != MDB_NOTFOUND)
       throw1(DB_ERROR("Error adding removal of key image to db transaction"));
 }
@@ -1082,14 +1081,14 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   lmdb_db_open(txn, LMDB_OUTPUT_AMOUNTS, MDB_INTEGERKEY | MDB_INTEGERDUP | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_output_amounts, "Failed to open db handle for m_output_amounts");
   lmdb_db_open(txn, LMDB_OUTPUT_KEYS, MDB_INTEGERKEY | MDB_CREATE, m_output_keys, "Failed to open db handle for m_output_keys");
 
-  lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE, m_spent_keys, "Failed to open db handle for m_spent_keys");
+  lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
   lmdb_db_open(txn, LMDB_HF_STARTING_HEIGHTS, MDB_CREATE, m_hf_starting_heights, "Failed to open db handle for m_hf_starting_heights");
   lmdb_db_open(txn, LMDB_HF_VERSIONS, MDB_INTEGERKEY | MDB_CREATE, m_hf_versions, "Failed to open db handle for m_hf_versions");
 
   lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
 
-  mdb_set_compare(txn, m_spent_keys, compare_hash32);
+  mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
   mdb_set_compare(txn, m_block_heights, compare_hash32);
   mdb_set_compare(txn, m_tx_indices, compare_hash32);
 
@@ -2013,19 +2012,16 @@ bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
+  bool ret;
+
   TXN_PREFIX_RDONLY();
   const mdb_txn_cursors *m_cursors = m_write_txn ? &m_wcursors : &m_tinfo->m_ti_rcursors;
   RCURSOR(spent_keys);
 
-  MDB_val_copy<crypto::key_image> val_key(img);
-  if (mdb_cursor_get(m_cur_spent_keys, &val_key, NULL, MDB_SET) == 0)
-  {
-    TXN_POSTFIX_RDONLY();
-    return true;
-  }
-
+  MDB_val k = {sizeof(img), (void *)&img};
+  ret = (mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_GET_BOTH) == 0);
   TXN_POSTFIX_RDONLY();
-  return false;
+  return ret;
 }
 
 bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
@@ -2038,13 +2034,12 @@ bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_ima
   RCURSOR(spent_keys);
 
   MDB_val k;
-  MDB_val v;
   bool ret = true;
 
   MDB_cursor_op op = MDB_FIRST;
   while (1)
   {
-    int ret = mdb_cursor_get(m_cur_spent_keys, &k, &v, op);
+    int ret = mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, op);
     op = MDB_NEXT;
     if (ret == MDB_NOTFOUND)
       break;
