@@ -48,23 +48,27 @@ struct WalletManagerTest : public testing::Test
 
     const char * WALLET_NAME = "testwallet";
     const char * WALLET_PASS = "password";
+    const char * WALLET_LANG = "English";
 
 
     WalletManagerTest()
     {
+        std::cout << __FUNCTION__ << std::endl;
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
-        deleteWallet(WALLET_NAME);
+        //deleteWallet(WALLET_NAME);
     }
 
 
     ~WalletManagerTest()
     {
+        std::cout << __FUNCTION__ << std::endl;
         deleteWallet(WALLET_NAME);
     }
 
 
     void deleteWallet(const std::string & walletname)
     {
+        std::cout << "** deleting wallet " << std::endl;
         boost::filesystem::remove(walletname);
         boost::filesystem::remove(walletname + ".address.txt");
         boost::filesystem::remove(walletname + ".keys");
@@ -76,14 +80,30 @@ struct WalletManagerTest : public testing::Test
 TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
 
-    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, "English");
-    EXPECT_TRUE(wallet != nullptr);
-    EXPECT_TRUE(!wallet->seed().empty());
+    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    ASSERT_TRUE(wallet->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(!wallet->seed().empty());
     std::vector<std::string> words;
     std::string seed = wallet->seed();
     boost::split(words, seed, boost::is_any_of(" "), boost::token_compress_on);
-    EXPECT_TRUE(words.size() == 25);
+    ASSERT_TRUE(words.size() == 25);
     std::cout << "** seed: " << wallet->seed() << std::endl;
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+}
+
+TEST_F(WalletManagerTest, WalletManagerOpensWallet)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    std::string seed1 = wallet1->seed();
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->seed() == seed1);
+    std::vector<std::string> words;
+    std::string seed = wallet2->seed();
+    boost::split(words, seed, boost::is_any_of(" "), boost::token_compress_on);
+    ASSERT_TRUE(words.size() == 25);
+    std::cout << "** seed: " << wallet2->seed() << std::endl;
 }
 
 int main(int argc, char** argv)

@@ -32,7 +32,9 @@
 #include "wallet2.h"
 #include <memory>
 
-unsigned int epee::g_test_dbg_lock_sleep = 0;
+namespace epee {
+    unsigned int g_test_dbg_lock_sleep = 0;
+}
 
 namespace Bitmonero {
 
@@ -56,21 +58,29 @@ public:
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);
     bool open(const std::string &path, const std::string &password);
+    bool close();
     std::string seed() const;
     std::string getSeedLanguage() const;
     void setSeedLanguage(const std::string &arg);
+    void setListener(Listener *) {}
+    int status() const;
+    std::string errorString() const;
+
+private:
+    void clearStatus();
 
 private:
     //std::unique_ptr<tools::wallet2> m_wallet;
     tools::wallet2 * m_wallet;
+    int  m_status;
+    std::string m_errorString;
 
 };
 
-
 WalletImpl::WalletImpl()
-    :m_wallet(nullptr)
+    :m_wallet(nullptr), m_status(Wallet::Status_Ok)
 {
-
+    m_wallet = new tools::wallet2();
 }
 
 WalletImpl::~WalletImpl()
@@ -80,6 +90,9 @@ WalletImpl::~WalletImpl()
 
 bool WalletImpl::create(const std::string &path, const std::string &password, const std::string &language)
 {
+
+    clearStatus();
+
     bool keys_file_exists;
     bool wallet_file_exists;
     tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
@@ -91,26 +104,57 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
 
     // add logic to error out if new wallet requested but named wallet file exists
     if (keys_file_exists || wallet_file_exists) {
-
-        LOG_ERROR("attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.");
+        m_errorString = "attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.";
+        LOG_ERROR(m_errorString);
+        m_status = Status_Error;
         return false;
-
     }
     // TODO: validate language
     // TODO: create wallet
-    //m_wallet.reset(new tools::wallet2());
-    m_wallet = new tools::wallet2();
-    m_wallet->set_seed_language(language);
+    // m_wallet.reset(new tools::wallet2());
 
+    m_wallet->set_seed_language(language);
     crypto::secret_key recovery_val, secret_key;
     try {
         recovery_val = m_wallet->generate(path, password, secret_key, false, false);
-    } catch (const std::exception& e) {
-        // TODO: log exception
+    } catch (const std::exception &e) {
+        LOG_ERROR("Error creating wallet: " << e.what());
+        m_status = Status_Error;
+        m_errorString = e.what();
         return false;
     }
-
     return true;
+}
+
+bool WalletImpl::open(const std::string &path, const std::string &password)
+{
+    clearStatus();
+    bool result = false;
+    try {
+        // TODO: handle "deprecated"
+        m_wallet->load(path, password);
+        result = true;
+    } catch (const tools::error::file_not_found &e) {
+        LOG_ERROR("Error opening wallet: " << e.what());
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+    return result;
+}
+
+bool WalletImpl::close()
+{
+    bool result = false;
+    try {
+        m_wallet->store();
+        m_wallet->stop();
+        result = true;
+    } catch (const std::exception &e) {
+        m_status = Status_Error;
+        m_errorString = e.what();
+        LOG_ERROR("Error closing wallet: " << e.what());
+    }
+    return result;
 }
 
 std::string WalletImpl::seed() const
@@ -131,6 +175,23 @@ void WalletImpl::setSeedLanguage(const std::string &arg)
     m_wallet->set_seed_language(arg);
 }
 
+int WalletImpl::status() const
+{
+    return m_status;
+}
+
+std::string WalletImpl::errorString() const
+{
+    return m_errorString;
+}
+
+void WalletImpl::clearStatus()
+{
+    m_status = Status_Ok;
+    m_errorString.clear();
+}
+
+
 
 ///////////////////////// WalletManager implementation /////////////////////////
 class WalletManagerImpl : public WalletManager
@@ -139,30 +200,49 @@ public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language);
     Wallet * openWallet(const std::string &path, const std::string &password);
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, const std::string &language);
+    virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
-    int lastError() const;
+    std::string errorString() const;
+
 
 private:
     WalletManagerImpl() {}
     friend struct WalletManagerFactory;
+
+    std::string m_errorString;
 };
 
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
                                     const std::string &language)
 {
     WalletImpl * wallet = new WalletImpl();
-    // TODO open wallet, set password, etc
-    if (!wallet->create(path, password, language)) {
-        delete wallet;
-        wallet = nullptr;
-    }
+    wallet->create(path, password, language);
     return wallet;
 }
 
-
 Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password)
 {
+    WalletImpl * wallet = new WalletImpl();
+    wallet->open(path, password);
+    return wallet;
+}
+
+Wallet * WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo, const std::string &language)
+{
     return nullptr;
+}
+
+bool WalletManagerImpl::closeWallet(Wallet *wallet)
+{
+    WalletImpl * wallet_ = dynamic_cast<WalletImpl*>(wallet);
+    bool result = wallet_->close();
+    if (!result) {
+        m_errorString = wallet_->errorString();
+    } else {
+        delete wallet_;
+    }
+    return result;
 }
 
 bool WalletManagerImpl::walletExists(const std::string &path)
@@ -170,24 +250,23 @@ bool WalletManagerImpl::walletExists(const std::string &path)
     return false;
 }
 
-int WalletManagerImpl::lastError() const
+std::string WalletManagerImpl::errorString() const
 {
-    return 0;
+    return m_errorString;
 }
+
 
 
 ///////////////////// WalletManagerFactory implementation //////////////////////
 WalletManager *WalletManagerFactory::getWalletManager()
 {
+    // TODO: initialize logger here
+    epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
     if  (!g_walletManager) {
         g_walletManager = new WalletManagerImpl();
     }
 
     return g_walletManager;
 }
-
-
-
-
 
 }

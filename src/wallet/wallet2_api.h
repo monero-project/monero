@@ -44,11 +44,26 @@ namespace Bitmonero {
 struct Wallet
 {
    // TODO define wallet interface (decide what needed from wallet2)
+
+    enum Status {
+        Status_Ok,
+        Status_Error
+    };
+
+    struct Listener
+    {
+        // TODO
+    };
+
     virtual ~Wallet() = 0;
     virtual std::string seed() const = 0;
     virtual std::string getSeedLanguage() const = 0;
     virtual void setSeedLanguage(const std::string &arg) = 0;
-
+    virtual void setListener(Listener * listener) = 0;
+    //! returns wallet status (Status_Ok | Status_Error)
+    virtual int status() const = 0;
+    //! in case error status, returns error string
+    virtual std::string errorString() const = 0;
 };
 
 /**
@@ -58,12 +73,20 @@ struct WalletManager
 {
     //! creates new wallet
     virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language) = 0;
+
     //! opens existing wallet
     virtual Wallet * openWallet(const std::string &path, const std::string &password) = 0;
 
+    //! recovers existing wallet using memo (electrum words)
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, const std::string &language) = 0;
+    //! closes wallet. in case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
+    virtual bool closeWallet(Wallet *wallet) = 0;
+
+    //! checks if wallet with the given name already exists
     virtual bool walletExists(const std::string &path) = 0;
 
-    virtual int lastError() const = 0;
+    virtual std::string errorString() const = 0;
+
 };
 
 
