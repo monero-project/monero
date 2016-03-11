@@ -204,7 +204,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     tx_pub_key = pub_key_field.pub_key;
     bool r = true;
-    int threads = std::thread::hardware_concurrency();
+    int threads = boost::thread::hardware_concurrency();
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
@@ -574,7 +574,7 @@ void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::
   size_t current_index = start_height;
   blocks_added = 0;
 
-  int threads = std::thread::hardware_concurrency();
+  int threads = boost::thread::hardware_concurrency();
   if (threads > 1)
   {
     std::vector<crypto::hash> round_block_hashes(threads);
@@ -771,7 +771,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? get_transaction_hash(m_transfers.back().m_tx) : null_hash;
   std::list<crypto::hash> short_chain_history;
-  std::thread pull_thread;
+  boost::thread pull_thread;
   uint64_t blocks_start_height;
   std::list<cryptonote::block_complete_entry> blocks;
 
@@ -788,7 +788,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       uint64_t next_blocks_start_height;
       std::list<cryptonote::block_complete_entry> next_blocks;
       bool error = false;
-      pull_thread = std::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, error);});
+      pull_thread = boost::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, error);});
 
       process_blocks(blocks_start_height, blocks, added_blocks);
       blocks_fetched += added_blocks;
@@ -1312,7 +1312,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::check_connection()
 {
-  std::lock_guard<std::mutex> lock(m_daemon_rpc_mutex);
+  boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
 
   if(m_http_client.is_connected())
     return true;

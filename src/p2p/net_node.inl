@@ -585,7 +585,7 @@ namespace nodetool
           break;
         epee::net_utils::data_logger::get_instance().add_data("peers", number_of_peers);
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        boost::this_thread::sleep_for(boost::chrono::seconds(1));
       } // main loop of thread
       _note("Thread monitor number of peers - done");
     })); // lambda

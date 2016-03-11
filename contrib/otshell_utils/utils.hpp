@@ -29,7 +29,7 @@
 // #define opt_debug_debug
 
 #ifdef opt_debug_debug
-	#define _dbg_dbg(X) do { std::cerr<<"_dbg_dbg: " << OT_CODE_STAMP << " {thread=" << std::this_thread::get_id()<<"} " \
+	#define _dbg_dbg(X) do { std::cerr<<"_dbg_dbg: " << OT_CODE_STAMP << " {thread=" << boost::this_thread::get_id()<<"} " \
 	<< " {pid="<<getpid()<<"} " <<  ": " << X << std::endl; } while(0)
 #else
 	#define _dbg_dbg(X) do { } while(0)
@@ -79,7 +79,7 @@ extern cNullstream g_nullstream; // a stream that does nothing (eats/discards da
 
 // TODO make _dbg_ignore thread-safe everywhere
 
-extern std::recursive_mutex gLoggerGuard; // the mutex guarding logging/debugging code e.g. protecting streams, files, etc
+extern boost::recursive_mutex gLoggerGuard; // the mutex guarding logging/debugging code e.g. protecting streams, files, etc
 
 std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton of counter (it guarantees initializing it to 0). This counter shows the current recursion (re-entrant) level of debug macros.
 
@@ -91,7 +91,7 @@ std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton o
 	_dbg_dbg("WRITE DEBUG: LEVEL="<<LEVEL<<" VAR: " << VAR ); \
 	auto level=LEVEL; short int part=0; \
 	try { \
-		std::lock_guard<std::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
+		boost::lock_guard<boost::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
 		part=1; \
 		try { \
 			++nOT::nUtils::gLoggerGuardDepth_Get(); \
@@ -111,7 +111,7 @@ std::atomic<int> & gLoggerGuardDepth_Get(); // getter for the global singleton o
 	_dbg_dbg("WRITE DEBUG: LEVEL="<<LEVEL<<" CHANNEL="<<CHANNEL<<" VAR: " << VAR ); \
 	auto level=LEVEL; short int part=0; \
 	try { \
-		std::lock_guard<std::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
+		boost::lock_guard<boost::recursive_mutex> mutex_guard( nOT::nUtils::gLoggerGuard ); \
 		part=1; \
 		try { \
 			++nOT::nUtils::gLoggerGuardDepth_Get(); \
@@ -253,9 +253,9 @@ class cLogger {
 		void OpenNewChannel_(const std::string & channel);  ///< internal function, will throw in case of problems
 		std::string GetLogBaseDir() const;
 
-		std::map< std::thread::id , int > mThread2Number; ///<  change long thread IDs into a short nice number to show
+		std::map< boost::thread::id , int > mThread2Number; ///<  change long thread IDs into a short nice number to show
 		int mThread2Number_Biggest; ///<  current biggest value held there (biggest key) - works as growing-only counter basically
-		int Thread2Number(const std::thread::id id); ///<  convert the system's thread id into a nice short our id; make one if new thread
+		int Thread2Number(const boost::thread::id id); ///<  convert the system's thread id into a nice short our id; make one if new thread
 
 		std::map< t_anypid , int > mPid2Number; ///<  change long proces PID into a short nice number to show
 		int mPid2Number_Biggest; ///<  current biggest value held there (biggest key) - works as growing-only counter basically

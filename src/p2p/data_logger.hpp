@@ -33,8 +33,9 @@
 #include <map>
 #include <fstream>
 #include <memory>
-#include <thread>
-#include <mutex>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/once.hpp>
 #include <atomic>
 
 namespace epee
@@ -71,7 +72,7 @@ enum class data_logger_state { state_before_init, state_during_init, state_ready
 			static bool is_dying();
 
 		private:
-			static std::once_flag m_singleton; ///< to guarantee singleton creates the object exactly once
+			static boost::once_flag m_singleton; ///< to guarantee singleton creates the object exactly once
 			static data_logger_state m_state; ///< state of the singleton object
 			static std::atomic<bool> m_thread_maybe_running; ///< is the background thread (more or less) running, or is it fully finished
 			static std::unique_ptr<data_logger> m_obj; ///< the singleton object. Only use it via get_instance(). Can be killed by kill_instance()
@@ -94,7 +95,7 @@ enum class data_logger_state { state_before_init, state_during_init, state_ready
 			};
 			
 			std::map<std::string, fileData> mFilesMap;
-			std::mutex mMutex;
+			boost::mutex mMutex;
 			void saveToFile(); ///< write data to the target files. do not use this directly
 	};
 	

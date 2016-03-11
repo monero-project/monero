@@ -41,7 +41,7 @@
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp> // TODO
-#include <boost/thread/thread.hpp> // TODO
+#include <boost/thread/v2/thread.hpp> // TODO
 #include "misc_language.h"
 #include "pragma_comp_defs.h"
 
@@ -294,7 +294,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				if (delay > 0) {
 					long int ms = (long int)(delay * 100);
 					epee::net_utils::data_logger::get_instance().add_data("sleep_down", ms);
-					std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+					boost::this_thread::sleep_for(boost::chrono::milliseconds(ms));
 				}
 			} while(delay > 0);
 		} // any form of sleeping

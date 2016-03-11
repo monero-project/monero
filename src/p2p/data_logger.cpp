@@ -40,7 +40,7 @@ namespace epee
 namespace net_utils
 {
 	data_logger &data_logger::get_instance() {
-		std::call_once(m_singleton, 
+		boost::call_once(m_singleton, 
 			[] { 
 				_info_c("dbg/data","Creating singleton of data_logger");
 				if (m_state != data_logger_state::state_before_init) { _erro_c("dbg/data","Internal error in singleton"); throw std::runtime_error("data_logger singleton"); }
@@ -61,7 +61,7 @@ namespace net_utils
 	data_logger::data_logger() {
 		_note_c("dbg/data","Starting data logger (for graphs data)");
 		if (m_state != data_logger_state::state_during_init) { _erro_c("dbg/data","Singleton ctor state"); throw std::runtime_error("data_logger ctor state"); }
-		std::lock_guard<std::mutex> lock(mMutex); // lock
+		boost::lock_guard<boost::mutex> lock(mMutex); // lock
 		
 		// prepare all the files for given data channels:
 		mFilesMap["peers"] = data_logger::fileData("log/dr-monero/peers.data");
@@ -89,11 +89,11 @@ namespace net_utils
 		std::shared_ptr<boost::thread> logger_thread(new boost::thread([&]() {
 			_info_c("dbg/data","Inside thread for data logger");
 			while (m_state == data_logger_state::state_during_init) { // wait for creation to be done (in other thread, in singleton) before actually running
-				std::this_thread::sleep_for(std::chrono::seconds(1));
+				boost::this_thread::sleep_for(boost::chrono::seconds(1));
 			}
 			_info_c("dbg/data","Inside thread for data logger - going into main loop");
 			while (m_state == data_logger_state::state_ready_to_use) { // run as long as we are not closing the single object
-				std::this_thread::sleep_for(std::chrono::seconds(1));
+				boost::this_thread::sleep_for(boost::chrono::seconds(1));
 				saveToFile(); // save all the pending data
 			}
 			_info_c("dbg/data","Inside thread for data logger - done the main loop");
@@ -106,12 +106,12 @@ namespace net_utils
 	data_logger::~data_logger() {
 		_note_c("dbg/data","Destructor of the data logger");
 		{
-			std::lock_guard<std::mutex> lock(mMutex);
+			boost::lock_guard<boost::mutex> lock(mMutex);
 			m_state = data_logger_state::state_dying;
 		}
 		_info_c("dbg/data","State was set to dying");
 		while(m_thread_maybe_running) { // wait for the thread to exit
-			std::this_thread::sleep_for(std::chrono::seconds(1));
+			boost::this_thread::sleep_for(boost::chrono::seconds(1));
 			_info_c("dbg/data","Waiting for background thread to exit");
 		}
 		_info_c("dbg/data","Thread exited");
@@ -123,7 +123,7 @@ namespace net_utils
 	}
 	
 	void data_logger::add_data(std::string filename, unsigned int data) {
-		std::lock_guard<std::mutex> lock(mMutex);
+		boost::lock_guard<boost::mutex> lock(mMutex);
 		if (m_state != data_logger_state::state_ready_to_use) { _info_c("dbg/data","Data logger is not ready, returning."); return; }
 
 		if (mFilesMap.find(filename) == mFilesMap.end()) { // no such file/counter
@@ -151,7 +151,7 @@ namespace net_utils
 
 	void data_logger::saveToFile() {
 		_dbg2_c("dbg/data","saving to files");
-		std::lock_guard<std::mutex> lock(mMutex);
+		boost::lock_guard<boost::mutex> lock(mMutex);
 		if (m_state != data_logger_state::state_ready_to_use) { _info_c("dbg/data","Data logger is not ready, returning."); return; }
 		nOT::nUtils::cFilesystemUtils::CreateDirTree("log/dr-monero/net/");
 		for (auto &element : mFilesMap)
@@ -194,7 +194,7 @@ namespace net_utils
 data_logger_state data_logger::m_state(data_logger_state::state_before_init); ///< (static) state of the singleton object
 std::atomic<bool> data_logger::m_save_graph(false); // (static)
 std::atomic<bool> data_logger::m_thread_maybe_running(false); // (static)
-std::once_flag data_logger::m_singleton; // (static)
+boost::once_flag data_logger::m_singleton; // (static)
 std::unique_ptr<data_logger> data_logger::m_obj; // (static)
 
 } // namespace

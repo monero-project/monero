@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <chrono>
 
 #include "utils.hpp"
 
@@ -129,7 +130,7 @@ std::string get_current_time() {
 
 cNullstream g_nullstream; // extern a stream that does nothing (eats/discards data)
 
-std::recursive_mutex gLoggerGuard; // extern
+boost::recursive_mutex gLoggerGuard; // extern
 std::atomic<int> gLoggerGuardDepth; // extern
 
 std::atomic<int> & gLoggerGuardDepth_Get() {
@@ -303,7 +304,7 @@ mPid2Number_Biggest(0)
 	mIsBroken=false; // ok, constr. succeeded, so string is not broken now
 
 	// this is here, because it could be using logging itself to log creation of first thread/PID etc
-	Thread2Number( std::this_thread::get_id() ); // convert current id to short number, useful to reserve a number so that main thread is usually called 1
+	Thread2Number( boost::this_thread::get_id() ); // convert current id to short number, useful to reserve a number so that main thread is usually called 1
 	Pid2Number( getpid() ); // add this proces ID as first one
 }
 
@@ -348,7 +349,7 @@ std::ostream & cLogger::write_stream(int level, const std::string & channel ) {
 			output << windows_stream(level);
 			#endif
 			output << icon(level) << ' ';
-			std::thread::id this_id = std::this_thread::get_id();
+			boost::thread::id this_id = boost::this_thread::get_id();
 			output << "{" << Thread2Number(this_id) << "}";
 			auto nicePid = Pid2Number(getpid());
 			if (nicePid>0) output << " {p" << nicePid << "}";
@@ -517,7 +518,7 @@ std::string cLogger::endline() const {
     #endif
 }
 
-int cLogger::Thread2Number(const std::thread::id id) {
+int cLogger::Thread2Number(const boost::thread::id id) {
 	auto found = mThread2Number.find( id );
 	if (found == mThread2Number.end()) { // new one
 		mThread2Number_Biggest++;

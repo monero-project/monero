@@ -242,9 +242,9 @@ namespace cryptonote
 
     std::atomic<bool> m_auto_refresh_run;
     bool m_auto_refresh_refreshing;
-    std::thread m_auto_refresh_thread;
-    std::mutex m_auto_refresh_mutex;
-    std::condition_variable m_auto_refresh_cond;
+    boost::thread m_auto_refresh_thread;
+    boost::mutex m_auto_refresh_mutex;
+    boost::condition_variable m_auto_refresh_cond;
     std::atomic<bool> m_in_manual_refresh;
   };
 }

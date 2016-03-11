@@ -31,7 +31,8 @@
 #pragma once
 
 #include <cstddef>
-#include <mutex>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_guard.hpp>
 #include <vector>
 
 #include "common/pod-class.h"
@@ -44,7 +45,7 @@ namespace crypto {
 #include "random.h"
   }
 
-  extern std::mutex random_lock;
+  extern boost::mutex random_lock;
 
 #pragma pack(push, 1)
   POD_CLASS ec_point {
@@ -121,7 +122,7 @@ namespace crypto {
   template<typename T>
   typename std::enable_if<std::is_pod<T>::value, T>::type rand() {
     typename std::remove_cv<T>::type res;
-    std::lock_guard<std::mutex> lock(random_lock);
+    boost::lock_guard<boost::mutex> lock(random_lock);
     generate_random_bytes(sizeof(T), &res);
     return res;
   }

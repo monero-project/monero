@@ -407,7 +407,7 @@ namespace tools
 
     std::atomic<bool> m_run;
 
-    std::mutex m_daemon_rpc_mutex;
+    boost::mutex m_daemon_rpc_mutex;
 
     i_wallet2_callback* m_callback;
     bool m_testnet;

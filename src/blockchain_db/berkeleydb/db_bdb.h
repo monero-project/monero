@@ -130,7 +130,7 @@ public:
 
     T acquire_buffer()
     {
-        std::unique_lock<std::mutex> lock(m_lock);
+        boost::unique_lock<boost::mutex> lock(m_lock);
         m_cv.wait(lock, [&]{ return m_count > 0; });
 
         --m_count;
@@ -154,7 +154,7 @@ public:
 
     void release_buffer(T buffer)
     {
-        std::unique_lock<std::mutex> lock(m_lock);
+        boost::unique_lock<boost::mutex> lock(m_lock);
 
         assert(buffer != nullptr);
         auto it = m_buffer_map.find(buffer);
@@ -196,10 +196,10 @@ private:
     std::vector<T> m_buffers;
     std::unordered_map<T, size_t> m_buffer_map;
 
-    std::condition_variable m_cv;
+    boost::condition_variable m_cv;
     std::vector<bool> m_open_slot;
     size_t m_count;
-    std::mutex m_lock;
+    boost::mutex m_lock;
 
     size_t m_buffer_count;
 };

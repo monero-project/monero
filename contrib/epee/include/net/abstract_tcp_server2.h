@@ -153,8 +153,8 @@ namespace net_utils
     // for calculate speed (last 60 sec)
     network_throttle m_throttle_speed_in;
     network_throttle m_throttle_speed_out;
-    std::mutex m_throttle_speed_in_mutex;
-    std::mutex m_throttle_speed_out_mutex;
+    boost::mutex m_throttle_speed_in_mutex;
+    boost::mutex m_throttle_speed_out_mutex;
 
 	public:
 			void setRpcStation();
@@ -307,7 +307,7 @@ namespace net_utils
     /// The next connection to be accepted
     connection_ptr new_connection_;
 
-    std::mutex connections_mutex;
+    boost::mutex connections_mutex;
     std::deque<std::pair<boost::system_time, connection_ptr>> connections_;
 
   }; // class <>boosted_tcp_server

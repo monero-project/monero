@@ -243,7 +243,7 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 void network_throttle::logger_handle_net(const std::string &filename, double time, size_t size) {
 	if (! epee::net_utils::data_logger::m_save_graph)
 		return;
-    std::mutex mutex;
+    boost::mutex mutex;
     mutex.lock(); {
         std::fstream file;
         file.open(filename.c_str(), std::ios::app | std::ios::out );

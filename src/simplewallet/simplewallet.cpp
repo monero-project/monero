@@ -445,7 +445,7 @@ bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = st
   if (auto_refresh && !m_auto_refresh_run.load(std::memory_order_relaxed))
   {
     m_auto_refresh_run.store(true, std::memory_order_relaxed);
-    m_auto_refresh_thread = std::thread([&]{wallet_refresh_thread();});
+    m_auto_refresh_thread = boost::thread([&]{wallet_refresh_thread();});
   }
   else if (!auto_refresh && m_auto_refresh_run.load(std::memory_order_relaxed))
   {
@@ -1256,7 +1256,7 @@ bool simple_wallet::close_wallet()
     m_auto_refresh_run.store(false, std::memory_order_relaxed);
     m_wallet->stop();
     {
-      std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+      boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex);
       m_auto_refresh_cond.notify_one();
     }
     m_auto_refresh_thread.join();
@@ -1341,7 +1341,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 
   bool ok = true;
-  size_t max_mining_threads_count = (std::max)(std::thread::hardware_concurrency(), static_cast<unsigned>(2));
+  size_t max_mining_threads_count = (std::max)(boost::thread::hardware_concurrency(), static_cast<unsigned>(2));
   if (0 == args.size())
   {
     req.threads_count = 1;
@@ -1458,7 +1458,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset)
   m_auto_refresh_run.store(false, std::memory_order_relaxed);
   // stop any background refresh, and take over
   m_wallet->stop();
-  std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+  boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex);
   m_auto_refresh_cond.notify_one();
 
   if (reset)
@@ -2434,7 +2434,7 @@ void simple_wallet::wallet_refresh_thread()
 {
   while (true)
   {
-    std::unique_lock<std::mutex> lock(m_auto_refresh_mutex);
+    boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex);
     if (!m_auto_refresh_run.load(std::memory_order_relaxed))
       break;
     m_auto_refresh_refreshing = true;
@@ -2447,7 +2447,7 @@ void simple_wallet::wallet_refresh_thread()
     m_auto_refresh_refreshing = false;
     if (!m_auto_refresh_run.load(std::memory_order_relaxed))
       break;
-    m_auto_refresh_cond.wait_for(lock, chrono::seconds(90));
+    m_auto_refresh_cond.wait_for(lock, boost::chrono::seconds(90));
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -2457,7 +2457,7 @@ bool simple_wallet::run()
   m_auto_refresh_run = m_wallet->auto_refresh();
   if (m_auto_refresh_run)
   {
-    m_auto_refresh_thread = std::thread([&]{wallet_refresh_thread();});
+    m_auto_refresh_thread = boost::thread([&]{wallet_refresh_thread();});
   }
   else
   {

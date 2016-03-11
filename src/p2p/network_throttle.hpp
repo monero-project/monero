@@ -113,16 +113,16 @@ class network_throttle_manager {
 	//protected:
 	public: // XXX
 		// [[note1]]
-		static std::once_flag m_once_get_global_throttle_in; 
-		static std::once_flag m_once_get_global_throttle_inreq; // [[note2]]
-		static std::once_flag m_once_get_global_throttle_out;
+		static boost::once_flag m_once_get_global_throttle_in;
+		static boost::once_flag m_once_get_global_throttle_inreq; // [[note2]]
+		static boost::once_flag m_once_get_global_throttle_out;
 		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_in;
 		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_inreq;
 		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_out;
 
-    static std::mutex m_lock_get_global_throttle_in;
-    static std::mutex m_lock_get_global_throttle_inreq;
-    static std::mutex m_lock_get_global_throttle_out;
+    static boost::mutex m_lock_get_global_throttle_in;
+    static boost::mutex m_lock_get_global_throttle_inreq;
+    static boost::mutex m_lock_get_global_throttle_out;
 
 		friend class cryptonote::cryptonote_protocol_handler_base; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
 		friend class connection_basic; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
