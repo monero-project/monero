@@ -227,7 +227,12 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+      uint64_t mixin = req.mixin;
+      if (mixin < 2 && m_wallet.use_fork_rules(2)) {
+        LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
+        mixin = 2;
+      }
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee, extra);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -287,11 +292,16 @@ namespace tools
 
     try
     {
+      uint64_t mixin = req.mixin;
+      if (mixin < 2 && m_wallet.use_fork_rules(2)) {
+        LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
+        mixin = 2;
+      }
       std::vector<wallet2::pending_tx> ptx_vector;
       if (req.new_algorithm)
-        ptx_vector = m_wallet.create_transactions_2(dsts, req.mixin, req.unlock_time, req.fee, extra);
+        ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.fee, extra);
       else
-        ptx_vector = m_wallet.create_transactions(dsts, req.mixin, req.unlock_time, req.fee, extra);
+        ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee, extra);
 
       m_wallet.commit_tx(ptx_vector);
 
