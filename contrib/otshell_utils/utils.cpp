@@ -32,6 +32,7 @@
 
 #if defined(OS_TYPE_WINDOWS)
 	#include <windows.h>
+	#include <process.h>
 #elif defined(OS_TYPE_POSIX)
 	#include <sys/types.h>
 	#include <sys/stat.h>

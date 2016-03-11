@@ -52,6 +52,12 @@ namespace misc_utils
         {
 #if defined(_MSC_VER)
                 return ::GetTickCount64();
+#elif defined(WIN32)
+# if defined(WIN64)
+                return GetTickCount64();
+# else
+                return GetTickCount();
+# endif
 #elif defined(__MACH__)
                 clock_serv_t cclock;
                 mach_timespec_t mts;
@@ -98,7 +104,7 @@ namespace misc_utils
 
 	inline std::string get_thread_string_id()
 	{
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 		return boost::lexical_cast<std::string>(GetCurrentThreadId());
 #elif defined(__GNUC__)  
 		return boost::lexical_cast<std::string>(pthread_self());
