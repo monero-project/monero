@@ -35,9 +35,9 @@ Monero development can be supported directly through donations.
 
 Both Monero and Bitcoin donations can be made to donate.getmonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
 
-The Monero donation address is: 46BeWrHpwXmHDpDEUmZBWZfoQpdc6HaERCNmx1pEYL2rAcuwufPN9rXHHtyUA4QVy66qeFQkn6sfK8aHYjA3jk3o1Bv16em (viewkey: e422831985c9205238ef84daf6805526c14d96fd7b059fe68c7ab98e495e5703)
+The Monero donation address is: 44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A (viewkey: f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501)
 
-The Bitcoin donation address is: 1FhnVJi2V1k4MqXm2nHoEbY5LV7FPai7bb
+The Bitcoin donation address is: 1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
