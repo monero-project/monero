@@ -64,6 +64,7 @@ struct Wallet
     virtual int status() const = 0;
     //! in case error status, returns error string
     virtual std::string errorString() const = 0;
+    virtual bool setPassword(const std::string &password) = 0;
 };
 
 /**
@@ -71,15 +72,37 @@ struct Wallet
  */
 struct WalletManager
 {
-    //! creates new wallet
+
+    /*!
+     * \brief  Creates new wallet
+     * \param  path           Name of wallet file
+     * \param  password       Password of wallet file
+     * \param  language       Language to be used to generate electrum seed memo
+     * \return                Wallet instance (Wallet::status() needs to be called to check if created successfully)
+     */
     virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language) = 0;
 
-    //! opens existing wallet
+    /*!
+     * \brief  Opens existing wallet
+     * \param  path           Name of wallet file
+     * \param  password       Password of wallet file
+     * \return                Wallet instance (Wallet::status() needs to be called to check if opened successfully)
+     */
     virtual Wallet * openWallet(const std::string &path, const std::string &password) = 0;
 
-    //! recovers existing wallet using memo (electrum words)
+    /*!
+     * \brief  recovers existing wallet using memo (electrum seed)
+     * \param  path           Name of wallet file to be created
+     * \param  memo           memo (25 words electrum seed)
+     * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
+     */
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, const std::string &language) = 0;
-    //! closes wallet. in case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
+
+    /*!
+     * \brief Closes wallet. In case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
+     * \param wallet        previously opened / created wallet instance
+     * \return              None
+     */
     virtual bool closeWallet(Wallet *wallet) = 0;
 
     //! checks if wallet with the given name already exists

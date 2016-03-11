@@ -48,6 +48,7 @@ struct WalletManagerTest : public testing::Test
 
     const char * WALLET_NAME = "testwallet";
     const char * WALLET_PASS = "password";
+    const char * WALLET_PASS2 = "password22";
     const char * WALLET_LANG = "English";
 
 
@@ -93,18 +94,35 @@ TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 
 TEST_F(WalletManagerTest, WalletManagerOpensWallet)
 {
+
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
     ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
-    std::vector<std::string> words;
-    std::string seed = wallet2->seed();
-    boost::split(words, seed, boost::is_any_of(" "), boost::token_compress_on);
-    ASSERT_TRUE(words.size() == 25);
     std::cout << "** seed: " << wallet2->seed() << std::endl;
 }
+
+
+TEST_F(WalletManagerTest, WalletManagerChangesPassword)
+{
+
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    std::string seed1 = wallet1->seed();
+    ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2);
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->seed() == seed1);
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
+    Bitmonero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
+    ASSERT_FALSE(wallet3->status() == Bitmonero::Wallet::Status_Ok);
+
+}
+
+
+
 
 int main(int argc, char** argv)
 {

@@ -65,6 +65,7 @@ public:
     void setListener(Listener *) {}
     int status() const;
     std::string errorString() const;
+    bool setPassword(const std::string &password);
 
 private:
     void clearStatus();
@@ -110,9 +111,6 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
         return false;
     }
     // TODO: validate language
-    // TODO: create wallet
-    // m_wallet.reset(new tools::wallet2());
-
     m_wallet->set_seed_language(language);
     crypto::secret_key recovery_val, secret_key;
     try {
@@ -134,7 +132,7 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
         // TODO: handle "deprecated"
         m_wallet->load(path, password);
         result = true;
-    } catch (const tools::error::file_not_found &e) {
+    } catch (const std::exception &e) {
         LOG_ERROR("Error opening wallet: " << e.what());
         m_status = Status_Error;
         m_errorString = e.what();
@@ -185,6 +183,20 @@ std::string WalletImpl::errorString() const
     return m_errorString;
 }
 
+bool WalletImpl::setPassword(const std::string &password)
+{
+    bool result  = false;
+    try {
+        m_wallet->rewrite(m_wallet->get_wallet_file(), password);
+        result = true;
+    } catch (const std::exception &e) {
+        result = false;
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+    return result;
+}
+
 void WalletImpl::clearStatus()
 {
     m_status = Status_Ok;
@@ -228,9 +240,10 @@ Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string
     return wallet;
 }
 
-Wallet * WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo, const std::string &language)
+Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo, const std::string &language)
 {
     return nullptr;
+
 }
 
 bool WalletManagerImpl::closeWallet(Wallet *wallet)

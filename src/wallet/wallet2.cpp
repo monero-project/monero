@@ -2695,6 +2695,16 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) c
   return true;
 }
 
+std::string wallet2::get_wallet_file() const
+{
+    return m_wallet_file;
+}
+
+std::string wallet2::get_keys_file() const
+{
+    return m_keys_file;
+}
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
   if (m_testnet)

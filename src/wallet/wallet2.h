@@ -348,8 +348,11 @@ namespace tools
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
+
     bool use_fork_rules(uint8_t version);
 
+    std::string get_wallet_file() const;
+    std::string get_keys_file() const;
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
