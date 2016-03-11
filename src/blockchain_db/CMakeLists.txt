@@ -65,6 +65,7 @@ target_link_libraries(blockchain_db
     crypto
     cryptonote_core
     ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
     ${LMDB_LIBRARY}

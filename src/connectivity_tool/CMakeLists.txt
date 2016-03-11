@@ -42,4 +42,5 @@ target_link_libraries(connectivity_tool
     ${CMAKE_THREAD_LIBS_INIT}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_REGEX_LIBRARY}
+    ${Boost_CHRONO_LIBRARY}
     ${Boost_SYSTEM_LIBRARY})
