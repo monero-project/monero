@@ -799,7 +799,7 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
   }
   else if (result)
   {
-    throw1(DB_ERROR("Error adding removal of output tx index to db transaction"));
+    throw1(DB_ERROR(lmdb_error("Error adding removal of output tx index to db transaction", result).c_str()));
   }
 
   result = mdb_del(*m_write_txn, m_output_txs, &k, NULL);
@@ -811,7 +811,7 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
   }
   else if (result)
   {
-    throw1(DB_ERROR("Error adding removal of output tx hash to db transaction"));
+    throw1(DB_ERROR(lmdb_error("Error adding removal of output tx hash to db transaction", result).c_str()));
   }
 
   result = mdb_del(*m_write_txn, m_output_keys, &k, NULL);
@@ -820,7 +820,7 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
       LOG_PRINT_L0("Unexpected: global output index not found in m_output_keys");
   }
   else if (result)
-    throw1(DB_ERROR("Error adding removal of output pubkey to db transaction"));
+    throw1(DB_ERROR(lmdb_error("Error adding removal of output pubkey to db transaction", result).c_str()));
 
   remove_amount_output_index(amount, out_index);
 
@@ -841,7 +841,7 @@ void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const uin
   if (result == MDB_NOTFOUND)
     throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
   else if (result)
-    throw0(DB_ERROR("DB error attempting to get an output"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to get an output", result).c_str()));
 
   mdb_size_t num_elems = 0;
   mdb_cursor_count(m_cur_output_amounts, &num_elems);
@@ -907,7 +907,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   MDB_val_copy<crypto::key_image> k(k_image);
   auto result = mdb_del(*m_write_txn, m_spent_keys, &k, NULL);
   if (result != 0 && result != MDB_NOTFOUND)
-      throw1(DB_ERROR("Error adding removal of key image to db transaction"));
+      throw1(DB_ERROR(lmdb_error("Error adding removal of key image to db transaction", result).c_str()));
 }
 
 blobdata BlockchainLMDB::output_to_blob(const tx_out& output) const
@@ -1354,7 +1354,7 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h) const
     return false;
   }
   else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch block index from hash"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to fetch block index from hash", get_result).c_str()));
 
   TXN_POSTFIX_RDONLY();
   return true;
@@ -1668,7 +1668,7 @@ bool BlockchainLMDB::tx_exists(const crypto::hash& h) const
     return false;
   }
   else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch transaction from hash"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to fetch transaction from hash", get_result).c_str()));
 
   return true;
 }
@@ -1688,7 +1688,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   if (get_result == MDB_NOTFOUND)
     throw1(TX_DNE(std::string("tx unlock time with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
   else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch tx unlock time from hash"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx unlock time from hash", get_result).c_str()));
 
   uint64_t ret = *(const uint64_t*)result.mv_data;
   TXN_POSTFIX_RDONLY();
@@ -1710,7 +1710,7 @@ transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
   if (get_result == MDB_NOTFOUND)
     throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
   else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch tx from hash"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx from hash", get_result).c_str()));
 
   blobdata bd;
   bd.assign(reinterpret_cast<char*>(result.mv_data), result.mv_size);
@@ -1771,7 +1771,7 @@ uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
     throw1(TX_DNE(std::string("tx height with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
   }
   else if (get_result)
-    throw0(DB_ERROR("DB error attempting to fetch tx height from hash"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx height from hash", get_result).c_str()));
 
   uint64_t ret = *(const uint64_t*)result.mv_data;
   TXN_POSTFIX_RDONLY();
@@ -1897,7 +1897,7 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_output_indices(const crypto::hash& 
   if (result == MDB_NOTFOUND)
     throw1(OUTPUT_DNE("Attempting to get an output by tx hash and tx index, but output not found"));
   else if (result)
-    throw0(DB_ERROR("DB error attempting to get an output"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to get an output", result).c_str()));
 
   mdb_size_t num_elems = 0;
   mdb_cursor_count(m_cur_tx_outputs, &num_elems);
@@ -1948,7 +1948,7 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_amount_output_indices(const crypto:
     if (result == MDB_NOTFOUND)
       throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
     else if (result)
-      throw0(DB_ERROR("DB error attempting to get an output"));
+      throw0(DB_ERROR(lmdb_error("DB error attempting to get an output", result).c_str()));
 
     mdb_size_t num_elems = 0;
     mdb_cursor_count(m_cur_output_amounts, &num_elems);
@@ -2526,7 +2526,7 @@ void BlockchainLMDB::get_output_global_indices(const uint64_t& amount, const std
   if (result == MDB_NOTFOUND)
     throw1(OUTPUT_DNE("Attempting to get an output index by amount and amount index, but amount not found"));
   else if (result)
-    throw0(DB_ERROR("DB error attempting to get an output"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to get an output", result).c_str()));
 
   mdb_size_t num_elems = 0;
   mdb_cursor_count(m_cur_output_amounts, &num_elems);
@@ -2654,7 +2654,7 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
       if (get_result == MDB_NOTFOUND)
         throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
       else if (get_result)
-        throw0(DB_ERROR("Error attempting to retrieve an output pubkey from the db"));
+        throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output pubkey from the db", get_result).c_str()));
 
       output_data_t data = *(const output_data_t *) v.mv_data;
       outputs.push_back(data);
