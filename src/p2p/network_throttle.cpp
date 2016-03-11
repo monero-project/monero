@@ -67,9 +67,9 @@ namespace net_utils
 
 // ================================================================================================
 // static:
-std::mutex network_throttle_manager::m_lock_get_global_throttle_in;
-std::mutex network_throttle_manager::m_lock_get_global_throttle_inreq;
-std::mutex network_throttle_manager::m_lock_get_global_throttle_out;
+boost::mutex network_throttle_manager::m_lock_get_global_throttle_in;
+boost::mutex network_throttle_manager::m_lock_get_global_throttle_inreq;
+boost::mutex network_throttle_manager::m_lock_get_global_throttle_out;
 
 int network_throttle_manager::xxx;
 
@@ -77,27 +77,27 @@ int network_throttle_manager::xxx;
 // ================================================================================================
 // methods:
 i_network_throttle & network_throttle_manager::get_global_throttle_in() { 
-	std::call_once(m_once_get_global_throttle_in, [] { m_obj_get_global_throttle_in.reset(new network_throttle("in/all","<<< global-IN",10)); }	);
+	boost::call_once(m_once_get_global_throttle_in, [] { m_obj_get_global_throttle_in.reset(new network_throttle("in/all","<<< global-IN",10)); }	);
 	return * m_obj_get_global_throttle_in;
 }
-std::once_flag network_throttle_manager::m_once_get_global_throttle_in;
+boost::once_flag network_throttle_manager::m_once_get_global_throttle_in;
 std::unique_ptr<i_network_throttle> network_throttle_manager::m_obj_get_global_throttle_in;
 
 
 
 i_network_throttle & network_throttle_manager::get_global_throttle_inreq() { 
-	std::call_once(m_once_get_global_throttle_inreq, [] { m_obj_get_global_throttle_inreq.reset(new network_throttle("inreq/all", "<== global-IN-REQ",10)); }	);
+	boost::call_once(m_once_get_global_throttle_inreq, [] { m_obj_get_global_throttle_inreq.reset(new network_throttle("inreq/all", "<== global-IN-REQ",10)); }	);
 	return * m_obj_get_global_throttle_inreq;
 }
-std::once_flag network_throttle_manager::m_once_get_global_throttle_inreq;
+boost::once_flag network_throttle_manager::m_once_get_global_throttle_inreq;
 std::unique_ptr<i_network_throttle> network_throttle_manager::m_obj_get_global_throttle_inreq;
 
 
 i_network_throttle & network_throttle_manager::get_global_throttle_out() { 
-	std::call_once(m_once_get_global_throttle_out, [] { m_obj_get_global_throttle_out.reset(new network_throttle("out/all", ">>> global-OUT",10)); }	);
+	boost::call_once(m_once_get_global_throttle_out, [] { m_obj_get_global_throttle_out.reset(new network_throttle("out/all", ">>> global-OUT",10)); }	);
 	return * m_obj_get_global_throttle_out;
 }
-std::once_flag network_throttle_manager::m_once_get_global_throttle_out;
+boost::once_flag network_throttle_manager::m_once_get_global_throttle_out;
 std::unique_ptr<i_network_throttle> network_throttle_manager::m_obj_get_global_throttle_out;
 
 

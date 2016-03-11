@@ -34,7 +34,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <mutex>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_guard.hpp>
 
 #include "common/varint.h"
 #include "warnings.h"
@@ -52,8 +53,6 @@ namespace crypto {
   using std::abort;
   using std::int32_t;
   using std::int64_t;
-  using std::lock_guard;
-  using std::mutex;
   using std::size_t;
   using std::uint32_t;
   using std::uint64_t;
@@ -63,7 +62,7 @@ namespace crypto {
 #include "random.h"
   }
 
-  mutex random_lock;
+  boost::mutex random_lock;
 
   static inline unsigned char *operator &(ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);
@@ -100,7 +99,7 @@ namespace crypto {
    * 
    */
   secret_key crypto_ops::generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover) {
-    lock_guard<mutex> lock(random_lock);
+    boost::lock_guard<boost::mutex> lock(random_lock);
     ge_p3 point;
 
     secret_key rng;
@@ -199,7 +198,7 @@ namespace crypto {
   };
 
   void crypto_ops::generate_signature(const hash &prefix_hash, const public_key &pub, const secret_key &sec, signature &sig) {
-    lock_guard<mutex> lock(random_lock);
+    boost::lock_guard<boost::mutex> lock(random_lock);
     ge_p3 tmp3;
     ec_scalar k;
     s_comm buf;
@@ -280,7 +279,7 @@ POP_WARNINGS
     const public_key *const *pubs, size_t pubs_count,
     const secret_key &sec, size_t sec_index,
     signature *sig) {
-    lock_guard<mutex> lock(random_lock);
+    boost::lock_guard<boost::mutex> lock(random_lock);
     size_t i;
     ge_p3 image_unp;
     ge_dsmp image_pre;

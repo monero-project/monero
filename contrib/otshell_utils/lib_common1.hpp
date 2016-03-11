@@ -19,9 +19,11 @@
 
 #include <functional>
 #include <memory>
-#include <thread>
 #include <atomic>
-#include <mutex>
+#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
+#include <boost/thread/lock_guard.hpp>
 
 
 // list of thigs from libraries that we pull into namespace nOT::nNewcli
@@ -45,8 +47,7 @@
 	using std::shared_ptr; \
 	using std::weak_ptr; \
 	using std::enable_shared_from_this; \
-	using std::mutex; \
-	using std::lock_guard; \
+	using boost::lock_guard; \
 
 #endif
 

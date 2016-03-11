@@ -150,8 +150,8 @@ namespace tools
     /*! \brief calles m_handler */
     static void handle_signal(int type)
     {
-      static std::mutex m_mutex;
-      std::unique_lock<std::mutex> lock(m_mutex);
+      static boost::mutex m_mutex;
+      boost::unique_lock<boost::mutex> lock(m_mutex);
       m_handler(type);
     }
 
