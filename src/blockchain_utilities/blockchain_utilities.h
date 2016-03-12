@@ -33,12 +33,15 @@
 
 // CONFIG: choose one of the three #define's
 //
-// DB_MEMORY is a sensible default for users migrating to LMDB, as it allows
+// DB_MEMORY was a sensible default for users migrating to LMDB, as it allowed
 // the exporter to use the in-memory blockchain while the other binaries
 // work with LMDB, without recompiling anything.
+// 
+// Now that the majority of users are on 0.9.2, and the converter has largely
+// become a generalised database tool, the default has changed to DB_LMDB.
 //
-#define SOURCE_DB DB_MEMORY
-//#define SOURCE_DB DB_LMDB
+// #define SOURCE_DB DB_MEMORY
+#define SOURCE_DB DB_LMDB
 // to use global compile-time setting (DB_MEMORY or DB_LMDB):
 // #define SOURCE_DB BLOCKCHAIN_DB
 
