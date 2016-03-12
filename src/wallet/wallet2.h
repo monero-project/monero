@@ -348,6 +348,8 @@ namespace tools
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
+    bool use_fork_rules(uint8_t version);
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -384,7 +386,6 @@ namespace tools
     crypto::hash get_payment_id(const pending_tx &ptx) const;
     void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
-    bool use_fork_rules(uint8_t version);
     uint64_t get_upper_tranaction_size_limit();
     void check_pending_txes();
 
