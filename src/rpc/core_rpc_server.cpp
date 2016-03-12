@@ -950,13 +950,16 @@ namespace cryptonote
       return false;
     }
 
+    auto now = time(nullptr);
     std::map<uint32_t, time_t> blocked_ips = m_p2p.get_blocked_ips();
     for (std::map<uint32_t, time_t>::const_iterator i = blocked_ips.begin(); i != blocked_ips.end(); ++i)
     {
-      COMMAND_RPC_GETBANS::ban b;
-      b.ip = i->first;
-      b.seconds = i->second;
-      res.bans.push_back(b);
+      if (i->second > now) {
+        COMMAND_RPC_GETBANS::ban b;
+        b.ip = i->first;
+        b.seconds = i->second - now;
+        res.bans.push_back(b);
+      }
     }
 
     res.status = CORE_RPC_STATUS_OK;
