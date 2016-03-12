@@ -2746,7 +2746,11 @@ int main(int argc, char* argv[])
     else
     {
       tools::signal_handler::install([&w](int type) {
+#ifdef WIN32
+        if (type == CTRL_C_EVENT)
+#else
         if (type == SIGINT)
+#endif
         {
           // if we're pressing ^C when refreshing, just stop refreshing
           w.interrupt();
