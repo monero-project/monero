@@ -88,7 +88,10 @@ TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
     boost::split(words, seed, boost::is_any_of(" "), boost::token_compress_on);
     ASSERT_TRUE(words.size() == 25);
     std::cout << "** seed: " << wallet->seed() << std::endl;
+    ASSERT_FALSE(wallet->address().empty());
+    std::cout << "** address: " << wallet->address() << std::endl;
     ASSERT_TRUE(wmgr->closeWallet(wallet));
+
 }
 
 TEST_F(WalletManagerTest, WalletManagerOpensWallet)
@@ -124,13 +127,18 @@ TEST_F(WalletManagerTest, WalletManagerRecoversWallet)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
+    std::string address1 = wallet1->address();
+    ASSERT_FALSE(address1.empty());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     deleteWallet(WALLET_NAME);
     Bitmonero::Wallet * wallet2 = wmgr->recoveryWallet(WALLET_NAME, seed1);
     ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
+    ASSERT_TRUE(wallet2->address() == address1);
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
+
+
 
 
 int main(int argc, char** argv)

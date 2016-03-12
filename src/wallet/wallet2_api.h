@@ -65,6 +65,7 @@ struct Wallet
     //! in case error status, returns error string
     virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
+    virtual std::string address() const = 0;
 };
 
 /**

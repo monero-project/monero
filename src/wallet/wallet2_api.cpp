@@ -68,6 +68,7 @@ public:
     int status() const;
     std::string errorString() const;
     bool setPassword(const std::string &password);
+    std::string address() const;
 
 private:
     void clearStatus();
@@ -231,6 +232,11 @@ bool WalletImpl::setPassword(const std::string &password)
         m_errorString = e.what();
     }
     return result;
+}
+
+std::string WalletImpl::address() const
+{
+    return m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 }
 
 void WalletImpl::clearStatus()
