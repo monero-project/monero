@@ -450,6 +450,7 @@ bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = st
   else if (!auto_refresh && m_auto_refresh_run.load(std::memory_order_relaxed))
   {
     m_auto_refresh_run.store(false, std::memory_order_relaxed);
+    m_wallet->stop();
     m_auto_refresh_thread.join();
   }
 
