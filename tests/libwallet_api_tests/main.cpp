@@ -51,19 +51,18 @@ struct WalletManagerTest : public testing::Test
     const char * WALLET_PASS2 = "password22";
     const char * WALLET_LANG = "English";
 
-
     WalletManagerTest()
     {
         std::cout << __FUNCTION__ << std::endl;
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
-        //deleteWallet(WALLET_NAME);
+        deleteWallet(WALLET_NAME);
     }
 
 
     ~WalletManagerTest()
     {
         std::cout << __FUNCTION__ << std::endl;
-        deleteWallet(WALLET_NAME);
+        //deleteWallet(WALLET_NAME);
     }
 
 
@@ -107,7 +106,6 @@ TEST_F(WalletManagerTest, WalletManagerOpensWallet)
 
 TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
-
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
@@ -118,10 +116,21 @@ TEST_F(WalletManagerTest, WalletManagerChangesPassword)
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
     Bitmonero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
     ASSERT_FALSE(wallet3->status() == Bitmonero::Wallet::Status_Ok);
-
 }
 
 
+
+TEST_F(WalletManagerTest, WalletManagerRecoversWallet)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    std::string seed1 = wallet1->seed();
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+    deleteWallet(WALLET_NAME);
+    Bitmonero::Wallet * wallet2 = wmgr->recoveryWallet(WALLET_NAME, seed1);
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->seed() == seed1);
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
+}
 
 
 int main(int argc, char** argv)

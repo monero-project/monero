@@ -30,6 +30,7 @@
 
 #include "wallet2_api.h"
 #include "wallet2.h"
+#include "mnemonics/electrum-words.h"
 #include <memory>
 
 namespace epee {
@@ -58,6 +59,7 @@ public:
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);
     bool open(const std::string &path, const std::string &password);
+    bool recover(const std::string &path, const std::string &seed);
     bool close();
     std::string seed() const;
     std::string getSeedLanguage() const;
@@ -140,6 +142,40 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
     return result;
 }
 
+bool WalletImpl::recover(const std::string &path, const std::string &seed)
+{
+    bool result = false;
+    m_errorString.clear();
+    if (seed.empty()) {
+        m_errorString = "Electrum seed is empty";
+        LOG_ERROR(m_errorString);
+        m_status = Status_Error;
+        return false;
+    }
+
+    crypto::secret_key recovery_key;
+    std::string old_language;
+    if (!crypto::ElectrumWords::words_to_bytes(seed, recovery_key, old_language)) {
+        m_errorString = "Electrum-style word list failed verification";
+        m_status = Status_Error;
+        return false;
+    }
+
+
+    try {
+        m_wallet->set_seed_language(old_language);
+        m_wallet->generate(path, "", recovery_key, true, false);
+        // TODO: wallet->init(daemon_address);
+        m_status = Status_Ok;
+    } catch (const std::exception &e) {
+        m_status = Status_Error;
+        m_errorString = e.what();
+
+    }
+    result = m_status == Status_Ok;
+    return result;
+}
+
 bool WalletImpl::close()
 {
     bool result = false;
@@ -212,7 +248,7 @@ public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language);
     Wallet * openWallet(const std::string &path, const std::string &password);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, const std::string &language);
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo);
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
     std::string errorString() const;
@@ -240,10 +276,11 @@ Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string
     return wallet;
 }
 
-Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo, const std::string &language)
+Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo)
 {
-    return nullptr;
-
+    WalletImpl * wallet = new WalletImpl();
+    wallet->recover(path, memo);
+    return wallet;
 }
 
 bool WalletManagerImpl::closeWallet(Wallet *wallet)

@@ -96,7 +96,7 @@ struct WalletManager
      * \param  memo           memo (25 words electrum seed)
      * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
      */
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, const std::string &language) = 0;
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo) = 0;
 
     /*!
      * \brief Closes wallet. In case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
