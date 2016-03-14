@@ -272,7 +272,7 @@ public:
   virtual void block_txn_start(bool readonly);
   virtual void block_txn_stop();
   virtual void block_txn_abort();
-  virtual bool block_rtxn_start() const;
+  virtual bool block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const;
   virtual void block_rtxn_stop() const;
 
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
@@ -388,6 +388,7 @@ private:
   std::string m_folder;
   mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
   mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
+  boost::thread::id m_writer;
 
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
