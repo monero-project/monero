@@ -302,10 +302,10 @@ private:
 
   virtual void remove_output(const tx_out& tx_output);
 
-  void remove_tx_outputs(const crypto::hash& tx_hash, const transaction& tx);
+  void remove_tx_outputs(const MDB_val *tx_hash, const transaction& tx);
 
-  void remove_output(const uint64_t& out_index, const uint64_t amount);
-  void remove_amount_output_index(const uint64_t amount, const uint64_t global_output_index);
+  void remove_output(const MDB_val *out_index, const uint64_t amount);
+  void remove_amount_output_index(const uint64_t amount, const MDB_val *global_output_index);
 
   virtual void add_spent_key(const crypto::key_image& k_image);
 

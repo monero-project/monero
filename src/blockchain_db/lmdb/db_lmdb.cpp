@@ -668,7 +668,7 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  MDB_val_copy<crypto::hash> val_h(tx_hash);
+  MDB_val val_h = {sizeof(tx_hash), (void *)&tx_hash};
   MDB_val unused;
   if (mdb_get(*m_write_txn, m_txs, &val_h, &unused))
       throw1(TX_DNE("Attempting to remove transaction that isn't in the db"));
@@ -680,7 +680,7 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
   if (mdb_del(*m_write_txn, m_tx_heights, &val_h, NULL))
       throw1(DB_ERROR("Failed to add removal of tx block height to db transaction"));
 
-  remove_tx_outputs(tx_hash, tx);
+  remove_tx_outputs(&val_h, tx);
 
   auto result = mdb_del(*m_write_txn, m_tx_outputs, &val_h, NULL);
   if (result == MDB_NOTFOUND)
@@ -743,16 +743,15 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
   m_num_outputs++;
 }
 
-void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transaction& tx)
+void BlockchainLMDB::remove_tx_outputs(const MDB_val *tx_hash, const transaction& tx)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 
   mdb_txn_cursors *m_cursors = &m_wcursors;
-  MDB_val_copy<crypto::hash> k(tx_hash);
   MDB_val v;
   CURSOR(tx_outputs)
 
-  auto result = mdb_cursor_get(m_cur_tx_outputs, &k, &v, MDB_SET);
+  auto result = mdb_cursor_get(m_cur_tx_outputs, (MDB_val *)tx_hash, &v, MDB_SET);
   if (result == MDB_NOTFOUND)
   {
     LOG_PRINT_L2("tx has no outputs, so no global output indices");
@@ -766,15 +765,20 @@ void BlockchainLMDB::remove_tx_outputs(const crypto::hash& tx_hash, const transa
     mdb_size_t num_elems = 0;
     mdb_cursor_count(m_cur_tx_outputs, &num_elems);
 
-    mdb_cursor_get(m_cur_tx_outputs, &k, &v, MDB_LAST_DUP);
+    mdb_cursor_get(m_cur_tx_outputs, (MDB_val *)tx_hash, &v, MDB_LAST_DUP);
 
     for (uint64_t i = num_elems; i > 0; --i)
     {
       const tx_out tx_output = tx.vout[i-1];
-      remove_output(*(const uint64_t*)v.mv_data, tx_output.amount);
+#ifndef MISALIGNED_OK
+      uint64_t tv;
+      memcpy(&tv, v.mv_data, sizeof(uint64_t));
+      v.mv_data = &tv;
+#endif
+      remove_output((const MDB_val *)&v, tx_output.amount);
       if (i > 1)
       {
-        mdb_cursor_get(m_cur_tx_outputs, &k, &v, MDB_PREV_DUP);
+        mdb_cursor_get(m_cur_tx_outputs, (MDB_val *)tx_hash, &v, MDB_PREV_DUP);
       }
     }
   }
@@ -787,14 +791,12 @@ void BlockchainLMDB::remove_output(const tx_out& tx_output)
   return;
 }
 
-void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amount)
+void BlockchainLMDB::remove_output(const MDB_val *out_index, const uint64_t amount)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  MDB_val_copy<uint64_t> k(out_index);
-
-  auto result = mdb_del(*m_write_txn, m_output_indices, &k, NULL);
+  auto result = mdb_del(*m_write_txn, m_output_indices, (MDB_val *)out_index, NULL);
   if (result == MDB_NOTFOUND)
   {
     LOG_PRINT_L0("Unexpected: global output index not found in m_output_indices");
@@ -804,7 +806,7 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
     throw1(DB_ERROR(lmdb_error("Error adding removal of output tx index to db transaction", result).c_str()));
   }
 
-  result = mdb_del(*m_write_txn, m_output_txs, &k, NULL);
+  result = mdb_del(*m_write_txn, m_output_txs, (MDB_val *)out_index, NULL);
   // if (result != 0 && result != MDB_NOTFOUND)
   //    throw1(DB_ERROR("Error adding removal of output tx hash to db transaction"));
   if (result == MDB_NOTFOUND)
@@ -816,7 +818,7 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
     throw1(DB_ERROR(lmdb_error("Error adding removal of output tx hash to db transaction", result).c_str()));
   }
 
-  result = mdb_del(*m_write_txn, m_output_keys, &k, NULL);
+  result = mdb_del(*m_write_txn, m_output_keys, (MDB_val *)out_index, NULL);
   if (result == MDB_NOTFOUND)
   {
       LOG_PRINT_L0("Unexpected: global output index not found in m_output_keys");
@@ -829,7 +831,7 @@ void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amo
   m_num_outputs--;
 }
 
-void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const uint64_t global_output_index)
+void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const MDB_val *global_output_index)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -851,13 +853,11 @@ void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const uin
   mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_LAST_DUP);
 
   uint64_t amount_output_index = 0;
-  uint64_t goi = 0;
   bool found_index = false;
   for (uint64_t i = num_elems; i > 0; --i)
   {
     mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_GET_CURRENT);
-    goi = *(const uint64_t *)v.mv_data;
-    if (goi == global_output_index)
+    if (!memcmp(v.mv_data, global_output_index->mv_data, sizeof(uint64_t)))
     {
       amount_output_index = i-1;
       found_index = true;
