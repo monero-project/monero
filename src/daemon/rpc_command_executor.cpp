@@ -66,7 +66,7 @@ namespace {
       << "is orphan: " << header.orphan_status << std::endl
       << "height: " << boost::lexical_cast<std::string>(header.height) << std::endl
       << "depth: " << boost::lexical_cast<std::string>(header.depth) << std::endl
-      << "hash: " << header.hash
+      << "hash: " << header.hash << std::endl
       << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
       << "reward: " << boost::lexical_cast<std::string>(header.reward);
   }
