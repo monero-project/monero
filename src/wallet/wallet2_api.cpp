@@ -69,6 +69,7 @@ public:
     std::string errorString() const;
     bool setPassword(const std::string &password);
     std::string address() const;
+    bool store(const std::string &path);
 
 private:
     void clearStatus();
@@ -78,7 +79,7 @@ private:
     tools::wallet2 * m_wallet;
     int  m_status;
     std::string m_errorString;
-
+    std::string m_password;
 };
 
 WalletImpl::WalletImpl()
@@ -118,34 +119,37 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
     crypto::secret_key recovery_val, secret_key;
     try {
         recovery_val = m_wallet->generate(path, password, secret_key, false, false);
+        m_password = password;
+        m_status = Status_Ok;
     } catch (const std::exception &e) {
         LOG_ERROR("Error creating wallet: " << e.what());
         m_status = Status_Error;
         m_errorString = e.what();
         return false;
     }
+
     return true;
 }
 
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
     clearStatus();
-    bool result = false;
     try {
         // TODO: handle "deprecated"
         m_wallet->load(path, password);
-        result = true;
+
+        m_password = password;
     } catch (const std::exception &e) {
         LOG_ERROR("Error opening wallet: " << e.what());
         m_status = Status_Error;
         m_errorString = e.what();
     }
-    return result;
+    return m_status == Status_Ok;
 }
 
 bool WalletImpl::recover(const std::string &path, const std::string &seed)
 {
-    bool result = false;
+    clearStatus();
     m_errorString.clear();
     if (seed.empty()) {
         m_errorString = "Electrum seed is empty";
@@ -162,23 +166,20 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
         return false;
     }
 
-
     try {
         m_wallet->set_seed_language(old_language);
         m_wallet->generate(path, "", recovery_key, true, false);
         // TODO: wallet->init(daemon_address);
-        m_status = Status_Ok;
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();
-
     }
-    result = m_status == Status_Ok;
-    return result;
+    return m_status == Status_Ok;
 }
 
 bool WalletImpl::close()
 {
+    clearStatus();
     bool result = false;
     try {
         m_wallet->store();
@@ -222,21 +223,38 @@ std::string WalletImpl::errorString() const
 
 bool WalletImpl::setPassword(const std::string &password)
 {
-    bool result  = false;
+    clearStatus();
     try {
         m_wallet->rewrite(m_wallet->get_wallet_file(), password);
-        result = true;
+        m_password = password;
     } catch (const std::exception &e) {
-        result = false;
         m_status = Status_Error;
         m_errorString = e.what();
     }
-    return result;
+    return m_status == Status_Ok;
 }
 
 std::string WalletImpl::address() const
 {
     return m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+}
+
+bool WalletImpl::store(const std::string &path)
+{
+    clearStatus();
+    try {
+        if (path.empty()) {
+            m_wallet->store();
+        } else {
+            m_wallet->store_to(path, m_password);
+        }
+    } catch (const std::exception &e) {
+        LOG_ERROR("Error storing wallet: " << e.what());
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+
+    return m_status == Status_Ok;
 }
 
 void WalletImpl::clearStatus()
@@ -316,9 +334,9 @@ std::string WalletManagerImpl::errorString() const
 ///////////////////// WalletManagerFactory implementation //////////////////////
 WalletManager *WalletManagerFactory::getWalletManager()
 {
-    // TODO: initialize logger here
-    epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
+
     if  (!g_walletManager) {
+        epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
         g_walletManager = new WalletManagerImpl();
     }
 

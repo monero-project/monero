@@ -210,7 +210,6 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     typedef file_error_base<file_exists_message_index> file_exists;
     typedef file_error_base<file_not_found_message_index>  file_not_found;
-    typedef file_error_base<file_not_found_message_index>  file_not_found;
     typedef file_error_base<file_read_error_message_index> file_read_error;
     typedef file_error_base<file_save_error_message_index> file_save_error;
     //----------------------------------------------------------------------------------------------------
