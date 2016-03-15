@@ -2349,9 +2349,9 @@ void BlockchainLMDB::block_txn_start(bool readonly)
 void BlockchainLMDB::block_txn_stop()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  if (! m_batch_active)
+  if (m_write_txn && m_writer == boost::this_thread::get_id())
   {
-    if (m_write_txn)
+    if (! m_batch_active)
 	{
       TIME_MEASURE_START(time1);
       m_write_txn->commit();
@@ -2362,38 +2362,38 @@ void BlockchainLMDB::block_txn_stop()
       m_write_txn = nullptr;
       memset(&m_wcursors, 0, sizeof(m_wcursors));
 	}
-	else if (m_tinfo->m_ti_rtxn)
-	{
-	  mdb_txn_reset(m_tinfo->m_ti_rtxn);
-	  memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
-	}
+  }
+  else if (m_tinfo->m_ti_rtxn)
+  {
+    mdb_txn_reset(m_tinfo->m_ti_rtxn);
+    memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
   }
 }
 
 void BlockchainLMDB::block_txn_abort()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  if (! m_batch_active)
+  if (m_write_txn && m_writer == boost::this_thread::get_id())
   {
-    if (m_write_txn != nullptr)
+    if (! m_batch_active)
     {
       delete m_write_txn;
       m_write_txn = nullptr;
       memset(&m_wcursors, 0, sizeof(m_wcursors));
     }
-	else if (m_tinfo->m_ti_rtxn)
-	{
-	  mdb_txn_reset(m_tinfo->m_ti_rtxn);
-	  memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
-	}
-    else
-    {
-      // This would probably mean an earlier exception was caught, but then we
-      // proceeded further than we should have.
-      throw0(DB_ERROR((std::string("BlockchainLMDB::") + __func__ +
-                       std::string(": block-level DB transaction abort called when write txn doesn't exist")
-                      ).c_str()));
-    }
+  }
+  else if (m_tinfo->m_ti_rtxn)
+  {
+    mdb_txn_reset(m_tinfo->m_ti_rtxn);
+    memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
+  }
+  else
+  {
+    // This would probably mean an earlier exception was caught, but then we
+    // proceeded further than we should have.
+    throw0(DB_ERROR((std::string("BlockchainLMDB::") + __func__ +
+                     std::string(": block-level DB transaction abort called when write txn doesn't exist")
+                    ).c_str()));
   }
 }
 
