@@ -228,17 +228,24 @@ mdb_threadinfo::~mdb_threadinfo()
     mdb_txn_abort(m_ti_rtxn);
 }
 
-mdb_txn_safe::mdb_txn_safe() : m_txn(NULL)
+mdb_txn_safe::mdb_txn_safe(const bool check) : m_txn(NULL), m_tinfo(NULL), m_check(check)
 {
-  while (creation_gate.test_and_set());
-  num_active_txns++;
-  creation_gate.clear();
+  if (check)
+  {
+    while (creation_gate.test_and_set());
+    num_active_txns++;
+    creation_gate.clear();
+  }
 }
 
 mdb_txn_safe::~mdb_txn_safe()
 {
   LOG_PRINT_L3("mdb_txn_safe: destructor");
-  if (m_txn != nullptr)
+  if (m_tinfo != nullptr)
+  {
+    mdb_txn_reset(m_tinfo->m_ti_rtxn);
+    memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
+  } else if (m_txn != nullptr)
   {
     if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
     {
@@ -256,7 +263,8 @@ mdb_txn_safe::~mdb_txn_safe()
     }
     mdb_txn_abort(m_txn);
   }
-  num_active_txns--;
+  if (m_check)
+    num_active_txns--;
 }
 
 void mdb_txn_safe::commit(std::string message)
@@ -1303,9 +1311,10 @@ void BlockchainLMDB::unlock()
 #define TXN_PREFIX_RDONLY() \
   MDB_txn *m_txn; \
   mdb_txn_cursors *m_cursors; \
-  bool my_rtxn = block_rtxn_start(&m_txn, &m_cursors);
-#define TXN_POSTFIX_RDONLY() \
-  if (my_rtxn) block_rtxn_stop()
+  bool my_rtxn = block_rtxn_start(&m_txn, &m_cursors); \
+  mdb_txn_safe auto_txn(my_rtxn); \
+  if (my_rtxn) auto_txn.m_tinfo = m_tinfo.get()
+#define TXN_POSTFIX_RDONLY()
 
 #define TXN_POSTFIX_SUCCESS() \
   do { \
