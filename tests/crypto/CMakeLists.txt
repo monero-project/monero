@@ -40,7 +40,8 @@ set(crypto_headers
 add_executable(crypto-tests
   ${crypto_sources}
   ${crypto_headers})
-target_link_libraries(crypto-tests)
+target_link_libraries(crypto-tests
+    ${Boost_SYSTEM_LIBRARY})
 set_property(TARGET crypto-tests
   PROPERTY
     FOLDER "tests")
