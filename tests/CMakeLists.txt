@@ -54,7 +54,7 @@ else ()
   endif()
 endif ()
 
-add_subdirectory(core_tests)
+#add_subdirectory(core_tests)
 add_subdirectory(crypto)
 add_subdirectory(functional_tests)
 add_subdirectory(performance_tests)
@@ -63,6 +63,7 @@ add_subdirectory(unit_tests)
 add_subdirectory(difficulty)
 add_subdirectory(hash)
 add_subdirectory(net_load_tests)
+add_subdirectory(libwallet_api_tests)
 
 # add_subdirectory(daemon_tests)
 

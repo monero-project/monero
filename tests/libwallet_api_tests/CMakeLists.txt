@@ -26,26 +26,34 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(crypto_sources
-  crypto-ops-data.c
-  crypto-ops.c
-  crypto.cpp
-  hash.c
+set(libwallet_api_tests_sources
   main.cpp
-  random.c)
+)
 
-set(crypto_headers
-  crypto-tests.h)
+set(libwallet_api_tests_headers
+  )
 
-add_executable(crypto-tests
-  ${crypto_sources}
-  ${crypto_headers})
-target_link_libraries(crypto-tests
-    ${Boost_SYSTEM_LIBRARY})
-set_property(TARGET crypto-tests
+add_executable(libwallet_api_tests
+  ${libwallet_api_tests_sources}
+  ${libwallet_api_tests_headers})
+
+target_link_libraries(libwallet_api_tests
+  LINK_PRIVATE
+    wallet
+    ${GTEST_MAIN_LIBRARIES}
+    ${EXTRA_LIBRARIES})
+
+set_property(TARGET libwallet_api_tests
   PROPERTY
     FOLDER "tests")
 
+if (NOT MSVC)
+  set_property(TARGET libwallet_api_tests
+    APPEND_STRING
+    PROPERTY
+      COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
+endif ()
+
 add_test(
-  NAME    crypto
-  COMMAND crypto-tests "${CMAKE_CURRENT_SOURCE_DIR}/tests.txt")
+  NAME    libwallet_api_tests
+  COMMAND libwallet_api_tests)

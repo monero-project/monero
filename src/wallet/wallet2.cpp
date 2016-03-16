@@ -1461,6 +1461,78 @@ void wallet2::store()
   THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
   boost::filesystem::remove(old_file);
 }
+
+void wallet2::store_to(const std::string &path, const std::string &password)
+{
+    // TODO: merge it with wallet2::store() function
+
+    // check if we want to store to directory which doesn't exists yet
+    boost::filesystem::path parent_path = boost::filesystem::path(path).parent_path();
+
+    // if path is not exists, try to create it
+    if  (!parent_path.empty() &&  !boost::filesystem::exists(parent_path)) {
+        boost::system::error_code ec;
+        if (!boost::filesystem::create_directories(parent_path, ec)) {
+            throw std::logic_error(ec.message());
+        }
+    }
+
+
+    std::stringstream oss;
+    boost::archive::binary_oarchive ar(oss);
+    ar << *this;
+
+    wallet2::cache_file_data cache_file_data = boost::value_initialized<wallet2::cache_file_data>();
+    cache_file_data.cache_data = oss.str();
+    crypto::chacha8_key key;
+    generate_chacha8_key_from_secret_keys(key);
+    std::string cipher;
+    cipher.resize(cache_file_data.cache_data.size());
+    cache_file_data.iv = crypto::rand<crypto::chacha8_iv>();
+    crypto::chacha8(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), key, cache_file_data.iv, &cipher[0]);
+    cache_file_data.cache_data = cipher;
+
+
+    const std::string new_file = path;
+    const std::string old_file = m_wallet_file;
+    const std::string old_keys_file = m_keys_file;
+    const std::string old_address_file = m_wallet_file + ".address.txt";
+
+    // save to new file
+    std::ofstream ostr;
+    ostr.open(new_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
+    binary_archive<true> oar(ostr);
+    bool success = ::serialization::serialize(oar, cache_file_data);
+    ostr.close();
+    THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
+
+    // save keys to the new file
+    // if we here, main wallet file is saved and we only need to save keys and address files
+    prepare_file_names(path);
+    store_keys(m_keys_file, password, false);
+
+    // save address to the new file
+    const std::string address_file = m_wallet_file + ".address.txt";
+    bool r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_testnet));
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
+
+
+    // remove old wallet file
+    r = boost::filesystem::remove(old_file);
+    if (!r) {
+        LOG_ERROR("error removing file: " << old_file);
+    }
+    // remove old keys file
+    r = boost::filesystem::remove(old_keys_file);
+    if (!r) {
+        LOG_ERROR("error removing file: " << old_keys_file);
+    }
+    // remove old address file
+    r = boost::filesystem::remove(old_address_file);
+    if (!r) {
+        LOG_ERROR("error removing file: " << old_address_file);
+    }
+}
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::unlocked_balance() const
 {
@@ -2693,6 +2765,16 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) c
     return false;
   tx_key = i->second;
   return true;
+}
+
+std::string wallet2::get_wallet_file() const
+{
+    return m_wallet_file;
+}
+
+std::string wallet2::get_keys_file() const
+{
+    return m_keys_file;
 }
 
 //----------------------------------------------------------------------------------------------------

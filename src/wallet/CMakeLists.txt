@@ -26,9 +26,13 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
 set(wallet_sources
   wallet2.cpp
-  wallet_rpc_server.cpp)
+  wallet_rpc_server.cpp
+  wallet2_api.cpp)
 
 set(wallet_headers)
 
@@ -37,7 +41,8 @@ set(wallet_private_headers
   wallet_errors.h
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
-  wallet_rpc_server_error_codes.h)
+  wallet_rpc_server_error_codes.h
+  wallet2_api.h)
 
 bitmonero_private_headers(wallet
   ${wallet_private_headers})
@@ -53,4 +58,6 @@ target_link_libraries(wallet
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
     ${EXTRA_LIBRARIES})
+

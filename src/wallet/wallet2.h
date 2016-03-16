@@ -212,6 +212,12 @@ namespace tools
     void write_watch_only_wallet(const std::string& wallet_name, const std::string& password);
     void load(const std::string& wallet, const std::string& password);
     void store();
+    /*!
+     * \brief store_to - stores wallet to another file(s), deleting old ones
+     * \param path     - path to the wallet file (keys and address filenames will be generated based on this filename)
+     * \param password - password to protect new wallet (TODO: probably better save the password in the wallet object?)
+     */
+    void store_to(const std::string &path, const std::string &password);
 
     /*!
      * \brief verifies given password is correct for default wallet keys file
@@ -348,8 +354,11 @@ namespace tools
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
+
     bool use_fork_rules(uint8_t version);
 
+    std::string get_wallet_file() const;
+    std::string get_keys_file() const;
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
