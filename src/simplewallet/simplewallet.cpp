@@ -761,6 +761,54 @@ void simple_wallet::print_seed(std::string seed)
 }
 
 //----------------------------------------------------------------------------------------------------
+static bool get_password(const boost::program_options::variables_map& vm, bool allow_entry, tools::password_container &pwd_container)
+{
+  if (has_arg(vm, arg_password) && has_arg(vm, arg_password_file))
+  {
+    fail_msg_writer() << tr("can't specify more than one of --password and --password-file");
+    return false;
+  }
+
+  if (command_line::has_arg(vm, arg_password))
+  {
+    pwd_container.password(command_line::get_arg(vm, arg_password));
+    return true;
+  }
+
+  if (command_line::has_arg(vm, arg_password_file))
+  {
+    std::string password;
+    bool r = epee::file_io_utils::load_file_to_string(command_line::get_arg(vm, arg_password_file),
+                                                      password);
+    if (!r)
+    {
+      fail_msg_writer() << tr("the password file specified could not be read");
+      return false;
+    }
+
+    // Remove line breaks the user might have inserted
+    password.erase(std::remove(password.begin() - 1, password.end(), '\n'), password.end());
+    password.erase(std::remove(password.end() - 1, password.end(), '\r'), password.end());
+    pwd_container.password(password.c_str());
+    return true;
+  }
+
+  if (allow_entry)
+  {
+    bool r = pwd_container.read_password();
+    if (!r)
+    {
+      fail_msg_writer() << tr("failed to read wallet password");
+      return false;
+    }
+    return true;
+  }
+
+  fail_msg_writer() << tr("Wallet password not set.");
+  return false;
+}
+
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
   if (!handle_command_line(vm))
@@ -795,42 +843,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (m_daemon_address.empty())
     m_daemon_address = std::string("http://") + m_daemon_host + ":" + std::to_string(m_daemon_port);
 
-  if (has_arg(vm, arg_password) && has_arg(vm, arg_password_file))
-  {
-    fail_msg_writer() << tr("can't specify more than one of --password and --password-file");
-    return false;
-  }
-
   tools::password_container pwd_container;
-  if (command_line::has_arg(vm, arg_password))
-  {
-    pwd_container.password(command_line::get_arg(vm, arg_password));
-  }
-  else if (command_line::has_arg(vm, arg_password_file))
-  {
-    std::string password;
-    bool r = epee::file_io_utils::load_file_to_string(command_line::get_arg(vm, arg_password_file),
-                                                      password);
-    if (!r)
-    {
-      fail_msg_writer() << tr("the password file specified could not be read");
-      return false;
-    }
-
-    // Remove line breaks the user might have inserted
-    password.erase(std::remove(password.begin() - 1, password.end(), '\n'), password.end());
-    password.erase(std::remove(password.end() - 1, password.end(), '\r'), password.end());
-    pwd_container.password(password.c_str());
-  }
-  else
-  {
-    bool r = pwd_container.read_password();
-    if (!r)
-    {
-      fail_msg_writer() << tr("failed to read wallet password");
-      return false;
-    }
-  }
+  if (!get_password(vm, true, pwd_container))
+    return false;
 
   if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty())
   {
@@ -2675,16 +2690,13 @@ int main(int argc, char* argv[])
       LOG_ERROR(sw::tr("Daemon address not set."));
       return 1;
     }
-    if(!command_line::has_arg(vm, arg_password) )
-    {
-      LOG_ERROR(sw::tr("Wallet password not set."));
-      return 1;
-    }
 
     bool testnet = command_line::get_arg(vm, arg_testnet);
     bool restricted = command_line::get_arg(vm, arg_restricted);
     std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
-    std::string wallet_password = command_line::get_arg(vm, arg_password);
+    tools::password_container pwd_container;
+    if (!get_password(vm, false, pwd_container))
+      return 1;
     std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
     std::string daemon_host = command_line::get_arg(vm, arg_daemon_host);
     int daemon_port = command_line::get_arg(vm, arg_daemon_port);
@@ -2699,7 +2711,7 @@ int main(int argc, char* argv[])
     try
     {
       LOG_PRINT_L0(sw::tr("Loading wallet..."));
-      wal.load(wallet_file, wallet_password);
+      wal.load(wallet_file, pwd_container.password());
       wal.init(daemon_address);
       wal.refresh();
       LOG_PRINT_GREEN(sw::tr("Loaded ok"), LOG_LEVEL_0);
