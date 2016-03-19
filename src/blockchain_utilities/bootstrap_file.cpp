@@ -117,7 +117,7 @@ bool BootstrapFile::initialize_file()
   std::string blob;
   if (! ::serialization::dump_binary(file_magic, blob))
   {
-    throw std::runtime_error("Error in serialization of file magic");
+    throw tools::runtime_error("Error in serialization of file magic");
   }
   *m_raw_data_file << blob;
 
@@ -143,7 +143,7 @@ bool BootstrapFile::initialize_file()
 
   if (! ::serialization::dump_binary(bd_size, blob))
   {
-    throw std::runtime_error("Error in serialization of bootstrap::file_info size");
+    throw tools::runtime_error("Error in serialization of bootstrap::file_info size");
   }
   *output_stream_header << blob;
   *output_stream_header << bd;
@@ -154,7 +154,7 @@ bool BootstrapFile::initialize_file()
 
   if (! ::serialization::dump_binary(bd_size, blob))
   {
-    throw std::runtime_error("Error in serialization of bootstrap::blocks_info size");
+    throw tools::runtime_error("Error in serialization of bootstrap::blocks_info size");
   }
   *output_stream_header << blob;
   *output_stream_header << bd;
@@ -181,7 +181,7 @@ void BootstrapFile::flush_chunk()
   std::string blob;
   if (! ::serialization::dump_binary(chunk_size, blob))
   {
-    throw std::runtime_error("Error in serialization of chunk size");
+    throw tools::runtime_error("Error in serialization of chunk size");
   }
   *m_raw_data_file << blob;
 
@@ -197,7 +197,7 @@ void BootstrapFile::flush_chunk()
   if (static_cast<unsigned long>(num_chars_written) != chunk_size)
   {
     LOG_PRINT_RED_L0("Error writing chunk:  height: " << m_cur_height << "  chunk_size: " << chunk_size << "  num chars written: " << num_chars_written);
-    throw std::runtime_error("Error writing chunk");
+    throw tools::runtime_error("Error writing chunk");
   }
 
   m_buffer.clear();
@@ -221,7 +221,7 @@ void BootstrapFile::write_block(block& block)
   {
     if (tx_id == null_hash)
     {
-      throw std::runtime_error("Aborting: tx == null_hash");
+      throw tools::runtime_error("Aborting: tx == null_hash");
     }
 #if SOURCE_DB == DB_MEMORY
     const transaction* tx = m_blockchain_storage->get_tx(tx_id);
@@ -233,14 +233,14 @@ void BootstrapFile::write_block(block& block)
     if(tx == NULL)
     {
       if (! m_tx_pool)
-        throw std::runtime_error("Aborting: tx == NULL, so memory pool required to get tx, but memory pool isn't enabled");
+        throw tools::runtime_error("Aborting: tx == NULL, so memory pool required to get tx, but memory pool isn't enabled");
       else
       {
         transaction tx;
         if(m_tx_pool->get_transaction(tx_id, tx))
           txs.push_back(tx);
         else
-          throw std::runtime_error("Aborting: tx not found in pool");
+          throw tools::runtime_error("Aborting: tx not found in pool");
       }
     }
     else
@@ -362,16 +362,16 @@ uint64_t BootstrapFile::seek_to_first_chunk(std::ifstream& import_file)
   char buf1[2048];
   import_file.read(buf1, sizeof(file_magic));
   if (! import_file)
-    throw std::runtime_error("Error reading expected number of bytes");
+    throw tools::runtime_error("Error reading expected number of bytes");
   str1.assign(buf1, sizeof(file_magic));
 
   if (! ::serialization::parse_binary(str1, file_magic))
-    throw std::runtime_error("Error in deserialization of file_magic");
+    throw tools::runtime_error("Error in deserialization of file_magic");
 
   if (file_magic != blockchain_raw_magic)
   {
     LOG_PRINT_RED_L0("bootstrap file not recognized");
-    throw std::runtime_error("Aborting");
+    throw tools::runtime_error("Aborting");
   }
   else
     LOG_PRINT_L0("bootstrap file recognized");
@@ -381,20 +381,20 @@ uint64_t BootstrapFile::seek_to_first_chunk(std::ifstream& import_file)
   import_file.read(buf1, sizeof(buflen_file_info));
   str1.assign(buf1, sizeof(buflen_file_info));
   if (! import_file)
-    throw std::runtime_error("Error reading expected number of bytes");
+    throw tools::runtime_error("Error reading expected number of bytes");
   if (! ::serialization::parse_binary(str1, buflen_file_info))
-    throw std::runtime_error("Error in deserialization of buflen_file_info");
+    throw tools::runtime_error("Error in deserialization of buflen_file_info");
   LOG_PRINT_L1("bootstrap::file_info size: " << buflen_file_info);
 
   if (buflen_file_info > sizeof(buf1))
-    throw std::runtime_error("Error: bootstrap::file_info size exceeds buffer size");
+    throw tools::runtime_error("Error: bootstrap::file_info size exceeds buffer size");
   import_file.read(buf1, buflen_file_info);
   if (! import_file)
-    throw std::runtime_error("Error reading expected number of bytes");
+    throw tools::runtime_error("Error reading expected number of bytes");
   str1.assign(buf1, buflen_file_info);
   bootstrap::file_info bfi;
   if (! ::serialization::parse_binary(str1, bfi))
-    throw std::runtime_error("Error in deserialization of bootstrap::file_info");
+    throw tools::runtime_error("Error in deserialization of bootstrap::file_info");
   LOG_PRINT_L0("bootstrap file v" << unsigned(bfi.major_version) << "." << unsigned(bfi.minor_version));
   LOG_PRINT_L0("bootstrap magic size: " << sizeof(file_magic));
   LOG_PRINT_L0("bootstrap header size: " << bfi.header_size);
@@ -412,7 +412,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
   if (!boost::filesystem::exists(raw_file_path, ec))
   {
     LOG_PRINT_L0("bootstrap file not found: " << raw_file_path);
-    throw std::runtime_error("Aborting");
+    throw tools::runtime_error("Aborting");
   }
   std::ifstream import_file;
   import_file.open(import_file_path, std::ios_base::binary | std::ifstream::in);
@@ -421,7 +421,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
   if (import_file.fail())
   {
     LOG_PRINT_L0("import_file.open() fail");
-    throw std::runtime_error("Aborting");
+    throw tools::runtime_error("Aborting");
   }
 
   uint64_t full_header_size; // 4 byte magic + length of header structures
@@ -456,7 +456,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
 
     str1.assign(buf1, sizeof(chunk_size));
     if (! ::serialization::parse_binary(str1, chunk_size))
-      throw std::runtime_error("Error in deserialization of chunk_size");
+      throw tools::runtime_error("Error in deserialization of chunk_size");
     LOG_PRINT_L3("chunk_size: " << chunk_size);
 
     if (chunk_size > BUFFER_SIZE)
@@ -464,7 +464,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
       std::cout << refresh_string;
       LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE
           << "  height: " << h-1);
-      throw std::runtime_error("Aborting: chunk size exceeds buffer size");
+      throw tools::runtime_error("Aborting: chunk size exceeds buffer size");
     }
     if (chunk_size > 100000)
     {
@@ -475,7 +475,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
     else if (chunk_size <= 0) {
       std::cout << refresh_string;
       LOG_PRINT_L0("ERROR: chunk_size " << chunk_size << " <= 0" << "  height: " << h-1);
-      throw std::runtime_error("Aborting");
+      throw tools::runtime_error("Aborting");
     }
     // skip to next expected block size value
     import_file.seekg(chunk_size, std::ios_base::cur);
@@ -483,7 +483,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
       std::cout << refresh_string;
       LOG_PRINT_L0("ERROR: unexpected end of file: bytes read before error: "
           << import_file.gcount() << " of chunk_size " << chunk_size);
-      throw std::runtime_error("Aborting");
+      throw tools::runtime_error("Aborting");
     }
     bytes_read += chunk_size;
 

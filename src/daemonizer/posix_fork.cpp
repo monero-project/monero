@@ -4,6 +4,7 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 
+#include "common/exception.h"
 #include "daemonizer/posix_fork.h"
 #include "misc_log_ex.h"
 
@@ -20,7 +21,7 @@ namespace {
   void quit(std::string const & message)
   {
     LOG_ERROR(message);
-    throw std::runtime_error(message);
+    throw tools::runtime_error(message);
   }
 }
 

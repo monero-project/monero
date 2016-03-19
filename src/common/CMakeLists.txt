@@ -31,6 +31,7 @@ set(common_sources
   command_line.cpp
   dns_utils.cpp
   util.cpp
+  exception.cpp
   i18n.cpp)
 
 set(common_headers)
@@ -48,6 +49,7 @@ set(common_private_headers
   unordered_containers_boost_serialization.h
   util.h
   varint.h
+  exception.h
   i18n.h)
 
 bitmonero_private_headers(common
@@ -60,6 +62,7 @@ target_link_libraries(common
   LINK_PRIVATE
     crypto
     ${UNBOUND_LIBRARY}
+    ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

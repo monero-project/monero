@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,32 +25,29 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "gtest/gtest.h"
+#ifndef MONERO_EXCEPTION_H
+#define MONERO_EXCEPTION_H
 
-#include "common/exception.h"
-#include "include_base_utils.h"
-#include "cryptonote_protocol/cryptonote_protocol_defs.h"
-#include "storages/portable_storage_template_helper.h"
+#include <stdexcept>
+#include <string>
 
-TEST(protocol_pack, protocol_pack_command) 
+namespace tools
 {
-  std::string buff;
-  cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request r;
-  r.start_height = 1;
-  r.total_height = 3;
-  for(int i = 1; i < 10000; i += i*10)
-  {
-    r.m_block_ids.resize(i, boost::value_initialized<crypto::hash>());
-    bool res = epee::serialization::store_t_to_binary(r, buff);
-    ASSERT_TRUE(res);
 
-    cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request r2;
-    res = epee::serialization::load_t_from_binary(r2, buff);
-    ASSERT_TRUE(r.m_block_ids.size() == i);
-    ASSERT_TRUE(r.start_height == 1);
-    ASSERT_TRUE(r.total_height == 3);
-  }
-}
+void log_stack_trace(const char *msg);
+
+class exception: public std::exception {
+public:
+  exception() { log_stack_trace(what()); }
+};
+
+class runtime_error: public std::runtime_error {
+public:
+  explicit runtime_error(const std::string &s): std::runtime_error(s) { log_stack_trace(what()); }
+  explicit runtime_error(const char *s): std::runtime_error(s) { log_stack_trace(what()); }
+};
+
+}  // namespace tools
+
+#endif

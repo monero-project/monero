@@ -33,6 +33,7 @@
 #include <list>
 #include <string>
 #include <exception>
+#include "common/exception.h"
 #include "crypto/hash.h"
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/difficulty.h"
@@ -151,7 +152,7 @@ struct output_data_t
 /***********************************
  * Exception Definitions
  ***********************************/
-class DB_EXCEPTION : public std::exception
+class DB_EXCEPTION : public tools::exception
 {
   private:
     std::string m;

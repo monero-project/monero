@@ -243,6 +243,14 @@ endif()
 
 add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
+find_package(Libunwind)
+if(LIBUNWIND_FOUND)
+  message(STATUS "Using libunwind to provide stack traces")
+  add_definitions("-DHAVE_LIBUNWIND")
+else()
+  message(STATUS "Stack traces disabled")
+endif()
+
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
   set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -273,6 +281,10 @@ include_directories(${LMDB_INCLUDE})
 if (BERKELEY_DB)
   include_directories(${BDB_INCLUDE})
 endif()
+
+# Final setup for libunwind
+include_directories(${LIBUNWIND_INCLUDE})
+link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")

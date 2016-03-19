@@ -35,6 +35,7 @@
 #include <boost/serialization/vector.hpp>
 #include <atomic>
 
+#include "common/exception.h"
 #include "include_base_utils.h"
 #include "cryptonote_core/account.h"
 #include "cryptonote_core/account_boost_serialization.h"
