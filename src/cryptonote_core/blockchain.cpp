@@ -2798,6 +2798,7 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
 {
   const auto& pts = points.get_points();
 
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_db->batch_start();
   for (const auto& pt : pts)
   {

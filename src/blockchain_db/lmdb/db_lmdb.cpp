@@ -240,6 +240,8 @@ mdb_txn_safe::mdb_txn_safe(const bool check) : m_txn(NULL), m_tinfo(NULL), m_che
 
 mdb_txn_safe::~mdb_txn_safe()
 {
+  if (!m_check)
+    return;
   LOG_PRINT_L3("mdb_txn_safe: destructor");
   if (m_tinfo != nullptr)
   {
@@ -263,8 +265,7 @@ mdb_txn_safe::~mdb_txn_safe()
     }
     mdb_txn_abort(m_txn);
   }
-  if (m_check)
-    num_active_txns--;
+  num_active_txns--;
 }
 
 void mdb_txn_safe::commit(std::string message)
