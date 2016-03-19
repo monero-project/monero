@@ -558,6 +558,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
 
   std::string fail_message = "Problem fetching transaction";
 
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(req, res, "/gettransactions", fail_message.c_str()))
@@ -567,7 +568,6 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   }
   else
   {
-    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
     if (!m_rpc_server->on_get_transactions(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << fail_message.c_str();
