@@ -1005,6 +1005,12 @@ POP_WARNINGS
     while(local_shared_context->ec == boost::asio::error::would_block)
     {
       bool r = local_shared_context->cond.timed_wait(lock, boost::get_system_time() + boost::posix_time::milliseconds(conn_timeout));
+      if (m_stop_signal_sent)
+      {
+        if (sock_.is_open())
+          sock_.close();
+        return false;
+      }
       if(local_shared_context->ec == boost::asio::error::would_block && !r)
       {
         //timeout
@@ -1018,6 +1024,8 @@ POP_WARNINGS
     if (ec || !sock_.is_open())
     {
       _dbg3("Some problems at connect, message: " << ec.message());
+      if (sock_.is_open())
+        sock_.close();
       return false;
     }
 
