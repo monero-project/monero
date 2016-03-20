@@ -28,6 +28,7 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include "common/exception.h"
 #include "checkpoints_create.h"
 #include "common/dns_utils.h"
 #include "include_base_utils.h"

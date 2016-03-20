@@ -156,7 +156,7 @@ namespace
       }
     }
 
-    throw std::runtime_error("invalid public key wasn't found");
+    throw tools::runtime_error("invalid public key wasn't found");
     return crypto::public_key();
   }
 }

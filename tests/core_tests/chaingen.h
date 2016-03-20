@@ -284,7 +284,7 @@ bool do_check_tx_verification_context(const cryptonote::tx_verification_context&
 {
   // Default block verification context check
   if (tvc.m_verifivation_failed)
-    throw std::runtime_error("Transaction verification failed");
+    throw tools::runtime_error("Transaction verification failed");
   return true;
 }
 //--------------------------------------------------------------------------
@@ -307,7 +307,7 @@ bool do_check_block_verification_context(const cryptonote::block_verification_co
 {
   // Default block verification context check
   if (bvc.m_verifivation_failed)
-    throw std::runtime_error("Block verification failed");
+    throw tools::runtime_error("Block verification failed");
   return true;
 }
 //--------------------------------------------------------------------------
@@ -621,7 +621,7 @@ inline bool do_replay_file(const std::string& filename)
         if (!tools::serialize_obj_to_file(events, filename)) \
         { \
             std::cout << concolor::magenta << "Failed to serialize data to file: " << filename << concolor::normal << std::endl; \
-            throw std::runtime_error("Failed to serialize data to file"); \
+            throw tools::runtime_error("Failed to serialize data to file"); \
         } \
     }
 

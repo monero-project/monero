@@ -41,6 +41,7 @@
 
 #include "syncobj.h"
 #include "string_tools.h"
+#include "common/exception.h"
 #include "tx_pool.h"
 #include "cryptonote_basic.h"
 #include "common/util.h"
@@ -314,7 +315,7 @@ namespace cryptonote
             "m_invalid_blocks: " << m_invalid_blocks.size() << ENDL  << 
             "m_current_block_cumul_sz_limit: " << m_current_block_cumul_sz_limit);
 
-          throw std::runtime_error("Blockchain data corruption");
+          throw tools::runtime_error("Blockchain data corruption");
         }
       }
     }

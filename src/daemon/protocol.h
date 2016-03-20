@@ -50,7 +50,7 @@ public:
     LOG_PRINT_L0("Initializing cryptonote protocol...");
     if (!m_protocol.init(vm))
     {
-      throw std::runtime_error("Failed to initialize cryptonote protocol.");
+      throw tools::runtime_error("Failed to initialize cryptonote protocol.");
     }
     LOG_PRINT_L0("Cryptonote protocol initialized OK");
   }

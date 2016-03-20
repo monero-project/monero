@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "common/exception.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "daemon/command_parser_executor.h"
 

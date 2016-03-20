@@ -104,7 +104,7 @@ TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
 
   // 2 theads, but 4 exceptions
   ASSERT_TRUE(srv.run_server(2, false));
-  ASSERT_TRUE(srv.async_call([&counter_incrementer]() { counter_incrementer(); throw std::runtime_error("test 1"); }));
+  ASSERT_TRUE(srv.async_call([&counter_incrementer]() { counter_incrementer(); throw tools::runtime_error("test 1"); }));
   ASSERT_TRUE(srv.async_call([&counter_incrementer]() { counter_incrementer(); throw std::string("test 2"); }));
   ASSERT_TRUE(srv.async_call([&counter_incrementer]() { counter_incrementer(); throw "test 3"; }));
   ASSERT_TRUE(srv.async_call([&counter_incrementer]() { counter_incrementer(); throw 4; }));

@@ -56,7 +56,7 @@ public:
   bool on_idle(){return true;}
   bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp){return true;}
   bool handle_get_objects(cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote::NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote::cryptonote_connection_context& context){return true;}
-  cryptonote::blockchain_storage &get_blockchain_storage() { throw std::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class test_core."); }
+  cryptonote::blockchain_storage &get_blockchain_storage() { throw tools::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class test_core."); }
   bool get_test_drop_download() const {return true;}
   bool get_test_drop_download_height() const {return true;}
   bool prepare_handle_incoming_blocks(const std::list<cryptonote::block_complete_entry>  &blocks) { return true; }

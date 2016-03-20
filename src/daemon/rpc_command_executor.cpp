@@ -28,6 +28,7 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include "common/exception.h"
 #include "string_tools.h"
 #include "common/scoped_message_writer.h"
 #include "daemon/rpc_command_executor.h"
@@ -88,7 +89,7 @@ t_rpc_command_executor::t_rpc_command_executor(
   {
     if (rpc_server == NULL)
     {
-      throw std::runtime_error("If not calling commands via RPC, rpc_server pointer must be non-null");
+      throw tools::runtime_error("If not calling commands via RPC, rpc_server pointer must be non-null");
     }
   }
 

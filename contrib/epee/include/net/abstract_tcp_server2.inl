@@ -777,7 +777,7 @@ POP_WARNINGS
   {
     m_thread_name_prefix = prefix_name;
 		auto it = server_type_map.find(m_thread_name_prefix);
-		if (it==server_type_map.end()) throw std::runtime_error("Unknown prefix/server type:" + std::string(prefix_name));
+		if (it==server_type_map.end()) throw tools::runtime_error("Unknown prefix/server type:" + std::string(prefix_name));
     auto connection_type = it->second; // the value of type
     _info_c("net/RPClog", "Set server type to: " << connection_type << " from name: " << m_thread_name_prefix);
     _info_c("net/RPClog", "prefix_name = " << prefix_name);

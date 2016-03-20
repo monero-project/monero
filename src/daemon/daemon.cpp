@@ -110,7 +110,7 @@ bool t_daemon::run(bool interactive)
 {
   if (nullptr == mp_internals)
   {
-    throw std::runtime_error{"Can't run stopped daemon"};
+    throw tools::runtime_error{"Can't run stopped daemon"};
   }
   tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop_p2p, this));
 
@@ -155,7 +155,7 @@ void t_daemon::stop()
 {
   if (nullptr == mp_internals)
   {
-    throw std::runtime_error{"Can't stop stopped daemon"};
+    throw tools::runtime_error{"Can't stop stopped daemon"};
   }
   mp_internals->p2p.stop();
   mp_internals->rpc.stop();
@@ -166,7 +166,7 @@ void t_daemon::stop_p2p()
 {
   if (nullptr == mp_internals)
   {
-    throw std::runtime_error{"Can't send stop signal to a stopped daemon"};
+    throw tools::runtime_error{"Can't send stop signal to a stopped daemon"};
   }
   mp_internals->p2p.get().send_stop_signal();
 }
