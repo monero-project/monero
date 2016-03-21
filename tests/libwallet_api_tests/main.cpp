@@ -165,6 +165,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet1)
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
+
 TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -181,6 +182,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
+
 TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -194,6 +196,29 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
     ASSERT_FALSE(wallet1->status() == Bitmonero::Wallet::Status_Ok);
 
     ASSERT_FALSE(wmgr->closeWallet(wallet1));
+
+    wallet1 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
+    ASSERT_TRUE(wallet1->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet1->seed() == seed1);
+    ASSERT_TRUE(wallet1->address() == address1);
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+
+}
+
+
+TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    std::string seed1 = wallet1->seed();
+    std::string address1 = wallet1->address();
+
+    ASSERT_TRUE(wallet1->store(""));
+    ASSERT_TRUE(wallet1->status() == Bitmonero::Wallet::Status_Ok);
+
+    ASSERT_TRUE(wallet1->store(""));
+    ASSERT_TRUE(wallet1->status() == Bitmonero::Wallet::Status_Ok);
+
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
     wallet1 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
     ASSERT_TRUE(wallet1->status() == Bitmonero::Wallet::Status_Ok);
