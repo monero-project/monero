@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 
 project (miniupnpc C)
 set (MINIUPNPC_VERSION 1.9)
-set (MINIUPNPC_API_VERSION 15)
+set (MINIUPNPC_API_VERSION 16)
 
 # - we comment out this block as we don't support these other build types
 if(0)
@@ -33,7 +33,7 @@ endif (NO_GETADDRINFO)
 
 if (NOT WIN32)
   add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
-  add_definitions (-D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112L)
+  add_definitions (-D_BSD_SOURCE -D_DEFAULT_SOURCE)
 else (NOT WIN32)
   add_definitions (-D_WIN32_WINNT=0x0501) # XP or higher for getnameinfo and friends
 endif (NOT WIN32)

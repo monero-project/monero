@@ -37,9 +37,6 @@
 
 find_package(Miniupnpc QUIET)
 
-# FreeBSD doesn't play well with the local copy, so default to using shared
-set(USE_SHARED_MINIUPNPC false)
-
 # If we have the correct shared version and we're not building static, use it
 if(STATIC)
  set(USE_SHARED_MINIUPNPC false)

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.126 2015/08/28 12:14:18 nanard Exp $
+# $Id: Makefile,v 1.133 2016/01/24 17:24:35 nanard Exp $
 # MiniUPnP Project
 # http://miniupnp.free.fr/
 # http://miniupnp.tuxfamily.org/
@@ -66,7 +66,7 @@ ifeq (SunOS, $(OS))
 endif
 
 # APIVERSION is used to build SONAME
-APIVERSION = 15
+APIVERSION = 16
 
 SRCS = igd_desc_parse.c miniupnpc.c minixml.c minisoap.c miniwget.c \
        upnpc.c upnpcommands.c upnpreplyparse.c testminixml.c \
