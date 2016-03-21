@@ -276,6 +276,7 @@ public:
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
     std::string errorString() const;
+    void setDaemonHost(const std::string &hostname);
 
 
 private:
@@ -327,6 +328,11 @@ bool WalletManagerImpl::walletExists(const std::string &path)
 std::string WalletManagerImpl::errorString() const
 {
     return m_errorString;
+}
+
+void WalletManagerImpl::setDaemonHost(const std::string &hostname)
+{
+
 }
 
 

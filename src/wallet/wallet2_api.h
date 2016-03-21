@@ -112,6 +112,9 @@ struct WalletManager
 
     virtual std::string errorString() const = 0;
 
+    virtual void setDaemonHost(const std::string &hostname) = 0;
+
+
 };
 
 
