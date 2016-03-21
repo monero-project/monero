@@ -27,7 +27,6 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "gtest/gtest.h"
-#include "common/exception.h"
 #include "mnemonics/electrum-words.h"
 #include "crypto/crypto.h"
 #include <stdlib.h>

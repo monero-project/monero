@@ -198,7 +198,7 @@ int main(int argc, char* argv[])
   else
   {
     LOG_ERROR("Attempted to use non-existent database type: " << db_type);
-    throw tools::runtime_error("Attempting to use non-existent database type");
+    throw std::runtime_error("Attempting to use non-existent database type");
   }
   LOG_PRINT_L0("database: " << db_type);
 

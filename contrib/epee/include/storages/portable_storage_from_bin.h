@@ -84,9 +84,9 @@ namespace epee
     inline throwable_buffer_reader::throwable_buffer_reader(const void* ptr, size_t sz)
     {
       if(!ptr) 
-        throw tools::runtime_error("throwable_buffer_reader: ptr==nullptr");
+        throw std::runtime_error("throwable_buffer_reader: ptr==nullptr");
       if(!sz)
-        throw tools::runtime_error("throwable_buffer_reader: sz==0");
+        throw std::runtime_error("throwable_buffer_reader: sz==0");
       m_ptr = (uint8_t*)ptr;
       m_count = sz;
       m_recursion_count = 0;

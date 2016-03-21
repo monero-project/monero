@@ -58,7 +58,7 @@ void test_generator::get_block_chain(std::vector<block_info>& blockchain, const 
     auto it = m_blocks_info.find(curr);
     if (m_blocks_info.end() == it)
     {
-      throw tools::runtime_error("block hash wasn't found");
+      throw std::runtime_error("block hash wasn't found");
     }
 
     blockchain.push_back(it->second);
@@ -82,7 +82,7 @@ uint64_t test_generator::get_already_generated_coins(const crypto::hash& blk_id)
 {
   auto it = m_blocks_info.find(blk_id);
   if (it == m_blocks_info.end())
-    throw tools::runtime_error("block hash wasn't found");
+    throw std::runtime_error("block hash wasn't found");
 
   return it->second.already_generated_coins;
 }
@@ -323,7 +323,7 @@ bool init_output_indices(map_output_idx_t& outs, std::map<uint64_t, std::vector<
         BOOST_FOREACH(const crypto::hash &h, blk.tx_hashes) {
             const map_hash2tx_t::const_iterator cit = mtx.find(h);
             if (mtx.end() == cit)
-                throw tools::runtime_error("block contains an unknown tx hash");
+                throw std::runtime_error("block contains an unknown tx hash");
 
             vtx.push_back(cit->second);
         }
@@ -486,11 +486,11 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
   destinations.clear();
 
   if (!fill_tx_sources(sources, events, blk_head, from, amount + fee, nmix))
-    throw tools::runtime_error("couldn't fill transaction sources");
+    throw std::runtime_error("couldn't fill transaction sources");
 
   tx_destination_entry de;
   if (!fill_tx_destination(de, to, amount))
-    throw tools::runtime_error("couldn't fill transaction destination");
+    throw std::runtime_error("couldn't fill transaction destination");
   destinations.push_back(de);
 
   tx_destination_entry de_change;
@@ -498,7 +498,7 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
   if (0 < cache_back)
   {
     if (!fill_tx_destination(de_change, from, cache_back))
-      throw tools::runtime_error("couldn't fill transaction cache back destination");
+      throw std::runtime_error("couldn't fill transaction cache back destination");
     destinations.push_back(de_change);
   }
 }

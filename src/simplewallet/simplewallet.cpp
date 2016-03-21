@@ -561,7 +561,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 {
   if (args.empty())
   {
-    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, store-tx-info, default-mixin, auto-refresh, refresh-type");
+    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, default-mixin, auto-refresh, refresh-type");
     return true;
   }
   else

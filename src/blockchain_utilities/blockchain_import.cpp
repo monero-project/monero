@@ -359,14 +359,14 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     str1.assign(buffer1, sizeof(chunk_size));
     if (! ::serialization::parse_binary(str1, chunk_size))
     {
-      throw tools::runtime_error("Error in deserialization of chunk size");
+      throw std::runtime_error("Error in deserialization of chunk size");
     }
     LOG_PRINT_L3("chunk_size: " << chunk_size);
 
     if (chunk_size > BUFFER_SIZE)
     {
       LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE);
-      throw tools::runtime_error("Aborting: chunk size exceeds buffer size");
+      throw std::runtime_error("Aborting: chunk size exceeds buffer size");
     }
     if (chunk_size > 100000)
     {
@@ -406,7 +406,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
       str1.assign(buffer_block, chunk_size);
       bootstrap::block_package bp;
       if (! ::serialization::parse_binary(str1, bp))
-        throw tools::runtime_error("Error in deserialization of chunk");
+        throw std::runtime_error("Error in deserialization of chunk");
 
       int display_interval = 1000;
       int progress_interval = 10;

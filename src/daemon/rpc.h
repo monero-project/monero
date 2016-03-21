@@ -55,7 +55,7 @@ public:
     LOG_PRINT_L0("Initializing core rpc server...");
     if (!m_server.init(vm))
     {
-      throw tools::runtime_error("Failed to initialize core rpc server.");
+      throw std::runtime_error("Failed to initialize core rpc server.");
     }
     LOG_PRINT_GREEN("Core rpc server initialized OK on port: " << m_server.get_binded_port(), LOG_LEVEL_0);
   }
@@ -65,7 +65,7 @@ public:
     LOG_PRINT_L0("Starting core rpc server...");
     if (!m_server.run(2, false))
     {
-      throw tools::runtime_error("Failed to start core rpc server.");
+      throw std::runtime_error("Failed to start core rpc server.");
     }
     LOG_PRINT_L0("Core rpc server started ok");
   }

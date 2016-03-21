@@ -161,7 +161,7 @@ namespace cryptonote
       cryptonote::checkpoints checkpoints;
       if (!cryptonote::create_checkpoints(checkpoints))
       {
-        throw tools::runtime_error("Failed to initialize checkpoints");
+        throw std::runtime_error("Failed to initialize checkpoints");
       }
       set_checkpoints(std::move(checkpoints));
 

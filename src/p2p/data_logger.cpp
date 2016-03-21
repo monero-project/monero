@@ -33,7 +33,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 #include <chrono>
-#include "common/exception.h"
 #include "../../contrib/otshell_utils/utils.hpp"
 
 namespace epee
@@ -44,7 +43,7 @@ namespace net_utils
 		boost::call_once(m_singleton, 
 			[] { 
 				_info_c("dbg/data","Creating singleton of data_logger");
-				if (m_state != data_logger_state::state_before_init) { _erro_c("dbg/data","Internal error in singleton"); throw tools::runtime_error("data_logger singleton"); }
+				if (m_state != data_logger_state::state_before_init) { _erro_c("dbg/data","Internal error in singleton"); throw std::runtime_error("data_logger singleton"); }
 				m_state = data_logger_state::state_during_init;
 				m_obj.reset(new data_logger());
 				m_state = data_logger_state::state_ready_to_use;
@@ -53,7 +52,7 @@ namespace net_utils
 		
 		if (m_state != data_logger_state::state_ready_to_use) {
 			_erro ("trying to use not working data_logger");
-			throw tools::runtime_error("data_logger ctor state");
+			throw std::runtime_error("data_logger ctor state");
 		}
 		
 		return * m_obj;
@@ -61,7 +60,7 @@ namespace net_utils
 	
 	data_logger::data_logger() {
 		_note_c("dbg/data","Starting data logger (for graphs data)");
-		if (m_state != data_logger_state::state_during_init) { _erro_c("dbg/data","Singleton ctor state"); throw tools::runtime_error("data_logger ctor state"); }
+		if (m_state != data_logger_state::state_during_init) { _erro_c("dbg/data","Singleton ctor state"); throw std::runtime_error("data_logger ctor state"); }
 		boost::lock_guard<boost::mutex> lock(mMutex); // lock
 		
 		// prepare all the files for given data channels:
