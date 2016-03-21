@@ -18,7 +18,8 @@ OBJS=miniwget.o minixml.o igd_desc_parse.o minisoap.o \
      upnpdev.o
 OBJSDLL=$(addprefix dll/, $(OBJS))
 
-all:	init upnpc-static upnpc-shared testminixml libminiupnpc.a miniupnpc.dll
+all:	init upnpc-static upnpc-shared testminixml libminiupnpc.a \
+	miniupnpc.dll listdevices
 
 init:
 	mkdir dll
@@ -64,6 +65,9 @@ upnpc-static:	upnpc.o libminiupnpc.a
 	$(CC) -o $@ $^ $(LDLIBS)
 
 upnpc-shared:	dll/upnpc.o miniupnpc.lib
+	$(CC) -o $@ $^ $(LDLIBS)
+
+listdevices: listdevices.o libminiupnpc.a
 	$(CC) -o $@ $^ $(LDLIBS)
 
 wingenminiupnpcstrings:	wingenminiupnpcstrings.o
