@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 
 project (miniupnpc C)
 set (MINIUPNPC_VERSION 1.9)
-set (MINIUPNPC_API_VERSION 15)
+set (MINIUPNPC_API_VERSION 16)
 
 # - we comment out this block as we don't support these other build types
 if(0)
