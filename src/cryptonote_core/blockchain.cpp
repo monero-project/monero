@@ -83,7 +83,7 @@ static const struct {
   { 2, 1009827, 0, 1442763710 },
 
   // version 3 starts from block 1141317, which is on or around the 24th of September, 2016. Fork time finalised on 2016-03-21.
-  { 3, 1009827, 0, 1442763710 },
+  { 3, 1009827, 0, 1458558528 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 1009826;
 
