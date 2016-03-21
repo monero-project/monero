@@ -1426,7 +1426,7 @@ POP_WARNINGS
 #define CATCH_ENTRY_L4(lacation, return_val) CATCH_ENTRY(lacation, return_val)
 
 
-#define ASSERT_MES_AND_THROW(message) {LOG_ERROR(message); std::stringstream ss; ss << message; throw tools::runtime_error(ss.str());}
+#define ASSERT_MES_AND_THROW(message) {LOG_ERROR(message); std::stringstream ss; ss << message; throw std::runtime_error(ss.str());}
 #define CHECK_AND_ASSERT_THROW_MES(expr, message) {if(!(expr)) ASSERT_MES_AND_THROW(message);}
 
 

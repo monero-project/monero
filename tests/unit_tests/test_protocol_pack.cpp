@@ -30,7 +30,6 @@
 
 #include "gtest/gtest.h"
 
-#include "common/exception.h"
 #include "include_base_utils.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "storages/portable_storage_template_helper.h"

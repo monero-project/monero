@@ -60,7 +60,7 @@ public:
     LOG_PRINT_L0("Initializing p2p server...");
     if (!m_server.init(vm))
     {
-      throw tools::runtime_error("Failed to initialize p2p server.");
+      throw std::runtime_error("Failed to initialize p2p server.");
     }
     LOG_PRINT_L0("P2p server initialized OK");
   }

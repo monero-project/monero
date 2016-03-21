@@ -32,7 +32,6 @@
 #include <boost/archive/binary_iarchive.hpp>
 
 #include <boost/utility/value_init.hpp>
-#include "common/exception.h"
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -804,7 +803,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       // handle error from async fetching thread
       if (error)
       {
-        throw tools::runtime_error("proxy exception in refresh thread");
+        throw std::runtime_error("proxy exception in refresh thread");
       }
     }
     catch (const std::exception&)
@@ -2013,7 +2012,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
     // Throw if split_amounts comes back with a vector of size different than it should
     if (split_values.size() != num_tx)
     {
-      throw tools::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
+      throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
     }
 
     std::vector<pending_tx> ptx_vector;

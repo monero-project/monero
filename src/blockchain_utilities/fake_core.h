@@ -78,7 +78,7 @@ struct fake_core_db
     else
     {
       LOG_ERROR("Attempted to use non-existent database type: " << db_type);
-      throw tools::runtime_error("Attempting to use non-existent database type");
+      throw std::runtime_error("Attempting to use non-existent database type");
     }
 
     boost::filesystem::path folder(path);
@@ -176,7 +176,7 @@ struct fake_core_memory
   {
     // TODO:
     // would need to refactor handle_block_to_main_chain() to have a direct add_block() method like Blockchain class
-    throw tools::runtime_error("direct add_block() method not implemented for in-memory db");
+    throw std::runtime_error("direct add_block() method not implemented for in-memory db");
     return 2;
   }
 

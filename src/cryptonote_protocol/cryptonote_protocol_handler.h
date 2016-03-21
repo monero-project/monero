@@ -38,7 +38,6 @@
 #include <string>
 #include <ctime>
 
-#include "common/exception.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "warnings.h"
 #include "cryptonote_protocol_defs.h"
