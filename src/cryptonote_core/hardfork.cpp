@@ -253,6 +253,9 @@ bool HardFork::reorganize_from_chain_height(uint64_t height)
 
 bool HardFork::rescan_from_block_height(uint64_t height)
 {
+#if 1
+  return reorganize_from_block_height(height);
+#else
   CRITICAL_REGION_LOCAL(lock);
   db.block_txn_start(true);
   if (height >= db.height()) {
@@ -279,6 +282,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
   db.block_txn_stop();
 
   return true;
+#endif
 }
 
 bool HardFork::rescan_from_chain_height(uint64_t height)
