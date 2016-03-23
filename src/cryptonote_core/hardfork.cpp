@@ -139,7 +139,7 @@ bool HardFork::add(uint8_t block_version, uint8_t voting_version, uint64_t heigh
   if (voted > current_fork_index) {
     for (int v = heights[current_fork_index].version + 1; v <= heights[voted].version; ++v) {
       // we reached the vote threshold with this block, next one will be forked
-      db.set_hard_fork_starting_height(v, height + 1);
+      //db.set_hard_fork_starting_height(v, height + 1);
     }
     current_fork_index = voted;
   }
