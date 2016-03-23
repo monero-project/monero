@@ -139,7 +139,7 @@ bool HardFork::add(uint8_t block_version, uint8_t voting_version, uint64_t heigh
   if (voted > current_fork_index) {
     for (int v = heights[current_fork_index].version + 1; v <= heights[voted].version; ++v) {
       // we reached the vote threshold with this block, next one will be forked
-      db.set_hard_fork_starting_height(v, height + 1);
+      //db.set_hard_fork_starting_height(v, height + 1);
     }
     current_fork_index = voted;
   }
@@ -253,6 +253,9 @@ bool HardFork::reorganize_from_chain_height(uint64_t height)
 
 bool HardFork::rescan_from_block_height(uint64_t height)
 {
+#if 1
+  return reorganize_from_block_height(height);
+#else
   CRITICAL_REGION_LOCAL(lock);
   db.block_txn_start(true);
   if (height >= db.height()) {
@@ -279,6 +282,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
   db.block_txn_stop();
 
   return true;
+#endif
 }
 
 bool HardFork::rescan_from_chain_height(uint64_t height)
