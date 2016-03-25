@@ -42,7 +42,7 @@ using namespace epee;
 #include "cryptonote_format_utils.h"
 #include "misc_language.h"
 #include <csignal>
-#include "cryptonote_core/checkpoints_create.h"
+#include "cryptonote_core/checkpoints.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #if defined(BERKELEY_DB)
@@ -159,7 +159,7 @@ namespace cryptonote
     if (!m_testnet && !m_fakechain)
     {
       cryptonote::checkpoints checkpoints;
-      if (!cryptonote::create_checkpoints(checkpoints))
+      if (!checkpoints.init_default_checkpoints())
       {
         throw std::runtime_error("Failed to initialize checkpoints");
       }
@@ -415,7 +415,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
     r = m_miner.init(vm, m_testnet);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
+    CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
 
     return load_state_data();
   }
@@ -634,11 +634,6 @@ namespace cryptonote
     return m_blockchain_storage.get_total_transactions();
   }
   //-----------------------------------------------------------------------------------------------
-  //bool core::get_outs(uint64_t amount, std::list<crypto::public_key>& pkeys)
-  //{
-  //  return m_blockchain_storage.get_outs(amount, pkeys);
-  //}
-  //-----------------------------------------------------------------------------------------------
   bool core::add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed)
   {
     if(m_mempool.have_tx(tx_hash))
@@ -770,10 +765,6 @@ namespace cryptonote
   {
     m_miner.on_synchronized();
   }
-  //bool core::get_backward_blocks_sizes(uint64_t from_height, std::vector<size_t>& sizes, size_t count)
-  //{
-  //  return m_blockchain_storage.get_backward_blocks_sizes(from_height, sizes, count);
-  //}
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_block(const block& b, block_verification_context& bvc)
   {
@@ -893,10 +884,6 @@ namespace cryptonote
   {
     return m_blockchain_storage.get_block_by_hash(h, blk);
   }
-  //-----------------------------------------------------------------------------------------------
-  //void core::get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid) {
-  //  m_blockchain_storage.get_all_known_block_ids(main, alt, invalid);
-  //}
   //-----------------------------------------------------------------------------------------------
   std::string core::print_pool(bool short_format) const
   {
