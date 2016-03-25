@@ -88,10 +88,10 @@ namespace tools
     };
 
   private:
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true) {}
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers (false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0) {}
 
   public:
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_restricted(restricted), is_old_file_format(false), m_store_tx_info(true), m_default_mixin(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0) {}
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -226,6 +226,8 @@ namespace tools
     cryptonote::account_base& get_account(){return m_account;}
     const cryptonote::account_base& get_account()const{return m_account;}
 
+    void set_refresh_from_block_height(uint64_t height) {m_refresh_from_block_height = height;}
+
     // upper_transaction_size_limit as defined below is set to 
     // approximately 125% of the fixed minimum allowable penalty
     // free block size. TODO: fix this so that it actually takes
@@ -319,6 +321,9 @@ namespace tools
       if(ver < 9)
         return;
       a & m_confirmed_txs;
+      if(ver < 11)
+        return;
+      a & m_refresh_from_block_height;
     }
 
     /*!
@@ -430,9 +435,10 @@ namespace tools
     uint32_t m_default_mixin;
     RefreshType m_refresh_type;
     bool m_auto_refresh;
+    uint64_t m_refresh_from_block_height;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 10)
+BOOST_CLASS_VERSION(tools::wallet2, 11)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 2)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 1)

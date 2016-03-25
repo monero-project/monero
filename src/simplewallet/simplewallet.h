@@ -69,6 +69,7 @@ namespace cryptonote
     bool run();
     void stop();
     void interrupt();
+    bool generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password);
 
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
@@ -221,6 +222,7 @@ namespace cryptonote
     std::string m_generate_new;
     std::string m_generate_from_view_key;
     std::string m_generate_from_keys;
+    std::string m_generate_from_json;
     std::string m_import_path;
 
     std::string m_electrum_seed;  // electrum-style seed parameter

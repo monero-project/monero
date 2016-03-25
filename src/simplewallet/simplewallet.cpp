@@ -57,6 +57,7 @@
 #include "version.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "mnemonics/electrum-words.h"
+#include "rapidjson/document.h"
 #include <stdexcept>
 
 #if defined(WIN32)
@@ -81,6 +82,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg> or <address>.wallet by default"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_view_key = {"generate-from-view-key", sw::tr("Generate incoming-only wallet from view key"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_keys = {"generate-from-keys", sw::tr("Generate wallet from private keys"), ""};
+  const command_line::arg_descriptor<std::string> arg_generate_from_json = {"generate-from-json", sw::tr("Generate wallet from JSON format file"), ""};
   const command_line::arg_descriptor<std::string> arg_daemon_address = {"daemon-address", sw::tr("Use daemon instance at <host>:<port>"), ""};
   const command_line::arg_descriptor<std::string> arg_daemon_host = {"daemon-host", sw::tr("Use daemon instance at host <arg> instead of localhost"), ""};
   const command_line::arg_descriptor<std::string> arg_password = {"password", sw::tr("Wallet password"), "", true};
@@ -716,7 +718,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
   // add logic to error out if new wallet requested but named wallet file exists
   if (keys_file_exists || wallet_file_exists)
   {
-    if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty())
+    if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty() || !m_generate_from_json.empty())
     {
       fail_msg_writer() << tr("attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.");
       return false;
@@ -763,6 +765,13 @@ void simple_wallet::print_seed(std::string seed)
 //----------------------------------------------------------------------------------------------------
 static bool get_password(const boost::program_options::variables_map& vm, bool allow_entry, tools::password_container &pwd_container)
 {
+  // has_arg returns true even when the parameter is not passed ??
+  const std::string gfj = command_line::get_arg(vm, arg_generate_from_json);
+  if (!gfj.empty()) {
+    // will be in the json file, if any
+    return true;
+  }
+
   if (has_arg(vm, arg_password) && has_arg(vm, arg_password_file))
   {
     fail_msg_writer() << tr("can't specify more than one of --password and --password-file");
@@ -809,6 +818,153 @@ static bool get_password(const boost::program_options::variables_map& vm, bool a
 }
 
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password)
+{
+  std::string buf;
+  bool r = epee::file_io_utils::load_file_to_string(m_generate_from_json, buf);
+  if (!r) {
+    fail_msg_writer() << tr("Failed to load file ") << m_generate_from_json;
+    return false;
+  }
+
+  rapidjson::Document json;
+  if (json.Parse(buf.c_str()).HasParseError()) {
+    fail_msg_writer() << tr("Failed to parse JSON");
+    return false;
+  }
+
+  if (!json.HasMember("version")) {
+    fail_msg_writer() << tr("Version not found in JSON");
+    return false;
+  }
+  unsigned int version = json["version"].GetUint();
+  const int current_version = 1;
+  if (version > current_version) {
+    fail_msg_writer() << boost::format(tr("Version %u too new, we can only grok up to %u")) % version % current_version;
+    return false;
+  }
+  if (!json.HasMember("filename")) {
+    fail_msg_writer() << tr("Filename not found in JSON");
+    return false;
+  }
+  std::string filename = json["filename"].GetString();
+
+  bool recover = false;
+  uint64_t scan_from_height = 0;
+  if (json.HasMember("scan_from_height")) {
+    scan_from_height = json["scan_from_height"].GetUint64();
+    recover = true;
+  }
+
+  password = "";
+  if (json.HasMember("password")) {
+    password = json["password"].GetString();
+  }
+
+  std::string viewkey_string("");
+  crypto::secret_key viewkey;
+  if (json.HasMember("viewkey")) {
+    viewkey_string = json["viewkey"].GetString();
+    cryptonote::blobdata viewkey_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data))
+    {
+      fail_msg_writer() << tr("failed to parse view key secret key");
+      return false;
+    }
+    viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+  }
+
+  std::string spendkey_string("");
+  crypto::secret_key spendkey;
+  if (json.HasMember("spendkey")) {
+    spendkey_string = json["spendkey"].GetString();
+    cryptonote::blobdata spendkey_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data))
+    {
+      fail_msg_writer() << tr("failed to parse spend key secret key");
+      return false;
+    }
+    spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+  }
+
+  std::string seed("");
+  std::string old_language;
+  if (json.HasMember("seed")) {
+    seed = json["seed"].GetString();
+    if (!crypto::ElectrumWords::words_to_bytes(seed, m_recovery_key, old_language))
+    {
+      fail_msg_writer() << tr("Electrum-style word list failed verification");
+      return false;
+    }
+    m_electrum_seed = seed;
+    m_restore_deterministic_wallet = true;
+  }
+
+  // compatibility checks
+  if (seed.empty() && viewkey_string.empty()) {
+    fail_msg_writer() << tr("At least one of Electrum-style word list and private view key must be specified");
+    return false;
+  }
+  if (!seed.empty() && (!viewkey_string.empty() || !spendkey_string.empty())) {
+    fail_msg_writer() << tr("Both Electrum-style word list and private key(s) specified");
+    return false;
+  }
+
+  m_wallet_file = filename;
+
+  bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
+    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
+  if (was_deprecated_wallet) {
+    fail_msg_writer() << tr("Cannot create deprecated wallets from JSON");
+    return false;
+  }
+
+  bool testnet = command_line::get_arg(vm, arg_testnet);
+  m_wallet.reset(new tools::wallet2(testnet));
+  m_wallet->callback(this);
+
+  try
+  {
+    if (!seed.empty())
+    {
+      m_wallet->generate(m_wallet_file, password, m_recovery_key, recover, false);
+    }
+    else
+    {
+      cryptonote::account_public_address address;
+      if (!crypto::secret_key_to_public_key(viewkey, address.m_view_public_key)) {
+        fail_msg_writer() << tr("failed to verify view key secret key");
+        return false;
+      }
+      if (!crypto::secret_key_to_public_key(spendkey, address.m_spend_public_key)) {
+        fail_msg_writer() << tr("failed to verify spend key secret key");
+        return false;
+      }
+
+      if (spendkey_string.empty())
+      {
+        m_wallet->generate(m_wallet_file, password, address, viewkey);
+      }
+      else
+      {
+        m_wallet->generate(m_wallet_file, password, address, spendkey, viewkey);
+      }
+    }
+  }
+  catch (const std::exception& e)
+  {
+    fail_msg_writer() << tr("failed to generate new wallet: ") << e.what();
+    return false;
+  }
+
+  m_wallet->set_refresh_from_block_height(scan_from_height);
+
+  wallet_file = m_wallet_file;
+
+  return r;
+}
+
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
   if (!handle_command_line(vm))
@@ -820,12 +976,12 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     return false;
   }
 
-  if((!m_generate_new.empty()) + (!m_wallet_file.empty()) + (!m_generate_from_view_key.empty()) + (!m_generate_from_keys.empty()) > 1)
+  if((!m_generate_new.empty()) + (!m_wallet_file.empty()) + (!m_generate_from_view_key.empty()) + (!m_generate_from_keys.empty()) + (!m_generate_from_json.empty()) > 1)
   {
-    fail_msg_writer() << tr("can't specify more than one of --generate-new-wallet=\"wallet_name\", --wallet-file=\"wallet_name\", --generate-from-view-key=\"wallet_name\" and --generate-from-keys=\"wallet_name\"");
+    fail_msg_writer() << tr("can't specify more than one of --generate-new-wallet=\"wallet_name\", --wallet-file=\"wallet_name\", --generate-from-view-key=\"wallet_name\", --generate-from-json=\"jsonfilename\" and --generate-from-keys=\"wallet_name\"");
     return false;
   }
-  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_keys.empty())
+  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_keys.empty() && m_generate_from_json.empty())
   {
     if(!ask_wallet_create_if_needed()) return false;
   }
@@ -847,7 +1003,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (!get_password(vm, true, pwd_container))
     return false;
 
-  if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty())
+  if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty() || !m_generate_from_json.empty())
   {
     if (m_wallet_file.empty()) m_wallet_file = m_generate_new;  // alias for simplicity later
 
@@ -993,6 +1149,12 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       bool r = new_wallet(m_wallet_file, pwd_container.password(), address, spendkey, viewkey, testnet);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
+    else if (!m_generate_from_json.empty())
+    {
+      std::string wallet_file, password; // we don't need to remember them
+      if (!generate_from_json(vm, wallet_file, password))
+        return false;
+    }
     else
     {
       bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet,
@@ -1023,6 +1185,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_generate_new                  = command_line::get_arg(vm, arg_generate_new_wallet);
   m_generate_from_view_key        = command_line::get_arg(vm, arg_generate_from_view_key);
   m_generate_from_keys            = command_line::get_arg(vm, arg_generate_from_keys);
+  m_generate_from_json            = command_line::get_arg(vm, arg_generate_from_json);
   m_daemon_address                = command_line::get_arg(vm, arg_daemon_address);
   m_daemon_host                   = command_line::get_arg(vm, arg_daemon_host);
   m_daemon_port                   = command_line::get_arg(vm, arg_daemon_port);
@@ -2575,6 +2738,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_generate_new_wallet);
   command_line::add_arg(desc_params, arg_generate_from_view_key);
   command_line::add_arg(desc_params, arg_generate_from_keys);
+  command_line::add_arg(desc_params, arg_generate_from_json);
   command_line::add_arg(desc_params, arg_password);
   command_line::add_arg(desc_params, arg_password_file);
   command_line::add_arg(desc_params, arg_daemon_address);
@@ -2707,11 +2871,21 @@ int main(int argc, char* argv[])
     if (daemon_address.empty())
       daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
+    std::string password;
+    const std::string gfj = command_line::get_arg(vm, arg_generate_from_json);
+    if (!gfj.empty()) {
+      if (!w.generate_from_json(vm, wallet_file, password))
+        return 1;
+    }
+    else {
+      password = pwd_container.password();
+    }
+
     tools::wallet2 wal(testnet,restricted);
     try
     {
       LOG_PRINT_L0(sw::tr("Loading wallet..."));
-      wal.load(wallet_file, pwd_container.password());
+      wal.load(wallet_file, password);
       wal.init(daemon_address);
       wal.refresh();
       LOG_PRINT_GREEN(sw::tr("Loaded ok"), LOG_LEVEL_0);
