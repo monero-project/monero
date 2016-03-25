@@ -41,6 +41,23 @@ using namespace std;
 //unsigned int epee::g_test_dbg_lock_sleep = 0;
 
 
+struct Utils
+{
+    static void deleteWallet(const std::string & walletname)
+    {
+        std::cout << "** deleting wallet: " << walletname << std::endl;
+        boost::filesystem::remove(walletname);
+        boost::filesystem::remove(walletname + ".address.txt");
+        boost::filesystem::remove(walletname + ".keys");
+    }
+
+    static void deleteDir(const std::string &path)
+    {
+        std::cout << "** removing dir recursively: " << path  << std::endl;
+        boost::filesystem::remove_all(path);
+    }
+};
+
 
 struct WalletManagerTest : public testing::Test
 {
@@ -54,12 +71,16 @@ struct WalletManagerTest : public testing::Test
     const char * WALLET_PASS2 = "password22";
     const char * WALLET_LANG = "English";
 
+    // TODO: add test wallets to the source tree (as they have some balance mined)?
+    const char * TESTNET_WALLET_NAME = "/home/mbg033/dev/monero/testnet/wallet_01.bin";
+    const char * TESTNET_WALLET_PASS = "";
+
     WalletManagerTest()
     {
         std::cout << __FUNCTION__ << std::endl;
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
-        deleteWallet(WALLET_NAME);
-        deleteDir(boost::filesystem::path(WALLET_NAME_WITH_DIR).parent_path().string());
+        Utils::deleteWallet(WALLET_NAME);
+        Utils::deleteDir(boost::filesystem::path(WALLET_NAME_WITH_DIR).parent_path().string());
     }
 
 
@@ -68,29 +89,13 @@ struct WalletManagerTest : public testing::Test
         std::cout << __FUNCTION__ << std::endl;
         //deleteWallet(WALLET_NAME);
     }
-
-
-    void deleteWallet(const std::string & walletname)
-    {
-        std::cout << "** deleting wallet: " << walletname << std::endl;
-        boost::filesystem::remove(walletname);
-        boost::filesystem::remove(walletname + ".address.txt");
-        boost::filesystem::remove(walletname + ".keys");
-    }
-
-    void deleteDir(const std::string &path)
-    {
-        std::cout << "** removing dir recursively: " << path  << std::endl;
-        boost::filesystem::remove_all(path);
-    }
-
 };
 
 
 TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
 
-    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, true);
     ASSERT_TRUE(wallet->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(!wallet->seed().empty());
     std::vector<std::string> words;
@@ -107,16 +112,16 @@ TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 TEST_F(WalletManagerTest, WalletManagerOpensWallet)
 {
 
-    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, true);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, true);
     ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
     std::cout << "** seed: " << wallet2->seed() << std::endl;
 }
 
-
+/*
 TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -182,7 +187,6 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
-
 TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -205,7 +209,6 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
 
 }
 
-
 TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -225,7 +228,24 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
     ASSERT_TRUE(wallet1->seed() == seed1);
     ASSERT_TRUE(wallet1->address() == address1);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
+}
+*/
 
+TEST_F(WalletManagerTest, WalletShowsBalance)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    std::string seed1 = wallet1->seed();
+    std::string address1 = wallet1->address();
+    ASSERT_TRUE(wallet1->balance() > 0);
+
+    uint64_t balance1 = wallet1->balance();
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    ASSERT_TRUE(seed1 == wallet2->seed());
+    ASSERT_TRUE(address1 == wallet2->address());
+    ASSERT_TRUE(balance1 == wallet2->balance());
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
 

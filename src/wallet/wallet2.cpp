@@ -3077,6 +3077,11 @@ std::string wallet2::get_tx_note(const crypto::hash &txid) const
   return i->second;
 }
 
+std::string wallet2::get_daemon_address() const
+{
+  return m_daemon_address;
+}
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
   if (m_testnet)

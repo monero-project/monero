@@ -67,6 +67,9 @@ struct Wallet
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address() const = 0;
     virtual bool store(const std::string &path) = 0;
+    virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+    virtual bool connectToDaemon() = 0;
+    virtual uint64_t balance() const = 0;
 };
 
 /**
@@ -82,7 +85,7 @@ struct WalletManager
      * \param  language       Language to be used to generate electrum seed memo
      * \return                Wallet instance (Wallet::status() needs to be called to check if created successfully)
      */
-    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language) = 0;
+    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language, bool testnet) = 0;
 
     /*!
      * \brief  Opens existing wallet
@@ -90,7 +93,7 @@ struct WalletManager
      * \param  password       Password of wallet file
      * \return                Wallet instance (Wallet::status() needs to be called to check if opened successfully)
      */
-    virtual Wallet * openWallet(const std::string &path, const std::string &password) = 0;
+    virtual Wallet * openWallet(const std::string &path, const std::string &password, bool testnet) = 0;
 
     /*!
      * \brief  recovers existing wallet using memo (electrum seed)
@@ -111,8 +114,8 @@ struct WalletManager
     virtual bool walletExists(const std::string &path) = 0;
 
     virtual std::string errorString() const = 0;
-
-    virtual void setDaemonHost(const std::string &hostname) = 0;
+//    //! set
+//    virtual void setDaemonAddress(const std::string &address) = 0;
 
 
 };

@@ -382,6 +382,7 @@ namespace tools
     void set_tx_note(const crypto::hash &txid, const std::string &note);
     std::string get_tx_note(const crypto::hash &txid) const;
 
+    std::string get_daemon_address() const;
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
