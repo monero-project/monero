@@ -490,7 +490,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   //handle transactions from new block
     
   //optimization: seeking only for blocks that are not older then the wallet creation time plus 1 day. 1 day is for possible user incorrect time setup
-  if(b.timestamp + 60*60*24 > m_account.get_createtime())
+  if(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height)
   {
     TIME_MEASURE_START(miner_tx_handle_time);
     process_new_transaction(b.miner_tx, height, true);
