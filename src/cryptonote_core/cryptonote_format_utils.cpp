@@ -126,19 +126,18 @@ namespace cryptonote
       return false;
     }
 
-    // from hard fork 2, we cut out the low significant digits. This makes the tx smaller, and
-    // keeps the paid amount almost the same. The unpaid remainder gets pushed back to the
-    // emission schedule
-    if (hard_fork_version >= 2)
-    {
-        block_reward = block_reward - block_reward % ::config::BASE_REWARD_CLAMP_THRESHOLD;
-    }
-
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
     LOG_PRINT_L1("Creating block template: reward " << block_reward <<
       ", fee " << fee)
 #endif
     block_reward += fee;
+
+    // from hard fork 2, we cut out the low significant digits. This makes the tx smaller, and
+    // keeps the paid amount almost the same. The unpaid remainder gets pushed back to the
+    // emission schedule
+    if (hard_fork_version >= 2) {
+      block_reward = block_reward - block_reward % ::config::BASE_REWARD_CLAMP_THRESHOLD;
+    }
 
     std::vector<uint64_t> out_amounts;
     decompose_amount_into_digits(block_reward, hard_fork_version >= 2 ? 0 : ::config::DEFAULT_DUST_THRESHOLD,

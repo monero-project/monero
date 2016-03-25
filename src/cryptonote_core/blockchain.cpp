@@ -948,7 +948,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
 }
 //------------------------------------------------------------------
 // This function validates the miner transaction reward
-bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward)
+bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   //validate reward
@@ -956,6 +956,15 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   for (auto& o: b.miner_tx.vout)
     money_in_use += o.amount;
   partial_block_reward = false;
+
+  if (version >= 3) {
+    for (auto &o: b.miner_tx.vout) {
+      if (!is_valid_decomposed_amount(o.amount)) {
+        LOG_PRINT_L1("miner tx output " << print_money(o.amount) << " is not a valid decomposed amount");
+        return false;
+      }
+    }
+  }
 
   std::vector<size_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
@@ -2698,7 +2707,7 @@ leave:
   TIME_MEASURE_START(vmt);
   uint64_t base_reward = 0;
   uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
-  if(!validate_miner_transaction(bl, cumulative_block_size, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward))
+  if(!validate_miner_transaction(bl, cumulative_block_size, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward, m_hardfork->get_current_version()))
   {
     LOG_PRINT_L1("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
