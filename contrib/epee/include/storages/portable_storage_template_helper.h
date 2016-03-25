@@ -72,7 +72,7 @@ namespace epee
     {
       std::string json_buff;
       store_t_to_json(str_in, json_buff, indent, insert_newlines);
-      return std::move(json_buff);
+      return json_buff;
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
@@ -117,7 +117,7 @@ namespace epee
     {
       std::string binary_buff;
       store_t_to_binary(str_in, binary_buff, indent);
-      return std::move(binary_buff);
+      return binary_buff;
     }
   }
 }
