@@ -2761,6 +2761,11 @@ std::string wallet2::get_keys_file() const
   return m_keys_file;
 }
 
+std::string wallet2::get_daemon_address() const
+{
+  return m_daemon_address;
+}
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
   if (m_testnet)

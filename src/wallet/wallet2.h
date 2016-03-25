@@ -359,6 +359,7 @@ namespace tools
 
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
+    std::string get_daemon_address() const;
   private:
     /*!
      * \brief  Stores wallet information to wallet file.

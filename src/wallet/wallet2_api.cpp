@@ -54,7 +54,7 @@ Wallet::~Wallet() {}
 class WalletImpl : public Wallet
 {
 public:
-    WalletImpl();
+    WalletImpl(bool testnet = false);
     ~WalletImpl();
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);
@@ -70,6 +70,9 @@ public:
     bool setPassword(const std::string &password);
     std::string address() const;
     bool store(const std::string &path);
+    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
+    uint64_t balance() const;
+    bool connectToDaemon();
 
 private:
     void clearStatus();
@@ -82,10 +85,10 @@ private:
     std::string m_password;
 };
 
-WalletImpl::WalletImpl()
+WalletImpl::WalletImpl(bool testnet)
     :m_wallet(nullptr), m_status(Wallet::Status_Ok)
 {
-    m_wallet = new tools::wallet2();
+    m_wallet = new tools::wallet2(testnet);
 }
 
 WalletImpl::~WalletImpl()
@@ -257,6 +260,35 @@ bool WalletImpl::store(const std::string &path)
     return m_status == Status_Ok;
 }
 
+bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
+{
+    clearStatus();
+    try {
+        m_wallet->init(daemon_address, upper_transaction_size_limit);
+    } catch (const std::exception &e) {
+        LOG_ERROR("Error initializing wallet: " << e.what());
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+
+    return m_status == Status_Ok;
+}
+
+uint64_t WalletImpl::balance() const
+{
+    return m_wallet->balance();
+}
+
+bool WalletImpl::connectToDaemon()
+{
+    bool result = m_wallet->check_connection();
+    m_status = result ? Status_Ok : Status_Error;
+    if (!result) {
+        m_errorString = "Error connecting to daemon at " + m_wallet->get_daemon_address();
+    }
+    return result;
+}
+
 void WalletImpl::clearStatus()
 {
     m_status = Status_Ok;
@@ -270,8 +302,8 @@ class WalletManagerImpl : public WalletManager
 {
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language);
-    Wallet * openWallet(const std::string &path, const std::string &password);
+                          const std::string &language, bool testnet);
+    Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo);
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
@@ -287,16 +319,16 @@ private:
 };
 
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
-                                    const std::string &language)
+                                    const std::string &language, bool testnet)
 {
-    WalletImpl * wallet = new WalletImpl();
+    WalletImpl * wallet = new WalletImpl(testnet);
     wallet->create(path, password, language);
     return wallet;
 }
 
-Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password)
+Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, bool testnet)
 {
-    WalletImpl * wallet = new WalletImpl();
+    WalletImpl * wallet = new WalletImpl(testnet);
     wallet->open(path, password);
     return wallet;
 }
