@@ -683,6 +683,15 @@ namespace cryptonote
     bool flush_txes_from_pool(const std::list<crypto::hash> &txids);
 
     /**
+     * @brief return a histogram of outputs on the blockchain
+     *
+     * @param amounts optional set of amounts to lookup
+     *
+     * @return a set of amount/instances
+     */
+    std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const;
+
+    /**
      * @brief perform a check on all key images in the blockchain
      *
      * @param std::function the check to perform, pass/fail

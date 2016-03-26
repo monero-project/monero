@@ -132,6 +132,8 @@ public:
   bool unban(const std::string &ip);
 
   bool flush_txpool(const std::string &txid);
+
+  bool output_histogram(uint64_t min_count, uint64_t max_count);
 };
 
 } // namespace daemonize

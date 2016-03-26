@@ -1203,5 +1203,41 @@ bool t_rpc_command_executor::flush_txpool(const std::string &txid)
     return true;
 }
 
+bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_count)
+{
+    cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req;
+    cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    req.min_count = min_count;
+    req.max_count = max_count;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "get_output_histogram", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_get_output_histogram(req, res, error_resp))
+        {
+            tools::fail_msg_writer() << fail_message.c_str();
+            return true;
+        }
+    }
+
+    std::sort(res.histogram.begin(), res.histogram.end(),
+        [](const cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry &e1, const cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry &e2)->bool { return e1.instances < e2.instances; });
+    for (const auto &e: res.histogram)
+    {
+        tools::msg_writer() << e.instances << "  " << cryptonote::print_money(e.amount);
+    }
+
+    return true;
+}
+
 
 }// namespace daemonize
