@@ -403,7 +403,7 @@ namespace tools
     uint64_t get_upper_tranaction_size_limit();
     void check_pending_txes();
     std::vector<uint64_t> get_unspent_amounts_vector();
-    std::vector<size_t> select_available_outputs(std::function<bool(const transfer_details &td)> f);
+    std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
 
     cryptonote::account_base m_account;
