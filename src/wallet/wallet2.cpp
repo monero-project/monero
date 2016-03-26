@@ -92,6 +92,13 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
   }
 }
 
+uint64_t calculate_fee(const cryptonote::blobdata &blob)
+{
+  uint64_t bytes = blob.size();
+  uint64_t kB = (bytes + 1023) / 1024;
+  return kB * FEE_PER_KB;
+}
+
 } //namespace
 
 namespace tools
@@ -2030,13 +2037,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 	{
 	  transfer(dst_vector, fake_outs_count, unlock_time, needed_fee, extra, tx, ptx);
 	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
-	  uint64_t txSize = txBlob.size();
-	  uint64_t numKB = txSize / 1024;
-	  if (txSize % 1024)
-	  {
-	    numKB++;
-	  }
-	  needed_fee = numKB * FEE_PER_KB;
+          needed_fee = calculate_fee(txBlob);
 	} while (ptx.fee < needed_fee);
 
         ptx_vector.push_back(ptx);
@@ -2408,15 +2409,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
         detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
       auto txBlob = t_serializable_object_to_blob(test_ptx.tx);
-      uint64_t txSize = txBlob.size();
-      uint64_t numKB = txSize / 1024;
-      if (txSize % 1024)
-      {
-        numKB++;
-      }
-      needed_fee = numKB * FEE_PER_KB;
+      needed_fee = calculate_fee(txBlob);
       available_for_fee = test_ptx.fee + test_ptx.change_dts.amount;
-      LOG_PRINT_L2("Made a " << numKB << " kB tx, with " << print_money(available_for_fee) << " available for fee (" <<
+      LOG_PRINT_L2("Made a " << txBlob.size() << " kB tx, with " << print_money(available_for_fee) << " available for fee (" <<
         print_money(needed_fee) << " needed)");
 
       if (needed_fee > available_for_fee && dsts[0].amount > 0)
@@ -2686,13 +2681,7 @@ std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
 	{
 	  transfer_dust(num_outputs_per_tx, (uint64_t)0 /* unlock_time */, 0, detail::digit_split_strategy, dust_policy, extra, tx, ptx);
 	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
-	  uint64_t txSize = txBlob.size();
-	  uint64_t numKB = txSize / 1024;
-	  if (txSize % 1024)
-	  {
-	    numKB++;
-	  }
-	  needed_fee = numKB * FEE_PER_KB;
+          needed_fee = calculate_fee(txBlob);
 
           // reroll the tx with the actual amount minus the fee
           // if there's not enough for the fee, it'll throw
