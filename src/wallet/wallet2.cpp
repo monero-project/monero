@@ -2677,7 +2677,7 @@ std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
 
 	// loop until fee is met without increasing tx size to next KB boundary.
 	uint64_t needed_fee = 0;
-	if (1)
+	do
 	{
 	  transfer_dust(num_outputs_per_tx, (uint64_t)0 /* unlock_time */, 0, detail::digit_split_strategy, dust_policy, extra, tx, ptx);
 	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
@@ -2687,7 +2687,8 @@ std::vector<wallet2::pending_tx> wallet2::create_dust_sweep_transactions()
           // if there's not enough for the fee, it'll throw
 	  transfer_dust(num_outputs_per_tx, (uint64_t)0 /* unlock_time */, needed_fee, detail::digit_split_strategy, dust_policy, extra, tx, ptx);
 	  txBlob = t_serializable_object_to_blob(ptx.tx);
-	}
+          needed_fee = calculate_fee(txBlob);
+	} while (ptx.fee < needed_fee);
 
         ptx_vector.push_back(ptx);
 
