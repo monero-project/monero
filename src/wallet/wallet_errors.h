@@ -76,6 +76,7 @@ namespace tools
     //         daemon_busy
     //         no_connection_to_daemon
     //         is_key_image_spent_error
+    //         get_histogram_error
     //       wallet_files_doesnt_correspond
     //
     // * - class with protected ctor
@@ -596,6 +597,14 @@ namespace tools
     {
       explicit is_key_image_spent_error(std::string&& loc, const std::string& request)
         : wallet_rpc_error(std::move(loc), "error from is_key_image_spent call", request)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct get_histogram_error : public wallet_rpc_error
+    {
+      explicit get_histogram_error(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "failed to get output histogram", request)
       {
       }
     };

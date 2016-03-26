@@ -347,7 +347,7 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_dust_sweep_transactions();
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_unmixable_sweep_transactions();
 
       m_wallet.commit_tx(ptx_vector);
 
