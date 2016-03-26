@@ -2221,7 +2221,7 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_unmixable_sweep_transactions();
+    auto ptx_vector = m_wallet->create_unmixable_sweep_transactions(m_trusted_daemon);
 
     if (ptx_vector.empty())
     {

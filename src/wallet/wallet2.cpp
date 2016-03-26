@@ -2688,7 +2688,7 @@ std::vector<uint64_t> wallet2::get_unspent_amounts_vector()
   return vector;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<size_t> wallet2::select_available_unmixable_outputs()
+std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
 {
   // request all outputs with at least 3 instances, so we can use mixin 2 with
   epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
@@ -2697,7 +2697,8 @@ std::vector<size_t> wallet2::select_available_unmixable_outputs()
   req_t.jsonrpc = "2.0";
   req_t.id = epee::serialization::storage_entry(0);
   req_t.method = "get_output_histogram";
-  req_t.params.amounts = get_unspent_amounts_vector();
+  if (trusted_daemon)
+    req_t.params.amounts = get_unspent_amounts_vector();
   req_t.params.min_count = 3;
   req_t.params.max_count = 0;
   bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
@@ -2720,14 +2721,14 @@ std::vector<size_t> wallet2::select_available_unmixable_outputs()
   });
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions()
+std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bool trusted_daemon)
 {
   // From hard fork 1, we don't consider small amounts to be dust anymore
   const bool hf1_rules = use_fork_rules(2); // first hard fork has version 2
   tx_dust_policy dust_policy(hf1_rules ? 0 : ::config::DEFAULT_DUST_THRESHOLD);
 
   // may throw
-  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs();
+  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs(trusted_daemon);
   size_t num_dust_outputs = unmixable_outputs.size();
 
   if (num_dust_outputs == 0)
