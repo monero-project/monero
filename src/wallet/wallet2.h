@@ -280,7 +280,7 @@ namespace tools
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra);
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx);
     template<typename T>
-    void transfer_dust(size_t num_outputs, uint64_t unlock_time, uint64_t needed_fee, T destination_split_strategy, const tx_dust_policy& dust_policy, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx);
+    void transfer_from(const std::vector<size_t> &outs, size_t num_outputs, uint64_t unlock_time, uint64_t needed_fee, T destination_split_strategy, const tx_dust_policy& dust_policy, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx);
     template<typename T>
     void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::list<transfer_container::iterator> selected_transfers, size_t fake_outputs_count,
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx);
@@ -289,7 +289,7 @@ namespace tools
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra);
     std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra);
-    std::vector<pending_tx> create_dust_sweep_transactions();
+    std::vector<pending_tx> create_unmixable_sweep_transactions(bool trusted_daemon);
     bool check_connection();
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height = 0) const;
@@ -402,6 +402,9 @@ namespace tools
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
     uint64_t get_upper_tranaction_size_limit();
     void check_pending_txes();
+    std::vector<uint64_t> get_unspent_amounts_vector();
+    std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
+    std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;

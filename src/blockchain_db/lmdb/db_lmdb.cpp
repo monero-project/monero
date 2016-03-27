@@ -2692,6 +2692,63 @@ void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::
   LOG_PRINT_L3("db3: " << db3);
 }
 
+std::map<uint64_t, uint64_t> BlockchainLMDB::get_output_histogram(const std::vector<uint64_t> &amounts) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(output_amounts);
+
+  std::map<uint64_t, uint64_t> histogram;
+  MDB_val k;
+  MDB_val v;
+
+  if (amounts.empty())
+  {
+    MDB_cursor_op op = MDB_FIRST;
+    while (1)
+    {
+      int ret = mdb_cursor_get(m_cur_output_amounts, &k, &v, op);
+      op = MDB_NEXT_NODUP;
+      if (ret == MDB_NOTFOUND)
+        break;
+      if (ret)
+        throw0(DB_ERROR(lmdb_error("Failed to enumerate outputs: ", ret).c_str()));
+      mdb_size_t num_elems = 0;
+      mdb_cursor_count(m_cur_output_amounts, &num_elems);
+      uint64_t amount = *(const uint64_t*)k.mv_data;
+      histogram[amount] = num_elems;
+    }
+  }
+  else
+  {
+    for (const auto &amount: amounts)
+    {
+      MDB_val_copy<uint64_t> k(amount);
+      int ret = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_SET);
+      if (ret == MDB_NOTFOUND)
+      {
+        histogram[amount] = 0;
+      }
+      else if (ret == MDB_SUCCESS)
+      {
+        mdb_size_t num_elems = 0;
+        mdb_cursor_count(m_cur_output_amounts, &num_elems);
+        histogram[amount] = num_elems;
+      }
+      else
+      {
+        throw0(DB_ERROR(lmdb_error("Failed to enumerate outputs: ", ret).c_str()));
+      }
+    }
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return histogram;
+}
+
 void BlockchainLMDB::check_hard_fork_info()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);

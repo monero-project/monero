@@ -1041,6 +1041,38 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_output_histogram(const COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request& req, COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    std::map<uint64_t, uint64_t> histogram;
+    try
+    {
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts);
+    }
+    catch (const std::exception &e)
+    {
+      res.status = "Failed to get output histogram";
+      return true;
+    }
+
+    res.histogram.clear();
+    res.histogram.reserve(histogram.size());
+    for (const auto &i: histogram)
+    {
+      if (i.second >= req.min_count && (i.second <= req.max_count || req.max_count == 0))
+        res.histogram.push_back(COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry(i.first, i.second));
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_fast_exit(const COMMAND_RPC_FAST_EXIT::request& req, COMMAND_RPC_FAST_EXIT::response& res)
   {
 	  cryptonote::core::set_fast_exit();

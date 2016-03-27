@@ -541,7 +541,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), tr("Show blockchain height"));
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 0 to maximum available)"));
   m_cmd_binder.set_handler("transfer_new", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer, but using a new transaction building algorithm"));
-  m_cmd_binder.set_handler("sweep_dust", boost::bind(&simple_wallet::sweep_dust, this, _1), tr("Send all dust outputs to yourself with mixin 0"));
+  m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
@@ -1722,8 +1722,7 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
 bool simple_wallet::show_balance(const std::vector<std::string>& args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance()) << ", "
-    << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance()) << ", "
-    << tr("including unlocked dust: ") << print_money(m_wallet->unlocked_dust_balance(tools::tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD)));
+    << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance());
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -2208,7 +2207,7 @@ bool simple_wallet::transfer_new(const std::vector<std::string> &args_)
 }
 
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
+bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
     return true;
@@ -2221,28 +2220,37 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
 
   try
   {
-    uint64_t total_dust = m_wallet->unlocked_dust_balance(tools::tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD));
-
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_dust_sweep_transactions();
+    auto ptx_vector = m_wallet->create_unmixable_sweep_transactions(m_trusted_daemon);
+
+    if (ptx_vector.empty())
+    {
+      fail_msg_writer() << tr("No unmixable outputs found");
+      return true;
+    }
 
     // give user total and fee, and prompt to confirm
-    uint64_t total_fee = 0;
+    uint64_t total_fee = 0, total_unmixable = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
       total_fee += ptx_vector[n].fee;
+      for (const auto &vin: ptx_vector[n].tx.vin)
+      {
+        if (vin.type() == typeid(txin_to_key))
+          total_unmixable += boost::get<txin_to_key>(vin).amount;
+      }
     }
 
-    std::string prompt_str = tr("Sweeping ") + print_money(total_dust);
+    std::string prompt_str = tr("Sweeping ") + print_money(total_unmixable);
     if (ptx_vector.size() > 1) {
       prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
-        print_money(total_dust) %
+        print_money(total_unmixable) %
         ((unsigned long long)ptx_vector.size()) %
         print_money(total_fee)).str();
     }
     else {
       prompt_str = (boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
-        print_money(total_dust) %
+        print_money(total_unmixable) %
         print_money(total_fee)).str();
     }
     std::string accepted = command_line::input_line(prompt_str);
@@ -2285,11 +2293,12 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
   }
   catch (const tools::error::not_enough_money& e)
   {
-    fail_msg_writer() << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)")) %
+    fail_msg_writer() << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee).\n%s")) %
       print_money(e.available()) %
       print_money(e.tx_amount() + e.fee()) %
       print_money(e.tx_amount()) %
-      print_money(e.fee());
+      print_money(e.fee()) %
+      tr("This is usually due to dust which is so small it cannot pay for itself in fees");
   }
   catch (const tools::error::not_enough_outs_to_mix& e)
   {

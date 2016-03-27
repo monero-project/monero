@@ -1289,6 +1289,15 @@ public:
   virtual void drop_hard_fork_info() = 0;
 
   /**
+   * @brief return a histogram of outputs on the blockchain
+   *
+   * @param amounts optional set of amounts to lookup
+   *
+   * @return a set of amount/instances
+   */
+  virtual std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const = 0;
+
+  /**
    * @brief is BlockchainDB in read-only mode?
    *
    * @return true if in read-only mode, otherwise false

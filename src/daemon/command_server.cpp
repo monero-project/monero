@@ -214,6 +214,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::flush_txpool, &m_parser, p::_1)
     , "Flush a transaction from the tx pool by its txid, or the whole tx pool"
     );
+    m_command_lookup.set_handler(
+      "output_histogram"
+    , std::bind(&t_command_parser_executor::output_histogram, &m_parser, p::_1)
+    , "Print output histogram (amount, instances)"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

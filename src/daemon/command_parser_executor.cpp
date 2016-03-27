@@ -439,5 +439,23 @@ bool t_command_parser_executor::flush_txpool(const std::vector<std::string>& arg
   return m_executor.flush_txpool(txid);
 }
 
+bool t_command_parser_executor::output_histogram(const std::vector<std::string>& args)
+{
+  if (args.size() > 2) return false;
+
+  uint64_t min_count = 3;
+  uint64_t max_count = 0;
+
+  if (args.size() >= 1)
+  {
+    min_count = boost::lexical_cast<uint64_t>(args[0]);
+  }
+  if (args.size() >= 2)
+  {
+    max_count = boost::lexical_cast<uint64_t>(args[1]);
+  }
+  return m_executor.output_histogram(min_count, max_count);
+}
+
 
 } // namespace daemonize

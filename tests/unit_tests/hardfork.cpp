@@ -108,6 +108,7 @@ public:
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const { return true; }
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const { return true; }
   virtual bool is_read_only() const { return false; }
+  virtual std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const { return std::map<uint64_t, uint64_t>(); }
 
   virtual void add_block( const block& blk
                         , const size_t& block_size

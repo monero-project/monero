@@ -109,6 +109,7 @@ namespace cryptonote
         MAP_JON_RPC_WE("setbans",                on_set_bans,                   COMMAND_RPC_SETBANS)
         MAP_JON_RPC_WE("getbans",                on_get_bans,                   COMMAND_RPC_GETBANS)
         MAP_JON_RPC_WE("flush_txpool",           on_flush_txpool,               COMMAND_RPC_FLUSH_TRANSACTION_POOL)
+        MAP_JON_RPC_WE("get_output_histogram",   on_get_output_histogram,       COMMAND_RPC_GET_OUTPUT_HISTOGRAM)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -149,6 +150,7 @@ namespace cryptonote
     bool on_set_bans(const COMMAND_RPC_SETBANS::request& req, COMMAND_RPC_SETBANS::response& res, epee::json_rpc::error& error_resp);
     bool on_get_bans(const COMMAND_RPC_GETBANS::request& req, COMMAND_RPC_GETBANS::response& res, epee::json_rpc::error& error_resp);
     bool on_flush_txpool(const COMMAND_RPC_FLUSH_TRANSACTION_POOL::request& req, COMMAND_RPC_FLUSH_TRANSACTION_POOL::response& res, epee::json_rpc::error& error_resp);
+    bool on_get_output_histogram(const COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request& req, COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response& res, epee::json_rpc::error& error_resp);
     //-----------------------
 
 private:
