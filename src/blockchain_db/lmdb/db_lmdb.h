@@ -46,9 +46,7 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_block_info;
 
   MDB_cursor *m_txc_output_txs;
-  MDB_cursor *m_txc_output_indices;
   MDB_cursor *m_txc_output_amounts;
-  MDB_cursor *m_txc_output_keys;
 
   MDB_cursor *m_txc_txs;
   MDB_cursor *m_txc_tx_indices;
@@ -63,9 +61,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_block_heights	m_cursors->m_txc_block_heights
 #define m_cur_block_info	m_cursors->m_txc_block_info
 #define m_cur_output_txs	m_cursors->m_txc_output_txs
-#define m_cur_output_indices	m_cursors->m_txc_output_indices
 #define m_cur_output_amounts	m_cursors->m_txc_output_amounts
-#define m_cur_output_keys	m_cursors->m_txc_output_keys
 #define m_cur_txs	m_cursors->m_txc_txs
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
@@ -79,9 +75,7 @@ typedef struct mdb_rflags
   bool m_rf_block_heights;
   bool m_rf_block_info;
   bool m_rf_output_txs;
-  bool m_rf_output_indices;
   bool m_rf_output_amounts;
-  bool m_rf_output_keys;
   bool m_rf_txs;
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
@@ -100,7 +94,7 @@ typedef struct mdb_threadinfo
 
 struct mdb_txn_safe
 {
-  mdb_txn_safe();
+  mdb_txn_safe(const bool check=true);
   ~mdb_txn_safe();
 
   void commit(std::string message = "");
@@ -127,8 +121,10 @@ struct mdb_txn_safe
   static void wait_no_active_txns();
   static void allow_new_txns();
 
+  mdb_threadinfo* m_tinfo;
   MDB_txn* m_txn;
   bool m_batch_txn = false;
+  bool m_check;
   static std::atomic<uint64_t> num_active_txns;
 
   // could use a mutex here, but this should be sufficient.
@@ -230,7 +226,6 @@ public:
 
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index);
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices);
-  virtual void get_output_global_indices(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<uint64_t> &indices);
 
   virtual void get_amount_and_global_output_indices(const uint64_t tx_index,
     std::vector<uint64_t>& amount_output_indices,
@@ -261,7 +256,7 @@ public:
   virtual void block_txn_start(bool readonly);
   virtual void block_txn_stop();
   virtual void block_txn_abort();
-  virtual bool block_rtxn_start() const;
+  virtual bool block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const;
   virtual void block_rtxn_stop() const;
 
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
@@ -337,16 +332,6 @@ private:
    */
   tx_out output_from_blob(const blobdata& blob) const;
 
-  /**
-   * @brief get the global index of the index-th output of the given amount
-   *
-   * @param amount the output amount
-   * @param index the index into the set of outputs of that amount
-   *
-   * @return the global index of the desired output
-   */
-  uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
-
   void check_open() const;
 
   virtual bool is_read_only() const;
@@ -365,9 +350,7 @@ private:
   MDB_dbi m_tx_outputs;
 
   MDB_dbi m_output_txs;
-  MDB_dbi m_output_indices;
   MDB_dbi m_output_amounts;
-  MDB_dbi m_output_keys;
 
   MDB_dbi m_spent_keys;
 
@@ -384,6 +367,7 @@ private:
   std::string m_folder;
   mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
   mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
+  boost::thread::id m_writer;
 
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
