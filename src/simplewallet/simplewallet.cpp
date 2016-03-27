@@ -58,6 +58,7 @@
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "mnemonics/electrum-words.h"
 #include "rapidjson/document.h"
+#include "common/json_util.h"
 #include <stdexcept>
 
 #if defined(WIN32)
@@ -833,40 +834,27 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     return false;
   }
 
-  if (!json.HasMember("version")) {
-    fail_msg_writer() << tr("Version not found in JSON");
-    return false;
-  }
-  unsigned int version = json["version"].GetUint();
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, version, unsigned, Uint, true);
   const int current_version = 1;
-  if (version > current_version) {
-    fail_msg_writer() << boost::format(tr("Version %u too new, we can only grok up to %u")) % version % current_version;
+  if (field_version > current_version) {
+    fail_msg_writer() << boost::format(tr("Version %u too new, we can only grok up to %u")) % field_version % current_version;
     return false;
   }
-  if (!json.HasMember("filename")) {
-    fail_msg_writer() << tr("Filename not found in JSON");
-    return false;
-  }
-  std::string filename = json["filename"].GetString();
 
-  bool recover = false;
-  uint64_t scan_from_height = 0;
-  if (json.HasMember("scan_from_height")) {
-    scan_from_height = json["scan_from_height"].GetUint64();
-    recover = true;
-  }
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, filename, std::string, String, true);
 
-  password = "";
-  if (json.HasMember("password")) {
-    password = json["password"].GetString();
-  }
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, scan_from_height, uint64_t, Uint64, false);
+  bool recover = field_scan_from_height_found;
 
-  std::string viewkey_string("");
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, password, std::string, String, false);
+  password = field_password;
+
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, viewkey, std::string, String, false);
   crypto::secret_key viewkey;
-  if (json.HasMember("viewkey")) {
-    viewkey_string = json["viewkey"].GetString();
+  if (field_viewkey_found)
+  {
     cryptonote::blobdata viewkey_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(field_viewkey, viewkey_data))
     {
       fail_msg_writer() << tr("failed to parse view key secret key");
       return false;
@@ -874,12 +862,12 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
   }
 
-  std::string spendkey_string("");
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, spendkey, std::string, String, false);
   crypto::secret_key spendkey;
-  if (json.HasMember("spendkey")) {
-    spendkey_string = json["spendkey"].GetString();
+  if (field_spendkey_found)
+  {
     cryptonote::blobdata spendkey_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(field_spendkey, spendkey_data))
     {
       fail_msg_writer() << tr("failed to parse spend key secret key");
       return false;
@@ -887,30 +875,32 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
   }
 
-  std::string seed("");
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed, std::string, String, false);
   std::string old_language;
-  if (json.HasMember("seed")) {
-    seed = json["seed"].GetString();
-    if (!crypto::ElectrumWords::words_to_bytes(seed, m_recovery_key, old_language))
+  if (field_seed_found)
+  {
+    if (!crypto::ElectrumWords::words_to_bytes(field_seed, m_recovery_key, old_language))
     {
       fail_msg_writer() << tr("Electrum-style word list failed verification");
       return false;
     }
-    m_electrum_seed = seed;
+    m_electrum_seed = field_seed;
     m_restore_deterministic_wallet = true;
   }
 
   // compatibility checks
-  if (seed.empty() && viewkey_string.empty()) {
+  if (!field_seed_found && !field_viewkey_found)
+  {
     fail_msg_writer() << tr("At least one of Electrum-style word list and private view key must be specified");
     return false;
   }
-  if (!seed.empty() && (!viewkey_string.empty() || !spendkey_string.empty())) {
+  if (field_seed_found && (field_viewkey_found || field_spendkey_found))
+  {
     fail_msg_writer() << tr("Both Electrum-style word list and private key(s) specified");
     return false;
   }
 
-  m_wallet_file = filename;
+  m_wallet_file = field_filename;
 
   bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
     crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
@@ -925,7 +915,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
 
   try
   {
-    if (!seed.empty())
+    if (!field_seed.empty())
     {
       m_wallet->generate(m_wallet_file, password, m_recovery_key, recover, false);
     }
@@ -941,7 +931,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
         return false;
       }
 
-      if (spendkey_string.empty())
+      if (field_spendkey.empty())
       {
         m_wallet->generate(m_wallet_file, password, address, viewkey);
       }
@@ -957,7 +947,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     return false;
   }
 
-  m_wallet->set_refresh_from_block_height(scan_from_height);
+  m_wallet->set_refresh_from_block_height(field_scan_from_height);
 
   wallet_file = m_wallet_file;
 
