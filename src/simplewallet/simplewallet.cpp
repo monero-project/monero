@@ -2160,6 +2160,9 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
   catch (const tools::error::tx_rejected& e)
   {
     fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
+    std::string reason = e.reason();
+    if (!reason.empty())
+      fail_msg_writer() << tr("Reason: ") << reason;
   }
   catch (const tools::error::tx_sum_overflow& e)
   {
@@ -2307,6 +2310,9 @@ bool simple_wallet::sweep_dust(const std::vector<std::string> &args_)
   catch (const tools::error::tx_rejected& e)
   {
     fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
+    std::string reason = e.reason();
+    if (!reason.empty())
+      fail_msg_writer() << tr("Reason: ") << reason;
   }
   catch (const tools::error::tx_sum_overflow& e)
   {

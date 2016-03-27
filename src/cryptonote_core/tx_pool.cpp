@@ -97,6 +97,7 @@ namespace cryptonote
     if(!check_inputs_types_supported(tx))
     {
       tvc.m_verifivation_failed = true;
+      tvc.m_invalid_input = true;
       return false;
     }
 
@@ -113,6 +114,7 @@ namespace cryptonote
     {
       LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
       tvc.m_verifivation_failed = true;
+      tvc.m_overspend = true;
       return false;
     }
 
@@ -124,6 +126,7 @@ namespace cryptonote
     {
       LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minimum fee: " << print_money(needed_fee));
       tvc.m_verifivation_failed = true;
+      tvc.m_fee_too_low = true;
       return false;
     }
 
@@ -132,6 +135,7 @@ namespace cryptonote
     {
       LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << tx_size_limit);
       tvc.m_verifivation_failed = true;
+      tvc.m_too_big = true;
       return false;
     }
 
@@ -142,21 +146,23 @@ namespace cryptonote
       {
         LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
         tvc.m_verifivation_failed = true;
+        tvc.m_double_spend = true;
         return false;
       }
     }
 
-    if (!m_blockchain.check_tx_outputs(tx))
+    if (!m_blockchain.check_tx_outputs(tx, tvc))
     {
       LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid outout");
       tvc.m_verifivation_failed = true;
+      tvc.m_invalid_output = true;
       return false;
     }
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
 #if BLOCKCHAIN_DB == DB_LMDB
-    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, kept_by_block);
+    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, kept_by_block);
 #else
     bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id);
 #endif
@@ -480,7 +486,8 @@ namespace cryptonote
       if(txd.last_failed_id != null_hash && m_blockchain.get_current_blockchain_height() > txd.last_failed_height && txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
         return false;//we already sure that this tx is broken for this height
 
-      if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id))
+      tx_verification_context tvc;
+      if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id, tvc))
       {
         txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
         txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);
@@ -496,7 +503,12 @@ namespace cryptonote
         if(txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
           return false;
         //check ring signature again, it is possible (with very small chance) that this transaction become again valid
+#if BLOCKCHAIN_DB == DB_LMDB
+        tx_verification_context tvc;
+        if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id, tvc))
+#else
         if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id))
+#endif
         {
           txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
           txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);

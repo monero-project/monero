@@ -1991,7 +1991,7 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
 // This function overloads its sister function with
 // an extra value (hash of highest block that holds an output used as input)
 // as a return-by-reference.
-bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block_height, crypto::hash& max_used_block_id, bool kept_by_block)
+bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2013,7 +2013,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
 #endif
 
   TIME_MEASURE_START(a);
-  bool res = check_tx_inputs(tx, &max_used_block_height);
+  bool res = check_tx_inputs(tx, tvc, &max_used_block_height);
   TIME_MEASURE_FINISH(a);
   crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
   if(m_show_time_stats)
@@ -2032,7 +2032,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::check_tx_outputs(const transaction& tx)
+bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context &tvc)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2041,6 +2041,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx)
   if (m_hardfork->get_current_version() >= 2) {
     for (auto &o: tx.vout) {
       if (!is_valid_decomposed_amount(o.amount)) {
+        tvc.m_invalid_output = true;
         return false;
       }
     }
@@ -2066,7 +2067,7 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
 //        check_tx_input() rather than here, and use this function simply
 //        to iterate the inputs as necessary (splitting the task
 //        using threads, etc.)
-bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height)
+bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   size_t sig_index = 0;
@@ -2113,11 +2114,13 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
       if (n_unmixable == 0)
       {
         LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and no unmixable inputs");
+        tvc.m_low_mixin = true;
         return false;
       }
       if (n_mixable > 1)
       {
         LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and more than one mixable input with unmixable inputs");
+        tvc.m_low_mixin = true;
         return false;
       }
     }
@@ -2176,6 +2179,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t* pmax_used_bloc
     if(have_tx_keyimg_as_spent(in_to_key.k_image))
     {
       LOG_PRINT_L1("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
+      tvc.m_double_spend = true;
       return false;
     }
 
@@ -2667,7 +2671,8 @@ leave:
 #endif
     {
       // validate that transaction inputs and the keys spending them are correct.
-      if(!check_tx_inputs(tx))
+      tx_verification_context tvc;
+      if(!check_tx_inputs(tx, tvc))
       {
         LOG_PRINT_L1("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
 

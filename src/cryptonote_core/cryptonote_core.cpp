@@ -489,6 +489,7 @@ namespace cryptonote
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, too big size " << tx_blob.size() << ", rejected");
       tvc.m_verifivation_failed = true;
+      tvc.m_too_big = true;
       return false;
     }
 

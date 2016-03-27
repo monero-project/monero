@@ -472,11 +472,12 @@ namespace cryptonote
      * @param tx the transaction to validate
      * @param pmax_used_block_height return-by-reference block height of most recent input
      * @param max_used_block_id return-by-reference block hash of most recent input
+     * @param tvc returned information about tx verification
      * @param kept_by_block whether or not the transaction is from a previously-verified block
      *
      * @return false if any input is invalid, otherwise true
      */
-    bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, bool kept_by_block = false);
+    bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false);
 
     /**
      * @brief check that a transaction's outputs conform to current standards
@@ -486,10 +487,11 @@ namespace cryptonote
      * written out would have only one non-zero digit in base 10).
      *
      * @param tx the transaction to check the outputs of
+     * @param tvc returned info about tx verification
      *
      * @return false if any outputs do not conform, otherwise true
      */
-    bool check_tx_outputs(const transaction& tx);
+    bool check_tx_outputs(const transaction& tx, tx_verification_context &tvc);
 
     /**
      * @brief gets the blocksize limit based on recent blocks
@@ -874,11 +876,12 @@ namespace cryptonote
      * transaction.
      *
      * @param tx the transaction to validate
+     * @param tvc returned information about tx verification
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
      *
      * @return false if any validation step fails, otherwise true
      */
-    bool check_tx_inputs(const transaction& tx, uint64_t* pmax_used_block_height = NULL);
+    bool check_tx_inputs(const transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL);
 
     /**
      * @brief performs a blockchain reorganization according to the longest chain rule
