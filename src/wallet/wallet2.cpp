@@ -1214,7 +1214,7 @@ void wallet2::generate(const std::string& wallet_, const std::string& password,
   m_account_public_address = account_public_address;
   m_watch_only = false;
 
-  bool r = store_keys(m_keys_file, password, true);
+  bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
   r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
