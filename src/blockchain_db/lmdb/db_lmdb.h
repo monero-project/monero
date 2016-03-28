@@ -300,7 +300,6 @@ private:
   void remove_tx_outputs(const uint64_t tx_index, const transaction& tx);
 
   void remove_output(const uint64_t& out_index, const uint64_t amount);
-  void remove_amount_output_index(const uint64_t amount, const uint64_t global_output_index);
 
   virtual void add_spent_key(const crypto::key_image& k_image);
 
