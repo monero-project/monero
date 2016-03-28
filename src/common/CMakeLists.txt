@@ -31,7 +31,8 @@ set(common_sources
   command_line.cpp
   dns_utils.cpp
   util.cpp
-  i18n.cpp)
+  i18n.cpp
+  stack_trace.cpp)
 
 set(common_headers)
 
@@ -48,7 +49,8 @@ set(common_private_headers
   unordered_containers_boost_serialization.h
   util.h
   varint.h
-  i18n.h)
+  i18n.h
+  stack_trace.h)
 
 bitmonero_private_headers(common
   ${common_private_headers})
@@ -60,6 +62,7 @@ target_link_libraries(common
   LINK_PRIVATE
     crypto
     ${UNBOUND_LIBRARY}
+    ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
