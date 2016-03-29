@@ -49,7 +49,8 @@ set(unit_tests_sources
   test_format_utils.cpp
   test_peerlist.cpp
   test_protocol_pack.cpp
-  hardfork.cpp)
+  hardfork.cpp
+  unbound.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
@@ -69,6 +70,7 @@ target_link_libraries(unit_tests
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${UNBOUND_LIBRARIES}
     ${EXTRA_LIBRARIES})
 set_property(TARGET unit_tests
   PROPERTY
