@@ -54,9 +54,11 @@ namespace cryptonote
 {
   namespace
   {
-    //FIXME: constants such as these should at least be in the header,
-    //       but probably somewhere more accessible to the rest of the
-    //       codebase.
+    //TODO: constants such as these should at least be in the header,
+    //      but probably somewhere more accessible to the rest of the
+    //      codebase.  As it stands, it is at best nontrivial to test
+    //      whether or not changing these parameters (or adding new)
+    //      will work correctly.
     size_t const TRANSACTION_SIZE_LIMIT_V1 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds

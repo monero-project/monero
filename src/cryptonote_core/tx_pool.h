@@ -448,7 +448,7 @@ namespace cryptonote
      */
     bool is_transaction_ready_to_go(tx_details& txd) const;
 
-    //! map a transactions (and related info) to their hashes
+    //! map transactions (and related info) by their hashes
     typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
 
     //TODO: confirm the below comments and investigate whether or not this
