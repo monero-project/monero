@@ -72,6 +72,7 @@ public:
     bool store(const std::string &path);
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
     uint64_t balance() const;
+    uint64_t unlockedBalance() const;
     bool connectToDaemon();
 
 private:
@@ -279,6 +280,11 @@ uint64_t WalletImpl::balance() const
     return m_wallet->balance();
 }
 
+uint64_t WalletImpl::unlockedBalance() const
+{
+    return m_wallet->unlocked_balance();
+}
+
 bool WalletImpl::connectToDaemon()
 {
     bool result = m_wallet->check_connection();
@@ -304,7 +310,7 @@ public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language, bool testnet);
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo);
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet);
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
     std::string errorString() const;
@@ -333,9 +339,9 @@ Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string
     return wallet;
 }
 
-Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo)
+Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo, bool testnet)
 {
-    WalletImpl * wallet = new WalletImpl();
+    WalletImpl * wallet = new WalletImpl(testnet);
     wallet->recover(path, memo);
     return wallet;
 }

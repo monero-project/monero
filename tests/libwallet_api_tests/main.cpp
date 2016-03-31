@@ -95,7 +95,7 @@ struct WalletManagerTest : public testing::Test
 TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
 
-    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, true);
+    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     ASSERT_TRUE(wallet->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(!wallet->seed().empty());
     std::vector<std::string> words;
@@ -112,16 +112,16 @@ TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 TEST_F(WalletManagerTest, WalletManagerOpensWallet)
 {
 
-    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, true);
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, true);
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
     ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
     std::cout << "** seed: " << wallet2->seed() << std::endl;
 }
 
-/*
+
 TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -145,7 +145,7 @@ TEST_F(WalletManagerTest, WalletManagerRecoversWallet)
     std::string address1 = wallet1->address();
     ASSERT_FALSE(address1.empty());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    deleteWallet(WALLET_NAME);
+    Utils::deleteWallet(WALLET_NAME);
     Bitmonero::Wallet * wallet2 = wmgr->recoveryWallet(WALLET_NAME, seed1);
     ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
@@ -229,22 +229,23 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
     ASSERT_TRUE(wallet1->address() == address1);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
-*/
+
 
 TEST_F(WalletManagerTest, WalletShowsBalance)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
-    std::string seed1 = wallet1->seed();
-    std::string address1 = wallet1->address();
     ASSERT_TRUE(wallet1->balance() > 0);
+    ASSERT_TRUE(wallet1->unlockedBalance() > 0);
 
     uint64_t balance1 = wallet1->balance();
+    uint64_t unlockedBalance1 = wallet1->unlockedBalance();
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-
     Bitmonero::Wallet * wallet2 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
-    ASSERT_TRUE(seed1 == wallet2->seed());
-    ASSERT_TRUE(address1 == wallet2->address());
+
     ASSERT_TRUE(balance1 == wallet2->balance());
+    std::cout << "wallet balance: " << wallet2->balance() << std::endl;
+    ASSERT_TRUE(unlockedBalance1 == wallet2->unlockedBalance());
+    std::cout << "wallet unlocked balance: " << wallet2->unlockedBalance() << std::endl;
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
