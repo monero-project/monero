@@ -74,6 +74,9 @@ struct Wallet
     virtual std::string displayAmount(uint64_t amount) const = 0;
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;
+    // TODO refresh
+    virtual bool refresh() = 0;
+    // TODO transfer
 };
 
 /**
