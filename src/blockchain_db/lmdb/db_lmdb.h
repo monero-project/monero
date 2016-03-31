@@ -115,7 +115,7 @@ typedef struct mdb_threadinfo
 
 struct mdb_txn_safe
 {
-  mdb_txn_safe();
+  mdb_txn_safe(const bool check=true);
   ~mdb_txn_safe();
 
   void commit(std::string message = "");
@@ -142,8 +142,10 @@ struct mdb_txn_safe
   static void wait_no_active_txns();
   static void allow_new_txns();
 
+  mdb_threadinfo* m_tinfo;
   MDB_txn* m_txn;
   bool m_batch_txn = false;
+  bool m_check;
   static std::atomic<uint64_t> num_active_txns;
 
   // could use a mutex here, but this should be sufficient.
@@ -278,6 +280,16 @@ public:
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
   virtual bool can_thread_bulk_indices() const { return true; }
+
+  /**
+   * @brief return a histogram of outputs on the blockchain
+   *
+   * @param amounts optional set of amounts to lookup
+   *
+   * @return a set of amount/instances
+   */
+  std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const;
+
 private:
   void do_resize(uint64_t size_increase=0);
 

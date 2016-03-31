@@ -178,9 +178,11 @@ namespace wallet_rpc
     struct request
     {
       bool get_tx_keys;
+      bool trusted_daemon;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(get_tx_keys)
+        KV_SERIALIZE(trusted_daemon)
       END_KV_SERIALIZE_MAP()
     };
 

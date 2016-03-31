@@ -228,17 +228,26 @@ mdb_threadinfo::~mdb_threadinfo()
     mdb_txn_abort(m_ti_rtxn);
 }
 
-mdb_txn_safe::mdb_txn_safe() : m_txn(NULL)
+mdb_txn_safe::mdb_txn_safe(const bool check) : m_txn(NULL), m_tinfo(NULL), m_check(check)
 {
-  while (creation_gate.test_and_set());
-  num_active_txns++;
-  creation_gate.clear();
+  if (check)
+  {
+    while (creation_gate.test_and_set());
+    num_active_txns++;
+    creation_gate.clear();
+  }
 }
 
 mdb_txn_safe::~mdb_txn_safe()
 {
+  if (!m_check)
+    return;
   LOG_PRINT_L3("mdb_txn_safe: destructor");
-  if (m_txn != nullptr)
+  if (m_tinfo != nullptr)
+  {
+    mdb_txn_reset(m_tinfo->m_ti_rtxn);
+    memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
+  } else if (m_txn != nullptr)
   {
     if (m_batch_txn) // this is a batch txn and should have been handled before this point for safety
     {
@@ -536,11 +545,12 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const
   {
     MDB_val_copy<crypto::hash> parent_key(blk.prev_id);
     MDB_val parent_h;
-    if (mdb_cursor_get(m_cur_block_heights, &parent_key, &parent_h, MDB_SET))
+    int result = mdb_cursor_get(m_cur_block_heights, &parent_key, &parent_h, MDB_SET);
+    if (result)
     {
       LOG_PRINT_L3("m_height: " << m_height);
       LOG_PRINT_L3("parent_key: " << blk.prev_id);
-      throw0(DB_ERROR("Failed to get top block hash to check for new block's parent"));
+      throw0(DB_ERROR(lmdb_error("Failed to get top block hash to check for new block's parent: ", result).c_str()));
     }
     uint64_t parent_height = *(const uint64_t *)parent_h.mv_data;
     if (parent_height != m_height - 1)
@@ -597,6 +607,8 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const
 
 void BlockchainLMDB::remove_block()
 {
+  int result;
+
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
@@ -605,29 +617,29 @@ void BlockchainLMDB::remove_block()
 
   MDB_val_copy<uint64_t> k(m_height - 1);
   MDB_val h;
-  if (mdb_get(*m_write_txn, m_block_hashes, &k, &h))
-      throw1(BLOCK_DNE("Attempting to remove block that's not in the db"));
+  if ((result = mdb_get(*m_write_txn, m_block_hashes, &k, &h)))
+      throw1(BLOCK_DNE(lmdb_error("Attempting to remove block that's not in the db: ", result).c_str()));
 
-  if (mdb_del(*m_write_txn, m_blocks, &k, NULL))
-      throw1(DB_ERROR("Failed to add removal of block to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_blocks, &k, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of block to db transaction: ", result).c_str()));
 
-  if (mdb_del(*m_write_txn, m_block_sizes, &k, NULL))
-      throw1(DB_ERROR("Failed to add removal of block size to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_block_sizes, &k, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of block size to db transaction: ", result).c_str()));
 
-  if (mdb_del(*m_write_txn, m_block_diffs, &k, NULL))
-      throw1(DB_ERROR("Failed to add removal of block cumulative difficulty to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_block_diffs, &k, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of block cumulative difficulty to db transaction: ", result).c_str()));
 
-  if (mdb_del(*m_write_txn, m_block_coins, &k, NULL))
-      throw1(DB_ERROR("Failed to add removal of block total generated coins to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_block_coins, &k, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of block total generated coins to db transaction: ", result).c_str()));
 
-  if (mdb_del(*m_write_txn, m_block_timestamps, &k, NULL))
-      throw1(DB_ERROR("Failed to add removal of block timestamp to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_block_timestamps, &k, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of block timestamp to db transaction: ", result).c_str()));
 
-  if (mdb_del(*m_write_txn, m_block_heights, &h, NULL))
-      throw1(DB_ERROR("Failed to add removal of block height by hash to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_block_heights, &h, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of block height by hash to db transaction: ", result).c_str()));
 
-  if (mdb_del(*m_write_txn, m_block_hashes, &k, NULL))
-      throw1(DB_ERROR("Failed to add removal of block hash to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_block_hashes, &k, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of block hash to db transaction: ", result).c_str()));
 }
 
 void BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash)
@@ -665,6 +677,8 @@ void BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, const tr
 
 void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx)
 {
+  int result;
+
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
@@ -673,16 +687,16 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
   if (mdb_get(*m_write_txn, m_txs, &val_h, &unused))
       throw1(TX_DNE("Attempting to remove transaction that isn't in the db"));
 
-  if (mdb_del(*m_write_txn, m_txs, &val_h, NULL))
-      throw1(DB_ERROR("Failed to add removal of tx to db transaction"));
-  if (mdb_del(*m_write_txn, m_tx_unlocks, &val_h, NULL))
-      throw1(DB_ERROR("Failed to add removal of tx unlock time to db transaction"));
-  if (mdb_del(*m_write_txn, m_tx_heights, &val_h, NULL))
-      throw1(DB_ERROR("Failed to add removal of tx block height to db transaction"));
+  if ((result = mdb_del(*m_write_txn, m_txs, &val_h, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of tx to db transaction: ", result).c_str()));
+  if ((result = mdb_del(*m_write_txn, m_tx_unlocks, &val_h, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of tx unlock time to db transaction: ", result).c_str()));
+  if ((result = mdb_del(*m_write_txn, m_tx_heights, &val_h, NULL)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of tx block height to db transaction: ", result).c_str()));
 
   remove_tx_outputs(&val_h, tx);
 
-  auto result = mdb_del(*m_write_txn, m_tx_outputs, &val_h, NULL);
+  result = mdb_del(*m_write_txn, m_tx_outputs, &val_h, NULL);
   if (result == MDB_NOTFOUND)
     LOG_PRINT_L1("tx has no outputs to remove: " << tx_hash);
   else if (result)
@@ -732,8 +746,8 @@ void BlockchainLMDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_ou
 
     MDB_val_copy<output_data_t> data(od);
     //MDB_val_copy<crypto::public_key> val_pubkey(boost::get<txout_to_key>(tx_output.target).key);
-    if (mdb_cursor_put(m_cur_output_keys, &k, &data, MDB_APPEND))
-      throw0(DB_ERROR("Failed to add output pubkey to db transaction"));
+    if ((result = mdb_cursor_put(m_cur_output_keys, &k, &data, MDB_APPEND)))
+      throw0(DB_ERROR(lmdb_error("Failed to add output pubkey to db transaction: ", result).c_str()));
   }
   else
   {
@@ -758,7 +772,7 @@ void BlockchainLMDB::remove_tx_outputs(const MDB_val *tx_hash, const transaction
   }
   else if (result)
   {
-    throw0(DB_ERROR("DB error attempting to get an output"));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to get an output", result).c_str()));
   }
   else
   {
@@ -870,9 +884,9 @@ void BlockchainLMDB::remove_amount_output_index(const uint64_t amount, const MDB
   {
     // found the amount output index
     // now delete it
-    result = mdb_cursor_del(m_cur_output_amounts, 0);
+    int result = mdb_cursor_del(m_cur_output_amounts, 0);
     if (result)
-      throw0(DB_ERROR(std::string("Error deleting amount output index ").append(boost::lexical_cast<std::string>(amount_output_index)).c_str()));
+      throw0(DB_ERROR(lmdb_error(std::string("Error deleting amount output index ").append(boost::lexical_cast<std::string>(amount_output_index).append(": ")).c_str(), result).c_str()));
   }
   else
   {
@@ -987,6 +1001,8 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
 
 void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 {
+  int result;
+
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 
   if (m_open)
@@ -1016,10 +1032,10 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   m_folder = filename;
 
   // set up lmdb environment
-  if (mdb_env_create(&m_env))
-    throw0(DB_ERROR("Failed to create lmdb environment"));
-  if (mdb_env_set_maxdbs(m_env, 20))
-    throw0(DB_ERROR("Failed to set max number of dbs"));
+  if ((result = mdb_env_create(&m_env)))
+    throw0(DB_ERROR(lmdb_error("Failed to create lmdb environment: ", result).c_str()));
+  if ((result = mdb_env_set_maxdbs(m_env, 20)))
+    throw0(DB_ERROR(lmdb_error("Failed to set max number of dbs: ", result).c_str()));
 
   size_t mapsize = DEFAULT_MAPSIZE;
 
@@ -1095,14 +1111,14 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   // get and keep current height
   MDB_stat db_stats;
-  if (mdb_stat(txn, m_blocks, &db_stats))
-    throw0(DB_ERROR("Failed to query m_blocks"));
+  if ((result = mdb_stat(txn, m_blocks, &db_stats)))
+    throw0(DB_ERROR(lmdb_error("Failed to query m_blocks: ", result).c_str()));
   LOG_PRINT_L2("Setting m_height to: " << db_stats.ms_entries);
   m_height = db_stats.ms_entries;
 
   // get and keep current number of outputs
-  if (mdb_stat(txn, m_output_indices, &db_stats))
-    throw0(DB_ERROR("Failed to query m_output_indices"));
+  if ((result = mdb_stat(txn, m_output_indices, &db_stats)))
+    throw0(DB_ERROR(lmdb_error("Failed to query m_output_indices: ", result).c_str()));
   m_num_outputs = db_stats.ms_entries;
 
   bool compatible = true;
@@ -1223,8 +1239,8 @@ void BlockchainLMDB::reset()
   check_open();
 
   mdb_txn_safe txn;
-  if (mdb_txn_begin(m_env, NULL, 0, txn))
-    throw0(DB_ERROR("Failed to create a transaction for the db"));
+  if (auto result = mdb_txn_begin(m_env, NULL, 0, txn))
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
   mdb_drop(txn, m_blocks, 0);
   mdb_drop(txn, m_block_timestamps, 0);
   mdb_drop(txn, m_block_heights, 0);
@@ -1303,9 +1319,10 @@ void BlockchainLMDB::unlock()
 #define TXN_PREFIX_RDONLY() \
   MDB_txn *m_txn; \
   mdb_txn_cursors *m_cursors; \
-  bool my_rtxn = block_rtxn_start(&m_txn, &m_cursors);
-#define TXN_POSTFIX_RDONLY() \
-  if (my_rtxn) block_rtxn_stop()
+  bool my_rtxn = block_rtxn_start(&m_txn, &m_cursors); \
+  mdb_txn_safe auto_txn(my_rtxn); \
+  if (my_rtxn) auto_txn.m_tinfo = m_tinfo.get()
+#define TXN_POSTFIX_RDONLY()
 
 #define TXN_POSTFIX_SUCCESS() \
   do { \
@@ -2673,6 +2690,63 @@ void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::
   }
   TIME_MEASURE_FINISH(db3);
   LOG_PRINT_L3("db3: " << db3);
+}
+
+std::map<uint64_t, uint64_t> BlockchainLMDB::get_output_histogram(const std::vector<uint64_t> &amounts) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(output_amounts);
+
+  std::map<uint64_t, uint64_t> histogram;
+  MDB_val k;
+  MDB_val v;
+
+  if (amounts.empty())
+  {
+    MDB_cursor_op op = MDB_FIRST;
+    while (1)
+    {
+      int ret = mdb_cursor_get(m_cur_output_amounts, &k, &v, op);
+      op = MDB_NEXT_NODUP;
+      if (ret == MDB_NOTFOUND)
+        break;
+      if (ret)
+        throw0(DB_ERROR(lmdb_error("Failed to enumerate outputs: ", ret).c_str()));
+      mdb_size_t num_elems = 0;
+      mdb_cursor_count(m_cur_output_amounts, &num_elems);
+      uint64_t amount = *(const uint64_t*)k.mv_data;
+      histogram[amount] = num_elems;
+    }
+  }
+  else
+  {
+    for (const auto &amount: amounts)
+    {
+      MDB_val_copy<uint64_t> k(amount);
+      int ret = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_SET);
+      if (ret == MDB_NOTFOUND)
+      {
+        histogram[amount] = 0;
+      }
+      else if (ret == MDB_SUCCESS)
+      {
+        mdb_size_t num_elems = 0;
+        mdb_cursor_count(m_cur_output_amounts, &num_elems);
+        histogram[amount] = num_elems;
+      }
+      else
+      {
+        throw0(DB_ERROR(lmdb_error("Failed to enumerate outputs: ", ret).c_str()));
+      }
+    }
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return histogram;
 }
 
 void BlockchainLMDB::check_hard_fork_info()

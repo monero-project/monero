@@ -69,6 +69,7 @@ namespace cryptonote
     bool run();
     void stop();
     void interrupt();
+    bool generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password);
 
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
@@ -120,7 +121,7 @@ namespace cryptonote
     bool transfer_main(bool new_algorithm, const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
     bool transfer_new(const std::vector<std::string> &args);
-    bool sweep_dust(const std::vector<std::string> &args);
+    bool sweep_unmixable(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
         std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits
     );
@@ -221,6 +222,7 @@ namespace cryptonote
     std::string m_generate_new;
     std::string m_generate_from_view_key;
     std::string m_generate_from_keys;
+    std::string m_generate_from_json;
     std::string m_import_path;
 
     std::string m_electrum_seed;  // electrum-style seed parameter

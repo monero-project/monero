@@ -42,4 +42,4 @@ EOM
 esac
 
 printf "difficulty.value "
-/home/user/bitmonero/build/release/src/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep difficulty | cut -d ' ' -f2
+# rewrite using curl or similar: /home/user/bitmonero/build/release/src/connectivity_tool --ip=127.0.0.1 --rpc_port=8081 --timeout=1000 --rpc_get_daemon_info | grep difficulty | cut -d ' ' -f2

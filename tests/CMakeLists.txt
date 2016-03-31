@@ -54,7 +54,7 @@ else ()
   endif()
 endif ()
 
-#add_subdirectory(core_tests)
+add_subdirectory(core_tests)
 add_subdirectory(crypto)
 add_subdirectory(functional_tests)
 add_subdirectory(performance_tests)

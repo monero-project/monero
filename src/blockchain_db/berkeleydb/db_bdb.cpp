@@ -2180,6 +2180,12 @@ void BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, const std::v
     LOG_PRINT_L3("db3: " << db3);
 }
 
+std::map<uint64_t, uint64_t>::BlockchainBDB::get_output_histogram(const std::vector<uint64_t> &amounts) const
+{
+  LOG_PRINT_L3("BlockchainBDB::" << __func__);
+  throw1(DB_ERROR("Not implemented."));
+}
+
 void BlockchainBDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);

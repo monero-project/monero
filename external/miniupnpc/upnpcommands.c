@@ -616,14 +616,14 @@ UPNP_GetGenericPortMappingEntry(const char * controlURL,
 		protocol[3] = '\0';
 	}
 	p = GetValueFromNameValueList(&pdata, "NewInternalClient");
-	if(p && intClient)
+	if(p)
 	{
 		strncpy(intClient, p, 16);
 		intClient[15] = '\0';
 		r = 0;
 	}
 	p = GetValueFromNameValueList(&pdata, "NewInternalPort");
-	if(p && intPort)
+	if(p)
 	{
 		strncpy(intPort, p, 6);
 		intPort[5] = '\0';

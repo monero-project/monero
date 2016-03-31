@@ -986,5 +986,46 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_OUTPUT_HISTOGRAM
+  {
+    struct request
+    {
+      std::vector<uint64_t> amounts;
+      uint64_t min_count;
+      uint64_t max_count;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amounts);
+        KV_SERIALIZE(min_count);
+        KV_SERIALIZE(max_count);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct entry
+    {
+      uint64_t amount;
+      uint64_t instances;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amount);
+        KV_SERIALIZE(instances);
+      END_KV_SERIALIZE_MAP()
+
+      entry(uint64_t amount, uint64_t instances): amount(amount), instances(instances) {}
+      entry() {}
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<entry> histogram;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(histogram)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 
