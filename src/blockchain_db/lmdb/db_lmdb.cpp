@@ -625,6 +625,8 @@ void BlockchainLMDB::remove_block()
 
   mdb_txn_cursors *m_cursors = &m_wcursors;
   CURSOR(block_info)
+  CURSOR(block_heights)
+  CURSOR(blocks)
   MDB_val_copy<uint64_t> k(m_height - 1);
   MDB_val h = k;
   if ((result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &h, MDB_GET_BOTH)))
@@ -635,10 +637,14 @@ void BlockchainLMDB::remove_block()
   blk_height bh = {bi->bi_hash, 0};
   h.mv_data = (void *)&bh;
   h.mv_size = sizeof(bh);
-  if ((result = mdb_del(*m_write_txn, m_block_heights, (MDB_val *)&zerokval, &h)))
+  if ((result = mdb_cursor_get(m_cur_block_heights, (MDB_val *)&zerokval, &h, MDB_GET_BOTH)))
+      throw1(DB_ERROR(lmdb_error("Failed to locate block height by hash for removal: ", result).c_str()));
+  if ((result = mdb_cursor_del(m_cur_block_heights, 0)))
       throw1(DB_ERROR(lmdb_error("Failed to add removal of block height by hash to db transaction: ", result).c_str()));
 
-  if ((result = mdb_del(*m_write_txn, m_blocks, &k, NULL)))
+  if ((result = mdb_cursor_get(m_cur_blocks, &k, NULL, MDB_SET)))
+      throw1(DB_ERROR(lmdb_error("Failed to locate block for removal: ", result).c_str()));
+  if ((result = mdb_cursor_del(m_cur_blocks, 0)))
       throw1(DB_ERROR(lmdb_error("Failed to add removal of block to db transaction: ", result).c_str()));
 
   if ((result = mdb_cursor_del(m_cur_block_info, 0)))
@@ -699,6 +705,8 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
 
   mdb_txn_cursors *m_cursors = &m_wcursors;
   CURSOR(tx_indices)
+  CURSOR(txs)
+  CURSOR(tx_outputs)
 
   txindex ti = {tx_hash};
   MDB_val val_h = {sizeof(ti), (void *)&ti};
@@ -709,16 +717,25 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
   uint64_t tx_index = tip->data.tx_index;
   MDB_val_copy<uint64_t> val_tx_index(tx_index);
 
-  if ((result = mdb_del(*m_write_txn, m_txs, &val_tx_index, NULL)))
+  if ((result = mdb_cursor_get(m_cur_txs, &val_tx_index, NULL, MDB_SET)))
+      throw1(DB_ERROR(lmdb_error("Failed to locate tx for removal: ", result).c_str()));
+  result = mdb_cursor_del(m_cur_txs, 0);
+  if (result)
       throw1(DB_ERROR(lmdb_error("Failed to add removal of tx to db transaction: ", result).c_str()));
 
   remove_tx_outputs(tx_index, tx);
 
-  result = mdb_del(*m_write_txn, m_tx_outputs, &val_tx_index, NULL);
+  result = mdb_cursor_get(m_cur_tx_outputs, &val_tx_index, NULL, MDB_SET);
   if (result == MDB_NOTFOUND)
     LOG_PRINT_L1("tx has no outputs to remove: " << tx_hash);
   else if (result)
-    throw1(DB_ERROR(lmdb_error("Failed to add removal of tx outputs to db transaction: ", result).c_str()));
+    throw1(DB_ERROR(lmdb_error("Failed to locate tx outputs for removal: ", result).c_str()));
+  if (!result)
+  {
+    result = mdb_cursor_del(m_cur_tx_outputs, 0);
+    if (result)
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of tx outputs to db transaction: ", result).c_str()));
+  }
 
   // Though other things could change, so long as earlier functions (like
   // remove_tx_outputs) need to do the lookup of tx hash -> tx index, don't
@@ -906,11 +923,20 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(spent_keys)
 
   MDB_val k = {sizeof(k_image), (void *)&k_image};
-  auto result = mdb_del(*m_write_txn, m_spent_keys, (MDB_val *)&zerokval, &k);
+  auto result = mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_GET_BOTH);
   if (result != 0 && result != MDB_NOTFOUND)
-      throw1(DB_ERROR(lmdb_error("Error adding removal of key image to db transaction", result).c_str()));
+      throw1(DB_ERROR(lmdb_error("Error finding spent key to remove", result).c_str()));
+  if (!result)
+  {
+    result = mdb_cursor_del(m_cur_spent_keys, 0);
+    if (result)
+        throw1(DB_ERROR(lmdb_error("Error adding removal of key image to db transaction", result).c_str()));
+  }
 }
 
 blobdata BlockchainLMDB::output_to_blob(const tx_out& output) const
