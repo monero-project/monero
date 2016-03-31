@@ -71,9 +71,12 @@ struct WalletManagerTest : public testing::Test
     const char * WALLET_PASS2 = "password22";
     const char * WALLET_LANG = "English";
 
+
     // TODO: add test wallets to the source tree (as they have some balance mined)?
     const char * TESTNET_WALLET_NAME = "/home/mbg033/dev/monero/testnet/wallet_01.bin";
     const char * TESTNET_WALLET_PASS = "";
+
+    const char * TESTNET_DAEMON_ADDRESS = "localhost:38081";
 
     WalletManagerTest()
     {
@@ -247,6 +250,15 @@ TEST_F(WalletManagerTest, WalletShowsBalance)
     ASSERT_TRUE(unlockedBalance1 == wallet2->unlockedBalance());
     std::cout << "wallet unlocked balance: " << wallet2->unlockedBalance() << std::endl;
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
+}
+
+TEST_F(WalletManagerTest, WalletRefresh)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    // make sure testnet daemon is running
+    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet1->refresh());
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
 

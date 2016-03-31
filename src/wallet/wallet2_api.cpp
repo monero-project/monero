@@ -76,6 +76,7 @@ public:
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
     std::string displayAmount(uint64_t amount) const;
+    bool refresh();
 
 
 private:
@@ -291,6 +292,18 @@ uint64_t WalletImpl::unlockedBalance() const
 std::string WalletImpl::displayAmount(uint64_t amount) const
 {
     return cryptonote::print_money(amount);
+}
+
+bool WalletImpl::refresh()
+{
+    clearStatus();
+    try {
+        m_wallet->refresh();
+    } catch (const std::exception &e) {
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+    return m_status == Status_Ok;
 }
 
 bool WalletImpl::connectToDaemon()
