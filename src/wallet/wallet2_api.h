@@ -70,6 +70,9 @@ struct Wallet
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
     virtual bool connectToDaemon() = 0;
     virtual uint64_t balance() const = 0;
+    virtual uint64_t unlockedBalance() const = 0;
+    // TODO?
+    // virtual uint64_t unlockedDustBalance() const = 0;
 };
 
 /**
@@ -85,7 +88,7 @@ struct WalletManager
      * \param  language       Language to be used to generate electrum seed memo
      * \return                Wallet instance (Wallet::status() needs to be called to check if created successfully)
      */
-    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language, bool testnet) = 0;
+    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language, bool testnet = false) = 0;
 
     /*!
      * \brief  Opens existing wallet
@@ -93,7 +96,7 @@ struct WalletManager
      * \param  password       Password of wallet file
      * \return                Wallet instance (Wallet::status() needs to be called to check if opened successfully)
      */
-    virtual Wallet * openWallet(const std::string &path, const std::string &password, bool testnet) = 0;
+    virtual Wallet * openWallet(const std::string &path, const std::string &password, bool testnet = false) = 0;
 
     /*!
      * \brief  recovers existing wallet using memo (electrum seed)
@@ -101,7 +104,7 @@ struct WalletManager
      * \param  memo           memo (25 words electrum seed)
      * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
      */
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo) = 0;
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet = false) = 0;
 
     /*!
      * \brief Closes wallet. In case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
