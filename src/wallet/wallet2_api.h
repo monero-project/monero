@@ -71,6 +71,7 @@ struct Wallet
     virtual bool connectToDaemon() = 0;
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
+    virtual std::string displayAmount(uint64_t amount) const = 0;
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;
 };
@@ -119,8 +120,6 @@ struct WalletManager
     virtual std::string errorString() const = 0;
 //    //! set
 //    virtual void setDaemonAddress(const std::string &address) = 0;
-
-
 };
 
 

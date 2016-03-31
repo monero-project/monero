@@ -31,6 +31,7 @@
 #include "wallet2_api.h"
 #include "wallet2.h"
 #include "mnemonics/electrum-words.h"
+#include "cryptonote_core/cryptonote_format_utils.h"
 #include <memory>
 
 namespace epee {
@@ -71,9 +72,11 @@ public:
     std::string address() const;
     bool store(const std::string &path);
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
+    bool connectToDaemon();
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
-    bool connectToDaemon();
+    std::string displayAmount(uint64_t amount) const;
+
 
 private:
     void clearStatus();
@@ -285,6 +288,11 @@ uint64_t WalletImpl::unlockedBalance() const
     return m_wallet->unlocked_balance();
 }
 
+std::string WalletImpl::displayAmount(uint64_t amount) const
+{
+    return cryptonote::print_money(amount);
+}
+
 bool WalletImpl::connectToDaemon()
 {
     bool result = m_wallet->check_connection();
@@ -386,5 +394,6 @@ WalletManager *WalletManagerFactory::getWalletManager()
 
     return g_walletManager;
 }
+
 
 }
