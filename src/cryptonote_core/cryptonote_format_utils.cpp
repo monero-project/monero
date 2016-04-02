@@ -145,11 +145,7 @@ namespace cryptonote
       [&out_amounts](uint64_t a_dust) { out_amounts.push_back(a_dust); });
 
     CHECK_AND_ASSERT_MES(1 <= max_outs, false, "max_out must be non-zero");
-    while (max_outs < out_amounts.size())
-    {
-      out_amounts[out_amounts.size() - 2] += out_amounts.back();
-      out_amounts.resize(out_amounts.size() - 1);
-    }
+    CHECK_AND_ASSERT_MES(max_outs >= out_amounts.size(), false, "max_out exceeded");
 
     uint64_t summary_amounts = 0;
     for (size_t no = 0; no < out_amounts.size(); no++)
