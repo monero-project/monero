@@ -1749,47 +1749,12 @@ namespace
 // returns:
 //    direct return: amount of money found
 //    modified reference: selected_transfers, a list of iterators/indices of input sources
-uint64_t wallet2::select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, bool hf2_rules, std::list<transfer_container::iterator>& selected_transfers)
+uint64_t wallet2::select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::list<transfer_container::iterator>& selected_transfers, bool trusted_daemon)
 {
-  std::vector<size_t> unused_transfers_indices;
-  std::vector<size_t> unused_dust_indices;
-
-  // aggregate sources available for transfers
-  // if dust needed, take dust from only one source (so require source has at least dust amount)
-  for (size_t i = 0; i < m_transfers.size(); ++i)
-  {
-    const transfer_details& td = m_transfers[i];
-    if (!td.m_spent && is_transfer_unlocked(td))
-    {
-      if (dust < td.amount() && is_valid_decomposed_amount(td.amount()))
-        unused_transfers_indices.push_back(i);
-      else
-      {
-        // for hf2 rules, we disregard dust, which will be spendable only
-        // via sweep_dust. If we're asked to add dust, though, we still
-        // consider them, as this will be a mixin 0 tx (and thus we may
-        // end up with a tx with one mixable output and N dusty ones).
-        // This should be made better at some point...
-        if (!hf2_rules || add_dust)
-          unused_dust_indices.push_back(i);
-      }
-    }
-  }
-
-  bool select_one_dust = add_dust && !unused_dust_indices.empty();
   uint64_t found_money = 0;
-  while (found_money < needed_money && (!unused_transfers_indices.empty() || !unused_dust_indices.empty()))
+  while (found_money < needed_money && !unused_transfers_indices.empty())
   {
-    size_t idx;
-    if (select_one_dust)
-    {
-      idx = pop_random_value(unused_dust_indices);
-      select_one_dust = false;
-    }
-    else
-    {
-      idx = !unused_transfers_indices.empty() ? pop_random_value(unused_transfers_indices) : pop_random_value(unused_dust_indices);
-    }
+    size_t idx = pop_random_value(unused_transfers_indices);
 
     transfer_container::iterator it = m_transfers.begin() + idx;
     selected_transfers.push_back(it);
@@ -1811,18 +1776,18 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, const std::v
 }
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx)
+void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outs_count, const std::vector<size_t> &unused_transfers_indices,
+                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx, bool trusted_daemon)
 {
-  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), tx, ptx);
+  transfer(dsts, fake_outs_count, unused_transfers_indices, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), tx, ptx, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra)
+void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outs_count, const std::vector<size_t> &unused_transfers_indices,
+                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, bool trusted_daemon)
 {
   cryptonote::transaction tx;
   pending_tx ptx;
-  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, tx, ptx);
+  transfer(dsts, fake_outs_count, unused_transfers_indices, unlock_time, fee, extra, tx, ptx, trusted_daemon);
 }
 
 namespace {
@@ -2019,8 +1984,9 @@ void wallet2::commit_tx(std::vector<pending_tx>& ptx_vector)
 //
 // this function will make multiple calls to wallet2::transfer if multiple
 // transactions will be required
-std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
+  const std::vector<size_t> unused_transfers_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, trusted_daemon);
 
   // failsafe split attempt counter
   size_t attempt_count = 0;
@@ -2050,7 +2016,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 	uint64_t needed_fee = 0;
 	do
 	{
-	  transfer(dst_vector, fake_outs_count, unlock_time, needed_fee, extra, tx, ptx);
+	  transfer(dst_vector, fake_outs_count, unused_transfers_indices, unlock_time, needed_fee, extra, tx, ptx, trusted_daemon);
 	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
           needed_fee = calculate_fee(txBlob);
 	} while (ptx.fee < needed_fee);
@@ -2283,7 +2249,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -2703,9 +2669,8 @@ std::vector<uint64_t> wallet2::get_unspent_amounts_vector()
   return vector;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
+std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t count, bool atleast, bool trusted_daemon)
 {
-  // request all outputs with at least 3 instances, so we can use mixin 2 with
   epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
   epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
   m_daemon_rpc_mutex.lock();
@@ -2714,7 +2679,7 @@ std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_dae
   req_t.method = "get_output_histogram";
   if (trusted_daemon)
     req_t.params.amounts = get_unspent_amounts_vector();
-  req_t.params.min_count = 3;
+  req_t.params.min_count = count;
   req_t.params.max_count = 0;
   bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
   m_daemon_rpc_mutex.unlock();
@@ -2728,12 +2693,30 @@ std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_dae
     mixable.insert(i.amount);
   }
 
-  return select_available_outputs([mixable](const transfer_details &td) {
+  return select_available_outputs([mixable, atleast](const transfer_details &td) {
     const uint64_t amount = td.amount();
-    if (mixable.find(amount) == mixable.end())
-      return true;
+    if (atleast) {
+      if (mixable.find(amount) != mixable.end())
+        return true;
+    }
+    else {
+      if (mixable.find(amount) == mixable.end())
+        return true;
+    }
     return false;
   });
+}
+//----------------------------------------------------------------------------------------------------
+std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
+{
+  // request all outputs with less than 3 instances
+  return select_available_outputs_from_histogram(3, false, trusted_daemon);
+}
+//----------------------------------------------------------------------------------------------------
+std::vector<size_t> wallet2::select_available_mixable_outputs(bool trusted_daemon)
+{
+  // request all outputs with at least 3 instances, so we can use mixin 2 with
+  return select_available_outputs_from_histogram(3, true, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bool trusted_daemon)
