@@ -52,6 +52,7 @@ using namespace epee;
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
+#include "common/json_util.h"
 
 extern "C"
 {
@@ -1004,7 +1005,7 @@ namespace
  * \param keys_file_name Name of wallet file
  * \param password       Password of wallet file
  */
-void wallet2::load_keys(const std::string& keys_file_name, const std::string& password)
+bool wallet2::load_keys(const std::string& keys_file_name, const std::string& password)
 {
   wallet2::keys_file_data keys_file_data;
   std::string buf;
@@ -1033,34 +1034,44 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   }
   else
   {
-    account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
-      json["key_data"].GetStringLength());
-    if (json.HasMember("seed_language"))
+    if (!json.HasMember("key_data"))
     {
-      set_seed_language(std::string(json["seed_language"].GetString(), json["seed_language"].GetString() +
-        json["seed_language"].GetStringLength()));
+      LOG_ERROR("Field key_data not found in JSON");
+      return false;
     }
-    if (json.HasMember("watch_only"))
+    if (!json["key_data"].IsString())
     {
-      m_watch_only = json["watch_only"].GetInt() != 0;
+      LOG_ERROR("Field key_data found in JSON, but not String");
+      return false;
     }
-    else
+    const char *field_key_data = json["key_data"].GetString();
+    account_data = std::string(field_key_data, field_key_data + json["key_data"].GetStringLength());
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_language, std::string, String, false);
+    if (field_seed_language_found)
     {
-      m_watch_only = false;
+      set_seed_language(field_seed_language);
     }
-    m_always_confirm_transfers = json.HasMember("always_confirm_transfers") && (json["always_confirm_transfers"].GetInt() != 0);
-    m_store_tx_info = (json.HasMember("store_tx_keys") && (json["store_tx_keys"].GetInt() != 0))
-                   || (json.HasMember("store_tx_info") && (json["store_tx_info"].GetInt() != 0));
-    m_default_mixin = json.HasMember("default_mixin") ? json["default_mixin"].GetUint() : 0;
-    m_auto_refresh = !json.HasMember("auto_refresh") || (json["auto_refresh"].GetInt() != 0);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, watch_only, int, Int, false);
+    m_watch_only = field_watch_only_found && field_watch_only;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false);
+    m_always_confirm_transfers = field_always_confirm_transfers_found && field_always_confirm_transfers;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, false);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_info, int, Int, false);
+    m_store_tx_info = (field_store_tx_keys_found && (field_store_tx_keys != 0))
+                   || (field_store_tx_info_found && (field_store_tx_info != 0));
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_mixin, unsigned int, Uint, false);
+    m_default_mixin = field_default_mixin_found ? field_default_mixin : 0;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_refresh, int, Int, false);
+    m_auto_refresh = !field_auto_refresh_found || (field_auto_refresh != 0);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_type, int, Int, false);
     m_refresh_type = RefreshType::RefreshDefault;
-    if (json.HasMember("refresh_type"))
+    if (field_refresh_type_found)
     {
-      int type = json["refresh_type"].GetInt();
-      if (type == RefreshFull || type == RefreshOptimizeCoinbase || type == RefreshNoCoinbase)
-        m_refresh_type = (RefreshType)type;
+      if (field_refresh_type == RefreshFull || field_refresh_type == RefreshOptimizeCoinbase || field_refresh_type == RefreshNoCoinbase)
+        m_refresh_type = (RefreshType)field_refresh_type;
       else
-        LOG_PRINT_L0("Unknown refresh-type value (" << type << "), using default");
+        LOG_PRINT_L0("Unknown refresh-type value (" << field_refresh_type << "), using default");
     }
   }
 
@@ -1070,6 +1081,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   if(!m_watch_only)
     r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
+  return true;
 }
 
 /*!
@@ -1358,7 +1370,10 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   bool exists = boost::filesystem::exists(m_keys_file, e);
   THROW_WALLET_EXCEPTION_IF(e || !exists, error::file_not_found, m_keys_file);
 
-  load_keys(m_keys_file, password);
+  if (!load_keys(m_keys_file, password))
+  {
+    THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, m_keys_file);
+  }
   LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_testnet));
 
   //keys loaded ok!

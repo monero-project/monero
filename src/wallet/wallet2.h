@@ -378,7 +378,7 @@ namespace tools
      * \param keys_file_name Name of wallet file
      * \param password       Password of wallet file
      */
-    void load_keys(const std::string& keys_file_name, const std::string& password);
+    bool load_keys(const std::string& keys_file_name, const std::string& password);
     void process_new_transaction(const cryptonote::transaction& tx, uint64_t height, bool miner_tx);
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
