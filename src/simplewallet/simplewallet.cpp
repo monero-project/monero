@@ -258,6 +258,8 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
     if (m_wallet->get_seed_language().empty())
     {
       std::string mnemonic_language = get_mnemonic_language();
+      if (mnemonic_language.empty())
+        return true;
       m_wallet->set_seed_language(mnemonic_language);
     }
 
@@ -305,6 +307,8 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
   }
 
   std::string mnemonic_language = get_mnemonic_language();
+  if (mnemonic_language.empty())
+    return true;
   m_wallet->set_seed_language(mnemonic_language);
   m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
@@ -699,6 +703,10 @@ bool simple_wallet::ask_wallet_create_if_needed()
         tr("Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
         "Wallet file name: ")
     );
+    if (std::cin.eof())
+    {
+      return false;
+    }
     valid_path = tools::wallet2::wallet_valid_path_format(wallet_path);
     if (!valid_path)
     {
@@ -1052,6 +1060,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       if (m_electrum_seed.empty())
       {
         m_electrum_seed = command_line::input_line("Specify Electrum seed: ");
+        if (std::cin.eof())
+          return false;
         if (m_electrum_seed.empty())
         {
           fail_msg_writer() << tr("specify a recovery parameter with the --electrum-seed=\"words list here\"");
@@ -1069,6 +1079,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     {
       // parse address
       std::string address_string = command_line::input_line("Standard address: ");
+      if (std::cin.eof())
+        return false;
       if (address_string.empty()) {
         fail_msg_writer() << tr("No data supplied, cancelled");
         return false;
@@ -1084,6 +1096,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
       // parse view secret key
       std::string viewkey_string = command_line::input_line("View key: ");
+      if (std::cin.eof())
+        return false;
       if (viewkey_string.empty()) {
         fail_msg_writer() << tr("No data supplied, cancelled");
         return false;
@@ -1116,6 +1130,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     {
       // parse address
       std::string address_string = command_line::input_line("Standard address: ");
+      if (std::cin.eof())
+        return false;
       if (address_string.empty()) {
         fail_msg_writer() << tr("No data supplied, cancelled");
         return false;
@@ -1131,6 +1147,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
       // parse spend secret key
       std::string spendkey_string = command_line::input_line("Spend key: ");
+      if (std::cin.eof())
+        return false;
       if (spendkey_string.empty()) {
         fail_msg_writer() << tr("No data supplied, cancelled");
         return false;
@@ -1145,6 +1163,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
       // parse view secret key
       std::string viewkey_string = command_line::input_line("View key: ");
+      if (std::cin.eof())
+        return false;
       if (viewkey_string.empty()) {
         fail_msg_writer() << tr("No data supplied, cancelled");
         return false;
@@ -1264,6 +1284,8 @@ std::string simple_wallet::get_mnemonic_language()
   while (language_number < 0)
   {
     language_choice = command_line::input_line(tr("Enter the number corresponding to the language of your choice: "));
+    if (std::cin.eof())
+      return std::string();
     try
     {
       language_number = std::stoi(language_choice);
@@ -1302,6 +1324,8 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
         "a deprecated version of the wallet. Please use the new seed that we provide.\n");
     }
     mnemonic_language = get_mnemonic_language();
+    if (mnemonic_language.empty())
+      return false;
   }
 
   m_wallet_file = wallet_file;
@@ -1429,6 +1453,8 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
         message_writer(epee::log_space::console_color_green, false) << "\n" << tr("You had been using "
           "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n");
         std::string mnemonic_language = get_mnemonic_language();
+        if (mnemonic_language.empty())
+          return false;
         m_wallet->set_seed_language(mnemonic_language);
         m_wallet->rewrite(m_wallet_file, password);
 
@@ -2045,6 +2071,10 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
 
           // prompt the user for confirmation given the dns query and dnssec status
           std::string confirm_dns_ok = command_line::input_line(prompt.str());
+          if (std::cin.eof())
+          {
+            return true;
+          }
           if (confirm_dns_ok != "Y" && confirm_dns_ok != "y" && confirm_dns_ok != "Yes" && confirm_dns_ok != "yes"
             && confirm_dns_ok != tr("yes") && confirm_dns_ok != tr("no"))
           {
@@ -2129,6 +2159,8 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
             print_money(total_fee)).str();
         }
         std::string accepted = command_line::input_line(prompt_str);
+        if (std::cin.eof())
+          return true;
         if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
         {
           fail_msg_writer() << tr("transaction cancelled.");
@@ -2289,6 +2321,8 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
         print_money(total_fee)).str();
     }
     std::string accepted = command_line::input_line(prompt_str);
+    if (std::cin.eof())
+      return true;
     if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
     {
       fail_msg_writer() << tr("transaction cancelled.");
