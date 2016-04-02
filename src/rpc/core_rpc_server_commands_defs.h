@@ -445,6 +445,7 @@ namespace cryptonote
       uint64_t reserved_offset;
       std::string prev_hash;
       blobdata blocktemplate_blob;
+      blobdata blockhashing_blob;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -453,6 +454,7 @@ namespace cryptonote
         KV_SERIALIZE(reserved_offset)
         KV_SERIALIZE(prev_hash)
         KV_SERIALIZE(blocktemplate_blob)
+        KV_SERIALIZE(blockhashing_blob)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
