@@ -355,24 +355,40 @@ namespace cryptonote
 
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false))
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false) || tvc.m_verifivation_failed)
     {
-      LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
+      if (tvc.m_verifivation_failed)
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed");
+      }
+      else
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
+      }
       res.status = "Failed";
-      return true;
-    }
-
-    if(tvc.m_verifivation_failed)
-    {
-      LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed");
-      res.status = "Failed";
+      if ((res.low_mixin = tvc.m_low_mixin))
+        res.reason = "mixin too low";
+      if ((res.double_spend = tvc.m_double_spend))
+        res.reason = "double spend";
+      if ((res.invalid_input = tvc.m_invalid_input))
+        res.reason = "invalid input";
+      if ((res.invalid_output = tvc.m_invalid_output))
+        res.reason = "invalid output";
+      if ((res.too_big = tvc.m_too_big))
+        res.reason = "too big";
+      if ((res.overspend = tvc.m_overspend))
+        res.reason = "overspend";
+      if ((res.fee_too_low = tvc.m_fee_too_low))
+        res.reason = "fee too low";
       return true;
     }
 
     if(!tvc.m_should_be_relayed)
     {
       LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
-      res.status = "Not relayed";
+      res.reason = "Not relayed";
+      res.not_relayed = true;
+      res.status = CORE_RPC_STATUS_OK;
       return true;
     }
 
