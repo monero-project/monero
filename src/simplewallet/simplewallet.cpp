@@ -829,6 +829,8 @@ static bool get_password(const boost::program_options::variables_map& vm, bool a
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password)
 {
+  bool testnet = command_line::get_arg(vm, arg_testnet);
+
   std::string buf;
   bool r = epee::file_io_utils::load_file_to_string(m_generate_from_json, buf);
   if (!r) {
@@ -868,6 +870,11 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
       return false;
     }
     viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+    crypto::public_key pkey;
+    if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+      fail_msg_writer() << tr("failed to verify view key secret key");
+      return false;
+    }
   }
 
   GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, spendkey, std::string, String, false);
@@ -881,6 +888,11 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
       return false;
     }
     spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+    crypto::public_key pkey;
+    if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+      fail_msg_writer() << tr("failed to verify spend key secret key");
+      return false;
+    }
   }
 
   GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed, std::string, String, false);
@@ -896,6 +908,8 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     m_restore_deterministic_wallet = true;
   }
 
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false);
+
   // compatibility checks
   if (!field_seed_found && !field_viewkey_found)
   {
@@ -908,6 +922,44 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     return false;
   }
 
+  // if an address was given, we check keys against it, and deduce the spend
+  // public key if it was not given
+  if (field_address_found)
+  {
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 new_payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, testnet, field_address))
+    {
+      fail_msg_writer() << tr("invalid address");
+      return false;
+    }
+    if (field_viewkey_found)
+    {
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+        fail_msg_writer() << tr("failed to verify view key secret key");
+        return false;
+      }
+      if (address.m_view_public_key != pkey) {
+        fail_msg_writer() << tr("view key does not match standard address");
+        return false;
+      }
+    }
+    if (field_spendkey_found)
+    {
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+        fail_msg_writer() << tr("failed to verify spend key secret key");
+        return false;
+      }
+      if (address.m_spend_public_key != pkey) {
+        fail_msg_writer() << tr("spend key does not match standard address");
+        return false;
+      }
+    }
+  }
+
   m_wallet_file = field_filename;
 
   bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
@@ -917,7 +969,6 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     return false;
   }
 
-  bool testnet = command_line::get_arg(vm, arg_testnet);
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
 
@@ -934,17 +985,27 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
         fail_msg_writer() << tr("failed to verify view key secret key");
         return false;
       }
-      if (!crypto::secret_key_to_public_key(spendkey, address.m_spend_public_key)) {
-        fail_msg_writer() << tr("failed to verify spend key secret key");
-        return false;
-      }
 
       if (field_spendkey.empty())
       {
+        // if we have an addres but no spend key, we can deduce the spend public key
+        // from the address
+        if (field_address_found)
+        {
+          cryptonote::account_public_address address2;
+          bool has_payment_id;
+          crypto::hash8 new_payment_id;
+          get_account_integrated_address_from_str(address2, has_payment_id, new_payment_id, testnet, field_address);
+          address.m_spend_public_key = address2.m_spend_public_key;
+        }
         m_wallet->generate(m_wallet_file, password, address, viewkey);
       }
       else
       {
+        if (!crypto::secret_key_to_public_key(spendkey, address.m_spend_public_key)) {
+          fail_msg_writer() << tr("failed to verify spend key secret key");
+          return false;
+        }
         m_wallet->generate(m_wallet_file, password, address, spendkey, viewkey);
       }
     }
