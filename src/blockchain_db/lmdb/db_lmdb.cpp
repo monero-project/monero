@@ -377,7 +377,9 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
 
   mdb_txn_safe::wait_no_active_txns();
 
-  mdb_env_set_mapsize(m_env, new_mapsize);
+  int result = mdb_env_set_mapsize(m_env, new_mapsize);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to set new mapsize: ", result).c_str()));
 
   LOG_PRINT_GREEN("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB", LOG_LEVEL_0);
 
