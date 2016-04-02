@@ -424,6 +424,7 @@ namespace log_space
       }
 
       std::cout << buf;
+      std::cout << std::flush;
 #endif
       reset_console_color();
       return  true;
