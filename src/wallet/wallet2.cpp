@@ -73,6 +73,7 @@ using namespace cryptonote;
 #define KILL_IOSERVICE()  \
     do { \
       work.reset(); \
+      while (!ioservice.stopped()) ioservice.poll(); \
       threadpool.join_all(); \
       ioservice.stop(); \
     } while(0)

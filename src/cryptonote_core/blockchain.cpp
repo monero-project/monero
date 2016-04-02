@@ -2159,6 +2159,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
         if(ioservice_active) \
         { \
             work.reset(); \
+            while (!ioservice.stopped()) ioservice.poll(); \
             threadpool.join_all(); \
             ioservice.stop(); \
             ioservice_active = false; \
