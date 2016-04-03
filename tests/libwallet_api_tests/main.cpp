@@ -77,6 +77,9 @@ struct WalletManagerTest : public testing::Test
     const char * TESTNET_WALLET_PASS = "";
 
     const char * TESTNET_DAEMON_ADDRESS = "localhost:38081";
+    const uint64_t AMOUNT_10XMR = 10000000000000L;
+    const uint64_t AMOUNT_5XMR = 50000000000000L;
+    const char * RECIPIENT_WALLET_ADDRESS = "9uekQVGj7NjSAREnZ8cUsRagWDdjvdhpwUKhsL95oXngBnZXZ1RzH8R6UJbU1R7wim9yKbSjxuoQ22ERRkEochGECj66oP3";
 
     WalletManagerTest()
     {
@@ -260,6 +263,19 @@ TEST_F(WalletManagerTest, WalletRefresh)
     ASSERT_TRUE(wallet1->refresh());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
+
+TEST_F(WalletManagerTest, WalletTransfer)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    // make sure testnet daemon is running
+    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet1->refresh());
+    uint64_t balance = wallet1->balance();
+    ASSERT_TRUE(wallet1->transfer(RECIPIENT_WALLET_ADDRESS, AMOUNT_10XMR));
+    ASSERT_FALSE(wallet1->balance() == balance);
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+}
+
 
 
 int main(int argc, char** argv)
