@@ -32,7 +32,11 @@
 #include "wallet2.h"
 #include "mnemonics/electrum-words.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_core/cryptonote_basic_impl.h"
+
+
 #include <memory>
+#include <vector>
 
 namespace epee {
     unsigned int g_test_dbg_lock_sleep = 0;
@@ -44,10 +48,15 @@ struct WalletManagerImpl;
 
 namespace {
     static WalletManagerImpl * g_walletManager = nullptr;
+    // copy-pasted from
+    static const size_t DEFAULT_MIX = 4;
 
 
 
 }
+
+
+using namespace std;
 
 Wallet::~Wallet() {}
 
@@ -77,6 +86,7 @@ public:
     uint64_t unlockedBalance() const;
     std::string displayAmount(uint64_t amount) const;
     bool refresh();
+    bool transfer(const std::string &dst_addr, uint64_t amount);
 
 
 private:
@@ -303,6 +313,36 @@ bool WalletImpl::refresh()
         m_status = Status_Error;
         m_errorString = e.what();
     }
+    return m_status == Status_Ok;
+}
+
+bool WalletImpl::transfer(const std::string &dst_addr, uint64_t amount)
+{
+    clearStatus();
+    vector<cryptonote::tx_destination_entry> dsts;
+    cryptonote::tx_destination_entry de;
+    bool has_payment_id;
+    bool payment_id_seen = false;
+    crypto::hash8 new_payment_id;
+    size_t fake_outs_count = DEFAULT_MIX;
+    if(!cryptonote::get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), dst_addr)) {
+        // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
+        m_status = Status_Error;
+        m_errorString = "Invalid destination address";
+        return false;
+    }
+
+    de.amount = amount;
+    if (de.amount <= 0) {
+        m_status = Status_Error;
+        m_errorString = "Invalid amount";
+        return false;
+    }
+    dsts.push_back(de);
+
+
+
+
     return m_status == Status_Ok;
 }
 
