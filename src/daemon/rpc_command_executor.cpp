@@ -575,16 +575,26 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
     }
   }
 
-  if (1 == res.txs_as_hex.size())
+  if (1 == res.txs.size() || 1 == res.txs_as_hex.size())
   {
+    if (1 == res.txs.size())
+    {
+      // only available for new style answers
+      if (res.txs.front().in_pool)
+        tools::success_msg_writer() << "Found in pool";
+      else
+        tools::success_msg_writer() << "Found in blockchain at height " << res.txs.front().block_height;
+    }
+
     // first as hex
-    tools::success_msg_writer() << res.txs_as_hex.front();
+    const std::string &as_hex = (1 == res.txs.size()) ? res.txs.front().as_hex : res.txs_as_hex.front();
+    tools::success_msg_writer() << as_hex;
 
     // then as json
     crypto::hash tx_hash, tx_prefix_hash;
     cryptonote::transaction tx;
     cryptonote::blobdata blob;
-    if (!string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), blob))
+    if (!string_tools::parse_hexstr_to_binbuff(as_hex, blob))
     {
       tools::fail_msg_writer() << "Failed to parse tx";
     }
