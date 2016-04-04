@@ -63,6 +63,26 @@
  * of this interface call to private members of the interface to be added
  * later that will then populate as needed.
  *
+ * Indices and Identifiers:
+ * The word "index" is used ambiguously throughout this code. It is
+ * particularly confusing when talking about the output or transaction
+ * tables since their indexing can refer to themselves or each other.
+ * I have attempted to clarify these usages here:
+ *
+ * Blocks, transactions, and outputs are all identified by a hash.
+ * For storage efficiency, a 64-bit integer ID is used instead of the hash
+ * inside the DB. Tables exist to map between hash and ID. A block ID is
+ * also referred to as its "height". Transactions and outputs generally are
+ * not referred to by ID outside of this module, but the tx ID is returned
+ * by tx_exists() and used by get_tx_amount_output_indices(). Like their
+ * corresponding hashes, IDs are globally unique.
+ *
+ * The remaining uses of the word "index" refer to local offsets, and are
+ * not globally unique. An "amount output index" N refers to the Nth output
+ * of a specific amount. An "output local index" N refers to the Nth output
+ * of a specific tx.
+ *
+ *
  * General:
  *   open()
  *   is_open()
@@ -99,7 +119,7 @@
  *   void        pop_block(block&, tx_list&)
  *
  * Transactions:
- *   bool        tx_exists(hash)
+ *   bool        tx_exists(hash, tx_id)
  *   uint64_t    get_tx_unlock_time(hash)
  *   tx          get_tx(hash)
  *   uint64_t    get_tx_count()
@@ -111,7 +131,7 @@
  *   pub_key     get_output_key(amount, index)
  *   hash,index  get_output_tx_and_index_from_global(index)
  *   hash,index  get_output_tx_and_index(amount, index)
- *   vec<uint64> get_tx_output_indices(tx_hash)
+ *   vec<uint64> get_tx_amount_output_indices(tx_id)
  *
  *
  * Spent Output Key Images:
@@ -151,9 +171,9 @@ struct output_data_t
 #pragma pack(push, 1)
 struct tx_data_t
 {
-  uint64_t tx_index;
+  uint64_t tx_id;
   uint64_t unlock_time;
-  uint64_t height;
+  uint64_t block_id;
 };
 #pragma pack(pop)
 
@@ -299,25 +319,22 @@ private:
   // tells the subclass to remove data about the top block
   virtual void remove_block() = 0;
 
-  // tells the subclass to store the transaction and its metadata
+  // tells the subclass to store the transaction and its metadata, returns tx ID
   virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
 
   // tells the subclass to remove data about a transaction
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
 
-  // tells the subclass to store an output
-  virtual void add_output(const crypto::hash& tx_hash,
+  // tells the subclass to store an output, returns amount output index
+  virtual uint64_t add_output(const crypto::hash& tx_hash,
       const tx_out& tx_output,
       const uint64_t& local_index,
-      const uint64_t unlock_time,
-      uint64_t& amount_output_index,
-      uint64_t& global_output_index
+      const uint64_t unlock_time
       ) = 0;
 
-  // tells the subclass to store indices for a tx's outputs, both amount output indices and global output indices
-  virtual void add_amount_and_global_output_indices(const uint64_t tx_index,
-      const std::vector<uint64_t>& amount_output_indices,
-      const std::vector<uint64_t>& global_output_indices
+  // tells the subclass to store amount output indices for a tx's outputs
+  virtual void add_tx_amount_output_indices(const uint64_t tx_id,
+      const std::vector<uint64_t>& amount_output_indices
       ) = 0;
 
   // tells the subclass to remove an output
@@ -482,7 +499,7 @@ public:
 
   // return true if a transaction with hash <h> exists
   virtual bool tx_exists(const crypto::hash& h) const = 0;
-  virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_index) const = 0;
+  virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_id) const = 0;
 
   // return unlock time of tx with hash <h>
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const = 0;
@@ -523,16 +540,9 @@ public:
 
   virtual bool can_thread_bulk_indices() const = 0;
 
-  // return two vectors of indices: vector of amount output indices and global
-  // output indices, corresponding to each output in the transaction with hash
-  // <h>
-  virtual void get_amount_and_global_output_indices(const uint64_t tx_index,
-    std::vector<uint64_t>& amount_output_indices,
-    std::vector<uint64_t>& global_output_indices) const = 0;
-
   // return a vector of indices corresponding to the amount output index for
-  // each output in the transaction with hash <h>
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_index) const = 0;
+  // each output in the transaction with ID <tx_id>
+  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_id) const = 0;
 
   // returns true if key image <img> is present in spent key images storage
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
