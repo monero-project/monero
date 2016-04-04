@@ -36,6 +36,20 @@
 //  Public interface for libwallet library
 namespace Bitmonero {
 
+/**
+ * @brief Transaction interface
+ */
+struct Transaction
+{
+    enum Status {
+        Status_Ok,
+        Status_Error
+    };
+
+    virtual int status() const = 0;
+    virtual std::string errorString() const = 0;
+    virtual bool commit() = 0;
+};
 
 /**
  * @brief Interface for wallet operations.
