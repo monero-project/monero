@@ -861,18 +861,11 @@ void BlockchainLMDB::remove_tx_outputs(const uint64_t tx_id, const transaction& 
   for (uint64_t i = tx.vout.size(); i > 0; --i)
   {
     const tx_out tx_output = tx.vout[i-1];
-    remove_output(amount_output_indices[i-1], tx_output.amount);
+    remove_output(tx_output.amount, amount_output_indices[i-1]);
   }
 }
 
-// TODO: probably remove this function
-void BlockchainLMDB::remove_output(const tx_out& tx_output)
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__ << " (unused version - does nothing)");
-  return;
-}
-
-void BlockchainLMDB::remove_output(const uint64_t& out_index, const uint64_t amount)
+void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_index)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1841,12 +1834,54 @@ uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
   return num_elems;
 }
 
-// TODO: probably remove this function
+// This is a lot harder now that we've removed the output_keys index
 output_data_t BlockchainLMDB::get_output_key(const uint64_t &global_index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__ << " (unused version - does nothing)");
-  outkey ok = {0};
-  return ok.data;
+  check_open();
+  TXN_PREFIX_RDONLY();
+  RCURSOR(output_txs);
+  RCURSOR(tx_indices);
+  RCURSOR(txs);
+
+  output_data_t od;
+  MDB_val_set(v, global_index);
+  auto get_result = mdb_cursor_get(m_cur_output_txs, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+  if (get_result == MDB_NOTFOUND)
+    throw1(OUTPUT_DNE("output with given index not in db"));
+  else if (get_result)
+    throw0(DB_ERROR("DB error attempting to fetch output tx hash"));
+
+  outtx *ot = (outtx *)v.mv_data;
+
+  MDB_val_set(val_h, ot->tx_hash);
+  get_result = mdb_cursor_get(m_cur_tx_indices, (MDB_val *)&zerokval, &val_h, MDB_GET_BOTH);
+  if (get_result)
+    throw0(DB_ERROR(lmdb_error(std::string("DB error attempting to fetch transaction index from hash ") + epee::string_tools::pod_to_hex(ot->tx_hash) + ": ", get_result).c_str()));
+
+  txindex *tip = (txindex *)val_h.mv_data;
+  MDB_val_set(val_tx_id, tip->data.tx_id);
+  MDB_val result;
+  get_result = mdb_cursor_get(m_cur_txs, &val_tx_id, &result, MDB_SET);
+  if (get_result == MDB_NOTFOUND)
+    throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(ot->tx_hash)).append(" not found in db").c_str()));
+  else if (get_result)
+    throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx from hash", get_result).c_str()));
+
+  blobdata bd;
+  bd.assign(reinterpret_cast<char*>(result.mv_data), result.mv_size);
+
+  transaction tx;
+  if (!parse_and_validate_tx_from_blob(bd, tx))
+    throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
+
+  const tx_out tx_output = tx.vout[ot->local_index];
+  od.unlock_time = tip->data.unlock_time;
+  od.height = tip->data.block_id;
+  od.pubkey = boost::get<txout_to_key>(tx_output.target).key;
+
+  TXN_POSTFIX_RDONLY();
+  return od;
 }
 
 output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index)
@@ -1968,19 +2003,20 @@ bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_ima
   TXN_PREFIX_RDONLY();
   RCURSOR(spent_keys);
 
-  MDB_val k;
+  MDB_val k, v;
   bool ret = true;
 
+  k = zerokval;
   MDB_cursor_op op = MDB_FIRST;
   while (1)
   {
-    int ret = mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, op);
+    int ret = mdb_cursor_get(m_cur_spent_keys, &k, &v, op);
     op = MDB_NEXT;
     if (ret == MDB_NOTFOUND)
       break;
     if (ret < 0)
       throw0(DB_ERROR("Failed to enumerate key images"));
-    const crypto::key_image k_image = *(const crypto::key_image*)k.mv_data;
+    const crypto::key_image k_image = *(const crypto::key_image*)v.mv_data;
     if (!f(k_image)) {
       ret = false;
       break;
@@ -2040,6 +2076,7 @@ bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&
 
   TXN_PREFIX_RDONLY();
   RCURSOR(txs);
+  RCURSOR(tx_indices);
 
   MDB_val k;
   MDB_val v;
@@ -2048,13 +2085,22 @@ bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&
   MDB_cursor_op op = MDB_FIRST;
   while (1)
   {
-    int ret = mdb_cursor_get(m_cur_txs, &k, &v, op);
+    int ret = mdb_cursor_get(m_cur_tx_indices, &k, &v, op);
     op = MDB_NEXT;
     if (ret == MDB_NOTFOUND)
       break;
     if (ret)
-      throw0(DB_ERROR("Failed to enumerate transactions"));
-    const crypto::hash hash = *(const crypto::hash*)k.mv_data;
+      throw0(DB_ERROR(lmdb_error("Failed to enumerate transactions: ", ret).c_str()));
+
+    txindex *ti = (txindex *)v.mv_data;
+    const crypto::hash hash = ti->key;
+    k.mv_data = (void *)&ti->data.tx_id;
+    k.mv_size = sizeof(ti->data.tx_id);
+    ret = mdb_cursor_get(m_cur_txs, &k, &v, MDB_SET);
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw0(DB_ERROR(lmdb_error("Failed to enumerate transactions: ", ret).c_str()));
     blobdata bd;
     bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
     transaction tx;

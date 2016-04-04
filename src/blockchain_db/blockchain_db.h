@@ -337,9 +337,6 @@ private:
       const std::vector<uint64_t>& amount_output_indices
       ) = 0;
 
-  // tells the subclass to remove an output
-  virtual void remove_output(const tx_out& tx_output) = 0;
-
   // tells the subclass to store a spent key
   virtual void add_spent_key(const crypto::key_image& k_image) = 0;
 
