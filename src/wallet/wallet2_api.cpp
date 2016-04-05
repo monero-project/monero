@@ -66,64 +66,42 @@ using namespace cryptonote;
 
 Wallet::~Wallet() {}
 
+Transaction::~Transaction() {}
+
+
+class WalletImpl;
+
 ///////////////////////// Transaction implementation ///////////////////////////
 
 class TransactionImpl : public Transaction
 {
 public:
-    TransactionImpl(Wallet * wallet);
+    TransactionImpl(WalletImpl * wallet);
     ~TransactionImpl();
     int status() const;
     std::string errorString() const;
     bool commit();
-
-
-private:
-    std::vector<tools::wallet2::pending_tx> & transactions();
+    uint64_t dust() const;
+    uint64_t fee() const;
+    // TODO: continue with interface;
 
 private:
     friend class WalletImpl;
-    Wallet * m_wallet;
+    WalletImpl * m_wallet;
+
     int  m_status;
     std::string m_errorString;
     std::vector<tools::wallet2::pending_tx> m_pending_tx;
-
-
 };
 
 
-TransactionImpl::TransactionImpl(Wallet *wallet)
-    : m_wallet(wallet)
+
+
+/////////////////////////////////////////////////////////////////////////////////
+string Wallet::displayAmount(uint64_t amount)
 {
-
+    return cryptonote::print_money(amount);
 }
-
-TransactionImpl::~TransactionImpl()
-{
-
-}
-
-int TransactionImpl::status() const
-{
-    return m_status;
-}
-
-string TransactionImpl::errorString() const
-{
-    return m_errorString;
-}
-
-bool TransactionImpl::commit()
-{
-//    while (!m_pending_tx.empty()) {
-
-//    }
-    return false;
-
-
-}
-
-
 
 
 
@@ -151,16 +129,15 @@ public:
     bool connectToDaemon();
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
-    std::string displayAmount(uint64_t amount) const;
     bool refresh();
-    bool transfer(const std::string &dst_addr, uint64_t amount);
-
+    Transaction * createTransaction(const std::string &dst_addr, uint64_t amount);
+    virtual void disposeTransaction(Transaction * t);
 
 private:
     void clearStatus();
 
 private:
-    //std::unique_ptr<tools::wallet2> m_wallet;
+    friend class TransactionImpl;
     tools::wallet2 * m_wallet;
     int  m_status;
     std::string m_errorString;
@@ -366,10 +343,6 @@ uint64_t WalletImpl::unlockedBalance() const
     return m_wallet->unlocked_balance();
 }
 
-std::string WalletImpl::displayAmount(uint64_t amount) const
-{
-    return cryptonote::print_money(amount);
-}
 
 bool WalletImpl::refresh()
 {
@@ -383,7 +356,8 @@ bool WalletImpl::refresh()
     return m_status == Status_Ok;
 }
 
-bool WalletImpl::transfer(const std::string &dst_addr, uint64_t amount)
+
+Transaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amount)
 {
     clearStatus();
     vector<cryptonote::tx_destination_entry> dsts;
@@ -395,94 +369,103 @@ bool WalletImpl::transfer(const std::string &dst_addr, uint64_t amount)
     if (fake_outs_count == 0)
         fake_outs_count = DEFAULT_MIX;
 
+    TransactionImpl * transaction = new TransactionImpl(this);
+    do {
 
-    if(!cryptonote::get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), dst_addr)) {
-        // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
-        m_status = Status_Error;
-        m_errorString = "Invalid destination address";
-        return false;
-    }
+        if(!cryptonote::get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), dst_addr)) {
+            // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
+            m_status = Status_Error;
+            m_errorString = "Invalid destination address";
+            break;
 
-    de.amount = amount;
-    if (de.amount <= 0) {
-        m_status = Status_Error;
-        m_errorString = "Invalid amount";
-        return false;
-    }
-    dsts.push_back(de);
-    std::vector<tools::wallet2::pending_tx> ptx_vector;
-    std::vector<uint8_t> extra;
-    try {
-        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
-//      TODO: move it to transaction class
-        while (!ptx_vector.empty()) {
-            auto & ptx = ptx_vector.back();
-            m_wallet->commit_tx(ptx);
-            // success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
-            // if no exception, remove element from vector
-            ptx_vector.pop_back();
-        } // TODO: extract method;
-    } catch (const tools::error::daemon_busy&) {
-        // TODO: make it translatable with "tr"?
-        m_errorString = tr("daemon is busy. Please try again later.");
-        m_status = Status_Error;
-    } catch (const tools::error::no_connection_to_daemon&) {
-        m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
-        m_status = Status_Error;
-    } catch (const tools::error::wallet_rpc_error& e) {
-        m_errorString = tr("RPC error: ") +  e.to_string();
-        m_status = Status_Error;
-    } catch (const tools::error::get_random_outs_error&) {
-        m_errorString = tr("failed to get random outputs to mix");
-        m_status = Status_Error;
-
-    } catch (const tools::error::not_enough_money& e) {
-        m_status = Status_Error;
-        std::ostringstream writer(m_errorString);
-
-        writer << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)")) %
-        print_money(e.available()) %
-        print_money(e.tx_amount() + e.fee())  %
-        print_money(e.tx_amount()) %
-        print_money(e.fee());
-
-    } catch (const tools::error::not_enough_outs_to_mix& e) {
-        std::ostringstream writer(m_errorString);
-        writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-        for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs()) {
-            writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outs.size();
         }
-        m_status = Status_Error;
-    } catch (const tools::error::tx_not_constructed&) {
-        m_errorString = tr("transaction was not constructed");
-        m_status = Status_Error;
-    } catch (const tools::error::tx_rejected& e) {
-        std::ostringstream writer(m_errorString);
-        writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
-        m_status = Status_Error;
-    } catch (const tools::error::tx_sum_overflow& e) {
-        m_errorString = e.what();
-        m_status = Status_Error;
-    } catch (const tools::error::zero_destination&) {
-        m_errorString =  tr("one of destinations is zero");
-        m_status = Status_Error;
-    } catch (const tools::error::tx_too_big& e) {
-        m_errorString =  tr("failed to find a suitable way to split transactions");
-        m_status = Status_Error;
-    } catch (const tools::error::transfer_error& e) {
-       m_errorString = string(tr("unknown transfer error: ")) + e.what();
-       m_status = Status_Error;
-    } catch (const tools::error::wallet_internal_error& e) {
-       m_errorString =  string(tr("internal error: ")) + e.what();
-       m_status = Status_Error;
-    } catch (const std::exception& e) {
-      m_errorString =  string(tr("unexpected error: ")) + e.what();
-      m_status = Status_Error;
-    } catch (...) {
-      m_errorString = tr("unknown error");
-      m_status = Status_Error;
-    }
-    return m_status == Status_Ok;
+
+        de.amount = amount;
+        if (de.amount <= 0) {
+            m_status = Status_Error;
+            m_errorString = "Invalid amount";
+            break;
+        }
+
+        dsts.push_back(de);
+        //std::vector<tools::wallet2::pending_tx> ptx_vector;
+        std::vector<uint8_t> extra;
+
+
+        try {
+            transaction->m_pending_tx = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
+            //      TODO: move it to transaction class
+
+        } catch (const tools::error::daemon_busy&) {
+            // TODO: make it translatable with "tr"?
+            m_errorString = tr("daemon is busy. Please try again later.");
+            m_status = Status_Error;
+        } catch (const tools::error::no_connection_to_daemon&) {
+            m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
+            m_status = Status_Error;
+        } catch (const tools::error::wallet_rpc_error& e) {
+            m_errorString = tr("RPC error: ") +  e.to_string();
+            m_status = Status_Error;
+        } catch (const tools::error::get_random_outs_error&) {
+            m_errorString = tr("failed to get random outputs to mix");
+            m_status = Status_Error;
+
+        } catch (const tools::error::not_enough_money& e) {
+            m_status = Status_Error;
+            std::ostringstream writer(m_errorString);
+
+            writer << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)")) %
+                      print_money(e.available()) %
+                      print_money(e.tx_amount() + e.fee())  %
+                      print_money(e.tx_amount()) %
+                      print_money(e.fee());
+
+        } catch (const tools::error::not_enough_outs_to_mix& e) {
+            std::ostringstream writer(m_errorString);
+            writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
+            for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs()) {
+                writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outs.size();
+            }
+            m_status = Status_Error;
+        } catch (const tools::error::tx_not_constructed&) {
+            m_errorString = tr("transaction was not constructed");
+            m_status = Status_Error;
+        } catch (const tools::error::tx_rejected& e) {
+            std::ostringstream writer(m_errorString);
+            writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
+            m_status = Status_Error;
+        } catch (const tools::error::tx_sum_overflow& e) {
+            m_errorString = e.what();
+            m_status = Status_Error;
+        } catch (const tools::error::zero_destination&) {
+            m_errorString =  tr("one of destinations is zero");
+            m_status = Status_Error;
+        } catch (const tools::error::tx_too_big& e) {
+            m_errorString =  tr("failed to find a suitable way to split transactions");
+            m_status = Status_Error;
+        } catch (const tools::error::transfer_error& e) {
+            m_errorString = string(tr("unknown transfer error: ")) + e.what();
+            m_status = Status_Error;
+        } catch (const tools::error::wallet_internal_error& e) {
+            m_errorString =  string(tr("internal error: ")) + e.what();
+            m_status = Status_Error;
+        } catch (const std::exception& e) {
+            m_errorString =  string(tr("unexpected error: ")) + e.what();
+            m_status = Status_Error;
+        } catch (...) {
+            m_errorString = tr("unknown error");
+            m_status = Status_Error;
+        }
+    } while (false);
+
+    transaction->m_status = m_status;
+    transaction->m_errorString = m_errorString;
+    return transaction;
+}
+
+void WalletImpl::disposeTransaction(Transaction *t)
+{
+    delete t;
 }
 
 bool WalletImpl::connectToDaemon()
@@ -499,6 +482,81 @@ void WalletImpl::clearStatus()
 {
     m_status = Status_Ok;
     m_errorString.clear();
+}
+
+
+
+
+TransactionImpl::TransactionImpl(WalletImpl *wallet)
+    : m_wallet(wallet)
+{
+
+}
+
+TransactionImpl::~TransactionImpl()
+{
+
+}
+
+int TransactionImpl::status() const
+{
+    return m_status;
+}
+
+string TransactionImpl::errorString() const
+{
+    return m_errorString;
+}
+
+bool TransactionImpl::commit()
+{
+    try {
+        while (!m_pending_tx.empty()) {
+            auto & ptx = m_pending_tx.back();
+            m_wallet->m_wallet->commit_tx(ptx);
+            // success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
+            // if no exception, remove element from vector
+            m_pending_tx.pop_back();
+        } // TODO: extract method;
+    } catch (const tools::error::daemon_busy&) {
+        // TODO: make it translatable with "tr"?
+        m_errorString = tr("daemon is busy. Please try again later.");
+        m_status = Status_Error;
+    } catch (const tools::error::no_connection_to_daemon&) {
+        m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
+        m_status = Status_Error;
+    } catch (const tools::error::tx_rejected& e) {
+        std::ostringstream writer(m_errorString);
+        writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
+        m_status = Status_Error;
+    } catch (std::exception &e) {
+        m_errorString = string(tr("Unknown exception: ")) + e.what();
+        m_status = Status_Error;
+    } catch (...) {
+        m_errorString = tr("Unhandled exception");
+        LOG_ERROR(m_errorString);
+        m_status = Status_Error;
+    }
+
+    return m_status == Status_Ok;
+}
+
+uint64_t TransactionImpl::dust() const
+{
+    uint32_t result = 0;
+    for (auto ptx : m_pending_tx) {
+        result += ptx.dust;
+    }
+    return result;
+}
+
+uint64_t TransactionImpl::fee() const
+{
+    uint32_t result = 0;
+    for (auto ptx : m_pending_tx) {
+        result += ptx.fee;
+    }
+    return result;
 }
 
 

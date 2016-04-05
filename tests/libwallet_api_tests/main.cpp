@@ -264,14 +264,20 @@ TEST_F(WalletManagerTest, WalletRefresh)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
-TEST_F(WalletManagerTest, WalletTransfer)
+TEST_F(WalletManagerTest, WalletTransaction)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet1->refresh());
     uint64_t balance = wallet1->balance();
-    ASSERT_TRUE(wallet1->transfer(RECIPIENT_WALLET_ADDRESS, AMOUNT_10XMR));
+
+    Bitmonero::Transaction * transaction = wallet1->createTransaction(
+                RECIPIENT_WALLET_ADDRESS, AMOUNT_10XMR);
+    ASSERT_TRUE(transaction->status() == Bitmonero::Transaction::Status_Ok);
+
+    ASSERT_TRUE(wallet1->balance() == balance);
+    ASSERT_TRUE(transaction->commit());
     ASSERT_FALSE(wallet1->balance() == balance);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }

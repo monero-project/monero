@@ -45,10 +45,12 @@ struct Transaction
         Status_Ok,
         Status_Error
     };
-
+    virtual ~Transaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
     virtual bool commit() = 0;
+    virtual uint64_t dust() const = 0;
+    virtual uint64_t fee() const = 0;
 };
 
 /**
@@ -85,13 +87,12 @@ struct Wallet
     virtual bool connectToDaemon() = 0;
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
-    virtual std::string displayAmount(uint64_t amount) const = 0;
+    static std::string displayAmount(uint64_t amount);
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;
     virtual bool refresh() = 0;
-    // TODO transfer
-    virtual bool transfer(const std::string &dst_addr, uint64_t amount) = 0;
-
+    virtual Transaction * createTransaction(const std::string &dst_addr, uint64_t amount) = 0;
+    virtual void disposeTransaction(Transaction * t) = 0;
 };
 
 /**
