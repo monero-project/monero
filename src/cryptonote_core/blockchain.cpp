@@ -1970,14 +1970,15 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  if (!m_db->tx_exists(tx_id))
+  uint64_t tx_index;
+  if (!m_db->tx_exists(tx_id, tx_index))
   {
     LOG_PRINT_RED_L1("warning: get_tx_outputs_gindexs failed to find transaction with id = " << tx_id);
     return false;
   }
 
   // get amount output indexes, currently referred to in parts as "output global indices", but they are actually specific to amounts
-  indexs = m_db->get_tx_amount_output_indices(tx_id);
+  indexs = m_db->get_tx_amount_output_indices(tx_index);
   CHECK_AND_ASSERT_MES(indexs.size(), false, "internal error: global indexes for transaction " << tx_id << " is empty");
 
   return true;

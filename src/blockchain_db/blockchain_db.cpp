@@ -82,14 +82,17 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     }
   }
 
-  add_transaction_data(blk_hash, tx, tx_hash);
+  uint64_t tx_id = add_transaction_data(blk_hash, tx, tx_hash);
+
+  std::vector<uint64_t> amount_output_indices;
 
   // iterate tx.vout using indices instead of C++11 foreach syntax because
   // we need the index
   for (uint64_t i = 0; i < tx.vout.size(); ++i)
   {
-    add_output(tx_hash, tx.vout[i], i, tx.unlock_time);
+    amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, tx.unlock_time));
   }
+  add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
 
 uint64_t BlockchainDB::add_block( const block& blk

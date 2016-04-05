@@ -6771,8 +6771,8 @@ set1:
 				if (op == MDB_GET_BOTH || rc > 0)
 					return MDB_NOTFOUND;
 				rc = 0;
-				*data = olddata;
 			}
+			*data = olddata;
 
 		} else {
 			if (mc->mc_xcursor)

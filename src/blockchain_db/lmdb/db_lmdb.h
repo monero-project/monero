@@ -43,20 +43,13 @@ typedef struct mdb_txn_cursors
 {
   MDB_cursor *m_txc_blocks;
   MDB_cursor *m_txc_block_heights;
-  MDB_cursor *m_txc_block_hashes;
-  MDB_cursor *m_txc_block_timestamps;
-  MDB_cursor *m_txc_block_sizes;
-  MDB_cursor *m_txc_block_diffs;
-  MDB_cursor *m_txc_block_coins;
+  MDB_cursor *m_txc_block_info;
 
   MDB_cursor *m_txc_output_txs;
-  MDB_cursor *m_txc_output_indices;
   MDB_cursor *m_txc_output_amounts;
-  MDB_cursor *m_txc_output_keys;
 
   MDB_cursor *m_txc_txs;
-  MDB_cursor *m_txc_tx_heights;
-  MDB_cursor *m_txc_tx_unlocks;
+  MDB_cursor *m_txc_tx_indices;
   MDB_cursor *m_txc_tx_outputs;
 
   MDB_cursor *m_txc_spent_keys;
@@ -66,18 +59,11 @@ typedef struct mdb_txn_cursors
 
 #define m_cur_blocks	m_cursors->m_txc_blocks
 #define m_cur_block_heights	m_cursors->m_txc_block_heights
-#define m_cur_block_hashes	m_cursors->m_txc_block_hashes
-#define m_cur_block_timestamps	m_cursors->m_txc_block_timestamps
-#define m_cur_block_sizes	m_cursors->m_txc_block_sizes
-#define m_cur_block_diffs	m_cursors->m_txc_block_diffs
-#define m_cur_block_coins	m_cursors->m_txc_block_coins
+#define m_cur_block_info	m_cursors->m_txc_block_info
 #define m_cur_output_txs	m_cursors->m_txc_output_txs
-#define m_cur_output_indices	m_cursors->m_txc_output_indices
 #define m_cur_output_amounts	m_cursors->m_txc_output_amounts
-#define m_cur_output_keys	m_cursors->m_txc_output_keys
 #define m_cur_txs	m_cursors->m_txc_txs
-#define m_cur_tx_heights	m_cursors->m_txc_tx_heights
-#define m_cur_tx_unlocks	m_cursors->m_txc_tx_unlocks
+#define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
 #define m_cur_hf_versions	m_cursors->m_txc_hf_versions
@@ -87,18 +73,11 @@ typedef struct mdb_rflags
   bool m_rf_txn;
   bool m_rf_blocks;
   bool m_rf_block_heights;
-  bool m_rf_block_hashes;
-  bool m_rf_block_timestamps;
-  bool m_rf_block_sizes;
-  bool m_rf_block_diffs;
-  bool m_rf_block_coins;
+  bool m_rf_block_info;
   bool m_rf_output_txs;
-  bool m_rf_output_indices;
   bool m_rf_output_amounts;
-  bool m_rf_output_keys;
   bool m_rf_txs;
-  bool m_rf_tx_heights;
-  bool m_rf_tx_unlocks;
+  bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
   bool m_rf_hf_versions;
@@ -223,6 +202,7 @@ public:
   virtual uint64_t height() const;
 
   virtual bool tx_exists(const crypto::hash& h) const;
+  virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_index) const;
 
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
@@ -246,10 +226,8 @@ public:
 
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index);
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices);
-  virtual void get_output_global_indices(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<uint64_t> &indices);
 
-  virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const;
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const;
+  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_id) const;
 
   virtual bool has_key_image(const crypto::key_image& img) const;
 
@@ -306,18 +284,23 @@ private:
 
   virtual void remove_block();
 
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash);
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash);
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
-  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time);
+  virtual uint64_t add_output(const crypto::hash& tx_hash,
+      const tx_out& tx_output,
+      const uint64_t& local_index,
+      const uint64_t unlock_time
+      );
 
-  virtual void remove_output(const tx_out& tx_output);
+  virtual void add_tx_amount_output_indices(const uint64_t tx_id,
+      const std::vector<uint64_t>& amount_output_indices
+      );
 
-  void remove_tx_outputs(const MDB_val *tx_hash, const transaction& tx);
+  void remove_tx_outputs(const uint64_t tx_id, const transaction& tx);
 
-  void remove_output(const MDB_val *out_index, const uint64_t amount);
-  void remove_amount_output_index(const uint64_t amount, const MDB_val *global_output_index);
+  void remove_output(const uint64_t amount, const uint64_t& out_index);
 
   virtual void add_spent_key(const crypto::key_image& k_image);
 
@@ -349,16 +332,6 @@ private:
    */
   tx_out output_from_blob(const blobdata& blob) const;
 
-  /**
-   * @brief get the global index of the index-th output of the given amount
-   *
-   * @param amount the output amount
-   * @param index the index into the set of outputs of that amount
-   *
-   * @return the global index of the desired output
-   */
-  uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
-
   void check_open() const;
 
   virtual bool is_read_only() const;
@@ -370,21 +343,14 @@ private:
 
   MDB_dbi m_blocks;
   MDB_dbi m_block_heights;
-  MDB_dbi m_block_hashes;
-  MDB_dbi m_block_timestamps;
-  MDB_dbi m_block_sizes;
-  MDB_dbi m_block_diffs;
-  MDB_dbi m_block_coins;
+  MDB_dbi m_block_info;
 
   MDB_dbi m_txs;
-  MDB_dbi m_tx_unlocks;
-  MDB_dbi m_tx_heights;
+  MDB_dbi m_tx_indices;
   MDB_dbi m_tx_outputs;
 
   MDB_dbi m_output_txs;
-  MDB_dbi m_output_indices;
   MDB_dbi m_output_amounts;
-  MDB_dbi m_output_keys;
 
   MDB_dbi m_spent_keys;
 
@@ -394,6 +360,7 @@ private:
   MDB_dbi m_properties;
 
   uint64_t m_height;
+  uint64_t m_num_txs;
   uint64_t m_num_outputs;
   mutable uint64_t m_cum_size;	// used in batch size estimation
   mutable int m_cum_count;

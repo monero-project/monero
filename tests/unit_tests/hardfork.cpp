@@ -78,6 +78,7 @@ public:
   virtual block get_top_block() const { return block(); }
   virtual uint64_t height() const { return blocks.size(); }
   virtual bool tx_exists(const crypto::hash& h) const { return false; }
+  virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_index) const { return false; }
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const { return 0; }
   virtual transaction get_tx(const crypto::hash& h) const { return transaction(); }
   virtual uint64_t get_tx_count() const { return 0; }
@@ -93,13 +94,13 @@ public:
   virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) {}
   virtual bool can_thread_bulk_indices() const { return false; }
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const { return std::vector<uint64_t>(); }
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const { return std::vector<uint64_t>(); }
+  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_index) const { return std::vector<uint64_t>(); }
   virtual bool has_key_image(const crypto::key_image& img) const { return false; }
   virtual void remove_block() { blocks.pop_back(); }
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) {}
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) {return 0;}
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) {}
-  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) {}
-  virtual void remove_output(const tx_out& tx_output) {}
+  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) {return 0;}
+  virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) {}
   virtual void add_spent_key(const crypto::key_image& k_image) {}
   virtual void remove_spent_key(const crypto::key_image& k_image) {}
 
