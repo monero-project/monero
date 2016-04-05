@@ -310,6 +310,7 @@ namespace cryptonote
 
 
 #define CURRENT_MEMPOOL_ARCHIVE_VER    11
+#define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    11
 
     /**
      * @brief serialize the transaction pool to/from disk
@@ -530,6 +531,7 @@ namespace boost
   }
 }
 BOOST_CLASS_VERSION(cryptonote::tx_memory_pool, CURRENT_MEMPOOL_ARCHIVE_VER)
+BOOST_CLASS_VERSION(cryptonote::tx_memory_pool::tx_details, CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER)
 
 
 
