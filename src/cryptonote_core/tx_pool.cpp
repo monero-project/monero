@@ -512,7 +512,7 @@ namespace cryptonote
     {
       if(txd.max_used_block_height >= m_blockchain.get_current_blockchain_height())
         return false;
-      if(m_blockchain.get_block_id_by_height(txd.max_used_block_height) != txd.max_used_block_id)
+      if(true)
       {
         //if we already failed on this height and id, skip actual ring signature check
         if(txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
