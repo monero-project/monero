@@ -221,12 +221,14 @@ namespace cryptonote
     struct request
     {
       std::string tx_as_hex;
+      bool do_not_relay;
 
       request() {}
       explicit request(const transaction &);
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_as_hex)
+        KV_SERIALIZE(do_not_relay)
       END_KV_SERIALIZE_MAP()
     };
 
