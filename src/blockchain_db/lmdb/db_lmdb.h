@@ -339,6 +339,12 @@ private:
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
 
+  // migrate from older DB version to current
+  void migrate(const uint32_t oldversion);
+
+  // migrate from DB version 0 to 1
+  void migrate_0_1();
+
   MDB_env* m_env;
 
   MDB_dbi m_blocks;
