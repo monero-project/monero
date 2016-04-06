@@ -158,4 +158,6 @@ namespace tools
     /*! \brief where the installed handler is stored */
     static std::function<void(int)> m_handler;
   };
+
+  void set_strict_default_file_permissions(bool strict);
 }
