@@ -53,11 +53,13 @@ namespace misc_utils
 #if defined(_MSC_VER)
                 return ::GetTickCount64();
 #elif defined(WIN32)
-# if defined(WIN64)
-                return GetTickCount64();
-# else
-                return GetTickCount();
-# endif
+                static LARGE_INTEGER pcfreq = {0};
+                LARGE_INTEGER ticks;
+                if (!pcfreq.QuadPart)
+                    QueryPerformanceFrequency(&pcfreq);
+                QueryPerformanceCounter(&ticks);
+                ticks.QuadPart *= 1000; /* we want msec */
+                return ticks.QuadPart / pcfreq.QuadPart;
 #elif defined(__MACH__)
                 clock_serv_t cclock;
                 mach_timespec_t mts;
