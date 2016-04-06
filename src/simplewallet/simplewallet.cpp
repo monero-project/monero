@@ -2807,6 +2807,7 @@ int main(int argc, char* argv[])
 
   std::string lang = i18n_get_language();
   tools::sanitize_locale();
+  tools::set_strict_default_file_permissions(true);
 
   string_tools::set_module_name_and_folder(argv[0]);
 
