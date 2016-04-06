@@ -81,6 +81,7 @@ public:
     int status() const;
     std::string errorString() const;
     bool commit();
+    uint64_t amount() const;
     uint64_t dust() const;
     uint64_t fee() const;
     // TODO: continue with interface;
@@ -365,11 +366,13 @@ Transaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amou
     bool has_payment_id;
     bool payment_id_seen = false;
     crypto::hash8 new_payment_id;
+    // TODO: how this number affects (https://bitcointalk.org/index.php?topic=753252.msg9985441#msg9985441)
     size_t fake_outs_count = m_wallet->default_mixin();
     if (fake_outs_count == 0)
         fake_outs_count = DEFAULT_MIX;
 
     TransactionImpl * transaction = new TransactionImpl(this);
+
     do {
 
         if(!cryptonote::get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), dst_addr)) {
@@ -377,7 +380,6 @@ Transaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amou
             m_status = Status_Error;
             m_errorString = "Invalid destination address";
             break;
-
         }
 
         de.amount = amount;
@@ -510,6 +512,9 @@ string TransactionImpl::errorString() const
 
 bool TransactionImpl::commit()
 {
+
+    LOG_PRINT_L0("m_pending_tx size: " << m_pending_tx.size());
+    assert(m_pending_tx.size() == 1);
     try {
         while (!m_pending_tx.empty()) {
             auto & ptx = m_pending_tx.back();
@@ -541,10 +546,21 @@ bool TransactionImpl::commit()
     return m_status == Status_Ok;
 }
 
+uint64_t TransactionImpl::amount() const
+{
+    uint64_t result = 0;
+    for (const auto &ptx : m_pending_tx)   {
+        for (const auto &dest : ptx.dests) {
+            result += dest.amount;
+        }
+    }
+    return result;
+}
+
 uint64_t TransactionImpl::dust() const
 {
     uint32_t result = 0;
-    for (auto ptx : m_pending_tx) {
+    for (const auto & ptx : m_pending_tx) {
         result += ptx.dust;
     }
     return result;
@@ -553,7 +569,7 @@ uint64_t TransactionImpl::dust() const
 uint64_t TransactionImpl::fee() const
 {
     uint32_t result = 0;
-    for (auto ptx : m_pending_tx) {
+    for (const auto ptx : m_pending_tx) {
         result += ptx.fee;
     }
     return result;
@@ -638,7 +654,7 @@ WalletManager *WalletManagerFactory::getWalletManager()
 {
 
     if  (!g_walletManager) {
-        epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_0);
+        epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_MAX);
         g_walletManager = new WalletManagerImpl();
     }
 

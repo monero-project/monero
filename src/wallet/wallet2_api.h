@@ -49,6 +49,7 @@ struct Transaction
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
     virtual bool commit() = 0;
+    virtual uint64_t amount() const = 0;
     virtual uint64_t dust() const = 0;
     virtual uint64_t fee() const = 0;
 };

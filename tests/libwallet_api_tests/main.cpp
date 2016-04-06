@@ -271,12 +271,14 @@ TEST_F(WalletManagerTest, WalletTransaction)
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet1->refresh());
     uint64_t balance = wallet1->balance();
+    ASSERT_TRUE(wallet1->status() == Bitmonero::Transaction::Status_Ok);
 
     Bitmonero::Transaction * transaction = wallet1->createTransaction(
                 RECIPIENT_WALLET_ADDRESS, AMOUNT_10XMR);
     ASSERT_TRUE(transaction->status() == Bitmonero::Transaction::Status_Ok);
 
     ASSERT_TRUE(wallet1->balance() == balance);
+    ASSERT_TRUE(transaction->amount() == AMOUNT_10XMR);
     ASSERT_TRUE(transaction->commit());
     ASSERT_FALSE(wallet1->balance() == balance);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
