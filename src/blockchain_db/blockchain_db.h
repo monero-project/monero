@@ -462,18 +462,6 @@ private:
    */
   void pop_block();
 
-  /**
-   * @brief helper function for add_transactions, to add each individual transaction
-   *
-   * This function is called by add_transactions() for each transaction to be
-   * added.
-   *
-   * @param blk_hash hash of the block which has the transaction
-   * @param tx the transaction to add
-   * @param tx_hash_ptr the hash of the transaction, if already calculated
-   */
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL);
-
   // helper function to remove transaction from blockchain
   /**
    * @brief helper function to remove transaction from the blockchain
@@ -491,6 +479,18 @@ private:
 
 
 protected:
+
+  /**
+   * @brief helper function for add_transactions, to add each individual transaction
+   *
+   * This function is called by add_transactions() for each transaction to be
+   * added.
+   *
+   * @param blk_hash hash of the block which has the transaction
+   * @param tx the transaction to add
+   * @param tx_hash_ptr the hash of the transaction, if already calculated
+   */
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
