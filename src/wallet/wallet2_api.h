@@ -39,13 +39,13 @@ namespace Bitmonero {
 /**
  * @brief Transaction interface
  */
-struct Transaction
+struct PendingTransaction
 {
     enum Status {
         Status_Ok,
         Status_Error
     };
-    virtual ~Transaction() = 0;
+    virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
     virtual bool commit() = 0;
@@ -60,17 +60,12 @@ struct Transaction
  */
 struct Wallet
 {
-   // TODO define wallet interface (decide what needed from wallet2)
 
     enum Status {
         Status_Ok,
         Status_Error
     };
 
-    struct Listener
-    {
-        // TODO
-    };
 
     virtual ~Wallet() = 0;
     virtual std::string seed() const = 0;
@@ -92,8 +87,12 @@ struct Wallet
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;
     virtual bool refresh() = 0;
-    virtual Transaction * createTransaction(const std::string &dst_addr, uint64_t amount) = 0;
-    virtual void disposeTransaction(Transaction * t) = 0;
+    virtual PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount) = 0;
+    virtual void disposeTransaction(PendingTransaction * t) = 0;
+    // TODO
+    virtual void getPayments() const;
+
+
 };
 
 /**

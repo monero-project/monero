@@ -66,14 +66,14 @@ using namespace cryptonote;
 
 Wallet::~Wallet() {}
 
-Transaction::~Transaction() {}
+PendingTransaction::~PendingTransaction() {}
 
 
 class WalletImpl;
 
 ///////////////////////// Transaction implementation ///////////////////////////
 
-class TransactionImpl : public Transaction
+class TransactionImpl : public PendingTransaction
 {
 public:
     TransactionImpl(WalletImpl * wallet);
@@ -131,8 +131,8 @@ public:
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
     bool refresh();
-    Transaction * createTransaction(const std::string &dst_addr, uint64_t amount);
-    virtual void disposeTransaction(Transaction * t);
+    PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount);
+    virtual void disposeTransaction(PendingTransaction * t);
 
 private:
     void clearStatus();
@@ -357,16 +357,24 @@ bool WalletImpl::refresh()
     return m_status == Status_Ok;
 }
 
-
-Transaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amount)
+// TODO:
+// 1 - properly handle payment id (add another menthod with explicit 'payment_id' param)
+// 2 - check / design how "Transaction" can be single interface
+// (instead of few different data structures within wallet2 implementation:
+//    - pending_tx;
+//    - transfer_details;
+//    - payment_details;
+//    - unconfirmed_transfer_details;
+//    - confirmed_transfer_details)
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amount)
 {
     clearStatus();
     vector<cryptonote::tx_destination_entry> dsts;
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
-    bool payment_id_seen = false;
     crypto::hash8 new_payment_id;
-    // TODO: how this number affects (https://bitcointalk.org/index.php?topic=753252.msg9985441#msg9985441)
+
+    // TODO:  (https://bitcointalk.org/index.php?topic=753252.msg9985441#msg9985441)
     size_t fake_outs_count = m_wallet->default_mixin();
     if (fake_outs_count == 0)
         fake_outs_count = DEFAULT_MIX;
@@ -396,7 +404,6 @@ Transaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amou
 
         try {
             transaction->m_pending_tx = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
-            //      TODO: move it to transaction class
 
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
@@ -465,7 +472,7 @@ Transaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amou
     return transaction;
 }
 
-void WalletImpl::disposeTransaction(Transaction *t)
+void WalletImpl::disposeTransaction(PendingTransaction *t)
 {
     delete t;
 }

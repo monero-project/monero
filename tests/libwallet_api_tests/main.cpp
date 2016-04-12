@@ -271,11 +271,11 @@ TEST_F(WalletManagerTest, WalletTransaction)
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet1->refresh());
     uint64_t balance = wallet1->balance();
-    ASSERT_TRUE(wallet1->status() == Bitmonero::Transaction::Status_Ok);
+    ASSERT_TRUE(wallet1->status() == Bitmonero::PendingTransaction::Status_Ok);
 
-    Bitmonero::Transaction * transaction = wallet1->createTransaction(
+    Bitmonero::PendingTransaction * transaction = wallet1->createTransaction(
                 RECIPIENT_WALLET_ADDRESS, AMOUNT_10XMR);
-    ASSERT_TRUE(transaction->status() == Bitmonero::Transaction::Status_Ok);
+    ASSERT_TRUE(transaction->status() == Bitmonero::PendingTransaction::Status_Ok);
 
     ASSERT_TRUE(wallet1->balance() == balance);
     ASSERT_TRUE(transaction->amount() == AMOUNT_10XMR);
@@ -288,7 +288,7 @@ TEST_F(WalletManagerTest, WalletTransaction)
 
 int main(int argc, char** argv)
 {
-  //epee::debug::get_set_enable_assert(true, false);
+
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
