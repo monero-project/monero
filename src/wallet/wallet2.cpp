@@ -578,6 +578,24 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   blocks = res.blocks;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes)
+{
+  cryptonote::COMMAND_RPC_GET_HASHES_FAST::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_HASHES_FAST::response res = AUTO_VAL_INIT(res);
+  req.block_ids = short_chain_history;
+
+  req.start_height = start_height;
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/gethashes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gethashes.bin");
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gethashes.bin");
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, res.status);
+
+  blocks_start_height = res.start_height;
+  hashes = res.m_block_ids;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added)
 {
   size_t current_index = start_height;
@@ -772,6 +790,60 @@ void wallet2::check_pending_txes()
   }
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history)
+{
+  std::list<crypto::hash> hashes;
+  size_t current_index = m_blockchain.size();
+  while(current_index < stop_height)
+  {
+    pull_hashes(0, blocks_start_height, short_chain_history, hashes);
+    if (hashes.size() < 3)
+      return;
+    if (hashes.size() + current_index < stop_height) {
+      std::list<crypto::hash>::iterator right;
+      // drop early 3 off, skipping the genesis block
+      if (short_chain_history.size() > 3) {
+        right = short_chain_history.end();
+        std::advance(right,-1);
+        std::list<crypto::hash>::iterator left = right;
+        std::advance(left, -3);
+        short_chain_history.erase(left, right);
+      }
+      right = hashes.end();
+      // prepend 3 more
+      for (int i = 0; i<3; i++) {
+        right--;
+        short_chain_history.push_front(*right);
+      }
+    }
+    current_index = blocks_start_height;
+    BOOST_FOREACH(auto& bl_id, hashes)
+    {
+      if(current_index >= m_blockchain.size())
+      {
+        LOG_PRINT_L2( "Skipped block by height: " << current_index);
+        m_blockchain.push_back(bl_id);
+        ++m_local_bc_height;
+
+        if (0 != m_callback)
+        { // FIXME: this isn't right, but simplewallet just logs that we got a block.
+          cryptonote::block dummy;
+          m_callback->on_new_block(current_index, dummy);
+        }
+      }
+      else if(bl_id != m_blockchain[current_index])
+      {
+        //split detected here !!!
+        return;
+      }
+      ++current_index;
+      if (current_index >= stop_height)
+        return;
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {
   received_money = false;
@@ -786,7 +858,22 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
   // pull the first set of blocks
   get_short_chain_history(short_chain_history);
+  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
+    if (!start_height)
+      start_height = m_refresh_from_block_height;
+    // we can shortcut by only pulling hashes up to the start_height
+    fast_refresh(start_height, blocks_start_height, short_chain_history);
+    // regenerate the history now that we've got a full set of hashes
+    short_chain_history.clear();
+    get_short_chain_history(short_chain_history);
+    start_height = 0;
+    // and then fall through to regular refresh processing
+  }
+
   pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
+  // always reset start_height to 0 to force short_chain_ history to be used on
+  // subsequent pulls in this refresh.
+  start_height = 0;
 
   m_run.store(true, std::memory_order_relaxed);
   while(m_run.load(std::memory_order_relaxed))

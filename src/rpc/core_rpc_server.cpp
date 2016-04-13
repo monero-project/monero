@@ -166,6 +166,25 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_hashes(const COMMAND_RPC_GET_HASHES_FAST::request& req, COMMAND_RPC_GET_HASHES_FAST::response& res)
+  {
+    CHECK_CORE_BUSY();
+    NOTIFY_RESPONSE_CHAIN_ENTRY::request resp;
+
+    resp.start_height = req.start_height;
+    if(!m_core.find_blockchain_supplement(req.block_ids, resp))
+    {
+      res.status = "Failed";
+      return false;
+    }
+    res.current_height = resp.total_height;
+    res.start_height = resp.start_height;
+    res.m_block_ids = std::move(resp.m_block_ids);
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res)
   {
     CHECK_CORE_BUSY();
