@@ -2497,13 +2497,18 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   COMMAND_RPC_GET_TRANSACTIONS::response res;
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   if (!net_utils::invoke_http_json_remote_command2(m_daemon_address + "/gettransactions", req, res, m_http_client) ||
-      res.txs_as_hex.empty())
+      (res.txs.empty() && res.txs_as_hex.empty()))
   {
     fail_msg_writer() << tr("failed to get transaction from daemon");
     return true;
   }
   cryptonote::blobdata tx_data;
-  if (!string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data))
+  bool ok;
+  if (!res.txs.empty())
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
+  else
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+  if (!ok)
   {
     fail_msg_writer() << tr("failed to parse transaction from daemon");
     return true;
