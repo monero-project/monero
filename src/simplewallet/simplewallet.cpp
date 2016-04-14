@@ -2133,9 +2133,9 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
     // figure out what tx will be necessary
     std::vector<tools::wallet2::pending_tx> ptx_vector;
     if (new_algorithm)
-      ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
+      ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
     else
-      ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
+      ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
 
     // if more than one tx necessary, prompt user to confirm
     if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)

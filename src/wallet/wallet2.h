@@ -274,11 +274,11 @@ namespace tools
     uint64_t unlocked_balance() const;
     uint64_t unlocked_dust_balance(const tx_dust_policy &dust_policy) const;
     template<typename T>
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy);
+    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outputs_count, const std::vector<size_t> &unused_transfers_indices, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, bool trusted_daemon);
     template<typename T>
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx& ptx);
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra);
-    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx);
+    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outputs_count, const std::vector<size_t> &unused_transfers_indices, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx& ptx, bool trusted_daemon);
+    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outputs_count, const std::vector<size_t> &unused_transfers_indices, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, bool trusted_daemon);
+    void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outputs_count, const std::vector<size_t> &unused_transfers_indices, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx, bool trusted_daemon);
     template<typename T>
     void transfer_from(const std::vector<size_t> &outs, size_t num_outputs, uint64_t unlock_time, uint64_t needed_fee, T destination_split_strategy, const tx_dust_policy& dust_policy, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx);
     template<typename T>
@@ -287,8 +287,8 @@ namespace tools
 
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
-    std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra);
-    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra);
+    std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee, const std::vector<uint8_t> extra, bool trusted_daemon);
+    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<pending_tx> create_unmixable_sweep_transactions(bool trusted_daemon);
     bool check_connection();
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
@@ -389,7 +389,7 @@ namespace tools
     void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks);
     void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, bool &error);
     void process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added);
-    uint64_t select_transfers(uint64_t needed_money, bool add_dust, uint64_t dust, bool hf2_rules, std::list<transfer_container::iterator>& selected_transfers);
+    uint64_t select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::list<transfer_container::iterator>& selected_transfers, bool trusted_daemon);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
     void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t spent, uint64_t received);
@@ -403,8 +403,10 @@ namespace tools
     uint64_t get_upper_tranaction_size_limit();
     void check_pending_txes();
     std::vector<uint64_t> get_unspent_amounts_vector();
+    std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool trusted_daemon);
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
+    std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
@@ -562,17 +564,17 @@ namespace tools
   }
   //----------------------------------------------------------------------------------------------------
   template<typename T>
-  void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy)
+  void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outs_count, const std::vector<size_t> &unused_transfers_indices,
+    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, bool trusted_daemon)
   {
     pending_tx ptx;
     cryptonote::transaction tx;
-    transfer(dsts, fake_outputs_count, unlock_time, fee, extra, destination_split_strategy, dust_policy, tx, ptx);
+    transfer(dsts, fake_outs_count, unused_transfers_indices, unlock_time, fee, extra, destination_split_strategy, dust_policy, tx, ptx, trusted_daemon);
   }
 
   template<typename T>
-  void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count,
-    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx)
+  void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, size_t fake_outputs_count, const std::vector<size_t> &unused_transfers_indices,
+    uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx, bool trusted_daemon)
   {
     using namespace cryptonote;
     // throw if attempting a transaction with no destinations
@@ -593,9 +595,7 @@ namespace tools
     // randomly select inputs for transaction
     // throw if requested send amount is greater than amount available to send
     std::list<transfer_container::iterator> selected_transfers;
-    bool hf2_rules = use_fork_rules(2); // first fork has version 2
-    const bool add_dust = (0 == fake_outputs_count) && hf2_rules;
-    uint64_t found_money = select_transfers(needed_money, add_dust, dust_policy.dust_threshold, hf2_rules, selected_transfers);
+    uint64_t found_money = select_transfers(needed_money, unused_transfers_indices, selected_transfers, trusted_daemon);
     THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
 
     typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
