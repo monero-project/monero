@@ -2015,17 +2015,11 @@ bool Blockchain::check_tx_inputs(const transaction& tx, uint64_t& max_used_block
   TIME_MEASURE_START(a);
   bool res = check_tx_inputs(tx, tvc, &max_used_block_height);
   TIME_MEASURE_FINISH(a);
-  crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
   if(m_show_time_stats)
     LOG_PRINT_L0("HASH: " << "+" << " VIN/VOUT: " << tx.vin.size() << "/" << tx.vout.size() << " H: " << max_used_block_height << " chcktx: " << a + m_fake_scan_time);
 
   if (!res)
     return false;
-
-  // ND: Speedup:
-  // 1. keep a list of verified transactions, when the Blockchain tries to check a tx again,
-  //    verify against list and skip if already verified to be correct.
-  m_check_tx_inputs_table.emplace(tx_prefix_hash, std::make_pair(res, max_used_block_height));
 
   CHECK_AND_ASSERT_MES(max_used_block_height < m_db->height(), false,  "internal error: max used block index=" << max_used_block_height << " is not less then blockchain size = " << m_db->height());
   max_used_block_id = m_db->get_block_hash_from_height(max_used_block_height);
@@ -2075,16 +2069,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
     *pmax_used_block_height = 0;
 
   crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
-
-  auto its = m_check_tx_inputs_table.find(tx_prefix_hash);
-  if (its != m_check_tx_inputs_table.end())
-  {
-    if (!its->second.first)
-      return false;
-    if (pmax_used_block_height)
-      *pmax_used_block_height = its->second.second;
-    return true;
-  }
 
   // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
   // if one output cannot mix with 2 others, we accept at most 1 output that can mix
@@ -2967,7 +2951,6 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   TIME_MEASURE_FINISH(t1);
   m_blocks_longhash_table.clear();
   m_scan_table.clear();
-  m_check_tx_inputs_table.clear();
   m_blocks_txs_check.clear();
   m_check_txin_table.clear();
 
@@ -3115,7 +3098,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   m_fake_pow_calc_time = 0;
 
   m_scan_table.clear();
-  m_check_tx_inputs_table.clear();
   m_check_txin_table.clear();
 
   TIME_MEASURE_FINISH(prepare);
