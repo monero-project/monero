@@ -70,6 +70,23 @@ namespace {
       << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
       << "reward: " << boost::lexical_cast<std::string>(header.reward);
   }
+
+  std::string get_human_time_ago(time_t t, time_t now)
+  {
+    if (t == now)
+      return "now";
+    time_t dt = t > now ? t - now : now - t;
+    std::string s;
+    if (dt < 90)
+      s = boost::lexical_cast<std::string>(dt) + " seconds";
+    else if (dt < 90 * 60)
+      s = boost::lexical_cast<std::string>(dt/60) + " minutes";
+    else if (dt < 36 * 3600)
+      s = boost::lexical_cast<std::string>(dt/3600) + " hours";
+    else
+      s = boost::lexical_cast<std::string>(dt/(3600*24)) + " days";
+    return s + " " + (t > now ? "in the future" : "ago");
+  }
 }
 
 t_rpc_command_executor::t_rpc_command_executor(
@@ -679,6 +696,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
   }
   if (! res.transactions.empty())
   {
+    const time_t now = time(NULL);
     tools::msg_writer() << "Transactions: ";
     for (auto & tx_info : res.transactions)
     {
@@ -686,7 +704,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
                           << tx_info.tx_json << std::endl
                           << "blob_size: " << tx_info.blob_size << std::endl
                           << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                          << "receive_time: " << tx_info.receive_time << std::endl
+                          << "receive_time: " << tx_info.receive_time << " (" << get_human_time_ago(tx_info.receive_time, now) << ")" << std::endl
                           << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                           << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
@@ -757,17 +775,21 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   {
     tools::msg_writer() << "Pool is empty" << std::endl;
   }
-  for (auto & tx_info : res.transactions)
+  else
   {
-    tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
-                        << "blob_size: " << tx_info.blob_size << std::endl
-                        << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                        << "receive_time: " << tx_info.receive_time << std::endl
-                        << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
-                        << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
-                        << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
-                        << "last_failed_height: " << tx_info.last_failed_height << std::endl
-                        << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    const time_t now = time(NULL);
+    for (auto & tx_info : res.transactions)
+    {
+      tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
+                          << "blob_size: " << tx_info.blob_size << std::endl
+                          << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
+                          << "receive_time: " << tx_info.receive_time << " (" << get_human_time_ago(tx_info.receive_time, now) << ")" << std::endl
+                          << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
+                          << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
+                          << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
+                          << "last_failed_height: " << tx_info.last_failed_height << std::endl
+                          << "last_failed_id: " << tx_info.last_failed_id_hash << std::endl;
+    }
   }
 
   return true;

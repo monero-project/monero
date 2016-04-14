@@ -407,7 +407,7 @@ namespace cryptonote
       return true;
     }
 
-    if(!tvc.m_should_be_relayed)
+    if(!tvc.m_should_be_relayed || req.do_not_relay)
     {
       LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
       res.reason = "Not relayed";
