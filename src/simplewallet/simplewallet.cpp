@@ -3030,12 +3030,25 @@ int main(int argc, char* argv[])
     }
 
     tools::wallet2 wal(testnet,restricted);
+    bool quit = false;
+    tools::signal_handler::install([&wal, &quit](int) {
+      quit = true;
+      wal.stop();
+    });
     try
     {
       LOG_PRINT_L0(sw::tr("Loading wallet..."));
       wal.load(wallet_file, password);
       wal.init(daemon_address);
       wal.refresh();
+      // if we ^C during potentially length load/refresh, there's no server loop yet
+      if (quit)
+      {
+        LOG_PRINT_L0(sw::tr("Storing wallet..."));
+        wal.store();
+        LOG_PRINT_GREEN(sw::tr("Stored ok"), LOG_LEVEL_0);
+        return 1;
+      }
       LOG_PRINT_GREEN(sw::tr("Loaded ok"), LOG_LEVEL_0);
     }
     catch (const std::exception& e)
@@ -3046,10 +3059,8 @@ int main(int argc, char* argv[])
     tools::wallet_rpc_server wrpc(wal);
     bool r = wrpc.init(vm);
     CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet rpc server"));
-
     tools::signal_handler::install([&wrpc, &wal](int) {
       wrpc.send_stop_signal();
-      wal.store();
     });
     LOG_PRINT_L0(sw::tr("Starting wallet rpc server"));
     wrpc.run();
