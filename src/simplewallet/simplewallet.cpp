@@ -1410,6 +1410,12 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   }
 
   m_wallet->init(m_daemon_address);
+  // for a totally new account, we don't care about older blocks.
+  if (!m_restore_deterministic_wallet)
+  {
+    std::string err;
+    m_wallet->set_refresh_from_block_height(get_daemon_blockchain_height(err));
+  }
 
   // convert rng value to electrum-style word list
   std::string electrum_words;
