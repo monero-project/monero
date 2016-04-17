@@ -490,7 +490,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			sleep_before_packet(cb, 1, 1);
 		}
 
-    epee::critical_region_t<decltype(m_send_que_lock)> send_guard(m_send_que_lock); // *** critical ***
+    m_send_que_lock.lock(); // *** critical ***
+    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_send_que_lock.unlock();});
+
     long int retry=0;
     const long int retry_limit = 5*4;
     while (m_send_que.size() > ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
@@ -504,11 +506,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
         long int ms = 250 + (rand()%50);
         _info_c("net/sleep", "Sleeping because QUEUE is FULL, in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<cb); // XXX debug sleep
+        m_send_que_lock.unlock();
         boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
+        m_send_que_lock.lock();
         _dbg1("sleep for queue: " << ms);
 
         if (retry > retry_limit) {
-            send_guard.unlock();
             _erro("send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
             //	_dbg1_c("net/sleep", "send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
             close();
