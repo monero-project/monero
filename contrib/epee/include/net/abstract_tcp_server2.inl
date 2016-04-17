@@ -514,7 +514,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         if (retry > retry_limit) {
             _erro("send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
             //	_dbg1_c("net/sleep", "send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
-            close();
+            shutdown();
             return false;
         }
     }
