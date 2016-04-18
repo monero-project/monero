@@ -143,6 +143,7 @@ namespace tools
     {
       cryptonote::transaction tx;
       uint64_t dust, fee;
+      bool dust_added_to_fee;                           //AC
       cryptonote::tx_destination_entry change_dts;
       std::list<transfer_container::iterator> selected_transfers;
       std::string key_images;
@@ -711,10 +712,16 @@ namespace tools
       return true;
     });
     THROW_WALLET_EXCEPTION_IF(!all_are_txin_to_key, error::unexpected_txin_type, tx);
+    
+    bool dust_sent_elsewhere = (dust_policy.addr_for_dust.m_view_public_key != change_dts.addr.m_view_public_key
+                                || dust_policy.addr_for_dust.m_spend_public_key != change_dts.addr.m_spend_public_key);      
+
+    if (dust_policy.add_to_fee || dust_sent_elsewhere) change_dts.amount -= dust;
 
     ptx.key_images = key_images;
-    ptx.fee = fee;
-    ptx.dust = dust;
+    ptx.fee = (dust_policy.add_to_fee ? fee+dust : fee);
+    ptx.dust = ((dust_policy.add_to_fee || dust_sent_elsewhere) ? dust : 0);
+    ptx.dust_added_to_fee = dust_policy.add_to_fee;         //AC
     ptx.tx = tx;
     ptx.change_dts = change_dts;
     ptx.selected_transfers = selected_transfers;
