@@ -413,4 +413,13 @@ std::string get_nix_version_display_string()
     }
     return false;
   }
+  void set_strict_default_file_permissions(bool strict)
+  {
+#if defined(__MINGW32__) || defined(__MINGW__)
+    // no clue about the odd one out
+#else
+    mode_t mode = strict ? 077 : 0;
+    umask(mode);
+#endif
+  }
 }

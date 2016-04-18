@@ -829,6 +829,8 @@ static bool get_password(const boost::program_options::variables_map& vm, bool a
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password)
 {
+  bool testnet = command_line::get_arg(vm, arg_testnet);
+
   std::string buf;
   bool r = epee::file_io_utils::load_file_to_string(m_generate_from_json, buf);
   if (!r) {
@@ -868,6 +870,11 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
       return false;
     }
     viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+    crypto::public_key pkey;
+    if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+      fail_msg_writer() << tr("failed to verify view key secret key");
+      return false;
+    }
   }
 
   GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, spendkey, std::string, String, false);
@@ -881,6 +888,11 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
       return false;
     }
     spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+    crypto::public_key pkey;
+    if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+      fail_msg_writer() << tr("failed to verify spend key secret key");
+      return false;
+    }
   }
 
   GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed, std::string, String, false);
@@ -896,6 +908,8 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     m_restore_deterministic_wallet = true;
   }
 
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false);
+
   // compatibility checks
   if (!field_seed_found && !field_viewkey_found)
   {
@@ -908,6 +922,44 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     return false;
   }
 
+  // if an address was given, we check keys against it, and deduce the spend
+  // public key if it was not given
+  if (field_address_found)
+  {
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 new_payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, testnet, field_address))
+    {
+      fail_msg_writer() << tr("invalid address");
+      return false;
+    }
+    if (field_viewkey_found)
+    {
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+        fail_msg_writer() << tr("failed to verify view key secret key");
+        return false;
+      }
+      if (address.m_view_public_key != pkey) {
+        fail_msg_writer() << tr("view key does not match standard address");
+        return false;
+      }
+    }
+    if (field_spendkey_found)
+    {
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+        fail_msg_writer() << tr("failed to verify spend key secret key");
+        return false;
+      }
+      if (address.m_spend_public_key != pkey) {
+        fail_msg_writer() << tr("spend key does not match standard address");
+        return false;
+      }
+    }
+  }
+
   m_wallet_file = field_filename;
 
   bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
@@ -917,7 +969,6 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     return false;
   }
 
-  bool testnet = command_line::get_arg(vm, arg_testnet);
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
 
@@ -934,17 +985,27 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
         fail_msg_writer() << tr("failed to verify view key secret key");
         return false;
       }
-      if (!crypto::secret_key_to_public_key(spendkey, address.m_spend_public_key)) {
-        fail_msg_writer() << tr("failed to verify spend key secret key");
-        return false;
-      }
 
       if (field_spendkey.empty())
       {
+        // if we have an addres but no spend key, we can deduce the spend public key
+        // from the address
+        if (field_address_found)
+        {
+          cryptonote::account_public_address address2;
+          bool has_payment_id;
+          crypto::hash8 new_payment_id;
+          get_account_integrated_address_from_str(address2, has_payment_id, new_payment_id, testnet, field_address);
+          address.m_spend_public_key = address2.m_spend_public_key;
+        }
         m_wallet->generate(m_wallet_file, password, address, viewkey);
       }
       else
       {
+        if (!crypto::secret_key_to_public_key(spendkey, address.m_spend_public_key)) {
+          fail_msg_writer() << tr("failed to verify spend key secret key");
+          return false;
+        }
         m_wallet->generate(m_wallet_file, password, address, spendkey, viewkey);
       }
     }
@@ -2133,9 +2194,9 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
     // figure out what tx will be necessary
     std::vector<tools::wallet2::pending_tx> ptx_vector;
     if (new_algorithm)
-      ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
+      ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
     else
-      ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
+      ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
 
     // if more than one tx necessary, prompt user to confirm
     if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
@@ -2497,13 +2558,18 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   COMMAND_RPC_GET_TRANSACTIONS::response res;
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   if (!net_utils::invoke_http_json_remote_command2(m_daemon_address + "/gettransactions", req, res, m_http_client) ||
-      res.txs_as_hex.empty())
+      (res.txs.empty() && res.txs_as_hex.empty()))
   {
     fail_msg_writer() << tr("failed to get transaction from daemon");
     return true;
   }
   cryptonote::blobdata tx_data;
-  if (!string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data))
+  bool ok;
+  if (!res.txs.empty())
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
+  else
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+  if (!ok)
   {
     fail_msg_writer() << tr("failed to parse transaction from daemon");
     return true;
@@ -2807,6 +2873,7 @@ int main(int argc, char* argv[])
 
   std::string lang = i18n_get_language();
   tools::sanitize_locale();
+  tools::set_strict_default_file_permissions(true);
 
   string_tools::set_module_name_and_folder(argv[0]);
 
@@ -2963,12 +3030,25 @@ int main(int argc, char* argv[])
     }
 
     tools::wallet2 wal(testnet,restricted);
+    bool quit = false;
+    tools::signal_handler::install([&wal, &quit](int) {
+      quit = true;
+      wal.stop();
+    });
     try
     {
       LOG_PRINT_L0(sw::tr("Loading wallet..."));
       wal.load(wallet_file, password);
       wal.init(daemon_address);
       wal.refresh();
+      // if we ^C during potentially length load/refresh, there's no server loop yet
+      if (quit)
+      {
+        LOG_PRINT_L0(sw::tr("Storing wallet..."));
+        wal.store();
+        LOG_PRINT_GREEN(sw::tr("Stored ok"), LOG_LEVEL_0);
+        return 1;
+      }
       LOG_PRINT_GREEN(sw::tr("Loaded ok"), LOG_LEVEL_0);
     }
     catch (const std::exception& e)
@@ -2979,10 +3059,8 @@ int main(int argc, char* argv[])
     tools::wallet_rpc_server wrpc(wal);
     bool r = wrpc.init(vm);
     CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet rpc server"));
-
     tools::signal_handler::install([&wrpc, &wal](int) {
       wrpc.send_stop_signal();
-      wal.store();
     });
     LOG_PRINT_L0(sw::tr("Starting wallet rpc server"));
     wrpc.run();

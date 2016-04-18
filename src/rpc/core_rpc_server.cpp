@@ -240,6 +240,7 @@ namespace cryptonote
 
     // try the pool for any missing txes
     size_t found_in_pool = 0;
+    std::unordered_set<crypto::hash> pool_tx_hashes;
     if (!missed_txs.empty())
     {
       std::list<transaction> pool_txs;
@@ -248,9 +249,11 @@ namespace cryptonote
       {
         for (std::list<transaction>::const_iterator i = pool_txs.begin(); i != pool_txs.end(); ++i)
         {
-          std::list<crypto::hash>::iterator mi = std::find(missed_txs.begin(), missed_txs.end(), get_transaction_hash(*i));
+          crypto::hash tx_hash = get_transaction_hash(*i);
+          std::list<crypto::hash>::iterator mi = std::find(missed_txs.begin(), missed_txs.end(), tx_hash);
           if (mi != missed_txs.end())
           {
+            pool_tx_hashes.insert(tx_hash);
             missed_txs.erase(mi);
             txs.push_back(*i);
             ++found_in_pool;
@@ -260,12 +263,33 @@ namespace cryptonote
       LOG_PRINT_L2("Found " << found_in_pool << "/" << vh.size() << " transactions in the pool");
     }
 
+    std::list<std::string>::const_iterator txhi = req.txs_hashes.begin();
+    std::vector<crypto::hash>::const_iterator vhi = vh.begin();
     BOOST_FOREACH(auto& tx, txs)
     {
+      res.txs.push_back(COMMAND_RPC_GET_TRANSACTIONS::entry());
+      COMMAND_RPC_GET_TRANSACTIONS::entry &e = res.txs.back();
+
+      crypto::hash tx_hash = *vhi++;
+      e.tx_hash = *txhi++;
       blobdata blob = t_serializable_object_to_blob(tx);
-      res.txs_as_hex.push_back(string_tools::buff_to_hex_nodelimer(blob));
+      e.as_hex = string_tools::buff_to_hex_nodelimer(blob);
       if (req.decode_as_json)
-        res.txs_as_json.push_back(obj_to_json_str(tx));
+        e.as_json = obj_to_json_str(tx);
+      e.in_pool = pool_tx_hashes.find(tx_hash) != pool_tx_hashes.end();
+      if (e.in_pool)
+      {
+        e.block_height = std::numeric_limits<uint64_t>::max();
+      }
+      else
+      {
+        e.block_height = m_core.get_blockchain_storage().get_db().get_tx_block_height(tx_hash);
+      }
+
+      // fill up old style responses too, in case an old wallet asks
+      res.txs_as_hex.push_back(e.as_hex);
+      if (req.decode_as_json)
+        res.txs_as_json.push_back(e.as_json);
     }
 
     BOOST_FOREACH(const auto& miss_tx, missed_txs)
@@ -273,7 +297,7 @@ namespace cryptonote
       res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
     }
 
-    LOG_PRINT_L2(res.txs_as_hex.size() << " transactions found, " << res.missed_tx.size() << " not found");
+    LOG_PRINT_L2(res.txs.size() << " transactions found, " << res.missed_tx.size() << " not found");
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -383,7 +407,7 @@ namespace cryptonote
       return true;
     }
 
-    if(!tvc.m_should_be_relayed)
+    if(!tvc.m_should_be_relayed || req.do_not_relay)
     {
       LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
       res.reason = "Not relayed";

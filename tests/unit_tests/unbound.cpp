@@ -30,6 +30,8 @@
 
 #include "gtest/gtest.h"
 
+#ifdef STATICLIB
+
 extern "C" int dnskey_algo_id_is_supported(int);
 
 TEST(unbound, supported_algorithms)
@@ -46,4 +48,6 @@ TEST(unbound, supported_algorithms)
   ASSERT_TRUE(dnskey_algo_id_is_supported(8));
   ASSERT_TRUE(dnskey_algo_id_is_supported(13));
 }
+
+#endif
 
