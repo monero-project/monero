@@ -2935,6 +2935,23 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+static std::string get_human_readable_timestamp(uint64_t ts)
+{
+  char buffer[64];
+  if (ts < 1234567890)
+    return "<unknown>";
+  time_t tt = ts;
+  struct tm tm;
+  gmtime_r(&tt, &tm);
+  uint64_t now = time(NULL);
+  uint64_t diff = ts > now ? ts - now : now - ts;
+  if (diff > 24*3600)
+    strftime(buffer, sizeof(buffer), "%F", &tm);
+  else
+    strftime(buffer, sizeof(buffer), "%r", &tm);
+  return std::string(buffer);
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 {
   std::vector<std::string> local_args = args_;
@@ -3009,7 +3026,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       std::string payment_id = string_tools::pod_to_hex(i->first);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
-      output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-").str())));
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%16.16s %20.20s %s %s %s") % get_human_readable_timestamp(pd.m_timestamp) % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-").str())));
     }
   }
 
@@ -3029,7 +3046,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
-      output.insert(std::make_pair(pd.m_block_height, std::make_pair(false, (boost::format("%20.20s %s %s %14.14s %s") % print_money(pd.m_amount_in - change - fee) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee) % dests).str())));
+      output.insert(std::make_pair(pd.m_block_height, std::make_pair(false, (boost::format("%16.16s %20.20s %s %s %14.14s %s") % get_human_readable_timestamp(pd.m_timestamp) % print_money(pd.m_amount_in - change - fee) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee) % dests).str())));
     }
   }
 
@@ -3054,7 +3071,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
         payment_id = payment_id.substr(0,16);
       bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
       if ((failed && is_failed) || (!is_failed && pending)) {
-        message_writer() << (boost::format("%8.8s %6.6s %20.20s %s %s %14.14s") % (is_failed ? tr("failed") : tr("pending")) % tr("out") % print_money(amount - pd.m_change) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee)).str();
+        message_writer() << (boost::format("%8.8s %6.6s %16.16s %20.20s %s %s %14.14s") % (is_failed ? tr("failed") : tr("pending")) % tr("out") % get_human_readable_timestamp(pd.m_timestamp) % print_money(amount - pd.m_change) % string_tools::pod_to_hex(i->first) % payment_id % print_money(fee)).str();
       }
     }
   }
