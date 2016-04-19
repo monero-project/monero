@@ -65,11 +65,58 @@ using namespace std;
 using namespace cryptonote;
 
 Wallet::~Wallet() {}
-
 PendingTransaction::~PendingTransaction() {}
 
 
-class WalletImpl;
+
+
+
+///////////////////////// Wallet implementation ///////////////////////////////
+class WalletImpl : public Wallet
+{
+public:
+    WalletImpl(bool testnet = false);
+    ~WalletImpl();
+    bool create(const std::string &path, const std::string &password,
+                const std::string &language);
+    bool open(const std::string &path, const std::string &password);
+    bool recover(const std::string &path, const std::string &seed);
+    bool close();
+    std::string seed() const;
+    std::string getSeedLanguage() const;
+    void setSeedLanguage(const std::string &arg);
+    // void setListener(Listener *) {}
+    int status() const;
+    std::string errorString() const;
+    bool setPassword(const std::string &password);
+    std::string address() const;
+    bool store(const std::string &path);
+    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
+    bool connectToDaemon();
+    uint64_t balance() const;
+    uint64_t unlockedBalance() const;
+    bool refresh();
+    PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount);
+    virtual void disposeTransaction(PendingTransaction * t);
+    virtual TransactionHistory * history() const;
+
+private:
+    void clearStatus();
+
+private:
+    friend class TransactionImpl;
+    tools::wallet2 * m_wallet;
+    int  m_status;
+    std::string m_errorString;
+    std::string m_password;
+};
+
+
+/////////////////////////////////////////////////////////////////////////////////
+string Wallet::displayAmount(uint64_t amount)
+{
+    return cryptonote::print_money(amount);
+}
 
 ///////////////////////// Transaction implementation ///////////////////////////
 
@@ -95,55 +142,119 @@ private:
     std::vector<tools::wallet2::pending_tx> m_pending_tx;
 };
 
-
-
-
-/////////////////////////////////////////////////////////////////////////////////
-string Wallet::displayAmount(uint64_t amount)
+TransactionImpl::TransactionImpl(WalletImpl *wallet)
+    : m_wallet(wallet)
 {
-    return cryptonote::print_money(amount);
+
+}
+
+TransactionImpl::~TransactionImpl()
+{
+
+}
+
+int TransactionImpl::status() const
+{
+    return m_status;
+}
+
+string TransactionImpl::errorString() const
+{
+    return m_errorString;
+}
+
+bool TransactionImpl::commit()
+{
+
+    LOG_PRINT_L0("m_pending_tx size: " << m_pending_tx.size());
+    assert(m_pending_tx.size() == 1);
+    try {
+        while (!m_pending_tx.empty()) {
+            auto & ptx = m_pending_tx.back();
+            m_wallet->m_wallet->commit_tx(ptx);
+            // success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
+            // if no exception, remove element from vector
+            m_pending_tx.pop_back();
+        } // TODO: extract method;
+    } catch (const tools::error::daemon_busy&) {
+        // TODO: make it translatable with "tr"?
+        m_errorString = tr("daemon is busy. Please try again later.");
+        m_status = Status_Error;
+    } catch (const tools::error::no_connection_to_daemon&) {
+        m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
+        m_status = Status_Error;
+    } catch (const tools::error::tx_rejected& e) {
+        std::ostringstream writer(m_errorString);
+        writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
+        m_status = Status_Error;
+    } catch (std::exception &e) {
+        m_errorString = string(tr("Unknown exception: ")) + e.what();
+        m_status = Status_Error;
+    } catch (...) {
+        m_errorString = tr("Unhandled exception");
+        LOG_ERROR(m_errorString);
+        m_status = Status_Error;
+    }
+
+    return m_status == Status_Ok;
+}
+
+uint64_t TransactionImpl::amount() const
+{
+    uint64_t result = 0;
+    for (const auto &ptx : m_pending_tx)   {
+        for (const auto &dest : ptx.dests) {
+            result += dest.amount;
+        }
+    }
+    return result;
+}
+
+uint64_t TransactionImpl::dust() const
+{
+    uint32_t result = 0;
+    for (const auto & ptx : m_pending_tx) {
+        result += ptx.dust;
+    }
+    return result;
+}
+
+uint64_t TransactionImpl::fee() const
+{
+    uint32_t result = 0;
+    for (const auto ptx : m_pending_tx) {
+        result += ptx.fee;
+    }
+    return result;
+}
+
+
+///////////////////////// TransactionInfo implementation ////////////////////////
+class TransactionInfoImpl : public TransactionInfo
+{
+public:
+    TransactionInfoImpl();
+    ~TransactionInfoImpl();
+    virtual bool isHold() const;
+};
+
+TransactionInfoImpl::TransactionInfoImpl()
+{
+
+}
+
+TransactionInfoImpl::~TransactionInfoImpl()
+{
+
+}
+
+bool TransactionInfoImpl::isHold() const
+{
+    return false;
 }
 
 
 
-///////////////////////// Wallet implementation ////////////////////////////////
-class WalletImpl : public Wallet
-{
-public:
-    WalletImpl(bool testnet = false);
-    ~WalletImpl();
-    bool create(const std::string &path, const std::string &password,
-                const std::string &language);
-    bool open(const std::string &path, const std::string &password);
-    bool recover(const std::string &path, const std::string &seed);
-    bool close();
-    std::string seed() const;
-    std::string getSeedLanguage() const;
-    void setSeedLanguage(const std::string &arg);
-    void setListener(Listener *) {}
-    int status() const;
-    std::string errorString() const;
-    bool setPassword(const std::string &password);
-    std::string address() const;
-    bool store(const std::string &path);
-    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
-    bool connectToDaemon();
-    uint64_t balance() const;
-    uint64_t unlockedBalance() const;
-    bool refresh();
-    PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount);
-    virtual void disposeTransaction(PendingTransaction * t);
-
-private:
-    void clearStatus();
-
-private:
-    friend class TransactionImpl;
-    tools::wallet2 * m_wallet;
-    int  m_status;
-    std::string m_errorString;
-    std::string m_password;
-};
 
 WalletImpl::WalletImpl(bool testnet)
     :m_wallet(nullptr), m_status(Wallet::Status_Ok)
@@ -477,6 +588,11 @@ void WalletImpl::disposeTransaction(PendingTransaction *t)
     delete t;
 }
 
+TransactionHistory *WalletImpl::history() const
+{
+    return nullptr;
+}
+
 bool WalletImpl::connectToDaemon()
 {
     bool result = m_wallet->check_connection();
@@ -495,92 +611,6 @@ void WalletImpl::clearStatus()
 
 
 
-
-TransactionImpl::TransactionImpl(WalletImpl *wallet)
-    : m_wallet(wallet)
-{
-
-}
-
-TransactionImpl::~TransactionImpl()
-{
-
-}
-
-int TransactionImpl::status() const
-{
-    return m_status;
-}
-
-string TransactionImpl::errorString() const
-{
-    return m_errorString;
-}
-
-bool TransactionImpl::commit()
-{
-
-    LOG_PRINT_L0("m_pending_tx size: " << m_pending_tx.size());
-    assert(m_pending_tx.size() == 1);
-    try {
-        while (!m_pending_tx.empty()) {
-            auto & ptx = m_pending_tx.back();
-            m_wallet->m_wallet->commit_tx(ptx);
-            // success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
-            // if no exception, remove element from vector
-            m_pending_tx.pop_back();
-        } // TODO: extract method;
-    } catch (const tools::error::daemon_busy&) {
-        // TODO: make it translatable with "tr"?
-        m_errorString = tr("daemon is busy. Please try again later.");
-        m_status = Status_Error;
-    } catch (const tools::error::no_connection_to_daemon&) {
-        m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
-        m_status = Status_Error;
-    } catch (const tools::error::tx_rejected& e) {
-        std::ostringstream writer(m_errorString);
-        writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
-        m_status = Status_Error;
-    } catch (std::exception &e) {
-        m_errorString = string(tr("Unknown exception: ")) + e.what();
-        m_status = Status_Error;
-    } catch (...) {
-        m_errorString = tr("Unhandled exception");
-        LOG_ERROR(m_errorString);
-        m_status = Status_Error;
-    }
-
-    return m_status == Status_Ok;
-}
-
-uint64_t TransactionImpl::amount() const
-{
-    uint64_t result = 0;
-    for (const auto &ptx : m_pending_tx)   {
-        for (const auto &dest : ptx.dests) {
-            result += dest.amount;
-        }
-    }
-    return result;
-}
-
-uint64_t TransactionImpl::dust() const
-{
-    uint32_t result = 0;
-    for (const auto & ptx : m_pending_tx) {
-        result += ptx.dust;
-    }
-    return result;
-}
-
-uint64_t TransactionImpl::fee() const
-{
-    uint32_t result = 0;
-    for (const auto ptx : m_pending_tx) {
-        result += ptx.fee;
-    }
-    return result;
-}
 
 
 
@@ -667,6 +697,8 @@ WalletManager *WalletManagerFactory::getWalletManager()
 
     return g_walletManager;
 }
+
+
 
 
 

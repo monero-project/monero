@@ -32,12 +32,13 @@
 
 
 #include <string>
+#include <vector>
 
 //  Public interface for libwallet library
 namespace Bitmonero {
 
 /**
- * @brief Transaction interface
+ * @brief Transaction-like interface for sending money
  */
 struct PendingTransaction
 {
@@ -54,6 +55,35 @@ struct PendingTransaction
     virtual uint64_t fee() const = 0;
 };
 
+struct TransactionInfo;
+struct TransactionHistory
+{
+    virtual int count() const;
+    virtual TransactionInfo * transaction(int index)  const = 0;
+    virtual TransactionInfo * transaction(const std::string &id) const = 0;
+    virtual std::vector<TransactionInfo*> getAll() const = 0;
+};
+
+
+/**
+ * @brief The TransactionInfo - interface for displaying transaction information
+ */
+struct TransactionInfo
+{
+    enum Direction {
+        Direction_In,
+        Direction_Out
+    };
+
+    virtual bool isHold() const = 0;
+    virtual bool isFailed() const = 0;
+    virtual uint64_t amount() const = 0;
+    virtual uint64_t fee() const = 0;
+    virtual std::string address() const = 0;
+    virtual int direction() const = 0;
+    // TODO
+};
+
 /**
  * @brief Interface for wallet operations.
  *        TODO: check if /include/IWallet.h is still actual
@@ -66,12 +96,11 @@ struct Wallet
         Status_Error
     };
 
-
     virtual ~Wallet() = 0;
     virtual std::string seed() const = 0;
     virtual std::string getSeedLanguage() const = 0;
     virtual void setSeedLanguage(const std::string &arg) = 0;
-    virtual void setListener(Listener * listener) = 0;
+    // virtual void setListener(Listener * listener) = 0;
     //! returns wallet status (Status_Ok | Status_Error)
     virtual int status() const = 0;
     //! in case error status, returns error string
@@ -89,10 +118,7 @@ struct Wallet
     virtual bool refresh() = 0;
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount) = 0;
     virtual void disposeTransaction(PendingTransaction * t) = 0;
-    // TODO
-    virtual void getPayments() const;
-
-
+    virtual TransactionHistory * history() const = 0;
 };
 
 /**
