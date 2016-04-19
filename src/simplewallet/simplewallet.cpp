@@ -547,6 +547,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 0 to maximum available)"));
   m_cmd_binder.set_handler("transfer_new", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer, but using a new transaction building algorithm"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
+  m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("Send all unlocked balance an address"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
@@ -2022,6 +2023,76 @@ bool simple_wallet::rescan_spent(const std::vector<std::string> &args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::get_address_from_str(const std::string &str, cryptonote::account_public_address &address, bool &has_payment_id, crypto::hash8 &payment_id)
+{
+    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), str))
+    {
+      // if treating as an address fails, try as url
+      bool dnssec_ok = false;
+      std::string url = str;
+
+      // attempt to get address from dns query
+      auto addresses_from_dns = tools::wallet2::addresses_from_url(url, dnssec_ok);
+
+      // for now, move on only if one address found
+      if (addresses_from_dns.size() == 1)
+      {
+        if (get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), addresses_from_dns[0]))
+        {
+          // if it was an address, prompt user for confirmation.
+          // inform user of DNSSEC validation status as well.
+
+          std::string dnssec_str;
+          if (dnssec_ok)
+          {
+            dnssec_str = tr("DNSSEC validation passed");
+          }
+          else
+          {
+            dnssec_str = tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
+          }
+          std::stringstream prompt;
+          prompt << tr("For URL: ") << url
+                 << ", " << dnssec_str << std::endl
+                 << tr(" Monero Address = ") << addresses_from_dns[0]
+                 << std::endl
+                 << tr("Is this OK? (Y/n) ")
+          ;
+
+          // prompt the user for confirmation given the dns query and dnssec status
+          std::string confirm_dns_ok = command_line::input_line(prompt.str());
+          if (std::cin.eof())
+          {
+            return false;
+          }
+          if (confirm_dns_ok != "Y" && confirm_dns_ok != "y" && confirm_dns_ok != "Yes" && confirm_dns_ok != "yes"
+            && confirm_dns_ok != tr("yes") && confirm_dns_ok != tr("no"))
+          {
+            fail_msg_writer() << tr("you have cancelled the transfer request");
+            return false;
+          }
+        }
+        else
+        {
+          fail_msg_writer() << tr("failed to get a Monero address from: ") << url;
+          return false;
+        }
+      }
+      else if (addresses_from_dns.size() > 1)
+      {
+        fail_msg_writer() << tr("not yet supported: Multiple Monero addresses found for given URL: ") << url;
+        return false;
+      }
+      else
+      {
+        fail_msg_writer() << tr("wrong address: ") << url;
+        return false;
+      }
+    }
+
+    return true;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
@@ -2096,69 +2167,8 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
     crypto::hash8 new_payment_id;
-    if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[i]))
-    {
-      // if treating as an address fails, try as url
-      bool dnssec_ok = false;
-      std::string url = local_args[i];
-
-      // attempt to get address from dns query
-      auto addresses_from_dns = tools::wallet2::addresses_from_url(url, dnssec_ok);
-
-      // for now, move on only if one address found
-      if (addresses_from_dns.size() == 1)
-      {
-        if (get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), addresses_from_dns[0]))
-        {
-          // if it was an address, prompt user for confirmation.
-          // inform user of DNSSEC validation status as well.
-
-          std::string dnssec_str;
-          if (dnssec_ok)
-          {
-            dnssec_str = tr("DNSSEC validation passed");
-          }
-          else
-          {
-            dnssec_str = tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
-          }
-          std::stringstream prompt;
-          prompt << tr("For URL: ") << url
-                 << ", " << dnssec_str << std::endl
-                 << tr(" Monero Address = ") << addresses_from_dns[0]
-                 << std::endl
-                 << tr("Is this OK? (Y/n) ")
-          ;
-
-          // prompt the user for confirmation given the dns query and dnssec status
-          std::string confirm_dns_ok = command_line::input_line(prompt.str());
-          if (std::cin.eof())
-          {
-            return true;
-          }
-          if (confirm_dns_ok != "Y" && confirm_dns_ok != "y" && confirm_dns_ok != "Yes" && confirm_dns_ok != "yes"
-            && confirm_dns_ok != tr("yes") && confirm_dns_ok != tr("no"))
-          {
-            fail_msg_writer() << tr("you have cancelled the transfer request");
-            return true;
-          }
-        }
-        else
-        {
-          fail_msg_writer() << tr("failed to get a Monero address from: ") << local_args[i];
-          return true;
-        }
-      }
-      else if (addresses_from_dns.size() > 1)
-      {
-        fail_msg_writer() << tr("not yet supported: Multiple Monero addresses found for given URL: ") << url;
-      }
-      else
-      {
-        fail_msg_writer() << tr("wrong address: ") << local_args[i];
-        return true;
-      }
-    }
+    if (!get_address_from_str(local_args[i], de.addr, has_payment_id, new_payment_id))
+      return true;
 
     if (has_payment_id)
     {
@@ -2379,6 +2389,238 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     else {
       prompt_str = (boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
         print_money(total_unmixable) %
+        print_money(total_fee)).str();
+    }
+    std::string accepted = command_line::input_line(prompt_str);
+    if (std::cin.eof())
+      return true;
+    if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+    {
+      fail_msg_writer() << tr("transaction cancelled.");
+
+      // would like to return false, because no tx made, but everything else returns true
+      // and I don't know what returning false might adversely affect.  *sigh*
+      return true;
+    }
+
+    // actually commit the transactions
+    while (!ptx_vector.empty())
+    {
+      auto & ptx = ptx_vector.back();
+      m_wallet->commit_tx(ptx);
+      success_msg_writer(true) << tr("Money successfully sent, transaction: ") << get_transaction_hash(ptx.tx);
+
+      // if no exception, remove element from vector
+      ptx_vector.pop_back();
+    }
+  }
+  catch (const tools::error::daemon_busy&)
+  {
+    fail_msg_writer() << tr("daemon is busy. Please try again later.");
+  }
+  catch (const tools::error::no_connection_to_daemon&)
+  {
+    fail_msg_writer() << tr("no connection to daemon. Please make sure daemon is running.");
+  }
+  catch (const tools::error::wallet_rpc_error& e)
+  {
+    LOG_ERROR("RPC error: " << e.to_string());
+    fail_msg_writer() << tr("RPC error: ") << e.what();
+  }
+  catch (const tools::error::get_random_outs_error&)
+  {
+    fail_msg_writer() << tr("failed to get random outputs to mix");
+  }
+  catch (const tools::error::not_enough_money& e)
+  {
+    fail_msg_writer() << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee).\n%s")) %
+      print_money(e.available()) %
+      print_money(e.tx_amount() + e.fee()) %
+      print_money(e.tx_amount()) %
+      print_money(e.fee()) %
+      tr("This is usually due to dust which is so small it cannot pay for itself in fees");
+  }
+  catch (const tools::error::not_enough_outs_to_mix& e)
+  {
+    auto writer = fail_msg_writer();
+    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
+    for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs())
+    {
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outs.size();
+    }
+  }
+  catch (const tools::error::tx_not_constructed&)
+  {
+    fail_msg_writer() << tr("transaction was not constructed");
+  }
+  catch (const tools::error::tx_rejected& e)
+  {
+    fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
+    std::string reason = e.reason();
+    if (!reason.empty())
+      fail_msg_writer() << tr("Reason: ") << reason;
+  }
+  catch (const tools::error::tx_sum_overflow& e)
+  {
+    fail_msg_writer() << e.what();
+  }
+  catch (const tools::error::zero_destination&)
+  {
+    fail_msg_writer() << tr("one of destinations is zero");
+  }
+  catch (const tools::error::tx_too_big& e)
+  {
+    fail_msg_writer() << tr("failed to find a suitable way to split transactions");
+  }
+  catch (const tools::error::transfer_error& e)
+  {
+    LOG_ERROR("unknown transfer error: " << e.to_string());
+    fail_msg_writer() << tr("unknown transfer error: ") << e.what();
+  }
+  catch (const tools::error::wallet_internal_error& e)
+  {
+    LOG_ERROR("internal error: " << e.to_string());
+    fail_msg_writer() << tr("internal error: ") << e.what();
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("unexpected error: " << e.what());
+    fail_msg_writer() << tr("unexpected error: ") << e.what();
+  }
+  catch (...)
+  {
+    LOG_ERROR("unknown error");
+    fail_msg_writer() << tr("unknown error");
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
+{
+  if (!try_connect_to_daemon())
+    return true;
+
+  if(m_wallet->watch_only())
+  {
+     fail_msg_writer() << tr("this is a watch only wallet");
+     return true;
+  }
+
+  std::vector<std::string> local_args = args_;
+
+  size_t fake_outs_count;
+  if(local_args.size() > 0) {
+    if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
+    {
+      fake_outs_count = m_wallet->default_mixin();
+      if (fake_outs_count == 0)
+        fake_outs_count = DEFAULT_MIX;
+    }
+    else
+    {
+      local_args.erase(local_args.begin());
+    }
+  }
+
+  std::vector<uint8_t> extra;
+  bool payment_id_seen = false;
+  if (2 == local_args.size())
+  {
+    std::string payment_id_str = local_args.back();
+    local_args.pop_back();
+
+    crypto::hash payment_id;
+    bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
+    if(r)
+    {
+      std::string extra_nonce;
+      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+      r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+    }
+    else
+    {
+      crypto::hash8 payment_id8;
+      r = tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8);
+      if(r)
+      {
+        std::string extra_nonce;
+        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
+        r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+      }
+    }
+
+    if(!r)
+    {
+      fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character hex string: ") << payment_id_str;
+      return true;
+    }
+    payment_id_seen = true;
+  }
+
+  if (local_args.size() == 0)
+  {
+    fail_msg_writer() << tr("No address given");
+    return true;
+  }
+
+  bool has_payment_id;
+  crypto::hash8 new_payment_id;
+  cryptonote::account_public_address address;
+  if (!get_address_from_str(local_args[0], address, has_payment_id, new_payment_id))
+    return true;
+
+  if (has_payment_id)
+  {
+    if (payment_id_seen)
+    {
+      fail_msg_writer() << tr("a single transaction cannot use more than one payment id: ") << local_args[0];
+      return true;
+    }
+
+    std::string extra_nonce;
+    set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, new_payment_id);
+    bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+    if(!r)
+    {
+      fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+      return true;
+    }
+  }
+
+  try
+  {
+    // figure out what tx will be necessary
+    auto ptx_vector = m_wallet->create_transactions_all(address, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+
+    if (ptx_vector.empty())
+    {
+      fail_msg_writer() << tr("No outputs found");
+      return true;
+    }
+
+    // give user total and fee, and prompt to confirm
+    uint64_t total_fee = 0, total_sent = 0;
+    for (size_t n = 0; n < ptx_vector.size(); ++n)
+    {
+      total_fee += ptx_vector[n].fee;
+      for (const auto &vin: ptx_vector[n].tx.vin)
+      {
+        if (vin.type() == typeid(txin_to_key))
+          total_sent += boost::get<txin_to_key>(vin).amount;
+      }
+    }
+
+    std::string prompt_str;
+    if (ptx_vector.size() > 1) {
+      prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+        print_money(total_sent) %
+        ((unsigned long long)ptx_vector.size()) %
+        print_money(total_fee)).str();
+    }
+    else {
+      prompt_str = (boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+        print_money(total_sent) %
         print_money(total_fee)).str();
     }
     std::string accepted = command_line::input_line(prompt_str);
