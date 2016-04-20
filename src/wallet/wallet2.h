@@ -329,6 +329,9 @@ namespace tools
       if(ver < 11)
         return;
       a & m_refresh_from_block_height;
+      if(ver < 12)
+        return;
+      a & m_tx_notes;
     }
 
     /*!
@@ -374,6 +377,9 @@ namespace tools
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
     std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);
+
+    void set_tx_note(const crypto::hash &txid, const std::string &note);
+    std::string get_tx_note(const crypto::hash &txid) const;
 
   private:
     /*!
@@ -432,6 +438,7 @@ namespace tools
     payment_container m_payments;
     std::unordered_map<crypto::key_image, size_t> m_key_images;
     cryptonote::account_public_address m_account_public_address;
+    std::unordered_map<crypto::hash, std::string> m_tx_notes;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
     std::atomic<bool> m_run;
@@ -452,7 +459,7 @@ namespace tools
     uint64_t m_refresh_from_block_height;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 11)
+BOOST_CLASS_VERSION(tools::wallet2, 12)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 3)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 2)

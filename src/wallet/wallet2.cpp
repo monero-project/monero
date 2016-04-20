@@ -3071,6 +3071,19 @@ std::string wallet2::get_keys_file() const
     return m_keys_file;
 }
 
+void wallet2::set_tx_note(const crypto::hash &txid, const std::string &note)
+{
+  m_tx_notes[txid] = note;
+}
+
+std::string wallet2::get_tx_note(const crypto::hash &txid) const
+{
+  std::unordered_map<crypto::hash, std::string>::const_iterator i = m_tx_notes.find(txid);
+  if (i == m_tx_notes.end())
+    return std::string();
+  return i->second;
+}
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
   if (m_testnet)
