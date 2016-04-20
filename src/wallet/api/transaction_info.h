@@ -34,6 +34,8 @@
 
 namespace Bitmonero {
 
+class TransactionHistoryImpl;
+
 class TransactionInfoImpl : public TransactionInfo
 {
 public:
@@ -47,6 +49,21 @@ public:
     virtual std::string address() const;
     virtual std::time_t timestamp() const;
     virtual std::string paymentId() const;
+
+private:
+    int         m_direction;
+    bool        m_hold;
+    bool        m_failed;
+    uint64_t    m_amount;
+    uint64_t    m_fee;
+    uint64_t    b_blockheight;
+    std::string m_address;
+    std::time_t m_timestamp;
+    std::string m_paymentid;
+
+
+    friend class TransactionHistoryImpl;
+
 };
 
 } // namespace
