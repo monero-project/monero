@@ -38,7 +38,8 @@
 
 
 namespace Bitmonero {
-
+class TransactionHistoryImpl;
+class PendingTransactionImpl;
 
 class WalletImpl : public Wallet
 {
@@ -72,7 +73,9 @@ private:
     void clearStatus();
 
 private:
-    friend class TransactionImpl;
+    friend class PendingTransactionImpl;
+    friend class TransactionHistoryImpl;
+
     tools::wallet2 * m_wallet;
     int  m_status;
     std::string m_errorString;

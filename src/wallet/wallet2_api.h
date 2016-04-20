@@ -63,8 +63,7 @@ struct TransactionHistory
     virtual TransactionInfo * transaction(int index)  const = 0;
     virtual TransactionInfo * transaction(const std::string &id) const = 0;
     virtual std::vector<TransactionInfo*> getAll() const = 0;
-    // TODO:
-    // refresh();
+    virtual void refresh() = 0;
 };
 
 

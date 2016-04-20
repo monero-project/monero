@@ -30,4 +30,43 @@
 
 #include "transaction_history.h"
 
+#include <string>
 
+namespace Bitmonero {
+
+TransactionHistoryImpl::TransactionHistoryImpl(WalletImpl *wallet)
+{
+
+}
+
+TransactionHistoryImpl::~TransactionHistoryImpl()
+{
+
+}
+
+int TransactionHistoryImpl::count() const
+{
+    return 0;
+}
+
+TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) const
+{
+    return nullptr;
+}
+
+std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
+{
+    return std::vector<TransactionInfo*>();
+}
+
+void TransactionHistoryImpl::refresh()
+{
+
+}
+
+TransactionInfo *TransactionHistoryImpl::transaction(int index) const
+{
+    return nullptr;
+}
+
+}

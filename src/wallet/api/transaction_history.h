@@ -32,12 +32,23 @@
 
 namespace Bitmonero {
 
+class TransactionInfo;
+class WalletImpl;
+
 class TransactionHistoryImpl : public TransactionHistory
 {
+public:
+    TransactionHistoryImpl(WalletImpl * wallet);
+    ~TransactionHistoryImpl();
     virtual int count() const;
-    virtual TransactionInfo * transaction(int index)  const = 0;
-    virtual TransactionInfo * transaction(const std::string &id) const = 0;
-    virtual std::vector<TransactionInfo*> getAll() const = 0;
+    virtual TransactionInfo * transaction(int index)  const;
+    virtual TransactionInfo * transaction(const std::string &id) const;
+    virtual std::vector<TransactionInfo*> getAll() const;
+    virtual void refresh();
+
+private:
+    std::vector<TransactionInfo*> m_history;
+    WalletImpl *m_wallet;
 };
 
 }
