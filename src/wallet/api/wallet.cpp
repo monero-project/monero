@@ -288,7 +288,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64
     if (fake_outs_count == 0)
         fake_outs_count = DEFAULT_MIX;
 
-    TransactionImpl * transaction = new TransactionImpl(this);
+    PendingTransactionImpl * transaction = new PendingTransactionImpl(this);
 
     do {
 

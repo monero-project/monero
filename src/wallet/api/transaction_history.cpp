@@ -28,6 +28,70 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+
 #include "transaction_history.h"
+#include "transaction_info.h"
+#include "wallet.h"
 
+#include "crypto/hash.h"
+#include "wallet/wallet2.h"
+#include "contrib/epee/include/string_tools.h"
 
+#include <string>
+#include <list>
+
+namespace Bitmonero {
+
+TransactionHistoryImpl::TransactionHistoryImpl(WalletImpl *wallet)
+{
+
+}
+
+TransactionHistoryImpl::~TransactionHistoryImpl()
+{
+
+}
+
+int TransactionHistoryImpl::count() const
+{
+    return 0;
+}
+
+TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) const
+{
+    return nullptr;
+}
+
+std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
+{
+    return std::vector<TransactionInfo*>();
+}
+
+void TransactionHistoryImpl::refresh()
+{
+    // TODO: configurable values;
+    uint64_t min_height = 0;
+    uint64_t max_height = (uint64_t)-1;
+
+    // TODO: delete old transactions;
+
+    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+    m_wallet->m_wallet->get_payments(payments, min_height, max_height);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+        const tools::wallet2::payment_details &pd = i->second;
+        std::string payment_id = string_tools::pod_to_hex(i->first);
+        if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+            payment_id = payment_id.substr(0,16);
+        // TODO
+        TransactionInfo * ti = new TransactionInfo();
+
+        //output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-").str())));
+    }
+}
+
+TransactionInfo *TransactionHistoryImpl::transaction(int index) const
+{
+    return nullptr;
+}
+
+}

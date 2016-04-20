@@ -48,28 +48,28 @@ namespace Bitmonero {
 PendingTransaction::~PendingTransaction() {}
 
 
-TransactionImpl::TransactionImpl(WalletImpl *wallet)
+PendingTransactionImpl::PendingTransactionImpl(WalletImpl *wallet)
     : m_wallet(wallet)
 {
 
 }
 
-TransactionImpl::~TransactionImpl()
+PendingTransactionImpl::~PendingTransactionImpl()
 {
 
 }
 
-int TransactionImpl::status() const
+int PendingTransactionImpl::status() const
 {
     return m_status;
 }
 
-string TransactionImpl::errorString() const
+string PendingTransactionImpl::errorString() const
 {
     return m_errorString;
 }
 
-bool TransactionImpl::commit()
+bool PendingTransactionImpl::commit()
 {
 
     LOG_PRINT_L0("m_pending_tx size: " << m_pending_tx.size());
@@ -105,7 +105,7 @@ bool TransactionImpl::commit()
     return m_status == Status_Ok;
 }
 
-uint64_t TransactionImpl::amount() const
+uint64_t PendingTransactionImpl::amount() const
 {
     uint64_t result = 0;
     for (const auto &ptx : m_pending_tx)   {
@@ -116,7 +116,7 @@ uint64_t TransactionImpl::amount() const
     return result;
 }
 
-uint64_t TransactionImpl::dust() const
+uint64_t PendingTransactionImpl::dust() const
 {
     uint32_t result = 0;
     for (const auto & ptx : m_pending_tx) {
@@ -125,7 +125,7 @@ uint64_t TransactionImpl::dust() const
     return result;
 }
 
-uint64_t TransactionImpl::fee() const
+uint64_t PendingTransactionImpl::fee() const
 {
     uint32_t result = 0;
     for (const auto ptx : m_pending_tx) {
