@@ -33,6 +33,7 @@
 
 #include <string>
 #include <vector>
+#include <ctime>
 
 //  Public interface for libwallet library
 namespace Bitmonero {
@@ -62,6 +63,8 @@ struct TransactionHistory
     virtual TransactionInfo * transaction(int index)  const = 0;
     virtual TransactionInfo * transaction(const std::string &id) const = 0;
     virtual std::vector<TransactionInfo*> getAll() const = 0;
+    // TODO:
+    // refresh();
 };
 
 
@@ -75,13 +78,14 @@ struct TransactionInfo
         Direction_Out
     };
 
+    virtual int  direction() const = 0;
     virtual bool isHold() const = 0;
     virtual bool isFailed() const = 0;
     virtual uint64_t amount() const = 0;
     virtual uint64_t fee() const = 0;
     virtual std::string address() const = 0;
-    virtual int direction() const = 0;
-    // TODO
+    virtual std::time_t timestamp() const = 0;
+    virtual std::string paymentId() const = 0;
 };
 
 /**
