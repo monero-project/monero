@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2016, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,237 +25,35 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "wallet2_api.h"
-#include "wallet2.h"
+
+#include "wallet.h"
+#include "pending_transaction.h"
+#include "common_defines.h"
+
 #include "mnemonics/electrum-words.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
-
-
-#include <memory>
-#include <vector>
-#include <sstream>
 #include <boost/format.hpp>
-
-
-#define tr(x) (x)
-
-namespace epee {
-    unsigned int g_test_dbg_lock_sleep = 0;
-}
-
-namespace Bitmonero {
-
-struct WalletManagerImpl;
-
-namespace {
-    static WalletManagerImpl * g_walletManager = nullptr;
-    // copy-pasted from
-    static const size_t DEFAULT_MIX = 4;
-
-}
-
-
 
 using namespace std;
 using namespace cryptonote;
 
+namespace Bitmonero {
+
+namespace {
+    // copy-pasted from simplewallet
+    static const size_t DEFAULT_MIX = 4;
+}
+
 Wallet::~Wallet() {}
-PendingTransaction::~PendingTransaction() {}
 
-
-
-
-
-///////////////////////// Wallet implementation ///////////////////////////////
-class WalletImpl : public Wallet
-{
-public:
-    WalletImpl(bool testnet = false);
-    ~WalletImpl();
-    bool create(const std::string &path, const std::string &password,
-                const std::string &language);
-    bool open(const std::string &path, const std::string &password);
-    bool recover(const std::string &path, const std::string &seed);
-    bool close();
-    std::string seed() const;
-    std::string getSeedLanguage() const;
-    void setSeedLanguage(const std::string &arg);
-    // void setListener(Listener *) {}
-    int status() const;
-    std::string errorString() const;
-    bool setPassword(const std::string &password);
-    std::string address() const;
-    bool store(const std::string &path);
-    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
-    bool connectToDaemon();
-    uint64_t balance() const;
-    uint64_t unlockedBalance() const;
-    bool refresh();
-    PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount);
-    virtual void disposeTransaction(PendingTransaction * t);
-    virtual TransactionHistory * history() const;
-
-private:
-    void clearStatus();
-
-private:
-    friend class TransactionImpl;
-    tools::wallet2 * m_wallet;
-    int  m_status;
-    std::string m_errorString;
-    std::string m_password;
-};
-
-
-/////////////////////////////////////////////////////////////////////////////////
 string Wallet::displayAmount(uint64_t amount)
 {
     return cryptonote::print_money(amount);
 }
 
-///////////////////////// Transaction implementation ///////////////////////////
-
-class TransactionImpl : public PendingTransaction
-{
-public:
-    TransactionImpl(WalletImpl * wallet);
-    ~TransactionImpl();
-    int status() const;
-    std::string errorString() const;
-    bool commit();
-    uint64_t amount() const;
-    uint64_t dust() const;
-    uint64_t fee() const;
-    // TODO: continue with interface;
-
-private:
-    friend class WalletImpl;
-    WalletImpl * m_wallet;
-
-    int  m_status;
-    std::string m_errorString;
-    std::vector<tools::wallet2::pending_tx> m_pending_tx;
-};
-
-TransactionImpl::TransactionImpl(WalletImpl *wallet)
-    : m_wallet(wallet)
-{
-
-}
-
-TransactionImpl::~TransactionImpl()
-{
-
-}
-
-int TransactionImpl::status() const
-{
-    return m_status;
-}
-
-string TransactionImpl::errorString() const
-{
-    return m_errorString;
-}
-
-bool TransactionImpl::commit()
-{
-
-    LOG_PRINT_L0("m_pending_tx size: " << m_pending_tx.size());
-    assert(m_pending_tx.size() == 1);
-    try {
-        while (!m_pending_tx.empty()) {
-            auto & ptx = m_pending_tx.back();
-            m_wallet->m_wallet->commit_tx(ptx);
-            // success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
-            // if no exception, remove element from vector
-            m_pending_tx.pop_back();
-        } // TODO: extract method;
-    } catch (const tools::error::daemon_busy&) {
-        // TODO: make it translatable with "tr"?
-        m_errorString = tr("daemon is busy. Please try again later.");
-        m_status = Status_Error;
-    } catch (const tools::error::no_connection_to_daemon&) {
-        m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
-        m_status = Status_Error;
-    } catch (const tools::error::tx_rejected& e) {
-        std::ostringstream writer(m_errorString);
-        writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
-        m_status = Status_Error;
-    } catch (std::exception &e) {
-        m_errorString = string(tr("Unknown exception: ")) + e.what();
-        m_status = Status_Error;
-    } catch (...) {
-        m_errorString = tr("Unhandled exception");
-        LOG_ERROR(m_errorString);
-        m_status = Status_Error;
-    }
-
-    return m_status == Status_Ok;
-}
-
-uint64_t TransactionImpl::amount() const
-{
-    uint64_t result = 0;
-    for (const auto &ptx : m_pending_tx)   {
-        for (const auto &dest : ptx.dests) {
-            result += dest.amount;
-        }
-    }
-    return result;
-}
-
-uint64_t TransactionImpl::dust() const
-{
-    uint32_t result = 0;
-    for (const auto & ptx : m_pending_tx) {
-        result += ptx.dust;
-    }
-    return result;
-}
-
-uint64_t TransactionImpl::fee() const
-{
-    uint32_t result = 0;
-    for (const auto ptx : m_pending_tx) {
-        result += ptx.fee;
-    }
-    return result;
-}
-
-
-///////////////////////// TransactionInfo implementation ////////////////////////
-class TransactionInfoImpl : public TransactionInfo
-{
-public:
-    TransactionInfoImpl();
-    ~TransactionInfoImpl();
-    virtual bool isHold() const;
-};
-
-TransactionInfoImpl::TransactionInfoImpl()
-{
-
-}
-
-TransactionInfoImpl::~TransactionInfoImpl()
-{
-
-}
-
-bool TransactionInfoImpl::isHold() const
-{
-    return false;
-}
-
-
-
-
+///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
     :m_wallet(nullptr), m_status(Wallet::Status_Ok)
 {
@@ -610,97 +408,4 @@ void WalletImpl::clearStatus()
 }
 
 
-
-
-
-
-///////////////////////// WalletManager implementation /////////////////////////
-class WalletManagerImpl : public WalletManager
-{
-public:
-    Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, bool testnet);
-    Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet);
-    virtual bool closeWallet(Wallet *wallet);
-    bool walletExists(const std::string &path);
-    std::string errorString() const;
-    void setDaemonHost(const std::string &hostname);
-
-
-private:
-    WalletManagerImpl() {}
-    friend struct WalletManagerFactory;
-
-    std::string m_errorString;
-};
-
-Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
-                                    const std::string &language, bool testnet)
-{
-    WalletImpl * wallet = new WalletImpl(testnet);
-    wallet->create(path, password, language);
-    return wallet;
-}
-
-Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, bool testnet)
-{
-    WalletImpl * wallet = new WalletImpl(testnet);
-    wallet->open(path, password);
-    return wallet;
-}
-
-Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo, bool testnet)
-{
-    WalletImpl * wallet = new WalletImpl(testnet);
-    wallet->recover(path, memo);
-    return wallet;
-}
-
-bool WalletManagerImpl::closeWallet(Wallet *wallet)
-{
-    WalletImpl * wallet_ = dynamic_cast<WalletImpl*>(wallet);
-    bool result = wallet_->close();
-    if (!result) {
-        m_errorString = wallet_->errorString();
-    } else {
-        delete wallet_;
-    }
-    return result;
-}
-
-bool WalletManagerImpl::walletExists(const std::string &path)
-{
-    return false;
-}
-
-std::string WalletManagerImpl::errorString() const
-{
-    return m_errorString;
-}
-
-void WalletManagerImpl::setDaemonHost(const std::string &hostname)
-{
-
-}
-
-
-
-///////////////////// WalletManagerFactory implementation //////////////////////
-WalletManager *WalletManagerFactory::getWalletManager()
-{
-
-    if  (!g_walletManager) {
-        epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_MAX);
-        g_walletManager = new WalletManagerImpl();
-    }
-
-    return g_walletManager;
-}
-
-
-
-
-
-
-}
+} // namespace

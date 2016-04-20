@@ -32,17 +32,27 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(wallet_sources
   wallet2.cpp
   wallet_rpc_server.cpp
-  wallet2_api.cpp)
+  api/wallet.cpp
+  api/wallet_manager.cpp
+  api/transaction_info.cpp
+  api/transaction_history.cpp
+  api/pending_transaction.cpp)
 
 set(wallet_headers)
 
 set(wallet_private_headers
   wallet2.h
+  wallet2_api.h
   wallet_errors.h
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h
-  wallet2_api.h)
+  api/wallet.h
+  api/wallet_manager.h
+  api/transaction_info.h
+  api/transaction_history.h
+  api/pending_transaction.h
+  api/common_defines.h)
 
 bitmonero_private_headers(wallet
   ${wallet_private_headers})
