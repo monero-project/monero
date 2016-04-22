@@ -41,12 +41,16 @@ class TransactionInfoImpl : public TransactionInfo
 public:
     TransactionInfoImpl();
     ~TransactionInfoImpl();
+    //! in/out
     virtual int direction() const;
+    //! true if hold
     virtual bool isHold() const;
     virtual bool isFailed() const;
     virtual uint64_t amount() const;
+    //! always 0 for incoming txes
     virtual uint64_t fee() const;
-    virtual std::string address() const;
+
+    virtual std::string hash() const;
     virtual std::time_t timestamp() const;
     virtual std::string paymentId() const;
 
@@ -56,8 +60,8 @@ private:
     bool        m_failed;
     uint64_t    m_amount;
     uint64_t    m_fee;
-    uint64_t    b_blockheight;
-    std::string m_address;
+    uint64_t    m_blockheight;
+    std::string m_hash;
     std::time_t m_timestamp;
     std::string m_paymentid;
 

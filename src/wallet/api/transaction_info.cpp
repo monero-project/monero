@@ -35,7 +35,16 @@ using namespace std;
 
 namespace Bitmonero {
 
+TransactionInfo::~TransactionInfo() {}
+
 TransactionInfoImpl::TransactionInfoImpl()
+    : m_direction(Direction_Out)
+      , m_hold(false)
+      , m_failed(false)
+      , m_amount(0)
+      , m_fee(0)
+      , m_blockheight(0)
+      , m_timestamp(0)
 {
 
 }
@@ -71,7 +80,7 @@ uint64_t TransactionInfoImpl::fee() const
     return 0;
 }
 
-string TransactionInfoImpl::address() const
+string TransactionInfoImpl::hash() const
 {
     return "";
 }
