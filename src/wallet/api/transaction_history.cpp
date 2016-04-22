@@ -103,6 +103,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_amount    = pd.m_amount;
         ti->m_direction = TransactionInfo::Direction_In;
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
+        ti->m_blockheight = pd.m_block_height;
         // TODO:
         // ti->m_timestamp = pd.m_timestamp;
         m_history.push_back(ti);

@@ -49,6 +49,7 @@ public:
     virtual uint64_t amount() const;
     //! always 0 for incoming txes
     virtual uint64_t fee() const;
+    virtual uint64_t blockHeight() const;
 
     virtual std::string hash() const;
     virtual std::time_t timestamp() const;

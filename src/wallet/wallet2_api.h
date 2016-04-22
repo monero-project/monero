@@ -71,6 +71,7 @@ struct TransactionInfo
     virtual bool isFailed() const = 0;
     virtual uint64_t amount() const = 0;
     virtual uint64_t fee() const = 0;
+    virtual uint64_t blockHeight() const = 0;
     virtual std::string hash() const = 0;
     virtual std::time_t timestamp() const = 0;
     virtual std::string paymentId() const = 0;

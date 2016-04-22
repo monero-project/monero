@@ -31,7 +31,6 @@
 #include "gtest/gtest.h"
 
 #include "wallet/wallet2_api.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -299,8 +298,11 @@ TEST_F(WalletManagerTest, WalletHistory)
     auto transaction_print = [=] (Bitmonero::TransactionInfo * t) {
         std::cout << "d: "
                   << (t->direction() == Bitmonero::TransactionInfo::Direction_In ? "in" : "out")
-                  << ", a: " << t->amount()
+                  << ", bh: " << t->blockHeight()
+                  << ", a: " << Bitmonero::Wallet::displayAmount(t->amount())
+                  << ", f: " << Bitmonero::Wallet::displayAmount(t->fee())
                   << ", h: " << t->hash()
+                  << ", pid: " << t->paymentId()
                   << std::endl;
     };
 
@@ -308,8 +310,6 @@ TEST_F(WalletManagerTest, WalletHistory)
         ASSERT_TRUE(t != nullptr);
         transaction_print(t);
     }
-
-
 }
 
 

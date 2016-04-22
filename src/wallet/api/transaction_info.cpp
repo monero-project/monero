@@ -62,37 +62,42 @@ int TransactionInfoImpl::direction() const
 
 bool TransactionInfoImpl::isHold() const
 {
-    return false;
+    return m_hold;
 }
 
 bool TransactionInfoImpl::isFailed() const
 {
-    return false;
+    return m_failed;
 }
 
 uint64_t TransactionInfoImpl::amount() const
 {
-    return 0;
+    return m_amount;
 }
 
 uint64_t TransactionInfoImpl::fee() const
 {
-    return 0;
+    return m_fee;
+}
+
+uint64_t TransactionInfoImpl::blockHeight() const
+{
+    return m_blockheight;
 }
 
 string TransactionInfoImpl::hash() const
 {
-    return "";
+    return m_hash;
 }
 
 std::time_t TransactionInfoImpl::timestamp() const
 {
-    return std::time_t(0);
+    return m_timestamp;
 }
 
 string TransactionInfoImpl::paymentId() const
 {
-    return "";
+    return m_paymentid;
 }
 
 } // namespace
