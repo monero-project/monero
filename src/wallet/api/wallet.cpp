@@ -31,6 +31,7 @@
 
 #include "wallet.h"
 #include "pending_transaction.h"
+#include "transaction_history.h"
 #include "common_defines.h"
 
 #include "mnemonics/electrum-words.h"
@@ -58,10 +59,12 @@ WalletImpl::WalletImpl(bool testnet)
     :m_wallet(nullptr), m_status(Wallet::Status_Ok)
 {
     m_wallet = new tools::wallet2(testnet);
+    m_history = new TransactionHistoryImpl(this);
 }
 
 WalletImpl::~WalletImpl()
 {
+    delete m_history;
     delete m_wallet;
 }
 
@@ -388,7 +391,7 @@ void WalletImpl::disposeTransaction(PendingTransaction *t)
 
 TransactionHistory *WalletImpl::history() const
 {
-    return nullptr;
+    return m_history;
 }
 
 bool WalletImpl::connectToDaemon()

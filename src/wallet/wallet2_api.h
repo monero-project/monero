@@ -56,17 +56,6 @@ struct PendingTransaction
     virtual uint64_t fee() const = 0;
 };
 
-struct TransactionInfo;
-struct TransactionHistory
-{
-    virtual int count() const;
-    virtual TransactionInfo * transaction(int index)  const = 0;
-    virtual TransactionInfo * transaction(const std::string &id) const = 0;
-    virtual std::vector<TransactionInfo*> getAll() const = 0;
-    virtual void refresh() = 0;
-};
-
-
 /**
  * @brief The TransactionInfo - interface for displaying transaction information
  */
@@ -76,16 +65,31 @@ struct TransactionInfo
         Direction_In,
         Direction_Out
     };
-
+    virtual ~TransactionInfo() = 0;
     virtual int  direction() const = 0;
     virtual bool isHold() const = 0;
     virtual bool isFailed() const = 0;
     virtual uint64_t amount() const = 0;
     virtual uint64_t fee() const = 0;
-    virtual std::string address() const = 0;
+    virtual uint64_t blockHeight() const = 0;
+    virtual std::string hash() const = 0;
     virtual std::time_t timestamp() const = 0;
     virtual std::string paymentId() const = 0;
 };
+/**
+ * @brief The TransactionHistory - interface for displaying transaction history
+ */
+struct TransactionHistory
+{
+    virtual ~TransactionHistory() = 0;
+    virtual int count() const = 0;
+    virtual TransactionInfo * transaction(int index)  const = 0;
+    virtual TransactionInfo * transaction(const std::string &id) const = 0;
+    virtual std::vector<TransactionInfo*> getAll() const = 0;
+    virtual void refresh() = 0;
+};
+
+
 
 /**
  * @brief Interface for wallet operations.

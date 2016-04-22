@@ -80,6 +80,7 @@ private:
     int  m_status;
     std::string m_errorString;
     std::string m_password;
+    TransactionHistoryImpl * m_history;
 };
 
 

@@ -29,7 +29,9 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "gtest/gtest.h"
+
 #include "wallet/wallet2_api.h"
+
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -282,6 +284,32 @@ TEST_F(WalletManagerTest, WalletTransaction)
     ASSERT_TRUE(transaction->commit());
     ASSERT_FALSE(wallet1->balance() == balance);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
+}
+
+TEST_F(WalletManagerTest, WalletHistory)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    // make sure testnet daemon is running
+    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet1->refresh());
+    Bitmonero::TransactionHistory * history = wallet1->history();
+    history->refresh();
+    ASSERT_TRUE(history->count() > 0);
+    auto transaction_print = [=] (Bitmonero::TransactionInfo * t) {
+        std::cout << "d: "
+                  << (t->direction() == Bitmonero::TransactionInfo::Direction_In ? "in" : "out")
+                  << ", bh: " << t->blockHeight()
+                  << ", a: " << Bitmonero::Wallet::displayAmount(t->amount())
+                  << ", f: " << Bitmonero::Wallet::displayAmount(t->fee())
+                  << ", h: " << t->hash()
+                  << ", pid: " << t->paymentId()
+                  << std::endl;
+    };
+
+    for (auto t: history->getAll()) {
+        ASSERT_TRUE(t != nullptr);
+        transaction_print(t);
+    }
 }
 
 

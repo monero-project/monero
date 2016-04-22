@@ -35,14 +35,20 @@
 
 #include "crypto/hash.h"
 #include "wallet/wallet2.h"
-#include "contrib/epee/include/string_tools.h"
+
 
 #include <string>
 #include <list>
 
+using namespace epee;
+
 namespace Bitmonero {
 
+TransactionHistory::~TransactionHistory() {}
+
+
 TransactionHistoryImpl::TransactionHistoryImpl(WalletImpl *wallet)
+    : m_wallet(wallet)
 {
 
 }
@@ -54,7 +60,7 @@ TransactionHistoryImpl::~TransactionHistoryImpl()
 
 int TransactionHistoryImpl::count() const
 {
-    return 0;
+    return m_history.size();
 }
 
 TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) const
@@ -64,7 +70,7 @@ TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) cons
 
 std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
 {
-    return std::vector<TransactionInfo*>();
+    return m_history;
 }
 
 void TransactionHistoryImpl::refresh()
@@ -73,9 +79,18 @@ void TransactionHistoryImpl::refresh()
     uint64_t min_height = 0;
     uint64_t max_height = (uint64_t)-1;
 
-    // TODO: delete old transactions;
+    // delete old transactions;
+    for (auto t : m_history)
+        delete t;
 
     std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+
+    // transactions are stored in wallet2:
+    // - confirmed_transfer_details   - out transfers
+    // - unconfirmed_transfer_details - pending out transfers
+    // - payment_details              - input transfers
+
+    // payments are "input transactions";
     m_wallet->m_wallet->get_payments(payments, min_height, max_height);
     for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
         const tools::wallet2::payment_details &pd = i->second;
@@ -83,9 +98,20 @@ void TransactionHistoryImpl::refresh()
         if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
             payment_id = payment_id.substr(0,16);
         // TODO
-        TransactionInfo * ti = new TransactionInfo();
+        TransactionInfoImpl * ti = new TransactionInfoImpl();
+        ti->m_paymentid = payment_id;
+        ti->m_amount    = pd.m_amount;
+        ti->m_direction = TransactionInfo::Direction_In;
+        ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
+        ti->m_blockheight = pd.m_block_height;
+        // TODO:
+        // ti->m_timestamp = pd.m_timestamp;
+        m_history.push_back(ti);
 
-        //output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-").str())));
+        /* output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s")
+                                                                                 % print_money(pd.m_amount)
+                                                                                 % string_tools::pod_to_hex(pd.m_tx_hash)
+                                                                                 % payment_id % "-").str())));*/
     }
 }
 

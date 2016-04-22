@@ -47,6 +47,8 @@ public:
     virtual void refresh();
 
 private:
+
+    // TransactionHistory is responsible of memory management
     std::vector<TransactionInfo*> m_history;
     WalletImpl *m_wallet;
 };
