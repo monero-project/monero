@@ -53,6 +53,7 @@ using namespace epee;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include "common/json_util.h"
+#include "common/base58.h"
 
 extern "C"
 {
@@ -3106,6 +3107,40 @@ std::string wallet2::get_tx_note(const crypto::hash &txid) const
     return std::string();
   return i->second;
 }
+
+std::string wallet2::sign(const std::string &data) const
+{
+  crypto::hash hash;
+  crypto::cn_fast_hash(data.data(), data.size(), hash);
+  const cryptonote::account_keys &keys = m_account.get_keys();
+  crypto::signature signature;
+  crypto::generate_signature(hash, keys.m_account_address.m_spend_public_key, keys.m_spend_secret_key, signature);
+  return std::string("SigV1") + tools::base58::encode(std::string((const char *)&signature, sizeof(signature)));
+}
+
+bool wallet2::verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const
+{
+  const size_t header_len = strlen("SigV1");
+  if (signature.size() < header_len || signature.substr(0, header_len) != "SigV1") {
+    LOG_PRINT_L0("Signature header check error");
+    return false;
+  }
+  crypto::hash hash;
+  crypto::cn_fast_hash(data.data(), data.size(), hash);
+  std::string decoded;
+  if (!tools::base58::decode(signature.substr(header_len), decoded)) {
+    LOG_PRINT_L0("Signature decoding error");
+    return false;
+  }
+  crypto::signature s;
+  if (sizeof(s) != decoded.size()) {
+    LOG_PRINT_L0("Signature decoding error");
+    return false;
+  }
+  memcpy(&s, decoded.data(), sizeof(s));
+  return crypto::check_signature(hash, address.m_spend_public_key, s);
+}
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
   if (m_testnet)

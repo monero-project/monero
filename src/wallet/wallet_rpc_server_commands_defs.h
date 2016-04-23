@@ -551,6 +551,51 @@ namespace wallet_rpc
     };
   };
 
-}
-}
+  struct COMMAND_RPC_SIGN
+  {
+    struct request
+    {
+      std::string data;
 
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(data);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_VERIFY
+  {
+    struct request
+    {
+      std::string data;
+      std::string address;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(data);
+        KV_SERIALIZE(address);
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool good;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(good);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+}
+}

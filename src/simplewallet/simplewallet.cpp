@@ -658,6 +658,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set_tx_note", boost::bind(&simple_wallet::set_tx_note, this, _1), tr("Set an arbitrary string note for a txid"));
   m_cmd_binder.set_handler("get_tx_note", boost::bind(&simple_wallet::get_tx_note, this, _1), tr("Get a string note for a txid"));
   m_cmd_binder.set_handler("status", boost::bind(&simple_wallet::status, this, _1), tr("Show wallet status information"));
+  m_cmd_binder.set_handler("sign", boost::bind(&simple_wallet::sign, this, _1), tr("Sign the contents of a file"));
+  m_cmd_binder.set_handler("verify", boost::bind(&simple_wallet::verify, this, _1), tr("Verify a signature on the contents of a file"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -3364,6 +3366,71 @@ bool simple_wallet::status(const std::vector<std::string> &args)
   else
   {
     fail_msg_writer() << "Refreshed " << local_height << "/?, daemon connection error";
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sign(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: sign <filename>");
+    return true;
+  }
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot sign");
+    return true;
+  }
+  std::string filename = args[0];
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+  std::string signature = m_wallet->sign(data);
+  success_msg_writer() << signature;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::verify(const std::vector<std::string> &args)
+{
+  if (args.size() != 3)
+  {
+    fail_msg_writer() << tr("usage: verify <filename> <address> <signature>");
+    return true;
+  }
+  std::string filename = args[0];
+  std::string address_string = args[1];
+  std::string signature= args[2];
+
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+
+  cryptonote::account_public_address address;
+  bool has_payment_id;
+  crypto::hash8 payment_id;
+  if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), address_string))
+  {
+    fail_msg_writer() << tr("failed to parse address");
+    return true;
+  }
+
+  r = m_wallet->verify(data, address, signature);
+  if (!r)
+  {
+    fail_msg_writer() << tr("Bad signature from ") << address_string;
+  }
+  else
+  {
+    success_msg_writer() << tr("Good signature from ") << address_string;
   }
   return true;
 }
