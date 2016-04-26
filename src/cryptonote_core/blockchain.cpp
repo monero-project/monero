@@ -498,6 +498,7 @@ block Blockchain::pop_block_from_blockchain()
       }
     }
   }
+  update_next_cumulative_size_limit();
   m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
 
   return popped_block;
@@ -2712,7 +2713,11 @@ leave:
   // populate various metadata about the block to be stored alongside it.
   block_size = cumulative_block_size;
   cumulative_difficulty = current_diffic;
-  already_generated_coins = already_generated_coins + base_reward;
+  // In the "tail" state when the minimum subsidy (implemented in get_block_reward) is in effect, the number of
+  // coins will eventually exceed MONEY_SUPPLY and overflow a uint64. To prevent overflow, cap already_generated_coins
+  // at MONEY_SUPPLY. already_generated_coins is only used to compute the block subsidy and MONEY_SUPPLY yields a
+  // subsidy of 0 under the base formula and therefore the minimum subsidy >0 in the tail state.
+  already_generated_coins = base_reward < (MONEY_SUPPLY-already_generated_coins) ? already_generated_coins + base_reward : MONEY_SUPPLY;
   if(m_db->height())
     cumulative_difficulty += m_db->get_block_cumulative_difficulty(m_db->height() - 1);
 
