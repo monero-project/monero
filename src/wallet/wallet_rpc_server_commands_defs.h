@@ -488,6 +488,66 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_GET_TRANSFERS
+  {
+    struct request
+    {
+      bool in;
+      bool out;
+      bool pending;
+      bool failed;
+      uint64_t min_height;
+      uint64_t max_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(in);
+        KV_SERIALIZE(out);
+        KV_SERIALIZE(pending);
+        KV_SERIALIZE(failed);
+        KV_SERIALIZE(min_height);
+        KV_SERIALIZE(max_height);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct entry
+    {
+      std::string txid;
+      std::string payment_id;
+      uint64_t height;
+      uint64_t timestamp;
+      uint64_t amount;
+      uint64_t fee;
+      std::string note;
+      std::list<transfer_destination> destinations;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid);
+        KV_SERIALIZE(payment_id);
+        KV_SERIALIZE(height);
+        KV_SERIALIZE(timestamp);
+        KV_SERIALIZE(amount);
+        KV_SERIALIZE(fee);
+        KV_SERIALIZE(note);
+        KV_SERIALIZE(destinations);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<entry> in;
+      std::list<entry> out;
+      std::list<entry> pending;
+      std::list<entry> failed;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(in);
+        KV_SERIALIZE(out);
+        KV_SERIALIZE(pending);
+        KV_SERIALIZE(failed);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
 
