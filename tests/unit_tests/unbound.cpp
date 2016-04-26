@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,36 +25,29 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
-namespace cryptonote
-{
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  struct tx_verification_context
-  {
-    bool m_should_be_relayed;
-    bool m_verifivation_failed; //bad tx, should drop connection
-    bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
-    bool m_added_to_pool; 
-    bool m_low_mixin;
-    bool m_double_spend;
-    bool m_invalid_input;
-    bool m_invalid_output;
-    bool m_too_big;
-    bool m_overspend;
-    bool m_fee_too_low;
-  };
+#include "gtest/gtest.h"
 
-  struct block_verification_context
-  {
-    bool m_added_to_main_chain;
-    bool m_verifivation_failed; //bad block, should drop connection
-    bool m_marked_as_orphaned;
-    bool m_already_exists;
-    bool m_partial_block_reward;
-  };
+#ifdef STATICLIB
+
+extern "C" int dnskey_algo_id_is_supported(int);
+
+TEST(unbound, supported_algorithms)
+{
+  // Monero causes these to be tried, but we don't have access
+  // to this internal unbound header here, so we use raw numbers
+  // LDNS_RSASHA1            = 5,
+  // LDNS_RSASHA1_NSEC3      = 7,
+  // LDNS_RSASHA256          = 8,   /* RFC 5702 */
+  // LDNS_ECDSAP256SHA256    = 13,  /* RFC 6605 */
+
+  ASSERT_TRUE(dnskey_algo_id_is_supported(5));
+  ASSERT_TRUE(dnskey_algo_id_is_supported(7));
+  ASSERT_TRUE(dnskey_algo_id_is_supported(8));
+  ASSERT_TRUE(dnskey_algo_id_is_supported(13));
 }
+
+#endif
+

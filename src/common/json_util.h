@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,36 +25,29 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
-namespace cryptonote
-{
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  struct tx_verification_context
-  {
-    bool m_should_be_relayed;
-    bool m_verifivation_failed; //bad tx, should drop connection
-    bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
-    bool m_added_to_pool; 
-    bool m_low_mixin;
-    bool m_double_spend;
-    bool m_invalid_input;
-    bool m_invalid_output;
-    bool m_too_big;
-    bool m_overspend;
-    bool m_fee_too_low;
-  };
+#pragma once 
 
-  struct block_verification_context
-  {
-    bool m_added_to_main_chain;
-    bool m_verifivation_failed; //bad block, should drop connection
-    bool m_marked_as_orphaned;
-    bool m_already_exists;
-    bool m_partial_block_reward;
-  };
-}
+#define GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, name, type, jtype, mandatory) \
+  type field_##name; \
+  bool field_##name##_found = false; \
+  (void)field_##name##_found; \
+  do if (json.HasMember(#name)) \
+  { \
+    if (json[#name].Is##jtype()) \
+    { \
+      field_##name = json[#name].Get##jtype(); \
+      field_##name##_found = true; \
+    } \
+    else \
+    { \
+      LOG_ERROR("Field " << #name << " found in JSON, but not " << #jtype); \
+      return false; \
+    } \
+  } \
+  else if (mandatory) \
+  { \
+    LOG_ERROR("Field " << #name << " not found in JSON"); \
+    return false; \
+  } while(0)
+

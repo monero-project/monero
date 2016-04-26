@@ -252,11 +252,24 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   void connection<t_protocol_handler>::save_dbg_log()
   {
+    std::string address, port;
+    boost::system::error_code e;
+
+    boost::asio::ip::tcp::endpoint endpoint = socket_.remote_endpoint(e);
+    if (e)
+    {
+      address = "<not connected>";
+      port = "<not connected>";
+    }
+    else
+    {
+      address = endpoint.address().to_string();
+      port = boost::lexical_cast<std::string>(endpoint.port());
+    }
     _mark_c("net/kind" ,
-			 " connection type " << to_string( m_connection_type ) << " "
-	    << socket_.local_endpoint().address().to_string() << ":" << socket_.local_endpoint().port()
-			<<	" <--> " << socket_.remote_endpoint().address().to_string() << ":" << socket_.remote_endpoint().port()
-		);
+        " connection type " << to_string( m_connection_type ) << " "
+        << socket_.local_endpoint().address().to_string() << ":" << socket_.local_endpoint().port()
+        << " <--> " << address << ":" << port);
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>

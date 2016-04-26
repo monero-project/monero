@@ -54,6 +54,11 @@ namespace cryptonote
 {
   namespace
   {
+    //TODO: constants such as these should at least be in the header,
+    //      but probably somewhere more accessible to the rest of the
+    //      codebase.  As it stands, it is at best nontrivial to test
+    //      whether or not changing these parameters (or adding new)
+    //      will work correctly.
     size_t const TRANSACTION_SIZE_LIMIT_V1 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
@@ -97,6 +102,7 @@ namespace cryptonote
     if(!check_inputs_types_supported(tx))
     {
       tvc.m_verifivation_failed = true;
+      tvc.m_invalid_input = true;
       return false;
     }
 
@@ -113,17 +119,20 @@ namespace cryptonote
     {
       LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
       tvc.m_verifivation_failed = true;
+      tvc.m_overspend = true;
       return false;
     }
 
+    // fee per kilobyte, size rounded up.
     uint64_t fee = inputs_amount - outputs_amount;
     uint64_t needed_fee = blob_size / 1024;
     needed_fee += (blob_size % 1024) ? 1 : 0;
     needed_fee *= FEE_PER_KB;
-    if (!kept_by_block && fee < needed_fee /*&& fee < MINING_ALLOWED_LEGACY_FEE*/)
+    if (!kept_by_block && fee < needed_fee)
     {
       LOG_PRINT_L1("transaction fee is not enough: " << print_money(fee) << ", minimum fee: " << print_money(needed_fee));
       tvc.m_verifivation_failed = true;
+      tvc.m_fee_too_low = true;
       return false;
     }
 
@@ -132,40 +141,46 @@ namespace cryptonote
     {
       LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << tx_size_limit);
       tvc.m_verifivation_failed = true;
+      tvc.m_too_big = true;
       return false;
     }
 
-    //check key images for transaction if it is not kept by block
+    // if the transaction came from a block popped from the chain,
+    // don't check if we have its key images as spent.
+    // TODO: Investigate why not?
     if(!kept_by_block)
     {
       if(have_tx_keyimges_as_spent(tx))
       {
         LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
         tvc.m_verifivation_failed = true;
+        tvc.m_double_spend = true;
         return false;
       }
     }
 
-    if (!m_blockchain.check_tx_outputs(tx))
+    if (!m_blockchain.check_tx_outputs(tx, tvc))
     {
       LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid outout");
       tvc.m_verifivation_failed = true;
+      tvc.m_invalid_output = true;
       return false;
     }
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
 #if BLOCKCHAIN_DB == DB_LMDB
-    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, kept_by_block);
+    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, kept_by_block);
 #else
     bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id);
 #endif
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     if(!ch_inp_res)
     {
+      // if the transaction was valid before (kept_by_block), then it
+      // may become valid again, so ignore the failed inputs check.
       if(kept_by_block)
       {
-        //anyway add this transaction to pool, because it related to block
         auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
         CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
         txd_p.first->second.blob_size = blob_size;
@@ -207,13 +222,14 @@ namespace cryptonote
         tvc.m_should_be_relayed = true;
     }
 
+    // assume failure during verification steps until success is certain
     tvc.m_verifivation_failed = true;
-    //update image_keys container, here should everything goes ok.
+
     BOOST_FOREACH(const auto& in, tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, txin, false);
       std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
-      CHECK_AND_ASSERT_MES(kept_by_block || kei_image_set.size() == 0, false, "internal error: keeped_by_block=" << kept_by_block
+      CHECK_AND_ASSERT_MES(kept_by_block || kei_image_set.size() == 0, false, "internal error: kept_by_block=" << kept_by_block
                                           << ",  kei_image_set.size()=" << kei_image_set.size() << ENDL << "txin.k_image=" << txin.k_image << ENDL
                                           << "tx_id=" << id );
       auto ins_res = kei_image_set.insert(id);
@@ -223,7 +239,7 @@ namespace cryptonote
     tvc.m_verifivation_failed = false;
 
     m_txs_by_fee.emplace((double)blob_size / fee, id);
-    //succeed
+
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -235,6 +251,9 @@ namespace cryptonote
     return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, version);
   }
   //---------------------------------------------------------------------------------
+  //FIXME: Can return early before removal of all of the key images.
+  //       At the least, need to make sure that a false return here
+  //       is treated properly.  Should probably not return early, however.
   bool tx_memory_pool::remove_transaction_keyimages(const transaction& tx)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -301,7 +320,7 @@ namespace cryptonote
     );
   }
   //---------------------------------------------------------------------------------
-  //proper tx_pool handling courtesy of CryptoZoidberg and Boolberry
+  //TODO: investigate whether boolean return is appropriate
   bool tx_memory_pool::remove_stuck_transactions()
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -332,6 +351,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
+  //TODO: investigate whether boolean return is appropriate
   bool tx_memory_pool::get_relayable_transactions(std::list<std::pair<crypto::hash, cryptonote::transaction>> &txs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -380,6 +400,7 @@ namespace cryptonote
       txs.push_back(tx_vt.second.tx);
   }
   //------------------------------------------------------------------
+  //TODO: investigate whether boolean return is appropriate
   bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -480,7 +501,8 @@ namespace cryptonote
       if(txd.last_failed_id != null_hash && m_blockchain.get_current_blockchain_height() > txd.last_failed_height && txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
         return false;//we already sure that this tx is broken for this height
 
-      if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id))
+      tx_verification_context tvc;
+      if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id, tvc))
       {
         txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
         txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);
@@ -490,13 +512,18 @@ namespace cryptonote
     {
       if(txd.max_used_block_height >= m_blockchain.get_current_blockchain_height())
         return false;
-      if(m_blockchain.get_block_id_by_height(txd.max_used_block_height) != txd.max_used_block_id)
+      if(true)
       {
         //if we already failed on this height and id, skip actual ring signature check
         if(txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
           return false;
         //check ring signature again, it is possible (with very small chance) that this transaction become again valid
+#if BLOCKCHAIN_DB == DB_LMDB
+        tx_verification_context tvc;
+        if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id, tvc))
+#else
         if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id))
+#endif
         {
           txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
           txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);
@@ -556,6 +583,7 @@ namespace cryptonote
     return ss.str();
   }
   //---------------------------------------------------------------------------------
+  //TODO: investigate whether boolean return is appropriate
   bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee)
   {
     // Warning: This function takes already_generated_
@@ -646,6 +674,7 @@ namespace cryptonote
     return n_removed;
   }
   //---------------------------------------------------------------------------------
+  //TODO: investigate whether only ever returning true is correct
   bool tx_memory_pool::init(const std::string& config_folder)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -679,6 +708,7 @@ namespace cryptonote
   }
 
   //---------------------------------------------------------------------------------
+  //TODO: investigate whether only ever returning true is correct
   bool tx_memory_pool::deinit()
   {
     if (m_config_folder.empty())

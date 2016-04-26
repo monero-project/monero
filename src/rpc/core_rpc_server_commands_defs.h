@@ -103,18 +103,41 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
+    struct entry
+    {
+      std::string tx_hash;
+      std::string as_hex;
+      std::string as_json;
+      bool in_pool;
+      uint64_t block_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(as_hex)
+        KV_SERIALIZE(as_json)
+        KV_SERIALIZE(in_pool)
+        KV_SERIALIZE(block_height)
+      END_KV_SERIALIZE_MAP()
+    };
 
     struct response
     {
-      std::list<std::string> txs_as_hex;  //transactions blobs as hex
+      // older compatibility stuff
+      std::list<std::string> txs_as_hex;  //transactions blobs as hex (old compat)
+      std::list<std::string> txs_as_json; //transactions decoded as json (old compat)
+
+      // in both old and new
       std::list<std::string> missed_tx;   //not found transactions
-      std::list<std::string> txs_as_json; //transactions decoded as json
+
+      // new style
+      std::vector<entry> txs;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs_as_hex)
-        KV_SERIALIZE(missed_tx)
         KV_SERIALIZE(txs_as_json)
+        KV_SERIALIZE(txs)
+        KV_SERIALIZE(missed_tx)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
@@ -221,12 +244,14 @@ namespace cryptonote
     struct request
     {
       std::string tx_as_hex;
+      bool do_not_relay;
 
       request() {}
       explicit request(const transaction &);
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_as_hex)
+        KV_SERIALIZE(do_not_relay)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -234,9 +259,27 @@ namespace cryptonote
     struct response
     {
       std::string status;
+      std::string reason;
+      bool not_relayed;
+      bool low_mixin;
+      bool double_spend;
+      bool invalid_input;
+      bool invalid_output;
+      bool too_big;
+      bool overspend;
+      bool fee_too_low;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
+        KV_SERIALIZE(reason)
+        KV_SERIALIZE(not_relayed)
+        KV_SERIALIZE(low_mixin)
+        KV_SERIALIZE(double_spend)
+        KV_SERIALIZE(invalid_input)
+        KV_SERIALIZE(invalid_output)
+        KV_SERIALIZE(too_big)
+        KV_SERIALIZE(overspend)
+        KV_SERIALIZE(fee_too_low)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -427,6 +470,7 @@ namespace cryptonote
       uint64_t reserved_offset;
       std::string prev_hash;
       blobdata blocktemplate_blob;
+      blobdata blockhashing_blob;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -435,6 +479,7 @@ namespace cryptonote
         KV_SERIALIZE(reserved_offset)
         KV_SERIALIZE(prev_hash)
         KV_SERIALIZE(blocktemplate_blob)
+        KV_SERIALIZE(blockhashing_blob)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
