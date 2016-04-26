@@ -56,7 +56,7 @@ string Wallet::displayAmount(uint64_t amount)
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
-    :m_wallet(nullptr), m_status(Wallet::Status_Ok)
+    :m_wallet(nullptr), m_status(Wallet::Status_Ok), m_trustedDaemon(false)
 {
     m_wallet = new tools::wallet2(testnet);
     m_history = new TransactionHistoryImpl(this);
@@ -237,6 +237,10 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
     clearStatus();
     try {
         m_wallet->init(daemon_address, upper_transaction_size_limit);
+        if (Utils::isAddressLocal(daemon_address)) {
+            this->setTrustedDaemon(true);
+        }
+
     } catch (const std::exception &e) {
         LOG_ERROR("Error initializing wallet: " << e.what());
         m_status = Status_Error;
@@ -315,7 +319,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64
 
 
         try {
-            transaction->m_pending_tx = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra);
+            transaction->m_pending_tx = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */,
+                                                                      0 /* unused fee arg*/, extra, m_trustedDaemon);
 
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
@@ -402,6 +407,16 @@ bool WalletImpl::connectToDaemon()
         m_errorString = "Error connecting to daemon at " + m_wallet->get_daemon_address();
     }
     return result;
+}
+
+void WalletImpl::setTrustedDaemon(bool arg)
+{
+    m_trustedDaemon = arg;
+}
+
+bool WalletImpl::trustedDaemon() const
+{
+    return m_trustedDaemon;
 }
 
 void WalletImpl::clearStatus()

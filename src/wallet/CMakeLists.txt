@@ -36,7 +36,8 @@ set(wallet_sources
   api/wallet_manager.cpp
   api/transaction_info.cpp
   api/transaction_history.cpp
-  api/pending_transaction.cpp)
+  api/pending_transaction.cpp
+  api/utils.cpp)
 
 set(wallet_headers)
 

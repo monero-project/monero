@@ -38,6 +38,9 @@
 //  Public interface for libwallet library
 namespace Bitmonero {
 
+    namespace Utils {
+        bool isAddressLocal(const std::string &hostaddr);
+    }
 /**
  * @brief Transaction-like interface for sending money
  */
@@ -117,6 +120,8 @@ struct Wallet
     virtual bool store(const std::string &path) = 0;
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
     virtual bool connectToDaemon() = 0;
+    virtual void setTrustedDaemon(bool arg) = 0;
+    virtual bool trustedDaemon() const = 0;
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
     static std::string displayAmount(uint64_t amount);
