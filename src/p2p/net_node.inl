@@ -1319,6 +1319,7 @@ namespace nodetool
         if(rsp.status != PING_OK_RESPONSE_STATUS_TEXT || pr != rsp.peer_id)
         {
           LOG_PRINT_CC_L2(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << ip << ":" << port << ", hsh_peer_id=" << pr_ << ", rsp.peer_id=" << rsp.peer_id);
+          m_net_server.get_config_object().close(ping_context.m_connection_id);
           return;
         }
         m_net_server.get_config_object().close(ping_context.m_connection_id);
