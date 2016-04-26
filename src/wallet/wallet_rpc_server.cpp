@@ -770,5 +770,68 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_set_tx_notes(const wallet_rpc::COMMAND_RPC_SET_TX_NOTES::request& req, wallet_rpc::COMMAND_RPC_SET_TX_NOTES::response& res, epee::json_rpc::error& er)
+  {
+    if (req.txids.size() != req.notes.size())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Different amount of txids and notes";
+      return false;
+    }
+
+    std::list<crypto::hash> txids;
+    std::list<std::string>::const_iterator i = req.txids.begin();
+    while (i != req.txids.end())
+    {
+      cryptonote::blobdata txid_blob;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(*i++, txid_blob))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+        er.message = "TX ID has invalid format";
+        return false;
+      }
+
+      crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      txids.push_back(txid);
+    }
+
+    std::list<crypto::hash>::const_iterator il = txids.begin();
+    std::list<std::string>::const_iterator in = req.notes.begin();
+    while (il != txids.end())
+    {
+      m_wallet.set_tx_note(*il++, *in++);
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_tx_notes(const wallet_rpc::COMMAND_RPC_GET_TX_NOTES::request& req, wallet_rpc::COMMAND_RPC_GET_TX_NOTES::response& res, epee::json_rpc::error& er)
+  {
+    res.notes.clear();
+
+    std::list<crypto::hash> txids;
+    std::list<std::string>::const_iterator i = req.txids.begin();
+    while (i != req.txids.end())
+    {
+      cryptonote::blobdata txid_blob;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(*i++, txid_blob))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+        er.message = "TX ID has invalid format";
+        return false;
+      }
+
+      crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      txids.push_back(txid);
+    }
+
+    std::list<crypto::hash>::const_iterator il = txids.begin();
+    while (il != txids.end())
+    {
+      res.notes.push_back(m_wallet.get_tx_note(*il++));
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }
 

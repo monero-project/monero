@@ -110,6 +110,7 @@ namespace tools
       uint64_t m_amount;
       uint64_t m_block_height;
       uint64_t m_unlock_time;
+      uint64_t m_timestamp;
     };
 
     struct unconfirmed_transfer_details
@@ -120,6 +121,7 @@ namespace tools
       std::vector<cryptonote::tx_destination_entry> m_dests;
       crypto::hash m_payment_id;
       enum { pending, pending_not_in_pool, failed } m_state;
+      uint64_t m_timestamp;
     };
 
     struct confirmed_transfer_details
@@ -130,10 +132,11 @@ namespace tools
       uint64_t m_block_height;
       std::vector<cryptonote::tx_destination_entry> m_dests;
       crypto::hash m_payment_id;
+      uint64_t m_timestamp;
 
       confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(cryptonote::null_hash) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
+        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
     };
 
     typedef std::vector<transfer_details> transfer_container;
@@ -326,6 +329,9 @@ namespace tools
       if(ver < 11)
         return;
       a & m_refresh_from_block_height;
+      if(ver < 12)
+        return;
+      a & m_tx_notes;
     }
 
     /*!
@@ -372,6 +378,9 @@ namespace tools
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
     std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);
 
+    void set_tx_note(const crypto::hash &txid, const std::string &note);
+    std::string get_tx_note(const crypto::hash &txid) const;
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -387,7 +396,7 @@ namespace tools
      * \param password       Password of wallet file
      */
     bool load_keys(const std::string& keys_file_name, const std::string& password);
-    void process_new_transaction(const cryptonote::transaction& tx, uint64_t height, bool miner_tx);
+    void process_new_transaction(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, bool miner_tx);
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
@@ -402,7 +411,7 @@ namespace tools
     uint64_t select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::list<transfer_container::iterator>& selected_transfers, bool trusted_daemon);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
-    void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t spent, uint64_t received);
+    void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received);
     void add_unconfirmed_tx(const cryptonote::transaction& tx, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
@@ -429,6 +438,7 @@ namespace tools
     payment_container m_payments;
     std::unordered_map<crypto::key_image, size_t> m_key_images;
     cryptonote::account_public_address m_account_public_address;
+    std::unordered_map<crypto::hash, std::string> m_tx_notes;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
     std::atomic<bool> m_run;
@@ -449,10 +459,10 @@ namespace tools
     uint64_t m_refresh_from_block_height;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 11)
-BOOST_CLASS_VERSION(tools::wallet2::payment_details, 0)
-BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 2)
-BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 1)
+BOOST_CLASS_VERSION(tools::wallet2, 12)
+BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 3)
+BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 2)
 
 namespace boost
 {
@@ -482,6 +492,9 @@ namespace boost
       if (ver < 2)
         return;
       a & x.m_state;
+      if (ver < 3)
+        return;
+      a & x.m_timestamp;
     }
 
     template <class Archive>
@@ -495,6 +508,9 @@ namespace boost
         return;
       a & x.m_dests;
       a & x.m_payment_id;
+      if (ver < 2)
+        return;
+      a & x.m_timestamp;
     }
 
     template <class Archive>
@@ -504,6 +520,9 @@ namespace boost
       a & x.m_amount;
       a & x.m_block_height;
       a & x.m_unlock_time;
+      if (ver < 1)
+        return;
+      a & x.m_timestamp;
     }
 
     template <class Archive>

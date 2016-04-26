@@ -38,3 +38,4 @@
 #define WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID        -5
 #define WALLET_RPC_ERROR_CODE_TRANSFER_TYPE           -6
 #define WALLET_RPC_ERROR_CODE_DENIED                  -7
+#define WALLET_RPC_ERROR_CODE_WRONG_TXID              -8

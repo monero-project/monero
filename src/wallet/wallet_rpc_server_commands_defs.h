@@ -447,6 +447,47 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_SET_TX_NOTES
+  {
+    struct request
+    {
+      std::list<std::string> txids;
+      std::list<std::string> notes;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txids)
+        KV_SERIALIZE(notes)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_TX_NOTES
+  {
+    struct request
+    {
+      std::list<std::string> txids;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txids)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<std::string> notes;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(notes)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
 

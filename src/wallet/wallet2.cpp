@@ -184,7 +184,7 @@ void wallet2::check_acc_out(const account_keys &acc, const tx_out &o, const cryp
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, bool miner_tx)
+void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, bool miner_tx)
 {
   if (!miner_tx)
     process_unconfirmed(tx, height);
@@ -409,7 +409,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
   if (tx_money_spent_in_ins > 0)
   {
-    process_outgoing(tx, height, tx_money_spent_in_ins, tx_money_got_in_outs);
+    process_outgoing(tx, height, ts, tx_money_spent_in_ins, tx_money_got_in_outs);
   }
 
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
@@ -459,6 +459,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     payment.m_amount       = received;
     payment.m_block_height = height;
     payment.m_unlock_time  = tx.unlock_time;
+    payment.m_timestamp    = ts;
     m_payments.emplace(payment_id, payment);
     LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
   }
@@ -482,7 +483,7 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t he
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t height, uint64_t spent, uint64_t received)
+void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received)
 {
   crypto::hash txid = get_transaction_hash(tx);
   confirmed_transfer_details &ctd = m_confirmed_txs[txid];
@@ -492,6 +493,7 @@ void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t heigh
   ctd.m_amount_out = get_outs_money_amount(tx);
   ctd.m_change = received;
   ctd.m_block_height = height;
+  ctd.m_timestamp = ts;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height)
@@ -502,7 +504,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   if(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height)
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    process_new_transaction(b.miner_tx, height, true);
+    process_new_transaction(b.miner_tx, height, b.timestamp, true);
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
     TIME_MEASURE_START(txs_handle_time);
@@ -511,7 +513,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
       cryptonote::transaction tx;
       bool r = parse_and_validate_tx_from_blob(txblob, tx);
       THROW_WALLET_EXCEPTION_IF(!r, error::tx_parse_error, txblob);
-      process_new_transaction(tx, height, false);
+      process_new_transaction(tx, height, b.timestamp, false);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
@@ -1861,6 +1863,7 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, const std::v
   utd.m_dests = dests;
   utd.m_payment_id = payment_id;
   utd.m_state = wallet2::unconfirmed_transfer_details::pending;
+  utd.m_timestamp = time(NULL);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -3066,6 +3069,19 @@ std::string wallet2::get_wallet_file() const
 std::string wallet2::get_keys_file() const
 {
     return m_keys_file;
+}
+
+void wallet2::set_tx_note(const crypto::hash &txid, const std::string &note)
+{
+  m_tx_notes[txid] = note;
+}
+
+std::string wallet2::get_tx_note(const crypto::hash &txid) const
+{
+  std::unordered_map<crypto::hash, std::string>::const_iterator i = m_tx_notes.find(txid);
+  if (i == m_tx_notes.end())
+    return std::string();
+  return i->second;
 }
 
 //----------------------------------------------------------------------------------------------------
