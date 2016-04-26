@@ -97,6 +97,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view-only commands"), false};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
+  const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -1136,6 +1137,22 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
     }
+    if (!m_restore_height)
+    {
+      std::string heightstr = command_line::input_line("Restore from specific blockchain height (optional, default 0): ");
+      if (std::cin.eof())
+        return false;
+      if (heightstr.size())
+      {
+        try {
+          m_restore_height = boost::lexical_cast<uint64_t>(heightstr);
+        }
+        catch (boost::bad_lexical_cast &) {
+          fail_msg_writer() << tr("bad m_restore_height parameter:") << " " << heightstr;
+          return false;
+        }
+      }
+    }
     if (!m_generate_from_view_key.empty())
     {
       // parse address
@@ -1306,6 +1323,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
   m_trusted_daemon                = command_line::get_arg(vm, arg_trusted_daemon);
+  m_restore_height                = command_line::get_arg(vm, arg_restore_height);
 
   return true;
 }
@@ -1410,6 +1428,15 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   }
 
   m_wallet->init(m_daemon_address);
+  // for a totally new account, we don't care about older blocks.
+  if (!m_restore_deterministic_wallet)
+  {
+    std::string err;
+    m_wallet->set_refresh_from_block_height(get_daemon_blockchain_height(err));
+  } else if (m_restore_height)
+  {
+    m_wallet->set_refresh_from_block_height(m_restore_height);
+  }
 
   // convert rng value to electrum-style word list
   std::string electrum_words;
@@ -1457,6 +1484,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   }
 
   m_wallet->init(m_daemon_address);
+  m_wallet->set_refresh_from_block_height(m_restore_height);
 
   return true;
 }
@@ -1482,6 +1510,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   }
 
   m_wallet->init(m_daemon_address);
+  m_wallet->set_refresh_from_block_height(m_restore_height);
 
   return true;
 }
@@ -2921,6 +2950,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_testnet);
   command_line::add_arg(desc_params, arg_restricted);
   command_line::add_arg(desc_params, arg_trusted_daemon);
+  command_line::add_arg(desc_params, arg_restore_height);
   tools::wallet_rpc_server::init_options(desc_params);
 
   po::positional_options_description positional_options;

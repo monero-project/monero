@@ -89,6 +89,36 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_HASHES_FAST
+  {
+
+    struct request
+    {
+      std::list<crypto::hash> block_ids; //*first 10 blocks id goes sequential, next goes in pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block */
+      uint64_t    start_height;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(block_ids)
+        KV_SERIALIZE(start_height)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<crypto::hash> m_block_ids;
+      uint64_t    start_height;
+      uint64_t    current_height;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_ids)
+        KV_SERIALIZE(start_height)
+        KV_SERIALIZE(current_height)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   //-----------------------------------------------
   struct COMMAND_RPC_GET_TRANSACTIONS
   {
