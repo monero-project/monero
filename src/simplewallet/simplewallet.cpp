@@ -82,8 +82,12 @@ typedef cryptonote::simple_wallet sw;
   m_auto_refresh_run.store(false, std::memory_order_relaxed); \
   /* stop any background refresh, and take over */ \
   m_wallet->stop(); \
-  boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex); \
+  m_auto_refresh_mutex.lock(); \
   m_auto_refresh_cond.notify_one(); \
+  m_auto_refresh_mutex.unlock(); \
+  if (auto_refresh_run) \
+    m_auto_refresh_thread.join(); \
+  boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex); \
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
     m_auto_refresh_run.store(auto_refresh_run, std::memory_order_relaxed); \
     if (auto_refresh_run) \
