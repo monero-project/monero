@@ -842,10 +842,17 @@ namespace tools
       return false;
     }
 
+    uint64_t min_height = 0, max_height = (uint64_t)-1;
+    if (req.filter_by_height)
+    {
+      min_height = req.min_height;
+      max_height = req.max_height;
+    }
+
     if (req.in)
     {
       std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
-      m_wallet.get_payments(payments, req.min_height, req.max_height);
+      m_wallet.get_payments(payments, min_height, max_height);
       for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
         res.in.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
         wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.in.back();
@@ -866,7 +873,7 @@ namespace tools
     if (req.out)
     {
       std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
-      m_wallet.get_payments_out(payments, req.min_height, req.max_height);
+      m_wallet.get_payments_out(payments, min_height, max_height);
       for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
         res.in.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
         wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.in.back();
