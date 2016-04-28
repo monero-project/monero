@@ -213,7 +213,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     tx_pub_key = pub_key_field.pub_key;
     bool r = true;
-    int threads = boost::thread::hardware_concurrency();
+    int threads = tools::get_max_concurrency();
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
@@ -603,7 +603,7 @@ void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::
   size_t current_index = start_height;
   blocks_added = 0;
 
-  int threads = boost::thread::hardware_concurrency();
+  int threads = tools::get_max_concurrency();
   if (threads > 1)
   {
     std::vector<crypto::hash> round_block_hashes(threads);

@@ -2124,7 +2124,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
   std::vector < uint64_t > results;
   results.resize(tx.vin.size(), 0);
 
-  int threads = boost::thread::hardware_concurrency();
+  int threads = tools::get_max_concurrency();
 
   boost::asio::io_service ioservice;
   boost::thread_group threadpool;
@@ -3001,7 +3001,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
     return true;
 
   bool blocks_exist = false;
-  uint64_t threads = boost::thread::hardware_concurrency();
+  uint64_t threads = tools::get_max_concurrency();
 
   if (blocks_entry.size() > 1 && threads > 1 && m_max_prepare_blocks_threads > 1)
   {
@@ -3200,7 +3200,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   // [output] stores all transactions for each tx_out_index::hash found
   std::vector<std::unordered_map<crypto::hash, cryptonote::transaction>> transactions(amounts.size());
 
-  threads = boost::thread::hardware_concurrency();
+  threads = tools::get_max_concurrency();
   if (!m_db->can_thread_bulk_indices())
     threads = 1;
 

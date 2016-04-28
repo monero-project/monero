@@ -135,7 +135,7 @@ const unsigned int DB_BUFFER_LENGTH = 32 * MB;
 const unsigned int DB_DEF_CACHESIZE = 256 * MB;
 
 #if defined(BDB_BULK_CAN_THREAD)
-const unsigned int DB_BUFFER_COUNT = boost::thread::hardware_concurrency();
+const unsigned int DB_BUFFER_COUNT = tools::get_max_concurrency();
 #else
 const unsigned int DB_BUFFER_COUNT = 1;
 #endif

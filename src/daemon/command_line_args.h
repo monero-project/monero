@@ -59,6 +59,11 @@ namespace daemon_args
     "os-version"
   , "OS for which this executable was compiled"
   };
+  const command_line::arg_descriptor<unsigned> arg_max_concurrency = {
+    "max-concurrency"
+  , "Max number of threads to use for a parallel job"
+  , 0
+  };
 }  // namespace daemon_args
 
 #endif // DAEMON_COMMAND_LINE_ARGS_H

@@ -110,6 +110,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Create non-deterministic view and spend keys"), false};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", sw::tr("Use daemon instance at port <arg> instead of 18081"), 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"log-level", "", LOG_LEVEL_0};
+  const command_line::arg_descriptor<uint32_t> arg_max_concurrency = {"max-concurrency", "Max number of threads to use for a parallel job", 0};
   const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", sw::tr("Specify log file"), ""};
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view-only commands"), false};
@@ -1689,7 +1690,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 
   bool ok = true;
-  size_t max_mining_threads_count = (std::max)(boost::thread::hardware_concurrency(), static_cast<unsigned>(2));
+  size_t max_mining_threads_count = (std::max)(tools::get_max_concurrency(), static_cast<unsigned>(2));
   if (0 == args.size())
   {
     req.threads_count = 1;
@@ -3289,6 +3290,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_daemon_port);
   command_line::add_arg(desc_params, arg_command);
   command_line::add_arg(desc_params, arg_log_level);
+  command_line::add_arg(desc_params, arg_max_concurrency);
 
   bf::path default_log {log_space::log_singletone::get_default_log_folder()};
   std::string log_file_name = log_space::log_singletone::get_default_log_file();
@@ -3373,6 +3375,9 @@ int main(int argc, char* argv[])
     log_file_path.parent_path().string().c_str(),
     LOG_LEVEL_4
     );
+
+  if(command_line::has_arg(vm, arg_max_concurrency))
+    tools::set_max_concurrency(command_line::get_arg(vm, arg_max_concurrency));
 
   message_writer(epee::log_space::console_color_white, true) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
 

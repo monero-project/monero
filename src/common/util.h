@@ -160,4 +160,7 @@ namespace tools
   };
 
   void set_strict_default_file_permissions(bool strict);
+
+  void set_max_concurrency(unsigned n);
+  unsigned get_max_concurrency();
 }
