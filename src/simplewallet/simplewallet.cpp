@@ -231,6 +231,44 @@ namespace
       return true;
     return false;
   }
+
+  const struct
+  {
+    const char *name;
+    tools::wallet2::RefreshType refresh_type;
+  } refresh_type_names[] =
+  {
+    { "full", tools::wallet2::RefreshFull },
+    { "optimize-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
+    { "optimized-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
+    { "no-coinbase", tools::wallet2::RefreshNoCoinbase },
+    { "default", tools::wallet2::RefreshDefault },
+  };
+
+  bool parse_refresh_type(const std::string &s, tools::wallet2::RefreshType &refresh_type)
+  {
+    for (size_t n = 0; n < sizeof(refresh_type_names) / sizeof(refresh_type_names[0]); ++n)
+    {
+      if (s == refresh_type_names[n].name)
+      {
+        refresh_type = refresh_type_names[n].refresh_type;
+        return true;
+      }
+    }
+    fail_msg_writer() << tr("failed to parse refresh type");
+    return false;
+  }
+
+  std::string get_refresh_type_name(tools::wallet2::RefreshType type)
+  {
+    for (size_t n = 0; n < sizeof(refresh_type_names) / sizeof(refresh_type_names[0]); ++n)
+    {
+      if (type == refresh_type_names[n].refresh_type)
+        return refresh_type_names[n].name;
+    }
+    return "invalid";
+  }
+
 }
 
 
@@ -483,32 +521,6 @@ bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = st
   return true;
 }
 
-static bool parse_refresh_type(const std::string &s, tools::wallet2::RefreshType &refresh_type)
-{
-  static const struct
-  {
-    const char *name;
-    tools::wallet2::RefreshType refresh_type;
-  } names[] =
-  {
-    { "full", tools::wallet2::RefreshFull },
-    { "optimize-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
-    { "optimized-coinbase", tools::wallet2::RefreshOptimizeCoinbase },
-    { "no-coinbase", tools::wallet2::RefreshNoCoinbase },
-    { "default", tools::wallet2::RefreshDefault },
-  };
-  for (size_t n = 0; n < sizeof(names) / sizeof(names[0]); ++n)
-  {
-    if (s == names[n].name)
-    {
-      refresh_type = names[n].refresh_type;
-      return true;
-    }
-  }
-  fail_msg_writer() << tr("failed to parse refresh type");
-  return false;
-}
-
 bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
@@ -589,7 +601,12 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 {
   if (args.empty())
   {
-    fail_msg_writer() << tr("set: needs an argument. available options: seed, always-confirm-transfers, default-mixin, auto-refresh, refresh-type");
+    success_msg_writer() << "seed = " << m_wallet->get_seed_language();
+    success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
+    success_msg_writer() << "store-tx-info = " << m_wallet->store_tx_info();
+    success_msg_writer() << "default-mixin = " << m_wallet->default_mixin();
+    success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
+    success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
     return true;
   }
   else
