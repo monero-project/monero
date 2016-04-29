@@ -1058,6 +1058,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_refresh_type);
   json.AddMember("refresh_type", value2, json.GetAllocator());
 
+  value2.SetUint64(m_refresh_from_block_height);
+  json.AddMember("refresh_height", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -1164,6 +1167,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
       else
         LOG_PRINT_L0("Unknown refresh-type value (" << field_refresh_type << "), using default");
     }
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false);
+    if (field_refresh_height_found)
+      m_refresh_from_block_height = field_refresh_height;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();

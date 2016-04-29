@@ -308,6 +308,7 @@ namespace tools
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
+      uint64_t dummy_refresh_height = 0; // moved to keys file
       if(ver < 5)
         return;
       a & m_blockchain;
@@ -328,7 +329,7 @@ namespace tools
       a & m_confirmed_txs;
       if(ver < 11)
         return;
-      a & m_refresh_from_block_height;
+      a & dummy_refresh_height;
       if(ver < 12)
         return;
       a & m_tx_notes;
