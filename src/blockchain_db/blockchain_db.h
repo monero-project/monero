@@ -59,6 +59,39 @@
  * Unspent transaction outputs are duplicated to quickly gather random
  * outputs to use for mixins
  *
+ * Indices and Identifiers:
+ * The word "index" is used ambiguously throughout this code. It is
+ * particularly confusing when talking about the output or transaction
+ * tables since their indexing can refer to themselves or each other.
+ * I have attempted to clarify these usages here:
+ *
+ * Blocks, transactions, and outputs are all identified by a hash.
+ * For storage efficiency, a 64-bit integer ID is used instead of the hash
+ * inside the DB. Tables exist to map between hash and ID. A block ID is
+ * also referred to as its "height". Transactions and outputs generally are
+ * not referred to by ID outside of this module, but the tx ID is returned
+ * by tx_exists() and used by get_tx_amount_output_indices(). Like their
+ * corresponding hashes, IDs are globally unique.
+ *
+ * The remaining uses of the word "index" refer to local offsets, and are
+ * not globally unique. An "amount output index" N refers to the Nth output
+ * of a specific amount. An "output local index" N refers to the Nth output
+ * of a specific tx.
+ *
+ * Exceptions:
+ *   DB_ERROR -- generic
+ *   DB_OPEN_FAILURE
+ *   DB_CREATE_FAILURE
+ *   DB_SYNC_FAILURE
+ *   BLOCK_DNE
+ *   BLOCK_PARENT_DNE
+ *   BLOCK_EXISTS
+ *   BLOCK_INVALID -- considering making this multiple errors
+ *   TX_DNE
+ *   TX_EXISTS
+ *   OUTPUT_DNE
+ *   OUTPUT_EXISTS
+ *   KEY_IMAGE_EXISTS
  */
 
 namespace cryptonote
@@ -77,6 +110,15 @@ struct output_data_t
   crypto::public_key pubkey;       //!< the output's public key (for spend verification)
   uint64_t           unlock_time;  //!< the output's unlock time (or height)
   uint64_t           height;       //!< the height of the block which created the output
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct tx_data_t
+{
+  uint64_t tx_id;
+  uint64_t unlock_time;
+  uint64_t block_id;
 };
 #pragma pack(pop)
 
@@ -311,14 +353,18 @@ private:
    * and the other data passed here, not the separate outputs of the
    * transaction.
    *
+   * It returns a tx ID, which is a mapping from the tx_hash. The tx ID
+   * is used in #add_tx_amount_output_indices().
+   *
    * If any of this cannot be done, the subclass should throw the corresponding
    * subclass of DB_EXCEPTION
    *
    * @param blk_hash the hash of the block containing the transaction
    * @param tx the transaction to be added
    * @param tx_hash the hash of the transaction
+   * @return the transaction ID
    */
-  virtual void add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
 
   /**
    * @brief remove data about a transaction
@@ -348,6 +394,9 @@ private:
    * future, this tracking (of the number, at least) should be moved to
    * this class, as it is necessary and the same among all BlockchainDB.
    *
+   * It returns an amount output index, which is the index of the output
+   * for its specified amount.
+   *
    * This data should be stored in such a manner that the only thing needed to
    * reverse the process is the tx_out.
    *
@@ -358,25 +407,24 @@ private:
    * @param tx_output the output
    * @param local_index index of the output in its transaction
    * @param unlock_time unlock time/height of the output
+   * @return amount output index
    */
-  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) = 0;
+  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) = 0;
 
   /**
-   * @brief remove an output
+   * @brief store amount output indices for a tx's outputs
    *
-   * The subclass implementing this will remove all output data it stored
-   * in add_output().
-   *
-   * In addition, the subclass is responsible for correctly decrementing
-   * its global output counter (this may be automatic for some, such as using
-   * a database backend "count" feature).
+   * The subclass implementing this will add the amount output indices to its
+   * backing store in a suitable manner. The tx_id will be the same one that
+   * was returned from #add_output().
    *
    * If any of this cannot be done, the subclass should throw the corresponding
    * subclass of DB_EXCEPTION
    *
-   * @param tx_output the output to be removed
+   * @param tx_id ID of the transaction containing these outputs
+   * @param amount_output_indices the amount output indices of the transaction
    */
-  virtual void remove_output(const tx_out& tx_output) = 0;
+  virtual void add_tx_amount_output_indices(const uint64_t tx_id, const std::vector<uint64_t>& amount_output_indices) = 0;
 
   /**
    * @brief store a spent key
@@ -414,18 +462,6 @@ private:
    */
   void pop_block();
 
-  /**
-   * @brief helper function for add_transactions, to add each individual transaction
-   *
-   * This function is called by add_transactions() for each transaction to be
-   * added.
-   *
-   * @param blk_hash hash of the block which has the transaction
-   * @param tx the transaction to add
-   * @param tx_hash_ptr the hash of the transaction, if already calculated
-   */
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL);
-
   // helper function to remove transaction from blockchain
   /**
    * @brief helper function to remove transaction from the blockchain
@@ -443,6 +479,18 @@ private:
 
 
 protected:
+
+  /**
+   * @brief helper function for add_transactions, to add each individual transaction
+   *
+   * This function is called by add_transactions() for each transaction to be
+   * added.
+   *
+   * @param blk_hash hash of the block which has the transaction
+   * @param tx the transaction to add
+   * @param tx_hash_ptr the hash of the transaction, if already calculated
+   */
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -930,10 +978,12 @@ public:
    * given hash and return true if so, false otherwise.
    *
    * @param h the hash to check against
+   * @param tx_id (optional) returns the tx_id for the tx hash
    *
    * @return true if the transaction exists, otherwise false
    */
   virtual bool tx_exists(const crypto::hash& h) const = 0;
+  virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_id) const = 0;
 
   // return unlock time of tx with hash <h>
   /**
@@ -1125,36 +1175,20 @@ public:
   virtual bool can_thread_bulk_indices() const = 0;
 
   /**
-   * @brief gets output indices (global) for a transaction's outputs
-   *
-   * The subclass should fetch the global output indices for each output
-   * in the transaction with the given hash.
-   *
-   * If the transaction does not exist, the subclass should throw TX_DNE.
-   *
-   * If an output cannot be found, the subclass should throw OUTPUT_DNE.
-   *
-   * @param h a transaction hash
-   *
-   * @return a list of global output indices
-   */
-  virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const = 0;
-
-  /**
    * @brief gets output indices (amount-specific) for a transaction's outputs
    *
    * The subclass should fetch the amount-specific output indices for each
-   * output in the transaction with the given hash.
+   * output in the transaction with the given ID.
    *
    * If the transaction does not exist, the subclass should throw TX_DNE.
    *
    * If an output cannot be found, the subclass should throw OUTPUT_DNE.
    *
-   * @param h a transaction hash
+   * @param tx_id a transaction ID
    *
    * @return a list of amount-specific output indices
    */
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const crypto::hash& h) const = 0;
+  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_id) const = 0;
 
   /**
    * @brief check if a key image is stored as spent
