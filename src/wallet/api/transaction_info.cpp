@@ -37,9 +37,13 @@ namespace Bitmonero {
 
 TransactionInfo::~TransactionInfo() {}
 
+TransactionInfo::Transfer::Transfer(uint64_t _amount, const string &_address)
+    : amount(_amount), address(_address) {}
+
+
 TransactionInfoImpl::TransactionInfoImpl()
     : m_direction(Direction_Out)
-      , m_hold(false)
+      , m_pending(false)
       , m_failed(false)
       , m_amount(0)
       , m_fee(0)
@@ -56,13 +60,13 @@ TransactionInfoImpl::~TransactionInfoImpl()
 
 int TransactionInfoImpl::direction() const
 {
-    return TransactionInfo::Direction_In;
+    return m_direction;
 }
 
 
-bool TransactionInfoImpl::isHold() const
+bool TransactionInfoImpl::isPending() const
 {
-    return m_hold;
+    return m_pending;
 }
 
 bool TransactionInfoImpl::isFailed() const
@@ -98,6 +102,11 @@ std::time_t TransactionInfoImpl::timestamp() const
 string TransactionInfoImpl::paymentId() const
 {
     return m_paymentid;
+}
+
+const std::vector<TransactionInfo::Transfer> &TransactionInfoImpl::transfers() const
+{
+    return m_transfers;
 }
 
 } // namespace

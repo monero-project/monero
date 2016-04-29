@@ -68,16 +68,26 @@ struct TransactionInfo
         Direction_In,
         Direction_Out
     };
+
+    struct Transfer {
+        Transfer(uint64_t _amount, const std::string &address);
+        const uint64_t amount;
+        const std::string address;
+    };
+
     virtual ~TransactionInfo() = 0;
     virtual int  direction() const = 0;
-    virtual bool isHold() const = 0;
+    virtual bool isPending() const = 0;
     virtual bool isFailed() const = 0;
     virtual uint64_t amount() const = 0;
     virtual uint64_t fee() const = 0;
     virtual uint64_t blockHeight() const = 0;
+    //! transaction_id
     virtual std::string hash() const = 0;
     virtual std::time_t timestamp() const = 0;
     virtual std::string paymentId() const = 0;
+    //! only applicable for output transactions
+    virtual const std::vector<Transfer> & transfers() const = 0;
 };
 /**
  * @brief The TransactionHistory - interface for displaying transaction history

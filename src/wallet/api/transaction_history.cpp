@@ -82,8 +82,9 @@ void TransactionHistoryImpl::refresh()
     // delete old transactions;
     for (auto t : m_history)
         delete t;
+    m_history.clear();
 
-    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+
 
     // transactions are stored in wallet2:
     // - confirmed_transfer_details   - out transfers
@@ -91,8 +92,11 @@ void TransactionHistoryImpl::refresh()
     // - payment_details              - input transfers
 
     // payments are "input transactions";
-    m_wallet->m_wallet->get_payments(payments, min_height, max_height);
-    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+    // one input transaction contains only one transfer. e.g. <transaction_id> - <100XMR>
+
+    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> in_payments;
+    m_wallet->m_wallet->get_payments(in_payments, min_height, max_height);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = in_payments.begin(); i != in_payments.end(); ++i) {
         const tools::wallet2::payment_details &pd = i->second;
         std::string payment_id = string_tools::pod_to_hex(i->first);
         if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
@@ -111,8 +115,75 @@ void TransactionHistoryImpl::refresh()
         /* output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s")
                                                                                  % print_money(pd.m_amount)
                                                                                  % string_tools::pod_to_hex(pd.m_tx_hash)
-                                                                                 % payment_id % "-").str())));*/
+                                                                                 % payment_id % "-").str()))); */
     }
+
+    // confirmed output transactions
+    // one output transaction may contain more than one money transfer, e.g.
+    // <transaction_id>:
+    //    transfer1: 100XMR to <address_1>
+    //    transfer2: 50XMR  to <address_2>
+    //    fee: fee charged per transaction
+    //
+
+    std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> out_payments;
+    m_wallet->m_wallet->get_payments_out(out_payments, min_height, max_height);
+
+    for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = out_payments.begin();
+         i != out_payments.end(); ++i) {
+        
+        const crypto::hash &hash = i->first;
+        const tools::wallet2::confirmed_transfer_details &pd = i->second;
+        
+        uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+        uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
+        
+
+        std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
+        if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+            payment_id = payment_id.substr(0,16);
+
+
+        TransactionInfoImpl * ti = new TransactionInfoImpl();
+        ti->m_paymentid = payment_id;
+        ti->m_amount = pd.m_amount_in - change - fee;
+        ti->m_fee    = fee;
+        ti->m_direction = TransactionInfo::Direction_Out;
+        ti->m_hash = string_tools::pod_to_hex(hash);
+        ti->m_blockheight = pd.m_block_height;
+
+        // single output transaction might contain multiple transfers
+        for (const auto &d: pd.m_dests) {
+            ti->m_transfers.push_back({d.amount, get_account_address_as_str(m_wallet->m_wallet->testnet(), d.addr)});
+        }
+        m_history.push_back(ti);
+    }
+
+    // unconfirmed output transactions
+    std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
+    m_wallet->m_wallet->get_unconfirmed_payments_out(upayments);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
+        const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
+        const crypto::hash &hash = i->first;
+        uint64_t amount = 0;
+        cryptonote::get_inputs_money_amount(pd.m_tx, amount);
+        uint64_t fee = amount - get_outs_money_amount(pd.m_tx);
+        std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
+        if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+            payment_id = payment_id.substr(0,16);
+        bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
+
+        TransactionInfoImpl * ti = new TransactionInfoImpl();
+        ti->m_paymentid = payment_id;
+        ti->m_amount = amount - pd.m_change;
+        ti->m_fee    = fee;
+        ti->m_direction = TransactionInfo::Direction_Out;
+        ti->m_failed = is_failed;
+        ti->m_pending = true;
+        ti->m_hash = string_tools::pod_to_hex(hash);
+        m_history.push_back(ti);
+    }
+
 }
 
 TransactionInfo *TransactionHistoryImpl::transaction(int index) const
