@@ -796,7 +796,8 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
 {
   std::list<crypto::hash> hashes;
   size_t current_index = m_blockchain.size();
-  while(current_index < stop_height)
+
+  while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
   {
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
     if (hashes.size() < 3)
@@ -860,6 +861,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
   // pull the first set of blocks
   get_short_chain_history(short_chain_history);
+  m_run.store(true, std::memory_order_relaxed);
   if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
     if (!start_height)
       start_height = m_refresh_from_block_height;
@@ -877,7 +879,6 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   // subsequent pulls in this refresh.
   start_height = 0;
 
-  m_run.store(true, std::memory_order_relaxed);
   while(m_run.load(std::memory_order_relaxed))
   {
     try
