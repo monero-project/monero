@@ -496,6 +496,8 @@ namespace wallet_rpc
       bool out;
       bool pending;
       bool failed;
+
+      bool filter_by_height;
       uint64_t min_height;
       uint64_t max_height;
 
@@ -504,6 +506,7 @@ namespace wallet_rpc
         KV_SERIALIZE(out);
         KV_SERIALIZE(pending);
         KV_SERIALIZE(failed);
+        KV_SERIALIZE(filter_by_height);
         KV_SERIALIZE(min_height);
         KV_SERIALIZE(max_height);
       END_KV_SERIALIZE_MAP()
