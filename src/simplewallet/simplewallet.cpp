@@ -1157,7 +1157,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
     }
-    if (!m_restore_height)
+    if (!m_restore_height && m_generate_new.empty())
     {
       std::string heightstr = command_line::input_line("Restore from specific blockchain height (optional, default 0): ");
       if (std::cin.eof())
@@ -1449,7 +1449,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 
   m_wallet->init(m_daemon_address);
   // for a totally new account, we don't care about older blocks.
-  if (!m_restore_deterministic_wallet)
+  if (!m_generate_new.empty())
   {
     std::string err;
     m_wallet->set_refresh_from_block_height(get_daemon_blockchain_height(err));
