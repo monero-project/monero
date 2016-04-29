@@ -992,6 +992,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
+  m_wallet->set_refresh_from_block_height(field_scan_from_height);
 
   try
   {
@@ -1036,8 +1037,6 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     fail_msg_writer() << tr("failed to generate new wallet: ") << e.what();
     return false;
   }
-
-  m_wallet->set_refresh_from_block_height(field_scan_from_height);
 
   wallet_file = m_wallet_file;
 
@@ -1433,6 +1432,16 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   m_wallet->callback(this);
   m_wallet->set_seed_language(mnemonic_language);
 
+  // for a totally new account, we don't care about older blocks.
+  if (!m_generate_new.empty())
+  {
+    std::string err;
+    m_wallet->set_refresh_from_block_height(get_daemon_blockchain_height(err));
+  } else if (m_restore_height)
+  {
+    m_wallet->set_refresh_from_block_height(m_restore_height);
+  }
+
   crypto::secret_key recovery_val;
   try
   {
@@ -1448,15 +1457,6 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   }
 
   m_wallet->init(m_daemon_address);
-  // for a totally new account, we don't care about older blocks.
-  if (!m_generate_new.empty())
-  {
-    std::string err;
-    m_wallet->set_refresh_from_block_height(get_daemon_blockchain_height(err));
-  } else if (m_restore_height)
-  {
-    m_wallet->set_refresh_from_block_height(m_restore_height);
-  }
 
   // convert rng value to electrum-style word list
   std::string electrum_words;
@@ -1489,6 +1489,8 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
+  if (m_restore_height)
+    m_wallet->set_refresh_from_block_height(m_restore_height);
 
   try
   {
@@ -1504,7 +1506,6 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   }
 
   m_wallet->init(m_daemon_address);
-  m_wallet->set_refresh_from_block_height(m_restore_height);
 
   return true;
 }
@@ -1516,6 +1517,8 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
+  if (m_restore_height)
+    m_wallet->set_refresh_from_block_height(m_restore_height);
 
   try
   {
@@ -1530,7 +1533,6 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   }
 
   m_wallet->init(m_daemon_address);
-  m_wallet->set_refresh_from_block_height(m_restore_height);
 
   return true;
 }
