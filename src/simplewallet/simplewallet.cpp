@@ -2641,6 +2641,10 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     return true;
   }
 
+  if (in) {
+
+  }
+
   // optional in/out selector
   if (local_args.size() > 0) {
     if (local_args[0] == "in" || local_args[0] == "incoming") {
@@ -2701,6 +2705,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s") % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-").str())));
     }
   }
+
 
   if (out) {
     std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;

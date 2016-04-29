@@ -44,7 +44,7 @@ public:
     //! in/out
     virtual int direction() const;
     //! true if hold
-    virtual bool isHold() const;
+    virtual bool isPending() const;
     virtual bool isFailed() const;
     virtual uint64_t amount() const;
     //! always 0 for incoming txes
@@ -54,10 +54,11 @@ public:
     virtual std::string hash() const;
     virtual std::time_t timestamp() const;
     virtual std::string paymentId() const;
+    virtual const std::vector<Transfer> &transfers() const;
 
 private:
     int         m_direction;
-    bool        m_hold;
+    bool        m_pending;
     bool        m_failed;
     uint64_t    m_amount;
     uint64_t    m_fee;
@@ -65,7 +66,7 @@ private:
     std::string m_hash;
     std::time_t m_timestamp;
     std::string m_paymentid;
-
+    std::vector<Transfer> m_transfers;
 
     friend class TransactionHistoryImpl;
 
