@@ -70,7 +70,7 @@ target_link_libraries(unit_tests
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
-    ${UNBOUND_LIBRARIES}
+    ${UNBOUND_LIBRARY}
     ${EXTRA_LIBRARIES})
 set_property(TARGET unit_tests
   PROPERTY
