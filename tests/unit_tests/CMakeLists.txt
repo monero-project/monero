@@ -50,7 +50,8 @@ set(unit_tests_sources
   test_peerlist.cpp
   test_protocol_pack.cpp
   hardfork.cpp
-  unbound.cpp)
+  unbound.cpp
+  varint.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
