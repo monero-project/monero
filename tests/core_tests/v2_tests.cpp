@@ -38,7 +38,7 @@ using namespace cryptonote;
 //----------------------------------------------------------------------------------------------------------------------
 // Tests
 
-bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& events, const int *out_idx, int mixin, uint64_t amount_paid, size_t max_outs, bool valid) const
+bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& events, const int *out_idx, int mixin, uint64_t amount_paid, bool valid) const
 {
   uint64_t ts_start = 1338224400;
 
@@ -52,9 +52,9 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
   for (size_t n = 0; n < 4; ++n) {
     miner_accounts[n].generate();
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, miner_accounts[n],
-        test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_max_outs,
+        test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp,
         2, 2, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, max_outs),
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
     prev_block = blocks + n;
@@ -68,9 +68,9 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     {
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,
-          test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_max_outs,
+          test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp,
           2, 2, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, max_outs),
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0),
           false, "Failed to generate block");
       events.push_back(blk);
       blk_last = blk;
@@ -123,8 +123,7 @@ bool gen_v2_tx_mixable_0_mixin::generate(std::vector<test_event_entry>& events) 
   const int mixin = 0;
   const int out_idx[] = {1, -1};
   const uint64_t amount_paid = 10000;
-  const size_t max_outs = 11;
-  return generate_with(events, out_idx, mixin, amount_paid, max_outs, false);
+  return generate_with(events, out_idx, mixin, amount_paid, false);
 }
 
 bool gen_v2_tx_mixable_low_mixin::generate(std::vector<test_event_entry>& events) const
@@ -132,8 +131,7 @@ bool gen_v2_tx_mixable_low_mixin::generate(std::vector<test_event_entry>& events
   const int mixin = 1;
   const int out_idx[] = {1, -1};
   const uint64_t amount_paid = 10000;
-  const size_t max_outs = 11;
-  return generate_with(events, out_idx, mixin, amount_paid, max_outs, false);
+  return generate_with(events, out_idx, mixin, amount_paid, false);
 }
 
 bool gen_v2_tx_unmixable_only::generate(std::vector<test_event_entry>& events) const
@@ -141,8 +139,7 @@ bool gen_v2_tx_unmixable_only::generate(std::vector<test_event_entry>& events) c
   const int mixin = 0;
   const int out_idx[] = {0, -1};
   const uint64_t amount_paid = 10000;
-  const size_t max_outs = 1;
-  return generate_with(events, out_idx, mixin, amount_paid, max_outs, true);
+  return generate_with(events, out_idx, mixin, amount_paid, true);
 }
 
 bool gen_v2_tx_unmixable_one::generate(std::vector<test_event_entry>& events) const
@@ -150,8 +147,7 @@ bool gen_v2_tx_unmixable_one::generate(std::vector<test_event_entry>& events) co
   const int mixin = 0;
   const int out_idx[] = {0, 1, -1};
   const uint64_t amount_paid = 10000;
-  const size_t max_outs = 11;
-  return generate_with(events, out_idx, mixin, amount_paid, max_outs, true);
+  return generate_with(events, out_idx, mixin, amount_paid, true);
 }
 
 bool gen_v2_tx_unmixable_two::generate(std::vector<test_event_entry>& events) const
@@ -159,8 +155,7 @@ bool gen_v2_tx_unmixable_two::generate(std::vector<test_event_entry>& events) co
   const int mixin = 0;
   const int out_idx[] = {0, 1, 2, -1};
   const uint64_t amount_paid = 10000;
-  const size_t max_outs = 11;
-  return generate_with(events, out_idx, mixin, amount_paid, max_outs, false);
+  return generate_with(events, out_idx, mixin, amount_paid, false);
 }
 
 bool gen_v2_tx_dust::generate(std::vector<test_event_entry>& events) const
@@ -168,6 +163,5 @@ bool gen_v2_tx_dust::generate(std::vector<test_event_entry>& events) const
   const int mixin = 2;
   const int out_idx[] = {1, -1};
   const uint64_t amount_paid = 10001;
-  const size_t max_outs = 11;
-  return generate_with(events, out_idx, mixin, amount_paid, max_outs, false);
+  return generate_with(events, out_idx, mixin, amount_paid, false);
 }
