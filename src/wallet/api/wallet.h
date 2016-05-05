@@ -40,6 +40,7 @@
 namespace Bitmonero {
 class TransactionHistoryImpl;
 class PendingTransactionImpl;
+struct Wallet2CallbackImpl;
 
 class WalletImpl : public Wallet
 {
@@ -70,6 +71,7 @@ public:
     PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount);
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
+    virtual void setListener(WalletListener * l);
 
 private:
     void clearStatus();
@@ -84,6 +86,8 @@ private:
     std::string m_password;
     TransactionHistoryImpl * m_history;
     bool        m_trustedDaemon;
+    WalletListener * m_walletListener;
+    Wallet2CallbackImpl * m_wallet2Callback;
 };
 
 

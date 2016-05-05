@@ -103,6 +103,13 @@ struct TransactionHistory
 };
 
 
+struct WalletListener
+{
+    virtual ~WalletListener() = 0;
+    virtual void moneySpent(const std::string &txId, uint64_t amount);
+    virtual void moneyReceived(const std::string &txId, uint64_t amount);
+};
+
 
 /**
  * @brief Interface for wallet operations.
@@ -141,6 +148,7 @@ struct Wallet
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount) = 0;
     virtual void disposeTransaction(PendingTransaction * t) = 0;
     virtual TransactionHistory * history() const = 0;
+    virtual void setListener(WalletListener *) = 0;
 };
 
 /**
