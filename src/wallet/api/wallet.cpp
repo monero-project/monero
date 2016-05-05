@@ -47,6 +47,47 @@ namespace {
     static const size_t DEFAULT_MIX = 4;
 }
 
+struct Wallet2CallbackImpl : public tools::i_wallet2_callback
+{
+
+    ~Wallet2CallbackImpl()
+    {
+
+    }
+
+    void setListener(WalletListener * listener)
+    {
+        // TODO;
+    }
+
+    WalletListener * getListener() const
+    {
+        return m_listener;
+    }
+
+    virtual void on_new_block(uint64_t height, const cryptonote::block& block)
+    {
+        // TODO;
+    }
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index)
+    {
+        // TODO;
+
+    }
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index,
+                                const cryptonote::transaction& spend_tx)
+    {
+        // TODO;
+    }
+
+    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
+    {
+        // TODO;
+    }
+
+    WalletListener * m_listener;
+};
+
 Wallet::~Wallet() {}
 
 string Wallet::displayAmount(uint64_t amount)
@@ -56,14 +97,17 @@ string Wallet::displayAmount(uint64_t amount)
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
-    :m_wallet(nullptr), m_status(Wallet::Status_Ok), m_trustedDaemon(false)
+    :m_wallet(nullptr), m_status(Wallet::Status_Ok), m_trustedDaemon(false),
+      m_wallet2Callback(nullptr)
 {
     m_wallet = new tools::wallet2(testnet);
     m_history = new TransactionHistoryImpl(this);
+    m_wallet2Callback = new Wallet2CallbackImpl;
 }
 
 WalletImpl::~WalletImpl()
 {
+    delete m_wallet2Callback;
     delete m_history;
     delete m_wallet;
 }
@@ -398,6 +442,14 @@ TransactionHistory *WalletImpl::history() const
 {
     return m_history;
 }
+
+void WalletImpl::setListener(WalletListener *l)
+{
+    // TODO thread synchronization;
+    m_wallet2Callback->setListener(l);
+}
+
+
 
 bool WalletImpl::connectToDaemon()
 {
