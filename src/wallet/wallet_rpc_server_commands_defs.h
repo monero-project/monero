@@ -202,6 +202,41 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_SWEEP_ALL
+  {
+    struct request
+    {
+      std::string address;
+      uint64_t fee;
+      uint64_t mixin;
+      uint64_t unlock_time;
+      std::string payment_id;
+      bool get_tx_keys;
+      bool trusted_daemon;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(fee)
+        KV_SERIALIZE(mixin)
+        KV_SERIALIZE(unlock_time)
+        KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(get_tx_keys)
+        KV_SERIALIZE(trusted_daemon)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<std::string> tx_hash_list;
+      std::list<std::string> tx_key_list;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash_list)
+        KV_SERIALIZE(tx_key_list)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_STORE
   {
     struct request
@@ -408,6 +443,110 @@ namespace wallet_rpc
     struct response
     {
       BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_TX_NOTES
+  {
+    struct request
+    {
+      std::list<std::string> txids;
+      std::list<std::string> notes;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txids)
+        KV_SERIALIZE(notes)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_TX_NOTES
+  {
+    struct request
+    {
+      std::list<std::string> txids;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txids)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<std::string> notes;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(notes)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_TRANSFERS
+  {
+    struct request
+    {
+      bool in;
+      bool out;
+      bool pending;
+      bool failed;
+
+      bool filter_by_height;
+      uint64_t min_height;
+      uint64_t max_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(in);
+        KV_SERIALIZE(out);
+        KV_SERIALIZE(pending);
+        KV_SERIALIZE(failed);
+        KV_SERIALIZE(filter_by_height);
+        KV_SERIALIZE(min_height);
+        KV_SERIALIZE(max_height);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct entry
+    {
+      std::string txid;
+      std::string payment_id;
+      uint64_t height;
+      uint64_t timestamp;
+      uint64_t amount;
+      uint64_t fee;
+      std::string note;
+      std::list<transfer_destination> destinations;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid);
+        KV_SERIALIZE(payment_id);
+        KV_SERIALIZE(height);
+        KV_SERIALIZE(timestamp);
+        KV_SERIALIZE(amount);
+        KV_SERIALIZE(fee);
+        KV_SERIALIZE(note);
+        KV_SERIALIZE(destinations);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<entry> in;
+      std::list<entry> out;
+      std::list<entry> pending;
+      std::list<entry> failed;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(in);
+        KV_SERIALIZE(out);
+        KV_SERIALIZE(pending);
+        KV_SERIALIZE(failed);
       END_KV_SERIALIZE_MAP()
     };
   };

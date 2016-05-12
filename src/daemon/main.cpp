@@ -81,6 +81,7 @@ int main(int argc, char const * argv[])
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
       command_line::add_arg(core_settings, daemon_args::arg_log_file, default_log.string());
       command_line::add_arg(core_settings, daemon_args::arg_log_level);
+      command_line::add_arg(core_settings, daemon_args::arg_max_concurrency);
 
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -259,6 +260,9 @@ int main(int argc, char const * argv[])
         , log_file_path.parent_path().string().c_str()
         );
     }
+
+    if (command_line::has_arg(vm, daemon_args::arg_max_concurrency))
+      tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
 
     _note_c("dbg/main", "Moving from main() into the daemonize now.");
 

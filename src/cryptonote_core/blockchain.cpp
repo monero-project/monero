@@ -498,6 +498,7 @@ block Blockchain::pop_block_from_blockchain()
       }
     }
   }
+  update_next_cumulative_size_limit();
   m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
 
   return popped_block;
@@ -2123,7 +2124,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
   std::vector < uint64_t > results;
   results.resize(tx.vin.size(), 0);
 
-  int threads = boost::thread::hardware_concurrency();
+  int threads = tools::get_max_concurrency();
 
   boost::asio::io_service ioservice;
   boost::thread_group threadpool;
@@ -2712,7 +2713,11 @@ leave:
   // populate various metadata about the block to be stored alongside it.
   block_size = cumulative_block_size;
   cumulative_difficulty = current_diffic;
-  already_generated_coins = already_generated_coins + base_reward;
+  // In the "tail" state when the minimum subsidy (implemented in get_block_reward) is in effect, the number of
+  // coins will eventually exceed MONEY_SUPPLY and overflow a uint64. To prevent overflow, cap already_generated_coins
+  // at MONEY_SUPPLY. already_generated_coins is only used to compute the block subsidy and MONEY_SUPPLY yields a
+  // subsidy of 0 under the base formula and therefore the minimum subsidy >0 in the tail state.
+  already_generated_coins = base_reward < (MONEY_SUPPLY-already_generated_coins) ? already_generated_coins + base_reward : MONEY_SUPPLY;
   if(m_db->height())
     cumulative_difficulty += m_db->get_block_cumulative_difficulty(m_db->height() - 1);
 
@@ -2996,7 +3001,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
     return true;
 
   bool blocks_exist = false;
-  uint64_t threads = boost::thread::hardware_concurrency();
+  uint64_t threads = tools::get_max_concurrency();
 
   if (blocks_entry.size() > 1 && threads > 1 && m_max_prepare_blocks_threads > 1)
   {
@@ -3195,7 +3200,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   // [output] stores all transactions for each tx_out_index::hash found
   std::vector<std::unordered_map<crypto::hash, cryptonote::transaction>> transactions(amounts.size());
 
-  threads = boost::thread::hardware_concurrency();
+  threads = tools::get_max_concurrency();
   if (!m_db->can_thread_bulk_indices())
     threads = 1;
 

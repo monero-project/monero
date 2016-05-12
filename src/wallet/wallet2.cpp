@@ -184,7 +184,7 @@ void wallet2::check_acc_out(const account_keys &acc, const tx_out &o, const cryp
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, bool miner_tx)
+void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, bool miner_tx)
 {
   if (!miner_tx)
     process_unconfirmed(tx, height);
@@ -213,7 +213,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
     tx_pub_key = pub_key_field.pub_key;
     bool r = true;
-    int threads = boost::thread::hardware_concurrency();
+    int threads = tools::get_max_concurrency();
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
@@ -409,7 +409,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
   if (tx_money_spent_in_ins > 0)
   {
-    process_outgoing(tx, height, tx_money_spent_in_ins, tx_money_got_in_outs);
+    process_outgoing(tx, height, ts, tx_money_spent_in_ins, tx_money_got_in_outs);
   }
 
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
@@ -459,6 +459,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     payment.m_amount       = received;
     payment.m_block_height = height;
     payment.m_unlock_time  = tx.unlock_time;
+    payment.m_timestamp    = ts;
     m_payments.emplace(payment_id, payment);
     LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
   }
@@ -482,7 +483,7 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t he
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t height, uint64_t spent, uint64_t received)
+void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received)
 {
   crypto::hash txid = get_transaction_hash(tx);
   confirmed_transfer_details &ctd = m_confirmed_txs[txid];
@@ -492,6 +493,7 @@ void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t heigh
   ctd.m_amount_out = get_outs_money_amount(tx);
   ctd.m_change = received;
   ctd.m_block_height = height;
+  ctd.m_timestamp = ts;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height)
@@ -502,7 +504,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   if(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height)
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    process_new_transaction(b.miner_tx, height, true);
+    process_new_transaction(b.miner_tx, height, b.timestamp, true);
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
     TIME_MEASURE_START(txs_handle_time);
@@ -511,7 +513,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
       cryptonote::transaction tx;
       bool r = parse_and_validate_tx_from_blob(txblob, tx);
       THROW_WALLET_EXCEPTION_IF(!r, error::tx_parse_error, txblob);
-      process_new_transaction(tx, height, false);
+      process_new_transaction(tx, height, b.timestamp, false);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
@@ -578,12 +580,30 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   blocks = res.blocks;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes)
+{
+  cryptonote::COMMAND_RPC_GET_HASHES_FAST::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_HASHES_FAST::response res = AUTO_VAL_INIT(res);
+  req.block_ids = short_chain_history;
+
+  req.start_height = start_height;
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/gethashes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gethashes.bin");
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gethashes.bin");
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, res.status);
+
+  blocks_start_height = res.start_height;
+  hashes = res.m_block_ids;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added)
 {
   size_t current_index = start_height;
   blocks_added = 0;
 
-  int threads = boost::thread::hardware_concurrency();
+  int threads = tools::get_max_concurrency();
   if (threads > 1)
   {
     std::vector<crypto::hash> round_block_hashes(threads);
@@ -772,6 +792,60 @@ void wallet2::check_pending_txes()
   }
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history)
+{
+  std::list<crypto::hash> hashes;
+  size_t current_index = m_blockchain.size();
+  while(current_index < stop_height)
+  {
+    pull_hashes(0, blocks_start_height, short_chain_history, hashes);
+    if (hashes.size() < 3)
+      return;
+    if (hashes.size() + current_index < stop_height) {
+      std::list<crypto::hash>::iterator right;
+      // drop early 3 off, skipping the genesis block
+      if (short_chain_history.size() > 3) {
+        right = short_chain_history.end();
+        std::advance(right,-1);
+        std::list<crypto::hash>::iterator left = right;
+        std::advance(left, -3);
+        short_chain_history.erase(left, right);
+      }
+      right = hashes.end();
+      // prepend 3 more
+      for (int i = 0; i<3; i++) {
+        right--;
+        short_chain_history.push_front(*right);
+      }
+    }
+    current_index = blocks_start_height;
+    BOOST_FOREACH(auto& bl_id, hashes)
+    {
+      if(current_index >= m_blockchain.size())
+      {
+        LOG_PRINT_L2( "Skipped block by height: " << current_index);
+        m_blockchain.push_back(bl_id);
+        ++m_local_bc_height;
+
+        if (0 != m_callback)
+        { // FIXME: this isn't right, but simplewallet just logs that we got a block.
+          cryptonote::block dummy;
+          m_callback->on_new_block(current_index, dummy);
+        }
+      }
+      else if(bl_id != m_blockchain[current_index])
+      {
+        //split detected here !!!
+        return;
+      }
+      ++current_index;
+      if (current_index >= stop_height)
+        return;
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {
   received_money = false;
@@ -786,7 +860,22 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
   // pull the first set of blocks
   get_short_chain_history(short_chain_history);
+  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
+    if (!start_height)
+      start_height = m_refresh_from_block_height;
+    // we can shortcut by only pulling hashes up to the start_height
+    fast_refresh(start_height, blocks_start_height, short_chain_history);
+    // regenerate the history now that we've got a full set of hashes
+    short_chain_history.clear();
+    get_short_chain_history(short_chain_history);
+    start_height = 0;
+    // and then fall through to regular refresh processing
+  }
+
   pull_blocks(start_height, blocks_start_height, short_chain_history, blocks);
+  // always reset start_height to 0 to force short_chain_ history to be used on
+  // subsequent pulls in this refresh.
+  start_height = 0;
 
   m_run.store(true, std::memory_order_relaxed);
   while(m_run.load(std::memory_order_relaxed))
@@ -1758,6 +1847,7 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, const std::v
   utd.m_dests = dests;
   utd.m_payment_id = payment_id;
   utd.m_state = wallet2::unconfirmed_transfer_details::pending;
+  utd.m_timestamp = time(NULL);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -1950,8 +2040,9 @@ void wallet2::commit_tx(pending_tx& ptx)
   BOOST_FOREACH(transfer_container::iterator it, ptx.selected_transfers)
     it->m_spent = true;
 
+  //fee includes dust if dust policy specified it.
   LOG_PRINT_L0("Transaction successfully sent. <" << txid << ">" << ENDL
-            << "Commission: " << print_money(ptx.fee+ptx.dust) << " (dust: " << print_money(ptx.dust) << ")" << ENDL
+            << "Commission: " << print_money(ptx.fee) << " (dust sent to dust addr: " << print_money((ptx.dust_added_to_fee ? 0 : ptx.dust)) << ")" << ENDL
             << "Balance: " << print_money(balance()) << ENDL
             << "Unlocked: " << print_money(unlocked_balance()) << ENDL
             << "Please, wait for confirmation for your balance to be unlocked.");
@@ -2209,10 +2300,17 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     return true;
   });
   THROW_WALLET_EXCEPTION_IF(!all_are_txin_to_key, error::unexpected_txin_type, tx);
+  
+  
+  bool dust_sent_elsewhere = (dust_policy.addr_for_dust.m_view_public_key != change_dts.addr.m_view_public_key
+                                || dust_policy.addr_for_dust.m_spend_public_key != change_dts.addr.m_spend_public_key);
+  
+  if (dust_policy.add_to_fee || dust_sent_elsewhere) change_dts.amount -= dust;
 
   ptx.key_images = key_images;
-  ptx.fee = fee;
-  ptx.dust = dust;
+  ptx.fee = (dust_policy.add_to_fee ? fee+dust : fee);
+  ptx.dust = ((dust_policy.add_to_fee || dust_sent_elsewhere) ? dust : 0);
+  ptx.dust_added_to_fee = dust_policy.add_to_fee;
   ptx.tx = tx;
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
@@ -2377,7 +2475,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
       auto txBlob = t_serializable_object_to_blob(test_ptx.tx);
       needed_fee = calculate_fee(txBlob);
-      available_for_fee = test_ptx.fee + test_ptx.change_dts.amount;
+      available_for_fee = test_ptx.fee + test_ptx.change_dts.amount + (!test_ptx.dust_added_to_fee ? test_ptx.dust : 0);
       LOG_PRINT_L2("Made a " << txBlob.size() << " kB tx, with " << print_money(available_for_fee) << " available for fee (" <<
         print_money(needed_fee) << " needed)");
 
@@ -2436,6 +2534,133 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   {
     LOG_PRINT_L1("We ran out of outputs while trying to gather final fee");
     THROW_WALLET_EXCEPTION_IF(1, error::not_enough_money, unlocked_balance(), needed_money, accumulated_fee + needed_fee);
+  }
+
+  LOG_PRINT_L1("Done creating " << txes.size() << " transactions, " << print_money(accumulated_fee) <<
+    " total fee, " << print_money(accumulated_change) << " total change");
+
+  std::vector<wallet2::pending_tx> ptx_vector;
+  for (std::vector<TX>::iterator i = txes.begin(); i != txes.end(); ++i)
+  {
+    TX &tx = *i;
+    uint64_t tx_money = 0;
+    for (std::list<transfer_container::iterator>::const_iterator mi = tx.selected_transfers.begin(); mi != tx.selected_transfers.end(); ++mi)
+      tx_money += (*mi)->amount();
+    LOG_PRINT_L1("  Transaction " << (1+std::distance(txes.begin(), i)) << "/" << txes.size() <<
+      ": " << (tx.bytes+1023)/1024 << " kB, sending " << print_money(tx_money) << " in " << tx.selected_transfers.size() <<
+      " outputs to " << tx.dsts.size() << " destination(s), including " <<
+      print_money(tx.ptx.fee) << " fee, " << print_money(tx.ptx.change_dts.amount) << " change");
+    ptx_vector.push_back(tx.ptx);
+  }
+
+  // if we made it this far, we're OK to actually send the transactions
+  return ptx_vector;
+}
+
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_UNUSED, const std::vector<uint8_t> extra, bool trusted_daemon)
+{
+  std::vector<size_t> unused_transfers_indices;
+  std::vector<size_t> unused_dust_indices;
+  uint64_t accumulated_fee, accumulated_outputs, accumulated_change;
+  struct TX {
+    std::list<transfer_container::iterator> selected_transfers;
+    std::vector<cryptonote::tx_destination_entry> dsts;
+    cryptonote::transaction tx;
+    pending_tx ptx;
+    size_t bytes;
+  };
+  std::vector<TX> txes;
+  uint64_t needed_fee, available_for_fee = 0;
+  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+
+  // gather all our dust and non dust outputs
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details& td = m_transfers[i];
+    if (!td.m_spent && is_transfer_unlocked(td))
+    {
+      if (is_valid_decomposed_amount(td.amount()))
+        unused_transfers_indices.push_back(i);
+      else
+        unused_dust_indices.push_back(i);
+    }
+  }
+  LOG_PRINT_L2("Starting with " << unused_transfers_indices.size() << " non-dust outputs and " << unused_dust_indices.size() << " dust outputs");
+
+  // start with an empty tx
+  txes.push_back(TX());
+  accumulated_fee = 0;
+  accumulated_outputs = 0;
+  accumulated_change = 0;
+  needed_fee = 0;
+
+  // while we have something to send
+  while (!unused_dust_indices.empty() || !unused_transfers_indices.empty()) {
+    TX &tx = txes.back();
+
+    // get a random unspent output and use it to pay next chunk. We try to alternate
+    // dust and non dust to ensure we never get with only dust, from which we might
+    // get a tx that can't pay for itself
+    size_t idx = unused_transfers_indices.empty() ? pop_random_value(unused_dust_indices) : unused_dust_indices.empty() ? pop_random_value(unused_transfers_indices) : ((tx.selected_transfers.size() & 1) || accumulated_outputs > FEE_PER_KB * (upper_transaction_size_limit + 1023) / 1024) ? pop_random_value(unused_dust_indices) : pop_random_value(unused_transfers_indices);
+
+    const transfer_details &td = m_transfers[idx];
+    LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()));
+
+    // add this output to the list to spend
+    tx.selected_transfers.push_back(m_transfers.begin() + idx);
+    uint64_t available_amount = td.amount();
+    accumulated_outputs += available_amount;
+
+    // here, check if we need to sent tx and start a new one
+    LOG_PRINT_L2("Considering whether to create a tx now, " << tx.selected_transfers.size() << " inputs, tx limit "
+      << upper_transaction_size_limit);
+    bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || (tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES >= TX_SIZE_TARGET(upper_transaction_size_limit));
+
+    if (try_tx) {
+      cryptonote::transaction test_tx;
+      pending_tx test_ptx;
+
+      needed_fee = 0;
+
+      tx.dsts.push_back(tx_destination_entry(1, address));
+
+      LOG_PRINT_L2("Trying to create a tx now, with " << tx.dsts.size() << " destinations and " <<
+        tx.selected_transfers.size() << " outputs");
+      transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
+        detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
+      auto txBlob = t_serializable_object_to_blob(test_ptx.tx);
+      needed_fee = calculate_fee(txBlob);
+      available_for_fee = test_ptx.fee + test_ptx.dests[0].amount + test_ptx.change_dts.amount;
+      LOG_PRINT_L2("Made a " << txBlob.size() << " kB tx, with " << print_money(available_for_fee) << " available for fee (" <<
+        print_money(needed_fee) << " needed)");
+
+      THROW_WALLET_EXCEPTION_IF(needed_fee > available_for_fee, error::wallet_internal_error, "Transaction cannot pay for itself");
+
+      do {
+        LOG_PRINT_L2("We made a tx, adjusting fee and saving it");
+        tx.dsts[0].amount = available_for_fee - needed_fee;
+        transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
+          detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
+        txBlob = t_serializable_object_to_blob(test_ptx.tx);
+        needed_fee = calculate_fee(txBlob);
+        LOG_PRINT_L2("Made an attempt at a final " << ((txBlob.size() + 1023)/1024) << " kB tx, with " << print_money(test_ptx.fee) <<
+          " fee  and " << print_money(test_ptx.change_dts.amount) << " change");
+      } while (needed_fee > test_ptx.fee);
+
+      LOG_PRINT_L2("Made a final " << ((txBlob.size() + 1023)/1024) << " kB tx, with " << print_money(test_ptx.fee) <<
+        " fee  and " << print_money(test_ptx.change_dts.amount) << " change");
+
+      tx.tx = test_tx;
+      tx.ptx = test_ptx;
+      tx.bytes = txBlob.size();
+      accumulated_fee += test_ptx.fee;
+      accumulated_change += test_ptx.change_dts.amount;
+      if (!unused_transfers_indices.empty() || !unused_dust_indices.empty())
+      {
+        LOG_PRINT_L2("We have more to pay, starting another tx");
+        txes.push_back(TX());
+      }
+    }
   }
 
   LOG_PRINT_L1("Done creating " << txes.size() << " transactions, " << print_money(accumulated_fee) <<
@@ -2833,6 +3058,19 @@ std::string wallet2::get_keys_file() const
 std::string wallet2::get_daemon_address() const
 {
   return m_daemon_address;
+}
+
+void wallet2::set_tx_note(const crypto::hash &txid, const std::string &note)
+{
+  m_tx_notes[txid] = note;
+}
+
+std::string wallet2::get_tx_note(const crypto::hash &txid) const
+{
+  std::unordered_map<crypto::hash, std::string>::const_iterator i = m_tx_notes.find(txid);
+  if (i == m_tx_notes.end())
+    return std::string();
+  return i->second;
 }
 
 //----------------------------------------------------------------------------------------------------

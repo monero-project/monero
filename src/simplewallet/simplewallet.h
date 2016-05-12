@@ -114,6 +114,7 @@ namespace cryptonote
     bool stop_mining(const std::vector<std::string> &args);
     bool save_bc(const std::vector<std::string>& args);
     bool refresh(const std::vector<std::string> &args);
+    bool show_balance_unlocked();
     bool show_balance(const std::vector<std::string> &args = std::vector<std::string>());
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
@@ -121,6 +122,7 @@ namespace cryptonote
     bool transfer_main(bool new_algorithm, const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
     bool transfer_new(const std::vector<std::string> &args);
+    bool sweep_all(const std::vector<std::string> &args);
     bool sweep_unmixable(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
         std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits
@@ -137,10 +139,13 @@ namespace cryptonote
     bool show_transfers(const std::vector<std::string> &args);
     bool rescan_blockchain(const std::vector<std::string> &args);
     bool refresh_main(uint64_t start_height, bool reset = false);
+    bool set_tx_note(const std::vector<std::string> &args);
+    bool get_tx_note(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
     bool ask_wallet_create_if_needed();
+    bool get_address_from_str(const std::string &str, cryptonote::account_public_address &address, bool &has_payment_id, crypto::hash8 &payment_id);
 
     /*!
      * \brief Prints the seed with a nice message
@@ -231,6 +236,7 @@ namespace cryptonote
     bool m_restore_deterministic_wallet;  // recover flag
     bool m_non_deterministic;  // old 2-random generation
     bool m_trusted_daemon;
+    uint64_t m_restore_height;  // optional
 
     std::string m_daemon_address;
     std::string m_daemon_host;
