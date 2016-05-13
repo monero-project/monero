@@ -64,6 +64,22 @@ namespace crypto {
     friend class crypto_ops;
   };
 
+  POD_CLASS public_keyV {
+    std::vector<public_key> keys;
+    int rows;
+  };
+
+  POD_CLASS secret_keyV {
+    std::vector<secret_key> keys;
+    int rows;
+  };
+
+  POD_CLASS public_keyM {
+    int cols;
+    int rows;
+    std::vector<secret_keyV> column_vectors;
+  };
+
   POD_CLASS key_derivation: ec_point {
     friend class crypto_ops;
   };
