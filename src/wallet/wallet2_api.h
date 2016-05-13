@@ -108,6 +108,7 @@ struct WalletListener
     virtual ~WalletListener() = 0;
     virtual void moneySpent(const std::string &txId, uint64_t amount);
     virtual void moneyReceived(const std::string &txId, uint64_t amount);
+    // TODO: on_skip_transaction;
 };
 
 
