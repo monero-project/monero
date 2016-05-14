@@ -51,7 +51,8 @@ set(unit_tests_sources
   test_protocol_pack.cpp
   hardfork.cpp
   unbound.cpp
-  varint.cpp)
+  varint.cpp
+  ringct.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
@@ -61,6 +62,7 @@ add_executable(unit_tests
   ${unit_tests_headers})
 target_link_libraries(unit_tests
   LINK_PRIVATE
+    ringct
     cryptonote_core
     blockchain_db
     rpc
