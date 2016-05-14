@@ -75,6 +75,10 @@ namespace rct {
         unsigned char & operator[](int i) {
             return bytes[i];
         }
+        unsigned char operator[](int i) const {
+            return bytes[i];
+        }
+        bool operator==(const key &k) const { return !memcmp(bytes, k.bytes, sizeof(bytes)); }
         unsigned char bytes[32];
     };
     typedef vector<key> keyV; //vector of keys
