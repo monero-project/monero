@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "misc_log_ex.h"
 #include "rctSigs.h"
 using namespace crypto;
 using namespace std;
@@ -50,13 +51,16 @@ namespace rct {
             hash_to_scalar(c1, L2);
             sc_mulsub(s1.bytes, x.bytes, c1.bytes, a.bytes);
         }
-        if (index == 1) {
+        else if (index == 1) {
             scalarmultBase(L2, a);
             skGen(s1);
             hash_to_scalar(c1, L2);
             addKeys2(L1, s1, c1, P1);
             hash_to_scalar(c2, L1);
             sc_mulsub(s2.bytes, x.bytes, c2.bytes, a.bytes);
+        }
+        else {
+          throw std::runtime_error("GenSchnorrNonLinkable: invalid index (should be 0 or 1)");
         }
     }
 
@@ -100,7 +104,7 @@ namespace rct {
     // Gen gives a signature which proves the signer knows, for each i, 
     //   an x[i] such that x[i]G = one of P1[i] or P2[i]
     // Ver Verifies the signer knows a key for one of P1[i], P2[i] at each i    
-    bool VerASNL(key64 P1, key64 P2, asnlSig &as) {
+    bool VerASNL(const key64 P1, const key64 P2, const asnlSig &as) {
         DP("Verifying Aggregate Schnorr Non-linkable Ring Signature\n");
         key LHS = identity();
         key RHS = scalarmultBase(as.s);
@@ -145,14 +149,19 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly        
-    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const int index) {
+    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index) {
         mgSig rv;
-        int rows = pk[0].size();
-        int cols = pk.size();
-        if (cols < 2) {
-            printf("Error! What is c if cols = 1!");
+        size_t cols = pk.size();
+        CHECK_AND_ASSERT_THROW_MES(cols >= 2, "Error! What is c if cols = 1!");
+        CHECK_AND_ASSERT_THROW_MES(index < cols, "Index out of range");
+        size_t rows = pk[0].size();
+        CHECK_AND_ASSERT_THROW_MES(rows >= 1, "Empty pk");
+        for (size_t i = 1; i < cols; ++i) {
+          CHECK_AND_ASSERT_THROW_MES(pk[i].size() == rows, "pk is not rectangular");
         }
-        int i = 0, j = 0;
+        CHECK_AND_ASSERT_THROW_MES(xx.size() == rows, "Bad xx size");
+
+        size_t i = 0, j = 0;
         key c, c_old, L, R, Hi;
         sc_0(c_old.bytes);
         vector<geDsmp> Ip(rows);
@@ -218,14 +227,22 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly            
-    bool MLSAG_Ver(key message, keyM & pk, mgSig & rv) {
+    bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv) {
 
-        int rows = pk[0].size();
-        int cols = pk.size();
-        if (cols < 2) {
-            printf("Error! What is c if cols = 1!");
+        size_t cols = pk.size();
+        CHECK_AND_ASSERT_THROW_MES(cols >= 2, "Error! What is c if cols = 1!");
+        size_t rows = pk[0].size();
+        CHECK_AND_ASSERT_THROW_MES(rows >= 1, "Empty pk");
+        for (size_t i = 1; i < cols; ++i) {
+          CHECK_AND_ASSERT_THROW_MES(pk[i].size() == rows, "pk is not rectangular");
         }
-        int i = 0, j = 0;
+        CHECK_AND_ASSERT_THROW_MES(rv.II.size() == rows, "Bad rv.II size");
+        CHECK_AND_ASSERT_THROW_MES(rv.ss.size() == cols, "Bad rv.ss size");
+        for (size_t i = 0; i < cols; ++i) {
+          CHECK_AND_ASSERT_THROW_MES(rv.ss[i].size() == rows, "rv.ss is not rectangular");
+        }
+
+        size_t i = 0, j = 0;
         key c,  L, R, Hi;
         key c_old = copy(rv.cc);
         vector<geDsmp> Ip(rows);
@@ -301,7 +318,7 @@ namespace rct {
     //   thus this proves that "amount" is in [0, 2^64]
     //   mask is a such that C = aG + bH, and b = amount
     //verRange verifies that \sum Ci = C and that each Ci is a commitment to 0 or 2^i
-    bool verRange(key & C, rangeSig & as) {
+    bool verRange(const key & C, const rangeSig & as) {
         key64 CiH;
         int i = 0;
         key Ctmp = identity();
@@ -326,14 +343,22 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, int index) {
+    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, unsigned int index) {
         mgSig mg;
         //setup vars
-        int rows = pubs[0].size();
-        int cols = pubs.size();
+        size_t cols = pubs.size();
+        CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
+        size_t rows = pubs[0].size();
+        CHECK_AND_ASSERT_THROW_MES(rows >= 1, "Empty pubs");
+        for (size_t i = 1; i < cols; ++i) {
+          CHECK_AND_ASSERT_THROW_MES(pubs[i].size() == rows, "pubs is not rectangular");
+        }
+        CHECK_AND_ASSERT_THROW_MES(inSk.size() == rows, "Bad inSk size");
+        CHECK_AND_ASSERT_THROW_MES(outSk.size() == outPk.size(), "Bad outSk/outPk size");
+
         keyV sk(rows + 1);
         keyV tmp(rows + 1);
-        int i = 0, j = 0;
+        size_t i = 0, j = 0;
         for (i = 0; i < rows + 1; i++) {
             sc_0(sk[i].bytes);
             identity(tmp[i]);
@@ -373,12 +398,18 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    bool verRctMG(mgSig mg, ctkeyM & pubs, ctkeyV & outPk) {
+    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk) {
         //setup vars
-        int rows = pubs[0].size();
-        int cols = pubs.size();
+        size_t cols = pubs.size();
+        CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
+        size_t rows = pubs[0].size();
+        CHECK_AND_ASSERT_THROW_MES(rows >= 1, "Empty pubs");
+        for (size_t i = 1; i < cols; ++i) {
+          CHECK_AND_ASSERT_THROW_MES(pubs[i].size() == rows, "pubs is not rectangular");
+        }
+
         keyV tmp(rows + 1);
-        int i = 0, j = 0;
+        size_t i = 0, j = 0;
         for (i = 0; i < rows + 1; i++) {
             identity(tmp[i]);
         }
@@ -445,6 +476,10 @@ namespace rct {
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number
     rctSig genRct(ctkeyV & inSk, ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin) {
+        CHECK_AND_ASSERT_THROW_MES(mixin >= 0, "Mixin must be positive");
+        CHECK_AND_ASSERT_THROW_MES(amounts.size() > 0, "Amounts must not be empty");
+        CHECK_AND_ASSERT_THROW_MES(inSk.size() == inPk.size(), "Different number of public/private keys");
+
         rctSig rv;
         rv.outPk.resize(destinations.size());
         rv.rangeSigs.resize(destinations.size());
@@ -469,7 +504,7 @@ namespace rct {
 
         }
 
-        int index;
+        unsigned int index;
         tie(rv.mixRing, index) = populateFromBlockchain(inPk, mixin);
         rv.MG = proveRctMG(rv.mixRing, inSk, outSk, rv.outPk, index);
         return rv;
@@ -486,6 +521,9 @@ namespace rct {
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     bool verRct(rctSig & rv) {
+        CHECK_AND_ASSERT_THROW_MES(rv.rangeSigs.size() > 0, "Empty rv.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
+
         size_t i = 0;
         bool rvb = true;
         bool tmp;
@@ -512,7 +550,11 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
-    xmr_amount decodeRct(rctSig & rv, key & sk, int i) {
+    xmr_amount decodeRct(rctSig & rv, key & sk, unsigned int i) {
+        CHECK_AND_ASSERT_THROW_MES(rv.rangeSigs.size() > 0, "Empty rv.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
+
         //mask amount and mask
         ecdhDecode(rv.ecdhInfo[i], sk);
         key mask = rv.ecdhInfo[i].mask;

@@ -80,7 +80,7 @@ namespace rct {
     //   an x[i] such that x[i]G = one of P1[i] or P2[i]
     // Ver Verifies the signer knows a key for one of P1[i], P2[i] at each i
     asnlSig GenASNL(key64 x, key64 P1, key64 P2, bits indices);
-    bool VerASNL(key64 P1, key64 P2, asnlSig &as);
+    bool VerASNL(const key64 P1, const key64 P2, const asnlSig &as);
 
     //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
     //These are aka MG signatutes in earlier drafts of the ring ct paper
@@ -90,8 +90,8 @@ namespace rct {
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly
     keyV keyImageV(const keyV &xx);
-    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const int index);
-    bool MLSAG_Ver(key message, keyM &pk, mgSig &sig);
+    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index);
+    bool MLSAG_Ver(key message, const keyM &pk, const mgSig &sig);
     //mgSig MLSAG_Gen_Old(const keyM & pk, const keyV & xx, const int index);
 
     //proveRange and verRange
@@ -102,7 +102,7 @@ namespace rct {
     //   mask is a such that C = aG + bH, and b = amount
     //verRange verifies that \sum Ci = C and that each Ci is a commitment to 0 or 2^i
     rangeSig proveRange(key & C, key & mask, const xmr_amount & amount);
-    bool verRange(key & C, rangeSig & as);
+    bool verRange(const key & C, const rangeSig & as);
 
     //Ring-ct MG sigs
     //Prove:
@@ -112,8 +112,8 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, int index);
-    bool verRctMG(mgSig mg, ctkeyM & pubs, ctkeyV & outPk);
+    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index);
+    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk);
 
     //These functions get keys from blockchain
     //replace these when connecting blockchain
@@ -135,7 +135,7 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number
     rctSig genRct(ctkeyV & inSk, ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin);
     bool verRct(rctSig & rv);
-    xmr_amount decodeRct(rctSig & rv, key & sk, int i);
+    xmr_amount decodeRct(rctSig & rv, key & sk, unsigned int i);
 
 
 
