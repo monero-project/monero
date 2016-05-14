@@ -84,14 +84,22 @@ TEST(ringct, ASNL)
             }
         }
 
-        asnlSig L1s2s = GenASNL(xv, P1v, P2v, indi);
         //#true one
+        asnlSig L1s2s = GenASNL(xv, P1v, P2v, indi);
         ASSERT_TRUE(VerASNL(P1v, P2v, L1s2s));
 
         //#false one
         indi[3] = (indi[3] + 1) % 2;
         L1s2s = GenASNL(xv, P1v, P2v, indi);
+        ASSERT_FALSE(VerASNL(P1v, P2v, L1s2s));
 
+        //#true one again
+        indi[3] = (indi[3] + 1) % 2;
+        L1s2s = GenASNL(xv, P1v, P2v, indi);
+        ASSERT_TRUE(VerASNL(P1v, P2v, L1s2s));
+
+        //#false one
+        L1s2s = GenASNL(xv, P2v, P1v, indi);
         ASSERT_FALSE(VerASNL(P1v, P2v, L1s2s));
 }
 
@@ -204,3 +212,44 @@ TEST(ringct, range_proofs)
         ASSERT_TRUE(decodeRct(s, Sk, 1));
 }
 
+static const xmr_amount test_amounts[]={0, 1, 2, 3, 4, 5, 10000, 10000000000000000000ull, 10203040506070809000ull, 123456789123456789};
+
+TEST(ringct, ecdh_roundtrip)
+{
+  key k, P1;
+  ecdhTuple t0, t1;
+
+  for (auto amount: test_amounts) {
+    skpkGen(k, P1);
+
+    t0.mask = skGen();
+    t0.amount = d2h(amount);
+
+    t1 = t0;
+    ecdhEncode(t1, P1);
+    ecdhDecode(t1, k);
+    ASSERT_TRUE(t0.mask == t1.mask);
+    ASSERT_TRUE(equalKeys(t0.mask, t1.mask));
+    ASSERT_TRUE(t0.amount == t1.amount);
+    ASSERT_TRUE(equalKeys(t0.amount, t1.amount));
+  }
+}
+
+TEST(ringct, d2h)
+{
+  key k, P1;
+  skpkGen(k, P1);
+  for (auto amount: test_amounts) {
+    d2h(k, amount);
+    ASSERT_TRUE(amount == h2d(k));
+  }
+}
+
+TEST(ringct, d2b)
+{
+  for (auto amount: test_amounts) {
+    bits b;
+    d2b(b, amount);
+    ASSERT_TRUE(amount == b2d(b));
+  }
+}
