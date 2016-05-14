@@ -108,7 +108,7 @@ namespace rct {
     //generates a random scalar which can be used as a secret key or mask
     void skGen(key &sk) {
         unsigned char tmp[64];
-        generate_random_bytes(64, tmp);
+        rand(64, tmp);
         memcpy(sk.bytes, tmp, 32);
         sc_reduce32(sk.bytes);
     }
@@ -116,7 +116,7 @@ namespace rct {
     //generates a random scalar which can be used as a secret key or mask
     key skGen() {
         unsigned char tmp[64];
-        generate_random_bytes(64, tmp);
+        rand(64, tmp);
         key sk;
         memcpy(sk.bytes, tmp, 32);
         sc_reduce32(sk.bytes);
