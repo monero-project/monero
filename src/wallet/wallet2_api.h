@@ -106,8 +106,8 @@ struct TransactionHistory
 struct WalletListener
 {
     virtual ~WalletListener() = 0;
-    virtual void moneySpent(const std::string &txId, uint64_t amount);
-    virtual void moneyReceived(const std::string &txId, uint64_t amount);
+    virtual void moneySpent(const std::string &txId, uint64_t amount) = 0;
+    virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
     // TODO: on_skip_transaction;
 };
 
