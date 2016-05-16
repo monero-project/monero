@@ -50,6 +50,12 @@ namespace {
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 {
 
+    Wallet2CallbackImpl()
+     : m_listener(nullptr)
+    {
+
+    }
+
     ~Wallet2CallbackImpl()
     {
 
@@ -108,6 +114,8 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 };
 
 Wallet::~Wallet() {}
+
+WalletListener::~WalletListener() {}
 
 string Wallet::displayAmount(uint64_t amount)
 {
