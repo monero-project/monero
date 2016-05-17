@@ -113,7 +113,7 @@ INITIALIZER(init_random) {
 #endif
 }
 
-void generate_random_bytes(size_t n, void *result) {
+void generate_random_bytes_not_thread_safe(size_t n, void *result) {
 #if !defined(NDEBUG)
   assert(curstate == 1);
   curstate = 2;
