@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_core/tx_extra.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_utilities.h"
 #include "common/command_line.h"
@@ -140,6 +141,7 @@ int main(int argc, char* argv[])
 
   cryptonote::block block;
   cryptonote::transaction tx;
+  std::vector<cryptonote::tx_extra_field> fields;
   if (cryptonote::parse_and_validate_block_from_blob(blob, block))
   {
     std::cout << "Parsed block:" << std::endl;
@@ -149,6 +151,25 @@ int main(int argc, char* argv[])
   {
     std::cout << "Parsed transaction:" << std::endl;
     std::cout << cryptonote::obj_to_json_str(tx) << std::endl;
+
+    if (cryptonote::parse_tx_extra(tx.extra, fields))
+    {
+      std::cout << "tx_extra has " << fields.size() << " field(s)" << std::endl;
+      for (size_t n = 0; n < fields.size(); ++n)
+      {
+        std::cout << "field " << n << ": ";
+        if (typeid(cryptonote::tx_extra_padding) == fields[n].type()) std::cout << "extra padding: " << boost::get<cryptonote::tx_extra_padding>(fields[n]).size << " bytes";
+        else if (typeid(cryptonote::tx_extra_pub_key) == fields[n].type()) std::cout << "extra pub key: " << boost::get<cryptonote::tx_extra_pub_key>(fields[n]).pub_key;
+        else if (typeid(cryptonote::tx_extra_nonce) == fields[n].type()) std::cout << "extra nonce: " << boost::get<cryptonote::tx_extra_nonce>(fields[n]).nonce;
+        else if (typeid(cryptonote::tx_extra_merge_mining_tag) == fields[n].type()) std::cout << "extra merge mining tag: depth " << boost::get<cryptonote::tx_extra_merge_mining_tag>(fields[n]).depth << ", merkle root " << boost::get<cryptonote::tx_extra_merge_mining_tag>(fields[n]).merkle_root;
+        else std::cout << "unknown";
+        std::cout << std::endl;
+      }
+    }
+    else
+    {
+      std::cout << "Failed to parse tx_extra" << std::endl;
+    }
   }
   else
   {
