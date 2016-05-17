@@ -67,13 +67,14 @@ const char * TESTNET_WALLET_PASS = "";
 
 const char * TESTNET_DAEMON_ADDRESS = "localhost:38081";
 const uint64_t AMOUNT_10XMR = 10000000000000L;
-const uint64_t AMOUNT_5XMR = 50000000000000L;
+const uint64_t AMOUNT_5XMR  =  5000000000000L;
+const uint64_t AMOUNT_1XMR  =  1000000000000L;
 
-const char * RECIPIENT_WALLET_ADDRESS = "9uekQVGj7NjSAREnZ8cUsRagWDdjvdhpwUKhsL95oXngBnZXZ1RzH8R6UJbU1R7wim9yKbSjxuoQ22ERRkEochGECj66oP3";
-const char * TESTNET_WALLET3_ADDRESS  = "A11cBpRDqpTCneSL3KNBvGWM6PfxG7QrxNVCcMiZeuAD3fQA9Z366DegFLYHKrMnDm8QixPziRn4kVcWPFtn6aCSR1Hp7sg";
-const char * TESTNET_WALLET4_ADDRESS  = "A21wicxbhUSKa6twequhKCCG8wYEGZ7viYRLW7mBXtWyheyY8C8XwUJG5PSjULDs1q7hndkihtFgybWjagvchrNg1Y588hM";
-
+const char * RECIPIENT_WALLET_ADDRESS = "9v9wAZ1aNj3CTgTPhEqLameUB25AkXknNHhPNjUozRxX1jrHLb9cdnn8kVf4r8GDJHjCjM5XKAWHp6Z38wsCudGWJ992byk";
+const char * TESTNET_WALLET3_ADDRESS  = "A1koTipJ3Y8btatXupU3yYVAZrNG6W9z2WeYcirwHDmfZLaBGMPswq7CrYvemvCvp4atrqRhV1TBj3jYZv133CkAUeykAny";
+const char * TESTNET_WALLET4_ADDRESS  = "A1R2sxZb2vY7fBjDxubxNDYfmzPmoWSrSAa7uokvWW2n7beJJnigAP43gfVpopdfd7YCFvMfVCpwQX39sXayicRr32hscyX";
 }
+
 
 
 using namespace Consts;
@@ -427,6 +428,7 @@ struct MyWalletListener : public Bitmonero::WalletListener
     }
 };
 
+/*
 TEST_F(WalletTest2, WalletCallbackSent)
 {
 
@@ -436,17 +438,11 @@ TEST_F(WalletTest2, WalletCallbackSent)
     ASSERT_TRUE(wallet_src->refresh());
     MyWalletListener * wallet_src_listener = new MyWalletListener(wallet_src);
     std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
-    /*
-    Bitmonero::Wallet * wallet_dst = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, true);
-    ASSERT_TRUE(wallet_dst->init(TESTNET_DAEMON_ADDRESS, 0));
-    ASSERT_TRUE(wallet_dst->refresh());
-    MyWalletListener * wallet_dst_listener = new MyWalletListener(wallet_dst);
-    */
 
 
     uint64_t amount = AMOUNT_10XMR * 5;
     std::cout << "** Sending " << Bitmonero::Wallet::displayAmount(amount) << " to " << TESTNET_WALLET4_ADDRESS;
-    Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(TESTNET_WALLET4_ADDRESS, AMOUNT_10XMR * 5);
+    Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(TESTNET_WALLET4_ADDRESS, AMOUNT_1XMR * 5);
     ASSERT_TRUE(tx->status() == Bitmonero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
 
@@ -456,6 +452,36 @@ TEST_F(WalletTest2, WalletCallbackSent)
     wallet_src_listener->guard.try_lock_for(wait_for);
 
     ASSERT_TRUE(wallet_src_listener->total_tx != 0);
+}
+*/
+
+TEST_F(WalletTest2, WalletCallbackReceived)
+{
+
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET3_NAME, TESTNET_WALLET_PASS, true);
+    // make sure testnet daemon is running
+    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet_src->refresh());
+    std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
+
+    Bitmonero::Wallet * wallet_dst = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, true);
+    ASSERT_TRUE(wallet_dst->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet_dst->refresh());
+    MyWalletListener * wallet_dst_listener = new MyWalletListener(wallet_dst);
+
+
+    uint64_t amount = AMOUNT_1XMR * 5;
+    std::cout << "** Sending " << Bitmonero::Wallet::displayAmount(amount) << " to " << TESTNET_WALLET4_ADDRESS;
+    Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(TESTNET_WALLET4_ADDRESS, AMOUNT_1XMR * 5);
+    ASSERT_TRUE(tx->status() == Bitmonero::PendingTransaction::Status_Ok);
+    ASSERT_TRUE(tx->commit());
+
+    std::chrono::seconds wait_for = std::chrono::seconds(60*3);
+
+    wallet_dst_listener->guard.lock();
+    wallet_dst_listener->guard.try_lock_for(wait_for);
+
+    ASSERT_TRUE(wallet_dst_listener->total_tx != 0);
 
 }
 
