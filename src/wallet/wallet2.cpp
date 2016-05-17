@@ -519,7 +519,8 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
     LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
   }else
   {
-    LOG_PRINT_L2( "Skipped block by timestamp, height: " << height << ", block time " << b.timestamp << ", account time " << m_account.get_createtime());
+    if (!(height % 100))
+      LOG_PRINT_L2( "Skipped block by timestamp, height: " << height << ", block time " << b.timestamp << ", account time " << m_account.get_createtime());
   }
   m_blockchain.push_back(bl_id);
   ++m_local_bc_height;
@@ -796,7 +797,8 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
 {
   std::list<crypto::hash> hashes;
   size_t current_index = m_blockchain.size();
-  while(current_index < stop_height)
+
+  while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
   {
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
     if (hashes.size() < 3)
@@ -823,7 +825,8 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
     {
       if(current_index >= m_blockchain.size())
       {
-        LOG_PRINT_L2( "Skipped block by height: " << current_index);
+        if (!(current_index % 1000))
+          LOG_PRINT_L2( "Skipped block by height: " << current_index);
         m_blockchain.push_back(bl_id);
         ++m_local_bc_height;
 
@@ -860,6 +863,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
   // pull the first set of blocks
   get_short_chain_history(short_chain_history);
+  m_run.store(true, std::memory_order_relaxed);
   if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
     if (!start_height)
       start_height = m_refresh_from_block_height;
@@ -877,7 +881,6 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   // subsequent pulls in this refresh.
   start_height = 0;
 
-  m_run.store(true, std::memory_order_relaxed);
   while(m_run.load(std::memory_order_relaxed))
   {
     try
@@ -1057,6 +1060,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_refresh_type);
   json.AddMember("refresh_type", value2, json.GetAllocator());
 
+  value2.SetUint64(m_refresh_from_block_height);
+  json.AddMember("refresh_height", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -1163,6 +1169,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
       else
         LOG_PRINT_L0("Unknown refresh-type value (" << field_refresh_type << "), using default");
     }
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false);
+    if (field_refresh_height_found)
+      m_refresh_from_block_height = field_refresh_height;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
