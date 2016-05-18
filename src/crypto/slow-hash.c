@@ -820,7 +820,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     {
         for(j = 0; j < INIT_SIZE_BLK; j++)
             aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], expandedKey);
-            memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
+        memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
     }
 
     U64(a)[0] = U64(&state.k[0])[0] ^ U64(&state.k[32])[0];
