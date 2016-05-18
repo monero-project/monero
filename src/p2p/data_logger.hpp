@@ -55,7 +55,7 @@ enum class data_logger_state { state_before_init, state_during_init, state_ready
 		public:
 			static data_logger &get_instance(); ///< singleton
 			static void kill_instance(); ///< call this before ending main to allow more gracefull shutdown of the main singleton and it's background thread
-			~data_logger(); ///< destr, will be called when singleton is killed when global m_obj dies. will kill theads etc
+			~data_logger() noexcept(false); ///< destr, will be called when singleton is killed when global m_obj dies. will kill theads etc
 
 		private:
 			data_logger(); ///< constructor is private, use only via singleton get_instance

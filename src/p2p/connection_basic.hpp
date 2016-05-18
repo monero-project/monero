@@ -103,7 +103,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		// first counter is the ++/-- count of current sockets, the other socket_number is only-increasing ++ number generator
 		connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number);
 
-		virtual ~connection_basic();
+		virtual ~connection_basic() noexcept(false);
 
 		// various handlers to be called from connection class:
 		void do_send_handler_write(const void * ptr , size_t cb);
