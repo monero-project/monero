@@ -263,16 +263,17 @@ namespace crypto {
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4200)
+  struct ec_point_pair {
+    ec_point a, b;
+  };
   struct rs_comm {
     hash h;
-    struct {
-      ec_point a, b;
-    } ab[];
+    struct ec_point_pair ab[];
   };
 POP_WARNINGS
 
   static inline size_t rs_comm_size(size_t pubs_count) {
-    return sizeof(rs_comm) + pubs_count * sizeof(rs_comm().ab[0]);
+    return sizeof(rs_comm) + pubs_count * sizeof(ec_point_pair);
   }
 
   void crypto_ops::generate_ring_signature(const hash &prefix_hash, const key_image &image,
