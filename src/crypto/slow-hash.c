@@ -658,10 +658,6 @@ void slow_hash_free_state(void)
   return;
 }
 
-static void (*const extra_hashes[4])(const void *, size_t, char *) = {
-  hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
-};
-
 #define MEMORY         (1 << 21) /* 2 MiB */
 #define ITER           (1 << 20)
 #define AES_BLOCK_SIZE  16
