@@ -3082,6 +3082,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   bool out = true;
   bool pending = true;
   bool failed = true;
+  bool pool = true;
   uint64_t min_height = 0;
   uint64_t max_height = (uint64_t)-1;
 
@@ -3099,7 +3100,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "out" || local_args[0] == "outgoing") {
-      in = false;
+      in = pool = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "pending") {
@@ -3107,7 +3108,11 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "failed") {
-      in = out = pending = false;
+      in = out = pending = pool = false;
+      local_args.erase(local_args.begin());
+    }
+    else if (local_args[0] == "pool") {
+      in = out = pending = failed = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "all" || local_args[0] == "both") {
@@ -3180,6 +3185,27 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     message_writer(i->second.first ? epee::log_space::console_color_green : epee::log_space::console_color_magenta, false) <<
       boost::format("%8.8llu %6.6s %s") %
       ((unsigned long long)i->first) % (i->second.first ? tr("in") : tr("out")) % i->second.second;
+  }
+
+  if (pool) {
+    try
+    {
+      m_wallet->update_pool_state();
+      std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+      m_wallet->get_unconfirmed_payments(payments);
+      for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+        const tools::wallet2::payment_details &pd = i->second;
+        std::string payment_id = string_tools::pod_to_hex(i->first);
+        if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+          payment_id = payment_id.substr(0,16);
+        std::string note = m_wallet->get_tx_note(pd.m_tx_hash);
+        message_writer() << (boost::format("%8.8s %6.6s %16.16s %20.20s %s %s %s %s") % "pool" % "in" % get_human_readable_timestamp(pd.m_timestamp) % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-" % note).str();
+      }
+    }
+    catch (...)
+    {
+      fail_msg_writer() << "Failed to get pool state";
+    }
   }
 
   // print unconfirmed last
