@@ -683,7 +683,8 @@ static void (*const extra_hashes[4])(const void *, size_t, char *) = {
 
 #include "aesb.c"
 
-/* The asm corresponds to this C code
+#ifndef ARM_MUL_IMPL_ASM
+/* The asm corresponds to this C code */
 #define SHORT uint32_t
 #define LONG uint64_t
 
@@ -714,7 +715,8 @@ void mul(const uint8_t *ca, const uint8_t *cb, uint8_t *cres) {
   res[3] = t.tmp[2];
   res[0] = t.tmp[6];
   res[1] = t.tmp[7];
-} */
+}
+#else // ARM_MUL_IMPL_ASM (TODO: this fails hash-slow test with GCC 6.1.1)
 
 /* Can work as inline, but actually runs slower. Keep it separate */
 #define mul(a, b, c)	cn_mul128(a, b, c)
@@ -749,6 +751,7 @@ __asm__ __volatile__(
   : [A]"r"(aa[1]), [a]"r"(aa[0]), [B]"r"(bb[1]), [b]"r"(bb[0]), [r]"r"(r)
   : "cc", "memory");
 }
+#endif // ARM_MUL_IMPL_ASM
 
 STATIC INLINE void sum_half_blocks(uint8_t* a, const uint8_t* b)
 {
