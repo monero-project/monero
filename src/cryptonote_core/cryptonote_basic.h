@@ -50,9 +50,6 @@
 #include "misc_language.h"
 #include "tx_extra.h"
 
-#define DB_MEMORY 1
-#define DB_LMDB   2
-
 namespace cryptonote
 {
 

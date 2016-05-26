@@ -1023,7 +1023,6 @@ namespace cryptonote
       return false;
     }
 
-#if BLOCKCHAIN_DB == DB_LMDB
     const Blockchain &blockchain = m_core.get_blockchain_storage();
     uint8_t version = req.version > 0 ? req.version : blockchain.get_next_hard_fork_version();
     res.version = blockchain.get_current_hard_fork_version();
@@ -1031,11 +1030,6 @@ namespace cryptonote
     res.state = blockchain.get_hard_fork_state();
     res.status = CORE_RPC_STATUS_OK;
     return true;
-#else
-    error_resp.code = CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC;
-    error_resp.message = "Hard fork inoperative in memory mode.";
-    return false;
-#endif
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_bans(const COMMAND_RPC_GETBANS::request& req, COMMAND_RPC_GETBANS::response& res, epee::json_rpc::error& error_resp)

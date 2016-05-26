@@ -31,7 +31,6 @@
 #include "include_base_utils.h"
 using namespace epee;
 #include "wallet/wallet2.h"
-#include "cryptonote_core/blockchain_storage.h"
 
 using namespace cryptonote;
 

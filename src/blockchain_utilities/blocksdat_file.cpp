@@ -114,11 +114,7 @@ bool BlocksdatFile::close()
 }
 
 
-#if SOURCE_DB == DB_MEMORY
-bool BlocksdatFile::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_file, uint64_t requested_block_stop)
-#else
 bool BlocksdatFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_file, uint64_t requested_block_stop)
-#endif
 {
   uint64_t num_blocks_written = 0;
   m_blockchain_storage = _blockchain_storage;

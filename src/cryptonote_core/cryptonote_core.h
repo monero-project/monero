@@ -40,11 +40,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "tx_pool.h"
-#if BLOCKCHAIN_DB == DB_LMDB
 #include "blockchain.h"
-#else
-#include "blockchain_storage.h"
-#endif
 #include "miner.h"
 #include "connection_context.h"
 #include "cryptonote_core/cryptonote_stat_info.h"
@@ -498,7 +494,6 @@ namespace cryptonote
       */
      void resume_mine();
 
-#if BLOCKCHAIN_DB == DB_LMDB
      /**
       * @brief gets the Blockchain instance
       *
@@ -512,10 +507,6 @@ namespace cryptonote
       * @return a const reference to the Blockchain instance
       */
      const Blockchain& get_blockchain_storage()const{return m_blockchain_storage;}
-#else
-     blockchain_storage& get_blockchain_storage(){return m_blockchain_storage;}
-     const blockchain_storage& get_blockchain_storage()const{return m_blockchain_storage;}
-#endif
 
      /**
       * @copydoc Blockchain::print_blockchain
@@ -765,11 +756,7 @@ namespace cryptonote
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
 
      tx_memory_pool m_mempool; //!< transaction pool instance
-#if BLOCKCHAIN_DB == DB_LMDB
      Blockchain m_blockchain_storage; //!< Blockchain instance
-#else
-     blockchain_storage m_blockchain_storage;
-#endif
 
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 

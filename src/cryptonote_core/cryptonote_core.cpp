@@ -57,11 +57,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
-#if BLOCKCHAIN_DB == DB_LMDB
               m_blockchain_storage(m_mempool),
-#else
-              m_blockchain_storage(&m_mempool),
-#endif
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()),
               m_starter_message_showed(false),
@@ -257,7 +253,6 @@ namespace cryptonote
     r = m_mempool.init(m_fakechain ? std::string() : m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
-#if BLOCKCHAIN_DB == DB_LMDB
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
     std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
     bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
@@ -405,9 +400,6 @@ namespace cryptonote
 
     bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
-#else
-    r = m_blockchain_storage.init(m_config_folder, m_testnet);
-#endif
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     // load json & DNS checkpoints, and verify them
@@ -780,18 +772,14 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::prepare_handle_incoming_blocks(const std::list<block_complete_entry> &blocks)
   {
-#if BLOCKCHAIN_DB == DB_LMDB
     m_blockchain_storage.prepare_handle_incoming_blocks(blocks);
-#endif
     return true;
   }
 
   //-----------------------------------------------------------------------------------------------
   bool core::cleanup_handle_incoming_blocks(bool force_sync)
   {
-#if BLOCKCHAIN_DB == DB_LMDB
     m_blockchain_storage.cleanup_handle_incoming_blocks(force_sync);
-#endif
     return true;
   }
 
@@ -918,11 +906,6 @@ namespace cryptonote
       m_starter_message_showed = true;
     }
 
-#if BLOCKCHAIN_DB == DB_LMDB
-    // m_store_blockchain_interval.do_call(boost::bind(&Blockchain::store_blockchain, &m_blockchain_storage));
-#else
-    m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
-#endif
     m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_miner.on_idle();
@@ -932,7 +915,6 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_fork_time()
   {
-#if BLOCKCHAIN_DB == DB_LMDB
     HardFork::State state = m_blockchain_storage.get_hard_fork_state();
     switch (state) {
       case HardFork::LikelyForked:
@@ -951,7 +933,6 @@ namespace cryptonote
       default:
         break;
     }
-#endif
     return true;
   }
   //-----------------------------------------------------------------------------------------------

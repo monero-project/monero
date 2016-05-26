@@ -48,11 +48,7 @@
 
 namespace cryptonote
 {
-#if BLOCKCHAIN_DB == DB_LMDB
   class Blockchain;
-#else
-  class blockchain_storage;
-#endif
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -93,16 +89,12 @@ namespace cryptonote
   class tx_memory_pool: boost::noncopyable
   {
   public:
-#if BLOCKCHAIN_DB == DB_LMDB
     /**
      * @brief Constructor
      *
      * @param bchs a Blockchain class instance, for getting chain info
      */
     tx_memory_pool(Blockchain& bchs);
-#else
-    tx_memory_pool(blockchain_storage& bchs);
-#endif
 
 
     /**
@@ -492,18 +484,7 @@ namespace cryptonote
     std::unordered_set<crypto::hash> m_timed_out_transactions;
 
     std::string m_config_folder;  //!< the folder to save state to
-#if BLOCKCHAIN_DB == DB_LMDB
     Blockchain& m_blockchain;  //!< reference to the Blockchain object
-#else
-    blockchain_storage& m_blockchain;
-#endif
-
-#if BLOCKCHAIN_DB == DB_LMDB
-#else
-#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
-    friend class blockchain_storage;
-#endif
-#endif
   };
 }
 

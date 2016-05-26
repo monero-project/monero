@@ -37,11 +37,7 @@
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
-#if BLOCKCHAIN_DB == DB_LMDB
 #include "blockchain.h"
-#else
-#include "blockchain_storage.h"
-#endif
 #include "common/boost_serialization_helper.h"
 #include "common/int-util.h"
 #include "misc_language.h"
@@ -74,18 +70,11 @@ namespace cryptonote
     }
   }
   //---------------------------------------------------------------------------------
-#if BLOCKCHAIN_DB == DB_LMDB
   //---------------------------------------------------------------------------------
   tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs)
   {
 
   }
-#else
-  tx_memory_pool::tx_memory_pool(blockchain_storage& bchs): m_blockchain(bchs)
-  {
-
-  }
-#endif
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
   {
@@ -169,11 +158,7 @@ namespace cryptonote
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
-#if BLOCKCHAIN_DB == DB_LMDB
     bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, kept_by_block);
-#else
-    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id);
-#endif
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     if(!ch_inp_res)
     {
@@ -518,12 +503,8 @@ namespace cryptonote
         if(txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
           return false;
         //check ring signature again, it is possible (with very small chance) that this transaction become again valid
-#if BLOCKCHAIN_DB == DB_LMDB
         tx_verification_context tvc;
         if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id, tvc))
-#else
-        if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id))
-#endif
         {
           txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
           txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);

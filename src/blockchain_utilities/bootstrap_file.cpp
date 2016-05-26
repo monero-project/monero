@@ -223,31 +223,9 @@ void BootstrapFile::write_block(block& block)
     {
       throw std::runtime_error("Aborting: tx == null_hash");
     }
-#if SOURCE_DB == DB_MEMORY
-    const transaction* tx = m_blockchain_storage->get_tx(tx_id);
-#else
     transaction tx = m_blockchain_storage->get_db().get_tx(tx_id);
-#endif
 
-#if SOURCE_DB == DB_MEMORY
-    if(tx == NULL)
-    {
-      if (! m_tx_pool)
-        throw std::runtime_error("Aborting: tx == NULL, so memory pool required to get tx, but memory pool isn't enabled");
-      else
-      {
-        transaction tx;
-        if(m_tx_pool->get_transaction(tx_id, tx))
-          txs.push_back(tx);
-        else
-          throw std::runtime_error("Aborting: tx not found in pool");
-      }
-    }
-    else
-      txs.push_back(*tx);
-#else
     txs.push_back(tx);
-#endif
   }
 
   // these non-coinbase txs will be serialized using this structure
@@ -257,15 +235,9 @@ void BootstrapFile::write_block(block& block)
   bool include_extra_block_data = true;
   if (include_extra_block_data)
   {
-#if SOURCE_DB == DB_MEMORY
-    size_t block_size = m_blockchain_storage->get_block_size(block_height);
-    difficulty_type cumulative_difficulty = m_blockchain_storage->get_block_cumulative_difficulty(block_height);
-    uint64_t coins_generated = m_blockchain_storage->get_block_coins_generated(block_height);
-#else
     size_t block_size = m_blockchain_storage->get_db().get_block_size(block_height);
     difficulty_type cumulative_difficulty = m_blockchain_storage->get_db().get_block_cumulative_difficulty(block_height);
     uint64_t coins_generated = m_blockchain_storage->get_db().get_block_already_generated_coins(block_height);
-#endif
 
     bp.block_size = block_size;
     bp.cumulative_difficulty = cumulative_difficulty;
@@ -288,11 +260,7 @@ bool BootstrapFile::close()
 }
 
 
-#if SOURCE_DB == DB_MEMORY
-bool BootstrapFile::store_blockchain_raw(blockchain_storage* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_file, uint64_t requested_block_stop)
-#else
 bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_memory_pool* _tx_pool, boost::filesystem::path& output_file, uint64_t requested_block_stop)
-#endif
 {
   uint64_t num_blocks_written = 0;
   m_max_chunk = 0;
