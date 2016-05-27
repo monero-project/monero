@@ -40,7 +40,7 @@ set(wallet_sources
   api/pending_transaction.cpp
   api/utils.cpp)
 
-set(wallet_headers
+set(wallet_api_headers
     wallet2_api.h)
     
 
@@ -61,7 +61,7 @@ bitmonero_private_headers(wallet
   ${wallet_private_headers})
 bitmonero_add_library(wallet
   ${wallet_sources}
-  ${wallet_headers}
+  ${wallet_api_headers}
   ${wallet_private_headers})
 target_link_libraries(wallet
   LINK_PUBLIC
