@@ -37,6 +37,7 @@
 #include "crypto/chacha8.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "ringct/rctTypes.h"
 
 // read
 template <template <bool> class Archive>
@@ -92,3 +93,31 @@ VARIANT_TAG(debug_archive, crypto::secret_key, "secret_key");
 VARIANT_TAG(debug_archive, crypto::key_derivation, "key_derivation");
 VARIANT_TAG(debug_archive, crypto::key_image, "key_image");
 VARIANT_TAG(debug_archive, crypto::signature, "signature");
+
+BLOB_SERIALIZER(rct::key);
+BLOB_SERIALIZER(rct::key64);
+BLOB_SERIALIZER(rct::ctkey);
+BLOB_SERIALIZER(rct::ecdhTuple);
+BLOB_SERIALIZER(rct::asnlSig);
+
+VARIANT_TAG(debug_archive, rct::key, "rct::key");
+VARIANT_TAG(debug_archive, rct::key64, "rct::key64");
+VARIANT_TAG(debug_archive, rct::ctkey, "rct::ctkey");
+VARIANT_TAG(debug_archive, rct::ecdhTuple, "rct::ecdhTuple");
+VARIANT_TAG(debug_archive, rct::asnlSig, "rct::asnlSig");
+VARIANT_TAG(debug_archive, rct::rctSig, "rct::rctSig");
+
+VARIANT_TAG(binary_archive, rct::key, 0x90);
+VARIANT_TAG(binary_archive, rct::key64, 0x91);
+VARIANT_TAG(binary_archive, rct::ctkey, 0x92);
+VARIANT_TAG(binary_archive, rct::ecdhTuple, 0x93);
+VARIANT_TAG(binary_archive, rct::asnlSig, 0x94);
+VARIANT_TAG(binary_archive, rct::rctSig, 0x95);
+
+VARIANT_TAG(json_archive, rct::key, "rct_key");
+VARIANT_TAG(json_archive, rct::key64, "rct_key64");
+VARIANT_TAG(json_archive, rct::ctkey, "rct_ctkey");
+VARIANT_TAG(json_archive, rct::ecdhTuple, "rct_ecdhTuple");
+VARIANT_TAG(json_archive, rct::asnlSig, "rct_asnlSig");
+VARIANT_TAG(json_archive, rct::rctSig, "rct_rctSig");
+

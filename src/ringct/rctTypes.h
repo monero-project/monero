@@ -47,6 +47,9 @@ extern "C" {
 }
 #include "crypto/crypto.h"
 
+#include "serialization/serialization.h"
+
+
 //Define this flag when debugging to get additional info on the console
 #ifdef DBG
 #define DP(x) dp(x)
@@ -106,6 +109,12 @@ namespace rct {
         key mask;
         key amount;
         key senderPk;
+
+        BEGIN_SERIALIZE_OBJECT()
+          FIELD(mask)
+          FIELD(amount)
+          FIELD(senderPk)
+        END_SERIALIZE()
     };
 
     //containers for representing amounts
@@ -132,6 +141,12 @@ namespace rct {
         keyM ss;
         key cc;
         keyV II;
+
+        BEGIN_SERIALIZE_OBJECT()
+            FIELD(ss)
+            FIELD(cc)
+            FIELD(II)
+        END_SERIALIZE()
     };
     //contains the data for an asnl sig
     // also contains the "Ci" values such that
@@ -142,6 +157,11 @@ namespace rct {
     struct rangeSig {
         asnlSig asig;
         key64 Ci;
+
+        BEGIN_SERIALIZE_OBJECT()
+            FIELD(asig)
+            FIELD(Ci)
+        END_SERIALIZE()
     };
     //A container to hold all signatures necessary for RingCT
     // rangeSigs holds all the rangeproof data of a transaction
@@ -157,15 +177,14 @@ namespace rct {
         //pairs that you mix with
         vector<ecdhTuple> ecdhInfo;
         ctkeyV outPk;
-    };
-    
-    struct rmsSig {
-        vector<rangeSig> rangeSigs;
-        mgSig MG;
-        ctkeyM mixRing;
-        vector<ecdhTuple> destinationEcdhInfo;
-        vector<ecdhTuple> participantEcdhInfo;
-        ctkeyV outPk;
+
+        BEGIN_SERIALIZE_OBJECT()
+            FIELD(rangeSigs)
+            FIELD(MG)
+            FIELD(mixRing)
+            FIELD(ecdhInfo)
+            FIELD(outPk)
+        END_SERIALIZE()
     };
     
     //other basepoint H = toPoint(cn_fast_hash(G)), G the basepoint
@@ -269,5 +288,8 @@ namespace rct {
     //int[64] to uint long long
     xmr_amount b2d(bits amountb);
 }
+
+template<typename T> std::ostream &print256(std::ostream &o, const T &v);
+inline std::ostream &operator <<(std::ostream &o, const rct::key &v) { return print256(o, v); }
 
 #endif  /* RCTTYPES_H */
