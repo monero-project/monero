@@ -70,7 +70,7 @@ struct gen_v2_tx_validation_base : public test_chain_unit_base
   }
 
   bool generate_with(std::vector<test_event_entry>& events, const int *out_idx, int mixin,
-      uint64_t amount_paid, size_t max_outs, bool valid) const;
+      uint64_t amount_paid, bool valid) const;
 
 private:
   size_t m_invalid_tx_index;

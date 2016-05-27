@@ -222,7 +222,7 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
   blk.timestamp     = actual_params & bf_timestamp ? timestamp : prev_block.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN; // Keep difficulty unchanged
   blk.prev_id       = actual_params & bf_prev_id   ? prev_id   : get_block_hash(prev_block);
   blk.tx_hashes     = actual_params & bf_tx_hashes ? tx_hashes : std::vector<crypto::hash>();
-  max_outs          = actual_params & bf_max_outs ? max_outs : 1;
+  max_outs          = actual_params & bf_max_outs ? max_outs : 9999;
 
   size_t height = get_block_height(prev_block) + 1;
   uint64_t already_generated_coins = get_already_generated_coins(prev_block);

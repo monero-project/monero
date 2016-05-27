@@ -28,8 +28,39 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
+#include <cstring>
+#include <cstdint>
+#include <cstdio>
+#include <iostream>
+#include <vector>
+#include <boost/foreach.hpp>
+#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "serialization/serialization.h"
+#include "serialization/binary_archive.h"
+#include "serialization/json_archive.h"
+#include "serialization/debug_archive.h"
+#include "serialization/variant.h"
+#include "serialization/vector.h"
+#include "serialization/binary_utils.h"
+#include "gtest/gtest.h"
+using namespace std;
 
-#include <stddef.h>
+TEST(varint, equal)
+{
+  for (uint64_t idx = 0; idx < 65537; ++idx)
+  {
+    char buf[12];
+    char *bufptr = buf;
+    tools::write_varint(bufptr, idx);
+    uint64_t bytes = bufptr - buf;
+    ASSERT_TRUE (bytes > 0 && bytes <= sizeof(buf));
 
-void generate_random_bytes_not_thread_safe(size_t n, void *result);
+    uint64_t idx2;
+    bufptr = buf;
+    std::string s(buf, bytes);
+    int read = tools::read_varint(s.begin(), s.end(), idx2);
+    ASSERT_EQ (read, bytes);
+    ASSERT_TRUE(idx2 == idx);
+  }
+}

@@ -6771,8 +6771,8 @@ set1:
 				if (op == MDB_GET_BOTH || rc > 0)
 					return MDB_NOTFOUND;
 				rc = 0;
-				*data = olddata;
 			}
+			*data = olddata;
 
 		} else {
 			if (mc->mc_xcursor)
@@ -10501,8 +10501,11 @@ mdb_drop0(MDB_cursor *mc, int subs)
 
 		/* DUPSORT sub-DBs have no ovpages/DBs. Omit scanning leaves.
 		 * This also avoids any P_LEAF2 pages, which have no nodes.
+		 * Also if the DB doesn't have sub-DBs and has no overflow
+		 * pages, omit scanning leaves.
 		 */
-		if (mc->mc_flags & C_SUB)
+		if ((mc->mc_flags & C_SUB) ||
+			(!subs && !mc->mc_db->md_overflow_pages))
 			mdb_cursor_pop(mc);
 
 		mdb_cursor_copy(mc, &mx);
@@ -10529,6 +10532,9 @@ mdb_drop0(MDB_cursor *mc, int subs)
 							pg, omp->mp_pages);
 						if (rc)
 							goto done;
+						mc->mc_db->md_overflow_pages -= omp->mp_pages;
+						if (!mc->mc_db->md_overflow_pages && !subs)
+							break;
 					} else if (subs && (ni->mn_flags & F_SUBDATA)) {
 						mdb_xcursor_init1(mc, ni);
 						rc = mdb_drop0(&mc->mc_xcursor->mx_cursor, 0);
@@ -10536,6 +10542,8 @@ mdb_drop0(MDB_cursor *mc, int subs)
 							goto done;
 					}
 				}
+				if (!subs && !mc->mc_db->md_overflow_pages)
+					goto pop;
 			} else {
 				if ((rc = mdb_midl_need(&txn->mt_free_pgs, n)) != 0)
 					goto done;
@@ -10557,6 +10565,7 @@ mdb_drop0(MDB_cursor *mc, int subs)
 				/* no more siblings, go back to beginning
 				 * of previous level.
 				 */
+pop:
 				mdb_cursor_pop(mc);
 				mc->mc_ki[0] = 0;
 				for (i=1; i<mc->mc_snum; i++) {
