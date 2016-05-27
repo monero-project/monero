@@ -26,6 +26,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+include (${PROJECT_SOURCE_DIR}/cmake/libutils.cmake)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
@@ -39,11 +40,12 @@ set(wallet_sources
   api/pending_transaction.cpp
   api/utils.cpp)
 
-set(wallet_headers)
+set(wallet_headers
+    wallet2_api.h)
+    
 
 set(wallet_private_headers
   wallet2.h
-  wallet2_api.h
   wallet_errors.h
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
@@ -71,4 +73,15 @@ target_link_libraries(wallet
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${EXTRA_LIBRARIES})
+
+
+set(libs_to_merge wallet cryptonote_core mnemonics common crypto)
+MERGE_STATIC_LIBS(wallet_merged wallet_merged "${libs_to_merge}")
+
+install(TARGETS wallet_merged
+    ARCHIVE DESTINATION lib)
+
+install(FILES ${wallet_api_headers}
+    DESTINATION include/wallet)
+
 
