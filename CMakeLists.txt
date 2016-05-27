@@ -436,6 +436,9 @@ include(version.cmake)
 add_subdirectory(contrib)
 add_subdirectory(src)
 
+
+option(BUILD_TESTS "Build tests." OFF)
+
 if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
