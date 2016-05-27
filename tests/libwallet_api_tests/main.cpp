@@ -59,7 +59,7 @@ const char * WALLET_PASS = "password";
 const char * WALLET_PASS2 = "password22";
 const char * WALLET_LANG = "English";
 
-const char * TESTNET_WALLET_NAME = "/home/mbg033/dev/monero/testnet/wallet_01.bin";
+const char * TESTNET_WALLET1_NAME = "/home/mbg033/dev/monero/testnet/wallet_01.bin";
 const char * TESTNET_WALLET3_NAME = "/home/mbg033/dev/monero/testnet/wallet_03.bin";
 const char * TESTNET_WALLET4_NAME = "/home/mbg033/dev/monero/testnet/wallet_04.bin";
 const char * TESTNET_WALLET_PASS = "";
@@ -70,9 +70,10 @@ const uint64_t AMOUNT_10XMR = 10000000000000L;
 const uint64_t AMOUNT_5XMR  =  5000000000000L;
 const uint64_t AMOUNT_1XMR  =  1000000000000L;
 
-const char * RECIPIENT_WALLET_ADDRESS = "9v9wAZ1aNj3CTgTPhEqLameUB25AkXknNHhPNjUozRxX1jrHLb9cdnn8kVf4r8GDJHjCjM5XKAWHp6Z38wsCudGWJ992byk";
-const char * TESTNET_WALLET3_ADDRESS  = "A1koTipJ3Y8btatXupU3yYVAZrNG6W9z2WeYcirwHDmfZLaBGMPswq7CrYvemvCvp4atrqRhV1TBj3jYZv133CkAUeykAny";
-const char * TESTNET_WALLET4_ADDRESS  = "A1R2sxZb2vY7fBjDxubxNDYfmzPmoWSrSAa7uokvWW2n7beJJnigAP43gfVpopdfd7YCFvMfVCpwQX39sXayicRr32hscyX";
+
+const char * TESTNET_WALLET3_ADDRESS  = "A2N8LNKkzH2ddepepgvmz9e4JRe5QXkoPjg9kHW5CLWvH7eQNqEvNWmjJziVSqVLfUXVz7CYe5MZ32qJryVr8eBCLG5yJXP";
+const char * TESTNET_WALLET4_ADDRESS  = "9yMPpGDhXrPMEFk2AueB9EVP3oJtovj1zRiSKz481xVAFW6tDyft8H6WE9otfBLzzHCUQ98xRogjk3oiPQA2Qy5tKpsNhyE";
+const char * RECIPIENT_WALLET_ADDRESS = TESTNET_WALLET4_ADDRESS;
 }
 
 
@@ -134,11 +135,11 @@ struct DISABLED_WalletManagerTest : public testing::Test
 };
 
 
-struct DISABLED_WalletTest1 : public testing::Test
+struct WalletTest1 : public testing::Test
 {
     Bitmonero::WalletManager * wmgr;
 
-    DISABLED_WalletTest1()
+    WalletTest1()
     {
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
     }
@@ -300,16 +301,16 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet4)
 
 
 
-TEST_F(DISABLED_WalletTest1, WalletShowsBalance)
+TEST_F(WalletTest1, WalletShowsBalance)
 {
-    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET1_NAME, TESTNET_WALLET_PASS, true);
     ASSERT_TRUE(wallet1->balance() > 0);
     ASSERT_TRUE(wallet1->unlockedBalance() > 0);
 
     uint64_t balance1 = wallet1->balance();
     uint64_t unlockedBalance1 = wallet1->unlockedBalance();
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Bitmonero::Wallet * wallet2 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(TESTNET_WALLET1_NAME, TESTNET_WALLET_PASS, true);
 
     ASSERT_TRUE(balance1 == wallet2->balance());
     std::cout << "wallet balance: " << wallet2->balance() << std::endl;
@@ -318,18 +319,18 @@ TEST_F(DISABLED_WalletTest1, WalletShowsBalance)
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
-TEST_F(DISABLED_WalletTest1, WalletRefresh)
+TEST_F(WalletTest1, WalletRefresh)
 {
-    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET1_NAME, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet1->refresh());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
-TEST_F(DISABLED_WalletTest1, WalletTransaction)
+TEST_F(WalletTest1, WalletTransaction)
 {
-    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET3_NAME, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet1->refresh());
@@ -348,9 +349,9 @@ TEST_F(DISABLED_WalletTest1, WalletTransaction)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
-TEST_F(DISABLED_WalletTest1, WalletHistory)
+TEST_F(WalletTest1, WalletHistory)
 {
-    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(TESTNET_WALLET1_NAME, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet1->refresh());
@@ -365,7 +366,7 @@ TEST_F(DISABLED_WalletTest1, WalletHistory)
     }
 }
 
-TEST_F(DISABLED_WalletTest1, WalletTransactionAndHistory)
+TEST_F(WalletTest1, WalletTransactionAndHistory)
 {
     Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET3_NAME, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
@@ -455,6 +456,7 @@ TEST_F(WalletTest2, WalletCallbackSent)
 }
 */
 
+/*
 TEST_F(WalletTest2, WalletCallbackReceived)
 {
 
@@ -476,7 +478,7 @@ TEST_F(WalletTest2, WalletCallbackReceived)
     ASSERT_TRUE(tx->status() == Bitmonero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
 
-    std::chrono::seconds wait_for = std::chrono::seconds(60*3);
+    std::chrono::seconds wait_for = std::chrono::seconds(60*4);
 
     wallet_dst_listener->guard.lock();
     wallet_dst_listener->guard.try_lock_for(wait_for);
@@ -484,6 +486,7 @@ TEST_F(WalletTest2, WalletCallbackReceived)
     ASSERT_TRUE(wallet_dst_listener->total_tx != 0);
 
 }
+*/
 
 int main(int argc, char** argv)
 {
