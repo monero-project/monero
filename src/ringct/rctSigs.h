@@ -133,9 +133,9 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment
     //   must know the destination private key to find the correct amount, else will return a random number
-    rctSig genRct(ctkeyV & inSk, ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin);
-    bool verRct(rctSig & rv);
-    xmr_amount decodeRct(rctSig & rv, key & sk, unsigned int i);
+    rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin);
+    bool verRct(const rctSig & rv);
+    xmr_amount decodeRct(rctSig & rv, const key & sk, unsigned int i);
 
 
 
