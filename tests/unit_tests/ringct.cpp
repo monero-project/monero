@@ -498,3 +498,12 @@ TEST(ringct, d2b)
     ASSERT_TRUE(amount == b2d(b));
   }
 }
+
+TEST(ringct, prooveRange_is_non_deterministic)
+{
+  key C[2], mask[2];
+  for (int n = 0; n < 2; ++n)
+    proveRange(C[n], mask[n], 80);
+  ASSERT_TRUE(memcmp(C[0].bytes, C[1].bytes, sizeof(C[0].bytes)));
+  ASSERT_TRUE(memcmp(mask[0].bytes, mask[1].bytes, sizeof(mask[0].bytes)));
+}
