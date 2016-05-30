@@ -296,7 +296,7 @@ namespace rct {
         key64 CiH;
         int i = 0;
         for (i = 0; i < ATOMS; i++) {
-            sc_0(ai[i].bytes);
+            skGen(ai[i]);
             if (b[i] == 0) {
                 scalarmultBase(sig.Ci[i], ai[i]);
             }
