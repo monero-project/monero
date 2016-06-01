@@ -289,53 +289,53 @@ TEST(ringct, range_proofs_reject_empty_zero)
   EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
-TEST(ringct, range_proofs_reject_zero_zero)
+TEST(ringct, range_proofs_accept_zero_zero)
 {
   const uint64_t inputs[] = {0};
   const uint64_t outputs[] = {0};
-  EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
+  EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
-TEST(ringct, range_proofs_reject_zero_out_first)
+TEST(ringct, range_proofs_accept_zero_out_first)
 {
   const uint64_t inputs[] = {5000};
   const uint64_t outputs[] = {0, 5000};
-  EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
+  EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
-TEST(ringct, range_proofs_reject_zero_out_last)
+TEST(ringct, range_proofs_accept_zero_out_last)
 {
   const uint64_t inputs[] = {5000};
   const uint64_t outputs[] = {5000, 0};
-  EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
+  EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
-TEST(ringct, range_proofs_reject_zero_out_middle)
+TEST(ringct, range_proofs_accept_zero_out_middle)
 {
   const uint64_t inputs[] = {5000};
   const uint64_t outputs[] = {2500, 0, 2500};
-  EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
+  EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
-TEST(ringct, range_proofs_reject_zero_in_first)
+TEST(ringct, range_proofs_accept_zero_in_first)
 {
   const uint64_t inputs[] = {0, 5000};
   const uint64_t outputs[] = {5000};
-  EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
+  EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
-TEST(ringct, range_proofs_reject_zero_in_last)
+TEST(ringct, range_proofs_accept_zero_in_last)
 {
   const uint64_t inputs[] = {5000, 0};
   const uint64_t outputs[] = {5000};
-  EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
+  EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
-TEST(ringct, range_proofs_reject_zero_in_middle)
+TEST(ringct, range_proofs_accept_zero_in_middle)
 {
   const uint64_t inputs[] = {2500, 0, 2500};
   const uint64_t outputs[] = {5000};
-  EXPECT_TRUE(range_proof_test(false, NELTS(inputs), inputs, NELTS(outputs), outputs));
+  EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
 TEST(ringct, range_proofs_reject_single_lower)
