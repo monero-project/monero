@@ -49,12 +49,13 @@ namespace rct {
             skGen(s2);
             addKeys2(L2, s2, c2, P2);
             hash_to_scalar(c1, L2);
+            //s1 = a - x * c1
             sc_mulsub(s1.bytes, x.bytes, c1.bytes, a.bytes);
         }
         else if (index == 1) {
             scalarmultBase(L2, a);
-            skGen(s1);
             hash_to_scalar(c1, L2);
+            skGen(s1);
             addKeys2(L1, s1, c1, P1);
             hash_to_scalar(c2, L1);
             sc_mulsub(s2.bytes, x.bytes, c2.bytes, a.bytes);
@@ -91,7 +92,6 @@ namespace rct {
         asnlSig rv;
         rv.s = zero();
         for (j = 0; j < ATOMS; j++) {
-            //void GenSchnorrNonLinkable(Bytes L1, Bytes s1, Bytes s2, const Bytes x, const Bytes P1,const Bytes P2, int index) {
             GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], (int)indices[j]);
             sc_add(rv.s.bytes, rv.s.bytes, s1[j].bytes);
         }
@@ -119,7 +119,6 @@ namespace rct {
         }
         key cc;
         sc_sub(cc.bytes, LHS.bytes, RHS.bytes);
-        DP(cc);
         return sc_isnonzero(cc.bytes) == 0;
     }
     
@@ -269,10 +268,6 @@ namespace rct {
             copy(c_old, c);
             i = (i + 1);
         }
-        DP("c0");
-        DP(rv.cc);
-        DP("c_old");
-        DP(c_old);
         sc_sub(c.bytes, c_old.bytes, rv.cc.bytes);
         return sc_isnonzero(c.bytes) == 0;  
     }
@@ -327,11 +322,7 @@ namespace rct {
             addKeys(Ctmp, Ctmp, as.Ci[i]);
         }
         bool reb = equalKeys(C, Ctmp);
-        DP("is sum Ci = C:");
-        DP(reb);
         bool rab = VerASNL(as.Ci, CiH, as.asig);
-        DP("Is in range?");
-        DP(rab);
         return (reb && rab);
     }
 
@@ -369,21 +360,21 @@ namespace rct {
             M[i][rows] = identity();
             for (j = 0; j < rows; j++) {
                 M[i][j] = pubs[i][j].dest;
-                addKeys(M[i][rows], M[i][rows], pubs[i][j].mask);
+                addKeys(M[i][rows], M[i][rows], pubs[i][j].mask); //add input commitments in last row
             }
         }
         sc_0(sk[rows].bytes);
         for (j = 0; j < rows; j++) {
             sk[j] = copy(inSk[j].dest);
-            sc_add(sk[rows].bytes, sk[rows].bytes, inSk[j].mask.bytes);
+            sc_add(sk[rows].bytes, sk[rows].bytes, inSk[j].mask.bytes); //add masks in last row
         }
         for (i = 0; i < cols; i++) {
             for (size_t j = 0; j < outPk.size(); j++) {
-                subKeys(M[i][rows], M[i][rows], outPk[j].mask);
+                subKeys(M[i][rows], M[i][rows], outPk[j].mask); //subtract output Ci's in last row
             }
         }
         for (size_t j = 0; j < outPk.size(); j++) {
-            sc_sub(sk[rows].bytes, sk[rows].bytes, outSk[j].mask.bytes);
+            sc_sub(sk[rows].bytes, sk[rows].bytes, outSk[j].mask.bytes); //subtract output masks in last row..
         }
         key message = cn_fast_hash(outPk);
         return MLSAG_Gen(message, M, sk, index);

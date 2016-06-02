@@ -160,8 +160,8 @@ namespace rct {
         skpkGen(sk.dest, pk.dest);
         skpkGen(sk.mask, pk.mask);
         key am = d2h(amount);
-        key aH = scalarmultH(am);
-        addKeys(pk.mask, pk.mask, aH);
+        key bH = scalarmultH(am);
+        addKeys(pk.mask, pk.mask, bH);
         return make_tuple(sk, pk);
     }
     
@@ -171,13 +171,11 @@ namespace rct {
         ctkey sk, pk;
         skpkGen(sk.dest, pk.dest);
         skpkGen(sk.mask, pk.mask);
-        //key am = d2h(amount);
-        //key aH = scalarmultH(am);
         addKeys(pk.mask, pk.mask, bH);
         return make_tuple(sk, pk);
     }
     
-    //generates a random uint long long
+    //generates a random uint long long (for testing)
     xmr_amount randXmrAmount(xmr_amount upperlimit) {
         return h2d(skGen()) % (upperlimit);
     }
@@ -678,30 +676,6 @@ void fe_mul(fe h,const fe f,const fe g)
 
 
 
-void ge_tobytes2(unsigned char *s,const ge_p2 *h)
-{
-    fe recip;
-    fe x;
-    fe y;
-    fe_invert(recip,h->Z);
-    fe_mul(x,h->X,recip);
-    fe_mul(y,h->Y,recip);
-
-
-    fe_tobytes(s,y);
-}
-
-
-    key hashToPoint2(const key & hh) {
-        key pointk;
-        ge_p2 point;
-        key h = cn_fast_hash(hh); 
-        ge_fromfe_frombytes_vartime(&point, h.bytes);
-        ge_tobytes2(pointk.bytes, &point);
-        return pointk;
-    }
-
-    
     void hashToPoint(key & pointk, const key & hh) {
         ge_p2 point;
         ge_p1p1 point2;

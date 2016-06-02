@@ -149,7 +149,6 @@ namespace rct {
     //returns hashToPoint as described in https://github.com/ShenNoether/ge_fromfe_writeup 
     key hashToPointSimple(const key &in);
     key hashToPoint(const key &in);
-    key hashToPoint2(const key &in);
     void hashToPoint(key &out, const key &in);
 
     //sums a vector of curve points (for scalars use sc_add)
