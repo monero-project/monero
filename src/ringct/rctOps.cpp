@@ -408,9 +408,14 @@ namespace rct {
     
     key hashToPointSimple(const key & hh) {
         key pointk;
+        ge_p1p1 point2;
+        ge_p2 point;
         ge_p3 res;
         key h = cn_fast_hash(hh); 
         ge_frombytes_vartime(&res, h.bytes);
+        ge_p3_to_p2(&point, &res);
+        ge_mul8(&point2, &point);
+        ge_p1p1_to_p3(&res, &point2);
         ge_p3_tobytes(pointk.bytes, &res);
         return pointk;
     }    
