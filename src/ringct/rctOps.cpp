@@ -305,14 +305,13 @@ namespace rct {
     //checks if A, B are equal as curve points
     //without doing curve operations
     bool equalKeys(const key & a, const key & b) {
-        key eqk;
-        sc_sub(eqk.bytes, cn_fast_hash(a).bytes, cn_fast_hash(b).bytes);
-        if (sc_isnonzero(eqk.bytes) ) {
-            //DP("eq bytes");
-            //DP(eqk);
-            return false;
+        bool rv = true;
+        for (int i = 0; i < 32; ++i) {
+          if (a.bytes[i] != b.bytes[i]) {
+            rv = false;
+          }
         }
-        return true;
+        return rv;
     }
 
     //Hashing - cn_fast_hash
