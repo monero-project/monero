@@ -457,6 +457,17 @@ TEST(ringct, range_proofs_accept_very_long)
   EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs));
 }
 
+TEST(ringct, HPow2)
+{
+  key G = scalarmultBase(d2h(1));
+
+  key H = hashToPointSimple(G);
+  for (int j = 0 ; j < ATOMS ; j++) {
+    ASSERT_TRUE(equalKeys(H, H2[j]));
+    addKeys(H, H, H);
+  }
+}
+
 static const xmr_amount test_amounts[]={0, 1, 2, 3, 4, 5, 10000, 10000000000000000000ull, 10203040506070809000ull, 123456789123456789};
 
 TEST(ringct, ecdh_roundtrip)
