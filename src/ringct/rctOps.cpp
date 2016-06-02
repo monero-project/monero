@@ -107,18 +107,13 @@ namespace rct {
 
     //generates a random scalar which can be used as a secret key or mask
     void skGen(key &sk) {
-        unsigned char tmp[64];
-        rand(64, tmp);
-        memcpy(sk.bytes, tmp, 32);
+        sk = crypto::rand<key>();
         sc_reduce32(sk.bytes);
     }
 
     //generates a random scalar which can be used as a secret key or mask
     key skGen() {
-        unsigned char tmp[64];
-        rand(64, tmp);
-        key sk;
-        memcpy(sk.bytes, tmp, 32);
+        key sk = crypto::rand<key>();
         sc_reduce32(sk.bytes);
         return sk;
     }
