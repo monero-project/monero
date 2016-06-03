@@ -219,7 +219,7 @@ namespace tools
     void store();
     /*!
      * \brief store_to - stores wallet to another file(s), deleting old ones
-     * \param path     - path to the wallet file (keys and address filenames will be generated based on this filename)
+     * \param path     - path to the wallet file (withkeys and address filenames will be generated based on this filename)
      * \param password - password to protect new wallet (TODO: probably better save the password in the wallet object?)
      */
     void store_to(const std::string &path, const std::string &password);

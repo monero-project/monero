@@ -10,7 +10,7 @@ function create_wallet {
 create_wallet wallet_01.bin
 create_wallet wallet_02.bin
 create_wallet wallet_03.bin
-#create_wallet wallet_04.bin
+create_wallet wallet_04.bin
 create_wallet wallet_05.bin
 create_wallet wallet_06.bin
 

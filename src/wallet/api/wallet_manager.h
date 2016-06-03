@@ -43,6 +43,7 @@ public:
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet);
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
+    std::vector<std::string> findWallets(const std::string &path);
     std::string errorString() const;
     void setDaemonHost(const std::string &hostname);
 
