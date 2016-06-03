@@ -35,7 +35,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 
-namespace fs = ::boost::filesystem;
 
 namespace epee {
     unsigned int g_test_dbg_lock_sleep = 0;
