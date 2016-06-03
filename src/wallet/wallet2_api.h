@@ -190,12 +190,27 @@ struct WalletManager
      */
     virtual bool closeWallet(Wallet *wallet) = 0;
 
-    //! checks if wallet with the given name already exists
+    /*
+     * ! checks if wallet with the given name already exists
+     */
+
+    /*!
+     * @brief TODO: delme walletExists - check if the given filename is the wallet
+     * @param path - filename
+     * @return
+     */
     virtual bool walletExists(const std::string &path) = 0;
 
+    /*!
+     * \brief findWallets - searches for the wallet files by given path name recursively
+     * \param path - starting point to search
+     * \return - list of strings with found wallets (absolute paths);
+     */
+    virtual std::vector<std::string> findWallets(const std::string &path) = 0;
+
+    //! returns verbose error string regarding last error;
     virtual std::string errorString() const = 0;
-//    //! set
-//    virtual void setDaemonAddress(const std::string &address) = 0;
+
 };
 
 

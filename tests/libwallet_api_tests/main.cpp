@@ -73,11 +73,12 @@ const std::string TESTNET_WALLET2_NAME = WALLETS_ROOT_DIR + "wallet_02.bin";
 const std::string TESTNET_WALLET3_NAME = WALLETS_ROOT_DIR + "wallet_03.bin";
 const std::string TESTNET_WALLET4_NAME = WALLETS_ROOT_DIR + "wallet_04.bin";
 const std::string TESTNET_WALLET5_NAME = WALLETS_ROOT_DIR + "wallet_05.bin";
+const std::string TESTNET_WALLET6_NAME = WALLETS_ROOT_DIR + "wallet_06.bin";
 
 const char * TESTNET_WALLET_PASS = "";
 
 const std::string CURRENT_SRC_WALLET = TESTNET_WALLET1_NAME;
-const std::string CURRENT_DST_WALLET = TESTNET_WALLET5_NAME;
+const std::string CURRENT_DST_WALLET = TESTNET_WALLET6_NAME;
 
 const char * TESTNET_DAEMON_ADDRESS = "localhost:38081";
 const uint64_t AMOUNT_10XMR =  10000000000000L;
@@ -131,12 +132,12 @@ struct Utils
 };
 
 
-struct DISABLED_WalletManagerTest : public testing::Test
+struct WalletManagerTest : public testing::Test
 {
     Bitmonero::WalletManager * wmgr;
 
 
-    DISABLED_WalletManagerTest()
+    WalletManagerTest()
     {
         std::cout << __FUNCTION__ << std::endl;
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
@@ -145,7 +146,7 @@ struct DISABLED_WalletManagerTest : public testing::Test
     }
 
 
-    ~DISABLED_WalletManagerTest()
+    ~WalletManagerTest()
     {
         std::cout << __FUNCTION__ << std::endl;
         //deleteWallet(WALLET_NAME);
@@ -180,7 +181,7 @@ struct WalletTest2 : public testing::Test
 };
 
 
-TEST_F(DISABLED_WalletManagerTest, WalletManagerCreatesWallet)
+TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
 
     Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -197,7 +198,7 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerCreatesWallet)
 
 }
 
-TEST_F(DISABLED_WalletManagerTest, WalletManagerOpensWallet)
+TEST_F(WalletManagerTest, WalletManagerOpensWallet)
 {
 
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -209,8 +210,8 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerOpensWallet)
     std::cout << "** seed: " << wallet2->seed() << std::endl;
 }
 
-
-TEST_F(DISABLED_WalletManagerTest, WalletManagerChangesPassword)
+/*
+TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
@@ -226,7 +227,7 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerChangesPassword)
 
 
 
-TEST_F(DISABLED_WalletManagerTest, WalletManagerRecoversWallet)
+TEST_F(WalletManagerTest, WalletManagerRecoversWallet)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
@@ -242,7 +243,7 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerRecoversWallet)
 }
 
 
-TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet1)
+TEST_F(WalletManagerTest, WalletManagerStoresWallet1)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
@@ -259,7 +260,7 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet1)
 }
 
 
-TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet2)
+TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
@@ -275,7 +276,7 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet2)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
-TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet3)
+TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
@@ -297,7 +298,7 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet3)
 
 }
 
-TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet4)
+TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
     std::string seed1 = wallet1->seed();
@@ -317,7 +318,17 @@ TEST_F(DISABLED_WalletManagerTest, WalletManagerStoresWallet4)
     ASSERT_TRUE(wallet1->address() == address1);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
+*/
 
+TEST_F(WalletManagerTest, WalletManagerFindsWallet)
+{
+    std::vector<std::string> wallets = wmgr->findWallets(WALLETS_ROOT_DIR);
+    ASSERT_FALSE(wallets.empty());
+    std::cout << "Found wallets: " << std::endl;
+    for (auto wallet_path: wallets) {
+        std::cout << wallet_path << std::endl;
+    }
+}
 
 
 TEST_F(WalletTest1, WalletShowsBalance)
@@ -348,6 +359,8 @@ TEST_F(WalletTest1, WalletRefresh)
     ASSERT_TRUE(wallet1->refresh());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
+
+
 
 TEST_F(WalletTest1, WalletTransaction)
 {

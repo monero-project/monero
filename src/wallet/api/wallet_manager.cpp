@@ -32,6 +32,11 @@
 #include "wallet_manager.h"
 #include "wallet.h"
 
+#include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
+
+namespace fs = ::boost::filesystem;
+
 namespace epee {
     unsigned int g_test_dbg_lock_sleep = 0;
 }
@@ -75,6 +80,38 @@ bool WalletManagerImpl::closeWallet(Wallet *wallet)
 bool WalletManagerImpl::walletExists(const std::string &path)
 {
     return false;
+}
+
+
+std::vector<std::string> WalletManagerImpl::findWallets(const std::string &path)
+{
+    std::vector<std::string> result;
+    const boost::regex wallet_rx("(.*)\\.(address\\.txt)$");
+    boost::filesystem::recursive_directory_iterator end_itr; // Default ctor yields past-the-end
+    boost::filesystem::path work_dir(path);
+
+    for (boost::filesystem::recursive_directory_iterator itr(path); itr != end_itr; ++itr) {
+        // Skip if not a file
+        if (!boost::filesystem::is_regular_file(itr->status()))
+            continue;
+        boost::smatch what;
+        std::string filename = itr->path().filename().string();
+
+        LOG_PRINT_L3("Checking filename: " << filename);
+
+        bool matched = boost::regex_match(filename, what, wallet_rx);
+        if (matched) {
+            // if address file found, checking if there's corresponding .keys file and wallet file itself
+            std::string wallet_file = (itr->path().parent_path() /= what[1]).string();
+            std::string wallet_key_file = wallet_file + std::string(".keys");
+            if (boost::filesystem::exists(wallet_file)
+                    && boost::filesystem::exists(wallet_key_file)) {
+                LOG_PRINT_L3("Found wallet: " << wallet_file);
+                result.push_back(wallet_file);
+            }
+        }
+    }
+    return result;
 }
 
 std::string WalletManagerImpl::errorString() const
