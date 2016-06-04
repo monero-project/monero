@@ -470,6 +470,7 @@ namespace rct {
         CHECK_AND_ASSERT_THROW_MES(mixin >= 0, "Mixin must be positive");
         CHECK_AND_ASSERT_THROW_MES(amounts.size() > 0, "Amounts must not be empty");
         CHECK_AND_ASSERT_THROW_MES(inSk.size() == inPk.size(), "Different number of public/private keys");
+        CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size(), "Different number of amounts/destinations");
 
         rctSig rv;
         rv.outPk.resize(destinations.size());
