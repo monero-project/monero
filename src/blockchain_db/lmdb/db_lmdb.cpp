@@ -155,6 +155,8 @@ int compare_string(const MDB_val *a, const MDB_val *b)
  *
  * spent_keys       input hash   -
  *
+ * rct_commitments  input ID     {commitment key}
+ *
  * Note: where the data items are of uniform size, DUPFIXED tables have
  * been used to save space. In most of these cases, a dummy "zerokval"
  * key is used when accessing the table; the Key listed above will be
@@ -174,6 +176,8 @@ const char* const LMDB_TX_OUTPUTS = "tx_outputs";
 const char* const LMDB_OUTPUT_TXS = "output_txs";
 const char* const LMDB_OUTPUT_AMOUNTS = "output_amounts";
 const char* const LMDB_SPENT_KEYS = "spent_keys";
+
+const char* const LMDB_RCT_COMMITMENTS  = "rct_commitments";
 
 const char* const LMDB_HF_STARTING_HEIGHTS = "hf_starting_heights";
 const char* const LMDB_HF_VERSIONS = "hf_versions";
@@ -1084,6 +1088,8 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
+  lmdb_db_open(txn, LMDB_RCT_COMMITMENTS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_rct_commitments, "Failed to open db handle for m_rct_commitments");
+
   // this subdb is dropped on sight, so it may not be present when we open the DB.
   // Since we use MDB_CREATE, we'll get an exception if we open read-only and it does not exist.
   // So we don't open for read-only, and also not drop below. It is not used elsewhere.
@@ -1250,6 +1256,8 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_output_amounts: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_spent_keys, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_spent_keys: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_rct_commitments, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_rct_commitments: ", result).c_str()));
   (void)mdb_drop(txn, m_hf_starting_heights, 0); // this one is dropped in new code
   if (auto result = mdb_drop(txn, m_hf_versions, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_versions: ", result).c_str()));
@@ -2720,6 +2728,106 @@ uint8_t BlockchainLMDB::get_hard_fork_version(uint64_t height) const
   uint8_t ret = *(const uint8_t*)val_ret.mv_data;
   TXN_POSTFIX_RDONLY();
   return ret;
+}
+
+uint64_t BlockchainLMDB::get_num_rct_outputs() const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(rct_commitments);
+
+  mdb_size_t num_outputs = 0;
+  MDB_stat ms;
+  auto result = mdb_stat(m_txn, m_rct_commitments, &ms);
+  if (result == MDB_SUCCESS)
+  {
+    num_outputs = ms.ms_entries;
+  }
+  else if (result == MDB_NOTFOUND)
+  {
+    num_outputs = 0;
+  }
+  else
+  {
+    throw0(DB_ERROR("DB error attempting to get number of ringct outputs"));
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return num_outputs;
+}
+
+rct::key BlockchainLMDB::get_rct_commitment(uint64_t idx) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(rct_commitments);
+
+  MDB_val_set(val_key, idx);
+  MDB_val val_ret;
+  auto result = mdb_cursor_get(m_cur_rct_commitments, &val_key, &val_ret, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    throw0(OUTPUT_DNE(lmdb_error("Error attempting to retrieve rct commitment for " + boost::lexical_cast<std::string>(idx) + " from the db: ", result).c_str()));
+  else if (result)
+    throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct commitment for " + boost::lexical_cast<std::string>(idx) + " from the db: ", result).c_str()));
+
+  rct::key commitment = *(const rct::key*)val_ret.mv_data;
+  TXN_POSTFIX_RDONLY();
+  return commitment;
+}
+
+void BlockchainLMDB::remove_rct_commitment(uint64_t idx)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+  CURSOR(rct_commitments);
+
+  MDB_val_set(val_key, idx);
+  MDB_val val_ret;
+  auto result = mdb_cursor_get(m_cur_rct_commitments, &val_key, &val_ret, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    throw0(OUTPUT_DNE(lmdb_error("Error attempting to retrieve rct commitment for " + boost::lexical_cast<std::string>(idx) + " from the db: ", result).c_str()));
+  else if (result)
+    throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct commitment for " + boost::lexical_cast<std::string>(idx) + " from the db: ", result).c_str()));
+  result = mdb_cursor_del(m_cur_rct_commitments, 0);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Error attempting to remove rct commitment for " + boost::lexical_cast<std::string>(idx) + " from the db: ", result).c_str()));
+}
+
+uint64_t BlockchainLMDB::add_rct_commitment(const rct::key &commitment)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(rct_commitments);
+
+  uint64_t num_outputs = 0;
+  MDB_stat ms;
+  auto result = mdb_stat(*m_write_txn, m_rct_commitments, &ms);
+  if (result == MDB_SUCCESS)
+    num_outputs = ms.ms_entries;
+  else if (result == MDB_NOTFOUND)
+    num_outputs = 0;
+  else
+    throw0(DB_ERROR("DB error attempting to get number of ringct outputs"));
+
+  MDB_val_set(val_key, num_outputs);
+  MDB_val val_value;
+  val_value.mv_size = sizeof(rct::key);
+  val_value.mv_data = (void*)&commitment;
+  result = mdb_cursor_put(m_cur_rct_commitments, (MDB_val *)&val_key, &val_value, 0);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to add rct output to db transaction: ", result).c_str()));
+
+  return num_outputs;
 }
 
 bool BlockchainLMDB::is_read_only() const

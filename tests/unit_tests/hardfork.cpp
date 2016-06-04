@@ -100,6 +100,10 @@ public:
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) {}
   virtual void add_spent_key(const crypto::key_image& k_image) {}
   virtual void remove_spent_key(const crypto::key_image& k_image) {}
+  virtual uint64_t get_num_rct_outputs() const { return 0; }
+  virtual rct::key get_rct_commitment(uint64_t idx) const { return rct::key(); }
+  virtual uint64_t add_rct_commitment(const rct::key &commitment) { return 0; }
+  virtual void remove_rct_commitment(uint64_t idx) {}
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const { return true; }
   virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const { return true; }

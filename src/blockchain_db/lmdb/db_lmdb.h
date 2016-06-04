@@ -30,6 +30,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_protocol/blobdatatype.h" // for type blobdata
+#include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
 
 #include <lmdb.h>
@@ -54,6 +55,8 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
+  MDB_cursor *m_txc_rct_commitments;
+
   MDB_cursor *m_txc_hf_versions;
 } mdb_txn_cursors;
 
@@ -66,6 +69,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
+#define m_cur_rct_commitments	m_cursors->m_txc_rct_commitments
 #define m_cur_hf_versions	m_cursors->m_txc_hf_versions
 
 typedef struct mdb_rflags
@@ -80,6 +84,7 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
+  bool m_rf_rct_commitments;
   bool m_rf_hf_versions;
 } mdb_rflags;
 
@@ -231,6 +236,11 @@ public:
 
   virtual bool has_key_image(const crypto::key_image& img) const;
 
+  virtual uint64_t get_num_rct_outputs() const;
+  virtual rct::key get_rct_commitment(uint64_t idx) const;
+  virtual uint64_t add_rct_commitment(const rct::key &commitment);
+  virtual void remove_rct_commitment(uint64_t idx);
+
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
   virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const;
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const;
@@ -358,6 +368,8 @@ private:
   MDB_dbi m_output_amounts;
 
   MDB_dbi m_spent_keys;
+
+  MDB_dbi m_rct_commitments;
 
   MDB_dbi m_hf_starting_heights;
   MDB_dbi m_hf_versions;

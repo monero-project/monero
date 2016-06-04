@@ -1200,6 +1200,39 @@ public:
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
 
   /**
+   * @brief returns the number of ringct outputs in the database
+   *
+   * @return the number of ringct outputs in the database
+   */
+  virtual uint64_t get_num_rct_outputs() const = 0;
+
+  /**
+   * @brief returns the commitment for a given ringct output
+   *
+   * Throws OUTPUT_DNE if the index is out of range
+   * Throws DB_ERROR on other error
+   *
+   * @return the commitment for the given index
+   */
+  virtual rct::key get_rct_commitment(uint64_t idx) const = 0;
+
+  /**
+   * @brief Adds a new ringct output with the given commitment
+   *
+   * Throws DB_ERROR if the addition fails
+   *
+   * @return the index of the newly added record
+   */
+  virtual uint64_t add_rct_commitment(const rct::key &commitment) = 0;
+
+  /**
+   * @brief Remove a ringct output with the given index
+   *
+   * Throws DB_ERROR if the removal fails
+   */
+  virtual void remove_rct_commitment(uint64_t idx) = 0;
+
+  /**
    * @brief runs a function over all key images stored
    *
    * The subclass should run the passed function for each key image it has
