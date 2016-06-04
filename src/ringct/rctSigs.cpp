@@ -486,7 +486,7 @@ namespace rct {
             //compute range proof
             rv.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, amounts[i]);
             #ifdef DBG
-                verRange(rv.outPk[i].mask, rv.rangeSigs[i]);
+                CHECK_AND_ASSERT_THROW_MES(verRange(rv.outPk[i].mask, rv.rangeSigs[i]), "verRange failed on newly created proof");
             #endif
 
             //mask amount and mask
