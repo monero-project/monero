@@ -439,14 +439,14 @@ namespace rct {
     //These functions get keys from blockchain
     //replace these when connecting blockchain
     //getKeyFromBlockchain grabs a key from the blockchain at "reference_index" to mix with
-    //populateFromBlockchain creates a keymatrix with "mixin" columns and one of the columns is inPk
+    //populateFromBlockchain creates a keymatrix with "mixin" + 1 columns and one of the columns is inPk
     //   the return value are the key matrix, and the index where inPk was put (random).     
     tuple<ctkeyM, xmr_amount> populateFromBlockchain(ctkeyV inPk, int mixin) {
         int rows = inPk.size();
-        ctkeyM rv(mixin, inPk);
+        ctkeyM rv(mixin + 1, inPk);
         int index = randXmrAmount(mixin);
         int i = 0, j = 0;
-        for (i = 0; i < mixin; i++) {
+        for (i = 0; i <= mixin; i++) {
             if (i != index) {
                 for (j = 0; j < rows; j++) {
                     getKeyFromBlockchain(rv[i][j], (size_t)randXmrAmount);
