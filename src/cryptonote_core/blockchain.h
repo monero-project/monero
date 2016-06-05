@@ -455,6 +455,23 @@ namespace cryptonote
     bool get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res) const;
 
     /**
+     * @brief gets random ringct outputs to mix with
+     *
+     * This function takes an RPC request for outputs to mix with
+     * and creates an RPC response with the resultant output indices
+     * and the matching keys.
+     *
+     * Outputs to mix with are randomly selected from the utxo set
+     * for each output amount in the request.
+     *
+     * @param req the output amounts and number of mixins to select
+     * @param res return-by-reference the resultant output indices
+     *
+     * @return true
+     */
+    bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
+
+    /**
      * @brief gets the global indices for outputs from a given transaction
      *
      * This function gets the global indices for all outputs belonging
@@ -1052,6 +1069,14 @@ namespace cryptonote
      * @param i the output index (indexed to amount)
      */
     void add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs, uint64_t amount, size_t i) const;
+
+    /**
+     * @brief adds the given output to the requested set of random ringct outputs
+     *
+     * @param outs return-by-reference the set the output is to be added to
+     * @param i the rct output index
+     */
+    void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, size_t i) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)

@@ -479,6 +479,14 @@ namespace cryptonote
       */
      bool get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res) const;
 
+     /**
+      *
+      * @copydoc Blockchain::get_random_rct_outs
+      *
+      * @note see Blockchain::get_random_rct_outs
+      */
+     bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
+
 
      /**
       * @copydoc miner::pause

@@ -315,6 +315,36 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS
+  {
+    struct request
+    {
+      uint64_t outs_count;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outs_count)
+      END_KV_SERIALIZE_MAP()
+    };
+
+#pragma pack (push, 1)
+    struct out_entry
+    {
+      uint64_t global_amount_index;
+      crypto::public_key out_key;
+      rct::key commitment;
+    };
+#pragma pack(pop)
+
+    struct response
+    {
+      std::list<out_entry> outs;
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outs)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
   //-----------------------------------------------
   struct COMMAND_RPC_SEND_RAW_TX
   {
