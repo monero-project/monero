@@ -287,6 +287,11 @@ namespace rct {
     void b2h(key  & amountdh, bits amountb2);
     //int[64] to uint long long
     xmr_amount b2d(bits amountb);
+
+    static inline bool operator==(const key &k0, const public_key &k1) { return !memcmp(&k0, &k1, 32); }
+    static inline bool operator==(const public_key &k0, const key &k1) { return !memcmp(&k0, &k1, 32); }
+    static inline key pk2rct(const public_key &pk) { key k; memcpy(&k, &pk, 32); return k; }
+    static inline public_key rct2pk(const key &k) { public_key pk; memcpy(&pk, &k, 32); return pk; }
 }
 
 template<typename T> std::ostream &print256(std::ostream &o, const T &v);
