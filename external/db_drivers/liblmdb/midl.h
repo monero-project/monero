@@ -60,11 +60,7 @@ typedef MDB_ID *MDB_IDL;
 /* IDL sizes - likely should be even bigger
  *   limiting factors: sizeof(ID), thread stack size
  */
-#ifdef MDB_VL32
-#define	MDB_IDL_LOGN	14	/* DB_SIZE is 2^14, UM_SIZE is 2^15 */
-#else
 #define	MDB_IDL_LOGN	16	/* DB_SIZE is 2^16, UM_SIZE is 2^17 */
-#endif
 #define MDB_IDL_DB_SIZE		(1<<MDB_IDL_LOGN)
 #define MDB_IDL_UM_SIZE		(1<<(MDB_IDL_LOGN+1))
 
