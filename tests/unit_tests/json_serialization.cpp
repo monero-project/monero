@@ -3,6 +3,10 @@
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "serialization/json_object.h"
 
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/stringbuffer.h"
+#include <iostream>
+
 using namespace cryptonote;
 using epee::string_tools::pod_to_hex;
 
@@ -108,30 +112,66 @@ TEST(JsonSerialization, SerializeBlock)
 {
   auto blocks = getBlocks();
 
+  rapidjson::Document d;
+
+  d.SetObject();
+
+  rapidjson::Value v;
+
+  v.SetArray();
+
   for (auto& bl : blocks)
   {
-    rapidjson::Document d;
     auto b_as_json = json::toJsonValue(d, bl);
 
     auto b_from_json = json::fromJsonValue<block>(b_as_json);
 
+    v.PushBack(b_as_json, d.GetAllocator());
+
     ASSERT_TRUE(compare_blocks(bl, b_from_json));
   }
+
+  d.AddMember("blocks", v, d.GetAllocator());
+
+  rapidjson::StringBuffer buf;
+  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+  d.Accept(writer);
+
+  // NOTE: Uncomment below for debugging (or just for funsies)
+  // std::cout << "Blocks: " << buf.GetString() << std::endl;
 }
 
 TEST(JsonSerialization, SerializeTransaction)
 {
   auto transactions = getTransactions();
 
+  rapidjson::Document d;
+
+  d.SetObject();
+
+  rapidjson::Value v;
+
+  v.SetArray();
+
   for (auto& tx : transactions)
   {
-    rapidjson::Document d;
     auto tx_as_json = json::toJsonValue(d, tx);
 
     auto tx_from_json = json::fromJsonValue<transaction>(tx_as_json);
 
+    v.PushBack(tx_as_json, d.GetAllocator());
+
     ASSERT_HASH_EQ(get_transaction_hash(tx), get_transaction_hash(tx_from_json));
   }
+
+  d.AddMember("transactions", v, d.GetAllocator());
+
+  rapidjson::StringBuffer buf;
+  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+  d.Accept(writer);
+
+  // NOTE: Uncomment below for debugging (or just for funsies)
+  // std::cout << "Transactions: " << buf.GetString() << std::endl;
 }
 
 }  // anonymous namespace
