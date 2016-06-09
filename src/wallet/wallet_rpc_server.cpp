@@ -245,9 +245,9 @@ namespace tools
       m_wallet.commit_tx(ptx_vector);
 
       // populate response with tx hash
-      res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx_vector.back().tx));
       if (req.get_tx_key)
-        res.tx_key = boost::lexical_cast<std::string>(ptx_vector.back().tx_key);
+        res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -308,9 +308,9 @@ namespace tools
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
-          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
       }
 
       return true;
@@ -354,9 +354,9 @@ namespace tools
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
-          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
       }
 
       return true;
@@ -413,9 +413,9 @@ namespace tools
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
-          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
       }
 
       return true;
@@ -493,7 +493,7 @@ namespace tools
         return false;
       }
       res.standard_address = get_account_address_as_str(m_wallet.testnet(),address);
-      res.payment_id = boost::lexical_cast<std::string>(payment_id);
+      res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
     catch (std::exception &e)
@@ -686,7 +686,7 @@ namespace tools
         rpc_transfers.amount       = td.amount();
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
-        rpc_transfers.tx_hash      = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(td.m_tx));
+        rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(td.m_tx));
         rpc_transfers.tx_size      = txBlob.size();
         res.transfers.push_back(rpc_transfers);
       }
