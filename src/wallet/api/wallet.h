@@ -74,6 +74,8 @@ public:
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
     virtual void setListener(WalletListener * l);
+    virtual uint32_t defaultMixin() const;
+    virtual void setDefaultMixin(uint32_t arg);
 
 private:
     void clearStatus();

@@ -167,6 +167,16 @@ struct Wallet
     virtual void disposeTransaction(PendingTransaction * t) = 0;
     virtual TransactionHistory * history() const = 0;
     virtual void setListener(WalletListener *) = 0;
+    /*!
+     * \brief defaultMixin - returns number of mixins used in transactions
+     * \return
+     */
+    virtual uint32_t defaultMixin() const = 0;
+    /*!
+     * \brief setDefaultMixin - setum number of mixins to be used for new transactions
+     * \param arg
+     */
+    virtual void setDefaultMixin(uint32_t arg) = 0;
 };
 
 /**

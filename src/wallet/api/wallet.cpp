@@ -400,7 +400,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64
 
 
         try {
-            transaction->m_pending_tx = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */,
+            transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
                                                                       0 /* unused fee arg*/, extra, m_trustedDaemon);
 
         } catch (const tools::error::daemon_busy&) {
@@ -486,6 +486,15 @@ void WalletImpl::setListener(WalletListener *l)
     m_wallet2Callback->setListener(l);
 }
 
+uint32_t WalletImpl::defaultMixin() const
+{
+    return m_wallet->default_mixin();
+}
+
+void WalletImpl::setDefaultMixin(uint32_t arg)
+{
+    m_wallet->default_mixin(arg);
+}
 
 
 bool WalletImpl::connectToDaemon()
