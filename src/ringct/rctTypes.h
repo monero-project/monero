@@ -288,10 +288,20 @@ namespace rct {
     //int[64] to uint long long
     xmr_amount b2d(bits amountb);
 
-    static inline bool operator==(const key &k0, const public_key &k1) { return !memcmp(&k0, &k1, 32); }
-    static inline bool operator==(const public_key &k0, const key &k1) { return !memcmp(&k0, &k1, 32); }
-    static inline key pk2rct(const public_key &pk) { key k; memcpy(&k, &pk, 32); return k; }
-    static inline public_key rct2pk(const key &k) { public_key pk; memcpy(&pk, &k, 32); return pk; }
+    static inline rct::key pk2rct(const crypto::public_key &pk) { rct::key k; memcpy(&k, &pk, 32); return k; }
+    static inline rct::key sk2rct(const crypto::secret_key &sk) { rct::key k; memcpy(&k, &sk, 32); return k; }
+    static inline rct::key ki2rct(const crypto::key_image &ki) { rct::key k; memcpy(&k, &ki, 32); return k; }
+    static inline crypto::public_key rct2pk(const rct::key &k) { crypto::public_key pk; memcpy(&pk, &k, 32); return pk; }
+    static inline crypto::secret_key rct2sk(const rct::key &k) { crypto::secret_key sk; memcpy(&sk, &k, 32); return sk; }
+    static inline crypto::key_image rct2ki(const rct::key &k) { crypto::key_image ki; memcpy(&ki, &k, 32); return ki; }
+    static inline bool operator==(const rct::key &k0, const crypto::public_key &k1) { return !memcmp(&k0, &k1, 32); }
+    static inline bool operator!=(const rct::key &k0, const crypto::public_key &k1) { return memcmp(&k0, &k1, 32); }
+}
+
+
+namespace cryptonote {
+    static inline bool operator==(const crypto::public_key &k0, const rct::key &k1) { return !memcmp(&k0, &k1, 32); }
+    static inline bool operator!=(const crypto::public_key &k0, const rct::key &k1) { return memcmp(&k0, &k1, 32); }
 }
 
 template<typename T> std::ostream &print256(std::ostream &o, const T &v);
