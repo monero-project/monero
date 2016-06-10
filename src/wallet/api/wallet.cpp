@@ -303,6 +303,16 @@ bool WalletImpl::store(const std::string &path)
     return m_status == Status_Ok;
 }
 
+string WalletImpl::filename() const
+{
+    return m_wallet->get_wallet_file();
+}
+
+string WalletImpl::keysFilename() const
+{
+    return m_wallet->get_keys_file();
+}
+
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();

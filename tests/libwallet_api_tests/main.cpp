@@ -210,6 +210,35 @@ TEST_F(WalletManagerTest, WalletManagerOpensWallet)
     std::cout << "** seed: " << wallet2->seed() << std::endl;
 }
 
+TEST_F(WalletManagerTest, WalletManagerStoresWallet)
+{
+
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    std::string seed1 = wallet1->seed();
+    wallet1->store("");
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->seed() == seed1);
+}
+
+
+TEST_F(WalletManagerTest, WalletManagerMovesWallet)
+{
+
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
+    std::string WALLET_NAME_MOVED = std::string("/tmp/") + WALLET_NAME + ".moved";
+    std::string seed1 = wallet1->seed();
+    ASSERT_TRUE(wallet1->store(WALLET_NAME_MOVED));
+
+    Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME_MOVED, WALLET_PASS);
+    ASSERT_TRUE(wallet2->filename() == WALLET_NAME_MOVED);
+    ASSERT_TRUE(wallet2->keysFilename() == WALLET_NAME_MOVED + ".keys");
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->seed() == seed1);
+}
+
+
 /*
 TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {

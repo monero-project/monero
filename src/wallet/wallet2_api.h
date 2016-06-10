@@ -135,7 +135,24 @@ struct Wallet
     virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address() const = 0;
+    /*!
+     * \brief store - stores wallet to file.
+     * \param path - main filename to store wallet to. additionally stores address file and keys file.
+     *               to store to the same file - just pass empty string;
+     * \return
+     */
     virtual bool store(const std::string &path) = 0;
+    /*!
+     * \brief filename - returns wallet filename
+     * \return
+     */
+    virtual std::string filename() const = 0;
+    /*!
+     * \brief keysFilename - returns keys filename. usually this formed as "wallet_filename".keys
+     * \return
+     */
+    virtual std::string keysFilename() const = 0;
+
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
     virtual bool connectToDaemon() = 0;
     virtual void setTrustedDaemon(bool arg) = 0;

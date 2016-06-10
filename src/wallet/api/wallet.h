@@ -61,6 +61,8 @@ public:
     bool setPassword(const std::string &password);
     std::string address() const;
     bool store(const std::string &path);
+    std::string filename() const;
+    std::string keysFilename() const;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
     bool connectToDaemon();
     void setTrustedDaemon(bool arg);
