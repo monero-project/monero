@@ -472,7 +472,7 @@ namespace rct {
     //   Thus the amounts vector will be "one" longer than the destinations vectort
     rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, unsigned int index) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() > 0, "Amounts must not be empty");
-        CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size(), "Different number of amounts/destinations");
+        CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
         for (size_t n = 0; n < mixRing.size(); ++n) {
           CHECK_AND_ASSERT_THROW_MES(mixRing[n].size() == inSk.size(), "Bad mixRing size");
@@ -503,7 +503,14 @@ namespace rct {
         }
 
         //set txn fee
-        rv.txnFee = amounts[destinations.size()];
+        if (amounts.size() > destinations.size())
+        {
+          rv.txnFee = amounts[destinations.size()];
+        }
+        else
+        {
+          rv.txnFee = 0;
+        }
         key txnFeeKey = scalarmultH(d2h(rv.txnFee));
 
         rv.mixRing = mixRing;
