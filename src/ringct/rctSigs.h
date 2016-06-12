@@ -112,8 +112,8 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index);
-    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk);
+    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index, key txnFee);
+    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFee);
 
     //These functions get keys from blockchain
     //replace these when connecting blockchain

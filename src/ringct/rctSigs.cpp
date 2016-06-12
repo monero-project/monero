@@ -334,7 +334,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, unsigned int index) {
+    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, unsigned int index, key txnFeeKey) {
         mgSig mg;
         //setup vars
         size_t cols = pubs.size();
@@ -372,6 +372,8 @@ namespace rct {
             for (size_t j = 0; j < outPk.size(); j++) {
                 subKeys(M[i][rows], M[i][rows], outPk[j].mask); //subtract output Ci's in last row
             }
+            //subtract txn fee output in last row
+            subKeys(M[i][rows], M[i][rows], txnFeeKey);
         }
         for (size_t j = 0; j < outPk.size(); j++) {
             sc_sub(sk[rows].bytes, sk[rows].bytes, outSk[j].mask.bytes); //subtract output masks in last row..
@@ -389,7 +391,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk) {
+    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey) {
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
@@ -410,20 +412,20 @@ namespace rct {
         for (j = 0; j < rows; j++) {
             for (i = 0; i < cols; i++) {
                 M[i][j] = pubs[i][j].dest;
-                addKeys(M[i][rows], M[i][rows], pubs[i][j].mask);
+                addKeys(M[i][rows], M[i][rows], pubs[i][j].mask); //add Ci in last row
             }
         }
-        for (size_t j = 0; j < outPk.size(); j++) {
-            for (i = 0; i < cols; i++) {
-                subKeys(M[i][rows], M[i][rows], outPk[j].mask);
+        for (i = 0; i < cols; i++) {
+            for (j = 0; j < outPk.size(); j++) {
+                subKeys(M[i][rows], M[i][rows], outPk[j].mask); //subtract output Ci's in last row
             }
-
+            //subtract txn fee output in last row
+            subKeys(M[i][rows], M[i][rows], txnFeeKey);
         }
         key message = cn_fast_hash(outPk);
         DP("message:");
         DP(message);
         return MLSAG_Ver(message, M, mg);
-
     }
 
     //These functions get keys from blockchain
@@ -466,6 +468,8 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number
+    //   Note: For txn fees, the last index in the amounts vector should contain that
+    //   Thus the amounts vector will be "one" longer than the destinations vectort
     rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, unsigned int index) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() > 0, "Amounts must not be empty");
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size(), "Different number of amounts/destinations");
@@ -498,9 +502,12 @@ namespace rct {
 
         }
 
+        //set txn fee
+        rv.txnFee = amounts[destinations.size()];
+        key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+
         rv.mixRing = mixRing;
-        rv.MG = proveRctMG(rv.mixRing, inSk, outSk, rv.outPk, index);
-        if (!verRctMG(rv.MG, rv.mixRing, rv.outPk)) { printf("proveRctMG genreated bad data\n"); }
+        rv.MG = proveRctMG(rv.mixRing, inSk, outSk, rv.outPk, index, txnFeeKey);
         return rv;
     }
 
@@ -534,7 +541,9 @@ namespace rct {
             DP(tmp);
             rvb = (rvb && tmp);
         }
-        bool mgVerd = verRctMG(rv.MG, rv.mixRing, rv.outPk);
+        //compute txn fee
+        key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+        bool mgVerd = verRctMG(rv.MG, rv.mixRing, rv.outPk, txnFeeKey);
         DP("mg sig verified?");
         DP(mgVerd);
 

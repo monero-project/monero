@@ -177,6 +177,7 @@ namespace rct {
         //pairs that you mix with
         vector<ecdhTuple> ecdhInfo;
         ctkeyV outPk;
+        xmr_amount txnFee;
 
         BEGIN_SERIALIZE_OBJECT()
             FIELD(rangeSigs)
@@ -184,6 +185,7 @@ namespace rct {
             FIELD(mixRing)
             FIELD(ecdhInfo)
             FIELD(outPk)
+            FIELD(txnFee)
         END_SERIALIZE()
     };
     

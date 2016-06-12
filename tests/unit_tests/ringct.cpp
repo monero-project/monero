@@ -213,6 +213,67 @@ TEST(ringct, range_proofs)
         ASSERT_TRUE(decodeRct(s, Sk, 1));
 }
 
+TEST(ringct, range_proofs_with_fee)
+{
+        //Ring CT Stuff
+        //ct range proofs
+        ctkeyV sc, pc;
+        ctkey sctmp, pctmp;
+        //add fake input 5000
+        tie(sctmp, pctmp) = ctskpkGen(6001);
+        sc.push_back(sctmp);
+        pc.push_back(pctmp);
+
+
+        tie(sctmp, pctmp) = ctskpkGen(7000);
+        sc.push_back(sctmp);
+        pc.push_back(pctmp);
+        vector<xmr_amount >amounts;
+
+
+        //add output 500
+        amounts.push_back(500);
+        keyV destinations;
+        key Sk, Pk;
+        skpkGen(Sk, Pk);
+        destinations.push_back(Pk);
+
+        //add txn fee for 1
+        //has no corresponding destination..
+        amounts.push_back(1);
+
+        //add output for 12500
+        amounts.push_back(12500);
+        skpkGen(Sk, Pk);
+        destinations.push_back(Pk);
+
+        //compute rct data with mixin 500
+        rctSig s = genRct(sc, pc, destinations, amounts, 3);
+
+        //verify rct data
+        ASSERT_TRUE(verRct(s));
+
+        //decode received amount
+        ASSERT_TRUE(decodeRct(s, Sk, 1));
+
+        // Ring CT with failing MG sig part should not verify!
+        // Since sum of inputs != outputs
+
+        amounts[1] = 12501;
+        skpkGen(Sk, Pk);
+        destinations[1] = Pk;
+
+
+        //compute rct data with mixin 500
+        s = genRct(sc, pc, destinations, amounts, 3);
+
+        //verify rct data
+        ASSERT_FALSE(verRct(s));
+
+        //decode received amount
+        ASSERT_TRUE(decodeRct(s, Sk, 1));
+}
+
 static bool range_proof_test(bool expected_valid,
     int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[])
 {
