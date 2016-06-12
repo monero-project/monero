@@ -466,11 +466,13 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number
-    rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin) {
-        CHECK_AND_ASSERT_THROW_MES(mixin >= 0, "Mixin must be positive");
+    rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, unsigned int index) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() > 0, "Amounts must not be empty");
-        CHECK_AND_ASSERT_THROW_MES(inSk.size() == inPk.size(), "Different number of public/private keys");
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size(), "Different number of amounts/destinations");
+        CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
+        for (size_t n = 0; n < mixRing.size(); ++n) {
+          CHECK_AND_ASSERT_THROW_MES(mixRing[n].size() == inSk.size(), "Bad mixRing size");
+        }
 
         rctSig rv;
         rv.outPk.resize(destinations.size());
@@ -496,10 +498,17 @@ namespace rct {
 
         }
 
-        unsigned int index;
-        tie(rv.mixRing, index) = populateFromBlockchain(inPk, mixin);
+        rv.mixRing = mixRing;
         rv.MG = proveRctMG(rv.mixRing, inSk, outSk, rv.outPk, index);
+        if (!verRctMG(rv.MG, rv.mixRing, rv.outPk)) { printf("proveRctMG genreated bad data\n"); }
         return rv;
+    }
+
+    rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin) {
+        unsigned int index;
+        ctkeyM mixRing;
+        tie(mixRing, index) = populateFromBlockchain(inPk, mixin);
+        return genRct(inSk, destinations, amounts, mixRing, index);
     }
     
     //RingCT protocol
@@ -542,15 +551,16 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
-    xmr_amount decodeRct(rctSig & rv, const key & sk, unsigned int i) {
+    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask) {
         CHECK_AND_ASSERT_THROW_MES(rv.rangeSigs.size() > 0, "Empty rv.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
 
         //mask amount and mask
-        ecdhDecode(rv.ecdhInfo[i], sk);
-        key mask = rv.ecdhInfo[i].mask;
-        key amount = rv.ecdhInfo[i].amount;
+        ecdhTuple ecdh_info = rv.ecdhInfo[i];
+        ecdhDecode(ecdh_info, sk);
+        mask = ecdh_info.mask;
+        key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
         DP("C");
         DP(C);
@@ -559,9 +569,13 @@ namespace rct {
         DP("Ctmp");
         DP(Ctmp);
         if (equalKeys(C, Ctmp) == false) {
-            printf("warning, amount decoded incorrectly, will be unable to spend");
+            CHECK_AND_ASSERT_THROW_MES(false, "warning, amount decoded incorrectly, will be unable to spend");
         }
         return h2d(amount);
     }
 
+    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i) {
+      key mask;
+      return decodeRct(rv, sk, i, mask);
+    }
 }
