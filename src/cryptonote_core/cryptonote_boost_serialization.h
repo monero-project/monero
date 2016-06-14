@@ -40,6 +40,7 @@
 #include "cryptonote_basic.h"
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/crypto.h"
+#include "ringct/rctTypes.h"
 
 //namespace cryptonote {
 namespace boost
@@ -162,6 +163,61 @@ namespace boost
     //------------------
     a & b.miner_tx;
     a & b.tx_hashes;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::key &x, const boost::serialization::version_type ver)
+  {
+    a & reinterpret_cast<char (&)[sizeof(rct::key)]>(x);
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::ctkey &x, const boost::serialization::version_type ver)
+  {
+    a & x.dest;
+    a & x.mask;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::rangeSig &x, const boost::serialization::version_type ver)
+  {
+    a & x.asig;
+    a & x.Ci;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::asnlSig &x, const boost::serialization::version_type ver)
+  {
+    a & x.L1;
+    a & x.s2;
+    a & x.s;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::mgSig &x, const boost::serialization::version_type ver)
+  {
+    a & x.ss;
+    a & x.cc;
+    a & x.II;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::ecdhTuple &x, const boost::serialization::version_type ver)
+  {
+    a & x.mask;
+    a & x.amount;
+    a & x.senderPk;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::rctSig &x, const boost::serialization::version_type ver)
+  {
+    a & x.rangeSigs;
+    a & x.MG;
+    a & x.mixRing;
+    a & x.ecdhInfo;
+    a & x.outPk;
+    a & x.txnFee;
   }
 }
 }

@@ -48,6 +48,9 @@ extern "C" {
 #include "crypto/crypto.h"
 
 #include "serialization/serialization.h"
+#include "serialization/debug_archive.h"
+#include "serialization/binary_archive.h"
+#include "serialization/json_archive.h"
 
 
 //Define this flag when debugging to get additional info on the console
@@ -308,5 +311,50 @@ namespace cryptonote {
 
 template<typename T> std::ostream &print256(std::ostream &o, const T &v);
 inline std::ostream &operator <<(std::ostream &o, const rct::key &v) { return print256(o, v); }
+
+
+BLOB_SERIALIZER(rct::key);
+BLOB_SERIALIZER(rct::key64);
+BLOB_SERIALIZER(rct::ctkey);
+BLOB_SERIALIZER(rct::asnlSig);
+
+VARIANT_TAG(debug_archive, rct::key, "rct::key");
+VARIANT_TAG(debug_archive, rct::key64, "rct::key64");
+VARIANT_TAG(debug_archive, rct::keyV, "rct::keyV");
+VARIANT_TAG(debug_archive, rct::keyM, "rct::keyM");
+VARIANT_TAG(debug_archive, rct::ctkey, "rct::ctkey");
+VARIANT_TAG(debug_archive, rct::ctkeyV, "rct::ctkeyV");
+VARIANT_TAG(debug_archive, rct::ctkeyM, "rct::ctkeyM");
+VARIANT_TAG(debug_archive, rct::ecdhTuple, "rct::ecdhTuple");
+VARIANT_TAG(debug_archive, rct::mgSig, "rct::mgSig");
+VARIANT_TAG(debug_archive, rct::rangeSig, "rct::rangeSig");
+VARIANT_TAG(debug_archive, rct::asnlSig, "rct::asnlSig");
+VARIANT_TAG(debug_archive, rct::rctSig, "rct::rctSig");
+
+VARIANT_TAG(binary_archive, rct::key, 0x90);
+VARIANT_TAG(binary_archive, rct::key64, 0x91);
+VARIANT_TAG(binary_archive, rct::keyV, 0x92);
+VARIANT_TAG(binary_archive, rct::keyM, 0x93);
+VARIANT_TAG(binary_archive, rct::ctkey, 0x94);
+VARIANT_TAG(binary_archive, rct::ctkeyV, 0x95);
+VARIANT_TAG(binary_archive, rct::ctkeyM, 0x96);
+VARIANT_TAG(binary_archive, rct::ecdhTuple, 0x97);
+VARIANT_TAG(binary_archive, rct::mgSig, 0x98);
+VARIANT_TAG(binary_archive, rct::rangeSig, 0x99);
+VARIANT_TAG(binary_archive, rct::asnlSig, 0x9a);
+VARIANT_TAG(binary_archive, rct::rctSig, 0x9b);
+
+VARIANT_TAG(json_archive, rct::key, "rct_key");
+VARIANT_TAG(json_archive, rct::key64, "rct_key64");
+VARIANT_TAG(json_archive, rct::keyV, "rct_keyV");
+VARIANT_TAG(json_archive, rct::keyM, "rct_keyM");
+VARIANT_TAG(json_archive, rct::ctkey, "rct_ctkey");
+VARIANT_TAG(json_archive, rct::ctkeyV, "rct_ctkeyV");
+VARIANT_TAG(json_archive, rct::ctkeyM, "rct_ctkeyM");
+VARIANT_TAG(json_archive, rct::ecdhTuple, "rct_ecdhTuple");
+VARIANT_TAG(json_archive, rct::mgSig, "rct_mgSig");
+VARIANT_TAG(json_archive, rct::rangeSig, "rct_rangeSig");
+VARIANT_TAG(json_archive, rct::asnlSig, "rct_asnlSig");
+VARIANT_TAG(json_archive, rct::rctSig, "rct_rctSig");
 
 #endif  /* RCTTYPES_H */
