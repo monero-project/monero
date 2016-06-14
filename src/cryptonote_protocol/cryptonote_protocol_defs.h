@@ -31,6 +31,7 @@
 #pragma once
 
 #include <list>
+#include <unordered_map>
 #include "serialization/keyvalue_serialization.h"
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_protocol/blobdatatype.h"
@@ -101,6 +102,12 @@ namespace cryptonote
       KV_SERIALIZE(block)
       KV_SERIALIZE(txs)
     END_KV_SERIALIZE_MAP()
+  };
+
+  struct block_with_transactions
+  {
+    cryptonote::block block;
+    std::unordered_map<crypto::hash, cryptonote::transaction> transactions;
   };
 
 

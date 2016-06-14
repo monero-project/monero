@@ -55,6 +55,18 @@ Type fromJsonValue(const rapidjson::Value& val)
 }
 
 template <>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const std::string& i)
+{
+  return rapidjson::Value(i.c_str(), doc.GetAllocator());
+}
+
+template <>
+std::string fromJsonValue(const rapidjson::Value& i)
+{
+  return i.GetString();
+}
+
+template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint8_t& i)
 {
   return rapidjson::Value(i);
@@ -100,47 +112,6 @@ template <>
 uint64_t fromJsonValue(const rapidjson::Value& i)
 {
   return i.GetUint64();
-}
-
-template <class Type, template <typename, typename=std::allocator<Type> > class Container>
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const Container<Type>& vec)
-{
-  rapidjson::Value arr(rapidjson::kArrayType);
-
-  for (const Type& t : vec)
-  {
-    arr.PushBack(toJsonValue(doc, t), doc.GetAllocator());
-  }
-
-  return arr;
-}
-
-template <class Type, template <typename, typename=std::allocator<Type> > class Container>
-Container<Type> fromJsonValue(const rapidjson::Value& val)
-{
-  Container<Type> vec;
-
-  for (rapidjson::SizeType i=0; i < val.Size(); i++)
-  {
-    vec.push_back(fromJsonValue<Type>(val[i]));
-  }
-
-  return vec;
-}
-
-template <class Type,
-          template <typename, typename=std::allocator<Type> > class Inner,
-          template <typename, typename=std::allocator<Inner<Type> > > class Outer>
-Outer<Inner<Type>> fromJsonValue(const rapidjson::Value& val)
-{
-  Outer<Inner<Type> > vec;
-
-  for (rapidjson::SizeType i=0; i < val.Size(); i++)
-  {
-    vec.push_back(fromJsonValue<Type, Inner>(val[i]));
-  }
-
-  return vec;
 }
 
 template <>
@@ -506,6 +477,127 @@ cryptonote::tx_out fromJsonValue<cryptonote::tx_out>(const rapidjson::Value& val
   return txout;
 }
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::connection_info>(rapidjson::Document& doc, const cryptonote::connection_info& info)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("incoming", toJsonValue(doc, info.incoming), al);
+  val.AddMember("localhost", toJsonValue(doc, info.localhost), al);
+  val.AddMember("local_ip", toJsonValue(doc, info.local_ip), al);
+
+  val.AddMember("ip", toJsonValue(doc, info.ip), al);
+  val.AddMember("port", toJsonValue(doc, info.port), al);
+
+  val.AddMember("peer_id", toJsonValue(doc, info.peer_id), al);
+
+  val.AddMember("recv_count", toJsonValue(doc, info.recv_count), al);
+  val.AddMember("recv_idle_time", toJsonValue(doc, info.recv_idle_time), al);
+
+  val.AddMember("send_count", toJsonValue(doc, info.send_count), al);
+  val.AddMember("send_idle_time", toJsonValue(doc, info.send_idle_time), al);
+
+  val.AddMember("state", toJsonValue(doc, info.state), al);
+
+  val.AddMember("live_time", toJsonValue(doc, info.live_time), al);
+
+  val.AddMember("avg_download", toJsonValue(doc, info.avg_download), al);
+  val.AddMember("current_download", toJsonValue(doc, info.current_download), al);
+
+  val.AddMember("avg_upload", toJsonValue(doc, info.avg_upload), al);
+  val.AddMember("current_upload", toJsonValue(doc, info.current_upload), al);
+
+  return val;
+}
+
+template <>
+cryptonote::connection_info fromJsonValue<cryptonote::connection_info>(const rapidjson::Value& val)
+{
+  cryptonote::connection_info info;
+
+  info.incoming = fromJsonValue<bool>(val["incoming"]);
+  info.localhost = fromJsonValue<bool>(val["localhost"]);
+  info.local_ip = fromJsonValue<bool>(val["local_ip"]);
+
+  info.ip = fromJsonValue<std::string>(val["ip"]);
+  info.port = fromJsonValue<std::string>(val["port"]);
+
+  info.peer_id = fromJsonValue<std::string>(val["peer_id"]);
+
+  info.recv_count = fromJsonValue<uint64_t>(val["recv_count"]);
+  info.recv_idle_time = fromJsonValue<uint64_t>(val["recv_idle_time"]);
+
+  info.send_count = fromJsonValue<uint64_t>(val["send_count"]);
+  info.send_idle_time = fromJsonValue<uint64_t>(val["send_idle_time"]);
+
+  info.state = fromJsonValue<std::string>(val["state"]);
+
+  info.live_time = fromJsonValue<uint64_t>(val["live_time"]);
+
+  info.avg_download = fromJsonValue<uint64_t>(val["avg_download"]);
+  info.current_download = fromJsonValue<uint64_t>(val["current_download"]);
+
+  info.avg_upload = fromJsonValue<uint64_t>(val["avg_upload"]);
+  info.current_upload = fromJsonValue<uint64_t>(val["current_upload"]);
+
+  return info;
+}
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::block_complete_entry>(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  val.AddMember("block", toJsonValue(doc, blk.block), doc.GetAllocator());
+  val.AddMember("txs", toJsonValue(doc, blk.txs), doc.GetAllocator());
+
+  return val;
+}
+
+template <>
+cryptonote::block_complete_entry fromJsonValue<cryptonote::block_complete_entry>(const rapidjson::Value& val)
+{
+  cryptonote::block_complete_entry blk;
+
+  blk.block = fromJsonValue<blobdata>(val["block"]);
+  blk.txs = fromJsonValue<blobdata, std::list>(val["txs"]);
+
+  return blk;
+}
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::block_with_transactions>(rapidjson::Document& doc, const cryptonote::block_with_transactions& blk)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  val.AddMember("block", toJsonValue(doc, blk.block), doc.GetAllocator());
+  val.AddMember("transactions", toJsonValue<crypto::hash, cryptonote::transaction>
+                                (doc, blk.transactions), doc.GetAllocator());
+
+  return val;
+}
+
+template <>
+cryptonote::block_with_transactions fromJsonValue<cryptonote::block_with_transactions>(const rapidjson::Value& val)
+{
+  cryptonote::block_with_transactions blk;
+
+  blk.block = fromJsonValue<block>(val["block"]);
+  blk.transactions = fromJsonValue<crypto::hash,
+                                   cryptonote::transaction,
+                                   std::unordered_map<crypto::hash, cryptonote::transaction>
+                                  >(val["transactions"]);
+
+  return blk;
+}
 
 }  // namespace json
 

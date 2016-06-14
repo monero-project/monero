@@ -30,6 +30,7 @@
 
 #include "rapidjson/document.h"
 #include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_protocol/cryptonote_protocol_defs.h"
 
 namespace cryptonote
 {
@@ -43,6 +44,12 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const Type& pod);
 
 template <class Type>
 Type fromJsonValue(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const std::string& i);
+
+template <>
+std::string fromJsonValue(const rapidjson::Value& i);
 
 template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint8_t& i);
@@ -67,17 +74,6 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint64_t& i);
 
 template <>
 uint64_t fromJsonValue(const rapidjson::Value& i);
-
-template <class Type, template <typename, typename=std::allocator<Type> > class Container>
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const Container<Type>& vec);
-
-template <class Type, template <typename, typename=std::allocator<Type> > class Container>
-Container<Type> fromJsonValue(const rapidjson::Value& val);
-
-template <class Type,
-          template <typename, typename=std::allocator<Type> > class Inner,
-          template <typename, typename=std::allocator<Inner<Type> > > class Outer>
-Outer<Inner<Type> > fromJsonValue(const rapidjson::Value& val);
 
 template <>
 rapidjson::Value toJsonValue<cryptonote::transaction>(rapidjson::Document& doc, const cryptonote::transaction& tx);
@@ -151,8 +147,99 @@ rapidjson::Value toJsonValue<cryptonote::tx_out>(rapidjson::Document& doc, const
 template <>
 cryptonote::tx_out fromJsonValue<cryptonote::tx_out>(const rapidjson::Value& val);
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::connection_info>(rapidjson::Document& doc, const cryptonote::connection_info& info);
+
+template <>
+cryptonote::connection_info fromJsonValue<cryptonote::connection_info>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::block_complete_entry>(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk);
+
+template <>
+cryptonote::block_complete_entry fromJsonValue<cryptonote::block_complete_entry>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::block_with_transactions>(rapidjson::Document& doc, const cryptonote::block_with_transactions& blk);
+
+template <>
+cryptonote::block_with_transactions fromJsonValue<cryptonote::block_with_transactions>(const rapidjson::Value& val);
 
 
+// ideally would like to have the below functions in the .cpp file, but
+// unfortunately because of how templates work they have to be here.
+
+template <class Key, class Value, class Map = std::unordered_map<Key, Value> >
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const Map& val)
+{
+  rapidjson::Value obj(rapidjson::kObjectType);
+
+  auto& al = doc.GetAllocator();
+
+  for (auto& i : val)
+  {
+    obj.AddMember(toJsonValue<Key>(doc, i.first), toJsonValue<Value>(doc, i.second), al);
+  }
+
+  return obj;
+}
+
+template <class Key, class Value, class Map = std::unordered_map<Key, Value> >
+Map fromJsonValue(const rapidjson::Value& val)
+{
+  Map retmap;
+
+  auto itr = val.MemberBegin();
+
+  while (itr != val.MemberEnd())
+  {
+    retmap.emplace(fromJsonValue<Key>(itr->name), fromJsonValue<Value>(itr->value));
+    ++itr;
+  }
+
+  return retmap;
+}
+
+template <class Type, template <typename, typename=std::allocator<Type> > class Container>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const Container<Type>& vec)
+{
+  rapidjson::Value arr(rapidjson::kArrayType);
+
+  for (const Type& t : vec)
+  {
+    arr.PushBack(toJsonValue(doc, t), doc.GetAllocator());
+  }
+
+  return arr;
+}
+
+template <class Type, template <typename, typename=std::allocator<Type> > class Container>
+Container<Type> fromJsonValue(const rapidjson::Value& val)
+{
+  Container<Type> vec;
+
+  for (rapidjson::SizeType i=0; i < val.Size(); i++)
+  {
+    vec.push_back(fromJsonValue<Type>(val[i]));
+  }
+
+  return vec;
+}
+
+template <class Type,
+          template <typename, typename=std::allocator<Type> > class Inner,
+          template <typename, typename=std::allocator<Inner<Type> > > class Outer>
+Outer<Inner<Type>> fromJsonValue(const rapidjson::Value& val)
+{
+  Outer<Inner<Type> > vec;
+
+  for (rapidjson::SizeType i=0; i < val.Size(); i++)
+  {
+    vec.push_back(fromJsonValue<Type, Inner>(val[i]));
+  }
+
+  return vec;
+}
 
 
 

@@ -1,11 +1,14 @@
 #include "gtest/gtest.h"
 
 #include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "serialization/json_object.h"
 
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 #include <iostream>
+#include <unordered_map>
+#include <algorithm>
 
 using namespace cryptonote;
 using epee::string_tools::pod_to_hex;
@@ -28,16 +31,6 @@ const std::vector<std::vector<std::string>> t_transactions =
   , {
     }
   };
-
-// if the return type (blobdata for now) of block_to_blob ever changes
-// from std::string, this might break.
-bool compare_blocks(const block& a, const block& b)
-{
-  auto hash_a = pod_to_hex(get_block_hash(a));
-  auto hash_b = pod_to_hex(get_block_hash(b));
-
-  return hash_a == hash_b;
-}
 
 // convert hex string to string that has values based on that hex
 // thankfully should automatically ignore null-terminator.
@@ -108,6 +101,25 @@ std::vector<transaction> getTransactions()
   return transactions;
 }
 
+std::unordered_map<crypto::hash, cryptonote::transaction> getBlockTransactions(cryptonote::block& b, std::vector<cryptonote::transaction> txs)
+{
+  std::unordered_map<crypto::hash, cryptonote::transaction> map;
+
+  for (auto& tx : txs)
+  {
+    auto hash = get_transaction_hash(tx);
+
+    auto itr = std::find(b.tx_hashes.begin(), b.tx_hashes.end(), hash);
+
+    if (itr != b.tx_hashes.end())
+    {
+      map.emplace(hash, tx);
+    }
+  }
+
+  return map;
+}
+
 TEST(JsonSerialization, SerializeBlock)
 {
   auto blocks = getBlocks();
@@ -128,7 +140,7 @@ TEST(JsonSerialization, SerializeBlock)
 
     v.PushBack(b_as_json, d.GetAllocator());
 
-    ASSERT_TRUE(compare_blocks(bl, b_from_json));
+    ASSERT_EQ(bl, b_from_json);
   }
 
   d.AddMember("blocks", v, d.GetAllocator());
@@ -161,7 +173,7 @@ TEST(JsonSerialization, SerializeTransaction)
 
     v.PushBack(tx_as_json, d.GetAllocator());
 
-    ASSERT_HASH_EQ(get_transaction_hash(tx), get_transaction_hash(tx_from_json));
+    ASSERT_EQ(tx, tx_from_json);
   }
 
   d.AddMember("transactions", v, d.GetAllocator());
@@ -172,6 +184,76 @@ TEST(JsonSerialization, SerializeTransaction)
 
   // NOTE: Uncomment below for debugging (or just for funsies)
   // std::cout << "Transactions: " << buf.GetString() << std::endl;
+}
+
+TEST(JsonSerialization, SerializeUnorderedMap)
+{
+  std::unordered_map<std::string, std::string> map;
+
+  map.emplace("foo", "bar");
+  map.emplace("bar", "baz");
+
+  std::cout << "map init:" << std::endl;
+  for (auto& i : map)
+  {
+    std::cout << "  " << i.first << ": " << i.second << std::endl;
+  }
+
+  std::cout << std::endl;
+
+  rapidjson::Document d;
+
+  d.SetObject();
+
+  auto map_as_json = json::toJsonValue<std::string, std::string, std::unordered_map<std::string, std::string> >(d, map);
+
+  auto back_to_map = json::fromJsonValue<std::string, std::string, std::unordered_map<std::string, std::string> >(map_as_json);
+
+  std::cout << "back to map successful" << std::endl;
+
+  ASSERT_EQ(map, back_to_map);
+
+  d.AddMember("map", map_as_json, d.GetAllocator());
+
+  rapidjson::StringBuffer buf;
+  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+  d.Accept(writer);
+  std::cout << std::endl << "Map: " << buf.GetString() << std::endl << std::endl;
+}
+
+TEST(JsonSerialization, SerializeBlockWithTransactions)
+{
+  auto transactions = getTransactions();
+  auto blocks = getBlocks();
+
+  for (auto& block : blocks)
+  {
+    rapidjson::Document d;
+
+    d.SetObject();
+
+    auto block_txs = getBlockTransactions(block, transactions);
+
+    cryptonote::block_with_transactions bwt;
+
+    bwt.block = block;
+    bwt.transactions = block_txs;
+
+    auto block_as_json = json::toJsonValue(d, bwt);
+
+    auto back_to_class = json::fromJsonValue<cryptonote::block_with_transactions>(block_as_json);
+
+    ASSERT_EQ(bwt.block, back_to_class.block);
+    ASSERT_EQ(bwt.transactions, back_to_class.transactions);
+
+    d.AddMember("block", block_as_json, d.GetAllocator());
+
+    rapidjson::StringBuffer buf;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+    d.Accept(writer);
+    std::cout << std::endl << "Block: " << buf.GetString() << std::endl << std::endl;
+
+  }
 }
 
 }  // anonymous namespace
