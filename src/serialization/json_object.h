@@ -51,6 +51,10 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const std::string& i);
 template <>
 std::string fromJsonValue(const rapidjson::Value& i);
 
+rapidjson::Value toJsonValue(rapidjson::Document& doc, bool i);
+
+bool fromJsonValue(const rapidjson::Value& i);
+
 template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint8_t& i);
 

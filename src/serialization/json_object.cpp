@@ -66,6 +66,20 @@ std::string fromJsonValue(const rapidjson::Value& i)
   return i.GetString();
 }
 
+rapidjson::Value toJsonValue(rapidjson::Document& doc, bool i)
+{
+  rapidjson::Value val;
+
+  val.SetBool(i);
+
+  return val;
+}
+
+bool fromJsonValue(const rapidjson::Value& i)
+{
+  return i.GetBool();
+}
+
 template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint8_t& i)
 {
