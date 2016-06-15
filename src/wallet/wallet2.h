@@ -31,6 +31,7 @@
 #pragma once
 
 #include <memory>
+#include <boost/archive/binary_iarchive.hpp>
 #include <boost/serialization/list.hpp>
 #include <boost/serialization/vector.hpp>
 #include <atomic>
@@ -46,6 +47,8 @@
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/chacha8.h"
 #include "crypto/hash.h"
+#include "ringct/rctTypes.h"
+#include "ringct/rctOps.h"
 
 #include "wallet_errors.h"
 
@@ -58,8 +61,8 @@ namespace tools
   {
   public:
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index) {}
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx) {}
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount) {}
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx) {}
     virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx) {}
     virtual ~i_wallet2_callback() {}
   };
@@ -101,8 +104,11 @@ namespace tools
       uint64_t m_global_output_index;
       bool m_spent;
       crypto::key_image m_key_image; //TODO: key_image stored twice :(
+      rct::key m_mask;
+      uint64_t m_amount;
 
-      uint64_t amount() const { return m_tx.vout[m_internal_output_index].amount; }
+      bool is_rct() const { return m_tx.vout[m_internal_output_index].amount == 0; }
+      uint64_t amount() const { return m_amount; }
     };
 
     struct payment_details
@@ -117,6 +123,8 @@ namespace tools
     struct unconfirmed_transfer_details
     {
       cryptonote::transaction m_tx;
+      uint64_t m_amount_in;
+      uint64_t m_amount_out;
       uint64_t m_change;
       time_t m_sent_time;
       std::vector<cryptonote::tx_destination_entry> m_dests;
@@ -137,7 +145,7 @@ namespace tools
 
       confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(cryptonote::null_hash) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_amount_out(get_outs_money_amount(utd.m_tx)), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp) { get_inputs_money_amount(utd.m_tx, m_amount_in); }
+        m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp) {}
     };
 
     typedef std::vector<transfer_details> transfer_container;
@@ -289,11 +297,14 @@ namespace tools
     template<typename T>
     void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::list<transfer_container::iterator> selected_transfers, size_t fake_outputs_count,
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx);
+    void transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::list<transfer_container::iterator> selected_transfers, size_t fake_outputs_count,
+      uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx);
 
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon);
+    std::vector<wallet2::pending_tx> create_transactions_rct(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<pending_tx> create_unmixable_sweep_transactions(bool trusted_daemon);
     bool check_connection(bool *same_version = NULL);
@@ -308,6 +319,7 @@ namespace tools
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     void rescan_spent();
     void rescan_blockchain(bool refresh = true);
+    bool is_transfer_unlocked(const transfer_details& td) const;
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
@@ -418,7 +430,6 @@ namespace tools
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
     bool is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height) const;
-    bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
     void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks);
     void pull_hashes(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes);
@@ -429,12 +440,12 @@ namespace tools
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
     void process_outgoing(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received);
-    void add_unconfirmed_tx(const cryptonote::transaction& tx, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount);
+    void add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t amount_in, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount);
     void generate_genesis(cryptonote::block& b);
     void check_genesis(const crypto::hash& genesis_hash) const; //throws
     bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
     crypto::hash get_payment_id(const pending_tx &ptx) const;
-    void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
+    void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, bool &received, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
     uint64_t get_upper_tranaction_size_limit();
     std::vector<uint64_t> get_unspent_amounts_vector();
@@ -479,14 +490,26 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 13)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
-BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 3)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 4)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 2)
 
 namespace boost
 {
   namespace serialization
   {
+    template <class Archive>
+    inline void initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x)
+    {
+    }
+    template<>
+    inline void initialize_transfer_details(boost::archive::binary_iarchive &a, tools::wallet2::transfer_details &x)
+    {
+        x.m_mask = rct::identity();
+        x.m_amount = x.m_tx.vout[x.m_internal_output_index].amount;
+    }
+
     template <class Archive>
     inline void serialize(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
     {
@@ -496,6 +519,14 @@ namespace boost
       a & x.m_tx;
       a & x.m_spent;
       a & x.m_key_image;
+      if (ver < 1)
+      {
+        // ensure mask and amount are set
+        initialize_transfer_details(a, x);
+        return;
+      }
+      a & x.m_mask;
+      a & x.m_amount;
     }
 
     template <class Archive>
@@ -514,6 +545,10 @@ namespace boost
       if (ver < 3)
         return;
       a & x.m_timestamp;
+      if (ver < 4)
+        return;
+      a & x.m_amount_in;
+      a & x.m_amount_out;
     }
 
     template <class Archive>
@@ -698,7 +733,8 @@ namespace tools
             continue;
           tx_output_entry oe;
           oe.first = daemon_oe.global_amount_index;
-          oe.second = daemon_oe.out_key;
+          oe.second.dest = rct::pk2rct(daemon_oe.out_key);
+          oe.second.mask = rct::identity();
           src.outputs.push_back(oe);
           if(src.outputs.size() >= fake_outputs_count)
             break;
@@ -713,7 +749,8 @@ namespace tools
       //size_t real_index = src.outputs.size() ? (rand() % src.outputs.size() ):0;
       tx_output_entry real_oe;
       real_oe.first = td.m_global_output_index;
-      real_oe.second = boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key;
+      real_oe.second.dest = rct::pk2rct(boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key);
+      real_oe.second.mask = rct::identity();
       auto interted_it = src.outputs.insert(it_to_insert, real_oe);
       src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx);
       src.real_output = interted_it - src.outputs.begin();

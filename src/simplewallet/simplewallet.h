@@ -120,9 +120,10 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
-    bool transfer_main(bool new_algorithm, const std::vector<std::string> &args);
+    bool transfer_main(int transfer_type, const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
     bool transfer_new(const std::vector<std::string> &args);
+    bool transfer_rct(const std::vector<std::string> &args);
     bool sweep_all(const std::vector<std::string> &args);
     bool sweep_unmixable(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
@@ -171,8 +172,8 @@ namespace cryptonote
 
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index);
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx);
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount);
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx);
     virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx);
     //----------------------------------------------------------
 

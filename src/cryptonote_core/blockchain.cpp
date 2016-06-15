@@ -51,6 +51,7 @@
 #include "crypto/hash.h"
 #include "cryptonote_core/checkpoints.h"
 #include "cryptonote_core/cryptonote_core.h"
+#include "ringct/rctSigs.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -127,7 +128,7 @@ bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im) const
 // and collects the public key for each from the transaction it was included in
 // via the visitor passed to it.
 template <class visitor_t>
-bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
+bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -206,8 +207,21 @@ bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, vi
         else
           output_index = m_db->get_output_key(tx_in_to_key.amount, i);
 
+        rct::key commitment;
+        if (tx_version > 1)
+        {
+          if (tx_in_to_key.amount == 0)
+            commitment = m_db->get_rct_commitment(i);
+          else
+            commitment = rct::zeroCommit(tx_in_to_key.amount);
+        }
+        else
+        {
+          rct::identity(commitment);
+        }
+
         // call to the passed boost visitor to grab the public key for the output
-        if (!vis.handle_output(output_index.unlock_time, output_index.pubkey))
+        if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, commitment))
         {
           LOG_PRINT_L0("Failed to handle_output for output no = " << count << ", with absolute offset " << i);
           return false;
@@ -1086,14 +1100,24 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
     {
       LOG_ERROR("Creating block template: error: invalid transaction size");
     }
-    uint64_t inputs_amount;
-    if (!get_inputs_money_amount(cur_tx.tx, inputs_amount))
+    if (cur_tx.tx.version == 1)
     {
-      LOG_ERROR("Creating block template: error: cannot get inputs amount");
+      uint64_t inputs_amount;
+      if (!get_inputs_money_amount(cur_tx.tx, inputs_amount))
+      {
+        LOG_ERROR("Creating block template: error: cannot get inputs amount");
+      }
+      else if (cur_tx.fee != inputs_amount - get_outs_money_amount(cur_tx.tx))
+      {
+        LOG_ERROR("Creating block template: error: invalid fee");
+      }
     }
-    else if (cur_tx.fee != inputs_amount - get_outs_money_amount(cur_tx.tx))
+    else
     {
-      LOG_ERROR("Creating block template: error: invalid fee");
+      if (cur_tx.fee != cur_tx.tx.txnFee)
+      {
+        LOG_ERROR("Creating block template: error: invalid fee");
+      }
     }
   }
   if (txs_size != real_txs_size)
@@ -1599,16 +1623,25 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
 //------------------------------------------------------------------
 // This function adds the ringct output at index i to the list
 // unlocked and other such checks should be done by here.
-void Blockchain::add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, size_t i) const
+void Blockchain::add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, uint64_t amount, size_t i) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry& oen = *outs.insert(outs.end(), COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry());
+  oen.amount = amount;
   oen.global_amount_index = i;
-  output_data_t data = m_db->get_output_key(0, i);
+  output_data_t data = m_db->get_output_key(amount, i);
   oen.out_key = data.pubkey;
-  oen.commitment = m_db->get_rct_commitment(i);
+  if (amount == 0)
+  {
+    oen.commitment = m_db->get_rct_commitment(i);
+  }
+  else
+  {
+    // not a rct output, make a fake commitment with zero key
+    oen.commitment = rct::zeroCommit(amount);
+  }
 }
 //------------------------------------------------------------------
 // This function takes an RPC request for mixins and creates an RPC response
@@ -1648,7 +1681,7 @@ bool Blockchain::get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::r
       // if tx is unlocked, add output to result_outs
       if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
       {
-        add_out_to_get_rct_random_outs(res.outs, i);
+        add_out_to_get_rct_random_outs(res.outs, 0, i);
       }
     }
   }
@@ -1688,10 +1721,44 @@ bool Blockchain::get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::r
       // our list.
       if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
       {
-        add_out_to_get_rct_random_outs(res.outs, i);
+        add_out_to_get_rct_random_outs(res.outs, 0, i);
       }
     }
   }
+
+  if (res.outs.size() < req.outs_count)
+    return false;
+#if 0
+  // if we do not have enough RCT inputs, we can pick from the non RCT ones
+  // which will have a zero mask
+  if (res.outs.size() < req.outs_count)
+  {
+    LOG_PRINT_L0("Out of RCT inputs (" << res.outs.size() << "/" << req.outs_count << "), using regular ones");
+
+    // TODO: arbitrary selection, needs better
+    COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req2 = AUTO_VAL_INIT(req2);
+    COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response res2 = AUTO_VAL_INIT(res2);
+    req2.outs_count = req.outs_count - res.outs.size();
+    static const uint64_t amounts[] = {1, 10, 20, 50, 100, 200, 500, 1000, 10000};
+    for (uint64_t a: amounts)
+      req2.amounts.push_back(a);
+    if (!get_random_outs_for_amounts(req2, res2))
+      return false;
+
+    // pick random ones from there
+    while (res.outs.size() < req.outs_count)
+    {
+      int list_idx = rand() % (sizeof(amounts)/sizeof(amounts[0]));
+      if (!res2.outs[list_idx].outs.empty())
+      {
+        const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry oe = res2.outs[list_idx].outs.back();
+        res2.outs[list_idx].outs.pop_back();
+        add_out_to_get_rct_random_outs(res.outs, res2.outs[list_idx].amount, oe.global_amount_index);
+      }
+    }
+  }
+#endif
+
   return true;
 }
 //------------------------------------------------------------------
@@ -2153,9 +2220,24 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   // from hard fork 2, we forbid dust and compound outputs
   if (m_hardfork->get_current_version() >= 2) {
     for (auto &o: tx.vout) {
-      if (!is_valid_decomposed_amount(o.amount)) {
-        tvc.m_invalid_output = true;
-        return false;
+      if (tx.version == 1)
+      {
+        if (!is_valid_decomposed_amount(o.amount)) {
+          tvc.m_invalid_output = true;
+          return false;
+        }
+      }
+    }
+  }
+
+  // in a v2 tx, all outputs must have 0 amount
+  if (m_hardfork->get_current_version() >= 3) {
+    if (tx.version >= 2) {
+      for (auto &o: tx.vout) {
+        if (o.amount != 0) {
+          tvc.m_invalid_output = true;
+          return false;
+        }
       }
     }
   }
@@ -2238,7 +2320,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
   }
 
   uint64_t t_t1 = 0;
-  std::vector<std::vector<crypto::public_key>> pubkeys(tx.vin.size());
+  std::vector<std::vector<rct::ctkey>> pubkeys(tx.vin.size());
   std::vector < uint64_t > results;
   results.resize(tx.vin.size(), 0);
 
@@ -2287,28 +2369,31 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
       return false;
     }
 
-    // basically, make sure number of inputs == number of signatures
-    CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
+    if (tx.version == 1)
+    {
+      // basically, make sure number of inputs == number of signatures
+      CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
 
 #if defined(CACHE_VIN_RESULTS)
-    auto itk = it->second.find(in_to_key.k_image);
-    if(itk != it->second.end())
-    {
-      if(!itk->second)
+      auto itk = it->second.find(in_to_key.k_image);
+      if(itk != it->second.end())
       {
-        LOG_PRINT_L1("Failed ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-        return false;
-      }
+        if(!itk->second)
+        {
+          LOG_PRINT_L1("Failed ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+          return false;
+        }
 
-      // txin has been verified already, skip
-      sig_index++;
-      continue;
-    }
+        // txin has been verified already, skip
+        sig_index++;
+        continue;
+      }
 #endif
+    }
 
     // make sure that output being spent matches up correctly with the
     // signature spending it.
-    if (!check_tx_input(in_to_key, tx_prefix_hash, tx.signatures[sig_index], pubkeys[sig_index], pmax_used_block_height))
+    if (!check_tx_input(tx.version, in_to_key, tx_prefix_hash, tx.version == 1 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx.rct_signatures, pubkeys[sig_index], pmax_used_block_height))
     {
       it->second[in_to_key.k_image] = false;
       LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
@@ -2320,28 +2405,31 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
       return false;
     }
 
-    if (threads > 1)
+    if (tx.version == 1)
     {
-      // ND: Speedup
-      // 1. Thread ring signature verification if possible.
-      ioservice.dispatch(boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])));
-    }
-    else
-    {
-      check_ring_signature(tx_prefix_hash, in_to_key.k_image, pubkeys[sig_index], tx.signatures[sig_index], results[sig_index]);
-      if (!results[sig_index])
+      if (threads > 1)
       {
-        it->second[in_to_key.k_image] = false;
-        LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-
-        if (pmax_used_block_height)  // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
-        {
-          LOG_PRINT_L1("*pmax_used_block_height: " << *pmax_used_block_height);
-        }
-
-        return false;
+        // ND: Speedup
+        // 1. Thread ring signature verification if possible.
+        ioservice.dispatch(boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])));
       }
-      it->second[in_to_key.k_image] = true;
+      else
+      {
+        check_ring_signature(tx_prefix_hash, in_to_key.k_image, pubkeys[sig_index], tx.signatures[sig_index], results[sig_index]);
+        if (!results[sig_index])
+        {
+          it->second[in_to_key.k_image] = false;
+          LOG_PRINT_L1("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+
+          if (pmax_used_block_height)  // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
+          {
+            LOG_PRINT_L1("*pmax_used_block_height: " << *pmax_used_block_height);
+          }
+
+          return false;
+        }
+        it->second[in_to_key.k_image] = true;
+      }
     }
 
     sig_index++;
@@ -2349,30 +2437,80 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
 
   KILL_IOSERVICE();
 
-  if (threads > 1)
+  if (tx.version == 1)
   {
-    // save results to table, passed or otherwise
-    bool failed = false;
-    for (size_t i = 0; i < tx.vin.size(); i++)
+    if (threads > 1)
     {
-      const txin_to_key& in_to_key = boost::get<txin_to_key>(tx.vin[i]);
-      it->second[in_to_key.k_image] = results[i];
-      if(!failed && !results[i])
-        failed = true;
+      // save results to table, passed or otherwise
+      bool failed = false;
+      for (size_t i = 0; i < tx.vin.size(); i++)
+      {
+        const txin_to_key& in_to_key = boost::get<txin_to_key>(tx.vin[i]);
+        it->second[in_to_key.k_image] = results[i];
+        if(!failed && !results[i])
+          failed = true;
+      }
+
+      if (failed)
+      {
+        LOG_PRINT_L1("Failed to check ring signatures!, t_loop: " << t_t1);
+        return false;
+      }
+    }
+  }
+  else
+  {
+    // from version 2, check ringct signatures
+
+    // RCT needs the same mixin for all inputs
+    for (size_t n = 1; n < pubkeys.size(); ++n)
+    {
+      if (pubkeys[n].size() != pubkeys[0].size())
+      {
+        LOG_PRINT_L1("Failed to check ringct signatures: mismatched ring sizes");
+        return false;
+      }
     }
 
-    if (failed)
+    bool size_matches = true;
+    for (size_t i = 0; i < pubkeys.size(); ++i)
+      size_matches &= pubkeys[i].size() == tx.rct_signatures.mixRing.size();
+    for (size_t i = 0; i < tx.rct_signatures.mixRing.size(); ++i)
+      size_matches &= pubkeys.size() == tx.rct_signatures.mixRing[i].size();
+    if (!size_matches)
     {
-      LOG_PRINT_L1("Failed to check ring signatures!, t_loop: " << t_t1);
+      LOG_PRINT_L1("Failed to check ringct signatures: mismatched pubkeys/mixRing size");
+      return false;
+    }
+
+    for (size_t n = 0; n < pubkeys.size(); ++n)
+    {
+      for (size_t m = 0; m < pubkeys[n].size(); ++m)
+      {
+        if (pubkeys[n][m].dest != rct::rct2pk(tx.rct_signatures.mixRing[m][n].dest))
+        {
+          LOG_PRINT_L1("Failed to check ringct signatures: mismatched pubkey at vin " << n << ", index " << m);
+          return false;
+        }
+        if (pubkeys[n][m].mask != rct::rct2pk(tx.rct_signatures.mixRing[m][n].mask))
+        {
+          LOG_PRINT_L1("Failed to check ringct signatures: mismatched commitment at vin " << n << ", index " << m);
+          return false;
+        }
+      }
+    }
+
+    if (!rct::verRct(tx.rct_signatures))
+    {
+      LOG_PRINT_L1("Failed to check ringct signatures!");
       return false;
     }
   }
-  LOG_PRINT_L1("t_loop: " << t_t1);
   return true;
 }
 
 //------------------------------------------------------------------
-void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image, const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature>& sig, uint64_t &result)
+void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image, const std::vector<rct::ctkey> &pubkeys, const std::vector<crypto::signature>& sig, uint64_t &result)
 {
   if (m_is_in_checkpoint_zone)
   {
@@ -2383,7 +2521,8 @@ void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const 
   std::vector<const crypto::public_key *> p_output_keys;
   for (auto &key : pubkeys)
   {
-    p_output_keys.push_back(&key);
+    // rct::key and crypto::public_key have the same structure, avoid object ctor/memcpy
+    p_output_keys.push_back(&(const crypto::public_key&)key.dest);
   }
 
   result = crypto::check_ring_signature(tx_prefix_hash, key_image, p_output_keys, sig.data()) ? 1 : 0;
@@ -2419,7 +2558,7 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
 // This function locates all outputs associated with a given input (mixins)
 // and validates that they exist and are usable.  It also checks the ring
 // signature for each input.
-bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, std::vector<crypto::public_key> &output_keys, uint64_t* pmax_related_block_height)
+bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -2429,13 +2568,13 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
 
   struct outputs_visitor
   {
-    std::vector<crypto::public_key >& m_output_keys;
+    std::vector<rct::ctkey >& m_output_keys;
     const Blockchain& m_bch;
-    outputs_visitor(std::vector<crypto::public_key>& output_keys, const Blockchain& bch) :
+    outputs_visitor(std::vector<rct::ctkey>& output_keys, const Blockchain& bch) :
       m_output_keys(output_keys), m_bch(bch)
     {
     }
-    bool handle_output(uint64_t unlock_time, const crypto::public_key &pubkey)
+    bool handle_output(uint64_t unlock_time, const crypto::public_key &pubkey, const rct::key &commitment)
     {
       //check tx unlock time
       if (!m_bch.is_tx_spendtime_unlocked(unlock_time))
@@ -2449,7 +2588,7 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
       // but only txout_to_key outputs are stored in the DB in the first place, done in
       // Blockchain*::add_output
 
-      m_output_keys.push_back(pubkey);
+      m_output_keys.push_back(rct::ctkey({rct::pk2rct(pubkey), commitment}));
       return true;
     }
   };
@@ -2458,7 +2597,7 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
 
   // collect output keys
   outputs_visitor vi(output_keys, *this);
-  if (!scan_outputkeys_for_indexes(txin, vi, tx_prefix_hash, pmax_related_block_height))
+  if (!scan_outputkeys_for_indexes(tx_version, txin, vi, tx_prefix_hash, pmax_related_block_height))
   {
     LOG_PRINT_L1("Failed to get output keys for tx with amount = " << print_money(txin.amount) << " and count indexes " << txin.key_offsets.size());
     return false;
@@ -2469,7 +2608,13 @@ bool Blockchain::check_tx_input(const txin_to_key& txin, const crypto::hash& tx_
     LOG_PRINT_L1("Output keys for tx with amount = " << txin.amount << " and count indexes " << txin.key_offsets.size() << " returned wrong keys count " << output_keys.size());
     return false;
   }
-  CHECK_AND_ASSERT_MES(sig.size() == output_keys.size(), false, "internal error: tx signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
+  if (tx_version == 1) {
+    CHECK_AND_ASSERT_MES(sig.size() == output_keys.size(), false, "internal error: tx signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
+  }
+  else
+  {
+    CHECK_AND_ASSERT_MES(rct_signatures.mixRing.size() == output_keys.size(), false, "internal error: tx rct signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
+  }
   return true;
 }
 //------------------------------------------------------------------

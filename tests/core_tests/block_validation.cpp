@@ -335,7 +335,7 @@ bool gen_block_miner_tx_has_2_in::generate(std::vector<test_event_entry>& events
 
   tx_source_entry se;
   se.amount = blk_0.miner_tx.vout[0].amount;
-  se.outputs.push_back(std::make_pair(0, boost::get<txout_to_key>(blk_0.miner_tx.vout[0].target).key));
+  se.push_output(0, boost::get<txout_to_key>(blk_0.miner_tx.vout[0].target).key, se.amount);
   se.real_output = 0;
   se.real_out_tx_key = get_tx_pub_key_from_extra(blk_0.miner_tx);
   se.real_output_in_tx_index = 0;
@@ -377,7 +377,7 @@ bool gen_block_miner_tx_with_txin_to_key::generate(std::vector<test_event_entry>
 
   tx_source_entry se;
   se.amount = blk_1.miner_tx.vout[0].amount;
-  se.outputs.push_back(std::make_pair(0, boost::get<txout_to_key>(blk_1.miner_tx.vout[0].target).key));
+  se.push_output(0, boost::get<txout_to_key>(blk_1.miner_tx.vout[0].target).key, se.amount);
   se.real_output = 0;
   se.real_out_tx_key = get_tx_pub_key_from_extra(blk_1.miner_tx);
   se.real_output_in_tx_index = 0;

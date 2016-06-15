@@ -43,6 +43,7 @@ using namespace epee;
 #include "misc_language.h"
 #include <csignal>
 #include "cryptonote_core/checkpoints.h"
+#include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #if defined(BERKELEY_DB)
@@ -552,6 +553,22 @@ namespace cryptonote
       LOG_PRINT_RED_L1("tx with invalid outputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
+    if (tx.version > 1)
+    {
+      if (tx.rct_signatures.outPk.size() != tx.vout.size())
+      {
+        LOG_PRINT_RED_L1("tx with mismatched vout/outPk count, rejected for tx id= " << get_transaction_hash(tx));
+        return false;
+      }
+      for (size_t n = 0; n < tx.vout.size(); ++n)
+      {
+        if (tx.rct_signatures.outPk[n].dest != boost::get<txout_to_key>(tx.vout[n].target).key)
+        {
+          LOG_PRINT_RED_L1("tx ringct public key does not match output public key for tx id= " << get_transaction_hash(tx));
+          return false;
+        }
+      }
+    }
 
     if(!check_money_overflow(tx))
     {
@@ -559,15 +576,19 @@ namespace cryptonote
       return false;
     }
 
-    uint64_t amount_in = 0;
-    get_inputs_money_amount(tx, amount_in);
-    uint64_t amount_out = get_outs_money_amount(tx);
-
-    if(amount_in <= amount_out)
+    if (tx.version == 1)
     {
-      LOG_PRINT_RED_L1("tx with wrong amounts: ins " << amount_in << ", outs " << amount_out << ", rejected for tx id= " << get_transaction_hash(tx));
-      return false;
+      uint64_t amount_in = 0;
+      get_inputs_money_amount(tx, amount_in);
+      uint64_t amount_out = get_outs_money_amount(tx);
+
+      if(amount_in <= amount_out)
+      {
+        LOG_PRINT_RED_L1("tx with wrong amounts: ins " << amount_in << ", outs " << amount_out << ", rejected for tx id= " << get_transaction_hash(tx));
+        return false;
+      }
     }
+    // for version > 1, ringct signatures check verifies amounts match
 
     if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_cumulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
     {

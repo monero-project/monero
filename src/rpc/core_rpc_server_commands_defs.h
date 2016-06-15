@@ -329,6 +329,7 @@ namespace cryptonote
 #pragma pack (push, 1)
     struct out_entry
     {
+      uint64_t amount;
       uint64_t global_amount_index;
       crypto::public_key out_key;
       rct::key commitment;

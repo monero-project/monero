@@ -49,6 +49,7 @@
 #include "crypto/hash.h"
 #include "misc_language.h"
 #include "tx_extra.h"
+#include "ringct/rctTypes.h"
 
 namespace cryptonote
 {
@@ -172,7 +173,7 @@ namespace cryptonote
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(version)
-      if(CURRENT_TRANSACTION_VERSION < version) return false;
+      if(version == 0 || CURRENT_TRANSACTION_VERSION < version) return false;
       VARINT_FIELD(unlock_time)
       FIELD(vin)
       FIELD(vout)
@@ -187,6 +188,7 @@ namespace cryptonote
   {
   public:
     std::vector<std::vector<crypto::signature> > signatures; //count signatures  always the same as inputs count
+    rct::rctSig rct_signatures;
 
     transaction();
     virtual ~transaction();
@@ -195,34 +197,46 @@ namespace cryptonote
     BEGIN_SERIALIZE_OBJECT()
       FIELDS(*static_cast<transaction_prefix *>(this))
 
-      ar.tag("signatures");
-      ar.begin_array();
-      PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
-      bool signatures_not_expected = signatures.empty();
-      if (!signatures_not_expected && vin.size() != signatures.size())
-        return false;
-
-      for (size_t i = 0; i < vin.size(); ++i)
+      if (version == 1)
       {
-        size_t signature_size = get_signature_size(vin[i]);
-        if (signatures_not_expected)
-        {
-          if (0 == signature_size)
-            continue;
-          else
-            return false;
-        }
-
-        PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
-        if (signature_size != signatures[i].size())
+        ar.tag("signatures");
+        ar.begin_array();
+        PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
+        bool signatures_not_expected = signatures.empty();
+        if (!signatures_not_expected && vin.size() != signatures.size())
           return false;
 
-        FIELDS(signatures[i]);
+        for (size_t i = 0; i < vin.size(); ++i)
+        {
+          size_t signature_size = get_signature_size(vin[i]);
+          if (signatures_not_expected)
+          {
+            if (0 == signature_size)
+              continue;
+            else
+              return false;
+          }
 
-        if (vin.size() - i > 1)
-          ar.delimit_array();
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
+          if (signature_size != signatures[i].size())
+            return false;
+
+          FIELDS(signatures[i]);
+
+          if (vin.size() - i > 1)
+            ar.delimit_array();
+        }
+        ar.end_array();
       }
-      ar.end_array();
+      else
+      {
+        FIELD(rct_signatures)
+        for (size_t i = 0; i < rct_signatures.mixRing.size(); ++i)
+        {
+          if (rct_signatures.mixRing[i].size() != vin.size())
+            return false;
+        }
+      }
     END_SERIALIZE()
 
   private:
@@ -245,7 +259,7 @@ namespace cryptonote
   inline
   void transaction::set_null()
   {
-    version = 0;
+    version = 1;
     unlock_time = 0;
     vin.clear();
     vout.clear();

@@ -35,6 +35,7 @@
 #include "include_base_utils.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "ringct/rctOps.h"
 
 
 namespace cryptonote
@@ -50,13 +51,16 @@ namespace cryptonote
 
   struct tx_source_entry
   {
-    typedef std::pair<uint64_t, crypto::public_key> output_entry;
+    typedef std::pair<uint64_t, rct::ctkey> output_entry;
 
-    std::vector<output_entry> outputs;  //index + key
+    std::vector<output_entry> outputs;  //index + key + optional ringct commitment
     size_t real_output;                 //index in outputs vector of real output_entry
     crypto::public_key real_out_tx_key; //incoming real tx public key
     size_t real_output_in_tx_index;     //index in transaction outputs vector
     uint64_t amount;                    //money
+    rct::key mask;                      //ringct amount mask
+
+    void push_output(uint64_t idx, const crypto::public_key &k, uint64_t amount) { outputs.push_back(std::make_pair(idx, rct::ctkey({rct::pk2rct(k), rct::zeroCommit(amount)}))); }
   };
 
   struct tx_destination_entry
@@ -70,7 +74,7 @@ namespace cryptonote
 
   //---------------------------------------------------------------
   bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time);
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &txkey);
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &txkey, bool rct = false);
 
   template<typename T>
   bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field)

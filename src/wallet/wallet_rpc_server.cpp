@@ -961,10 +961,8 @@ namespace tools
           entry.payment_id = entry.payment_id.substr(0,16);
         entry.height = 0;
         entry.timestamp = pd.m_timestamp;
-        uint64_t amount = 0;
-        cryptonote::get_inputs_money_amount(pd.m_tx, amount);
-        entry.fee = amount - get_outs_money_amount(pd.m_tx);
-        entry.amount = amount - pd.m_change - entry.fee;
+        entry.fee = pd.m_amount_in - pd.m_amount_out;
+        entry.amount = pd.m_amount_in - pd.m_change - entry.fee;
         entry.note = m_wallet.get_tx_note(i->first);
       }
     }

@@ -82,29 +82,18 @@ bool test_transaction_generation_and_ring_signature()
   src.amount = 70368744177663;
   {
     tx_output_entry oe;
-    oe.first = 0;
-    oe.second = boost::get<txout_to_key>(tx_mine_1.vout[0].target).key;
-    src.outputs.push_back(oe);
 
-    oe.first = 1;
-    oe.second = boost::get<txout_to_key>(tx_mine_2.vout[0].target).key;
-    src.outputs.push_back(oe);
+    src.push_output(0, boost::get<txout_to_key>(tx_mine_1.vout[0].target).key, src.amount);
 
-    oe.first = 2;
-    oe.second = boost::get<txout_to_key>(tx_mine_3.vout[0].target).key;
-    src.outputs.push_back(oe);
+    src.push_output(1, boost::get<txout_to_key>(tx_mine_2.vout[0].target).key, src.amount);
 
-    oe.first = 3;
-    oe.second = boost::get<txout_to_key>(tx_mine_4.vout[0].target).key;
-    src.outputs.push_back(oe);
+    src.push_output(2, boost::get<txout_to_key>(tx_mine_3.vout[0].target).key, src.amount);
 
-    oe.first = 4;
-    oe.second = boost::get<txout_to_key>(tx_mine_5.vout[0].target).key;
-    src.outputs.push_back(oe);
+    src.push_output(3, boost::get<txout_to_key>(tx_mine_4.vout[0].target).key, src.amount);
 
-    oe.first = 5;
-    oe.second = boost::get<txout_to_key>(tx_mine_6.vout[0].target).key;
-    src.outputs.push_back(oe);
+    src.push_output(4, boost::get<txout_to_key>(tx_mine_5.vout[0].target).key, src.amount);
+
+    src.push_output(5, boost::get<txout_to_key>(tx_mine_6.vout[0].target).key, src.amount);
 
     src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(tx_mine_2);
     src.real_output = 1;

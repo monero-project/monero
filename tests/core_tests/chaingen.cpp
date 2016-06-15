@@ -412,7 +412,7 @@ bool fill_output_entries(std::vector<output_index>& out_indices, size_t sender_o
     if (append)
     {
       const txout_to_key& otk = boost::get<txout_to_key>(oi.out);
-      output_entries.push_back(tx_source_entry::output_entry(oi.idx, otk.key));
+      output_entries.push_back(tx_source_entry::output_entry(oi.idx, rct::ctkey({rct::pk2rct(otk.key), rct::identity()})));
     }
   }
 
@@ -544,7 +544,7 @@ bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins
   out.target = txout_to_key(out_eph_public_key);
   tx.vout.push_back(out);
 
-  tx.version = CURRENT_TRANSACTION_VERSION;
+  tx.version = 1;
   tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
 
   return true;

@@ -148,7 +148,10 @@ namespace boost
     a & x.vin;
     a & x.vout;
     a & x.extra;
-    a & x.signatures;
+    if (x.version == 1)
+      a & x.signatures;
+    else
+      a & x.rct_signatures;
   }
 
 

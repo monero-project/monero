@@ -884,11 +884,12 @@ namespace cryptonote
      * @param vis an instance of the visitor to use
      * @param tx_prefix_hash the hash of the associated transaction_prefix
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
+     * @param tx_version version of the tx, if > 1 we also get commitments
      *
      * @return false if any keys are not found or any inputs are not unlocked, otherwise true
      */
     template<class visitor_t>
-    inline bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
+    inline bool scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
 
     /**
      * @brief collect output public keys of a transaction input set
@@ -900,15 +901,17 @@ namespace cryptonote
      * If pmax_related_block_height is not NULL, its value is set to the height
      * of the most recent block which contains an output used in the input set
      *
+     * @param tx_version the transaction version
      * @param txin the transaction input
      * @param tx_prefix_hash the transaction prefix hash, for caching organization
      * @param sig the input signature
      * @param output_keys return-by-reference the public keys of the outputs in the input set
+     * @param rct_signatures the ringCT signatures, which are only valid if tx version > 1
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
      *
      * @return false if any output is not yet unlocked, or is missing, otherwise true
      */
-    bool check_tx_input(const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, std::vector<crypto::public_key> &output_keys, uint64_t* pmax_related_block_height);
+    bool check_tx_input(size_t tx_version,const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height);
 
     /**
      * @brief validate a transaction's inputs and their keys
@@ -1074,9 +1077,10 @@ namespace cryptonote
      * @brief adds the given output to the requested set of random ringct outputs
      *
      * @param outs return-by-reference the set the output is to be added to
+     * @param amount the output amount (0 for rct inputs)
      * @param i the rct output index
      */
-    void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, size_t i) const;
+    void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, uint64_t amount, size_t i) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
@@ -1197,7 +1201,7 @@ namespace cryptonote
      * @param result false if the ring signature is invalid, otherwise true
      */
     void check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image,
-        const std::vector<crypto::public_key> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
+        const std::vector<rct::ctkey> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result);
 
     /**
      * @brief loads block hashes from compiled-in data set

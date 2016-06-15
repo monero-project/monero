@@ -78,6 +78,19 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
   {
+    if (tx.version == 0)
+    {
+      // v0 never accepted
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+    if (tx.version > 2) // TODO: max 1/2 needs to be conditioned by a hard fork
+    {
+      // v2 is the latest one we know
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
     // we do not accept transactions that timed out before, unless they're
     // kept_by_block
     if (!kept_by_block && m_timed_out_transactions.find(id) != m_timed_out_transactions.end())
@@ -95,25 +108,34 @@ namespace cryptonote
       return false;
     }
 
-    uint64_t inputs_amount = 0;
-    if(!get_inputs_money_amount(tx, inputs_amount))
-    {
-      tvc.m_verifivation_failed = true;
-      return false;
-    }
-
-    uint64_t outputs_amount = get_outs_money_amount(tx);
-
-    if(outputs_amount >= inputs_amount)
-    {
-      LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
-      tvc.m_verifivation_failed = true;
-      tvc.m_overspend = true;
-      return false;
-    }
-
     // fee per kilobyte, size rounded up.
-    uint64_t fee = inputs_amount - outputs_amount;
+    uint64_t fee;
+
+    if (tx.version == 1)
+    {
+      uint64_t inputs_amount = 0;
+      if(!get_inputs_money_amount(tx, inputs_amount))
+      {
+        tvc.m_verifivation_failed = true;
+        return false;
+      }
+
+      uint64_t outputs_amount = get_outs_money_amount(tx);
+      if(outputs_amount >= inputs_amount)
+      {
+        LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
+        tvc.m_verifivation_failed = true;
+        tvc.m_overspend = true;
+        return false;
+      }
+
+      fee = inputs_amount - outputs_amount;
+    }
+    else
+    {
+      fee = tx.rct_signatures.txnFee;
+    }
+
     uint64_t needed_fee = blob_size / 1024;
     needed_fee += (blob_size % 1024) ? 1 : 0;
     needed_fee *= FEE_PER_KB;
@@ -150,7 +172,7 @@ namespace cryptonote
 
     if (!m_blockchain.check_tx_outputs(tx, tvc))
     {
-      LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid outout");
+      LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid output");
       tvc.m_verifivation_failed = true;
       tvc.m_invalid_output = true;
       return false;
@@ -170,7 +192,7 @@ namespace cryptonote
         CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
         txd_p.first->second.blob_size = blob_size;
         txd_p.first->second.tx = tx;
-        txd_p.first->second.fee = inputs_amount - outputs_amount;
+        txd_p.first->second.fee = fee;
         txd_p.first->second.max_used_block_id = null_hash;
         txd_p.first->second.max_used_block_height = 0;
         txd_p.first->second.kept_by_block = kept_by_block;
@@ -193,7 +215,7 @@ namespace cryptonote
       txd_p.first->second.blob_size = blob_size;
       txd_p.first->second.tx = tx;
       txd_p.first->second.kept_by_block = kept_by_block;
-      txd_p.first->second.fee = inputs_amount - outputs_amount;
+      txd_p.first->second.fee = fee;
       txd_p.first->second.max_used_block_id = max_used_block_id;
       txd_p.first->second.max_used_block_height = max_used_block_height;
       txd_p.first->second.last_failed_height = 0;

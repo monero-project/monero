@@ -861,6 +861,8 @@ void BlockchainLMDB::remove_tx_outputs(const uint64_t tx_id, const transaction& 
   {
     const tx_out tx_output = tx.vout[i-1];
     remove_output(tx_output.amount, amount_output_indices[i-1]);
+    if (tx_output.amount == 0)
+      remove_rct_commitment(amount_output_indices[i-1]);
   }
 }
 

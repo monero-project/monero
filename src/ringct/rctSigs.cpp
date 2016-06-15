@@ -537,22 +537,30 @@ namespace rct {
     bool verRct(const rctSig & rv) {
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
 
-        size_t i = 0;
-        bool rvb = true;
-        bool tmp;
-        DP("range proofs verified?");
-        for (i = 0; i < rv.outPk.size(); i++) {
-            tmp = verRange(rv.outPk[i].mask, rv.rangeSigs[i]);
-            DP(tmp);
-            rvb = (rvb && tmp);
-        }
-        //compute txn fee
-        key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-        bool mgVerd = verRctMG(rv.MG, rv.mixRing, rv.outPk, txnFeeKey);
-        DP("mg sig verified?");
-        DP(mgVerd);
+        // some rct ops can throw
+        try
+        {
+          size_t i = 0;
+          bool rvb = true;
+          bool tmp;
+          DP("range proofs verified?");
+          for (i = 0; i < rv.outPk.size(); i++) {
+              tmp = verRange(rv.outPk[i].mask, rv.rangeSigs[i]);
+              DP(tmp);
+              rvb = (rvb && tmp);
+          }
+          //compute txn fee
+          key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+          bool mgVerd = verRctMG(rv.MG, rv.mixRing, rv.outPk, txnFeeKey);
+          DP("mg sig verified?");
+          DP(mgVerd);
 
-        return (rvb && mgVerd);
+          return (rvb && mgVerd);
+        }
+        catch(...)
+        {
+          return false;
+        }
     }
     
     //RingCT protocol

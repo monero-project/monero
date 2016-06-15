@@ -99,6 +99,12 @@ typedef cryptonote::simple_wallet sw;
     m_auto_refresh_enabled.store(auto_refresh_enabled, std::memory_order_relaxed); \
   })
 
+enum TransferType {
+  TransferOriginal,
+  TransferNew,
+  TransferRingCT,
+};
+
 namespace
 {
   const command_line::arg_descriptor<std::string> arg_wallet_file = {"wallet-file", sw::tr("Use wallet <arg>"), ""};
@@ -644,6 +650,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), tr("Show blockchain height"));
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 0 to maximum available)"));
   m_cmd_binder.set_handler("transfer_new", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer, but using a new transaction building algorithm"));
+  m_cmd_binder.set_handler("transfer_rct", boost::bind(&simple_wallet::transfer_rct, this, _1), tr("Same as transfer, but using RingCT transactions"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("Send all unlocked balance an address"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
@@ -1888,24 +1895,24 @@ void simple_wallet::on_new_block(uint64_t height, const cryptonote::block& block
     m_refresh_progress_reporter.update(height, false);
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index)
+void simple_wallet::on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
 {
   message_writer(epee::log_space::console_color_green, false) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(tx) << ", " <<
-    tr("received ") << print_money(tx.vout[out_index].amount);
+    tr("received ") << print_money(amount);
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
   else
     m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index, const cryptonote::transaction& spend_tx)
+void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx)
 {
   message_writer(epee::log_space::console_color_magenta, false) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(spend_tx) << ", " <<
-    tr("spent ") << print_money(in_tx.vout[out_index].amount);
+    tr("spent ") << print_money(amount);
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
   else
@@ -2052,13 +2059,15 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
     {
       if (!transfers_found)
       {
-        message_writer() << boost::format("%21s%8s%16s%68s") % tr("amount") % tr("spent") % tr("global index") % tr("tx id");
+        message_writer() << boost::format("%21s%8s%12s%8s%16s%68s") % tr("amount") % tr("spent") % tr("unlocked") % tr("ringct") % tr("global index") % tr("tx id");
         transfers_found = true;
       }
       message_writer(td.m_spent ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
-        boost::format("%21s%8s%16u%68s") %
+        boost::format("%21s%8s%12s%8s%16u%68s") %
         print_money(td.amount()) %
         (td.m_spent ? tr("T") : tr("F")) %
+        (m_wallet->is_transfer_unlocked(td) ? tr("unlocked") : tr("locked")) %
+        (td.is_rct() ? tr("RingCT") : tr("-")) %
         td.m_global_output_index %
         get_transaction_hash (td.m_tx);
     }
@@ -2274,7 +2283,7 @@ bool simple_wallet::get_address_from_str(const std::string &str, cryptonote::acc
     return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::string> &args_)
+bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
     return true;
@@ -2386,10 +2395,20 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
   {
     // figure out what tx will be necessary
     std::vector<tools::wallet2::pending_tx> ptx_vector;
-    if (new_algorithm)
-      ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
-    else
-      ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+    switch (transfer_type)
+    {
+      case TransferNew:
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+      break;
+      default:
+        LOG_ERROR("Unknown transfer method, using original");
+      case TransferOriginal:
+        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+        break;
+      case TransferRingCT:
+        ptx_vector = m_wallet->create_transactions_rct(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+        break;
+    }
 
     // if more than one tx necessary, prompt user to confirm
     if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
@@ -2531,14 +2550,18 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer(const std::vector<std::string> &args_)
 {
-  return transfer_main(false, args_);
+  return transfer_main(TransferOriginal, args_);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer_new(const std::vector<std::string> &args_)
 {
-  return transfer_main(true, args_);
+  return transfer_main(TransferNew, args_);
 }
-
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::transfer_rct(const std::vector<std::string> &args_)
+{
+  return transfer_main(TransferRingCT, args_);
+}
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
 {
@@ -3228,9 +3251,8 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     m_wallet->get_unconfirmed_payments_out(upayments);
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
       const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
-      uint64_t amount = 0;
-      cryptonote::get_inputs_money_amount(pd.m_tx, amount);
-      uint64_t fee = amount - get_outs_money_amount(pd.m_tx);
+      uint64_t amount = pd.m_amount_in;
+      uint64_t fee = amount - pd.m_amount_out;
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
