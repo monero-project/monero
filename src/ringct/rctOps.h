@@ -96,6 +96,10 @@ namespace rct {
     tuple<ctkey, ctkey> ctskpkGen(xmr_amount amount);
     //this one is mainly for testing, can take arbitrary amounts..
     tuple<ctkey, ctkey> ctskpkGen(key bH);
+    // make a pedersen commitment with given key
+    key commit(xmr_amount amount, key mask);
+    // make a pedersen commitment with zero key
+    key zeroCommit(xmr_amount amount);
     //generates a random uint long long
     xmr_amount randXmrAmount(xmr_amount upperlimit);
 

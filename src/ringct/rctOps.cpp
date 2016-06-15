@@ -170,6 +170,23 @@ namespace rct {
         return make_tuple(sk, pk);
     }
     
+    key zeroCommit(xmr_amount amount) {
+        key mask = identity();
+        mask = scalarmultBase(mask);
+        key am = d2h(amount);
+        key bH = scalarmultH(am);
+        addKeys(mask, mask, bH);
+        return mask;
+    }
+
+    key commit(xmr_amount amount, key mask) {
+        mask = scalarmultBase(mask);
+        key am = d2h(amount);
+        key bH = scalarmultH(am);
+        addKeys(mask, mask, bH);
+        return mask;
+    }
+
     //generates a random uint long long (for testing)
     xmr_amount randXmrAmount(xmr_amount upperlimit) {
         return h2d(skGen()) % (upperlimit);
