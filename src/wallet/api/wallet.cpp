@@ -36,6 +36,7 @@
 
 #include "mnemonics/electrum-words.h"
 #include <boost/format.hpp>
+#include <sstream>
 
 using namespace std;
 using namespace cryptonote;
@@ -121,6 +122,22 @@ string Wallet::displayAmount(uint64_t amount)
 {
     return cryptonote::print_money(amount);
 }
+
+uint64_t Wallet::amountFromString(const string &amount)
+{
+    uint64_t result;
+    cryptonote::parse_amount(result, amount);
+    return result;
+}
+
+uint64_t Wallet::amountFromDouble(double amount)
+{
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(CRYPTONOTE_DISPLAY_DECIMAL_POINT) << amount;
+    return amountFromString(ss.str());
+}
+
+
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)

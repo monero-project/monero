@@ -160,6 +160,8 @@ struct Wallet
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
     static std::string displayAmount(uint64_t amount);
+    static uint64_t amountFromString(const std::string &amount);
+    static uint64_t amountFromDouble(double amount);
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;
     virtual bool refresh() = 0;

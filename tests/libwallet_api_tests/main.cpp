@@ -247,7 +247,7 @@ TEST_F(WalletManagerTest, WalletManagerChangesPassword)
     ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2);
-    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);quint64
     ASSERT_TRUE(wallet2->seed() == seed1);
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
     Bitmonero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
@@ -390,7 +390,19 @@ TEST_F(WalletTest1, WalletRefresh)
 }
 
 
+TEST_F(WalletTest1, WalletConvertsToString)
+{
+    std::string strAmount = Bitmonero::Wallet::displayAmount(AMOUNT_5XMR);
+    ASSERT_TRUE(AMOUNT_5XMR == Bitmonero::Wallet::amountFromString(strAmount));
 
+    ASSERT_TRUE(AMOUNT_5XMR == Bitmonero::Wallet::amountFromDouble(5.0));
+    ASSERT_TRUE(AMOUNT_10XMR == Bitmonero::Wallet::amountFromDouble(10.0));
+    ASSERT_TRUE(AMOUNT_1XMR == Bitmonero::Wallet::amountFromDouble(1.0));
+
+}
+
+
+/*
 TEST_F(WalletTest1, WalletTransaction)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
@@ -415,7 +427,7 @@ TEST_F(WalletTest1, WalletTransaction)
     ASSERT_FALSE(wallet1->balance() == balance);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
-
+*/
 TEST_F(WalletTest1, WalletHistory)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
