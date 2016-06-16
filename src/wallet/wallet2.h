@@ -103,6 +103,7 @@ namespace tools
       size_t m_internal_output_index;
       uint64_t m_global_output_index;
       bool m_spent;
+      uint64_t m_spent_height;
       crypto::key_image m_key_image; //TODO: key_image stored twice :(
       rct::key m_mask;
       uint64_t m_amount;
@@ -490,7 +491,7 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 13)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 1)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 2)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 4)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 2)
@@ -500,14 +501,21 @@ namespace boost
   namespace serialization
   {
     template <class Archive>
-    inline void initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x)
+    inline void initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
     {
     }
     template<>
-    inline void initialize_transfer_details(boost::archive::binary_iarchive &a, tools::wallet2::transfer_details &x)
+    inline void initialize_transfer_details(boost::archive::binary_iarchive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
     {
-        x.m_mask = rct::identity();
-        x.m_amount = x.m_tx.vout[x.m_internal_output_index].amount;
+        if (ver < 1)
+        {
+          x.m_mask = rct::identity();
+          x.m_amount = x.m_tx.vout[x.m_internal_output_index].amount;
+        }
+        if (ver < 2)
+        {
+          x.m_spent_height = 0;
+        }
     }
 
     template <class Archive>
@@ -522,11 +530,17 @@ namespace boost
       if (ver < 1)
       {
         // ensure mask and amount are set
-        initialize_transfer_details(a, x);
+        initialize_transfer_details(a, x, ver);
         return;
       }
       a & x.m_mask;
       a & x.m_amount;
+      if (ver < 2)
+      {
+        initialize_transfer_details(a, x, ver);
+        return;
+      }
+      a & x.m_spent_height;
     }
 
     template <class Archive>
