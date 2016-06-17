@@ -884,6 +884,25 @@ void wallet2::update_pool_state()
       {
         LOG_PRINT_L1("Pending txid " << txid << " not in pool, marking as failed");
         pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
+
+        // the inputs aren't spent anymore, since the tx failed
+        for (size_t vini = 0; vini < pit->second.m_tx.vin.size(); ++vini)
+        {
+          if (pit->second.m_tx.vin[vini].type() == typeid(txin_to_key))
+          {
+            txin_to_key &tx_in_to_key = boost::get<txin_to_key>(pit->second.m_tx.vin[vini]);
+            for (auto &td: m_transfers)
+            {
+              if (td.m_key_image == tx_in_to_key.k_image)
+              {
+                 LOG_PRINT_L1("Resetting spent status for output " << vini << ": " << td.m_key_image);
+                 td.m_spent = 0;
+                 td.m_spent_height = 0;
+                 break;
+              }
+            }
+          }
+        }
       }
     }
   }
