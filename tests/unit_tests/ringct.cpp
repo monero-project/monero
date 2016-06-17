@@ -274,8 +274,7 @@ TEST(ringct, range_proofs_with_fee)
         ASSERT_TRUE(decodeRct(s, Sk, 1));
 }
 
-static bool range_proof_test(bool expected_valid,
-    int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
+static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
 {
     ctkeyV sc, pc;
     ctkey sctmp, pctmp;
@@ -296,10 +295,16 @@ static bool range_proof_test(bool expected_valid,
           destinations.push_back(Pk);
     }
 
+    return genRct(sc, pc, destinations, amounts, 3);;
+}
+
+static bool range_proof_test(bool expected_valid,
+    int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
+{
     //compute rct data
     bool valid;
     try {
-        rctSig s = genRct(sc, pc, destinations, amounts, 3);
+        rctSig s = make_sample_rct_sig(n_inputs, input_amounts, n_outputs, output_amounts, last_is_fee);
         valid = verRct(s);
     }
     catch (const std::exception &e) {
@@ -622,4 +627,40 @@ TEST(ringct, fee_burn_valid_zero_out)
   const uint64_t outputs[] = {2000};
   EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs, true));
 }
+
+#define TEST_rctSig_elements(name, op) \
+TEST(ringct, rctSig_##name) \
+{ \
+  const uint64_t inputs[] = {1000, 1000}; \
+  const uint64_t outputs[] = {1000, 1000}; \
+  rct::rctSig sig = make_sample_rct_sig(NELTS(inputs), inputs, NELTS(outputs), outputs, true); \
+  ASSERT_TRUE(rct::verRct(sig)); \
+  op; \
+  ASSERT_FALSE(rct::verRct(sig)); \
+}
+
+TEST_rctSig_elements(rangeSigs_empty, sig.rangeSigs.resize(0));
+TEST_rctSig_elements(rangeSigs_too_many, sig.rangeSigs.push_back(sig.rangeSigs.back()));
+TEST_rctSig_elements(rangeSigs_too_few, sig.rangeSigs.pop_back());
+TEST_rctSig_elements(mgSig_ss_empty, sig.MG.ss.resize(0));
+TEST_rctSig_elements(mgSig_ss_too_many, sig.MG.ss.push_back(sig.MG.ss.back()));
+TEST_rctSig_elements(mgSig_ss_too_few, sig.MG.ss.pop_back());
+TEST_rctSig_elements(mgSig_ss0_empty, sig.MG.ss[0].resize(0));
+TEST_rctSig_elements(mgSig_ss0_too_many, sig.MG.ss[0].push_back(sig.MG.ss[0].back()));
+TEST_rctSig_elements(mgSig_ss0_too_few, sig.MG.ss[0].pop_back());
+TEST_rctSig_elements(mgSig_II_empty, sig.MG.II.resize(0));
+TEST_rctSig_elements(mgSig_II_too_many, sig.MG.II.push_back(sig.MG.II.back()));
+TEST_rctSig_elements(mgSig_II_too_few, sig.MG.II.pop_back());
+TEST_rctSig_elements(mgSig_mixRing_empty, sig.mixRing.resize(0));
+TEST_rctSig_elements(mgSig_mixRing_too_many, sig.mixRing.push_back(sig.mixRing.back()));
+TEST_rctSig_elements(mgSig_mixRing_too_few, sig.mixRing.pop_back());
+TEST_rctSig_elements(mgSig_mixRing0_empty, sig.mixRing[0].resize(0));
+TEST_rctSig_elements(mgSig_mixRing0_too_many, sig.mixRing[0].push_back(sig.mixRing[0].back()));
+TEST_rctSig_elements(mgSig_mixRing0_too_few, sig.mixRing[0].pop_back());
+TEST_rctSig_elements(ecdhInfo_empty, sig.ecdhInfo.resize(0));
+TEST_rctSig_elements(ecdhInfo_too_many, sig.ecdhInfo.push_back(sig.ecdhInfo.back()));
+TEST_rctSig_elements(ecdhInfo_too_few, sig.ecdhInfo.pop_back());
+TEST_rctSig_elements(outPk_empty, sig.outPk.resize(0));
+TEST_rctSig_elements(outPk_too_many, sig.outPk.push_back(sig.outPk.back()));
+TEST_rctSig_elements(outPk_too_few, sig.outPk.pop_back());
 
