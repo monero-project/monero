@@ -229,16 +229,16 @@ namespace rct {
     bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv) {
 
         size_t cols = pk.size();
-        CHECK_AND_ASSERT_THROW_MES(cols >= 2, "Error! What is c if cols = 1!");
+        CHECK_AND_ASSERT_MES(cols >= 2, false, "Error! What is c if cols = 1!");
         size_t rows = pk[0].size();
-        CHECK_AND_ASSERT_THROW_MES(rows >= 1, "Empty pk");
+        CHECK_AND_ASSERT_MES(rows >= 1, false, "Empty pk");
         for (size_t i = 1; i < cols; ++i) {
-          CHECK_AND_ASSERT_THROW_MES(pk[i].size() == rows, "pk is not rectangular");
+          CHECK_AND_ASSERT_MES(pk[i].size() == rows, false, "pk is not rectangular");
         }
-        CHECK_AND_ASSERT_THROW_MES(rv.II.size() == rows, "Bad rv.II size");
-        CHECK_AND_ASSERT_THROW_MES(rv.ss.size() == cols, "Bad rv.ss size");
+        CHECK_AND_ASSERT_MES(rv.II.size() == rows, false, "Bad rv.II size");
+        CHECK_AND_ASSERT_MES(rv.ss.size() == cols, false, "Bad rv.ss size");
         for (size_t i = 0; i < cols; ++i) {
-          CHECK_AND_ASSERT_THROW_MES(rv.ss[i].size() == rows, "rv.ss is not rectangular");
+          CHECK_AND_ASSERT_MES(rv.ss[i].size() == rows, false, "rv.ss is not rectangular");
         }
 
         size_t i = 0, j = 0;
@@ -394,11 +394,11 @@ namespace rct {
     bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey) {
         //setup vars
         size_t cols = pubs.size();
-        CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
+        CHECK_AND_ASSERT_MES(cols >= 1, false, "Empty pubs");
         size_t rows = pubs[0].size();
-        CHECK_AND_ASSERT_THROW_MES(rows >= 1, "Empty pubs");
+        CHECK_AND_ASSERT_MES(rows >= 1, false, "Empty pubs");
         for (size_t i = 1; i < cols; ++i) {
-          CHECK_AND_ASSERT_THROW_MES(pubs[i].size() == rows, "pubs is not rectangular");
+          CHECK_AND_ASSERT_MES(pubs[i].size() == rows, false, "pubs is not rectangular");
         }
 
         keyV tmp(rows + 1);
@@ -535,7 +535,7 @@ namespace rct {
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     bool verRct(const rctSig & rv) {
-        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of rv.outPk and rv.rangeSigs");
 
         // some rct ops can throw
         try
