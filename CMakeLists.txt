@@ -433,6 +433,8 @@ endif()
 
 include(version.cmake)
 
+find_library(ZMQ_LIB zmq)
+
 add_subdirectory(contrib)
 add_subdirectory(src)
 

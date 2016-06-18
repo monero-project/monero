@@ -169,6 +169,12 @@ rapidjson::Value toJsonValue<cryptonote::block_with_transactions>(rapidjson::Doc
 template <>
 cryptonote::block_with_transactions fromJsonValue<cryptonote::block_with_transactions>(const rapidjson::Value& val);
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::transaction_info>(rapidjson::Document& doc, const cryptonote::transaction_info& tx_info);
+
+template <>
+cryptonote::transaction_info fromJsonValue<cryptonote::transaction_info>(const rapidjson::Value& val);
+
 
 // ideally would like to have the below functions in the .cpp file, but
 // unfortunately because of how templates work they have to be here.

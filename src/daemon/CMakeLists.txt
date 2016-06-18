@@ -93,6 +93,8 @@ target_link_libraries(daemon
     p2p
     cryptonote_protocol
     daemonizer
+    serialization
+    zmq_rpc
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
@@ -101,6 +103,7 @@ target_link_libraries(daemon
     ${Boost_THREAD_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${UPNP_LIBRARIES}
+    ${ZMQ_LIB}
     ${EXTRA_LIBRARIES})
 add_dependencies(daemon version)
 set_property(TARGET daemon

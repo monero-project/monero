@@ -613,6 +613,34 @@ cryptonote::block_with_transactions fromJsonValue<cryptonote::block_with_transac
   return blk;
 }
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::transaction_info>(rapidjson::Document& doc, const cryptonote::transaction_info& tx_info)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("height", toJsonValue(doc, tx_info.height), al);
+  val.AddMember("in_pool", toJsonValue(doc, tx_info.in_pool), al);
+  val.AddMember("transaction", toJsonValue(doc, tx_info.transaction), al);
+
+  return val;
+}
+
+template <>
+cryptonote::transaction_info fromJsonValue<cryptonote::transaction_info>(const rapidjson::Value& val)
+{
+  cryptonote::transaction_info tx_info;
+
+  tx_info.height = fromJsonValue<uint64_t>(val["height"]);
+  tx_info.in_pool = fromJsonValue<bool>(val["in_pool"]);
+  tx_info.transaction = fromJsonValue<cryptonote::transaction>(val["transaction"]);
+
+  return tx_info;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote

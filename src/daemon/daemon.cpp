@@ -32,6 +32,8 @@
 #include <stdexcept>
 #include "misc_log_ex.h"
 #include "daemon/daemon.h"
+#include "rpc/daemon_handler.h"
+#include "rpc/zmq_server.h"
 
 #include "common/util.h"
 #include "daemon/core.h"
@@ -128,12 +130,24 @@ bool t_daemon::run(bool interactive)
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
+    cryptonote::rpc::DaemonHandler rpc_daemon_handler(mp_internals->core.get());
+    cryptonote::rpc::ZmqServer zmq_server(rpc_daemon_handler);
+
+    zmq_server.addTCPSocket("*", "31337");
+
+    LOG_PRINT("Starting ZMQ server...", LOG_LEVEL_0);
+    zmq_server.run();
+
+    LOG_PRINT("ZMQ server started!", LOG_LEVEL_0);
+
     mp_internals->p2p.run(); // blocks until p2p goes down
 
     if (interactive)
     {
       rpc_commands->stop_handling();
     }
+
+    zmq_server.stop();
 
     mp_internals->rpc.stop();
     LOG_PRINT("Node stopped.", LOG_LEVEL_0);

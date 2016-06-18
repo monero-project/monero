@@ -110,6 +110,13 @@ namespace cryptonote
     std::unordered_map<crypto::hash, cryptonote::transaction> transactions;
   };
 
+  struct transaction_info
+  {
+    cryptonote::transaction transaction;
+    bool in_pool;
+    uint64_t height;
+  };
+
 
   /************************************************************************/
   /*                                                                      */
