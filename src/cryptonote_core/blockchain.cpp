@@ -104,7 +104,8 @@ static const uint64_t testnet_hard_fork_version_1_till = 624633;
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false),
-  m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0)
+  m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0),
+  m_btc_valid(false)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -500,6 +501,7 @@ block Blockchain::pop_block_from_blockchain()
   }
   update_next_cumulative_size_limit();
   m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
+  invalidate_block_template_cache();
 
   return popped_block;
 }
@@ -509,6 +511,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_alternative_chains.clear();
+  invalidate_block_template_cache();
   m_db->reset();
   m_hardfork->init();
 
@@ -1039,14 +1042,30 @@ uint64_t Blockchain::get_current_cumulative_blocksize_limit() const
 // in a lot of places.  That flag is not referenced in any of the code
 // nor any of the makefiles, howeve.  Need to look into whether or not it's
 // necessary at all.
-bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, const blobdata& ex_nonce)
+bool Blockchain::create_block_template(block& b, const cryptonote::account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, const blobdata& ex_nonce)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   size_t median_size;
   uint64_t already_generated_coins;
+  uint64_t pool_cookie;
 
   CRITICAL_REGION_BEGIN(m_blockchain_lock);
   height = m_db->height();
+  if (m_btc_valid) {
+    // The pool cookie is atomic. The lack of locking is OK, as if it changes
+    // just as we compare it, we'll just use a slightly old template, but
+    // this would be the case anyway if we'd lock, and the change happened
+    // just after the block template was created
+    if (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address)) && m_btc_nonce == ex_nonce && m_btc_pool_cookie == m_tx_pool.cookie()) {
+      LOG_PRINT_L2("Using cached template");
+      m_btc.timestamp = time(NULL); // update timestamp unconditionally
+      b = m_btc;
+      diffic = m_btc_difficulty;
+      return true;
+    }
+    LOG_PRINT_L2("Not using cached template: address " << (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address))) << ", nonce " << (m_btc_nonce == ex_nonce) << ", cookie " << (m_btc_pool_cookie == m_tx_pool.cookie()));
+    invalidate_block_template_cache();
+  }
 
   b.major_version = m_hardfork->get_current_version();
   b.minor_version = m_hardfork->get_ideal_version();
@@ -1067,6 +1086,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   {
     return false;
   }
+  pool_cookie = m_tx_pool.cookie();
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
   size_t real_txs_size = 0;
   uint64_t real_fee = 0;
@@ -1169,6 +1189,8 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
     LOG_PRINT_L1("Creating block template: miner tx size " << coinbase_blob_size <<
         ", cumulative size " << cumulative_size << " is now good");
 #endif
+
+    cache_block_template(b, miner_address, ex_nonce, diffic, pool_cookie);
     return true;
   }
   LOG_ERROR("Failed to create_block_template with " << 10 << " tries");
@@ -2775,6 +2797,7 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
+  invalidate_block_template_cache();
 
   return true;
 }
@@ -3382,4 +3405,21 @@ bool Blockchain::for_all_transactions(std::function<bool(const crypto::hash&, co
 bool Blockchain::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const
 {
   return m_db->for_all_outputs(f);;
+}
+
+void Blockchain::invalidate_block_template_cache()
+{
+  LOG_PRINT_L2("Invalidating block template cache");
+  m_btc_valid = false;
+}
+
+void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t pool_cookie)
+{
+  LOG_PRINT_L2("Setting block template cache");
+  m_btc = b;
+  m_btc_address = address;
+  m_btc_nonce = nonce;
+  m_btc_difficulty = diff;
+  m_btc_pool_cookie = pool_cookie;
+  m_btc_valid = true;
 }
