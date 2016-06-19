@@ -79,6 +79,7 @@ void GetHeight::Response::fromJson(rapidjson::Value& val)
   height = cryptonote::json::fromJsonValue<uint64_t>(val["height"]);
 }
 
+
 rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
 {
   rapidjson::Value val(rapidjson::kObjectType);
@@ -105,6 +106,7 @@ void GetBlocksFast::Response::fromJson(rapidjson::Value& val)
 {
 }
 
+
 rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
 {
   rapidjson::Value val(rapidjson::kObjectType);
@@ -130,6 +132,7 @@ rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
 void GetHashesFast::Response::fromJson(rapidjson::Value& val)
 {
 }
+
 
 rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc)
 {

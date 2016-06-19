@@ -82,7 +82,7 @@ namespace rpc
 
     for (int i=0; i < num_found; i++)
     {
-      found_hashes[i] = std::move(get_transaction_hash(found_txs_vec[i]));
+      found_hashes[i] = get_transaction_hash(found_txs_vec[i]);
       heights[i] = m_core.get_blockchain_storage().get_db().get_tx_block_height(found_hashes[i]);
     }
 
@@ -266,8 +266,8 @@ namespace rpc
     Message* resp_message = NULL;
 
     // create correct Message subclass and call handle() on it
-    REQ_RESP_TYPES_MACRO(request_type, GetHeight, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetTransactions, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetHeight, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetTransactions, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

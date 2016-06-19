@@ -29,6 +29,7 @@
 #pragma once
 
 #include "rapidjson/document.h"
+#include <string>
 
 /* I normally hate using macros, but in this case it would be untenably
  * verbose to not use a macro.  This macro saves the trouble of explicitly
