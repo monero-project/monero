@@ -139,9 +139,11 @@ namespace string_tools
   }
   //----------------------------------------------------------------------------
   template<class CharT>
-  bool parse_hexstr_to_binbuff(const std::basic_string<CharT>& s, std::basic_string<CharT>& res)
+  bool parse_hexstr_to_binbuff(const std::basic_string<CharT>& s, std::basic_string<CharT>& res, bool allow_partial_byte = false)
   {
     res.clear();
+    if (!allow_partial_byte && (s.size() & 1))
+      return false;
     try
     {
       long v = 0;
