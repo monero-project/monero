@@ -31,6 +31,7 @@
 #include "common/command_line.h"
 #include "common/scoped_message_writer.h"
 #include "common/util.h"
+#include "common/stack_trace.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/miner.h"
 #include "daemon/command_server.h"
@@ -259,6 +260,7 @@ int main(int argc, char const * argv[])
         , log_file_path.filename().string().c_str()
         , log_file_path.parent_path().string().c_str()
         );
+      tools::set_stack_trace_log(log_file_path.filename().string());
     }
 
     if (command_line::has_arg(vm, daemon_args::arg_max_concurrency))
