@@ -658,10 +658,6 @@ void slow_hash_free_state(void)
   return;
 }
 
-static void (*const extra_hashes[4])(const void *, size_t, char *) = {
-  hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
-};
-
 #define MEMORY         (1 << 21) /* 2 MiB */
 #define ITER           (1 << 20)
 #define AES_BLOCK_SIZE  16
@@ -827,7 +823,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     {
         for(j = 0; j < INIT_SIZE_BLK; j++)
             aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], expandedKey);
-            memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
+        memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
     }
 
     U64(a)[0] = U64(&state.k[0])[0] ^ U64(&state.k[32])[0];

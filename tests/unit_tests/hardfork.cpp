@@ -129,7 +129,9 @@ public:
     return starting_height[version];
   }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) {
-    if (versions.size() <= height) versions.resize(height+1); versions[height] = version;
+    if (versions.size() <= height) 
+      versions.resize(height+1); 
+    versions[height] = version;
   }
   virtual uint8_t get_hard_fork_version(uint64_t height) const {
     return versions[height];

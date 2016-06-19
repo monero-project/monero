@@ -103,7 +103,7 @@ namespace net_utils
 		_info_c("dbg/data","Data logger constructed");
 	}
 
-	data_logger::~data_logger() {
+	data_logger::~data_logger() noexcept(false) {
 		_note_c("dbg/data","Destructor of the data logger");
 		{
 			boost::lock_guard<boost::mutex> lock(mMutex);

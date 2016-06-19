@@ -68,7 +68,7 @@ namespace epee
           ++m_counter_ref;
           CHECK_AND_ASSERT_THROW_MES(m_counter_ref < EPEE_PORTABLE_STORAGE_RECURSION_LIMIT_INTERNAL, "Wrong blob data in portable storage: recursion limitation (" << EPEE_PORTABLE_STORAGE_RECURSION_LIMIT_INTERNAL << ") exceeded");
         }
-        ~recursuion_limitation_guard()
+        ~recursuion_limitation_guard() noexcept(false)
         {
           CHECK_AND_ASSERT_THROW_MES(m_counter_ref != 0, "Internal error: m_counter_ref == 0 while ~recursuion_limitation_guard()");
           --m_counter_ref;
