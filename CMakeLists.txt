@@ -249,6 +249,7 @@ if(LIBUNWIND_FOUND)
   add_definitions("-DHAVE_LIBUNWIND")
 else()
   message(STATUS "Stack traces disabled")
+  set(LIBUNWIND_LIBRARIES "")
 endif()
 
 if (UNIX AND NOT APPLE)
