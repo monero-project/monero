@@ -70,7 +70,7 @@ public:
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
     bool refresh();
-    PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount);
+    PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount, uint32_t mixin_count);
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
     virtual void setListener(WalletListener * l);
