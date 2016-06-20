@@ -444,7 +444,7 @@ elseif(NOT MSVC)
   set(EXTRA_LIBRARIES ${RT})
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
   find_library(DL dl)
   set(EXTRA_LIBRARIES ${DL})
 endif()
