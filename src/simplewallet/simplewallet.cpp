@@ -2968,13 +2968,17 @@ static std::string get_human_readable_timestamp(uint64_t ts)
     return "<unknown>";
   time_t tt = ts;
   struct tm tm;
+#ifdef WIN32
+  gmtime_s(&tm, &tt);
+#else
   gmtime_r(&tt, &tm);
+#endif
   uint64_t now = time(NULL);
   uint64_t diff = ts > now ? ts - now : now - ts;
   if (diff > 24*3600)
-    strftime(buffer, sizeof(buffer), "%F", &tm);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d", &tm);
   else
-    strftime(buffer, sizeof(buffer), "%r", &tm);
+    strftime(buffer, sizeof(buffer), "%I:%M:%S %p", &tm);
   return std::string(buffer);
 }
 //----------------------------------------------------------------------------------------------------
