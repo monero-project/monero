@@ -595,6 +595,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_bc", boost::bind(&simple_wallet::rescan_blockchain, this, _1), tr("Rescan blockchain from scratch"));
   m_cmd_binder.set_handler("set_tx_note", boost::bind(&simple_wallet::set_tx_note, this, _1), tr("Set an arbitrary string note for a txid"));
   m_cmd_binder.set_handler("get_tx_note", boost::bind(&simple_wallet::get_tx_note, this, _1), tr("Get a string note for a txid"));
+  m_cmd_binder.set_handler("status", boost::bind(&simple_wallet::status, this, _1), tr("Show wallet status information"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -3258,6 +3259,29 @@ bool simple_wallet::get_tx_note(const std::vector<std::string> &args)
   else
     success_msg_writer() << "note found: " << note;
 
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::status(const std::vector<std::string> &args)
+{
+  uint64_t local_height = m_wallet->get_blockchain_current_height();
+  if (!m_wallet->check_connection())
+  {
+    success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected";
+    return true;
+  }
+
+  std::string err;
+  uint64_t bc_height = get_daemon_blockchain_height(err);
+  if (err.empty())
+  {
+    bool synced = local_height == bc_height;
+    success_msg_writer() << "Refreshed " << local_height << "/" << bc_height << ", " << (synced ? "synced" : "syncing");
+  }
+  else
+  {
+    fail_msg_writer() << "Refreshed " << local_height << "/?, daemon connection error";
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
