@@ -45,7 +45,7 @@ namespace Bitmonero {
 
 namespace {
     // copy-pasted from simplewallet
-    static const size_t DEFAULT_MIX = 4;
+    static const size_t DEFAULT_MIXIN = 4;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -380,7 +380,7 @@ bool WalletImpl::refresh()
 //    - payment_details;
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
-PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amount)
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amount, uint32_t mixin_count)
 {
     clearStatus();
     vector<cryptonote::tx_destination_entry> dsts;
@@ -389,9 +389,10 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64
     crypto::hash8 new_payment_id;
 
     // TODO:  (https://bitcointalk.org/index.php?topic=753252.msg9985441#msg9985441)
-    size_t fake_outs_count = m_wallet->default_mixin();
+
+    size_t fake_outs_count = mixin_count > 0 ? mixin_count : m_wallet->default_mixin();
     if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
+        fake_outs_count = DEFAULT_MIXIN;
 
     PendingTransactionImpl * transaction = new PendingTransactionImpl(this);
 
@@ -436,27 +437,30 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64
 
         } catch (const tools::error::not_enough_money& e) {
             m_status = Status_Error;
-            std::ostringstream writer(m_errorString);
+            std::ostringstream writer;
 
             writer << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)")) %
                       print_money(e.available()) %
                       print_money(e.tx_amount() + e.fee())  %
                       print_money(e.tx_amount()) %
                       print_money(e.fee());
+            m_errorString = writer.str();
 
         } catch (const tools::error::not_enough_outs_to_mix& e) {
-            std::ostringstream writer(m_errorString);
+            std::ostringstream writer;
             writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
             for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs()) {
                 writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outs.size();
             }
+            m_errorString = writer.str();
             m_status = Status_Error;
         } catch (const tools::error::tx_not_constructed&) {
             m_errorString = tr("transaction was not constructed");
             m_status = Status_Error;
         } catch (const tools::error::tx_rejected& e) {
-            std::ostringstream writer(m_errorString);
+            std::ostringstream writer;
             writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
+            m_errorString = writer.str();
             m_status = Status_Error;
         } catch (const tools::error::tx_sum_overflow& e) {
             m_errorString = e.what();

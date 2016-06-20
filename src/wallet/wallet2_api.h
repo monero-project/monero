@@ -128,7 +128,6 @@ struct Wallet
     virtual std::string seed() const = 0;
     virtual std::string getSeedLanguage() const = 0;
     virtual void setSeedLanguage(const std::string &arg) = 0;
-    // virtual void setListener(Listener * listener) = 0;
     //! returns wallet status (Status_Ok | Status_Error)
     virtual int status() const = 0;
     //! in case error status, returns error string
@@ -159,13 +158,23 @@ struct Wallet
     virtual bool trustedDaemon() const = 0;
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
+
     static std::string displayAmount(uint64_t amount);
     static uint64_t amountFromString(const std::string &amount);
     static uint64_t amountFromDouble(double amount);
+
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;
     virtual bool refresh() = 0;
-    virtual PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount) = 0;
+    /*!
+     * \brief createTransaction creates transaction
+     * \param dst_addr          destination address as string
+     * \param amount            amount
+     * \param mixin_count       mixin count. if 0 passed, wallet will use default value
+     * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
+     *                          after object returned
+     */
+    virtual PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount, uint32_t mixin_count) = 0;
     virtual void disposeTransaction(PendingTransaction * t) = 0;
     virtual TransactionHistory * history() const = 0;
     virtual void setListener(WalletListener *) = 0;
