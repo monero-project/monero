@@ -33,7 +33,9 @@
 #include <libunwind.h>
 #endif
 #include <cxxabi.h>
+#ifndef STATICLIB
 #include <dlfcn.h>
+#endif
 
 // from http://stackoverflow.com/questions/11665829/how-can-i-print-stack-trace-for-caught-exceptions-in-c-code-injection-in-c
 #ifdef STATICLIB
