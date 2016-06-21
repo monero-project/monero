@@ -28,8 +28,10 @@
 
 #include "common/stack_trace.h"
 #include "misc_log_ex.h"
+#ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
+#endif
 #include <cxxabi.h>
 #include <dlfcn.h>
 
@@ -112,8 +114,6 @@ void log_stack_trace(const char *msg)
     LOG_PRINT2(log, "  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip << " " << (!status && dsym ? dsym : sym) << " + " << "0x" << off, LOG_LEVEL_0);
     free(dsym);
   }
-#else
-#warning libunwind disabled, no stack traces
 #endif
 }
 
