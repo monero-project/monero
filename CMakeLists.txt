@@ -45,7 +45,12 @@ function (die msg)
   message(FATAL_ERROR "${BoldRed}${msg}${ColourReset}")
 endfunction ()
 
-if (NOT ${ARCH} STREQUAL "")
+if ("${ARCH}" STREQUAL "" OR "${ARCH}" STREQUAL "native")
+  set(ARCH ${CMAKE_SYSTEM_PROCESSOR})
+  message(STATUS "Building natively on ${ARCH}")
+endif()
+
+if (NOT "${ARCH}" STREQUAL "")
   string(SUBSTRING ${ARCH} 0 3 IS_ARM)
   string(TOLOWER ${IS_ARM} IS_ARM)
 
