@@ -142,6 +142,7 @@ namespace cryptonote
     bool set_tx_note(const std::vector<std::string> &args);
     bool get_tx_note(const std::vector<std::string> &args);
     bool status(const std::vector<std::string> &args);
+    bool set_default_fee_multiplier(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
