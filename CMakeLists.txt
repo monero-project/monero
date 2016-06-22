@@ -339,10 +339,12 @@ else()
 
   option(NO_AES "Explicitly disable AES support" ${NO_AES})
 
-  if (NOT NO_AES)
+  if(NOT NO_AES AND NOT (ARM6 OR ARM7))
     message(STATUS "AES support enabled")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
+  elseif(ARM7 OR ARM6)
+    message(STATUS "AES support disabled (not available on ARM)")
   else()
     message(STATUS "AES support disabled")
   endif()
