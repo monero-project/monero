@@ -48,7 +48,7 @@ namespace Bitmonero {
 PendingTransaction::~PendingTransaction() {}
 
 
-PendingTransactionImpl::PendingTransactionImpl(WalletImpl *wallet)
+PendingTransactionImpl::PendingTransactionImpl(WalletImpl &wallet)
     : m_wallet(wallet)
 {
 
@@ -77,7 +77,7 @@ bool PendingTransactionImpl::commit()
     try {
         while (!m_pending_tx.empty()) {
             auto & ptx = m_pending_tx.back();
-            m_wallet->m_wallet->commit_tx(ptx);
+            m_wallet.m_wallet->commit_tx(ptx);
             // success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
             // if no exception, remove element from vector
             m_pending_tx.pop_back();
