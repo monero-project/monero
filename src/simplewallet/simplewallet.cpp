@@ -3151,6 +3151,7 @@ bool simple_wallet::run()
   {
     refresh(std::vector<std::string>());
   }
+  message_writer(epee::log_space::console_color_green, false) << "Background refresh thread started";
   return m_cmd_binder.run_handling(std::string("[") + tr("wallet") + " " + addr_start + "]: ", "");
 }
 //----------------------------------------------------------------------------------------------------
