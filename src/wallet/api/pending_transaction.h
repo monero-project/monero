@@ -41,7 +41,7 @@ class WalletImpl;
 class PendingTransactionImpl : public PendingTransaction
 {
 public:
-    PendingTransactionImpl(WalletImpl * wallet);
+    PendingTransactionImpl(WalletImpl &wallet);
     ~PendingTransactionImpl();
     int status() const;
     std::string errorString() const;
@@ -53,7 +53,7 @@ public:
 
 private:
     friend class WalletImpl;
-    WalletImpl * m_wallet;
+    WalletImpl &m_wallet;
 
     int  m_status;
     std::string m_errorString;
