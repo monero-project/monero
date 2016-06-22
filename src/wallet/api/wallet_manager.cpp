@@ -85,7 +85,7 @@ bool WalletManagerImpl::walletExists(const std::string &path)
 std::vector<std::string> WalletManagerImpl::findWallets(const std::string &path)
 {
     std::vector<std::string> result;
-    const boost::regex wallet_rx("(.*)\\.(address\\.txt)$");
+    const boost::regex wallet_rx("(.*)\\.(address\\.txt)$"); // searching for <wallet_name>.address.txt files
     boost::filesystem::recursive_directory_iterator end_itr; // Default ctor yields past-the-end
     boost::filesystem::path work_dir(path);
 
