@@ -62,19 +62,12 @@ const char * WALLET_LANG = "English";
 
 const std::string WALLETS_ROOT_DIR = "/home/mbg033/dev/monero/testnet/";
 
-//const char * TESTNET_WALLET1_NAME = "/home/mbg033/dev/monero/testnet/wallet_01.bin";
-//const char * TESTNET_WALLET2_NAME = "/home/mbg033/dev/monero/testnet/wallet_02.bin";
-//const char * TESTNET_WALLET3_NAME = "/home/mbg033/dev/monero/testnet/wallet_03.bin";
-//const char * TESTNET_WALLET4_NAME = "/home/mbg033/dev/monero/testnet/wallet_04.bin";
-//const char * TESTNET_WALLET5_NAME = "/home/mbg033/dev/monero/testnet/wallet_05.bin";
-
 const std::string TESTNET_WALLET1_NAME = WALLETS_ROOT_DIR + "wallet_01.bin";
 const std::string TESTNET_WALLET2_NAME = WALLETS_ROOT_DIR + "wallet_02.bin";
 const std::string TESTNET_WALLET3_NAME = WALLETS_ROOT_DIR + "wallet_03.bin";
 const std::string TESTNET_WALLET4_NAME = WALLETS_ROOT_DIR + "wallet_04.bin";
 const std::string TESTNET_WALLET5_NAME = WALLETS_ROOT_DIR + "wallet_05.bin";
 const std::string TESTNET_WALLET6_NAME = WALLETS_ROOT_DIR + "wallet_06.bin";
-
 
 const char * TESTNET_WALLET_PASS = "";
 
@@ -250,7 +243,7 @@ TEST_F(WalletManagerTest, WalletManagerChangesPassword)
     ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2);
-    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);quint64
     ASSERT_TRUE(wallet2->seed() == seed1);
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
     Bitmonero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
@@ -362,6 +355,7 @@ TEST_F(WalletManagerTest, WalletManagerFindsWallet)
     }
 }
 
+
 TEST_F(WalletManagerTest, WalletGeneratesPaymentId)
 {
     std::string payment_id = Bitmonero::Wallet::genPaymentId();
@@ -377,8 +371,6 @@ TEST_F(WalletManagerTest, WalletGeneratesIntegratedAddress)
     std::string integrated_address = wallet1->integratedAddress(payment_id);
     ASSERT_TRUE(integrated_address.length() == 106);
 }
-
-
 
 
 TEST_F(WalletTest1, WalletShowsBalance)
@@ -459,8 +451,8 @@ TEST_F(WalletTest1, WalletTransactionWithMixin)
     mixins.push_back(7); mixins.push_back(8); mixins.push_back(9); mixins.push_back(10); mixins.push_back(15);
     mixins.push_back(20); mixins.push_back(25);
 
-    std::string payment_id = "";
 
+    std::string payment_id = "";
 
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
 
@@ -527,9 +519,11 @@ TEST_F(WalletTest1, WalletTransactionAndHistory)
 
     std::string wallet4_addr = Utils::get_wallet_address(CURRENT_DST_WALLET, TESTNET_WALLET_PASS);
 
+
     Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(wallet4_addr,
                                                                        PAYMENT_ID_EMPTY,
                                                                        AMOUNT_10XMR * 5, 0);
+
     ASSERT_TRUE(tx->status() == Bitmonero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
     history = wallet_src->history();
@@ -542,6 +536,7 @@ TEST_F(WalletTest1, WalletTransactionAndHistory)
         Utils::print_transaction(t);
     }
 }
+
 
 TEST_F(WalletTest1, WalletTransactionWithPaymentId)
 {

@@ -134,6 +134,7 @@ struct Wallet
     virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address() const = 0;
+    
     /*!
      * \brief integratedAddress - returns integrated address for current wallet address and given payment_id.
      *                            if passed "payment_id" param is an empty string or not-valid payment id string
@@ -144,6 +145,7 @@ struct Wallet
      * \return                  - 106 characters string representing integrated address
      */
     virtual std::string integratedAddress(const std::string &payment_id) const = 0;
+    
     /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
@@ -186,8 +188,10 @@ struct Wallet
      * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                          after object returned
      */
+
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                                    uint64_t amount, uint32_t mixin_count) = 0;
+
     virtual void disposeTransaction(PendingTransaction * t) = 0;
     virtual TransactionHistory * history() const = 0;
     virtual void setListener(WalletListener *) = 0;

@@ -36,7 +36,6 @@
 
 #include "mnemonics/electrum-words.h"
 #include <boost/format.hpp>
-#include <boost/regex.hpp>
 #include <sstream>
 
 using namespace std;
@@ -144,7 +143,6 @@ std::string Wallet::genPaymentId()
     return epee::string_tools::pod_to_hex(payment_id);
 
 }
-
 
 
 ///////////////////////// WalletImpl implementation ////////////////////////
@@ -397,11 +395,13 @@ bool WalletImpl::refresh()
 //    - payment_details;
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
+
 PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, uint64_t amount, uint32_t mixin_count)
 {
     clearStatus();
     vector<cryptonote::tx_destination_entry> dsts;
     cryptonote::tx_destination_entry de;
+
     // indicates if dst_addr is integrated address (address + payment_id)
     bool has_payment_id;
     crypto::hash8 payment_id_short;
@@ -419,6 +419,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             m_errorString = "Invalid destination address";
             break;
         }
+
 
         std::vector<uint8_t> extra;
         // if dst_addr is not an integrated address, parse payment_id
@@ -446,7 +447,6 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             }
         }
 
-
         de.amount = amount;
         if (de.amount <= 0) {
             m_status = Status_Error;
@@ -456,8 +456,6 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
 
         dsts.push_back(de);
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
-
-
 
         try {
             transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
