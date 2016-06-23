@@ -60,6 +60,7 @@ public:
     std::string errorString() const;
     bool setPassword(const std::string &password);
     std::string address() const;
+    std::string integratedAddress(const std::string &payment_id) const;
     bool store(const std::string &path);
     std::string filename() const;
     std::string keysFilename() const;
@@ -70,7 +71,8 @@ public:
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
     bool refresh();
-    PendingTransaction * createTransaction(const std::string &dst_addr, uint64_t amount, uint32_t mixin_count);
+    PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
+                                           uint64_t amount, uint32_t mixin_count);
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
     virtual void setListener(WalletListener * l);

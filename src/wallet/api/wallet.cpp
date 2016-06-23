@@ -36,6 +36,7 @@
 
 #include "mnemonics/electrum-words.h"
 #include <boost/format.hpp>
+#include <boost/regex.hpp>
 #include <sstream>
 
 using namespace std;
@@ -135,6 +136,13 @@ uint64_t Wallet::amountFromDouble(double amount)
     std::stringstream ss;
     ss << std::fixed << std::setprecision(CRYPTONOTE_DISPLAY_DECIMAL_POINT) << amount;
     return amountFromString(ss.str());
+}
+
+std::string Wallet::genPaymentId()
+{
+    crypto::hash8 payment_id = crypto::rand<crypto::hash8>();
+    return epee::string_tools::pod_to_hex(payment_id);
+
 }
 
 
@@ -302,6 +310,15 @@ std::string WalletImpl::address() const
     return m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 }
 
+std::string WalletImpl::integratedAddress(const std::string &payment_id) const
+{
+    crypto::hash8 pid;
+    if (!tools::wallet2::parse_short_payment_id(payment_id, pid)) {
+        pid = crypto::rand<crypto::hash8>();
+    }
+    return m_wallet->get_account().get_public_integrated_address_str(pid, m_wallet->testnet());
+}
+
 bool WalletImpl::store(const std::string &path)
 {
     clearStatus();
@@ -380,30 +397,55 @@ bool WalletImpl::refresh()
 //    - payment_details;
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
-PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64_t amount, uint32_t mixin_count)
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, uint64_t amount, uint32_t mixin_count)
 {
     clearStatus();
     vector<cryptonote::tx_destination_entry> dsts;
     cryptonote::tx_destination_entry de;
+    // indicates if dst_addr is integrated address (address + payment_id)
     bool has_payment_id;
-    crypto::hash8 new_payment_id;
-
+    crypto::hash8 payment_id_short;
     // TODO:  (https://bitcointalk.org/index.php?topic=753252.msg9985441#msg9985441)
-
     size_t fake_outs_count = mixin_count > 0 ? mixin_count : m_wallet->default_mixin();
     if (fake_outs_count == 0)
         fake_outs_count = DEFAULT_MIXIN;
 
-    PendingTransactionImpl * transaction = new PendingTransactionImpl(this);
+    PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
-
-        if(!cryptonote::get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), dst_addr)) {
+        if(!cryptonote::get_account_integrated_address_from_str(de.addr, has_payment_id, payment_id_short, m_wallet->testnet(), dst_addr)) {
             // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
             m_status = Status_Error;
             m_errorString = "Invalid destination address";
             break;
         }
+
+        std::vector<uint8_t> extra;
+        // if dst_addr is not an integrated address, parse payment_id
+        if (!has_payment_id && !payment_id.empty()) {
+            // copy-pasted from simplewallet.cpp:2212
+            crypto::hash payment_id_long;
+            bool r = tools::wallet2::parse_long_payment_id(payment_id, payment_id_long);
+            if (r) {
+                std::string extra_nonce;
+                cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id_long);
+                r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+            } else {
+                r = tools::wallet2::parse_short_payment_id(payment_id, payment_id_short);
+                if (r) {
+                    std::string extra_nonce;
+                    set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id_short);
+                    r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+                }
+            }
+
+            if (!r) {
+                m_status = Status_Error;
+                m_errorString = tr("payment id has invalid format, expected 16 or 64 character hex string: ") + payment_id;
+                break;
+            }
+        }
+
 
         de.amount = amount;
         if (de.amount <= 0) {
@@ -414,7 +456,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, uint64
 
         dsts.push_back(de);
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
-        std::vector<uint8_t> extra;
+
 
 
         try {
