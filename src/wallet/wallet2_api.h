@@ -175,6 +175,7 @@ struct Wallet
     static uint64_t amountFromString(const std::string &amount);
     static uint64_t amountFromDouble(double amount);
     static std::string genPaymentId();
+    static bool paymentIdValid(const std::string &paiment_id);
 
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;

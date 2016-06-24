@@ -144,6 +144,12 @@ std::string Wallet::genPaymentId()
 
 }
 
+bool Wallet::paymentIdValid(const string &paiment_id)
+{
+    crypto::hash8 pid;
+    return tools::wallet2::parse_short_payment_id(paiment_id, pid);
+}
+
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
