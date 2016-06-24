@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "misc_log_ex.h"
 #include "rctOps.h"
 using namespace crypto;
 using namespace std;
@@ -216,7 +217,7 @@ namespace rct {
     void scalarmultKey(key & aP, const key &P, const key &a) {
         ge_p3 A;
         ge_p2 R;
-        ge_frombytes_vartime(&A, P.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_scalarmult(&R, a.bytes, &A);
         ge_tobytes(aP.bytes, &R);
     }
@@ -225,7 +226,7 @@ namespace rct {
     key scalarmultKey(const key & P, const key & a) {
         ge_p3 A;
         ge_p2 R;
-        ge_frombytes_vartime(&A, P.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_scalarmult(&R, a.bytes, &A);
         key aP;
         ge_tobytes(aP.bytes, &R);
@@ -238,7 +239,7 @@ namespace rct {
         ge_p3 A;
         ge_p2 R;
         key Htmp = { {0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1, 0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94} };
-        ge_frombytes_vartime(&A, Htmp.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A, Htmp.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_scalarmult(&R, a.bytes, &A);
         key aP;
         ge_tobytes(aP.bytes, &R);
@@ -250,8 +251,8 @@ namespace rct {
     //for curve points: AB = A + B
     void addKeys(key &AB, const key &A, const key &B) {
         ge_p3 B2, A2;
-        ge_frombytes_vartime(&B2, B.bytes);
-        ge_frombytes_vartime(&A2, A.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&B2, B.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A2, A.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_cached tmp2;
         ge_p3_to_cached(&tmp2, &B2);
         ge_p1p1 tmp3;
@@ -273,7 +274,7 @@ namespace rct {
     void addKeys2(key &aGbB, const key &a, const key &b, const key & B) {
         ge_p2 rv;
         ge_p3 B2;
-        ge_frombytes_vartime(&B2, B.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&B2, B.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_double_scalarmult_base_vartime(&rv, b.bytes, &B2, a.bytes);
         ge_tobytes(aGbB.bytes, &rv);
     }
@@ -282,7 +283,7 @@ namespace rct {
     // input B a curve point and output a ge_dsmp which has precomputation applied
     void precomp(ge_dsmp rv, const key & B) {
         ge_p3 B2;
-        ge_frombytes_vartime(&B2, B.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&B2, B.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_dsm_precomp(rv, &B2);
     }
 
@@ -292,7 +293,7 @@ namespace rct {
     void addKeys3(key &aAbB, const key &a, const key &A, const key &b, const ge_dsmp B) {
         ge_p2 rv;
         ge_p3 A2;
-        ge_frombytes_vartime(&A2, A.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A2, A.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_double_scalarmult_precomp_vartime(&rv, a.bytes, &A2, b.bytes, B);
         ge_tobytes(aAbB.bytes, &rv);
     }
@@ -302,8 +303,8 @@ namespace rct {
     //AB = A - B where A, B are curve points
     void subKeys(key & AB, const key &A, const key &B) {
         ge_p3 B2, A2;
-        ge_frombytes_vartime(&B2, B.bytes);
-        ge_frombytes_vartime(&A2, A.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&B2, B.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A2, A.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_cached tmp2;
         ge_p3_to_cached(&tmp2, &B2);
         ge_p1p1 tmp3;
@@ -422,7 +423,7 @@ namespace rct {
         ge_p2 point;
         ge_p3 res;
         key h = cn_fast_hash(hh); 
-        ge_frombytes_vartime(&res, h.bytes);
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&res, h.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_p3_to_p2(&point, &res);
         ge_mul8(&point2, &point);
         ge_p1p1_to_p3(&res, &point2);
