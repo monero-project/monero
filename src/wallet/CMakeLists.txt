@@ -26,7 +26,8 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-include (${PROJECT_SOURCE_DIR}/cmake/libutils.cmake)
+# include (${PROJECT_SOURCE_DIR}/cmake/libutils.cmake)
+include (${PROJECT_SOURCE_DIR}/cmake/MergeStaticLibs.cmake)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
@@ -76,7 +77,8 @@ target_link_libraries(wallet
 
 
 set(libs_to_merge wallet cryptonote_core mnemonics common crypto)
-MERGE_STATIC_LIBS(wallet_merged wallet_merged "${libs_to_merge}")
+#MERGE_STATIC_LIBS(wallet_merged wallet_merged "${libs_to_merge}")
+merge_static_libs(wallet_merged "${libs_to_merge}")
 
 install(TARGETS wallet_merged
     ARCHIVE DESTINATION lib)
