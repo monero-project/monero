@@ -50,6 +50,14 @@ struct PendingTransaction
         Status_Ok,
         Status_Error
     };
+
+    enum Priority {
+        Priority_Low = 1,
+        Priority_Medium = 2,
+        Priority_High = 3,
+        Priority_Last
+    };
+
     virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
@@ -186,13 +194,19 @@ struct Wallet
      * \param payment_id        optional payment_id, can be empty string
      * \param amount            amount
      * \param mixin_count       mixin count. if 0 passed, wallet will use default value
+     * \param priority
      * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                          after object returned
      */
 
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
-                                                   uint64_t amount, uint32_t mixin_count) = 0;
+                                                   uint64_t amount, uint32_t mixin_count,
+                                                   PendingTransaction::Priority = PendingTransaction::Priority_Low) = 0;
 
+    /*!
+     * \brief disposeTransaction - destroys transaction object
+     * \param t -  pointer to the "PendingTransaction" object. Pointer is not valid after function returned;
+     */
     virtual void disposeTransaction(PendingTransaction * t) = 0;
     virtual TransactionHistory * history() const = 0;
     virtual void setListener(WalletListener *) = 0;

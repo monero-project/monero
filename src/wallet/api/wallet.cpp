@@ -402,7 +402,9 @@ bool WalletImpl::refresh()
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
 
-PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, uint64_t amount, uint32_t mixin_count)
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, uint64_t amount, uint32_t mixin_count,
+                                                  PendingTransaction::Priority priority)
+
 {
     clearStatus();
     vector<cryptonote::tx_destination_entry> dsts;
@@ -464,8 +466,10 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
         try {
+            // priority called "fee_multiplied in terms of underlying wallet interface
             transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
-                                                                      0 /* unused fee arg*/, extra, m_trustedDaemon);
+                                                                      static_cast<uint64_t>(priority),
+                                                                      extra, m_trustedDaemon);
 
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?

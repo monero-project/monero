@@ -482,6 +482,48 @@ TEST_F(WalletTest1, WalletTransactionWithMixin)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
+TEST_F(WalletTest1, WalletTransactionWithPriority)
+{
+
+    std::string payment_id = "";
+
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+
+    // make sure testnet daemon is running
+    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet1->refresh());
+    uint64_t balance = wallet1->balance();
+    ASSERT_TRUE(wallet1->status() == Bitmonero::PendingTransaction::Status_Ok);
+
+    std::string recepient_address = Utils::get_wallet_address(CURRENT_DST_WALLET, TESTNET_WALLET_PASS);
+    uint32_t mixin = 2;
+    uint64_t fee   = 0;
+
+    std::vector<Bitmonero::PendingTransaction::Priority> priorities =  {
+         Bitmonero::PendingTransaction::Priority_Low,
+         Bitmonero::PendingTransaction::Priority_Medium,
+         Bitmonero::PendingTransaction::Priority_High
+    };
+
+    for (auto it = priorities.begin(); it != priorities.end(); ++it) {
+        std::cerr << "Transaction priority: " << *it << std::endl;
+        Bitmonero::PendingTransaction * transaction = wallet1->createTransaction(
+                    recepient_address, payment_id, AMOUNT_5XMR, mixin, *it);
+        std::cerr << "Transaction status: " << transaction->status() << std::endl;
+        std::cerr << "Transaction fee: " << Bitmonero::Wallet::displayAmount(transaction->fee()) << std::endl;
+        std::cerr << "Transaction error: " << transaction->errorString() << std::endl;
+        ASSERT_TRUE(transaction->fee() > fee);
+        ASSERT_TRUE(transaction->status() == Bitmonero::PendingTransaction::Status_Ok);
+        fee = transaction->fee();
+        wallet1->disposeTransaction(transaction);
+    }
+    wallet1->refresh();
+    ASSERT_TRUE(wallet1->balance() == balance);
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+}
+
+
+
 TEST_F(WalletTest1, WalletHistory)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
