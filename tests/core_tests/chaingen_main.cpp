@@ -199,6 +199,8 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_rct_tx_pre_rct_add_vout);
     GENERATE_AND_PLAY(gen_rct_tx_rct_add_vout);
     GENERATE_AND_PLAY(gen_rct_tx_pre_rct_increase_vin_and_fee);
+    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_altered_extra);
+    GENERATE_AND_PLAY(gen_rct_tx_rct_altered_extra);
 
     std::cout << (failed_tests.empty() ? concolor::green : concolor::magenta);
     std::cout << "\nREPORT:\n";

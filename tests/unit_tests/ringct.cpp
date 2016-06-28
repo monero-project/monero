@@ -187,7 +187,7 @@ TEST(ringct, range_proofs)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(sc, pc, destinations, amounts, 3);
+        rctSig s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -204,7 +204,7 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 500
-        s = genRct(sc, pc, destinations, amounts, 3);
+        s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -248,7 +248,7 @@ TEST(ringct, range_proofs_with_fee)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(sc, pc, destinations, amounts, 3);
+        rctSig s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -265,7 +265,7 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 500
-        s = genRct(sc, pc, destinations, amounts, 3);
+        s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -295,7 +295,7 @@ static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amount
           destinations.push_back(Pk);
     }
 
-    return genRct(sc, pc, destinations, amounts, 3);;
+    return genRct(sc, pc, destinations, amounts, rct::zero(), 3);;
 }
 
 static bool range_proof_test(bool expected_valid,

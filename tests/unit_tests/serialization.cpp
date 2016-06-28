@@ -565,7 +565,7 @@ TEST(Serialization, serializes_ringct_types)
   rct::skpkGen(Sk, Pk);
   destinations.push_back(Pk);
   //compute rct data with mixin 500
-  s0 = rct::genRct(sc, pc, destinations, amounts, 3);
+  s0 = rct::genRct(sc, pc, destinations, amounts, rct::zero(), 3);
 
   mg0 = s0.MG;
   ASSERT_TRUE(serialization::dump_binary(mg0, blob));

@@ -685,9 +685,6 @@ namespace cryptonote
       if (amount_in > amount_out)
         amounts.push_back(amount_in - amount_out);
 
-      LOG_PRINT_L1("Signing tx: " << obj_to_json_str(tx));
-      tx.rct_signatures = rct::genRct(inSk, destinations, amounts, mixRing, sources[0].real_output); // same index assumption
-
       // zero out all amounts to mask rct outputs, real amounts are now encrypted
       for (size_t i = 0; i < tx.vin.size(); ++i)
       {
@@ -696,6 +693,10 @@ namespace cryptonote
       }
       for (size_t i = 0; i < tx.vout.size(); ++i)
         tx.vout[i].amount = 0;
+
+      crypto::hash tx_prefix_hash;
+      get_transaction_prefix_hash(tx, tx_prefix_hash);
+      tx.rct_signatures = rct::genRct(inSk, destinations, amounts, mixRing, rct::hash2rct(tx_prefix_hash), sources[0].real_output); // same index assumption
 
       LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL, LOG_LEVEL_3);
     }
