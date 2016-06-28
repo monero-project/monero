@@ -407,7 +407,7 @@ namespace rct {
                 m[i * 64 + 32 + j] = PC[i].mask[j];
             }
         }
-        cn_fast_hash(rv, &m[0], 2*l);
+        cn_fast_hash(rv, &m[0], 64*l);
         return rv;
     }
     
