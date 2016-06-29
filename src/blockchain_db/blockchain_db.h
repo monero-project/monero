@@ -110,6 +110,7 @@ struct output_data_t
   crypto::public_key pubkey;       //!< the output's public key (for spend verification)
   uint64_t           unlock_time;  //!< the output's unlock time (or height)
   uint64_t           height;       //!< the height of the block which created the output
+  rct::key           commitment;   //!< the output's amount commitment (for spend verification)
 };
 #pragma pack(pop)
 
@@ -407,9 +408,10 @@ private:
    * @param tx_output the output
    * @param local_index index of the output in its transaction
    * @param unlock_time unlock time/height of the output
+   * @param commitment the rct commitment to the output amount
    * @return amount output index
    */
-  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) = 0;
+  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
 
   /**
    * @brief store amount output indices for a tx's outputs
@@ -1198,39 +1200,6 @@ public:
    * @return true if the image is present, otherwise false
    */
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
-
-  /**
-   * @brief returns the number of ringct outputs in the database
-   *
-   * @return the number of ringct outputs in the database
-   */
-  virtual uint64_t get_num_rct_outputs() const = 0;
-
-  /**
-   * @brief returns the commitment for a given ringct output
-   *
-   * Throws OUTPUT_DNE if the index is out of range
-   * Throws DB_ERROR on other error
-   *
-   * @return the commitment for the given index
-   */
-  virtual rct::key get_rct_commitment(uint64_t idx) const = 0;
-
-  /**
-   * @brief Adds a new ringct output with the given commitment
-   *
-   * Throws DB_ERROR if the addition fails
-   *
-   * @return the index of the newly added record
-   */
-  virtual uint64_t add_rct_commitment(const rct::key &commitment) = 0;
-
-  /**
-   * @brief Remove a ringct output with the given index
-   *
-   * Throws DB_ERROR if the removal fails
-   */
-  virtual void remove_rct_commitment(uint64_t idx) = 0;
 
   /**
    * @brief runs a function over all key images stored

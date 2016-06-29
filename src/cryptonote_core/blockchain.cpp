@@ -207,21 +207,8 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
         else
           output_index = m_db->get_output_key(tx_in_to_key.amount, i);
 
-        rct::key commitment;
-        if (tx_version > 1)
-        {
-          if (tx_in_to_key.amount == 0)
-            commitment = m_db->get_rct_commitment(i);
-          else
-            commitment = rct::zeroCommit(tx_in_to_key.amount);
-        }
-        else
-        {
-          rct::identity(commitment);
-        }
-
         // call to the passed boost visitor to grab the public key for the output
-        if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, commitment))
+        if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, output_index.commitment))
         {
           LOG_PRINT_L0("Failed to handle_output for output no = " << count << ", with absolute offset " << i);
           return false;
@@ -1633,15 +1620,7 @@ void Blockchain::add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM
   oen.global_amount_index = i;
   output_data_t data = m_db->get_output_key(amount, i);
   oen.out_key = data.pubkey;
-  if (amount == 0)
-  {
-    oen.commitment = m_db->get_rct_commitment(i);
-  }
-  else
-  {
-    // not a rct output, make a fake commitment with zero key
-    oen.commitment = rct::zeroCommit(amount);
-  }
+  oen.commitment = data.commitment;
 }
 //------------------------------------------------------------------
 // This function takes an RPC request for mixins and creates an RPC response

@@ -90,9 +90,8 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   // we need the index
   for (uint64_t i = 0; i < tx.vout.size(); ++i)
   {
-    amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, tx.unlock_time));
-    if (tx.version > 1 && tx.vout[i].amount == 0)
-      add_rct_commitment(tx.rct_signatures.outPk[i].mask);
+    amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
+      tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL));
   }
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
