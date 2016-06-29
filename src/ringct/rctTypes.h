@@ -148,7 +148,16 @@ namespace rct {
         BEGIN_SERIALIZE_OBJECT()
             FIELD(ss)
             FIELD(cc)
-            FIELD(II)
+            if (II.size() == 0) {
+              // loading
+              FIELD(II)
+            }
+            else {
+              // saving
+              keyV II;
+              II.push_back(this->II.back());
+              FIELD(II)
+            }
         END_SERIALIZE()
     };
     //contains the data for an asnl sig
@@ -181,14 +190,16 @@ namespace rct {
         vector<ecdhTuple> ecdhInfo;
         ctkeyV outPk;
         xmr_amount txnFee;
+        key base_hash;
 
         BEGIN_SERIALIZE_OBJECT()
             FIELD(rangeSigs)
             FIELD(MG)
-            FIELD(mixRing)
+            // FIELD(mixRing) - not serialized, it can be reconstructed
             FIELD(ecdhInfo)
             FIELD(outPk)
             FIELD(txnFee)
+            // FIELD(base_hash) - not serialized, it can be reconstructed
         END_SERIALIZE()
     };
     
@@ -296,9 +307,11 @@ namespace rct {
     static inline rct::key pk2rct(const crypto::public_key &pk) { rct::key k; memcpy(&k, &pk, 32); return k; }
     static inline rct::key sk2rct(const crypto::secret_key &sk) { rct::key k; memcpy(&k, &sk, 32); return k; }
     static inline rct::key ki2rct(const crypto::key_image &ki) { rct::key k; memcpy(&k, &ki, 32); return k; }
+    static inline rct::key hash2rct(const crypto::hash &h) { rct::key k; memcpy(&k, &h, 32); return k; }
     static inline crypto::public_key rct2pk(const rct::key &k) { crypto::public_key pk; memcpy(&pk, &k, 32); return pk; }
     static inline crypto::secret_key rct2sk(const rct::key &k) { crypto::secret_key sk; memcpy(&sk, &k, 32); return sk; }
     static inline crypto::key_image rct2ki(const rct::key &k) { crypto::key_image ki; memcpy(&ki, &k, 32); return ki; }
+    static inline crypto::hash rct2hash(const rct::key &k) { crypto::hash h; memcpy(&h, &k, 32); return h; }
     static inline bool operator==(const rct::key &k0, const crypto::public_key &k1) { return !memcmp(&k0, &k1, 32); }
     static inline bool operator!=(const rct::key &k0, const crypto::public_key &k1) { return memcmp(&k0, &k1, 32); }
 }

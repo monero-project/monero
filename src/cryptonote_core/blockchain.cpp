@@ -2461,6 +2461,13 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
   else
   {
     // from version 2, check ringct signatures
+    rct::ctkeyM reconstructed_mixRing;
+    rct::keyV reconstructed_II;
+
+    // if the tx already has a non empty mixRing and/or II, use them,
+    // else reconstruct them
+    const rct::ctkeyM &mixRing = tx.rct_signatures.mixRing.empty() ? reconstructed_mixRing : tx.rct_signatures.mixRing;
+    const rct::keyV &II = tx.rct_signatures.MG.II.size() == 1 ? reconstructed_II : tx.rct_signatures.MG.II;
 
     // RCT needs the same mixin for all inputs
     for (size_t n = 1; n < pubkeys.size(); ++n)
@@ -2472,35 +2479,74 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
       }
     }
 
-    bool size_matches = true;
-    for (size_t i = 0; i < pubkeys.size(); ++i)
-      size_matches &= pubkeys[i].size() == tx.rct_signatures.mixRing.size();
-    for (size_t i = 0; i < tx.rct_signatures.mixRing.size(); ++i)
-      size_matches &= pubkeys.size() == tx.rct_signatures.mixRing[i].size();
-    if (!size_matches)
+    if (tx.rct_signatures.mixRing.empty())
     {
-      LOG_PRINT_L1("Failed to check ringct signatures: mismatched pubkeys/mixRing size");
-      return false;
-    }
-
-    for (size_t n = 0; n < pubkeys.size(); ++n)
-    {
-      for (size_t m = 0; m < pubkeys[n].size(); ++m)
+      reconstructed_mixRing.resize(pubkeys[0].size());
+      for (size_t n = 0; n < pubkeys.size(); ++n)
       {
-        if (pubkeys[n][m].dest != rct::rct2pk(tx.rct_signatures.mixRing[m][n].dest))
+        for (size_t m = 0; m < pubkeys[n].size(); ++m)
         {
-          LOG_PRINT_L1("Failed to check ringct signatures: mismatched pubkey at vin " << n << ", index " << m);
-          return false;
-        }
-        if (pubkeys[n][m].mask != rct::rct2pk(tx.rct_signatures.mixRing[m][n].mask))
-        {
-          LOG_PRINT_L1("Failed to check ringct signatures: mismatched commitment at vin " << n << ", index " << m);
-          return false;
+          reconstructed_mixRing[m].push_back(pubkeys[n][m]);
         }
       }
     }
 
-    if (!rct::verRct(tx.rct_signatures))
+    if (tx.rct_signatures.MG.II.size() == 1)
+    {
+      reconstructed_II.resize(tx.vin.size());
+      for (size_t n = 0; n < tx.vin.size(); ++n)
+      {
+        reconstructed_II[n] = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
+      }
+      reconstructed_II.push_back(tx.rct_signatures.MG.II.back());
+    }
+
+    // check all this, either recontructed (so should really pass), or not
+    {
+      bool size_matches = true;
+      for (size_t i = 0; i < pubkeys.size(); ++i)
+        size_matches &= pubkeys[i].size() == mixRing.size();
+      for (size_t i = 0; i < tx.rct_signatures.mixRing.size(); ++i)
+        size_matches &= pubkeys.size() == mixRing[i].size();
+      if (!size_matches)
+      {
+        LOG_PRINT_L1("Failed to check ringct signatures: mismatched pubkeys/mixRing size");
+        return false;
+      }
+
+      for (size_t n = 0; n < pubkeys.size(); ++n)
+      {
+        for (size_t m = 0; m < pubkeys[n].size(); ++m)
+        {
+          if (pubkeys[n][m].dest != rct::rct2pk(mixRing[m][n].dest))
+          {
+            LOG_PRINT_L1("Failed to check ringct signatures: mismatched pubkey at vin " << n << ", index " << m);
+            return false;
+          }
+          if (pubkeys[n][m].mask != rct::rct2pk(mixRing[m][n].mask))
+          {
+            LOG_PRINT_L1("Failed to check ringct signatures: mismatched commitment at vin " << n << ", index " << m);
+            return false;
+          }
+        }
+      }
+    }
+
+    if (II.size() != 1 + tx.vin.size())
+    {
+      LOG_PRINT_L1("Failed to check ringct signatures: mismatched II/vin sizes");
+      return false;
+    }
+    for (size_t n = 0; n < tx.vin.size(); ++n)
+    {
+      if (memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &II[n], 32))
+      {
+        LOG_PRINT_L1("Failed to check ringct signatures: mismatched II/vin sizes");
+        return false;
+      }
+    }
+
+    if (!rct::verRct(tx.rct_signatures, mixRing, II, rct::hash2rct(tx_prefix_hash)))
     {
       LOG_PRINT_L1("Failed to check ringct signatures!");
       return false;
@@ -2613,7 +2659,8 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
   }
   else
   {
-    CHECK_AND_ASSERT_MES(rct_signatures.mixRing.size() == output_keys.size(), false, "internal error: tx rct signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
+    // rct signatures may be empty (and will be reconstructed later in the caller if so)
+    CHECK_AND_ASSERT_MES(rct_signatures.mixRing.empty() || rct_signatures.mixRing.size() == output_keys.size(), false, "internal error: tx rct signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
   }
   return true;
 }

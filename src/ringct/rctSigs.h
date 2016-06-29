@@ -91,7 +91,7 @@ namespace rct {
     // Ver verifies that the MG sig was created correctly
     keyV keyImageV(const keyV &xx);
     mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index);
-    bool MLSAG_Ver(key message, const keyM &pk, const mgSig &sig);
+    bool MLSAG_Ver(key message, const keyM &pk, const mgSig &sig, const keyV &II);
     //mgSig MLSAG_Gen_Old(const keyM & pk, const keyV & xx, const int index);
 
     //proveRange and verRange
@@ -112,8 +112,8 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index, key txnFee);
-    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFee);
+    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index, key txnFee, const key &base_hash);
+    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFee, const key &base_hash);
 
     //These functions get keys from blockchain
     //replace these when connecting blockchain
@@ -133,9 +133,10 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment
     //   must know the destination private key to find the correct amount, else will return a random number
-    rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, unsigned int index);
-    rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin);
+    rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, const key &bash_hash, unsigned int index);
+    rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const key &bash_hash, const int mixin);
     bool verRct(const rctSig & rv);
+    bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const key &base_hash);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i);
 

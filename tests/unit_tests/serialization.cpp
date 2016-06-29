@@ -576,11 +576,10 @@ TEST(Serialization, serializes_ringct_types)
     ASSERT_TRUE(mg0.ss[n] == mg1.ss[n]);
   }
   ASSERT_TRUE(mg0.cc == mg1.cc);
-  ASSERT_TRUE(mg0.II.size() == mg1.II.size());
-  for (size_t n = 0; n < mg0.II.size(); ++n)
-  {
-    ASSERT_TRUE(mg0.II[n] == mg1.II[n]);
-  }
+
+  // mixRing and II are not serialized, they are meant to be reconstructed
+  ASSERT_TRUE(mg1.II.size() == 1);
+  ASSERT_TRUE(mg1.II[0] == mg0.II.back());
 
   rg0 = s0.rangeSigs.front();
   ASSERT_TRUE(serialization::dump_binary(rg0, blob));
@@ -600,20 +599,13 @@ TEST(Serialization, serializes_ringct_types)
     ASSERT_TRUE(s0.MG.ss[n] == s1.MG.ss[n]);
   }
   ASSERT_TRUE(s0.MG.cc == s1.MG.cc);
-  ASSERT_TRUE(s0.MG.II.size() == s1.MG.II.size());
-  for (size_t n = 0; n < s0.MG.II.size(); ++n)
-  {
-    ASSERT_TRUE(s0.MG.II[n] == s1.MG.II[n]);
-  }
-  ASSERT_TRUE(s0.mixRing.size() == s1.mixRing.size());
-  for (size_t n = 0; n < s0.mixRing.size(); ++n)
-  {
-    ASSERT_TRUE(s0.mixRing[n].size() == s1.mixRing[n].size());
-    for (size_t i = 0; i < s0.mixRing[n].size(); ++i)
-    {
-      ASSERT_TRUE(!memcmp(&s0.mixRing[n][i], &s1.mixRing[n][i], sizeof(s0.mixRing[n][i])));
-    }
-  }
+  // mixRing and II are not serialized, they are meant to be reconstructed
+  ASSERT_TRUE(s1.MG.II.size() == 1);
+  ASSERT_TRUE(s1.MG.II[0] == s0.MG.II.back());
+
+  // mixRing and II are not serialized, they are meant to be reconstructed
+  ASSERT_TRUE(s1.mixRing.size() == 0);
+
   ASSERT_TRUE(s0.ecdhInfo.size() == s1.ecdhInfo.size());
   for (size_t n = 0; n < s0.ecdhInfo.size(); ++n)
   {

@@ -37,6 +37,8 @@
 #include <boost/serialization/map.hpp>
 #include <boost/foreach.hpp>
 #include <boost/serialization/is_bitwise_serializable.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include "cryptonote_basic.h"
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/crypto.h"
@@ -196,12 +198,19 @@ namespace boost
     a & x.s;
   }
 
-  template <class Archive>
-  inline void serialize(Archive &a, rct::mgSig &x, const boost::serialization::version_type ver)
+  inline void serialize(boost::archive::binary_iarchive &a, rct::mgSig &x, const boost::serialization::version_type ver)
   {
     a & x.ss;
     a & x.cc;
-    a & x.II;
+    x.II.resize(1);
+    a & x.II[0];
+  }
+
+  inline void serialize(boost::archive::binary_oarchive &a, rct::mgSig &x, const boost::serialization::version_type ver)
+  {
+    a & x.ss;
+    a & x.cc;
+    a & x.II.back();
   }
 
   template <class Archive>
@@ -217,10 +226,11 @@ namespace boost
   {
     a & x.rangeSigs;
     a & x.MG;
-    a & x.mixRing;
+    // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
     a & x.ecdhInfo;
     a & x.outPk;
     a & x.txnFee;
+    // a & x.bash_hash; bash_hash is not serialized, as it can be reconstructed from the tx data
   }
 }
 }

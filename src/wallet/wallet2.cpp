@@ -3237,16 +3237,19 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
 
   // rangeSigs
   size += (2*64*32+32+64*32) * n_outputs;
-  // MG
-  size += 32 * (mixin+1) * n_inputs + 32 + 32 * n_inputs;
-  // mixRing
-  size += 2 * 32 * (mixin+1) * n_inputs;
+
+  // MG - only the last slot of II is saved, the rest can be reconstructed
+  size += 32 * (mixin+1) * n_inputs + 32 + 32 * (/*n_inputs+*/1) ;
+
+  // mixRing - not serialized, can be reconstructed
+  /* size += 2 * 32 * (mixin+1) * n_inputs; */
+
   // ecdhInfo
   size += 3 * 32 * n_outputs;
   // outPk
   size += 2 * 32 * n_outputs;
 
-  LOG_PRINT_L2("estimated rct tx size for " << n_inputs << " at mixin " << mixin << " and " << n_outputs << ": " << size);
+  LOG_PRINT_L2("estimated rct tx size for " << n_inputs << " at mixin " << mixin << " and " << n_outputs << ": " << size << " (" << (32 * n_inputs + 2 * 32 * (mixin+1) * n_inputs) << " saved)");
   return size;
 }
 

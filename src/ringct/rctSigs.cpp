@@ -226,7 +226,7 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly            
-    bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv) {
+    bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv, const keyV &II) {
 
         size_t cols = pk.size();
         CHECK_AND_ASSERT_MES(cols >= 2, false, "Error! What is c if cols = 1!");
@@ -235,7 +235,7 @@ namespace rct {
         for (size_t i = 1; i < cols; ++i) {
           CHECK_AND_ASSERT_MES(pk[i].size() == rows, false, "pk is not rectangular");
         }
-        CHECK_AND_ASSERT_MES(rv.II.size() == rows, false, "Bad rv.II size");
+        CHECK_AND_ASSERT_MES(II.size() == rows, false, "Bad II size");
         CHECK_AND_ASSERT_MES(rv.ss.size() == cols, false, "Bad rv.ss size");
         for (size_t i = 0; i < cols; ++i) {
           CHECK_AND_ASSERT_MES(rv.ss[i].size() == rows, false, "rv.ss is not rectangular");
@@ -246,7 +246,7 @@ namespace rct {
         key c_old = copy(rv.cc);
         vector<geDsmp> Ip(rows);
         for (i= 0 ; i< rows ; i++) {
-            precomp(Ip[i].k, rv.II[i]);
+            precomp(Ip[i].k, II[i]);
         }
         unsigned char m2[128]; 
         memcpy(m2, message.bytes, 32);
@@ -334,7 +334,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, unsigned int index, key txnFeeKey) {
+    mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, unsigned int index, key txnFeeKey, const key &base_hash) {
         mgSig mg;
         //setup vars
         size_t cols = pubs.size();
@@ -378,7 +378,9 @@ namespace rct {
         for (size_t j = 0; j < outPk.size(); j++) {
             sc_sub(sk[rows].bytes, sk[rows].bytes, outSk[j].mask.bytes); //subtract output masks in last row..
         }
-        key message = cn_fast_hash(outPk);
+        ctkeyV signed_data = outPk;
+        signed_data.push_back(ctkey({base_hash, identity()}));
+        key message = cn_fast_hash(signed_data);
         return MLSAG_Gen(message, M, sk, index);
     }
 
@@ -391,7 +393,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey) {
+    bool verRctMG(mgSig mg, const keyV &II, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey, const key &base_hash) {
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_MES(cols >= 1, false, "Empty pubs");
@@ -422,10 +424,12 @@ namespace rct {
             //subtract txn fee output in last row
             subKeys(M[i][rows], M[i][rows], txnFeeKey);
         }
-        key message = cn_fast_hash(outPk);
+        ctkeyV signed_data = outPk;
+        signed_data.push_back(ctkey({base_hash, identity()}));
+        key message = cn_fast_hash(signed_data);
         DP("message:");
         DP(message);
-        return MLSAG_Ver(message, M, mg);
+        return MLSAG_Ver(message, M, mg, II);
     }
 
     //These functions get keys from blockchain
@@ -470,7 +474,7 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number
     //   Note: For txn fees, the last index in the amounts vector should contain that
     //   Thus the amounts vector will be "one" longer than the destinations vectort
-    rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, unsigned int index) {
+    rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, const key &base_hash, unsigned int index) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
         for (size_t n = 0; n < mixRing.size(); ++n) {
@@ -513,15 +517,16 @@ namespace rct {
         key txnFeeKey = scalarmultH(d2h(rv.txnFee));
 
         rv.mixRing = mixRing;
-        rv.MG = proveRctMG(rv.mixRing, inSk, outSk, rv.outPk, index, txnFeeKey);
+        rv.base_hash = base_hash;
+        rv.MG = proveRctMG(rv.mixRing, inSk, outSk, rv.outPk, index, txnFeeKey, base_hash);
         return rv;
     }
 
-    rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const int mixin) {
+    rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const key &base_hash, const int mixin) {
         unsigned int index;
         ctkeyM mixRing;
         tie(mixRing, index) = populateFromBlockchain(inPk, mixin);
-        return genRct(inSk, destinations, amounts, mixRing, index);
+        return genRct(inSk, destinations, amounts, mixRing, base_hash, index);
     }
     
     //RingCT protocol
@@ -534,7 +539,7 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
-    bool verRct(const rctSig & rv) {
+    bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const key &base_hash) {
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of rv.outPk and rv.rangeSigs");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
@@ -552,7 +557,7 @@ namespace rct {
           }
           //compute txn fee
           key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-          bool mgVerd = verRctMG(rv.MG, rv.mixRing, rv.outPk, txnFeeKey);
+          bool mgVerd = verRctMG(rv.MG, II, mixRing, rv.outPk, txnFeeKey, base_hash);
           DP("mg sig verified?");
           DP(mgVerd);
 
@@ -562,6 +567,9 @@ namespace rct {
         {
           return false;
         }
+    }
+    bool verRct(const rctSig & rv) {
+        return verRct(rv, rv.mixRing, rv.MG.II, rv.base_hash);
     }
     
     //RingCT protocol
