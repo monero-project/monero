@@ -498,6 +498,15 @@ namespace cryptonote
     }
     //std::cout << "!"<< tx.vin.size() << std::endl;
 
+    uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
+    const size_t max_tx_version = version == 1 ? 1 : 2;
+    if (tx.version == 0 || tx.version > max_tx_version)
+    {
+      // v2 is the latest one we know
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
     if(!check_tx_syntax(tx))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " syntax, rejected");

@@ -84,7 +84,9 @@ namespace cryptonote
       tvc.m_verifivation_failed = true;
       return false;
     }
-    if (tx.version > 2) // TODO: max 1/2 needs to be conditioned by a hard fork
+
+    const size_t max_tx_version = version == 1 ? 1 : 2;
+    if (tx.version > max_tx_version)
     {
       // v2 is the latest one we know
       tvc.m_verifivation_failed = true;
