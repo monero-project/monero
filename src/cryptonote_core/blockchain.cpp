@@ -2262,17 +2262,39 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
       if (txin.type() == typeid(txin_to_key))
       {
         const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
-        uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
-        LOG_PRINT_L2("output size " << print_money(in_to_key.amount) << ": " << n_outputs << " available");
-        // n_outputs includes the output we're considering
-        if (n_outputs <= 2)
-          ++n_unmixable;
-        else
+        if (in_to_key.amount == 0)
+        {
+          // always consider rct inputs mixable. Even if there's not enough rct
+          // inputs on the chain to mix with, this is going to be the case for
+          // just a few blocks right after the fork at most
           ++n_mixable;
+        }
+        else
+        {
+          uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
+          LOG_PRINT_L2("output size " << print_money(in_to_key.amount) << ": " << n_outputs << " available");
+          // n_outputs includes the output we're considering
+          if (n_outputs <= 2)
+            ++n_unmixable;
+          else
+            ++n_mixable;
+        }
         if (in_to_key.key_offsets.size() - 1 < mixin)
           mixin = in_to_key.key_offsets.size() - 1;
       }
     }
+
+    // for v3, we force txes with all mixable inputs to be rct
+    if (m_hardfork->get_current_version() >= 3)
+    {
+      if (n_unmixable == 0 && tx.version == 1)
+      {
+        LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " is not rct and does not have unmixable inputs");
+        tvc.m_not_rct = true;
+        return false;
+      }
+    }
+
     if (mixin < 2)
     {
       if (n_unmixable == 0)

@@ -483,6 +483,8 @@ namespace cryptonote
         res.reason = "overspend";
       if ((res.fee_too_low = tvc.m_fee_too_low))
         res.reason = "fee too low";
+      if ((res.not_rct = tvc.m_not_rct))
+        res.reason = "tx is not ringct";
       return true;
     }
 
