@@ -97,12 +97,16 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
   }
 }
 
-uint64_t calculate_fee(const cryptonote::blobdata &blob, uint64_t fee_multiplier)
+uint64_t calculate_fee(size_t  bytes, uint64_t fee_multiplier)
 {
   THROW_WALLET_EXCEPTION_IF(fee_multiplier <= 0 || fee_multiplier > 3, tools::error::invalid_fee_multiplier);
-  uint64_t bytes = blob.size();
   uint64_t kB = (bytes + 1023) / 1024;
   return kB * FEE_PER_KB * fee_multiplier;
+}
+
+uint64_t calculate_fee(const cryptonote::blobdata &blob, uint64_t fee_multiplier)
+{
+  return calculate_fee(blob.size(), fee_multiplier);
 }
 
 } //namespace
@@ -2098,6 +2102,16 @@ namespace
     size_t idx = crypto::rand<size_t>() % vec.size();
     return pop_index (vec, idx);
   }
+
+  template<typename T>
+  T pop_back(std::vector<T>& vec)
+  {
+    CHECK_AND_ASSERT_MES(!vec.empty(), T(), "Vector must be non-empty");
+
+    T res = vec.back();
+    vec.pop_back();
+    return res;
+  }
 }
 //----------------------------------------------------------------------------------------------------
 // Select random input sources for transaction.
@@ -3012,6 +3026,92 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
   return size;
 }
 
+// This returns a handwavy estimation of how much two outputs are related
+// If they're from the same tx, then they're fully related. From close block
+// heights, they're kinda related. The actual values don't matter, just
+// their ordering, but it could become more murky if we add scores later.
+float wallet2::get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const
+{
+#if 0
+  // expensive test, and same tx will fall onto the same block height below
+  if (get_transaction_hash(td0.m_tx) == get_transaction_hash(td1.m_tx))
+    return 1.0f;
+#endif
+
+  // same block height -> possibly tx burst, or same tx (since above is disabled)
+  if (td0.m_block_height == td1.m_block_height)
+    return 0.9f;
+
+  // could extract the payment id, and compare them, but this is a bit expensive too
+
+  // similar block heights
+  if ((td0.m_block_height > td1.m_block_height ? td0.m_block_height - td1.m_block_height : td1.m_block_height - td0.m_block_height) < 10)
+    return 0.2f;
+
+  // don't think these are particularly related
+  return 0.0f;
+}
+
+std::vector<size_t> wallet2::pick_prefered_rct_inputs(uint64_t needed_money) const
+{
+  std::vector<size_t> picks;
+  float current_output_relatdness = 1.0f;
+
+  LOG_PRINT_L2("pick_prefered_rct_inputs: needed_money " << print_money(needed_money));
+
+  // try to find a rct input of enough size
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details& td = m_transfers[i];
+    if (!td.m_spent && td.is_rct() && td.amount() >= needed_money && is_transfer_unlocked(td))
+    {
+      LOG_PRINT_L2("We can use " << i << " alone: " << print_money(td.amount()));
+      picks.push_back(i);
+      return picks;
+    }
+  }
+
+  // then try to find two outputs
+  // this could be made better by picking one of the outputs to be a small one, since those
+  // are less useful since often below the needed money, so if one can be used in a pair,
+  // it gets rid of it for the future
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details& td = m_transfers[i];
+    if (!td.m_spent && td.is_rct() && is_transfer_unlocked(td))
+    {
+      LOG_PRINT_L2("Considering input " << i << ", " << print_money(td.amount()));
+      for (size_t j = i + 1; j < m_transfers.size(); ++j)
+      {
+        const transfer_details& td2 = m_transfers[j];
+        if (!td2.m_spent && td2.is_rct() && td.amount() + td2.amount() >= needed_money && is_transfer_unlocked(td2))
+        {
+          // update our picks if those outputs are less related than any we
+          // already found. If the same, don't update, and oldest suitable outputs
+          // will be used in preference.
+          float relatedness = get_output_relatedness(td, td2);
+          LOG_PRINT_L2("  with input " << j << ", " << print_money(td2.amount()) << ", relatedness " << relatedness);
+          if (relatedness < current_output_relatdness)
+          {
+            // reset the current picks with those, and return them directly
+            // if they're unrelated. If they are related, we'll end up returning
+            // them if we find nothing better
+            picks.clear();
+            picks.push_back(i);
+            picks.push_back(j);
+            LOG_PRINT_L0("we could use " << i << " and " << j);
+            if (relatedness == 0.0f)
+              return picks;
+            current_output_relatdness = relatedness;
+          }
+        }
+      }
+    }
+  }
+
+  return picks;
+}
+
 // Another implementation of transaction creation that is hopefully better
 // While there is anything left to pay, it goes through random outputs and tries
 // to fill the next destination/amount. If it fully fills it, it will use the
@@ -3096,6 +3196,26 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   adding_fee = false;
   needed_fee = 0;
 
+  // for rct, since we don't see the amounts, we will try to make all transactions
+  // look the same, with 1 or 2 inputs, and 2 outputs. One input is preferable, as
+  // this prevents linking to another by provenance analysis, but two is ok if we
+  // try to pick outputs not from the same block. We will get two outputs, one for
+  // the destination, and one for change.
+  std::vector<size_t> prefered_inputs;
+  if (use_rct)
+  {
+    // this is used to build a tx that's 1 or 2 inputs, and 2 outputs, which
+    // will get us a known fee.
+    uint64_t estimated_fee = calculate_fee(estimate_rct_tx_size(2, fake_outs_count + 1, 2), fee_multiplier);
+    prefered_inputs = pick_prefered_rct_inputs(needed_money + estimated_fee);
+    if (!prefered_inputs.empty())
+    {
+      string s;
+      for (auto i: prefered_inputs) s += print_money(m_transfers[i].amount()) + " ";
+      LOG_PRINT_L1("Found prefered rct inputs for rct tx: " << s);
+    }
+  }
+
   // while we have something to send
   while ((!dsts.empty() && dsts[0].amount > 0) || adding_fee) {
     TX &tx = txes.back();
@@ -3108,7 +3228,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
 
     // get a random unspent output and use it to pay part (or all) of the current destination (and maybe next one, etc)
     // This could be more clever, but maybe at the cost of making probabilistic inferences easier
-    size_t idx = !unused_transfers_indices.empty() ? pop_random_value(unused_transfers_indices) : pop_random_value(unused_dust_indices);
+    size_t idx = !prefered_inputs.empty() ? pop_back(prefered_inputs) : !unused_transfers_indices.empty() ? pop_random_value(unused_transfers_indices) : pop_random_value(unused_dust_indices);
 
     const transfer_details &td = m_transfers[idx];
     LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()));
