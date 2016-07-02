@@ -102,7 +102,6 @@ typedef cryptonote::simple_wallet sw;
 enum TransferType {
   TransferOriginal,
   TransferNew,
-  TransferRingCT,
 };
 
 namespace
@@ -648,9 +647,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("incoming_transfers", boost::bind(&simple_wallet::show_incoming_transfers, this, _1), tr("incoming_transfers [available|unavailable] - Show incoming transfers, all or filtered by availability"));
   m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), tr("payments <PID_1> [<PID_2> ... <PID_N>] - Show payments for given payment ID[s]"));
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), tr("Show blockchain height"));
-  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 0 to maximum available)"));
-  m_cmd_binder.set_handler("transfer_new", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer, but using a new transaction building algorithm"));
-  m_cmd_binder.set_handler("transfer_rct", boost::bind(&simple_wallet::transfer_rct, this, _1), tr("Same as transfer, but using RingCT transactions"));
+  m_cmd_binder.set_handler("transfer_original", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 0 to maximum available)"));
+  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer_original, but using a new transaction building algorithm"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("Send all unlocked balance an address"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
@@ -2405,9 +2403,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       case TransferOriginal:
         ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
         break;
-      case TransferRingCT:
-        ptx_vector = m_wallet->create_transactions_rct(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
-        break;
     }
 
     // if more than one tx necessary, prompt user to confirm
@@ -2556,11 +2551,6 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
 bool simple_wallet::transfer_new(const std::vector<std::string> &args_)
 {
   return transfer_main(TransferNew, args_);
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::transfer_rct(const std::vector<std::string> &args_)
-{
-  return transfer_main(TransferRingCT, args_);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
