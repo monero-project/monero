@@ -3282,14 +3282,15 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
   std::vector<TX> txes;
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+  const bool use_rct = use_fork_rules(3);
 
   // gather all our dust and non dust outputs
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
-    if (!td.m_spent && !td.is_rct() && is_transfer_unlocked(td))
+    if (!td.m_spent && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td))
     {
-      if (is_valid_decomposed_amount(td.amount()))
+      if (td.is_rct() || is_valid_decomposed_amount(td.amount()))
         unused_transfers_indices.push_back(i);
       else
         unused_dust_indices.push_back(i);
@@ -3324,7 +3325,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
     // here, check if we need to sent tx and start a new one
     LOG_PRINT_L2("Considering whether to create a tx now, " << tx.selected_transfers.size() << " inputs, tx limit "
       << upper_transaction_size_limit);
-    bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || (tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES >= TX_SIZE_TARGET(upper_transaction_size_limit));
+    size_t estimated_rct_tx_size;
+    if (use_rct)
+      estimated_rct_tx_size = estimate_rct_tx_size(tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1);
+    else
+      estimated_rct_tx_size = tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES;
+    bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || ( estimated_rct_tx_size >= TX_SIZE_TARGET(upper_transaction_size_limit));
 
     if (try_tx) {
       cryptonote::transaction test_tx;
@@ -3336,8 +3342,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
 
       LOG_PRINT_L2("Trying to create a tx now, with " << tx.dsts.size() << " destinations and " <<
         tx.selected_transfers.size() << " outputs");
-      transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
-        detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
+      if (use_rct)
+        transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
+          test_tx, test_ptx);
+      else
+        transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
+          detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
       auto txBlob = t_serializable_object_to_blob(test_ptx.tx);
       needed_fee = calculate_fee(txBlob, fee_multiplier);
       available_for_fee = test_ptx.fee + test_ptx.dests[0].amount + test_ptx.change_dts.amount;
@@ -3349,8 +3359,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
       do {
         LOG_PRINT_L2("We made a tx, adjusting fee and saving it");
         tx.dsts[0].amount = available_for_fee - needed_fee;
-        transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
-          detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
+        if (use_rct)
+          transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
+            test_tx, test_ptx);
+        else
+          transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, unlock_time, needed_fee, extra,
+            detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
         txBlob = t_serializable_object_to_blob(test_ptx.tx);
         needed_fee = calculate_fee(txBlob, fee_multiplier);
         LOG_PRINT_L2("Made an attempt at a final " << ((txBlob.size() + 1023)/1024) << " kB tx, with " << print_money(test_ptx.fee) <<
