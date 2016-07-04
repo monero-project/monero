@@ -76,11 +76,15 @@ target_link_libraries(wallet
     ${EXTRA_LIBRARIES})
 
 
-set(libs_to_merge wallet cryptonote_core mnemonics common crypto)
+# set(libs_to_merge wallet cryptonote_core mnemonics common crypto ${UNBOUND_LIBRARY} ) 
+set(libs_to_merge wallet cryptonote_core mnemonics common crypto) 
 #MERGE_STATIC_LIBS(wallet_merged wallet_merged "${libs_to_merge}")
 merge_static_libs(wallet_merged "${libs_to_merge}")
 
-install(TARGETS wallet_merged
+# hack - repack libunbound into another static lib - there's conflicting object file "random.c.obj"
+merge_static_libs(wallet_merged2 "${UNBOUND_LIBRARY}")
+
+install(TARGETS wallet_merged wallet_merged2
     ARCHIVE DESTINATION lib)
 
 install(FILES ${wallet_api_headers}
