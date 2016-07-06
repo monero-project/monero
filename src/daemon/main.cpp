@@ -180,7 +180,16 @@ int main(int argc, char const * argv[])
     boost::system::error_code ec;
     if (bf::exists(config_path, ec))
     {
-      po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
+      try
+      {
+        po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
+      }
+      catch (const std::exception &e)
+      {
+        // log system isn't initialized yet
+        std::cerr << "Error parsing config file: " << e.what() << std::endl;
+        throw;
+      }
     }
     po::notify(vm);
 
