@@ -112,8 +112,7 @@ pacman -Su --ignoregroup base
 pacman -Su
 ```
 * For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
-* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-unbound mingw-w64-x86_64-boost`
-* If you are planning to build statically you will also need to install: `pacman -S mingw-w64-x86_64-ldns mingw-w64-x86_64-expat` (note that these are likely already installed by the unbound dependency installation above)
+* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-expat mingw-w64-x86_64-boost`
 
 **Building**
 
