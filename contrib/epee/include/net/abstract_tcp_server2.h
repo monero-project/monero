@@ -95,7 +95,7 @@ namespace net_utils
 			i_connection_filter * &pfilter
 			,t_connection_type connection_type);
 
-    virtual ~connection();
+    virtual ~connection() noexcept(false);
     /// Get the socket associated with the connection.
     boost::asio::ip::tcp::socket& socket();
 
