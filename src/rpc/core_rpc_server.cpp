@@ -41,6 +41,8 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
 
+#define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
+
 namespace cryptonote
 {
 
@@ -189,6 +191,16 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     res.status = "Failed";
+
+    if (m_restricted)
+    {
+      if (req.amounts.size() > 100 || req.outs_count > MAX_RESTRICTED_FAKE_OUTS_COUNT)
+      {
+        res.status = "Too many outs requested";
+        return true;
+      }
+    }
+
     if(!m_core.get_random_outs_for_amounts(req, res))
     {
       return true;
