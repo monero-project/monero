@@ -32,9 +32,84 @@
 
 
 #include <string>
+#include <vector>
+#include <ctime>
 
 //  Public interface for libwallet library
 namespace Bitmonero {
+
+    namespace Utils {
+        bool isAddressLocal(const std::string &hostaddr);
+    }
+/**
+ * @brief Transaction-like interface for sending money
+ */
+struct PendingTransaction
+{
+    enum Status {
+        Status_Ok,
+        Status_Error
+    };
+    virtual ~PendingTransaction() = 0;
+    virtual int status() const = 0;
+    virtual std::string errorString() const = 0;
+    virtual bool commit() = 0;
+    virtual uint64_t amount() const = 0;
+    virtual uint64_t dust() const = 0;
+    virtual uint64_t fee() const = 0;
+};
+
+/**
+ * @brief The TransactionInfo - interface for displaying transaction information
+ */
+struct TransactionInfo
+{
+    enum Direction {
+        Direction_In,
+        Direction_Out
+    };
+
+    struct Transfer {
+        Transfer(uint64_t _amount, const std::string &address);
+        const uint64_t amount;
+        const std::string address;
+    };
+
+    virtual ~TransactionInfo() = 0;
+    virtual int  direction() const = 0;
+    virtual bool isPending() const = 0;
+    virtual bool isFailed() const = 0;
+    virtual uint64_t amount() const = 0;
+    virtual uint64_t fee() const = 0;
+    virtual uint64_t blockHeight() const = 0;
+    //! transaction_id
+    virtual std::string hash() const = 0;
+    virtual std::time_t timestamp() const = 0;
+    virtual std::string paymentId() const = 0;
+    //! only applicable for output transactions
+    virtual const std::vector<Transfer> & transfers() const = 0;
+};
+/**
+ * @brief The TransactionHistory - interface for displaying transaction history
+ */
+struct TransactionHistory
+{
+    virtual ~TransactionHistory() = 0;
+    virtual int count() const = 0;
+    virtual TransactionInfo * transaction(int index)  const = 0;
+    virtual TransactionInfo * transaction(const std::string &id) const = 0;
+    virtual std::vector<TransactionInfo*> getAll() const = 0;
+    virtual void refresh() = 0;
+};
+
+
+struct WalletListener
+{
+    virtual ~WalletListener() = 0;
+    virtual void moneySpent(const std::string &txId, uint64_t amount) = 0;
+    virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
+    // TODO: on_skip_transaction;
+};
 
 
 /**
@@ -43,30 +118,93 @@ namespace Bitmonero {
  */
 struct Wallet
 {
-   // TODO define wallet interface (decide what needed from wallet2)
 
     enum Status {
         Status_Ok,
         Status_Error
     };
 
-    struct Listener
-    {
-        // TODO
-    };
-
     virtual ~Wallet() = 0;
     virtual std::string seed() const = 0;
     virtual std::string getSeedLanguage() const = 0;
     virtual void setSeedLanguage(const std::string &arg) = 0;
-    virtual void setListener(Listener * listener) = 0;
     //! returns wallet status (Status_Ok | Status_Error)
     virtual int status() const = 0;
     //! in case error status, returns error string
     virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address() const = 0;
+    
+    /*!
+     * \brief integratedAddress - returns integrated address for current wallet address and given payment_id.
+     *                            if passed "payment_id" param is an empty string or not-valid payment id string
+     *                            (16 characters hexadecimal string) - random payment_id will be generated
+     *
+     * \param payment_id        - 16 characters hexadecimal string or empty string if new random payment id needs to be
+     *                            generated
+     * \return                  - 106 characters string representing integrated address
+     */
+    virtual std::string integratedAddress(const std::string &payment_id) const = 0;
+    
+    /*!
+     * \brief store - stores wallet to file.
+     * \param path - main filename to store wallet to. additionally stores address file and keys file.
+     *               to store to the same file - just pass empty string;
+     * \return
+     */
     virtual bool store(const std::string &path) = 0;
+    /*!
+     * \brief filename - returns wallet filename
+     * \return
+     */
+    virtual std::string filename() const = 0;
+    /*!
+     * \brief keysFilename - returns keys filename. usually this formed as "wallet_filename".keys
+     * \return
+     */
+    virtual std::string keysFilename() const = 0;
+
+    virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+    virtual bool connectToDaemon() = 0;
+    virtual void setTrustedDaemon(bool arg) = 0;
+    virtual bool trustedDaemon() const = 0;
+    virtual uint64_t balance() const = 0;
+    virtual uint64_t unlockedBalance() const = 0;
+
+    static std::string displayAmount(uint64_t amount);
+    static uint64_t amountFromString(const std::string &amount);
+    static uint64_t amountFromDouble(double amount);
+    static std::string genPaymentId();
+
+    // TODO?
+    // virtual uint64_t unlockedDustBalance() const = 0;
+    virtual bool refresh() = 0;
+    /*!
+     * \brief createTransaction creates transaction. if dst_addr is an integrated address, payment_id is ignored
+     * \param dst_addr          destination address as string
+     * \param payment_id        optional payment_id, can be empty string
+     * \param amount            amount
+     * \param mixin_count       mixin count. if 0 passed, wallet will use default value
+     * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
+     *                          after object returned
+     */
+
+    virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
+                                                   uint64_t amount, uint32_t mixin_count) = 0;
+
+    virtual void disposeTransaction(PendingTransaction * t) = 0;
+    virtual TransactionHistory * history() const = 0;
+    virtual void setListener(WalletListener *) = 0;
+    /*!
+     * \brief defaultMixin - returns number of mixins used in transactions
+     * \return
+     */
+    virtual uint32_t defaultMixin() const = 0;
+    /*!
+     * \brief setDefaultMixin - setum number of mixins to be used for new transactions
+     * \param arg
+     */
+    virtual void setDefaultMixin(uint32_t arg) = 0;
 };
 
 /**
@@ -82,7 +220,7 @@ struct WalletManager
      * \param  language       Language to be used to generate electrum seed memo
      * \return                Wallet instance (Wallet::status() needs to be called to check if created successfully)
      */
-    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language) = 0;
+    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language, bool testnet = false) = 0;
 
     /*!
      * \brief  Opens existing wallet
@@ -90,7 +228,7 @@ struct WalletManager
      * \param  password       Password of wallet file
      * \return                Wallet instance (Wallet::status() needs to be called to check if opened successfully)
      */
-    virtual Wallet * openWallet(const std::string &path, const std::string &password) = 0;
+    virtual Wallet * openWallet(const std::string &path, const std::string &password, bool testnet = false) = 0;
 
     /*!
      * \brief  recovers existing wallet using memo (electrum seed)
@@ -98,7 +236,7 @@ struct WalletManager
      * \param  memo           memo (25 words electrum seed)
      * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
      */
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo) = 0;
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet = false) = 0;
 
     /*!
      * \brief Closes wallet. In case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
@@ -107,9 +245,25 @@ struct WalletManager
      */
     virtual bool closeWallet(Wallet *wallet) = 0;
 
-    //! checks if wallet with the given name already exists
+    /*
+     * ! checks if wallet with the given name already exists
+     */
+
+    /*!
+     * @brief TODO: delme walletExists - check if the given filename is the wallet
+     * @param path - filename
+     * @return
+     */
     virtual bool walletExists(const std::string &path) = 0;
 
+    /*!
+     * \brief findWallets - searches for the wallet files by given path name recursively
+     * \param path - starting point to search
+     * \return - list of strings with found wallets (absolute paths);
+     */
+    virtual std::vector<std::string> findWallets(const std::string &path) = 0;
+
+    //! returns verbose error string regarding last error;
     virtual std::string errorString() const = 0;
 
 };

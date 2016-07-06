@@ -26,15 +26,24 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# include (${PROJECT_SOURCE_DIR}/cmake/libutils.cmake)
+include (${PROJECT_SOURCE_DIR}/cmake/MergeStaticLibs.cmake)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(wallet_sources
   wallet2.cpp
   wallet_rpc_server.cpp
-  wallet2_api.cpp)
+  api/wallet.cpp
+  api/wallet_manager.cpp
+  api/transaction_info.cpp
+  api/transaction_history.cpp
+  api/pending_transaction.cpp
+  api/utils.cpp)
 
-set(wallet_headers)
+set(wallet_api_headers
+    wallet2_api.h)
+    
 
 set(wallet_private_headers
   wallet2.h
@@ -42,13 +51,18 @@ set(wallet_private_headers
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h
-  wallet2_api.h)
+  api/wallet.h
+  api/wallet_manager.h
+  api/transaction_info.h
+  api/transaction_history.h
+  api/pending_transaction.h
+  api/common_defines.h)
 
 bitmonero_private_headers(wallet
   ${wallet_private_headers})
 bitmonero_add_library(wallet
   ${wallet_sources}
-  ${wallet_headers}
+  ${wallet_api_headers}
   ${wallet_private_headers})
 target_link_libraries(wallet
   LINK_PUBLIC
@@ -60,4 +74,16 @@ target_link_libraries(wallet
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${EXTRA_LIBRARIES})
+
+
+set(libs_to_merge wallet cryptonote_core mnemonics common crypto)
+#MERGE_STATIC_LIBS(wallet_merged wallet_merged "${libs_to_merge}")
+merge_static_libs(wallet_merged "${libs_to_merge}")
+
+install(TARGETS wallet_merged
+    ARCHIVE DESTINATION lib)
+
+install(FILES ${wallet_api_headers}
+    DESTINATION include/wallet)
+
 
