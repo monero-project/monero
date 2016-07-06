@@ -350,19 +350,24 @@ POP_WARNINGS
   {
     //parse ip and address
     std::string::size_type p = addres.find(':');
+    std::string ip_str, port_str;
     if(p == std::string::npos)
     {
-      return false;
+      port = 0;
+      ip_str = addres;
     }
-    std::string ip_str = addres.substr(0, p);
-    std::string port_str = addres.substr(p+1, addres.size());
+    else
+    {
+      ip_str = addres.substr(0, p);
+      port_str = addres.substr(p+1, addres.size());
+    }
 
     if(!get_ip_int32_from_string(ip, ip_str))
     {
       return false;
     }
 
-    if(!get_xtype_from_string(port, port_str))
+    if(p != std::string::npos && !get_xtype_from_string(port, port_str))
     {
       return false;
     }
