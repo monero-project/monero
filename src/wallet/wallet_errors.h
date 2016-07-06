@@ -56,6 +56,7 @@ namespace tools
     //       file_read_error
     //       file_save_error
     //       invalid_password
+    //       invalid_fee_multiplier
     //       refresh_error *
     //         acc_outs_lookup_error
     //         block_parse_error
@@ -221,6 +222,15 @@ namespace tools
     {
       explicit invalid_password(std::string&& loc)
         : wallet_logic_error(std::move(loc), "invalid password")
+      {
+      }
+
+      std::string to_string() const { return wallet_logic_error::to_string(); }
+    };
+    struct invalid_fee_multiplier : public wallet_logic_error
+    {
+      explicit invalid_fee_multiplier(std::string&& loc)
+        : wallet_logic_error(std::move(loc), "invalid fee multiplier")
       {
       }
 
