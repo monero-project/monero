@@ -1,47 +1,47 @@
-# Monero
+# Moonero
 
-Copyright (c) 2014-2016, The Monero Project
+Copyright (c) 2014-2016, The Moonero Project
 
 ## Development Resources
 
-Web: [getmonero.org](https://getmonero.org)  
-Forum: [forum.getmonero.org](https://forum.getmonero.org)  
-Mail: [dev@getmonero.org](mailto:dev@getmonero.org)  
-Github (staging): [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)  
-Github (development): [http://github.com/monero-project/bitmonero/tree/development](http://github.com/monero-project/bitmonero/tree/development)  
-IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
+Web: [getmoonero.org](https://getmoonero.org)  
+Forum: [forum.getmoonero.org](https://forum.getmoonero.org)  
+Mail: [dev@getmoonero.org](mailto:dev@getmoonero.org)  
+Github (staging): [https://github.com/moonero-project/bitmoonero](https://github.com/moonero-project/bitmoonero)  
+Github (development): [http://github.com/moonero-project/bitmoonero/tree/development](http://github.com/moonero-project/bitmoonero/tree/development)  
+IRC: [#moonero-dev on Freenode](irc://chat.freenode.net/#moonero-dev)
 
 ## Introduction
 
-Monero is a private, secure, untraceable currency. You are your bank, you control your funds, and nobody can trace your transfers unless you decide so.
+Moonero is a private, secure, untraceable currency. You are your bank, you control your funds, and nobody can trace your transfers unless you decide so.
 
-**Privacy:** Monero uses a cryptographically sound system to allow you to send and receive funds without your transactions being easily revealed on the blockchain (the ledger of transactions that everyone has). This ensures that your purchases, receipts, and all transfers remain absolutely private by default.
+**Privacy:** Moonero uses a cryptographically sound system to allow you to send and receive funds without your transactions being easily revealed on the blockchain (the ledger of transactions that everyone has). This ensures that your purchases, receipts, and all transfers remain absolutely private by default.
 
 **Security:** Using the power of a distributed peer-to-peer consensus network, every transaction on the network is cryptographically secured. Individual wallets have a 24 word mnemonic seed that is only displayed once, and can be written down to backup the wallet. Wallet files are encrypted with a passphrase to ensure they are useless if stolen.
 
-**Untraceability:** By taking advantage of ring signatures, a special property of a certain type of cryptography, Monero is able to ensure that transactions are not only untraceable, but have an optional measure of ambiguity that ensures that transactions cannot easily be tied back to an individual user or computer.
+**Untraceability:** By taking advantage of ring signatures, a special property of a certain type of cryptography, Moonero is able to ensure that transactions are not only untraceable, but have an optional measure of ambiguity that ensures that transactions cannot easily be tied back to an individual user or computer.
 
 ## About this Project
 
-This is the core implementation of Monero. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of Monero that uses the protocol and network in a compatible manner.
+This is the core implementation of Moonero. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of Moonero that uses the protocol and network in a compatible manner.
 
 As with many development projects, the repository on Github is considered to be the "staging" area for the latest changes. Before changes are merged into that branch on the main repository, they are tested by individual developers, committed to the "development" branch, and then subsequently tested by contributors who focus on thorough testing and code reviews. That having been said, the repository should be carefully considered before using it in a production environment, unless there is a patch in the repository for a particular show-stopping issue you are experiencing. It is generally a better idea to use a tagged release for stability.
 
-Anyone is welcome to contribute to Monero. If you have a fix or code change, feel free to submit is as a pull request directly to the "development" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
+Anyone is welcome to contribute to Moonero. If you have a fix or code change, feel free to submit is as a pull request directly to the "development" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
 ## Supporting the Project
 
-Monero development can be supported directly through donations.
+Moonero development can be supported directly through donations.
 
-Both Monero and Bitcoin donations can be made to donate.getmonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
+Both Moonero and Bitcoin donations can be made to donate.getmoonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
 
-The Monero donation address is: 44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A (viewkey: f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501)
+The Moonero donation address is: 44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A (viewkey: f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501)
 
 The Bitcoin donation address is: 1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
-[![MyMonero](https://static.getmonero.org/images/sponsors/mymonero.png)](https://mymonero.com) [![Kitware](https://static.getmonero.org/images/sponsors/kitware.png?1)](http://kitware.com) [![Dome9](https://static.getmonero.org/images/sponsors/dome9.png)](http://dome9.com) [![Araxis](https://static.getmonero.org/images/sponsors/araxis.png)](http://araxis.com) [![JetBrains](https://static.getmonero.org/images/sponsors/jetbrains.png)](http://www.jetbrains.com/) [![Navicat](https://static.getmonero.org/images/sponsors/navicat.png)](http://www.navicat.com/)
+[![MyMoonero](https://static.getmoonero.org/images/sponsors/mymoonero.png)](https://mymoonero.com) [![Kitware](https://static.getmoonero.org/images/sponsors/kitware.png?1)](http://kitware.com) [![Dome9](https://static.getmoonero.org/images/sponsors/dome9.png)](http://dome9.com) [![Araxis](https://static.getmoonero.org/images/sponsors/araxis.png)](http://araxis.com) [![JetBrains](https://static.getmoonero.org/images/sponsors/jetbrains.png)](http://www.jetbrains.com/) [![Navicat](https://static.getmoonero.org/images/sponsors/navicat.png)](http://www.navicat.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
@@ -49,7 +49,7 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 See [LICENSE](LICENSE).
 
-## Compiling Monero
+## Compiling Moonero
 
 ### Overview:
 
@@ -95,7 +95,7 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 * Ensure Homebrew is installed, it can be found at http://brew.sh
 * Add the repository to brew: `brew tap sammy007/cryptonight`
-* Build Monero: `brew install bitmonero --build-from-source`
+* Build Moonero: `brew install bitmoonero --build-from-source`
 
 ### On Windows:
 
@@ -145,7 +145,7 @@ If you installed MSYS2 in a folder other than c:/msys64, make the appropriate su
 
 The project can be built from scratch by following instructions for Unix and Linux above.
 
-We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
+We expect to add Moonero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
 ### On OpenBSD:
 
@@ -158,13 +158,13 @@ The doxygen and graphviz packages are optional and require the xbase set.
 The Boost package has a bug that will prevent librpc.a from building correctly. In order to fix this, you will have to Build boost yourself from scratch. Follow the directions here (under "Building Boost"):
 https://github.com/bitcoin/bitcoin/blob/master/doc/build-openbsd.md
 
-You will have to add the serialization, date_time, and regex modules to Boost when building as they are needed by Monero.
+You will have to add the serialization, date_time, and regex modules to Boost when building as they are needed by Moonero.
 
 To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
 
 ## Building Documentation
 
-Monero developer documentation uses Doxygen, and is currently a work-in-progress.
+Moonero developer documentation uses Doxygen, and is currently a work-in-progress.
 
 Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
 
@@ -172,19 +172,19 @@ Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
 * If you have installed Graphviz, you can also generate in-doc diagrams by instead running `HAVE_DOT=YES doxygen Doxyfile`
 * The output will be built in doc/html/
 
-## Running bitmonerod
+## Running bitmoonerod
 
 The build places the binary in `bin/` sub-directory within the build directory
 from which cmake was invoked (repository root by default). To run in
 foreground:
 
-    ./bin/bitmonerod
+    ./bin/bitmoonerod
 
 To run in background:
 
-    ./bin/bitmonerod --log-file bitmonerod.log --detach
+    ./bin/bitmoonerod --log-file bitmoonerod.log --detach
 
-To list all available options, run `./bin/bitmonerod --help`.  Options can be
+To list all available options, run `./bin/bitmoonerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
@@ -196,20 +196,20 @@ See README.i18n
 
 ## Using Tor
 
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmonerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, add TORSOCKS_ALLOW_INBOUND=1. Example:
+While Moonero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmoonerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, add TORSOCKS_ALLOW_INBOUND=1. Example:
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks bitmonerod --p2p-bind-ip 127.0.0.1 --no-igd`
+`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks bitmoonerod --p2p-bind-ip 127.0.0.1 --no-igd`
 
 TAILS ships with a very restrictive set of firewall rules. Therefore, you need to add a rule to allow this connection too, in addition to telling torsocks to allow inbound connections. Full example:
 
 `sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT`
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks ./bitmonerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
+`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks ./bitmoonerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
 
 `./simplewallet`
 
 ## Using readline
 
-While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
+While bitmoonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
 rlwrap bin/simplewallet --wallet-file /path/to/wallet
 
