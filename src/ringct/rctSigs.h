@@ -113,7 +113,9 @@ namespace rct {
     //Ver:
     //   verifies the above sig is created corretly
     mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index, key txnFee, const key &base_hash);
+    mgSig proveRctMGSimple(const key & message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, unsigned int index);
     bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFee, const key &base_hash);
+    bool verRctMGSimple(const key &message, const mgSig &mg, const keyV &II, const ctkeyV & pubs, const key & C);
 
     //These functions get keys from blockchain
     //replace these when connecting blockchain
@@ -135,13 +137,14 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number
     rctSig genRct(const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> amounts, const ctkeyM &mixRing, const key &bash_hash, unsigned int index);
     rctSig genRct(const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> amounts, const key &bash_hash, const int mixin);
+    sRctSig genRctSimple(const key & message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, unsigned int mixin);
+    sRctSig genRctSimple(const key & message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const std::vector<unsigned int> & index);
     bool verRct(const rctSig & rv);
     bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const key &base_hash);
+    bool verRctSimple(const sRctSig & rv);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i);
-
-
-
+    xmr_amount decodeRct(const sRctSig & rv, const key & sk, unsigned int i);
 }
 #endif  /* RCTSIGS_H */
 

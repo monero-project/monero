@@ -203,6 +203,30 @@ namespace rct {
         END_SERIALIZE()
     };
     
+    //rct simple variant
+    struct sRctSig {
+        key message;
+        vector<rangeSig> rangeSigs;
+        vector<mgSig> MG;
+        vector<ctkeyV> mixRing; //the set of all pubkeys / copy
+        //pairs that you mix with
+        keyV pseudoOuts; //C
+        vector<ecdhTuple> ecdhInfo;
+        ctkeyV outPk;
+        xmr_amount txnFee; // contains b
+
+        BEGIN_SERIALIZE_OBJECT()
+            // FIELD(message) - not serialized, it can be reconstructed
+            FIELD(rangeSigs)
+            FIELD(MG)
+            // FIELD(mixRing) - not serialized, it can be reconstructed
+            FIELD(pseudoOuts)
+            FIELD(ecdhInfo)
+            FIELD(outPk)
+            FIELD(txnFee)
+        END_SERIALIZE()
+    };
+
     //other basepoint H = toPoint(cn_fast_hash(G)), G the basepoint
     static const key H = { {0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1, 0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94} };
 

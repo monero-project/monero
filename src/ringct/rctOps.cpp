@@ -150,6 +150,12 @@ namespace rct {
         return make_tuple(sk, pk);
     }
 
+    //generates C =aG + bH from b, a is given..
+    void genC(key & C, const key & a, xmr_amount amount) {
+        key bH = scalarmultH(d2h(amount));
+        addKeys1(C, a, bH);
+    }
+
     //generates a <secret , public> / Pedersen commitment to the amount
     tuple<ctkey, ctkey> ctskpkGen(xmr_amount amount) {
         ctkey sk, pk;

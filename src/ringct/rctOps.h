@@ -94,6 +94,8 @@ namespace rct {
     tuple<key, key> skpkGen();
     //generates a <secret , public> / Pedersen commitment to the amount
     tuple<ctkey, ctkey> ctskpkGen(xmr_amount amount);
+    //generates C =aG + bH from b, a is random
+    void genC(key & C, const key & a, xmr_amount amount);
     //this one is mainly for testing, can take arbitrary amounts..
     tuple<ctkey, ctkey> ctskpkGen(key bH);
     // make a pedersen commitment with given key
