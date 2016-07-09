@@ -423,6 +423,31 @@ namespace rct {
         return rv;
     }
     
+   //cn_fast_hash for a key-vector of arbitrary length
+   //this is useful since you take a number of keys
+   //put them in the key vector and it concatenates them
+   //and then hashes them
+   key cn_fast_hash(const keyV &keys) {
+       size_t l = keys.size();
+       vector<unsigned char> m(l * 32);
+       size_t i, j;
+       for (i = 0 ; i < l ; i++) {
+           for (j = 0 ; j < 32 ; j++) {
+               m[i * 32 + j] = keys[i][j];
+           }
+       }
+       key rv;
+       cn_fast_hash(rv, &m[0], 32 * l);
+       //dp(rv);
+       return rv;
+   }
+   
+   key hash_to_scalar(const keyV &keys) {
+       key rv = cn_fast_hash(keys);
+       sc_reduce32(rv.bytes);
+       return rv;
+   }
+
     key hashToPointSimple(const key & hh) {
         key pointk;
         ge_p1p1 point2;

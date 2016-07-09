@@ -169,22 +169,21 @@ namespace rct {
         keyV alpha(rows);
         keyV aG(rows);
         keyV aHP(rows);
-        key m2hash;
-        unsigned char m2[128]; 
-        memcpy(m2, message.bytes, 32);
+        keyV toHash(1 + 3 * rows);
+        toHash[0] = message;
         DP("here1");
         for (i = 0; i < rows; i++) {
             skpkGen(alpha[i], aG[i]); //need to save alphas for later..
             Hi = hashToPoint(pk[index][i]);
             aHP[i] = scalarmultKey(Hi, alpha[i]);
-            memcpy(m2+32, pk[index][i].bytes, 32);
-            memcpy(m2 + 64, aG[i].bytes, 32);
-            memcpy(m2 + 96, aHP[i].bytes, 32);
+            toHash[3 * i + 1] = pk[index][i];
+            toHash[3 * i + 2] = aG[i];
+            toHash[3 * i + 3] = aHP[i];
             rv.II[i] = scalarmultKey(Hi, xx[i]);
             precomp(Ip[i].k, rv.II[i]);
-            m2hash = hash_to_scalar128(m2);
-            sc_add(c_old.bytes, c_old.bytes, m2hash.bytes);
         }
+        c_old = hash_to_scalar(toHash);
+
         
         i = (index + 1) % cols;
         if (i == 0) {
@@ -198,12 +197,11 @@ namespace rct {
                 addKeys2(L, rv.ss[i][j], c_old, pk[i][j]);
                 hashToPoint(Hi, pk[i][j]);
                 addKeys3(R, rv.ss[i][j], Hi, c_old, Ip[j].k);
-                memcpy(m2+32, pk[i][j].bytes, 32);
-                memcpy(m2 + 64, L.bytes, 32);
-                memcpy(m2 + 96, R.bytes, 32);      
-                m2hash = hash_to_scalar128(m2);
-                sc_add(c.bytes, c.bytes, m2hash.bytes);
+                toHash[3 * j + 1] = pk[i][j];
+                toHash[3 * j + 2] = L; 
+                toHash[3 * j + 3] = R;
             }
+            c = hash_to_scalar(toHash);
             copy(c_old, c);
             i = (i + 1) % cols;
             
@@ -248,10 +246,8 @@ namespace rct {
         for (i= 0 ; i< rows ; i++) {
             precomp(Ip[i].k, II[i]);
         }
-        unsigned char m2[128]; 
-        memcpy(m2, message.bytes, 32);
-        
-        key m2hash;
+        keyV toHash(1 + 3 * rows);
+        toHash[0] = message;
         i = 0;
         while (i < cols) {
             sc_0(c.bytes);
@@ -259,12 +255,11 @@ namespace rct {
                 addKeys2(L, rv.ss[i][j], c_old, pk[i][j]);
                 hashToPoint(Hi, pk[i][j]);
                 addKeys3(R, rv.ss[i][j], Hi, c_old, Ip[j].k);
-                memcpy(m2 + 32, pk[i][j].bytes, 32);
-                memcpy(m2 + 64, L.bytes, 32);
-                memcpy(m2 + 96, R.bytes, 32);      
-                m2hash = hash_to_scalar128(m2);
-                sc_add(c.bytes, c.bytes, m2hash.bytes);
+                toHash[3 * j + 1] = pk[i][j];
+                toHash[3 * j + 2] = L; 
+                toHash[3 * j + 3] = R;
             }
+            c = hash_to_scalar(toHash);
             copy(c_old, c);
             i = (i + 1);
         }
