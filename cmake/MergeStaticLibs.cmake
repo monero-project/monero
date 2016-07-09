@@ -11,6 +11,12 @@
 #    You should have received a copy of the FMILIB_License.txt file
 #    along with this program. If not, contact Modelon AB <http://www.modelon.com>.
 
+
+# This script gets LOCATION target property, which is deprecated since cmake 3.0
+if(NOT ${CMAKE_VERSION} VERSION_LESS 3.0)
+cmake_policy(SET CMP0026 OLD) # silence warning, until this code is updated
+endif()
+
 # Merge_static_libs(outlib lib1 lib2 ... libn) merges a number of static
 # libs into a single static library
 function(merge_static_libs outlib )
