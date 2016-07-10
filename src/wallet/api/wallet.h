@@ -35,6 +35,9 @@
 #include "wallet/wallet2.h"
 
 #include <string>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 
 namespace Bitmonero {
@@ -71,7 +74,7 @@ public:
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
     bool refresh();
-
+    void refreshAsync();
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         uint64_t amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
@@ -84,19 +87,33 @@ public:
 
 private:
     void clearStatus();
+    void refreshThreadFunc();
+    void doRefresh();
+    void startRefresh();
+    void stopRefresh();
 
 private:
     friend class PendingTransactionImpl;
     friend class TransactionHistoryImpl;
 
     tools::wallet2 * m_wallet;
-    int  m_status;
+    std::atomic<int>  m_status;
     std::string m_errorString;
     std::string m_password;
     TransactionHistoryImpl * m_history;
     bool        m_trustedDaemon;
     WalletListener * m_walletListener;
     Wallet2CallbackImpl * m_wallet2Callback;
+
+    // multi-threaded refresh stuff
+    std::atomic<bool> m_refreshEnabled;
+    std::atomic<bool> m_refreshThreadDone;
+    std::atomic<int>  m_refreshIntervalSeconds;
+    std::mutex        m_refreshMutex;
+    std::mutex        m_refreshMutex2;
+    std::condition_variable m_refreshCV;
+    std::thread       m_refreshThread;
+
 };
 
 

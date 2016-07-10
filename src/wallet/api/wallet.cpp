@@ -46,6 +46,7 @@ namespace Bitmonero {
 namespace {
     // copy-pasted from simplewallet
     static const size_t DEFAULT_MIXIN = 4;
+    static const int    DEFAULT_REFRESH_INTERVAL_SECONDS = 10;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -75,7 +76,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
     virtual void on_new_block(uint64_t height, const cryptonote::block& block)
     {
         // TODO;
-        LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
+        LOG_PRINT_L0(__FUNCTION__ << ": new block. height: " << height);
     }
 
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index)
@@ -84,11 +85,12 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
         uint64_t amount     = tx.vout[out_index].amount;
 
-        LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
+        LOG_PRINT_L0(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
         if (m_listener) {
             m_listener->moneyReceived(tx_hash, amount);
+            m_listener->updated();
         }
     }
 
@@ -98,11 +100,12 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         // TODO;
         std::string tx_hash = epee::string_tools::pod_to_hex(get_transaction_hash(spend_tx));
         uint64_t amount = in_tx.vout[out_index].amount;
-        LOG_PRINT_L3(__FUNCTION__ << ": money spent. height:  " << height
+        LOG_PRINT_L0(__FUNCTION__ << ": money spent. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
         if (m_listener) {
             m_listener->moneySpent(tx_hash, amount);
+            m_listener->updated();
         }
     }
 
@@ -159,13 +162,22 @@ WalletImpl::WalletImpl(bool testnet)
     m_wallet = new tools::wallet2(testnet);
     m_history = new TransactionHistoryImpl(this);
     m_wallet2Callback = new Wallet2CallbackImpl;
+    m_wallet->callback(m_wallet2Callback);
+    m_refreshThreadDone = false;
+    m_refreshEnabled = false;
+    m_refreshIntervalSeconds = DEFAULT_REFRESH_INTERVAL_SECONDS;
+    m_refreshThread = std::thread([this] () {
+        this->refreshThreadFunc();
+    });
+
 }
 
 WalletImpl::~WalletImpl()
 {
-    delete m_wallet2Callback;
+    stopRefresh();
     delete m_history;
     delete m_wallet;
+    delete m_wallet2Callback;
 }
 
 bool WalletImpl::create(const std::string &path, const std::string &password, const std::string &language)
@@ -359,6 +371,7 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
         if (Utils::isAddressLocal(daemon_address)) {
             this->setTrustedDaemon(true);
         }
+        startRefresh();
 
     } catch (const std::exception &e) {
         LOG_ERROR("Error initializing wallet: " << e.what());
@@ -383,13 +396,15 @@ uint64_t WalletImpl::unlockedBalance() const
 bool WalletImpl::refresh()
 {
     clearStatus();
-    try {
-        m_wallet->refresh();
-    } catch (const std::exception &e) {
-        m_status = Status_Error;
-        m_errorString = e.what();
-    }
+    doRefresh();
     return m_status == Status_Ok;
+}
+
+void WalletImpl::refreshAsync()
+{
+    LOG_PRINT_L3(__FUNCTION__ << ": Refreshing asyncronously..");
+    clearStatus();
+    m_refreshCV.notify_one();
 }
 
 // TODO:
@@ -574,6 +589,8 @@ bool WalletImpl::connectToDaemon()
     m_status = result ? Status_Ok : Status_Error;
     if (!result) {
         m_errorString = "Error connecting to daemon at " + m_wallet->get_daemon_address();
+    } else {
+        // start refreshing here
     }
     return result;
 }
@@ -592,6 +609,58 @@ void WalletImpl::clearStatus()
 {
     m_status = Status_Ok;
     m_errorString.clear();
+}
+
+void WalletImpl::refreshThreadFunc()
+{
+    LOG_PRINT_L3(__FUNCTION__ << ": starting refresh thread");
+
+    while (true) {
+        std::unique_lock<std::mutex> lock(m_refreshMutex);
+        if (m_refreshThreadDone) {
+            break;
+        }
+        m_refreshCV.wait_for(lock, std::chrono::seconds(m_refreshIntervalSeconds));
+        if (m_refreshEnabled && m_status == Status_Ok) {
+            doRefresh();
+        }
+    }
+    LOG_PRINT_L3(__FUNCTION__ << ": refresh thread stopped");
+}
+
+void WalletImpl::doRefresh()
+{
+    // synchronizing async and sync refresh calls
+    std::lock_guard<std::mutex> guarg(m_refreshMutex2);
+    try {
+        m_wallet->refresh();
+        if (m_walletListener) {
+            m_walletListener->refreshed();
+        }
+    } catch (const std::exception &e) {
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+}
+
+// supposed to be called from ctor only
+void WalletImpl::startRefresh()
+{
+    if (!m_refreshEnabled) {
+        m_refreshEnabled = true;
+        m_refreshCV.notify_one();
+    }
+}
+
+
+// supposed to be called from dtor only
+void WalletImpl::stopRefresh()
+{
+    if (!m_refreshThreadDone) {
+        m_refreshEnabled = false;
+        m_refreshThreadDone = true;
+        m_refreshThread.join();
+    }
 }
 
 

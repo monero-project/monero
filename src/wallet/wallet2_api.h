@@ -116,7 +116,11 @@ struct WalletListener
     virtual ~WalletListener() = 0;
     virtual void moneySpent(const std::string &txId, uint64_t amount) = 0;
     virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
-    // TODO: on_skip_transaction;
+    // generic callback, called when any event happened with the wallet;
+    virtual void updated() = 0;
+    // called when wallet refreshed by background thread or explicitly
+    virtual void refreshed() = 0;
+
 };
 
 
@@ -188,6 +192,8 @@ struct Wallet
     // TODO?
     // virtual uint64_t unlockedDustBalance() const = 0;
     virtual bool refresh() = 0;
+
+    virtual void refreshAsync() = 0;
     /*!
      * \brief createTransaction creates transaction. if dst_addr is an integrated address, payment_id is ignored
      * \param dst_addr          destination address as string
