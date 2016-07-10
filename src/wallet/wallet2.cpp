@@ -1435,22 +1435,39 @@ bool wallet2::prepare_file_names(const std::string& file_path)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::check_connection()
+bool wallet2::check_connection(bool *same_version)
 {
   boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
 
-  if(m_http_client.is_connected())
-    return true;
-
-  net_utils::http::url_content u;
-  net_utils::parse_url(m_daemon_address, u);
-
-  if(!u.port)
+  if(!m_http_client.is_connected())
   {
-    u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+    net_utils::http::url_content u;
+    net_utils::parse_url(m_daemon_address, u);
+
+    if(!u.port)
+    {
+      u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+    }
+
+    if (!m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT))
+      return false;
   }
 
-  return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
+  if (same_version)
+  {
+    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
+    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+    req_t.jsonrpc = "2.0";
+    req_t.id = epee::serialization::storage_entry(0);
+    req_t.method = "get_version";
+    bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
+    if (!r || resp_t.result.status != CORE_RPC_STATUS_OK)
+      *same_version = false;
+    else
+      *same_version = resp_t.result.version == CORE_RPC_VERSION;
+  }
+
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const

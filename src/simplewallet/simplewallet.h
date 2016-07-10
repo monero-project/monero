@@ -145,7 +145,7 @@ namespace cryptonote
     bool set_default_fee_multiplier(const std::vector<std::string> &args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
-    bool try_connect_to_daemon();
+    bool try_connect_to_daemon(bool silent = false);
     bool ask_wallet_create_if_needed();
     bool get_address_from_str(const std::string &str, cryptonote::account_public_address &address, bool &has_payment_id, crypto::hash8 &payment_id);
 
@@ -238,6 +238,7 @@ namespace cryptonote
     bool m_restore_deterministic_wallet;  // recover flag
     bool m_non_deterministic;  // old 2-random generation
     bool m_trusted_daemon;
+    bool m_allow_mismatched_daemon_version;
     uint64_t m_restore_height;  // optional
 
     std::string m_daemon_address;
