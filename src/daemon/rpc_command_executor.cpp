@@ -1123,11 +1123,9 @@ bool t_rpc_command_executor::print_bans()
         }
     }
 
-    time_t now = time(nullptr);
     for (auto i = res.bans.begin(); i != res.bans.end(); ++i)
     {
-        time_t seconds = i->seconds - now;
-        tools::msg_writer() << epee::string_tools::get_ip_string_from_int32(i->ip) << " banned for " << seconds << " seconds";
+        tools::msg_writer() << epee::string_tools::get_ip_string_from_int32(i->ip) << " banned for " << i->seconds << " seconds";
     }
 
     return true;
