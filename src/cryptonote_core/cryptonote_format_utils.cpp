@@ -516,19 +516,6 @@ namespace cryptonote
     };
     std::vector<input_generation_context_data> in_contexts;
 
-    if (tx.version > 1)
-    {
-      // ringct requires all real inputs to be at the same index for all inputs // TODO
-      BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
-      {
-        if(src_entr.real_output != sources.begin()->real_output)
-        {
-          LOG_ERROR("All inputs must have the same index for ringct");
-          return false;
-        }
-      }
-    }
-
     uint64_t summary_inputs_money = 0;
     //fill inputs
     BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
@@ -641,24 +628,46 @@ namespace cryptonote
     }
     else
     {
-      // enforce same mixin for all outputs
-      size_t n_total_outs = sources[0].outputs.size();
-      for (size_t i = 1; i < sources.size(); ++i) {
-        if (n_total_outs != sources[i].outputs.size()) {
-          LOG_ERROR("Ringct transaction has varying mixin");
-          return false;
+      bool all_rct_inputs = true;
+      size_t n_total_outs = sources[0].outputs.size(); // only for non-simple rct
+      BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
+        all_rct_inputs &= !(src_entr.mask == rct::identity());
+      bool use_simple_rct = all_rct_inputs;
+
+      if (!use_simple_rct)
+      {
+        // non simple ringct requires all real inputs to be at the same index for all inputs
+        BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
+        {
+          if(src_entr.real_output != sources.begin()->real_output)
+          {
+            LOG_ERROR("All inputs must have the same index for non-simple ringct");
+            return false;
+          }
+        }
+
+        // enforce same mixin for all outputs
+        for (size_t i = 1; i < sources.size(); ++i) {
+          if (n_total_outs != sources[i].outputs.size()) {
+            LOG_ERROR("Non-simple ringct transaction has varying mixin");
+            return false;
+          }
         }
       }
 
       uint64_t amount_in = 0, amount_out = 0;
       rct::ctkeyV inSk;
-      rct::ctkeyM mixRing(n_total_outs);
+      // mixRing indexing is done the other way round for simple
+      rct::ctkeyM mixRing(use_simple_rct ? sources.size() : n_total_outs);
       rct::keyV destinations;
-      std::vector<uint64_t> amounts;
+      std::vector<uint64_t> inamounts, outamounts;
+      std::vector<unsigned int> index;
       for (size_t i = 0; i < sources.size(); ++i)
       {
         rct::ctkey ctkey;
         amount_in += sources[i].amount;
+        inamounts.push_back(sources[i].amount);
+        index.push_back(sources[i].real_output);
         // inSk: (secret key, mask)
         ctkey.dest = rct::sk2rct(in_contexts[i].in_ephemeral.sec);
         ctkey.mask = sources[i].mask;
@@ -669,21 +678,37 @@ namespace cryptonote
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
         destinations.push_back(rct::pk2rct(boost::get<txout_to_key>(tx.vout[i].target).key));
-        amounts.push_back(tx.vout[i].amount);
+        outamounts.push_back(tx.vout[i].amount);
         amount_out += tx.vout[i].amount;
       }
-      for (size_t i = 0; i < n_total_outs; ++i) // same index assumption
+
+      if (use_simple_rct)
       {
-        mixRing[i].resize(sources.size());
-        for (size_t n = 0; n < sources.size(); ++n)
+        // mixRing indexing is done the other way round for simple
+        for (size_t i = 0; i < sources.size(); ++i)
         {
-          mixRing[i][n] = sources[n].outputs[i].second;
+          mixRing[i].resize(sources[i].outputs.size());
+          for (size_t n = 0; n < sources[i].outputs.size(); ++n)
+          {
+            mixRing[i][n] = sources[i].outputs[n].second;
+          }
+        }
+      }
+      else
+      {
+        for (size_t i = 0; i < n_total_outs; ++i) // same index assumption
+        {
+          mixRing[i].resize(sources.size());
+          for (size_t n = 0; n < sources.size(); ++n)
+          {
+            mixRing[i][n] = sources[n].outputs[i].second;
+          }
         }
       }
 
       // fee
-      if (amount_in > amount_out)
-        amounts.push_back(amount_in - amount_out);
+      if (!use_simple_rct && amount_in > amount_out)
+        outamounts.push_back(amount_in - amount_out);
 
       // zero out all amounts to mask rct outputs, real amounts are now encrypted
       for (size_t i = 0; i < tx.vin.size(); ++i)
@@ -696,7 +721,10 @@ namespace cryptonote
 
       crypto::hash tx_prefix_hash;
       get_transaction_prefix_hash(tx, tx_prefix_hash);
-      tx.rct_signatures = rct::genRct(inSk, destinations, amounts, mixRing, rct::hash2rct(tx_prefix_hash), sources[0].real_output); // same index assumption
+      if (use_simple_rct)
+        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, index);
+      else
+        tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, sources[0].real_output); // same index assumption
 
       LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL, LOG_LEVEL_3);
     }

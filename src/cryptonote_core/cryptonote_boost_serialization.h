@@ -224,23 +224,16 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, rct::rctSig &x, const boost::serialization::version_type ver)
   {
-    a & x.rangeSigs;
-    a & x.MG;
-    // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
-    a & x.ecdhInfo;
-    a & x.outPk;
-    a & x.txnFee;
-    // a & x.bash_hash; bash_hash is not serialized, as it can be reconstructed from the tx data
-  }
-
-  template <class Archive>
-  inline void serialize(Archive &a, rct::sRctSig &x, const boost::serialization::version_type ver)
-  {
+    a & x.simple;
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data
     a & x.rangeSigs;
-    a & x.MG;
+    if (x.simple)
+      a & x.MGs;
+    else
+      a & x.MG;
     // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
-    a & x.pseudoOuts;
+    if (x.simple)
+      a & x.pseudoOuts;
     a & x.ecdhInfo;
     a & x.outPk;
     a & x.txnFee;

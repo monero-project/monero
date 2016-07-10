@@ -565,7 +565,7 @@ TEST(Serialization, serializes_ringct_types)
   rct::skpkGen(Sk, Pk);
   destinations.push_back(Pk);
   //compute rct data with mixin 500
-  s0 = rct::genRct(sc, pc, destinations, amounts, rct::zero(), 3);
+  s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, 3);
 
   mg0 = s0.MG;
   ASSERT_TRUE(serialization::dump_binary(mg0, blob));
@@ -588,6 +588,7 @@ TEST(Serialization, serializes_ringct_types)
 
   ASSERT_TRUE(serialization::dump_binary(s0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, s1));
+  ASSERT_TRUE(s0.simple == s1.simple);
   ASSERT_TRUE(s0.rangeSigs.size() == s1.rangeSigs.size());
   for (size_t n = 0; n < s0.rangeSigs.size(); ++n)
   {

@@ -127,7 +127,10 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
       cryptonote::keypair in_ephemeral;
       crypto::key_image ki;
       cryptonote::generate_key_image_helper(miner_accounts[n].get_keys(), tx_pub_key, o, in_ephemeral, ki);
-      rct::decodeRct(rct_txes[n].rct_signatures, rct::sk2rct(in_ephemeral.sec), o, rct_tx_masks[o+n*4]);
+      if (rct_txes[n].rct_signatures.simple)
+        rct::decodeRctSimple(rct_txes[n].rct_signatures, rct::sk2rct(in_ephemeral.sec), o, rct_tx_masks[o+n*4]);
+      else
+        rct::decodeRct(rct_txes[n].rct_signatures, rct::sk2rct(in_ephemeral.sec), o, rct_tx_masks[o+n*4]);
     }
 
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes[n], blk_last, miner_account,

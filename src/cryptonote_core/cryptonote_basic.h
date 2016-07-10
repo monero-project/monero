@@ -231,10 +231,18 @@ namespace cryptonote
       else
       {
         FIELD(rct_signatures)
-        for (size_t i = 0; i < rct_signatures.mixRing.size(); ++i)
+        if (rct_signatures.simple)
         {
-          if (rct_signatures.mixRing[i].size() != vin.size())
+          if (rct_signatures.mixRing.size() && rct_signatures.mixRing.size() != vin.size())
             return false;
+        }
+        else
+        {
+          for (size_t i = 0; i < rct_signatures.mixRing.size(); ++i)
+          {
+            if (rct_signatures.mixRing[i].size() != vin.size())
+              return false;
+          }
         }
       }
     END_SERIALIZE()

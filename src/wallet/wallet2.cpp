@@ -193,6 +193,14 @@ void wallet2::check_acc_out(const account_keys &acc, const tx_out &o, const cryp
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
+static uint64_t decodeRct(const rct::rctSig & rv, const rct::key & sk, unsigned int i, rct::key & mask)
+{
+  if (rv.simple)
+    return rct::decodeRctSimple(rv, sk, i, mask);
+  else
+    return rct::decodeRct(rv, sk, i, mask);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
 {
   if (!miner_tx)
@@ -251,7 +259,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
           outs.push_back(0);
           if (money_transfered == 0)
-            money_transfered = rct::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[0].sec), 0, mask[0]);
+            money_transfered = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[0].sec), 0, mask[0]);
           amount[0] = money_transfered;
           tx_money_got_in_outs = money_transfered;
 
@@ -290,7 +298,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
               outs.push_back(i);
               if (money_transfered[i] == 0)
-                money_transfered[i] = rct::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
+                money_transfered[i] = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
               tx_money_got_in_outs += money_transfered[i];
               amount[i] = money_transfered[i];
             }
@@ -334,7 +342,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
           outs.push_back(i);
           if (money_transfered[i] == 0)
-            money_transfered[i] = rct::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
+            money_transfered[i] = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
           tx_money_got_in_outs += money_transfered[i];
           amount[i] = money_transfered[i];
         }
@@ -362,7 +370,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 
             outs.push_back(i);
             if (money_transfered == 0)
-              money_transfered = rct::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
+              money_transfered = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
             amount[i] = money_transfered;
             tx_money_got_in_outs += money_transfered;
           }
@@ -3008,19 +3016,29 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
 
   // rct signatures
 
+  // simple
+  size += 1;
+
+  // message
+  size += 32;
+
   // rangeSigs
   size += (2*64*32+32+64*32) * n_outputs;
 
-  // MG - only the last slot of II is saved, the rest can be reconstructed
-  size += 32 * (mixin+1) * n_inputs + 32 + 32 * (/*n_inputs+*/1) ;
+  // MGs - only the last slot of II is saved, the rest can be reconstructed
+  size += n_inputs * (32 * (mixin+1) * n_inputs + 32 + 32 * (/*n_inputs+*/1));
 
   // mixRing - not serialized, can be reconstructed
   /* size += 2 * 32 * (mixin+1) * n_inputs; */
 
+  // pseudoOuts
+  size += 32 * n_outputs;
   // ecdhInfo
   size += 3 * 32 * n_outputs;
   // outPk
   size += 2 * 32 * n_outputs;
+  // txnFee
+  size += 4;
 
   LOG_PRINT_L2("estimated rct tx size for " << n_inputs << " at mixin " << mixin << " and " << n_outputs << ": " << size << " (" << (32 * n_inputs + 2 * 32 * (mixin+1) * n_inputs) << " saved)");
   return size;

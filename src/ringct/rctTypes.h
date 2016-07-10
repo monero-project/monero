@@ -183,44 +183,29 @@ namespace rct {
     // outPk contains public keypairs which are destinations (P, C),
     //  P = address, C = commitment to amount
     struct rctSig {
-        vector<rangeSig> rangeSigs;
-        mgSig MG;
-        ctkeyM mixRing; //the set of all pubkeys / copy
-        //pairs that you mix with
-        vector<ecdhTuple> ecdhInfo;
-        ctkeyV outPk;
-        xmr_amount txnFee;
-        key base_hash;
-
-        BEGIN_SERIALIZE_OBJECT()
-            FIELD(rangeSigs)
-            FIELD(MG)
-            // FIELD(mixRing) - not serialized, it can be reconstructed
-            FIELD(ecdhInfo)
-            FIELD(outPk)
-            FIELD(txnFee)
-            // FIELD(base_hash) - not serialized, it can be reconstructed
-        END_SERIALIZE()
-    };
-    
-    //rct simple variant
-    struct sRctSig {
+        bool simple;
         key message;
         vector<rangeSig> rangeSigs;
-        vector<mgSig> MG;
-        vector<ctkeyV> mixRing; //the set of all pubkeys / copy
+        mgSig MG; // for non simple rct
+        vector<mgSig> MGs; // for simple rct
+        ctkeyM mixRing; //the set of all pubkeys / copy
         //pairs that you mix with
-        keyV pseudoOuts; //C
+        keyV pseudoOuts; //C - for simple rct
         vector<ecdhTuple> ecdhInfo;
         ctkeyV outPk;
         xmr_amount txnFee; // contains b
 
         BEGIN_SERIALIZE_OBJECT()
+            FIELD(simple)
             // FIELD(message) - not serialized, it can be reconstructed
             FIELD(rangeSigs)
-            FIELD(MG)
+            if (simple)
+              FIELD(MGs)
+            else
+              FIELD(MG)
             // FIELD(mixRing) - not serialized, it can be reconstructed
-            FIELD(pseudoOuts)
+            if (simple)
+              FIELD(pseudoOuts)
             FIELD(ecdhInfo)
             FIELD(outPk)
             FIELD(txnFee)

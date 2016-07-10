@@ -187,7 +187,7 @@ TEST(ringct, range_proofs)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, 3);
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -204,7 +204,7 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 500
-        s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, 3);
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -248,7 +248,7 @@ TEST(ringct, range_proofs_with_fee)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, 3);
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -265,13 +265,67 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 500
-        s = genRct(sc, pc, destinations, amounts, rct::zero(), 3);
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, 3);
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
 
         //decode received amount
         ASSERT_TRUE(decodeRct(s, Sk, 1));
+}
+
+TEST(ringct, simple)
+{
+        ctkeyV sc, pc;
+        ctkey sctmp, pctmp;
+        //this vector corresponds to output amounts
+        vector<xmr_amount>outamounts;
+       //this vector corresponds to input amounts
+        vector<xmr_amount>inamounts;
+        //this keyV corresponds to destination pubkeys
+        keyV destinations;
+
+        //add fake input 3000
+        //the sc is secret data
+        //pc is public data
+        tie(sctmp, pctmp) = ctskpkGen(3000);
+        sc.push_back(sctmp);
+        pc.push_back(pctmp);
+        inamounts.push_back(3000);
+
+        //add fake input 3000
+        //the sc is secret data
+        //pc is public data
+        tie(sctmp, pctmp) = ctskpkGen(3000);
+        sc.push_back(sctmp);
+        pc.push_back(pctmp);
+        inamounts.push_back(3000);
+
+        //add output 5000
+        outamounts.push_back(5000);
+        //add the corresponding destination pubkey
+        key Sk, Pk;
+        skpkGen(Sk, Pk);
+        destinations.push_back(Pk);
+
+        //add output 999
+        outamounts.push_back(999);
+        //add the corresponding destination pubkey
+        skpkGen(Sk, Pk);
+        destinations.push_back(Pk);
+
+        key message = skGen(); //real message later (hash of txn..)
+
+        //compute sig with mixin 2
+        xmr_amount txnfee = 1;
+
+        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, txnfee, 2);
+
+        //verify ring ct signature
+        ASSERT_TRUE(verRctSimple(s));
+
+        //decode received amount corresponding to output pubkey index 1
+        ASSERT_TRUE(decodeRctSimple(s, Sk, 1));
 }
 
 static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
@@ -295,7 +349,7 @@ static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amount
           destinations.push_back(Pk);
     }
 
-    return genRct(sc, pc, destinations, amounts, rct::zero(), 3);;
+    return genRct(rct::zero(), sc, pc, destinations, amounts, 3);;
 }
 
 static bool range_proof_test(bool expected_valid,
