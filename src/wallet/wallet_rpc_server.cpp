@@ -254,7 +254,16 @@ namespace tools
       // populate response with tx hash
       res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx_vector.back().tx));
       if (req.get_tx_key)
+      {
         res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
+        if (ptx_vector.back().tx.version > 1)
+        {
+          for (const auto &i: ptx_vector.back().amount_keys)
+          {
+            res.amount_keys.push_back(epee::string_tools::pod_to_hex(i));
+          }
+        }
+      }
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -317,7 +326,17 @@ namespace tools
       {
         res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
+        {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+          res.amount_key_list.push_back(wallet_rpc::COMMAND_RPC_TRANSFER_SPLIT::key_list());
+          if (ptx.tx.version > 1)
+          {
+            for (const auto &i: ptx.amount_keys)
+            {
+              res.amount_key_list.back().keys.push_back(epee::string_tools::pod_to_hex(i));
+            }
+          }
+        }
       }
 
       return true;
@@ -363,7 +382,17 @@ namespace tools
       {
         res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
+        {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+          res.amount_key_list.push_back(wallet_rpc::COMMAND_RPC_SWEEP_DUST::key_list());
+          if (ptx.tx.version > 1)
+          {
+            for (const auto &i: ptx.amount_keys)
+            {
+              res.amount_key_list.back().keys.push_back(epee::string_tools::pod_to_hex(i));
+            }
+          }
+        }
       }
 
       return true;
@@ -422,7 +451,17 @@ namespace tools
       {
         res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
+        {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+          res.amount_key_list.push_back(wallet_rpc::COMMAND_RPC_SWEEP_ALL::key_list());
+          if (ptx.tx.version > 1)
+          {
+            for (const auto &i: ptx.amount_keys)
+            {
+              res.amount_key_list.back().keys.push_back(epee::string_tools::pod_to_hex(i));
+            }
+          }
+        }
       }
 
       return true;

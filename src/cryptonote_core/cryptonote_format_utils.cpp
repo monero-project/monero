@@ -453,12 +453,13 @@ namespace cryptonote
     return encrypt_payment_id(payment_id, public_key, secret_key);
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
+  bool construct_tx_and_get_tx_keys(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &amount_keys, bool rct)
   {
     tx.vin.clear();
     tx.vout.clear();
     tx.signatures.clear();
     tx.rct_signatures = rct::rctSig();
+    amount_keys.clear();
 
     tx.version = rct ? 2 : 1;
     tx.unlock_time = unlock_time;
@@ -721,10 +722,18 @@ namespace cryptonote
 
       crypto::hash tx_prefix_hash;
       get_transaction_prefix_hash(tx, tx_prefix_hash);
+      rct::ctkeyV outSk;
       if (use_simple_rct)
-        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, index);
+        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, index, outSk);
       else
-        tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, sources[0].real_output); // same index assumption
+        tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, sources[0].real_output, outSk); // same index assumption
+
+      CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
+      for (size_t i = 0; i < tx.vout.size(); ++i)
+      {
+        amount_keys.push_back(rct::rct2sk(rct::d2h(shuffled_dsts[i].amount)));
+        amount_keys.push_back(rct::rct2sk(outSk[i].mask));
+      }
 
       LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL, LOG_LEVEL_3);
     }
@@ -735,7 +744,8 @@ namespace cryptonote
   bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
   {
      crypto::secret_key tx_key;
-     return construct_tx_and_get_tx_key(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key);
+     std::vector<crypto::secret_key> amount_keys;
+     return construct_tx_and_get_tx_keys(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key, amount_keys);
   }
   //---------------------------------------------------------------
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money)

@@ -135,10 +135,10 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment
     //   must know the destination private key to find the correct amount, else will return a random number
-    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, unsigned int index);
+    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, unsigned int index, ctkeyV &outSk);
     rctSig genRct(const key &message, const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> & amounts, const int mixin);
     rctSig genRctSimple(const key & message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, unsigned int mixin);
-    rctSig genRctSimple(const key & message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const std::vector<unsigned int> & index);
+    rctSig genRctSimple(const key & message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const std::vector<unsigned int> & index, ctkeyV &outSk);
     bool verRct(const rctSig & rv);
     bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const key &message);
     bool verRctSimple(const rctSig & rv);

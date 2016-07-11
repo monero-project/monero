@@ -535,7 +535,7 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number
     //   Note: For txn fees, the last index in the amounts vector should contain that
     //   Thus the amounts vector will be "one" longer than the destinations vectort
-    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, unsigned int index) {
+    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, unsigned int index, ctkeyV &outSk) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
         for (size_t n = 0; n < mixRing.size(); ++n) {
@@ -550,7 +550,7 @@ namespace rct {
 
         size_t i = 0;
         keyV masks(destinations.size()); //sk mask..
-        ctkeyV outSk(destinations.size());
+        outSk.resize(destinations.size());
         for (i = 0; i < destinations.size(); i++) {
             //add destination to sig
             rv.outPk[i].dest = copy(destinations[i]);
@@ -587,13 +587,14 @@ namespace rct {
     rctSig genRct(const key &message, const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> & amounts, const int mixin) {
         unsigned int index;
         ctkeyM mixRing;
+        ctkeyV outSk;
         tie(mixRing, index) = populateFromBlockchain(inPk, mixin);
-        return genRct(message, inSk, destinations, amounts, mixRing, index);
+        return genRct(message, inSk, destinations, amounts, mixRing, index, outSk);
     }
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const std::vector<unsigned int> & index) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const std::vector<unsigned int> & index, ctkeyV &outSk) {
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
@@ -612,7 +613,7 @@ namespace rct {
 
         size_t i;
         keyV masks(destinations.size()); //sk mask..
-        ctkeyV outSk(destinations.size());
+        outSk.resize(destinations.size());
         key sumout = zero();
         for (i = 0; i < destinations.size(); i++) {
 
@@ -659,12 +660,13 @@ namespace rct {
         std::vector<unsigned int> index;
         index.resize(inPk.size());
         ctkeyM mixRing;
+        ctkeyV outSk;
         mixRing.resize(inPk.size());
         for (size_t i = 0; i < inPk.size(); ++i) {
           mixRing[i].resize(mixin+1);
           index[i] = populateFromBlockchainSimple(mixRing[i], inPk[i], mixin);
         }
-        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, index);
+        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, index, outSk);
     }
 
     //RingCT protocol

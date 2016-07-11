@@ -132,10 +132,12 @@ namespace wallet_rpc
     {
       std::string tx_hash;
       std::string tx_key;
+      std::list<std::string> amount_keys;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(amount_keys)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -165,14 +167,25 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
 
+    struct key_list
+    {
+      std::list<std::string> keys;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct response
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
+      std::list<key_list> amount_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
+        KV_SERIALIZE(amount_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -190,14 +203,25 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
 
+    struct key_list
+    {
+      std::list<std::string> keys;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct response
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
+      std::list<key_list> amount_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
+        KV_SERIALIZE(amount_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -225,14 +249,25 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
 
+    struct key_list
+    {
+      std::list<std::string> keys;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct response
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
+      std::list<key_list> amount_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
+        KV_SERIALIZE(amount_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };

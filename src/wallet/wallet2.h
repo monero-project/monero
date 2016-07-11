@@ -161,6 +161,7 @@ namespace tools
       std::list<transfer_container::iterator> selected_transfers;
       std::string key_images;
       crypto::secret_key tx_key;
+      std::vector<crypto::secret_key> amount_keys;
       std::vector<cryptonote::tx_destination_entry> dests;
     };
 
@@ -351,6 +352,9 @@ namespace tools
       if(ver < 13)
         return;
       a & m_unconfirmed_payments;
+      if(ver < 14)
+        return;
+      a & m_amount_keys;
     }
 
     /*!
@@ -386,7 +390,7 @@ namespace tools
     bool auto_refresh() const { return m_auto_refresh; }
     void auto_refresh(bool r) { m_auto_refresh = r; }
 
-    bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
+    bool get_tx_keys(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &amount_keys) const;
 
 
     bool use_fork_rules(uint8_t version);
@@ -464,6 +468,7 @@ namespace tools
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
     std::unordered_map<crypto::hash, payment_details> m_unconfirmed_payments;
     std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
+    std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> m_amount_keys;
 
     transfer_container m_transfers;
     payment_container m_payments;
@@ -491,7 +496,7 @@ namespace tools
     uint64_t m_refresh_from_block_height;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 13)
+BOOST_CLASS_VERSION(tools::wallet2, 14)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 2)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 4)
@@ -795,7 +800,8 @@ namespace tools
     }
 
     crypto::secret_key tx_key;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
+    std::vector<crypto::secret_key> amount_keys;
+    bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, amount_keys);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
     THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -821,6 +827,7 @@ namespace tools
     ptx.change_dts = change_dts;
     ptx.selected_transfers = selected_transfers;
     ptx.tx_key = tx_key;
+    ptx.amount_keys = amount_keys;
     ptx.dests = dsts;
   }
 

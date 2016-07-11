@@ -1258,6 +1258,7 @@ bool wallet2::clear()
   m_unconfirmed_txs.clear();
   m_payments.clear();
   m_tx_keys.clear();
+  m_amount_keys.clear();
   m_confirmed_txs.clear();
   m_local_bc_height = 1;
   return true;
@@ -2343,7 +2344,10 @@ void wallet2::commit_tx(pending_tx& ptx)
   }
   add_unconfirmed_tx(ptx.tx, amount_in, dests, payment_id, ptx.change_dts.amount);
   if (store_tx_info())
+  {
     m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
+    m_amount_keys.insert(std::make_pair(txid, ptx.amount_keys));
+  }
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
 
@@ -2753,7 +2757,8 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   }
 
   crypto::secret_key tx_key;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
+  std::vector<crypto::secret_key> amount_keys;
+  bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, amount_keys);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -2780,6 +2785,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
+  ptx.amount_keys = amount_keys;
   ptx.dests = dsts;
 }
 
@@ -2972,7 +2978,8 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   dsts.push_back(change_dts);
 
   crypto::secret_key tx_key;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, dsts, extra, tx, unlock_time, tx_key, true);
+  std::vector<crypto::secret_key> amount_keys;
+  bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, dsts, extra, tx, unlock_time, tx_key, amount_keys, true);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -2993,6 +3000,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
+  ptx.amount_keys = amount_keys;
   ptx.dests = dsts;
 }
 
@@ -3645,7 +3653,8 @@ void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs,
   }
 
   crypto::secret_key tx_key;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
+  std::vector<crypto::secret_key> amount_keys;
+  bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, amount_keys);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -3665,6 +3674,7 @@ void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs,
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
+  ptx.amount_keys = amount_keys;
   ptx.dests = dsts;
 }
 
@@ -3911,12 +3921,15 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
   }
 }
 
-bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const
+bool wallet2::get_tx_keys(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &amount_keys) const
 {
   const std::unordered_map<crypto::hash, crypto::secret_key>::const_iterator i = m_tx_keys.find(txid);
   if (i == m_tx_keys.end())
     return false;
   tx_key = i->second;
+  const std::unordered_map<crypto::hash, std::vector<crypto::secret_key>>::const_iterator j = m_amount_keys.find(txid);
+  if (j != m_amount_keys.end())
+    amount_keys = j->second;
   return true;
 }
 
