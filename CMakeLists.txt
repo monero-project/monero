@@ -457,6 +457,11 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
+if(NOT MINGW)
+  find_library(ATOMIC atomic)
+  list(APPEND EXTRA_LIBRARIES ${ATOMIC})
+endif()
+
 include(version.cmake)
 
 add_subdirectory(contrib)
