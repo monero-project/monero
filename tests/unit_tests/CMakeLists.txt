@@ -52,7 +52,8 @@ set(unit_tests_sources
   hardfork.cpp
   unbound.cpp
   varint.cpp
-  ringct.cpp)
+  ringct.cpp
+  output_selection.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
