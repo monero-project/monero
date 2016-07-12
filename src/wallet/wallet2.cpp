@@ -2097,6 +2097,7 @@ namespace
   T pop_index(std::vector<T>& vec, size_t idx)
   {
     CHECK_AND_ASSERT_MES(!vec.empty(), T(), "Vector must be non-empty");
+    CHECK_AND_ASSERT_MES(idx < vec.size(), T(), "idx out of bounds");
 
     T res = vec[idx];
     if (idx + 1 != vec.size())
@@ -2128,6 +2129,76 @@ namespace
   }
 }
 //----------------------------------------------------------------------------------------------------
+// This returns a handwavy estimation of how much two outputs are related
+// If they're from the same tx, then they're fully related. From close block
+// heights, they're kinda related. The actual values don't matter, just
+// their ordering, but it could become more murky if we add scores later.
+float wallet2::get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const
+{
+  int dh;
+
+#if 0
+  // expensive test, and same tx will fall onto the same block height below
+  if (get_transaction_hash(td0.m_tx) == get_transaction_hash(td1.m_tx))
+    return 1.0f;
+#endif
+
+  // same block height -> possibly tx burst, or same tx (since above is disabled)
+  dh = td0.m_block_height > td1.m_block_height ? td0.m_block_height - td1.m_block_height : td1.m_block_height - td0.m_block_height;
+  if (dh == 0)
+    return 0.9f;
+
+  // adjacent blocks -> possibly tx burst
+  if (dh == 1)
+    return 0.8f;
+
+  // could extract the payment id, and compare them, but this is a bit expensive too
+
+  // similar block heights
+  if (dh < 10)
+    return 0.2f;
+
+  // don't think these are particularly related
+  return 0.0f;
+}
+//----------------------------------------------------------------------------------------------------
+size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_indices, const std::list<transfer_container::iterator>& selected_transfers) const
+{
+  std::vector<size_t> candidates;
+  float best_relatedness = 1.0f;
+  for (size_t n = 0; n < unused_indices.size(); ++n)
+  {
+    const transfer_details &candidate = transfers[unused_indices[n]];
+    float relatedness = 0.0f;
+    for (const auto &i: selected_transfers)
+    {
+      float r = get_output_relatedness(candidate, *i);
+      if (r > relatedness)
+      {
+        relatedness = r;
+        if (relatedness == 1.0f)
+          break;
+      }
+    }
+
+    if (relatedness < best_relatedness)
+    {
+      best_relatedness = relatedness;
+      candidates.clear();
+    }
+
+    if (relatedness == best_relatedness)
+      candidates.push_back(n);
+  }
+  size_t idx = crypto::rand<size_t>() % candidates.size();
+  return pop_index (unused_indices, candidates[idx]);
+}
+//----------------------------------------------------------------------------------------------------
+size_t wallet2::pop_best_value(std::vector<size_t> &unused_indices, const std::list<transfer_container::iterator>& selected_transfers) const
+{
+  return pop_best_value_from(m_transfers, unused_indices, selected_transfers);
+}
+//----------------------------------------------------------------------------------------------------
 // Select random input sources for transaction.
 // returns:
 //    direct return: amount of money found
@@ -2137,7 +2208,7 @@ uint64_t wallet2::select_transfers(uint64_t needed_money, std::vector<size_t> un
   uint64_t found_money = 0;
   while (found_money < needed_money && !unused_transfers_indices.empty())
   {
-    size_t idx = pop_random_value(unused_transfers_indices);
+    size_t idx = pop_best_value(unused_transfers_indices, selected_transfers);
 
     transfer_container::iterator it = m_transfers.begin() + idx;
     selected_transfers.push_back(it);
@@ -3053,32 +3124,6 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
   return size;
 }
 
-// This returns a handwavy estimation of how much two outputs are related
-// If they're from the same tx, then they're fully related. From close block
-// heights, they're kinda related. The actual values don't matter, just
-// their ordering, but it could become more murky if we add scores later.
-float wallet2::get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const
-{
-#if 0
-  // expensive test, and same tx will fall onto the same block height below
-  if (get_transaction_hash(td0.m_tx) == get_transaction_hash(td1.m_tx))
-    return 1.0f;
-#endif
-
-  // same block height -> possibly tx burst, or same tx (since above is disabled)
-  if (td0.m_block_height == td1.m_block_height)
-    return 0.9f;
-
-  // could extract the payment id, and compare them, but this is a bit expensive too
-
-  // similar block heights
-  if ((td0.m_block_height > td1.m_block_height ? td0.m_block_height - td1.m_block_height : td1.m_block_height - td0.m_block_height) < 10)
-    return 0.2f;
-
-  // don't think these are particularly related
-  return 0.0f;
-}
-
 std::vector<size_t> wallet2::pick_prefered_rct_inputs(uint64_t needed_money) const
 {
   std::vector<size_t> picks;
@@ -3255,7 +3300,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
 
     // get a random unspent output and use it to pay part (or all) of the current destination (and maybe next one, etc)
     // This could be more clever, but maybe at the cost of making probabilistic inferences easier
-    size_t idx = !prefered_inputs.empty() ? pop_back(prefered_inputs) : !unused_transfers_indices.empty() ? pop_random_value(unused_transfers_indices) : pop_random_value(unused_dust_indices);
+    size_t idx = !prefered_inputs.empty() ? pop_back(prefered_inputs) : !unused_transfers_indices.empty() ? pop_best_value(unused_transfers_indices, tx.selected_transfers) : pop_best_value(unused_dust_indices, tx.selected_transfers);
 
     const transfer_details &td = m_transfers[idx];
     LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()));
@@ -3459,7 +3504,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
     // get a random unspent output and use it to pay next chunk. We try to alternate
     // dust and non dust to ensure we never get with only dust, from which we might
     // get a tx that can't pay for itself
-    size_t idx = unused_transfers_indices.empty() ? pop_random_value(unused_dust_indices) : unused_dust_indices.empty() ? pop_random_value(unused_transfers_indices) : ((tx.selected_transfers.size() & 1) || accumulated_outputs > FEE_PER_KB * fee_multiplier * (upper_transaction_size_limit + 1023) / 1024) ? pop_random_value(unused_dust_indices) : pop_random_value(unused_transfers_indices);
+    size_t idx = unused_transfers_indices.empty() ? pop_best_value(unused_dust_indices, tx.selected_transfers) : unused_dust_indices.empty() ? pop_best_value(unused_transfers_indices, tx.selected_transfers) : ((tx.selected_transfers.size() & 1) || accumulated_outputs > FEE_PER_KB * fee_multiplier * (upper_transaction_size_limit + 1023) / 1024) ? pop_best_value(unused_dust_indices, tx.selected_transfers) : pop_best_value(unused_transfers_indices, tx.selected_transfers);
 
     const transfer_details &td = m_transfers[idx];
     LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()));

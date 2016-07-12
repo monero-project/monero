@@ -404,6 +404,9 @@ namespace tools
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
     std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);
 
+    size_t pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_dust_indices, const std::list<transfer_container::iterator>& selected_transfers) const;
+    size_t pop_best_value(std::vector<size_t> &unused_dust_indices, const std::list<transfer_container::iterator>& selected_transfers) const;
+
     void set_tx_note(const crypto::hash &txid, const std::string &note);
     std::string get_tx_note(const crypto::hash &txid) const;
 
