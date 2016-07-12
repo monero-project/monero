@@ -244,8 +244,7 @@ namespace rct {
     key scalarmultH(const key & a) {
         ge_p3 A;
         ge_p2 R;
-        key Htmp = { {0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1, 0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94} };
-        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A, Htmp.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+        CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&A, H.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_scalarmult(&R, a.bytes, &A);
         key aP;
         ge_tobytes(aP.bytes, &R);
