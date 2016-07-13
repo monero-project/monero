@@ -42,10 +42,7 @@ using namespace cryptonote;
 
 class TestDB: public BlockchainDB {
 public:
-  TestDB() {
-    for (size_t n = 0; n < 256; ++n)
-      starting_height[n] = std::numeric_limits<uint64_t>::max();
-  }
+  TestDB() {};
   virtual void open(const std::string& filename, const int db_flags = 0) { }
   virtual void close() {}
   virtual void sync() {}
@@ -122,12 +119,6 @@ public:
   virtual block get_block_from_height(const uint64_t& height) const {
     return blocks[height];
   }
-  virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height) {
-    starting_height[version] = height;
-  }
-  virtual uint64_t get_hard_fork_starting_height(uint8_t version) const {
-    return starting_height[version];
-  }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) {
     if (versions.size() <= height) 
       versions.resize(height+1); 
@@ -140,7 +131,6 @@ public:
 
 private:
   std::vector<block> blocks;
-  uint64_t starting_height[256];
   std::deque<uint8_t> versions;
 };
 
@@ -321,10 +311,6 @@ TEST(reorganize, Same)
         uint8_t version = hh >= history ? block_versions[hh - history] : 1;
         ASSERT_EQ(hf.get(hh), version);
       }
-      ASSERT_EQ(hf.get_start_height(1), 0);
-      ASSERT_EQ(hf.get_start_height(4), 2 + history);
-      ASSERT_EQ(hf.get_start_height(7), 4 + history);
-      ASSERT_EQ(hf.get_start_height(9), 6 + history);
     }
   }
 }
@@ -355,10 +341,6 @@ TEST(reorganize, Changed)
     for (int hh = 0; hh < 16; ++hh) {
       ASSERT_EQ(hf.get(hh), expected_versions[hh]);
     }
-    ASSERT_EQ(hf.get_start_height(1), 0);
-    ASSERT_EQ(hf.get_start_height(4), 6);
-    ASSERT_EQ(hf.get_start_height(7), 8);
-    ASSERT_EQ(hf.get_start_height(9), 10);
   }
 
   // delay a bit for 9, and go back to 1 to check it stays at 9
@@ -379,10 +361,6 @@ TEST(reorganize, Changed)
   for (int hh = 0; hh < 15; ++hh) {
     ASSERT_EQ(hf.get(hh), expected_versions_new[hh]);
   }
-  ASSERT_EQ(hf.get_start_height(1), 0);
-  ASSERT_EQ(hf.get_start_height(4), 6);
-  ASSERT_EQ(hf.get_start_height(7), 11);
-  ASSERT_EQ(hf.get_start_height(9), 14);
 }
 
 TEST(voting, threshold)
@@ -463,8 +441,6 @@ TEST(new_blocks, denied)
     ASSERT_TRUE(hf.add(mkblock(1, 2), 8)); // we reach 50% of the last 4
     ASSERT_FALSE(hf.add(mkblock(2, 1), 9)); // so this one can't get added
     ASSERT_TRUE(hf.add(mkblock(2, 2), 9));
-
-    ASSERT_EQ(hf.get_start_height(2), 9);
 }
 
 TEST(new_version, early)
@@ -485,8 +461,6 @@ TEST(new_version, early)
     ASSERT_TRUE(hf.add(mkblock(2, 2), 5));
     ASSERT_FALSE(hf.add(mkblock(2, 1), 6)); // we don't accept 1 anymore
     ASSERT_TRUE(hf.add(mkblock(2, 2), 7)); // but we do accept 2
-
-    ASSERT_EQ(hf.get_start_height(2), 4);
 }
 
 TEST(reorganize, changed)
@@ -521,8 +495,6 @@ TEST(reorganize, changed)
     ADD_TRUE(3, 7);
     ADD_TRUE(4, 8);
     ADD_TRUE(4, 9);
-    ASSERT_EQ(hf.get_start_height(2), 4); // reaches threshold 2 at height 3, so height 4 forks
-    ASSERT_EQ(hf.get_start_height(3), 9);
     ASSERT_EQ(hf.get_current_version(), 3);
 
     // pop a few blocks and check current version goes back down
@@ -539,9 +511,7 @@ TEST(reorganize, changed)
     ADD_TRUE(2, 7);
     ADD_TRUE(2, 8);
     ADD_TRUE(2, 9);
-    ASSERT_EQ(hf.get_start_height(2), 4); // unchanged
     ASSERT_EQ(hf.get_current_version(), 2); // we did not bump to 3 this time
-    ASSERT_EQ(hf.get_start_height(3), std::numeric_limits<uint64_t>::max()); // not yet
 }
 
 TEST(get, higher)

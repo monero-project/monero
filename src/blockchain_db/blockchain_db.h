@@ -1274,27 +1274,6 @@ public:
   // Hard fork related storage
   //
 
-  // FIXME: verify that this is all correct
-  //      - TW
-  /**
-   * @brief sets the height at which a hard fork has been voted to happen
-   *
-   *
-   * @param version the version voted to fork to
-   * @param height the height of the first block on the new fork
-   */
-  virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height) = 0;
-
-  /**
-   * @brief gets the height at which a hard fork has been voted to happen
-   *
-   * @param version the version to check
-   *
-   * @return the height at which the hard fork was accepted, if it has been,
-   * otherwise max(uint64_t)
-   */
-  virtual uint64_t get_hard_fork_starting_height(uint8_t version) const = 0;
-
   /**
    * @brief sets which hardfork version a height is on
    *
