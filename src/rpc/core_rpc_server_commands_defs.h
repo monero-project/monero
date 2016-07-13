@@ -76,18 +76,38 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
+    struct tx_output_indices
+    {
+      std::vector<uint64_t> indices;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(indices)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct block_output_indices
+    {
+      std::vector<tx_output_indices> indices;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(indices)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct response
     {
       std::list<block_complete_entry> blocks;
       uint64_t    start_height;
       uint64_t    current_height;
       std::string status;
+      std::vector<block_output_indices> output_indices;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(blocks)
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(current_height)
         KV_SERIALIZE(status)
+        KV_SERIALIZE(output_indices)
       END_KV_SERIALIZE_MAP()
     };
   };
