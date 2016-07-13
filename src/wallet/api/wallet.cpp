@@ -634,8 +634,8 @@ void WalletImpl::doRefresh()
     std::lock_guard<std::mutex> guarg(m_refreshMutex2);
     try {
         m_wallet->refresh();
-        if (m_walletListener) {
-            m_walletListener->refreshed();
+        if (m_wallet2Callback->getListener()) {
+            m_wallet2Callback->getListener()->refreshed();
         }
     } catch (const std::exception &e) {
         m_status = Status_Error;

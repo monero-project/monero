@@ -189,10 +189,14 @@ struct Wallet
     static std::string genPaymentId();
     static bool paymentIdValid(const std::string &paiment_id);
 
-    // TODO?
-    // virtual uint64_t unlockedDustBalance() const = 0;
+    /**
+     * @brief refresh - refreshes the wallet, updating transactions from daemon
+     * @return - true if refreshed successfully;
+     */
     virtual bool refresh() = 0;
-
+    /**
+     * @brief refreshAsync - refreshes wallet asynchronously.
+     */
     virtual void refreshAsync() = 0;
     /*!
      * \brief createTransaction creates transaction. if dst_addr is an integrated address, payment_id is ignored
