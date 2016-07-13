@@ -75,17 +75,26 @@ target_link_libraries(wallet
     ${Boost_REGEX_LIBRARY}
     ${EXTRA_LIBRARIES})
 
+    
+# in case of static build, randon.c.obj from UNBOUND_LIBARY conflicts with the same file from 'crypto'
+# and in case of dynamic build, merge_static_libs called with ${UNBOUND_LIBRARY} will fail
+if (STATIC) 
+    set(libs_to_merge wallet cryptonote_core mnemonics common crypto) 
+    # hack - repack libunbound into another static lib - there's conflicting object file "random.c.obj"
+    merge_static_libs(wallet_merged "${libs_to_merge}")
+    merge_static_libs(wallet_merged2 "${UNBOUND_LIBRARY}")
+    install(TARGETS wallet_merged wallet_merged2
+        ARCHIVE DESTINATION lib)
+else (STATIC)
+    set(libs_to_merge wallet cryptonote_core mnemonics common crypto ${UNBOUND_LIBRARY} ) 
+    merge_static_libs(wallet_merged "${libs_to_merge}")
+    install(TARGETS wallet_merged
+        ARCHIVE DESTINATION lib)
+endif (STATIC)
 
-# set(libs_to_merge wallet cryptonote_core mnemonics common crypto ${UNBOUND_LIBRARY} ) 
-set(libs_to_merge wallet cryptonote_core mnemonics common crypto) 
 #MERGE_STATIC_LIBS(wallet_merged wallet_merged "${libs_to_merge}")
-merge_static_libs(wallet_merged "${libs_to_merge}")
 
-# hack - repack libunbound into another static lib - there's conflicting object file "random.c.obj"
-merge_static_libs(wallet_merged2 "${UNBOUND_LIBRARY}")
 
-install(TARGETS wallet_merged wallet_merged2
-    ARCHIVE DESTINATION lib)
 
 install(FILES ${wallet_api_headers}
     DESTINATION include/wallet)

@@ -371,8 +371,7 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
         if (Utils::isAddressLocal(daemon_address)) {
             this->setTrustedDaemon(true);
         }
-        startRefresh();
-
+        refresh();
     } catch (const std::exception &e) {
         LOG_ERROR("Error initializing wallet: " << e.what());
         m_status = Status_Error;
