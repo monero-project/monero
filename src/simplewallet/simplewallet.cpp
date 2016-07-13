@@ -3237,6 +3237,8 @@ bool simple_wallet::run()
   // check and display warning, but go on anyway
   try_connect_to_daemon();
 
+  refresh_main(0, false);
+
   std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
   m_auto_refresh_run = m_wallet->auto_refresh();
   if (m_auto_refresh_run)
