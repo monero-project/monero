@@ -643,7 +643,7 @@ void WalletImpl::refreshThreadFunc()
         LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
         LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
         LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << m_status);
-        if (m_refreshEnabled && m_status == Status_Ok) {
+        if (m_refreshEnabled /*&& m_status == Status_Ok*/) {
             LOG_PRINT_L3(__FUNCTION__ << ": refreshing...");
             doRefresh();
         }
@@ -657,16 +657,16 @@ void WalletImpl::doRefresh()
     std::lock_guard<std::mutex> guarg(m_refreshMutex2);
     try {
         m_wallet->refresh();
-        if (m_wallet2Callback->getListener()) {
-            m_wallet2Callback->getListener()->refreshed();
-        }
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();
     }
+    if (m_wallet2Callback->getListener()) {
+        m_wallet2Callback->getListener()->refreshed();
+    }
 }
 
-// supposed to be called from ctor only
+
 void WalletImpl::startRefresh()
 {
     if (!m_refreshEnabled) {
@@ -676,13 +676,21 @@ void WalletImpl::startRefresh()
 }
 
 
-// supposed to be called from dtor only
+
 void WalletImpl::stopRefresh()
 {
     if (!m_refreshThreadDone) {
         m_refreshEnabled = false;
         m_refreshThreadDone = true;
         m_refreshThread.join();
+    }
+}
+
+void WalletImpl::pauseRefresh()
+{
+    // TODO synchronize access
+    if (!m_refreshThreadDone) {
+        m_refreshEnabled = false;
     }
 }
 

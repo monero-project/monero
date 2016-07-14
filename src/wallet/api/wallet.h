@@ -93,6 +93,7 @@ private:
     void doRefresh();
     void startRefresh();
     void stopRefresh();
+    void pauseRefresh();
 
 private:
     friend class PendingTransactionImpl;
@@ -111,7 +112,10 @@ private:
     std::atomic<bool> m_refreshEnabled;
     std::atomic<bool> m_refreshThreadDone;
     std::atomic<int>  m_refreshIntervalSeconds;
+    // synchronizing  refresh loop;
     std::mutex        m_refreshMutex;
+
+    // synchronizing  sync and async refresh
     std::mutex        m_refreshMutex2;
     std::condition_variable m_refreshCV;
     std::thread       m_refreshThread;
