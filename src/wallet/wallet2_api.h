@@ -116,11 +116,10 @@ struct WalletListener
     virtual ~WalletListener() = 0;
     virtual void moneySpent(const std::string &txId, uint64_t amount) = 0;
     virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
-    // generic callback, called when any event happened with the wallet;
+    // generic callback, called when any event (sent/received/block reveived/etc) happened with the wallet;
     virtual void updated() = 0;
-    // called when wallet refreshed by background thread or explicitly
+    // called when wallet refreshed by background thread or explicitly called be calling "refresh" synchronously
     virtual void refreshed() = 0;
-
 };
 
 
@@ -175,9 +174,38 @@ struct Wallet
      * \return
      */
     virtual std::string keysFilename() const = 0;
-
+    /*!
+     * \brief init - initializes wallet with daemon connection params. implicitly connects to the daemon
+     *               and refreshes the wallet. "refreshed" callback will be invoked. if daemon_address is
+     *               local address, "trusted daemon" will be set to true forcibly
+     *
+     * \param daemon_address - daemon address in "hostname:port" format
+     * \param upper_transaction_size_limit
+     * \return  - true if initialized and refreshed successfully
+     */
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+
+    /*!
+     * \brief init - initalizes wallet asynchronously. logic is the same as "init" but returns immediately.
+     *               "refreshed" callback will be invoked.
+     *
+     * \param daemon_address - daemon address in "hostname:port" format
+     * \param upper_transaction_size_limit
+     * \return  - true if initialized and refreshed successfully
+     */
+    virtual void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+
+    /**
+     * @brief connectToDaemon - connects to the daemon. TODO: check if it can be removed
+     * @return
+     */
     virtual bool connectToDaemon() = 0;
+
+    /**
+     * @brief connected - checks if the wallet connected to the daemon
+     * @return - true if connected
+     */
+    virtual bool connected() const = 0;
     virtual void setTrustedDaemon(bool arg) = 0;
     virtual bool trustedDaemon() const = 0;
     virtual uint64_t balance() const = 0;
@@ -296,8 +324,22 @@ struct WalletManager
 
 struct WalletManagerFactory
 {
+    // logging levels for underlying library
+    enum LogLevel {
+        LogLevel_Silent = -1,
+        LogLevel_0 = 0,
+        LogLevel_1 = 1,
+        LogLevel_2 = 2,
+        LogLevel_3 = 3,
+        LogLevel_4 = 4,
+        LogLevel_Min = LogLevel_Silent,
+        LogLevel_Max = LogLevel_4
+    };
+
     static WalletManager * getWalletManager();
+    static void setLogLevel(int level);
 };
+
 
 }
 

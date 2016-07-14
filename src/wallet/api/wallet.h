@@ -68,7 +68,9 @@ public:
     std::string filename() const;
     std::string keysFilename() const;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
+    void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
     bool connectToDaemon();
+    bool connected() const;
     void setTrustedDaemon(bool arg);
     bool trustedDaemon() const;
     uint64_t balance() const;

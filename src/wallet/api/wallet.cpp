@@ -76,7 +76,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
     virtual void on_new_block(uint64_t height, const cryptonote::block& block)
     {
         // TODO;
-        LOG_PRINT_L0(__FUNCTION__ << ": new block. height: " << height);
+        LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
     }
 
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index)
@@ -85,7 +85,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
         uint64_t amount     = tx.vout[out_index].amount;
 
-        LOG_PRINT_L0(__FUNCTION__ << ": money received. height:  " << height
+        LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
         if (m_listener) {
@@ -100,7 +100,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         // TODO;
         std::string tx_hash = epee::string_tools::pod_to_hex(get_transaction_hash(spend_tx));
         uint64_t amount = in_tx.vout[out_index].amount;
-        LOG_PRINT_L0(__FUNCTION__ << ": money spent. height:  " << height
+        LOG_PRINT_L3(__FUNCTION__ << ": money spent. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
         if (m_listener) {
@@ -120,6 +120,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 Wallet::~Wallet() {}
 
 WalletListener::~WalletListener() {}
+
 
 string Wallet::displayAmount(uint64_t amount)
 {
@@ -269,8 +270,12 @@ bool WalletImpl::close()
     clearStatus();
     bool result = false;
     try {
+        // LOG_PRINT_L0("Calling wallet::store...");
         m_wallet->store();
+        // LOG_PRINT_L0("wallet::store done");
+        // LOG_PRINT_L0("Calling wallet::stop...");
         m_wallet->stop();
+        // LOG_PRINT_L0("wallet::stop done");
         result = true;
     } catch (const std::exception &e) {
         m_status = Status_Error;
@@ -366,20 +371,29 @@ string WalletImpl::keysFilename() const
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-    try {
-        m_wallet->init(daemon_address, upper_transaction_size_limit);
-        if (Utils::isAddressLocal(daemon_address)) {
-            this->setTrustedDaemon(true);
-        }
-        refresh();
-    } catch (const std::exception &e) {
-        LOG_ERROR("Error initializing wallet: " << e.what());
-        m_status = Status_Error;
-        m_errorString = e.what();
-    }
 
-    return m_status == Status_Ok;
+    m_wallet->init(daemon_address, upper_transaction_size_limit);
+    if (Utils::isAddressLocal(daemon_address)) {
+        this->setTrustedDaemon(true);
+    }
+    bool result = this->refresh();
+    // enabling background refresh thread
+    startRefresh();
+    return result;
+
 }
+
+void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
+{
+    clearStatus();
+    m_wallet->init(daemon_address, upper_transaction_size_limit);
+    if (Utils::isAddressLocal(daemon_address)) {
+        this->setTrustedDaemon(true);
+    }
+    startRefresh();
+}
+
+
 
 uint64_t WalletImpl::balance() const
 {
@@ -594,6 +608,11 @@ bool WalletImpl::connectToDaemon()
     return result;
 }
 
+bool WalletImpl::connected() const
+{
+    return m_wallet->check_connection();
+}
+
 void WalletImpl::setTrustedDaemon(bool arg)
 {
     m_trustedDaemon = arg;
@@ -619,8 +638,13 @@ void WalletImpl::refreshThreadFunc()
         if (m_refreshThreadDone) {
             break;
         }
+        LOG_PRINT_L3(__FUNCTION__ << ": waiting for refresh...");
         m_refreshCV.wait_for(lock, std::chrono::seconds(m_refreshIntervalSeconds));
+        LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
+        LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
+        LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << m_status);
         if (m_refreshEnabled && m_status == Status_Ok) {
+            LOG_PRINT_L3(__FUNCTION__ << ": refreshing...");
             doRefresh();
         }
     }

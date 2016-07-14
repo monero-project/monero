@@ -137,6 +137,11 @@ WalletManager *WalletManagerFactory::getWalletManager()
     return g_walletManager;
 }
 
+void WalletManagerFactory::setLogLevel(int level)
+{
+    epee::log_space::log_singletone::get_set_log_detalisation_level(true, level);
+}
+
 
 
 }
