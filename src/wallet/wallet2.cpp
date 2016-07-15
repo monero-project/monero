@@ -3286,7 +3286,123 @@ bool wallet2::verify(const std::string &data, const cryptonote::account_public_a
   memcpy(&s, decoded.data(), sizeof(s));
   return crypto::check_signature(hash, address.m_spend_public_key, s);
 }
+//----------------------------------------------------------------------------------------------------
+std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key_images() const
+{
+  std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
 
+  ski.reserve(m_transfers.size());
+  for (size_t n = 0; n < m_transfers.size(); ++n)
+  {
+    const transfer_details &td = m_transfers[n];
+
+    crypto::hash hash;
+    crypto::cn_fast_hash(&td.m_key_image, sizeof(td.m_key_image), hash);
+
+    // get ephemeral public key
+    const cryptonote::tx_out &out = td.m_tx.vout[td.m_internal_output_index];
+    THROW_WALLET_EXCEPTION_IF(out.target.type() != typeid(txout_to_key), error::wallet_internal_error,
+        "Output is not txout_to_key");
+    const cryptonote::txout_to_key &o = boost::get<const cryptonote::txout_to_key>(out.target);
+    const crypto::public_key pkey = o.key;
+
+    // get tx pub key
+    std::vector<tx_extra_field> tx_extra_fields;
+    if(!parse_tx_extra(td.m_tx.extra, tx_extra_fields))
+    {
+      // Extra may only be partially parsed, it's OK if tx_extra_fields contains public key
+    }
+    tx_extra_pub_key pub_key_field;
+    THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field), error::wallet_internal_error,
+        "Public key wasn't found in the transaction extra");
+    crypto::public_key tx_pub_key = pub_key_field.pub_key;
+
+    // generate ephemeral secret key
+    crypto::key_image ki;
+    cryptonote::keypair in_ephemeral;
+    cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, td.m_internal_output_index, in_ephemeral, ki);
+    THROW_WALLET_EXCEPTION_IF(ki != td.m_key_image,
+        error::wallet_internal_error, "key_image generated not matched with cached key image");
+    THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != pkey,
+        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
+
+    // sign the key image with the output secret key
+    crypto::signature signature;
+    std::vector<const crypto::public_key*> key_ptrs;
+    key_ptrs.push_back(&pkey);
+
+    crypto::generate_ring_signature((const crypto::hash&)td.m_key_image, td.m_key_image, key_ptrs, in_ephemeral.sec, 0, &signature);
+
+    ski.push_back(std::make_pair(td.m_key_image, signature));
+  }
+  return ski;
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent)
+{
+  COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req = AUTO_VAL_INIT(req);
+  COMMAND_RPC_IS_KEY_IMAGE_SPENT::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
+
+  THROW_WALLET_EXCEPTION_IF(signed_key_images.size() > m_transfers.size(), error::wallet_internal_error,
+      "The blockchain is out of date compared to the signed key images");
+
+  if (signed_key_images.empty())
+  {
+    spent = 0;
+    unspent = 0;
+    return 0;
+  }
+
+  for (size_t n = 0; n < signed_key_images.size(); ++n)
+  {
+    const transfer_details &td = m_transfers[n];
+    const crypto::key_image &key_image = signed_key_images[n].first;
+    const crypto::signature &signature = signed_key_images[n].second;
+
+    // get ephemeral public key
+    const cryptonote::tx_out &out = td.m_tx.vout[td.m_internal_output_index];
+    THROW_WALLET_EXCEPTION_IF(out.target.type() != typeid(txout_to_key), error::wallet_internal_error,
+      "Non txout_to_key output found");
+    const cryptonote::txout_to_key &o = boost::get<cryptonote::txout_to_key>(out.target);
+    const crypto::public_key pkey = o.key;
+
+    std::vector<const crypto::public_key*> pkeys;
+    pkeys.push_back(&pkey);
+    THROW_WALLET_EXCEPTION_IF(!crypto::check_ring_signature((const crypto::hash&)key_image, key_image, pkeys, &signature),
+        error::wallet_internal_error, "Signature check failed: key image " + epee::string_tools::pod_to_hex(key_image)
+        + ", signature " + epee::string_tools::pod_to_hex(signature) + ", pubkey " + epee::string_tools::pod_to_hex(*pkeys[0]));
+
+    req.key_images.push_back(epee::string_tools::pod_to_hex(key_image));
+  }
+
+  m_daemon_rpc_mutex.lock();
+  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/is_key_image_spent", req, daemon_resp, m_http_client, 200000);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
+  THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
+  THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
+  THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != signed_key_images.size(), error::wallet_internal_error,
+    "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
+    std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(signed_key_images.size()));
+
+  spent = 0;
+  unspent = 0;
+  for (size_t n = 0; n < daemon_resp.spent_status.size(); ++n)
+  {
+    transfer_details &td = m_transfers[n];
+    uint64_t amount = td.m_tx.vout[td.m_internal_output_index].amount;
+    td.m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
+    if (td.m_spent)
+      spent += amount;
+    else
+      unspent += amount;
+    LOG_PRINT_L2("Transfer " << n << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
+        << (td.m_spent ? "spent" : "unspent") << " (key image " << req.key_images[n] << ")");
+  }
+  LOG_PRINT_L1("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
+
+  return m_transfers[signed_key_images.size() - 1].m_block_height;
+}
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
   if (m_testnet)

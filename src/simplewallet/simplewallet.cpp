@@ -662,6 +662,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("status", boost::bind(&simple_wallet::status, this, _1), tr("Show wallet status information"));
   m_cmd_binder.set_handler("sign", boost::bind(&simple_wallet::sign, this, _1), tr("Sign the contents of a file"));
   m_cmd_binder.set_handler("verify", boost::bind(&simple_wallet::verify, this, _1), tr("Verify a signature on the contents of a file"));
+  m_cmd_binder.set_handler("export_key_images", boost::bind(&simple_wallet::export_key_images, this, _1), tr("Export a signed set of key images"));
+  m_cmd_binder.set_handler("import_key_images", boost::bind(&simple_wallet::import_key_images, this, _1), tr("Import signed key images list and verify their spent status"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -3477,6 +3479,111 @@ bool simple_wallet::verify(const std::vector<std::string> &args)
   {
     success_msg_writer() << tr("Good signature from ") << address_string;
   }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::export_key_images(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: export_key_images <filename>");
+    return true;
+  }
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot export key images");
+    return true;
+  }
+  std::string filename = args[0];
+
+  try
+  {
+    std::vector<std::pair<crypto::key_image, crypto::signature>> ski = m_wallet->export_key_images();
+    std::string data;
+    for (const auto &i: ski)
+    {
+      data += epee::string_tools::pod_to_hex(i.first);
+      data += epee::string_tools::pod_to_hex(i.second);
+    }
+    bool r = epee::file_io_utils::save_string_to_file(filename, data);
+    if (!r)
+    {
+      fail_msg_writer() << tr("failed to save file ") << filename;
+      return true;
+    }
+  }
+  catch (std::exception &e)
+  {
+    LOG_ERROR("Error exporting key images: " << e.what());
+    fail_msg_writer() << "Error exporting key images: " << e.what();
+    return true;
+  }
+
+  success_msg_writer() << tr("Signed key images exported to ") << filename;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::import_key_images(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: import_key_images <filename>");
+    return true;
+  }
+  std::string filename = args[0];
+
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+
+  const size_t record_size = sizeof(crypto::key_image)*2 + sizeof(crypto::signature)*2;
+  if (data.size() % record_size)
+  {
+    fail_msg_writer() << "Bad data size from file " << filename;
+    return true;
+  }
+  size_t nki = data.size() / record_size;
+
+  std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
+  ski.reserve(nki);
+  for (size_t n = 0; n < nki; ++n)
+  {
+    cryptonote::blobdata bd;
+
+    if(!epee::string_tools::parse_hexstr_to_binbuff(std::string(&data[n * record_size], sizeof(crypto::key_image)*2), bd))
+    {
+      fail_msg_writer() << tr("failed to parse key image");
+      return false;
+    }
+    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(bd.data());
+
+    if(!epee::string_tools::parse_hexstr_to_binbuff(std::string(&data[n * record_size + sizeof(crypto::key_image)*2], sizeof(crypto::signature)*2), bd))
+    {
+      fail_msg_writer() << tr("failed to parse signature");
+      return false;
+    }
+    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(bd.data());
+
+    ski.push_back(std::make_pair(key_image, signature));
+  }
+
+  try
+  {
+    uint64_t spent = 0, unspent = 0;
+    uint64_t height = m_wallet->import_key_images(ski, spent, unspent);
+    success_msg_writer() << "Signed key images imported to height " << height << ", "
+        << print_money(spent) << " spent, " << print_money(unspent) << " unspent";
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Failed to import key images: " << e.what();
+    return true;
+  }
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
