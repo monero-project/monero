@@ -489,12 +489,6 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         }
 
         de.amount = amount;
-        if (de.amount <= 0) {
-            m_status = Status_Error;
-            m_errorString = "Invalid amount";
-            break;
-        }
-
         dsts.push_back(de);
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
