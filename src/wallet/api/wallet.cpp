@@ -79,11 +79,10 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
     }
 
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, size_t out_index)
+    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
     {
 
         std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
-        uint64_t amount     = tx.vout[out_index].amount;
 
         LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
@@ -94,12 +93,11 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, size_t out_index,
+    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount,
                                 const cryptonote::transaction& spend_tx)
     {
         // TODO;
         std::string tx_hash = epee::string_tools::pod_to_hex(get_transaction_hash(spend_tx));
-        uint64_t amount = in_tx.vout[out_index].amount;
         LOG_PRINT_L3(__FUNCTION__ << ": money spent. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
