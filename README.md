@@ -2,7 +2,7 @@
 
 Copyright (c) 2014-2016, The Monero Project
 
-[![Build Status](https://travis-ci.org/anonimal/bitmonero.svg?branch=master)](https://travis-ci.org/anonimal/bitmonero)
+[![Build Status](https://travis-ci.org/monero-project/bitmonero.svg?branch=master)](https://travis-ci.org/monero-project/bitmonero)
 
 ## Development Resources
 
