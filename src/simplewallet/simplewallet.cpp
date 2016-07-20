@@ -115,6 +115,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view-only commands"), false};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
+  const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
@@ -623,7 +624,8 @@ bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<st
 }
 
 simple_wallet::simple_wallet()
-  : m_daemon_port(0)
+  : m_allow_mismatched_daemon_version(false)
+  , m_daemon_port(0)
   , m_refresh_progress_reporter(*this)
   , m_auto_refresh_run(false)
   , m_auto_refresh_refreshing(false)
@@ -1441,18 +1443,28 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
   m_trusted_daemon                = command_line::get_arg(vm, arg_trusted_daemon);
+  m_allow_mismatched_daemon_version = command_line::get_arg(vm, arg_allow_mismatched_daemon_version);
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
 
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::try_connect_to_daemon()
+bool simple_wallet::try_connect_to_daemon(bool silent)
 {
-  if (!m_wallet->check_connection())
+  bool same_version = false;
+  if (!m_wallet->check_connection(&same_version))
   {
-    fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_daemon_address << ". " <<
-      tr("Daemon either is not started or wrong port was passed. "
-      "Please make sure daemon is running or restart the wallet with the correct daemon address.");
+    if (!silent)
+      fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_daemon_address << ". " <<
+        tr("Daemon either is not started or wrong port was passed. "
+        "Please make sure daemon is running or restart the wallet with the correct daemon address.");
+    return false;
+  }
+  if (!m_allow_mismatched_daemon_version && !same_version)
+  {
+    if (!silent)
+      fail_msg_writer() << tr("Daemon uses a different RPC version that the wallet: ") << m_daemon_address << ". " <<
+        tr("Either update one of them, or use --allow-mismatched-daemon-version.");
     return false;
   }
   return true;
@@ -3209,7 +3221,8 @@ void simple_wallet::wallet_refresh_thread()
     try
     {
       uint64_t fetched_blocks;
-      m_wallet->refresh(0, fetched_blocks);
+      if (try_connect_to_daemon(true))
+        m_wallet->refresh(0, fetched_blocks);
     }
     catch(...) {}
     m_auto_refresh_refreshing = false;
@@ -3221,6 +3234,9 @@ void simple_wallet::wallet_refresh_thread()
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
+  // check and display warning, but go on anyway
+  try_connect_to_daemon();
+
   std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
   m_auto_refresh_run = m_wallet->auto_refresh();
   if (m_auto_refresh_run)
@@ -3350,7 +3366,7 @@ bool simple_wallet::get_tx_note(const std::vector<std::string> &args)
 bool simple_wallet::status(const std::vector<std::string> &args)
 {
   uint64_t local_height = m_wallet->get_blockchain_current_height();
-  if (!m_wallet->check_connection())
+  if (!try_connect_to_daemon())
   {
     success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected";
     return true;
@@ -3511,6 +3527,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_testnet);
   command_line::add_arg(desc_params, arg_restricted);
   command_line::add_arg(desc_params, arg_trusted_daemon);
+  command_line::add_arg(desc_params, arg_allow_mismatched_daemon_version);
   command_line::add_arg(desc_params, arg_restore_height);
   tools::wallet_rpc_server::init_options(desc_params);
 
