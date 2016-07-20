@@ -38,14 +38,33 @@
 #endif
 
 // from http://stackoverflow.com/questions/11665829/how-can-i-print-stack-trace-for-caught-exceptions-in-c-code-injection-in-c
+
+// The decl of __cxa_throw in /usr/include/.../cxxabi.h uses
+// 'std::type_info *', but GCC's built-in protype uses 'void *'.
+#ifdef __clang__
+#define CXA_THROW_INFO_T std::type_info
+#else // !__clang__
+#define CXA_THROW_INFO_T void
+#endif // !__clang__
+
 #ifdef STATICLIB
 #define CXA_THROW __wrap___cxa_throw
-extern "C" void __real___cxa_throw(void *ex, void *info, void (*dest)(void*));
-#else
+extern "C"
+__attribute__((noreturn))
+void __real___cxa_throw(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));
+#else // !STATICLIB
 #define CXA_THROW __cxa_throw
-#endif
+extern "C"
+typedef
+#ifdef __clang__ // only clang, not GCC, lets apply the attr in typedef
+__attribute__((noreturn))
+#endif // __clang__
+void (cxa_throw_t)(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));
+#endif // !STATICLIB
 
-extern "C" void CXA_THROW(void *ex, void *info, void (*dest)(void*))
+extern "C"
+__attribute__((noreturn))
+void CXA_THROW(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*))
 {
 
   int status;
@@ -53,12 +72,13 @@ extern "C" void CXA_THROW(void *ex, void *info, void (*dest)(void*))
   tools::log_stack_trace((std::string("Exception: ")+((!status && dsym) ? dsym : (const char*)info)).c_str());
   free(dsym);
 
-#ifdef STATICLIB
+#ifndef STATICLIB
+#ifndef __clang__ // for GCC the attr can't be applied in typedef like for clang
+  __attribute__((noreturn))
+#endif // !__clang__
+   cxa_throw_t *__real___cxa_throw = (cxa_throw_t*)dlsym(RTLD_NEXT, "__cxa_throw");
+#endif // !STATICLIB
   __real___cxa_throw(ex, info, dest);
-#else
-  static void (*const rethrow)(void*, void*, void(*)(void*)) __attribute__((noreturn)) = (void(*)(void*, void*, void(*)(void*)))dlsym(RTLD_NEXT, "__cxa_throw");
-  rethrow(ex, info, dest);
-#endif
 }
 
 namespace

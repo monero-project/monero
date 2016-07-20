@@ -323,6 +323,9 @@ else()
   endif()
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     set(WARNINGS "${WARNINGS} -Wno-error=mismatched-tags -Wno-error=null-conversion -Wno-overloaded-shift-op-parentheses -Wno-error=shift-count-overflow -Wno-error=tautological-constant-out-of-range-compare -Wno-error=unused-private-field -Wno-error=unneeded-internal-declaration")
+    if(ARM6 OR ARM7)
+      set(WARNINGS "${WARNINGS} -Wno-error=inline-asm")
+    endif()
   else()
     set(WARNINGS "${WARNINGS} -Wlogical-op -Wno-error=maybe-uninitialized")
   endif()
@@ -397,8 +400,10 @@ else()
     # There is a clang bug that does not allow to compile code that uses AES-NI intrinsics if -flto is enabled, so explicitly disable
     set(USE_LTO false)
     # explicitly define stdlib for older versions of clang
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+    if(CMAKE_C_COMPILER_VERSION VERSION_LESS 3.7)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+    endif()
   endif()
 
 
@@ -458,9 +463,11 @@ elseif(NOT MSVC)
   set(EXTRA_LIBRARIES ${RT})
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
-  find_library(DL dl)
-  set(EXTRA_LIBRARIES ${DL})
+list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
+
+if(NOT MINGW AND NOT APPLE)
+  find_library(ATOMIC atomic)
+  list(APPEND EXTRA_LIBRARIES ${ATOMIC})
 endif()
 
 include(version.cmake)
