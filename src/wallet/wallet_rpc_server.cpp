@@ -168,6 +168,13 @@ namespace tools
         }
         integrated_payment_id = new_payment_id;
         cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, integrated_payment_id);
+
+        /* Append Payment ID data into extra */
+        if (!cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Something went wrong with integrated payment_id.";
+          return false;
+        }
       }
     }
 
@@ -197,7 +204,7 @@ namespace tools
       /* Append Payment ID data into extra */
       if (!cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-        er.message = "Something went wront with payment_id. Please check its format: \"" + payment_id_str + "\", expected 64-character string";
+        er.message = "Something went wrong with payment_id. Please check its format: \"" + payment_id_str + "\", expected 64-character string";
         return false;
       }
 
