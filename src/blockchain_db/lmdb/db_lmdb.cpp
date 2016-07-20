@@ -117,13 +117,6 @@ int compare_uint64(const MDB_val *a, const MDB_val *b)
   return (va < vb) ? -1 : va > vb;
 }
 
-int compare_uint8(const MDB_val *a, const MDB_val *b)
-{
-  const uint8_t va = *(const uint8_t*)a->mv_data;
-  const uint8_t vb = *(const uint8_t*)b->mv_data;
-  return va - vb;
-};
-
 int compare_hash32(const MDB_val *a, const MDB_val *b)
 {
   uint32_t *va = (uint32_t*) a->mv_data;
@@ -1103,8 +1096,9 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   mdb_set_dupsort(txn, m_output_txs, compare_uint64);
   mdb_set_dupsort(txn, m_block_info, compare_uint64);
 
-  mdb_set_compare(txn, m_hf_starting_heights, compare_uint8);
   mdb_set_compare(txn, m_properties, compare_string);
+
+  mdb_drop(txn, m_hf_starting_heights, 1);
 
   // get and keep current height
   MDB_stat db_stats;
@@ -2638,29 +2632,6 @@ std::map<uint64_t, uint64_t> BlockchainLMDB::get_output_histogram(const std::vec
 
 void BlockchainLMDB::check_hard_fork_info()
 {
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-
-  TXN_PREFIX(0);
-
-  MDB_stat db_stat1, db_stat2;
-  if (mdb_stat(*txn_ptr, m_blocks, &db_stat1))
-    throw0(DB_ERROR("Failed to query m_blocks"));
-  if (mdb_stat(*txn_ptr, m_hf_versions, &db_stat2))
-    throw0(DB_ERROR("Failed to query m_hf_starting_heights"));
-  if (db_stat1.ms_entries != db_stat2.ms_entries)
-  {
-    // Empty, but don't delete. This allows this function to be called after
-    // startup, after the subdbs have already been created, and rest of startup
-    // can proceed. If these don't exist, hard fork's init() will fail.
-    //
-    // If these are empty, hard fork's init() will repopulate the hard fork
-    // data.
-    mdb_drop(*txn_ptr, m_hf_starting_heights, 0);
-    mdb_drop(*txn_ptr, m_hf_versions, 0);
-  }
-
-  TXN_POSTFIX_SUCCESS();
 }
 
 void BlockchainLMDB::drop_hard_fork_info()
@@ -2674,49 +2645,6 @@ void BlockchainLMDB::drop_hard_fork_info()
   mdb_drop(*txn_ptr, m_hf_versions, 1);
 
   TXN_POSTFIX_SUCCESS();
-}
-
-void BlockchainLMDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-
-  TXN_BLOCK_PREFIX(0);
-
-  MDB_val_copy<uint8_t> val_key(version);
-  MDB_val_copy<uint64_t> val_value(height);
-  if (auto result = mdb_put(*txn_ptr, m_hf_starting_heights, &val_key, &val_value, MDB_APPEND))
-    throw1(DB_ERROR(lmdb_error("Error adding hard fork starting height to db transaction: ", result).c_str()));
-
-  TXN_BLOCK_POSTFIX_SUCCESS();
-}
-
-uint64_t BlockchainLMDB::get_hard_fork_starting_height(uint8_t version) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-
-  TXN_PREFIX_RDONLY();
-
-  MDB_val_copy<uint8_t> val_key(version);
-  MDB_val val_ret;
-  uint64_t ret = 0;
-  auto result = mdb_get(m_txn, m_hf_starting_heights, &val_key, &val_ret);
-  if (result == MDB_SUCCESS)
-  {
-#ifdef MISALIGNED_OK
-    ret = *(const uint64_t*)val_ret.mv_data;
-#else
-    memcpy(&ret, val_ret.mv_data, sizeof(uint64_t));
-#endif
-  } else if (result == MDB_NOTFOUND)
-  {
-    ret = std::numeric_limits<uint64_t>::max();
-  } else if (result)
-    throw0(DB_ERROR(lmdb_error("Error attempting to retrieve a hard fork starting height from the db", result).c_str()));
-
-  TXN_POSTFIX_RDONLY();
-  return ret;
 }
 
 void BlockchainLMDB::set_hard_fork_version(uint64_t height, uint8_t version)

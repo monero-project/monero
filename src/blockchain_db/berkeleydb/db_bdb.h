@@ -385,8 +385,6 @@ private:
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const;
 
   // Hard fork related storage
-  virtual void set_hard_fork_starting_height(uint8_t version, uint64_t height);
-  virtual uint64_t get_hard_fork_starting_height(uint8_t version) const;
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);
   virtual uint8_t get_hard_fork_version(uint64_t height) const;
   virtual void check_hard_fork_info();

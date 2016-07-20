@@ -2186,34 +2186,6 @@ std::map<uint64_t, uint64_t>::BlockchainBDB::get_output_histogram(const std::vec
   throw1(DB_ERROR("Not implemented."));
 }
 
-void BlockchainBDB::set_hard_fork_starting_height(uint8_t version, uint64_t height)
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    check_open();
-
-    Dbt_copy<uint32_t> val_key(version + 1);
-    Dbt_copy<uint64_t> val(height);
-    if (m_hf_starting_heights->put(DB_DEFAULT_TX, &val_key, &val, 0))
-        throw1(DB_ERROR("Error adding hard fork starting height to db transaction."));
-}
-
-uint64_t BlockchainBDB::get_hard_fork_starting_height(uint8_t version) const
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    check_open();
-
-    Dbt_copy<uint32_t> key(version + 1);
-    Dbt_copy<uint64_t> result;
-
-    auto get_result = m_hf_starting_heights->get(DB_DEFAULT_TX, &key, &result, 0);
-    if (get_result == DB_NOTFOUND || get_result == DB_KEYEMPTY)
-        return std::numeric_limits<uint64_t>::max();
-    else if (get_result)
-        throw0(DB_ERROR("Error attempting to retrieve hard fork starting height from the db"));
-
-    return result;
-}
-
 void BlockchainBDB::check_hard_fork_info()
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
