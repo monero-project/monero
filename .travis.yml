@@ -26,3 +26,9 @@ addons:
 script: make -j2 && HAVE_DOT=YES doxygen Doxyfile
 notifications:
   email: false
+  irc:
+    channels:
+      - "chat.freenode.net#monero-dev"
+    nick: monero
+    template:
+      - "%{repository}#%{build_number} (%{commit} : %{author}) | Build details : %{build_url}"
