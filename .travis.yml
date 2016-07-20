@@ -1,0 +1,28 @@
+sudo: required
+dist: trusty
+language: cpp
+compiler:
+- gcc
+addons:
+  apt:
+    packages:
+    - build-essential
+    - cmake
+    - doxygen
+    - g++
+    - gcc
+    - graphviz
+    - libboost1.55-all-dev
+    - libdb++-dev
+    - libdb-dev
+    - libgtest-dev
+    - libminiupnpc-dev
+    - libssl-dev
+    - libssl1.0.0
+    - libunbound-dev
+    - libunwind8-dev
+    #sources:
+    #- ubuntu-toolchain-r-test
+script: make -j2 && HAVE_DOT=YES doxygen Doxyfile
+notifications:
+  email: false

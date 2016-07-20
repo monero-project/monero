@@ -2,13 +2,14 @@
 
 Copyright (c) 2014-2016, The Monero Project
 
+[![Build Status](https://travis-ci.org/anonimal/bitmonero.svg?branch=master)](https://travis-ci.org/anonimal/bitmonero)
+
 ## Development Resources
 
-Web: [getmonero.org](https://getmonero.org)  
-Forum: [forum.getmonero.org](https://forum.getmonero.org)  
-Mail: [dev@getmonero.org](mailto:dev@getmonero.org)  
-Github (staging): [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)  
-Github (development): [http://github.com/monero-project/bitmonero/tree/development](http://github.com/monero-project/bitmonero/tree/development)  
+Web: [getmonero.org](https://getmonero.org)
+Forum: [forum.getmonero.org](https://forum.getmonero.org)
+Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
+GitHub: [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)
 IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
 
 ## Introduction
