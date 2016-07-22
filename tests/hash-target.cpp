@@ -41,7 +41,7 @@ using cryptonote::check_hash;
 int main(int argc, char *argv[]) {
   crypto::hash h;
   for (uint64_t diff = 1;; diff += 1 + (diff >> 8)) {
-    for (int b = 0; b < 256; b++) {
+    for (uint16_t b = 0; b < 256; b++) {
       memset(&h, b, sizeof(crypto::hash));
       if (check_hash(h, diff) != (b == 0 || diff <= 255 / b)) {
         return 1;
