@@ -186,7 +186,7 @@ void wallet2::check_acc_out(const account_keys &acc, const tx_out &o, const cryp
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, bool miner_tx)
+void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
 {
   if (!miner_tx)
     process_unconfirmed(tx, height);
@@ -318,16 +318,19 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
       //usually we have only one transfer for user in transaction
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
       cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
-      req.txid = get_transaction_hash(tx);
-      m_daemon_rpc_mutex.lock();
-      bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-      m_daemon_rpc_mutex.unlock();
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
-      THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
-      THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
-      THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
-				"transactions outputs size=" + std::to_string(tx.vout.size()) +
-				" not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));
+      if (!pool)
+      {
+        req.txid = get_transaction_hash(tx);
+        m_daemon_rpc_mutex.lock();
+        bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+        m_daemon_rpc_mutex.unlock();
+        THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
+        THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
+        THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
+        THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
+				  "transactions outputs size=" + std::to_string(tx.vout.size()) +
+				  " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));
+      }
 
       BOOST_FOREACH(size_t o, outs)
       {
@@ -347,18 +350,21 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
             + ", m_transfers.size() is " + boost::lexical_cast<std::string>(m_transfers.size()));
         if (kit == m_key_images.end())
         {
-	  m_transfers.push_back(boost::value_initialized<transfer_details>());
-	  transfer_details& td = m_transfers.back();
-	  td.m_block_height = height;
-	  td.m_internal_output_index = o;
-	  td.m_global_output_index = res.o_indexes[o];
-	  td.m_tx = tx;
-          td.m_key_image = ki;
-	  td.m_spent = false;
-	  m_key_images[td.m_key_image] = m_transfers.size()-1;
-	  LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
-	  if (0 != m_callback)
-	    m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
+          if (!pool)
+          {
+	    m_transfers.push_back(boost::value_initialized<transfer_details>());
+	    transfer_details& td = m_transfers.back();
+	    td.m_block_height = height;
+	    td.m_internal_output_index = o;
+	    td.m_global_output_index = res.o_indexes[o];
+	    td.m_tx = tx;
+            td.m_key_image = ki;
+	    td.m_spent = false;
+	    m_key_images[td.m_key_image] = m_transfers.size()-1;
+	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
+	    if (0 != m_callback)
+	      m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
+          }
         }
 	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx.vout[o].amount)
         {
@@ -375,17 +381,20 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
           // The new larger output replaced a previous smaller one
           tx_money_got_in_outs -= tx.vout[o].amount;
 
-          transfer_details &td = m_transfers[kit->second];
-	  td.m_block_height = height;
-	  td.m_internal_output_index = o;
-	  td.m_global_output_index = res.o_indexes[o];
-	  td.m_tx = tx;
-          THROW_WALLET_EXCEPTION_IF(td.m_key_image != ki, error::wallet_internal_error, "Inconsistent key images");
-	  THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");
+          if (!pool)
+          {
+            transfer_details &td = m_transfers[kit->second];
+	    td.m_block_height = height;
+	    td.m_internal_output_index = o;
+	    td.m_global_output_index = res.o_indexes[o];
+	    td.m_tx = tx;
+            THROW_WALLET_EXCEPTION_IF(td.m_key_image != ki, error::wallet_internal_error, "Inconsistent key images");
+	    THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");
 
-	  LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
-	  if (0 != m_callback)
-	    m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
+	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
+	    if (0 != m_callback)
+	      m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
+          }
         }
       }
     }
@@ -462,8 +471,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     payment.m_block_height = height;
     payment.m_unlock_time  = tx.unlock_time;
     payment.m_timestamp    = ts;
-    m_payments.emplace(payment_id, payment);
-    LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
+    if (pool)
+      m_unconfirmed_payments.emplace(payment_id, payment);
+    else
+      m_payments.emplace(payment_id, payment);
+    LOG_PRINT_L2("Payment found in " << (pool ? "pool" : "block") << ": " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -506,7 +518,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   if(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height)
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    process_new_transaction(b.miner_tx, height, b.timestamp, true);
+    process_new_transaction(b.miner_tx, height, b.timestamp, true, false);
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
     TIME_MEASURE_START(txs_handle_time);
@@ -515,7 +527,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
       cryptonote::transaction tx;
       bool r = parse_and_validate_tx_from_blob(txblob, tx);
       THROW_WALLET_EXCEPTION_IF(!r, error::tx_parse_error, txblob);
-      process_new_transaction(tx, height, b.timestamp, false);
+      process_new_transaction(tx, height, b.timestamp, false, false);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
@@ -743,20 +755,16 @@ void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_hei
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::check_pending_txes()
+void wallet2::update_pool_state()
 {
-  // if we don't have any pending txes, we don't need to check anything
-  if (m_unconfirmed_txs.empty())
-    return;
-
-  // we have at least one pending tx, so get the pool state
+  // get the pool state
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/get_transaction_pool", req, res, m_http_client, 200000);
   m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "check_pending_txes");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_transaction_pool");
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_transaction_pool");
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
 
   // remove any pending tx that's not in the pool
@@ -791,6 +799,120 @@ void wallet2::check_pending_txes()
         LOG_PRINT_L1("Pending txid " << txid << " not in pool, marking as failed");
         pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
       }
+    }
+  }
+
+  // remove pool txes to us that aren't in the pool anymore
+  std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
+  while (uit != m_unconfirmed_payments.end())
+  {
+    const std::string txid = string_tools::pod_to_hex(uit->first);
+    bool found = false;
+    for (auto it2: res.transactions)
+    {
+      if (it2.id_hash == txid)
+      {
+        found = true;
+        break;
+      }
+    }
+    auto pit = uit++;
+    if (!found)
+    {
+      m_unconfirmed_payments.erase(pit);
+    }
+  }
+
+  // add new pool txes to us
+  for (auto it: res.transactions)
+  {
+    cryptonote::blobdata txid_data;
+    if(epee::string_tools::parse_hexstr_to_binbuff(it.id_hash, txid_data))
+    {
+      const crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+      if (m_unconfirmed_payments.find(txid) == m_unconfirmed_payments.end())
+      {
+        LOG_PRINT_L1("Found new pool tx: " << txid);
+        bool found = false;
+        for (const auto &i: m_unconfirmed_txs)
+        {
+          if (i.first == txid)
+          {
+            found = true;
+            break;
+          }
+        }
+        if (!found)
+        {
+          // not one of those we sent ourselves
+          cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
+          cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
+          req.txs_hashes.push_back(it.id_hash);
+          req.decode_as_json = false;
+          m_daemon_rpc_mutex.lock();
+          bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/gettransactions", req, res, m_http_client, 200000);
+          m_daemon_rpc_mutex.unlock();
+          if (r && res.status == CORE_RPC_STATUS_OK)
+          {
+            if (res.txs.size() == 1)
+            {
+              // might have just been put in a block
+              if (res.txs[0].in_pool)
+              {
+                cryptonote::transaction tx;
+                cryptonote::blobdata bd;
+                crypto::hash tx_hash, tx_prefix_hash;
+                if (epee::string_tools::parse_hexstr_to_binbuff(res.txs[0].as_hex, bd))
+                {
+                  if (cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash))
+                  {
+                    if (tx_hash == txid)
+                    {
+                      process_new_transaction(tx, 0, time(NULL), false, true);
+                    }
+                    else
+                    {
+                      LOG_PRINT_L0("Mismatched txids when processing unconfimed txes from pool");
+                    }
+                  }
+                  else
+                  {
+                    LOG_PRINT_L0("failed to validate transaction from daemon");
+                  }
+                }
+                else
+                {
+                  LOG_PRINT_L0("Failed to parse tx " << txid);
+                }
+              }
+              else
+              {
+                LOG_PRINT_L1("Tx " << txid << " was in pool, but is no more");
+              }
+            }
+            else
+            {
+              LOG_PRINT_L0("Expected 1 tx, got " << res.txs.size());
+            }
+          }
+          else
+          {
+            LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << res.status);
+          }
+        }
+        else
+        {
+          LOG_PRINT_L1("We sent that one");
+        }
+      }
+      else
+      {
+        LOG_PRINT_L1("Already saw that one");
+      }
+    }
+    else
+    {
+      LOG_PRINT_L0("Failed to parse txid");
     }
   }
 }
@@ -931,7 +1053,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
   try
   {
-    check_pending_txes();
+    update_pool_state();
   }
   catch (...)
   {
@@ -1729,6 +1851,13 @@ void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirm
 void wallet2::get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments) const
 {
   for (auto i = m_unconfirmed_txs.begin(); i != m_unconfirmed_txs.end(); ++i) {
+    unconfirmed_payments.push_back(*i);
+  }
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& unconfirmed_payments) const
+{
+  for (auto i = m_unconfirmed_payments.begin(); i != m_unconfirmed_payments.end(); ++i) {
     unconfirmed_payments.push_back(*i);
   }
 }

@@ -918,8 +918,8 @@ namespace tools
       std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
       m_wallet.get_payments_out(payments, min_height, max_height);
       for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
-        res.in.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
-        wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.in.back();
+        res.out.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
+        wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.out.back();
         const tools::wallet2::confirmed_transfer_details &pd = i->second;
 
         entry.txid = string_tools::pod_to_hex(i->first);
@@ -966,6 +966,29 @@ namespace tools
         entry.fee = amount - get_outs_money_amount(pd.m_tx);
         entry.amount = amount - pd.m_change - entry.fee;
         entry.note = m_wallet.get_tx_note(i->first);
+      }
+    }
+
+    if (req.pool)
+    {
+      m_wallet.update_pool_state();
+
+      std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+      m_wallet.get_unconfirmed_payments(payments);
+      for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+        res.pool.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
+        wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.pool.back();
+        const tools::wallet2::payment_details &pd = i->second;
+
+        entry.txid = string_tools::pod_to_hex(pd.m_tx_hash);
+        entry.payment_id = string_tools::pod_to_hex(i->first);
+        if (entry.payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+          entry.payment_id = entry.payment_id.substr(0,16);
+        entry.height = 0;
+        entry.timestamp = pd.m_timestamp;
+        entry.amount = pd.m_amount;
+        entry.fee = 0; // TODO
+        entry.note = m_wallet.get_tx_note(pd.m_tx_hash);
       }
     }
 
