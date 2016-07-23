@@ -294,7 +294,7 @@ link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
-  # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Dinline=__inline")
+  # set(COMMON_C_FLAGS "${COMMON_C_FLAGS} /Dinline=__inline")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10485760")
   if(STATIC)
     foreach(VAR CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELEASE)
@@ -316,7 +316,7 @@ else()
   endif()
   set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
   if(NOT MINGW)
-    set(WARNINGS "${WARNINGS} -Werror") # to allow pedantic but not stop compilation
+    set(WARNINGS_AS_ERRORS_FLAG "-Werror")
   endif()
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     set(WARNINGS "${WARNINGS} -Wno-deprecated-register -Wno-error=mismatched-tags -Wno-error=null-conversion -Wno-overloaded-shift-op-parentheses -Wno-error=shift-count-overflow -Wno-error=tautological-constant-out-of-range-compare -Wno-error=unused-private-field -Wno-error=unneeded-internal-declaration")
@@ -347,20 +347,20 @@ else()
     set(STATIC_ASSERT_FLAG "-Dstatic_assert=_Static_assert")
   endif()
 
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${ARCH_FLAG}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${ARCH_FLAG}")
+  set(COMMON_C_FLAGS "${COMMON_C_FLAGS} -std=c11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${ARCH_FLAG}")
+  set(COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${ARCH_FLAG}")
 
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
+  set(COMMON_C_FLAGS "${COMMON_C_FLAGS} -fno-strict-aliasing")
+  set(COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS} -fno-strict-aliasing")
 
   option(NO_AES "Explicitly disable AES support" ${NO_AES})
 
   if(NOT NO_AES AND NOT (ARM6 OR ARM7))
     message(STATUS "AES support enabled")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
+    set(COMMON_C_FLAGS "${COMMON_C_FLAGS} -maes")
+    set(COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS} -maes")
   elseif(ARM7 OR ARM6)
     message(STATUS "AES support disabled (not available on ARM)")
   else()
@@ -369,18 +369,18 @@ else()
 
   if(ARM6)
     message(STATUS "Setting ARM6 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
+    set(COMMON_C_FLAGS "${COMMON_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
+    set(COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
   endif()
 
   if(ARM7)
     message(STATUS "Setting ARM7 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -mfloat-abi=hard")
+    set(COMMON_C_FLAGS "${COMMON_C_FLAGS} -O2 -mfloat-abi=hard")
+    set(COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS} -O2 -mfloat-abi=hard")
   endif()
 
   if(APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
+    set(COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
   endif()
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_C_COMPILER_VERSION VERSION_LESS 4.8))
     set(DEBUG_FLAGS "-g3 -Og")
@@ -398,8 +398,8 @@ else()
     set(USE_LTO false)
     # explicitly define stdlib for older versions of clang
     if(CMAKE_C_COMPILER_VERSION VERSION_LESS 3.7)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+      set(COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS} -stdlib=libc++")
+      set(COMMON_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} -stdlib=libc++")
     endif()
   endif()
 
@@ -471,6 +471,10 @@ endif()
 
 include(version.cmake)
 
+# When building the following sources, treat warnings as errors
+set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} ${WARNINGS_AS_ERRORS_FLAG}")
+set(CMAKE_CXX_FLAGS "${COMMON_CXX_FLAGS} ${WARNINGS_AS_ERRORS_FLAG}")
+
 add_subdirectory(contrib)
 add_subdirectory(src)
 
@@ -478,6 +482,9 @@ add_subdirectory(src)
 option(BUILD_TESTS "Build tests." OFF)
 
 if(BUILD_TESTS)
+  # When building tests, do *not* treat warnings as errors
+  set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${COMMON_CXX_FLAGS}")
   add_subdirectory(tests)
 endif()
 
