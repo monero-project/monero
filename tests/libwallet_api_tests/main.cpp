@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 #include "wallet/wallet2_api.h"
+#include "include_base_utils.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -39,6 +40,8 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <atomic>
+#include <condition_variable>
 
 
 using namespace std;
@@ -137,6 +140,7 @@ struct WalletManagerTest : public testing::Test
     {
         std::cout << __FUNCTION__ << std::endl;
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
+        // Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_4);
         Utils::deleteWallet(WALLET_NAME);
         Utils::deleteDir(boost::filesystem::path(WALLET_NAME_WITH_DIR).parent_path().string());
     }
@@ -235,7 +239,7 @@ TEST_F(WalletManagerTest, WalletManagerMovesWallet)
 }
 
 
-/*
+
 TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -243,7 +247,7 @@ TEST_F(WalletManagerTest, WalletManagerChangesPassword)
     ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Bitmonero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2);
-    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);quint64
+    ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
     Bitmonero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
@@ -343,7 +347,9 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
     ASSERT_TRUE(wallet1->address() == address1);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
-*/
+
+
+
 
 TEST_F(WalletManagerTest, WalletManagerFindsWallet)
 {
@@ -415,7 +421,7 @@ TEST_F(WalletTest1, WalletConvertsToString)
 }
 
 
-/*
+
 TEST_F(WalletTest1, WalletTransaction)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
@@ -429,8 +435,10 @@ TEST_F(WalletTest1, WalletTransaction)
     wallet1->setDefaultMixin(1);
     ASSERT_TRUE(wallet1->defaultMixin() == 1);
 
-    Bitmonero::PendingTransaction * transaction = wallet1->createTransaction(
-                recepient_address, AMOUNT_10XMR);
+    Bitmonero::PendingTransaction * transaction = wallet1->createTransaction(recepient_address,
+                                                                             PAYMENT_ID_EMPTY,
+                                                                             AMOUNT_10XMR,
+                                                                             1);
     ASSERT_TRUE(transaction->status() == Bitmonero::PendingTransaction::Status_Ok);
     wallet1->refresh();
 
@@ -440,7 +448,6 @@ TEST_F(WalletTest1, WalletTransaction)
     ASSERT_FALSE(wallet1->balance() == balance);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
-*/
 
 TEST_F(WalletTest1, WalletTransactionWithMixin)
 {
@@ -482,6 +489,48 @@ TEST_F(WalletTest1, WalletTransactionWithMixin)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
+TEST_F(WalletTest1, WalletTransactionWithPriority)
+{
+
+    std::string payment_id = "";
+
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+
+    // make sure testnet daemon is running
+    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet1->refresh());
+    uint64_t balance = wallet1->balance();
+    ASSERT_TRUE(wallet1->status() == Bitmonero::PendingTransaction::Status_Ok);
+
+    std::string recepient_address = Utils::get_wallet_address(CURRENT_DST_WALLET, TESTNET_WALLET_PASS);
+    uint32_t mixin = 2;
+    uint64_t fee   = 0;
+
+    std::vector<Bitmonero::PendingTransaction::Priority> priorities =  {
+         Bitmonero::PendingTransaction::Priority_Low,
+         Bitmonero::PendingTransaction::Priority_Medium,
+         Bitmonero::PendingTransaction::Priority_High
+    };
+
+    for (auto it = priorities.begin(); it != priorities.end(); ++it) {
+        std::cerr << "Transaction priority: " << *it << std::endl;
+        Bitmonero::PendingTransaction * transaction = wallet1->createTransaction(
+                    recepient_address, payment_id, AMOUNT_5XMR, mixin, *it);
+        std::cerr << "Transaction status: " << transaction->status() << std::endl;
+        std::cerr << "Transaction fee: " << Bitmonero::Wallet::displayAmount(transaction->fee()) << std::endl;
+        std::cerr << "Transaction error: " << transaction->errorString() << std::endl;
+        ASSERT_TRUE(transaction->fee() > fee);
+        ASSERT_TRUE(transaction->status() == Bitmonero::PendingTransaction::Status_Ok);
+        fee = transaction->fee();
+        wallet1->disposeTransaction(transaction);
+    }
+    wallet1->refresh();
+    ASSERT_TRUE(wallet1->balance() == balance);
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+}
+
+
+
 TEST_F(WalletTest1, WalletHistory)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
@@ -522,7 +571,7 @@ TEST_F(WalletTest1, WalletTransactionAndHistory)
 
     Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(wallet4_addr,
                                                                        PAYMENT_ID_EMPTY,
-                                                                       AMOUNT_10XMR * 5, 0);
+                                                                       AMOUNT_10XMR * 5, 1);
 
     ASSERT_TRUE(tx->status() == Bitmonero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
@@ -586,100 +635,193 @@ TEST_F(WalletTest1, WalletTransactionWithPaymentId)
     ASSERT_TRUE(payment_id_in_history);
 }
 
+
 struct MyWalletListener : public Bitmonero::WalletListener
 {
 
     Bitmonero::Wallet * wallet;
     uint64_t total_tx;
     uint64_t total_rx;
-    std::timed_mutex  guard;
+    std::mutex  mutex;
+    std::condition_variable cv_send;
+    std::condition_variable cv_receive;
+    std::condition_variable cv_update;
+    std::condition_variable cv_refresh;
+    bool send_triggered;
+    bool receive_triggered;
+    bool update_triggered;
+    bool refresh_triggered;
+
+
 
     MyWalletListener(Bitmonero::Wallet * wallet)
         : total_tx(0), total_rx(0)
     {
+        reset();
+
         this->wallet = wallet;
         this->wallet->setListener(this);
     }
 
+    void reset()
+    {
+        send_triggered = receive_triggered = update_triggered = refresh_triggered = false;
+    }
+
     virtual void moneySpent(const string &txId, uint64_t amount)
     {
-        std::cout << "wallet: " << wallet->address() << " just spent money ("
+        std::cerr << "wallet: " << wallet->address() << "**** just spent money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
         total_tx += amount;
-        guard.unlock();
+        send_triggered = true;
+        cv_send.notify_one();
     }
 
     virtual void moneyReceived(const string &txId, uint64_t amount)
     {
-        std::cout << "wallet: " << wallet->address() << " just received money ("
+        std::cout << "wallet: " << wallet->address() << "**** just received money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
         total_rx += amount;
-        guard.unlock();
+        receive_triggered = true;
+        cv_receive.notify_one();
     }
+
+    virtual void updated()
+    {
+        std::cout << __FUNCTION__ << "Wallet updated";
+        update_triggered = true;
+        cv_update.notify_one();
+    }
+
+    virtual void refreshed()
+    {
+        std::cout << __FUNCTION__ <<  "Wallet refreshed";
+        refresh_triggered = true;
+        cv_refresh.notify_one();
+    }
+
 };
 
-/*
+
+TEST_F(WalletTest2, WalletCallBackRefreshedSync)
+{
+
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+    MyWalletListener * wallet_src_listener = new MyWalletListener(wallet_src);
+    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet_src_listener->refresh_triggered);
+    ASSERT_TRUE(wallet_src->connected());
+//    std::chrono::seconds wait_for = std::chrono::seconds(60*3);
+//    std::unique_lock<std::mutex> lock (wallet_src_listener->mutex);
+//    wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
+    wmgr->closeWallet(wallet_src);
+}
+
+
+TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
+{
+
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+    MyWalletListener * wallet_src_listener = new MyWalletListener(wallet_src);
+
+    std::chrono::seconds wait_for = std::chrono::seconds(20);
+    std::unique_lock<std::mutex> lock (wallet_src_listener->mutex);
+    wallet_src->initAsync(TESTNET_DAEMON_ADDRESS, 0);
+    std::cerr << "TEST: waiting on refresh lock...\n";
+    wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
+    std::cerr << "TEST: refresh lock acquired...\n";
+    ASSERT_TRUE(wallet_src_listener->refresh_triggered);
+    ASSERT_TRUE(wallet_src->connected());
+    std::cerr << "TEST: closing wallet...\n";
+    wmgr->closeWallet(wallet_src);
+}
+
+
+
 TEST_F(WalletTest2, WalletCallbackSent)
 {
 
-    Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET3_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_src->refresh());
     MyWalletListener * wallet_src_listener = new MyWalletListener(wallet_src);
+    uint64_t balance = wallet_src->balance();
     std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
+    Bitmonero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, true);
+
+    uint64_t amount = AMOUNT_1XMR * 5;
+    std::cout << "** Sending " << Bitmonero::Wallet::displayAmount(amount) << " to " << wallet_dst->address();
 
 
-    uint64_t amount = AMOUNT_10XMR * 5;
-    std::cout << "** Sending " << Bitmonero::Wallet::displayAmount(amount) << " to " << TESTNET_WALLET4_ADDRESS;
-    Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(TESTNET_WALLET4_ADDRESS, AMOUNT_1XMR * 5);
+    Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(wallet_dst->address(),
+                                                                       PAYMENT_ID_EMPTY,
+                                                                       amount, 1);
+    std::cout << "** Committing transaction: " << Bitmonero::Wallet::displayAmount(tx->amount())
+              << " with fee: " << Bitmonero::Wallet::displayAmount(tx->fee());
+
     ASSERT_TRUE(tx->status() == Bitmonero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
 
     std::chrono::seconds wait_for = std::chrono::seconds(60*3);
-
-    wallet_src_listener->guard.lock();
-    wallet_src_listener->guard.try_lock_for(wait_for);
-
-    ASSERT_TRUE(wallet_src_listener->total_tx != 0);
+    std::unique_lock<std::mutex> lock (wallet_src_listener->mutex);
+    std::cerr << "TEST: waiting on send lock...\n";
+    wallet_src_listener->cv_send.wait_for(lock, wait_for);
+    std::cerr << "TEST: send lock acquired...\n";
+    ASSERT_TRUE(wallet_src_listener->send_triggered);
+    ASSERT_TRUE(wallet_src_listener->update_triggered);
+    std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
+    ASSERT_TRUE(wallet_src->balance() < balance);
+    wmgr->closeWallet(wallet_src);
+    wmgr->closeWallet(wallet_dst);
 }
-*/
 
-/*
+
 TEST_F(WalletTest2, WalletCallbackReceived)
 {
 
-    Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET3_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET5_NAME, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_src->refresh());
     std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
 
-    Bitmonero::Wallet * wallet_dst = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, true);
     ASSERT_TRUE(wallet_dst->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_dst->refresh());
+    uint64_t balance = wallet_dst->balance();
     MyWalletListener * wallet_dst_listener = new MyWalletListener(wallet_dst);
 
-
     uint64_t amount = AMOUNT_1XMR * 5;
-    std::cout << "** Sending " << Bitmonero::Wallet::displayAmount(amount) << " to " << TESTNET_WALLET4_ADDRESS;
-    Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(TESTNET_WALLET4_ADDRESS, AMOUNT_1XMR * 5);
+    std::cout << "** Sending " << Bitmonero::Wallet::displayAmount(amount) << " to " << wallet_dst->address();
+    Bitmonero::PendingTransaction * tx = wallet_src->createTransaction(wallet_dst->address(),
+                                                                       PAYMENT_ID_EMPTY,
+                                                                       amount, 1);
+
+    std::cout << "** Committing transaction: " << Bitmonero::Wallet::displayAmount(tx->amount())
+              << " with fee: " << Bitmonero::Wallet::displayAmount(tx->fee());
+
     ASSERT_TRUE(tx->status() == Bitmonero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
 
     std::chrono::seconds wait_for = std::chrono::seconds(60*4);
+    std::unique_lock<std::mutex> lock (wallet_dst_listener->mutex);
+    std::cerr << "TEST: waiting on receive lock...\n";
+    wallet_dst_listener->cv_receive.wait_for(lock, wait_for);
+    std::cerr << "TEST: receive lock acquired...\n";
+    ASSERT_TRUE(wallet_dst_listener->receive_triggered);
+    ASSERT_TRUE(wallet_dst_listener->update_triggered);
+    std::cout << "** Balance: " << wallet_dst->displayAmount(wallet_src->balance()) <<  std::endl;
+    ASSERT_TRUE(wallet_dst->balance() > balance);
 
-    wallet_dst_listener->guard.lock();
-    wallet_dst_listener->guard.try_lock_for(wait_for);
-
-    ASSERT_TRUE(wallet_dst_listener->total_tx != 0);
-
+    wmgr->closeWallet(wallet_src);
+    wmgr->closeWallet(wallet_dst);
 }
-*/
+
 
 int main(int argc, char** argv)
 {
 
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

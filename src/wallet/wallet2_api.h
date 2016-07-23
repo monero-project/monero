@@ -50,6 +50,14 @@ struct PendingTransaction
         Status_Ok,
         Status_Error
     };
+
+    enum Priority {
+        Priority_Low = 1,
+        Priority_Medium = 2,
+        Priority_High = 3,
+        Priority_Last
+    };
+
     virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
@@ -108,7 +116,10 @@ struct WalletListener
     virtual ~WalletListener() = 0;
     virtual void moneySpent(const std::string &txId, uint64_t amount) = 0;
     virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
-    // TODO: on_skip_transaction;
+    // generic callback, called when any event (sent/received/block reveived/etc) happened with the wallet;
+    virtual void updated() = 0;
+    // called when wallet refreshed by background thread or explicitly called be calling "refresh" synchronously
+    virtual void refreshed() = 0;
 };
 
 
@@ -163,9 +174,38 @@ struct Wallet
      * \return
      */
     virtual std::string keysFilename() const = 0;
-
+    /*!
+     * \brief init - initializes wallet with daemon connection params. implicitly connects to the daemon
+     *               and refreshes the wallet. "refreshed" callback will be invoked. if daemon_address is
+     *               local address, "trusted daemon" will be set to true forcibly
+     *
+     * \param daemon_address - daemon address in "hostname:port" format
+     * \param upper_transaction_size_limit
+     * \return  - true if initialized and refreshed successfully
+     */
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+
+    /*!
+     * \brief init - initalizes wallet asynchronously. logic is the same as "init" but returns immediately.
+     *               "refreshed" callback will be invoked.
+     *
+     * \param daemon_address - daemon address in "hostname:port" format
+     * \param upper_transaction_size_limit
+     * \return  - true if initialized and refreshed successfully
+     */
+    virtual void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+
+    /**
+     * @brief connectToDaemon - connects to the daemon. TODO: check if it can be removed
+     * @return
+     */
     virtual bool connectToDaemon() = 0;
+
+    /**
+     * @brief connected - checks if the wallet connected to the daemon
+     * @return - true if connected
+     */
+    virtual bool connected() const = 0;
     virtual void setTrustedDaemon(bool arg) = 0;
     virtual bool trustedDaemon() const = 0;
     virtual uint64_t balance() const = 0;
@@ -175,23 +215,36 @@ struct Wallet
     static uint64_t amountFromString(const std::string &amount);
     static uint64_t amountFromDouble(double amount);
     static std::string genPaymentId();
+    static bool paymentIdValid(const std::string &paiment_id);
 
-    // TODO?
-    // virtual uint64_t unlockedDustBalance() const = 0;
+    /**
+     * @brief refresh - refreshes the wallet, updating transactions from daemon
+     * @return - true if refreshed successfully;
+     */
     virtual bool refresh() = 0;
+    /**
+     * @brief refreshAsync - refreshes wallet asynchronously.
+     */
+    virtual void refreshAsync() = 0;
     /*!
      * \brief createTransaction creates transaction. if dst_addr is an integrated address, payment_id is ignored
      * \param dst_addr          destination address as string
      * \param payment_id        optional payment_id, can be empty string
      * \param amount            amount
      * \param mixin_count       mixin count. if 0 passed, wallet will use default value
+     * \param priority
      * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                          after object returned
      */
 
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
-                                                   uint64_t amount, uint32_t mixin_count) = 0;
+                                                   uint64_t amount, uint32_t mixin_count,
+                                                   PendingTransaction::Priority = PendingTransaction::Priority_Low) = 0;
 
+    /*!
+     * \brief disposeTransaction - destroys transaction object
+     * \param t -  pointer to the "PendingTransaction" object. Pointer is not valid after function returned;
+     */
     virtual void disposeTransaction(PendingTransaction * t) = 0;
     virtual TransactionHistory * history() const = 0;
     virtual void setListener(WalletListener *) = 0;
@@ -271,8 +324,22 @@ struct WalletManager
 
 struct WalletManagerFactory
 {
+    // logging levels for underlying library
+    enum LogLevel {
+        LogLevel_Silent = -1,
+        LogLevel_0 = 0,
+        LogLevel_1 = 1,
+        LogLevel_2 = 2,
+        LogLevel_3 = 3,
+        LogLevel_4 = 4,
+        LogLevel_Min = LogLevel_Silent,
+        LogLevel_Max = LogLevel_4
+    };
+
     static WalletManager * getWalletManager();
+    static void setLogLevel(int level);
 };
+
 
 }
 

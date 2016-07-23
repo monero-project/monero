@@ -46,6 +46,7 @@ namespace Bitmonero {
 namespace {
     // copy-pasted from simplewallet
     static const size_t DEFAULT_MIXIN = 4;
+    static const int    DEFAULT_REFRESH_INTERVAL_SECONDS = 10;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -89,6 +90,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
                      << ", amount: " << print_money(amount));
         if (m_listener) {
             m_listener->moneyReceived(tx_hash, amount);
+            m_listener->updated();
         }
     }
 
@@ -103,6 +105,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
                      << ", amount: " << print_money(amount));
         if (m_listener) {
             m_listener->moneySpent(tx_hash, amount);
+            m_listener->updated();
         }
     }
 
@@ -117,6 +120,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 Wallet::~Wallet() {}
 
 WalletListener::~WalletListener() {}
+
 
 string Wallet::displayAmount(uint64_t amount)
 {
@@ -144,6 +148,12 @@ std::string Wallet::genPaymentId()
 
 }
 
+bool Wallet::paymentIdValid(const string &paiment_id)
+{
+    crypto::hash8 pid;
+    return tools::wallet2::parse_short_payment_id(paiment_id, pid);
+}
+
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
@@ -153,13 +163,22 @@ WalletImpl::WalletImpl(bool testnet)
     m_wallet = new tools::wallet2(testnet);
     m_history = new TransactionHistoryImpl(this);
     m_wallet2Callback = new Wallet2CallbackImpl;
+    m_wallet->callback(m_wallet2Callback);
+    m_refreshThreadDone = false;
+    m_refreshEnabled = false;
+    m_refreshIntervalSeconds = DEFAULT_REFRESH_INTERVAL_SECONDS;
+    m_refreshThread = std::thread([this] () {
+        this->refreshThreadFunc();
+    });
+
 }
 
 WalletImpl::~WalletImpl()
 {
-    delete m_wallet2Callback;
+    stopRefresh();
     delete m_history;
     delete m_wallet;
+    delete m_wallet2Callback;
 }
 
 bool WalletImpl::create(const std::string &path, const std::string &password, const std::string &language)
@@ -251,8 +270,12 @@ bool WalletImpl::close()
     clearStatus();
     bool result = false;
     try {
+        // LOG_PRINT_L0("Calling wallet::store...");
         m_wallet->store();
+        // LOG_PRINT_L0("wallet::store done");
+        // LOG_PRINT_L0("Calling wallet::stop...");
         m_wallet->stop();
+        // LOG_PRINT_L0("wallet::stop done");
         result = true;
     } catch (const std::exception &e) {
         m_status = Status_Error;
@@ -348,20 +371,29 @@ string WalletImpl::keysFilename() const
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-    try {
-        m_wallet->init(daemon_address, upper_transaction_size_limit);
-        if (Utils::isAddressLocal(daemon_address)) {
-            this->setTrustedDaemon(true);
-        }
 
-    } catch (const std::exception &e) {
-        LOG_ERROR("Error initializing wallet: " << e.what());
-        m_status = Status_Error;
-        m_errorString = e.what();
+    m_wallet->init(daemon_address, upper_transaction_size_limit);
+    if (Utils::isAddressLocal(daemon_address)) {
+        this->setTrustedDaemon(true);
     }
+    bool result = this->refresh();
+    // enabling background refresh thread
+    startRefresh();
+    return result;
 
-    return m_status == Status_Ok;
 }
+
+void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
+{
+    clearStatus();
+    m_wallet->init(daemon_address, upper_transaction_size_limit);
+    if (Utils::isAddressLocal(daemon_address)) {
+        this->setTrustedDaemon(true);
+    }
+    startRefresh();
+}
+
+
 
 uint64_t WalletImpl::balance() const
 {
@@ -377,13 +409,15 @@ uint64_t WalletImpl::unlockedBalance() const
 bool WalletImpl::refresh()
 {
     clearStatus();
-    try {
-        m_wallet->refresh();
-    } catch (const std::exception &e) {
-        m_status = Status_Error;
-        m_errorString = e.what();
-    }
+    doRefresh();
     return m_status == Status_Ok;
+}
+
+void WalletImpl::refreshAsync()
+{
+    LOG_PRINT_L3(__FUNCTION__ << ": Refreshing asyncronously..");
+    clearStatus();
+    m_refreshCV.notify_one();
 }
 
 // TODO:
@@ -396,7 +430,9 @@ bool WalletImpl::refresh()
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
 
-PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, uint64_t amount, uint32_t mixin_count)
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, uint64_t amount, uint32_t mixin_count,
+                                                  PendingTransaction::Priority priority)
+
 {
     clearStatus();
     vector<cryptonote::tx_destination_entry> dsts;
@@ -458,8 +494,10 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
         try {
+            // priority called "fee_multiplied in terms of underlying wallet interface
             transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
-                                                                      0 /* unused fee arg*/, extra, m_trustedDaemon);
+                                                                      static_cast<uint64_t>(priority),
+                                                                      extra, m_trustedDaemon);
 
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
@@ -564,8 +602,15 @@ bool WalletImpl::connectToDaemon()
     m_status = result ? Status_Ok : Status_Error;
     if (!result) {
         m_errorString = "Error connecting to daemon at " + m_wallet->get_daemon_address();
+    } else {
+        // start refreshing here
     }
     return result;
+}
+
+bool WalletImpl::connected() const
+{
+    return m_wallet->check_connection();
 }
 
 void WalletImpl::setTrustedDaemon(bool arg)
@@ -582,6 +627,71 @@ void WalletImpl::clearStatus()
 {
     m_status = Status_Ok;
     m_errorString.clear();
+}
+
+void WalletImpl::refreshThreadFunc()
+{
+    LOG_PRINT_L3(__FUNCTION__ << ": starting refresh thread");
+
+    while (true) {
+        std::unique_lock<std::mutex> lock(m_refreshMutex);
+        if (m_refreshThreadDone) {
+            break;
+        }
+        LOG_PRINT_L3(__FUNCTION__ << ": waiting for refresh...");
+        m_refreshCV.wait_for(lock, std::chrono::seconds(m_refreshIntervalSeconds));
+        LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
+        LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
+        LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << m_status);
+        if (m_refreshEnabled /*&& m_status == Status_Ok*/) {
+            LOG_PRINT_L3(__FUNCTION__ << ": refreshing...");
+            doRefresh();
+        }
+    }
+    LOG_PRINT_L3(__FUNCTION__ << ": refresh thread stopped");
+}
+
+void WalletImpl::doRefresh()
+{
+    // synchronizing async and sync refresh calls
+    std::lock_guard<std::mutex> guarg(m_refreshMutex2);
+    try {
+        m_wallet->refresh();
+    } catch (const std::exception &e) {
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+    if (m_wallet2Callback->getListener()) {
+        m_wallet2Callback->getListener()->refreshed();
+    }
+}
+
+
+void WalletImpl::startRefresh()
+{
+    if (!m_refreshEnabled) {
+        m_refreshEnabled = true;
+        m_refreshCV.notify_one();
+    }
+}
+
+
+
+void WalletImpl::stopRefresh()
+{
+    if (!m_refreshThreadDone) {
+        m_refreshEnabled = false;
+        m_refreshThreadDone = true;
+        m_refreshThread.join();
+    }
+}
+
+void WalletImpl::pauseRefresh()
+{
+    // TODO synchronize access
+    if (!m_refreshThreadDone) {
+        m_refreshEnabled = false;
+    }
 }
 
 
