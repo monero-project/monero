@@ -19,7 +19,6 @@ addons:
     - libminiupnpc-dev
     - libssl-dev
     - libssl1.0.0
-    - libunbound-dev
     - libunwind8-dev
     #sources:
     #- ubuntu-toolchain-r-test
