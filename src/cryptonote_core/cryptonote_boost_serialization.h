@@ -43,6 +43,7 @@
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/crypto.h"
 #include "ringct/rctTypes.h"
+#include "ringct/rctOps.h"
 
 //namespace cryptonote {
 namespace boost
@@ -221,6 +222,26 @@ namespace boost
     a & x.senderPk;
   }
 
+  inline void serializeOutPk(boost::archive::binary_iarchive &a, rct::ctkeyV &outPk_, const boost::serialization::version_type ver)
+  {
+    rct::keyV outPk;
+    a & outPk;
+    outPk_.resize(outPk.size());
+    for (size_t n = 0; n < outPk_.size(); ++n)
+    {
+      outPk_[n].dest = rct::identity();
+      outPk_[n].mask = outPk[n];
+    }
+  }
+
+  inline void serializeOutPk(boost::archive::binary_oarchive &a, rct::ctkeyV &outPk_, const boost::serialization::version_type ver)
+  {
+    rct::keyV outPk(outPk_.size());
+    for (size_t n = 0; n < outPk_.size(); ++n)
+      outPk[n] = outPk_[n].mask;
+    a & outPk;
+  }
+
   template <class Archive>
   inline void serialize(Archive &a, rct::rctSig &x, const boost::serialization::version_type ver)
   {
@@ -235,7 +256,7 @@ namespace boost
     if (x.simple)
       a & x.pseudoOuts;
     a & x.ecdhInfo;
-    a & x.outPk;
+    serializeOutPk(a, x.outPk, ver);
     a & x.txnFee;
   }
 }

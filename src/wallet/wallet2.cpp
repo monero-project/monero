@@ -3122,12 +3122,12 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
   size += 32 * n_outputs;
   // ecdhInfo
   size += 3 * 32 * n_outputs;
-  // outPk
-  size += 2 * 32 * n_outputs;
+  // outPk - only commitment is saved
+  size += 1 * 32 * n_outputs;
   // txnFee
   size += 4;
 
-  LOG_PRINT_L2("estimated rct tx size for " << n_inputs << " at mixin " << mixin << " and " << n_outputs << ": " << size << " (" << (32 * n_inputs + 2 * 32 * (mixin+1) * n_inputs) << " saved)");
+  LOG_PRINT_L2("estimated rct tx size for " << n_inputs << " at mixin " << mixin << " and " << n_outputs << ": " << size << " (" << ((32 * n_inputs/*+1*/) + 2 * 32 * (mixin+1) * n_inputs + 32 * n_outputs) << " saved)");
   return size;
 }
 

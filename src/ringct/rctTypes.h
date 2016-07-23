@@ -207,7 +207,19 @@ namespace rct {
             if (simple)
               FIELD(pseudoOuts)
             FIELD(ecdhInfo)
-            FIELD(outPk)
+            if (typename Archive<W>::is_saving()) {
+              keyV outPk(this->outPk.size());
+              for (size_t n = 0; n < outPk.size(); ++n)
+                outPk[n] = this->outPk[n].mask;
+              FIELD(outPk)
+            }
+            else {
+              keyV outPk;
+              FIELD(outPk)
+              this->outPk.resize(outPk.size());
+              for (size_t n = 0; n < outPk.size(); ++n)
+                this->outPk[n].mask = outPk[n];
+            }
             FIELD(txnFee)
         END_SERIALIZE()
     };

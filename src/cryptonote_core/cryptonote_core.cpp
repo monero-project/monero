@@ -569,14 +569,6 @@ namespace cryptonote
         LOG_PRINT_RED_L1("tx with mismatched vout/outPk count, rejected for tx id= " << get_transaction_hash(tx));
         return false;
       }
-      for (size_t n = 0; n < tx.vout.size(); ++n)
-      {
-        if (tx.rct_signatures.outPk[n].dest != boost::get<txout_to_key>(tx.vout[n].target).key)
-        {
-          LOG_PRINT_RED_L1("tx ringct public key does not match output public key for tx id= " << get_transaction_hash(tx));
-          return false;
-        }
-      }
     }
 
     if(!check_money_overflow(tx))

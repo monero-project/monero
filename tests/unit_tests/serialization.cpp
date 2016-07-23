@@ -615,7 +615,8 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_TRUE(s0.outPk.size() == s1.outPk.size());
   for (size_t n = 0; n < s0.outPk.size(); ++n)
   {
-    ASSERT_TRUE(!memcmp(&s0.outPk[n], &s1.outPk[n], sizeof(s0.outPk[n])));
+    // serialization only does the mask
+    ASSERT_TRUE(!memcmp(&s0.outPk[n].mask, &s1.outPk[n].mask, sizeof(s0.outPk[n].mask)));
   }
 
   tx0.set_null();

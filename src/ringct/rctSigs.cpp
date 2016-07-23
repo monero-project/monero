@@ -679,10 +679,10 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
-    bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const key &message) {
+    bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const ctkeyV &outPk, const key &message) {
         CHECK_AND_ASSERT_MES(!rv.simple, false, "verRct called on simple rctSig");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of rv.outPk and rv.rangeSigs");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of rv.outPk and rv.ecdhInfo");
+        CHECK_AND_ASSERT_MES(outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_MES(outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
 
         // some rct ops can throw
         try
@@ -691,14 +691,14 @@ namespace rct {
           bool rvb = true;
           bool tmp;
           DP("range proofs verified?");
-          for (i = 0; i < rv.outPk.size(); i++) {
-              tmp = verRange(rv.outPk[i].mask, rv.rangeSigs[i]);
+          for (i = 0; i < outPk.size(); i++) {
+              tmp = verRange(outPk[i].mask, rv.rangeSigs[i]);
               DP(tmp);
               rvb = (rvb && tmp);
           }
           //compute txn fee
           key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-          bool mgVerd = verRctMG(rv.MG, II, mixRing, rv.outPk, txnFeeKey, message);
+          bool mgVerd = verRctMG(rv.MG, II, mixRing, outPk, txnFeeKey, message);
           DP("mg sig verified?");
           DP(mgVerd);
 
@@ -710,18 +710,18 @@ namespace rct {
         }
     }
     bool verRct(const rctSig & rv) {
-        return verRct(rv, rv.mixRing, rv.MG.II, rv.message);
+        return verRct(rv, rv.mixRing, rv.MG.II, rv.outPk, rv.message);
     }
     
     //ver RingCT simple
     //assumes only post-rct style inputs (at least for max anonymity)
-    bool verRctSimple(const rctSig & rv, const ctkeyM &mixRing, const std::vector<keyV> *II, const key &message) {
+    bool verRctSimple(const rctSig & rv, const ctkeyM &mixRing, const std::vector<keyV> *II, const ctkeyV &outPk, const key &message) {
         size_t i = 0;
         bool rvb = true;
         
         CHECK_AND_ASSERT_MES(rv.simple, false, "verRctSimple called on non simple rctSig");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of rv.outPk and rv.rangeSigs");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of rv.outPk and rv.ecdhInfo");
+        CHECK_AND_ASSERT_MES(outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_MES(outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.MGs");
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
         CHECK_AND_ASSERT_MES(!II || II->size() == mixRing.size(), false, "Mismatched II/mixRing size");
@@ -734,11 +734,11 @@ namespace rct {
         }
 
         key sumOutpks = identity();
-        for (i = 0; i < rv.outPk.size(); i++) {
-            if (!verRange(rv.outPk[i].mask, rv.rangeSigs[i])) {
+        for (i = 0; i < outPk.size(); i++) {
+            if (!verRange(outPk[i].mask, rv.rangeSigs[i])) {
                 return false;
             }
-            addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
+            addKeys(sumOutpks, sumOutpks, outPk[i].mask);
         }
         DP(sumOutpks);
         key txnFeeKey = scalarmultH(d2h(rv.txnFee));
@@ -769,7 +769,7 @@ namespace rct {
     }
 
     bool verRctSimple(const rctSig & rv) {
-        return verRctSimple(rv, rv.mixRing, NULL, rv.message);
+        return verRctSimple(rv, rv.mixRing, NULL, rv.outPk, rv.message);
     }
 
     //RingCT protocol
