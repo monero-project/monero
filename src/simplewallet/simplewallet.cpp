@@ -1697,6 +1697,7 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
   catch (const std::exception& e)
   {
     fail_msg_writer() << tr("failed to load wallet: ") << e.what();
+    fail_msg_writer() << boost::format(tr("You may want to remove the file \"%s\" and try again")) % wallet_file;
     return false;
   }
 
