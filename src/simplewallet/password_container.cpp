@@ -134,6 +134,7 @@ bool password_container::read_from_tty_temp(const char *message) {
     /**
      **  prompt twice for password and compare; call appropriate function to set member variable
      **/
+
     std::string pass1;
     std::string pass2;
     bool match=false;
