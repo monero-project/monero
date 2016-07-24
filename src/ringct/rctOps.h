@@ -165,7 +165,9 @@ namespace rct {
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
+    void ecdhEncodeFromSharedSecret(ecdhTuple & unmasked, const key & sharedSec1);
     void ecdhEncode(ecdhTuple & unmasked, const key & receiverPk);
+    void ecdhDecodeFromSharedSecret(ecdhTuple & masked, const key & sharedSec1);
     void ecdhDecode(ecdhTuple & masked, const key & receiverSk);
 }
 #endif  /* RCTOPS_H */

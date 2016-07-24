@@ -125,13 +125,11 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(rct_txes[n]);
     for (size_t o = 0; o < 4; ++o)
     {
-      cryptonote::keypair in_ephemeral;
-      crypto::key_image ki;
-      cryptonote::generate_key_image_helper(miner_accounts[n].get_keys(), tx_pub_key, o, in_ephemeral, ki);
+      rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(tx_pub_key), rct::sk2rct(miner_accounts[n].get_keys().m_view_secret_key)));
       if (rct_txes[n].rct_signatures.simple)
-        rct::decodeRctSimple(rct_txes[n].rct_signatures, rct::sk2rct(in_ephemeral.sec), o, rct_tx_masks[o+n*4]);
+        rct::decodeRctSimpleFromSharedSecret(rct_txes[n].rct_signatures, amount_key, o, rct_tx_masks[o+n*4]);
       else
-        rct::decodeRct(rct_txes[n].rct_signatures, rct::sk2rct(in_ephemeral.sec), o, rct_tx_masks[o+n*4]);
+        rct::decodeRctFromSharedSecret(rct_txes[n].rct_signatures, amount_key, o, rct_tx_masks[o+n*4]);
     }
 
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes[n], blk_last, miner_account,

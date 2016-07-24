@@ -354,7 +354,6 @@ namespace tools
       a & m_unconfirmed_payments;
       if(ver < 14)
         return;
-      a & m_amount_keys;
     }
 
     /*!
@@ -390,7 +389,7 @@ namespace tools
     bool auto_refresh() const { return m_auto_refresh; }
     void auto_refresh(bool r) { m_auto_refresh = r; }
 
-    bool get_tx_keys(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &amount_keys) const;
+    bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
 
     bool use_fork_rules(uint8_t version);
@@ -471,7 +470,6 @@ namespace tools
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
     std::unordered_map<crypto::hash, payment_details> m_unconfirmed_payments;
     std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
-    std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> m_amount_keys;
 
     transfer_container m_transfers;
     payment_container m_payments;

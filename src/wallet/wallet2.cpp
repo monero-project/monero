@@ -195,10 +195,18 @@ void wallet2::check_acc_out(const account_keys &acc, const tx_out &o, const cryp
 //----------------------------------------------------------------------------------------------------
 static uint64_t decodeRct(const rct::rctSig & rv, const rct::key & sk, unsigned int i, rct::key & mask)
 {
-  if (rv.simple)
-    return rct::decodeRctSimple(rv, sk, i, mask);
-  else
-    return rct::decodeRct(rv, sk, i, mask);
+  try
+  {
+    if (rv.simple)
+      return rct::decodeRctSimpleFromSharedSecret(rv, sk, i, mask);
+    else
+      return rct::decodeRctFromSharedSecret(rv, sk, i, mask);
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Failed to decode input " << i);
+    return 0;
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
@@ -260,7 +268,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 
           outs.push_back(0);
           if (money_transfered == 0)
-            money_transfered = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[0].sec), 0, mask[0]);
+          {
+            const cryptonote::account_keys& keys = m_account.get_keys();
+            rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
+            money_transfered = tools::decodeRct(tx.rct_signatures, amount_key, 0, mask[0]);
+          }
           amount[0] = money_transfered;
           tx_money_got_in_outs = money_transfered;
           ++num_vouts_received;
@@ -300,7 +312,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 
               outs.push_back(i);
               if (money_transfered[i] == 0)
-                money_transfered[i] = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
+              {
+                const cryptonote::account_keys& keys = m_account.get_keys();
+                rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
+                money_transfered[i] = tools::decodeRct(tx.rct_signatures, amount_key, i, mask[i]);
+              }
               tx_money_got_in_outs += money_transfered[i];
               amount[i] = money_transfered[i];
               ++num_vouts_received;
@@ -345,7 +361,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 
           outs.push_back(i);
           if (money_transfered[i] == 0)
-            money_transfered[i] = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
+          {
+            const cryptonote::account_keys& keys = m_account.get_keys();
+            rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
+            money_transfered[i] = tools::decodeRct(tx.rct_signatures, amount_key, i, mask[i]);
+          }
           tx_money_got_in_outs += money_transfered[i];
           amount[i] = money_transfered[i];
           ++num_vouts_received;
@@ -374,7 +394,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 
             outs.push_back(i);
             if (money_transfered == 0)
-              money_transfered = tools::decodeRct(tx.rct_signatures, rct::sk2rct(in_ephemeral[i].sec), i, mask[i]);
+            {
+              const cryptonote::account_keys& keys = m_account.get_keys();
+              rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
+              money_transfered = tools::decodeRct(tx.rct_signatures, amount_key, i, mask[i]);
+            }
             amount[i] = money_transfered;
             tx_money_got_in_outs += money_transfered;
             ++num_vouts_received;
@@ -1270,7 +1294,6 @@ bool wallet2::clear()
   m_unconfirmed_txs.clear();
   m_payments.clear();
   m_tx_keys.clear();
-  m_amount_keys.clear();
   m_confirmed_txs.clear();
   m_local_bc_height = 1;
   return true;
@@ -2429,7 +2452,6 @@ void wallet2::commit_tx(pending_tx& ptx)
   if (store_tx_info())
   {
     m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
-    m_amount_keys.insert(std::make_pair(txid, ptx.amount_keys));
   }
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
@@ -3974,15 +3996,12 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
   }
 }
 
-bool wallet2::get_tx_keys(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &amount_keys) const
+bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const
 {
   const std::unordered_map<crypto::hash, crypto::secret_key>::const_iterator i = m_tx_keys.find(txid);
   if (i == m_tx_keys.end())
     return false;
   tx_key = i->second;
-  const std::unordered_map<crypto::hash, std::vector<crypto::secret_key>>::const_iterator j = m_amount_keys.find(txid);
-  if (j != m_amount_keys.end())
-    amount_keys = j->second;
   return true;
 }
 

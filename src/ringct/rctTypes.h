@@ -341,6 +341,8 @@ namespace rct {
 namespace cryptonote {
     static inline bool operator==(const crypto::public_key &k0, const rct::key &k1) { return !memcmp(&k0, &k1, 32); }
     static inline bool operator!=(const crypto::public_key &k0, const rct::key &k1) { return memcmp(&k0, &k1, 32); }
+    static inline bool operator==(const crypto::secret_key &k0, const rct::key &k1) { return !memcmp(&k0, &k1, 32); }
+    static inline bool operator!=(const crypto::secret_key &k0, const rct::key &k1) { return memcmp(&k0, &k1, 32); }
 }
 
 template<typename T> std::ostream &print256(std::ostream &o, const T &v);

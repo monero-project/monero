@@ -554,6 +554,7 @@ TEST(Serialization, serializes_ringct_types)
   sc.push_back(sctmp);
   pc.push_back(pctmp);
   vector<uint64_t> amounts;
+  rct::keyV amount_keys;
   //add output 500
   amounts.push_back(500);
   rct::keyV destinations;
@@ -562,10 +563,11 @@ TEST(Serialization, serializes_ringct_types)
   destinations.push_back(Pk);
   //add output for 12500
   amounts.push_back(12500);
+  amount_keys.push_back(rct::hash_to_scalar(rct::zero()));
   rct::skpkGen(Sk, Pk);
   destinations.push_back(Pk);
   //compute rct data with mixin 500
-  s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, 3);
+  s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);
 
   mg0 = s0.MG;
   ASSERT_TRUE(serialization::dump_binary(mg0, blob));

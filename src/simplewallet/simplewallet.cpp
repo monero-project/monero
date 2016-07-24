@@ -2959,12 +2959,9 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> amount_keys;
-  if (m_wallet->get_tx_keys(txid, tx_key, amount_keys))
+  if (m_wallet->get_tx_key(txid, tx_key))
   {
-    std::string s = epee::string_tools::pod_to_hex(tx_key);
-    for (const auto &k: amount_keys)
-      s += epee::string_tools::pod_to_hex(k);
-    success_msg_writer() << tr("Tx key: ") << s;
+    success_msg_writer() << tr("Tx key: ") << epee::string_tools::pod_to_hex(tx_key);
     return true;
   }
   else
@@ -3001,17 +2998,14 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("failed to parse tx key");
     return true;
   }
-  std::vector<crypto::secret_key> tx_keys;
-  for (size_t start = 0; start < local_args[1].size(); start += 64)
+  crypto::secret_key tx_key;
+  cryptonote::blobdata tx_key_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[1], tx_key_data))
   {
-    cryptonote::blobdata tx_key_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(std::string(&local_args[1][start], 64), tx_key_data))
-    {
-      fail_msg_writer() << tr("failed to parse tx key");
-      return true;
-    }
-    tx_keys.push_back(*reinterpret_cast<const crypto::secret_key*>(tx_key_data.data()));
+    fail_msg_writer() << tr("failed to parse tx key");
+    return true;
   }
+  tx_key = *reinterpret_cast<const crypto::secret_key*>(tx_key_data.data());
 
   cryptonote::account_public_address address;
   bool has_payment_id;
@@ -3056,15 +3050,9 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   }
 
   crypto::key_derivation derivation;
-  if (!crypto::generate_key_derivation(address.m_view_public_key, tx_keys[0], derivation))
+  if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
   {
     fail_msg_writer() << tr("failed to generate key derivation from supplied parameters");
-    return true;
-  }
-
-  if (tx_keys.size() != tx.vout.size() * 2 + 1)
-  {
-    fail_msg_writer() << tr("tx keys don't match tx vout");
     return true;
   }
 
@@ -3089,9 +3077,13 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
           try
           {
             rct::key Ctmp;
-            rct::addKeys2(Ctmp, rct::sk2rct(tx_keys[n * 2 + 2]), rct::sk2rct(tx_keys[n * 2 + 1]), rct::H);
-            if (rct::equalKeys(tx.rct_signatures.outPk[n].mask, Ctmp))
-              amount = rct::h2d(rct::sk2rct(tx_keys[n * 2 + 1]));
+            rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
+            rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
+            rct::ecdhDecodeFromSharedSecret(ecdh_info, amount_key);
+            rct::key C = tx.rct_signatures.outPk[n].mask;
+            rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
+            if (rct::equalKeys(C, Ctmp))
+              amount = rct::h2d(ecdh_info.amount);
             else
               amount = 0;
           }

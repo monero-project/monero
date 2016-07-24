@@ -681,6 +681,7 @@ namespace cryptonote
         destinations.push_back(rct::pk2rct(boost::get<txout_to_key>(tx.vout[i].target).key));
         outamounts.push_back(tx.vout[i].amount);
         amount_out += tx.vout[i].amount;
+        amount_keys.push_back(rct::rct2sk(rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(shuffled_dsts[i].addr.m_view_public_key), rct::sk2rct(txkey.sec)))));
       }
 
       if (use_simple_rct)
@@ -724,16 +725,11 @@ namespace cryptonote
       get_transaction_prefix_hash(tx, tx_prefix_hash);
       rct::ctkeyV outSk;
       if (use_simple_rct)
-        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, index, outSk);
+        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, (const rct::keyV&)amount_keys, index, outSk);
       else
-        tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, sources[0].real_output, outSk); // same index assumption
+        tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, (const rct::keyV&)amount_keys, sources[0].real_output, outSk); // same index assumption
 
       CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
-      for (size_t i = 0; i < tx.vout.size(); ++i)
-      {
-        amount_keys.push_back(rct::rct2sk(rct::d2h(shuffled_dsts[i].amount)));
-        amount_keys.push_back(rct::rct2sk(outSk[i].mask));
-      }
 
       LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL, LOG_LEVEL_3);
     }
