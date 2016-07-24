@@ -88,9 +88,7 @@ namespace tools
     bool r;
     if (is_cin_tty())
     {
-      if (message)
-        std::cout << message << ": ";
-      r = read_from_tty();
+     r = read_from_tty_temp(message);
     }
     else
     {
@@ -132,6 +130,35 @@ namespace tools
     return true;
   }
 
+bool password_container::read_from_tty_temp(const char *message) {
+    std::string pass1;
+    std::string pass2;
+    bool match=false;
+    do{
+        if (message)
+            std::cout << message << "1: ";
+        while (!password_container::read_from_tty(pass1));
+        if (message)
+            std::cout << message << "2: ";
+        while (!password_container::read_from_tty(pass2));
+        if(pass1!=pass2){
+
+            std::cout << "Passwords do not match" << std::endl;
+            pass1="";
+            pass2="";
+            match=false;
+        }
+        else{
+            match=true;
+        }
+        
+    }while(match==false);
+
+
+    return true;
+  }
+
+
 #if defined(_WIN32)
 
   namespace
@@ -142,7 +169,7 @@ namespace tools
     }
   }
 
-  bool password_container::read_from_tty()
+  bool password_container::read_from_tty(std::string & pass)
   {
     const char BACKSPACE = 8;
 
@@ -154,8 +181,8 @@ namespace tools
     ::SetConsoleMode(h_cin, mode_new);
 
     bool r = true;
-    m_password.reserve(max_password_size);
-    while (m_password.size() < max_password_size)
+    pass.reserve(max_password_size);
+    while (pass.size() < max_password_size)
     {
       DWORD read;
       char ch;
@@ -172,16 +199,16 @@ namespace tools
       }
       else if (ch == BACKSPACE)
       {
-        if (!m_password.empty())
+        if (!pass.empty())
         {
-          m_password.back() = '\0';
-          m_password.resize(m_password.size() - 1);
+          pass.back() = '\0';
+          pass.resize(pass.size() - 1);
           std::cout << "\b \b";
         }
       }
       else
       {
-        m_password.push_back(ch);
+        pass.push_back(ch);
         std::cout << '*';
       }
     }
@@ -217,13 +244,12 @@ namespace tools
       return ch;
     }
   }
-
-  bool password_container::read_from_tty()
+  bool password_container::read_from_tty(std::string &aPass)
   {
     const char BACKSPACE = 127;
 
-    m_password.reserve(max_password_size);
-    while (m_password.size() < max_password_size)
+    aPass.reserve(max_password_size);
+    while (aPass.size() < max_password_size)
     {
       int ch = getch();
       if (EOF == ch)
@@ -237,16 +263,16 @@ namespace tools
       }
       else if (ch == BACKSPACE)
       {
-        if (!m_password.empty())
+        if (!aPass.empty())
         {
-          m_password.back() = '\0';
-          m_password.resize(m_password.size() - 1);
+          aPass.back() = '\0';
+          aPass.resize(aPass.size() - 1);
           std::cout << "\b \b";
         }
       }
       else
       {
-        m_password.push_back(ch);
+        aPass.push_back(ch);
         std::cout << '*';
       }
     }

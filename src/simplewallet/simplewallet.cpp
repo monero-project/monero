@@ -33,7 +33,6 @@
  * 
  * \brief Source file that defines simple_wallet class.
  */
-
 #include <thread>
 #include <iostream>
 #include <sstream>
