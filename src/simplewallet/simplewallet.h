@@ -58,6 +58,7 @@ namespace cryptonote
   class simple_wallet : public tools::i_wallet2_callback
   {
   public:
+    static bool get_password(const boost::program_options::variables_map& vm, bool allow_entry, tools::password_container &pwd_container);
     static const char *tr(const char *str) { return i18n_translate(str, "cryptonote::simple_wallet"); }
 
   public:
