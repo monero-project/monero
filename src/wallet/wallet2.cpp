@@ -3254,7 +3254,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   bool adding_fee; // true if new outputs go towards fee, rather than destinations
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
-  const bool use_rct = use_fork_rules(3);
+  const bool use_rct = use_fork_rules(4);
 
   fee_multiplier = sanitize_fee_multiplier(fee_multiplier);
 
@@ -3503,7 +3503,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
   std::vector<TX> txes;
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
-  const bool use_rct = use_fork_rules(3);
+  const bool use_rct = use_fork_rules(4);
 
   // gather all our dust and non dust outputs
   for (size_t i = 0; i < m_transfers.size(); ++i)

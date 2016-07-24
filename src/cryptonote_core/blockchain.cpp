@@ -2285,7 +2285,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
     }
 
     // for v3, we force txes with all mixable inputs to be rct
-    if (m_hardfork->get_current_version() >= 3)
+    if (m_hardfork->get_current_version() >= 4)
     {
       if (n_unmixable == 0 && tx.version == 1)
       {

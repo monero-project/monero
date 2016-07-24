@@ -85,10 +85,15 @@ namespace cryptonote
       return false;
     }
 
-    const size_t max_tx_version = version == 1 ? 1 : 2;
+    const size_t max_tx_version = (version <= 3) ? 1 : 2;
     if (tx.version > max_tx_version)
     {
-      // v2 is the latest one we know
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+    const size_t min_tx_version = (version >= 5) ? 2 : 1;
+    if (tx.version < min_tx_version)
+    {
       tvc.m_verifivation_failed = true;
       return false;
     }
