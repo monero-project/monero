@@ -136,10 +136,10 @@ bool password_container::read_from_tty_temp(const char *message) {
     bool match=false;
     do{
         if (message)
-            std::cout << message << "1: ";
+            std::cout << message <<": ";
         while (!password_container::read_from_tty(pass1));
         if (message)
-            std::cout << message << "2: ";
+            std::cout << message << ": ";
         while (!password_container::read_from_tty(pass2));
         if(pass1!=pass2){
 
