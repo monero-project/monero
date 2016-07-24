@@ -3020,14 +3020,14 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   COMMAND_RPC_GET_TRANSACTIONS::response res;
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   if (!net_utils::invoke_http_json_remote_command2(m_daemon_address + "/gettransactions", req, res, m_http_client) ||
-      (res.txs.empty() && res.txs_as_hex.empty()))
+      (res.txs.size() != 1 && res.txs_as_hex.size() != 1))
   {
     fail_msg_writer() << tr("failed to get transaction from daemon");
     return true;
   }
   cryptonote::blobdata tx_data;
   bool ok;
-  if (!res.txs.empty())
+  if (res.txs.size() == 1)
     ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
   else
     ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
@@ -3107,6 +3107,24 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   else
   {
     fail_msg_writer() << get_account_address_as_str(m_wallet->testnet(), address) << " " << tr("received nothing in txid") << " " << txid;
+  }
+  if (res.txs.front().in_pool)
+  {
+    success_msg_writer() << tr("WARNING: this transaction is not yet included in the blockchain!");
+  }
+  else
+  {
+    std::string err;
+    uint64_t bc_height = get_daemon_blockchain_height(err);
+    if (err.empty())
+    {
+      uint64_t confirmations = bc_height - (res.txs.front().block_height + 1);
+      success_msg_writer() << boost::format(tr("This transaction has %u confirmations")) % confirmations;
+    }
+    else
+    {
+      success_msg_writer() << tr("WARNING: failed to determine number of confirmations!");
+    }
   }
 
   return true;
