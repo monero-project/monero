@@ -164,7 +164,7 @@ void HardFork::init()
   // restore state from DB
   uint64_t height = db.height();
   if (height > window_size)
-    height -= window_size;
+    height -= window_size - 1;
   else
     height = 1;
 
@@ -259,8 +259,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
 
   for (size_t n = 0; n < 256; ++n)
     last_versions[n] = 0;
-  const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size  -1) : 0;
-  for (uint64_t h = rescan_height; h <= height; ++h) {
+  for (uint64_t h = height; h < db.height(); ++h) {
     cryptonote::block b = db.get_block_from_height(h);
     const uint8_t v = get_effective_version(get_block_vote(b));
     last_versions[v]++;
@@ -271,6 +270,12 @@ bool HardFork::rescan_from_block_height(uint64_t height)
   current_fork_index = 0;
   while (current_fork_index + 1 < heights.size() && heights[current_fork_index].version != lastv)
     ++current_fork_index;
+
+  uint8_t voted = get_voted_fork_index(db.height());
+  if (voted > current_fork_index) {
+    current_fork_index = voted;
+  }
+
   db.block_txn_stop();
 
   return true;
