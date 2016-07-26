@@ -1098,7 +1098,9 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   mdb_set_compare(txn, m_properties, compare_string);
 
-  mdb_drop(txn, m_hf_starting_heights, 1);
+  result = mdb_drop(txn, m_hf_starting_heights, 1);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_starting_heights: ", result).c_str()));
 
   // get and keep current height
   MDB_stat db_stats;
@@ -1224,17 +1226,28 @@ void BlockchainLMDB::reset()
   mdb_txn_safe txn;
   if (auto result = mdb_txn_begin(m_env, NULL, 0, txn))
     throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
-  mdb_drop(txn, m_blocks, 0);
-  mdb_drop(txn, m_block_info, 0);
-  mdb_drop(txn, m_block_heights, 0);
-  mdb_drop(txn, m_txs, 0);
-  mdb_drop(txn, m_tx_outputs, 0);
-  mdb_drop(txn, m_output_txs, 0);
-  mdb_drop(txn, m_output_amounts, 0);
-  mdb_drop(txn, m_spent_keys, 0);
-  mdb_drop(txn, m_hf_starting_heights, 0);
-  mdb_drop(txn, m_hf_versions, 0);
-  mdb_drop(txn, m_properties, 0);
+  if (auto result = mdb_drop(txn, m_blocks, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_blocks: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_block_info, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_block_info: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_block_heights, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_block_heights: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_txs, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_txs: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_tx_outputs, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_tx_outputs: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_output_txs, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_output_txs: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_output_amounts, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_output_amounts: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_spent_keys, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_spent_keys: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_hf_starting_heights, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_starting_heights: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_hf_versions, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_versions: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_properties, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_properties: ", result).c_str()));
   txn.commit();
   m_height = 0;
   m_num_outputs = 0;
@@ -3191,8 +3204,12 @@ void BlockchainLMDB::migrate_0_1()
       result = mdb_cursor_get(c_blocks, &k, &v, MDB_NEXT);
       if (result == MDB_NOTFOUND) {
         MDB_val_set(pk, "txblk");
-        mdb_cursor_get(c_props, &pk, &v, MDB_SET);
-        mdb_cursor_del(c_props, 0);
+        result = mdb_cursor_get(c_props, &pk, &v, MDB_SET);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to get a record from props: ", result).c_str()));
+        result = mdb_cursor_del(c_props, 0);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to delete a record from props: ", result).c_str()));
         batch_stop();
         break;
       } else if (result)
