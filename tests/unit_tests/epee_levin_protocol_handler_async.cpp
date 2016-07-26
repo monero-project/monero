@@ -375,7 +375,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   ASSERT_EQ(expected_out_data.size(), resp_head.m_cb);
   ASSERT_FALSE(resp_head.m_have_to_return_data);
   ASSERT_EQ(LEVIN_PROTOCOL_VER_1, resp_head.m_protocol_version);
-  ASSERT_TRUE(0 != (resp_head.m_flags | LEVIN_PACKET_RESPONSE));
+  ASSERT_TRUE(0 != (resp_head.m_flags & LEVIN_PACKET_RESPONSE));
 }
 
 TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_processes_handle_read_as_notify)
