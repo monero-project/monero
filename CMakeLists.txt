@@ -295,7 +295,7 @@ link_directories(${LIBUNWIND_LIBRARY_DIRS})
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
   # set(COMMON_C_FLAGS "${COMMON_C_FLAGS} /Dinline=__inline")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10485760")
+  set(COMMON_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} /STACK:10485760")
   if(STATIC)
     foreach(VAR CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELEASE)
       string(REPLACE "/MD" "/MT" ${VAR} "${${VAR}}")
@@ -333,7 +333,7 @@ else()
     include_directories(SYSTEM src/platform/mingw)
     # mingw doesn't support LTO (multiple definition errors at link time)
     set(USE_LTO_DEFAULT false)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,10485760")
+    set(COMMON_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} -Wl,--stack,10485760")
     if(NOT BUILD_64)
       add_definitions(-DWINVER=0x0501 -D_WIN32_WINNT=0x0501)
     endif()
@@ -420,9 +420,14 @@ else()
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEBUG_FLAGS}")
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
+
   if(STATIC AND NOT APPLE AND NOT FREEBSD AND NOT OPENBSD)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap=__cxa_throw")
+    set(COMMON_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+  endif()
+
+  if(STATIC AND NOT FREEBSD AND NOT OPENBSD)
+    # Install hook on throw for dumping stack on exception (implemented in libcommon)
+    set(WRAP_CXA_THROW_FLAG "-Wl,--wrap=__cxa_throw")
   endif()
 endif()
 
@@ -471,9 +476,12 @@ endif()
 
 include(version.cmake)
 
-# When building the following sources, treat warnings as errors
+# When building the following sources...
+#   ...treat warnings as errors, install throw wrapper
 set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} ${WARNINGS_AS_ERRORS_FLAG}")
 set(CMAKE_CXX_FLAGS "${COMMON_CXX_FLAGS} ${WARNINGS_AS_ERRORS_FLAG}")
+#   ...install hook on throw
+set(CMAKE_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} ${WRAP_CXA_THROW_FLAG}")
 
 add_subdirectory(contrib)
 add_subdirectory(src)
@@ -482,9 +490,12 @@ add_subdirectory(src)
 option(BUILD_TESTS "Build tests." OFF)
 
 if(BUILD_TESTS)
-  # When building tests, do *not* treat warnings as errors
+  # When building tests...
+  #  ...do *not* treat warnings as errors
   set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}")
   set(CMAKE_CXX_FLAGS "${COMMON_CXX_FLAGS}")
+  #  ...do *not* install hook on throw
+  set(CMAKE_EXE_LINKER_FLAGS "${COMMON_CXX_FLAGS}")
   add_subdirectory(tests)
 endif()
 
