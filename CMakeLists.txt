@@ -423,6 +423,9 @@ else()
 
   if(STATIC AND NOT APPLE AND NOT FREEBSD AND NOT OPENBSD)
     set(COMMON_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+  endif()
+
+  if(STATIC AND NOT FREEBSD AND NOT OPENBSD)
     # Install hook on throw for dumping stack on exception (implemented in libcommon)
     set(WRAP_CXA_THROW_FLAG "-Wl,--wrap=__cxa_throw")
   endif()
