@@ -601,5 +601,70 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_EXPORT_KEY_IMAGES
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct signed_key_image
+    {
+      std::string key_image;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_image);
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<signed_key_image> signed_key_images;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signed_key_images);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_IMPORT_KEY_IMAGES
+  {
+    struct signed_key_image
+    {
+      std::string key_image;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_image);
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      std::vector<signed_key_image> signed_key_images;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signed_key_images);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t height;
+      uint64_t spent;
+      uint64_t unspent;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(spent)
+        KV_SERIALIZE(unspent)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }

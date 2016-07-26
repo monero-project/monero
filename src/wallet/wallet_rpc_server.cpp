@@ -995,5 +995,71 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_export_key_images(const wallet_rpc::COMMAND_RPC_EXPORT_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_EXPORT_KEY_IMAGES::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      std::vector<std::pair<crypto::key_image, crypto::signature>> ski = m_wallet.export_key_images();
+      res.signed_key_images.resize(ski.size());
+      for (size_t n = 0; n < ski.size(); ++n)
+      {
+         res.signed_key_images[n].key_image = epee::string_tools::pod_to_hex(ski[n].first);
+         res.signed_key_images[n].signature = epee::string_tools::pod_to_hex(ski[n].second);
+      }
+    }
+
+    catch (...)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed";
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_import_key_images(const wallet_rpc::COMMAND_RPC_IMPORT_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_IMPORT_KEY_IMAGES::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
+      ski.resize(req.signed_key_images.size());
+      for (size_t n = 0; n < ski.size(); ++n)
+      {
+        cryptonote::blobdata bd;
+
+        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].key_image, bd))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
+          er.message = "failed to parse key image";
+          return false;
+        }
+        ski[n].first = *reinterpret_cast<const crypto::key_image*>(bd.data());
+
+        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].signature, bd))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
+          er.message = "failed to parse signature";
+          return false;
+        }
+        ski[n].second = *reinterpret_cast<const crypto::signature*>(bd.data());
+      }
+      uint64_t spent = 0, unspent = 0;
+      uint64_t height = m_wallet.import_key_images(ski, spent, unspent);
+      res.spent = spent;
+      res.unspent = unspent;
+      res.height = height;
+    }
+
+    catch (...)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed";
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }
 
