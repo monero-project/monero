@@ -525,7 +525,7 @@ namespace cryptonote
   {
     std::list<nodetool::peerlist_entry> white_list;
     std::list<nodetool::peerlist_entry> gray_list;
-    m_p2p.get_peerlist_manager().get_peerlist_full(white_list, gray_list);
+    m_p2p.get_peerlist_manager().get_peerlist_full(gray_list, white_list);
 
 
     for (auto & entry : white_list)
