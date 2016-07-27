@@ -249,13 +249,28 @@ endif()
 add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 find_package(Libunwind)
-if(LIBUNWIND_FOUND)
-  message(STATUS "Using libunwind to provide stack traces")
-  add_definitions("-DHAVE_LIBUNWIND")
+# Can't install hook in static build on OSX, because OSX linker does not support --wrap
+if(LIBUNWIND_FOUND AND NOT (STATIC AND APPLE))
+  set(DEFAULT_STACK_TRACE ON)
 else()
-  message(STATUS "Stack traces disabled")
+  set(DEFAULT_STACK_TRACE OFF)
   set(LIBUNWIND_LIBRARIES "")
 endif()
+
+option(STACK_TRACE "Install a hook that dumps stack on exception" ${DEFAULT_STACK_TRACE})
+
+if(STACK_TRACE)
+  message(STATUS "Stack trace on exception enabled")
+  # Don't set CMAKE_*_FLAGS directly or add_definitions, because this flag must
+  # not be set for tests targets (TODO: per-target logic into nested CMakeLists)
+  set(STACK_TRACE_C_FLAG "-DSTACK_TRACE")
+  if (STATIC)
+    set(STACK_TRACE_LINK_FLAG "-Wl,--wrap=__cxa_throw")
+  endif()
+else()
+  message(STATUS "Stack trace on exception disabled")
+endif()
+
 
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
@@ -424,11 +439,6 @@ else()
   if(STATIC AND NOT APPLE AND NOT FREEBSD AND NOT OPENBSD)
     set(COMMON_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
   endif()
-
-  if(STATIC AND NOT FREEBSD AND NOT OPENBSD)
-    # Install hook on throw for dumping stack on exception (implemented in libcommon)
-    set(WRAP_CXA_THROW_FLAG "-Wl,--wrap=__cxa_throw")
-  endif()
 endif()
 
 if (${BOOST_IGNORE_SYSTEM_PATHS} STREQUAL "ON")
@@ -476,12 +486,10 @@ endif()
 
 include(version.cmake)
 
-# When building the following sources...
-#   ...treat warnings as errors, install throw wrapper
-set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} ${WARNINGS_AS_ERRORS_FLAG}")
-set(CMAKE_CXX_FLAGS "${COMMON_CXX_FLAGS} ${WARNINGS_AS_ERRORS_FLAG}")
-#   ...install hook on throw
-set(CMAKE_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} ${WRAP_CXA_THROW_FLAG}")
+# When building the following sources treat warnings as errors, install throw wrapper
+set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} ${WARNINGS_AS_ERRORS_FLAG} ${STACK_TRACE_C_FLAG}")
+set(CMAKE_CXX_FLAGS "${COMMON_CXX_FLAGS} ${WARNINGS_AS_ERRORS_FLAG} ${STACK_TRACE_C_FLAG}")
+set(CMAKE_EXE_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS} ${STACK_TRACE_LINK_FLAG}")
 
 add_subdirectory(contrib)
 add_subdirectory(src)
@@ -490,11 +498,9 @@ add_subdirectory(src)
 option(BUILD_TESTS "Build tests." OFF)
 
 if(BUILD_TESTS)
-  # When building tests...
-  #  ...do *not* treat warnings as errors
+  # When building tests, don't add some of the flags added to source build
   set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}")
   set(CMAKE_CXX_FLAGS "${COMMON_CXX_FLAGS}")
-  #  ...do *not* install hook on throw
   set(CMAKE_EXE_LINKER_FLAGS "${COMMON_CXX_FLAGS}")
   add_subdirectory(tests)
 endif()
