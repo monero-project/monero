@@ -80,7 +80,7 @@ namespace rpc
     std::vector<bool> in_pool(num_found, false);
     std::vector<crypto::hash> found_hashes(num_found);
 
-    for (int i=0; i < num_found; i++)
+    for (uint32_t i=0; i < num_found; i++)
     {
       found_hashes[i] = get_transaction_hash(found_txs_vec[i]);
       heights[i] = m_core.get_blockchain_storage().get_db().get_tx_block_height(found_hashes[i]);
@@ -110,7 +110,7 @@ namespace rpc
       }
     }
 
-    for (int i=0; i < found_hashes.size(); i++)
+    for (uint32_t i=0; i < found_hashes.size(); i++)
     {
       cryptonote::transaction_info info;
       info.height = heights[i];
