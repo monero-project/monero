@@ -81,6 +81,7 @@ namespace cryptonote
     if (tx.version == 0)
     {
       // v0 never accepted
+      LOG_PRINT_L1("transaction version 0 is invalid");
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -88,12 +89,14 @@ namespace cryptonote
     const size_t max_tx_version = (version <= 3) ? 1 : 2;
     if (tx.version > max_tx_version)
     {
+      LOG_PRINT_L1("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
       tvc.m_verifivation_failed = true;
       return false;
     }
     const size_t min_tx_version = (version >= 5) ? 2 : 1;
     if (tx.version < min_tx_version)
     {
+      LOG_PRINT_L1("transaction version " << (unsigned)tx.version << " is lower than min accepted version " << min_tx_version);
       tvc.m_verifivation_failed = true;
       return false;
     }
