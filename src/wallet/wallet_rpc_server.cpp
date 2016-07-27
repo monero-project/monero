@@ -235,7 +235,7 @@ namespace tools
     try
     {
       uint64_t mixin = req.mixin;
-      if (mixin < 2 && m_wallet.use_fork_rules(2)) {
+      if (mixin < 2 && m_wallet.use_fork_rules(2, 10)) {
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
@@ -309,7 +309,7 @@ namespace tools
     try
     {
       uint64_t mixin = req.mixin;
-      if (mixin < 2 && m_wallet.use_fork_rules(2)) {
+      if (mixin < 2 && m_wallet.use_fork_rules(2, 10)) {
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }

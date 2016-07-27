@@ -3254,7 +3254,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   bool adding_fee; // true if new outputs go towards fee, rather than destinations
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
-  const bool use_rct = use_fork_rules(4);
+  const bool use_rct = use_fork_rules(4, 0);
 
   fee_multiplier = sanitize_fee_multiplier(fee_multiplier);
 
@@ -3503,7 +3503,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
   std::vector<TX> txes;
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
-  const bool use_rct = use_fork_rules(4);
+  const bool use_rct = use_fork_rules(4, 0);
 
   // gather all our dust and non dust outputs
   for (size_t i = 0; i < m_transfers.size(); ++i)
@@ -3754,12 +3754,29 @@ void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs,
 }
 
 //----------------------------------------------------------------------------------------------------
-bool wallet2::use_fork_rules(uint8_t version)
+void wallet2::get_hard_fork_info(uint8_t version, uint64_t &earliest_height)
+{
+  epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
+  epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+
+  m_daemon_rpc_mutex.lock();
+  req_t.jsonrpc = "2.0";
+  req_t.id = epee::serialization::storage_entry(0);
+  req_t.method = "hard_fork_info";
+  req_t.params.version = version;
+  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  CHECK_AND_ASSERT_THROW_MES(r, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status == CORE_RPC_STATUS_OK, "Failed to get hard fork status");
+
+  earliest_height = resp_t.result.earliest_height;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::use_fork_rules(uint8_t version, uint64_t early_blocks)
 {
   cryptonote::COMMAND_RPC_GET_HEIGHT::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_HEIGHT::response res = AUTO_VAL_INIT(res);
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
 
   m_daemon_rpc_mutex.lock();
   bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
@@ -3768,18 +3785,10 @@ bool wallet2::use_fork_rules(uint8_t version)
   CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
   CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, false, "Failed to get current blockchain height");
 
-  m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "hard_fork_info";
-  req_t.params.version = version;
-  r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(resp_t.result.status == CORE_RPC_STATUS_OK, false, "Failed to get hard fork status");
+  uint64_t earliest_height;
+  get_hard_fork_info(version, earliest_height); // can throw
 
-  bool close_enough = res.height >=  resp_t.result.earliest_height - 10; // start using the rules a bit beforehand
+  bool close_enough = res.height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
   if (close_enough)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
@@ -3791,7 +3800,7 @@ uint64_t wallet2::get_upper_tranaction_size_limit()
 {
   if (m_upper_transaction_size_limit > 0)
     return m_upper_transaction_size_limit;
-  uint64_t full_reward_zone = use_fork_rules(2) ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
+  uint64_t full_reward_zone = use_fork_rules(2, 10) ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
   return ((full_reward_zone * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
 }
 //----------------------------------------------------------------------------------------------------
@@ -3884,7 +3893,7 @@ std::vector<size_t> wallet2::select_available_mixable_outputs(bool trusted_daemo
 std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bool trusted_daemon)
 {
   // From hard fork 1, we don't consider small amounts to be dust anymore
-  const bool hf1_rules = use_fork_rules(2); // first hard fork has version 2
+  const bool hf1_rules = use_fork_rules(2, 10); // first hard fork has version 2
   tx_dust_policy dust_policy(hf1_rules ? 0 : ::config::DEFAULT_DUST_THRESHOLD);
 
   // may throw
