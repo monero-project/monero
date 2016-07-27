@@ -3303,7 +3303,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // try to pick outputs not from the same block. We will get two outputs, one for
   // the destination, and one for change.
   std::vector<size_t> prefered_inputs;
-  if (use_rct)
+  uint64_t rct_outs_needed = 2 * (fake_outs_count + 1);
+  rct_outs_needed += 100; // some fudge factor since we don't know how many are locked
+  if (use_rct && get_num_rct_outputs() >= rct_outs_needed)
   {
     // this is used to build a tx that's 1 or 2 inputs, and 2 outputs, which
     // will get us a known fee.
@@ -3876,6 +3878,28 @@ std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t co
     }
     return false;
   });
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_num_rct_outputs()
+{
+  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
+  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  m_daemon_rpc_mutex.lock();
+  req_t.jsonrpc = "2.0";
+  req_t.id = epee::serialization::storage_entry(0);
+  req_t.method = "get_output_histogram";
+  req_t.params.amounts.push_back(0);
+  req_t.params.min_count = 0;
+  req_t.params.max_count = 0;
+  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_num_rct_outputs");
+  THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
+  THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.result.status);
+  THROW_WALLET_EXCEPTION_IF(resp_t.result.histogram.size() != 1, error::get_histogram_error, "Expected exactly one response");
+  THROW_WALLET_EXCEPTION_IF(resp_t.result.histogram[0].amount != 0, error::get_histogram_error, "Expected 0 amount");
+
+  return resp_t.result.histogram[0].instances;
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
