@@ -28,10 +28,8 @@
 
 #include "common/stack_trace.h"
 #include "misc_log_ex.h"
-#ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
-#endif
 #include <cxxabi.h>
 #ifndef STATICLIB
 #include <dlfcn.h>
@@ -96,7 +94,6 @@ void set_stack_trace_log(const std::string &log)
 
 void log_stack_trace(const char *msg)
 {
-#ifdef HAVE_LIBUNWIND
   unw_context_t ctx;
   unw_cursor_t cur;
   unw_word_t ip, off;
@@ -136,7 +133,6 @@ void log_stack_trace(const char *msg)
     LOG_PRINT2(log, "  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip << " " << (!status && dsym ? dsym : sym) << " + " << "0x" << off, LOG_LEVEL_0);
     free(dsym);
   }
-#endif
 }
 
 }  // namespace tools

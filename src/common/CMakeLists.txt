@@ -31,8 +31,11 @@ set(common_sources
   command_line.cpp
   dns_utils.cpp
   util.cpp
-  i18n.cpp
-  stack_trace.cpp)
+  i18n.cpp)
+
+if (STACK_TRACE)
+  list(APPEND common_sources stack_trace.cpp)
+endif()
 
 set(common_headers)
 
