@@ -41,6 +41,8 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "core_rpc_server_error_codes.h"
 
+#define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
+
 namespace cryptonote
 {
 
@@ -189,6 +191,16 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     res.status = "Failed";
+
+    if (m_restricted)
+    {
+      if (req.amounts.size() > 100 || req.outs_count > MAX_RESTRICTED_FAKE_OUTS_COUNT)
+      {
+        res.status = "Too many outs requested";
+        return true;
+      }
+    }
+
     if(!m_core.get_random_outs_for_amounts(req, res))
     {
       return true;
@@ -513,7 +525,7 @@ namespace cryptonote
   {
     std::list<nodetool::peerlist_entry> white_list;
     std::list<nodetool::peerlist_entry> gray_list;
-    m_p2p.get_peerlist_manager().get_peerlist_full(white_list, gray_list);
+    m_p2p.get_peerlist_manager().get_peerlist_full(gray_list, white_list);
 
 
     for (auto & entry : white_list)
@@ -930,7 +942,7 @@ namespace cryptonote
     {
       res.tx_hashes.push_back(epee::string_tools::pod_to_hex(blk.tx_hashes[n]));
     }
-    res.blob = t_serializable_object_to_blob(blk);
+    res.blob = string_tools::buff_to_hex_nodelimer(t_serializable_object_to_blob(blk));
     res.json = obj_to_json_str(blk);
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -1130,6 +1142,13 @@ namespace cryptonote
         res.histogram.push_back(COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry(i.first, i.second));
     }
 
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_version(const COMMAND_RPC_GET_VERSION::request& req, COMMAND_RPC_GET_VERSION::response& res, epee::json_rpc::error& error_resp)
+  {
+    res.version = CORE_RPC_VERSION;
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

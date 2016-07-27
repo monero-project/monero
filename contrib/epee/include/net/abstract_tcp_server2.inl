@@ -88,7 +88,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 PRAGMA_WARNING_DISABLE_VS(4355)
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  connection<t_protocol_handler>::~connection()
+  connection<t_protocol_handler>::~connection() noexcept(false)
   {
     if(!m_was_shutdown)
     {

@@ -168,6 +168,13 @@ namespace tools
         }
         integrated_payment_id = new_payment_id;
         cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, integrated_payment_id);
+
+        /* Append Payment ID data into extra */
+        if (!cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Something went wrong with integrated payment_id.";
+          return false;
+        }
       }
     }
 
@@ -197,7 +204,7 @@ namespace tools
       /* Append Payment ID data into extra */
       if (!cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-        er.message = "Something went wront with payment_id. Please check its format: \"" + payment_id_str + "\", expected 64-character string";
+        er.message = "Something went wrong with payment_id. Please check its format: \"" + payment_id_str + "\", expected 64-character string";
         return false;
       }
 
@@ -232,7 +239,7 @@ namespace tools
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee, extra, req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -245,9 +252,9 @@ namespace tools
       m_wallet.commit_tx(ptx_vector);
 
       // populate response with tx hash
-      res.tx_hash = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+      res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx_vector.back().tx));
       if (req.get_tx_key)
-        res.tx_key = boost::lexical_cast<std::string>(ptx_vector.back().tx_key);
+        res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -299,18 +306,18 @@ namespace tools
       }
       std::vector<wallet2::pending_tx> ptx_vector;
       if (req.new_algorithm)
-        ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.fee, extra, req.trusted_daemon);
+        ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
       else
-        ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee, extra, req.trusted_daemon);
+        ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
-          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
       }
 
       return true;
@@ -354,9 +361,9 @@ namespace tools
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
-          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
       }
 
       return true;
@@ -406,16 +413,16 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.fee, extra, req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(ptx.tx)));
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
-          res.tx_key_list.push_back(boost::lexical_cast<std::string>(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
       }
 
       return true;
@@ -493,7 +500,7 @@ namespace tools
         return false;
       }
       res.standard_address = get_account_address_as_str(m_wallet.testnet(),address);
-      res.payment_id = boost::lexical_cast<std::string>(payment_id);
+      res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
     catch (std::exception &e)
@@ -686,7 +693,7 @@ namespace tools
         rpc_transfers.amount       = td.amount();
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
-        rpc_transfers.tx_hash      = boost::lexical_cast<std::string>(cryptonote::get_transaction_hash(td.m_tx));
+        rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(td.m_tx));
         rpc_transfers.tx_size      = txBlob.size();
         res.transfers.push_back(rpc_transfers);
       }
@@ -744,6 +751,42 @@ namespace tools
       er.message = e.what();
       return false;
     }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_sign(const wallet_rpc::COMMAND_RPC_SIGN::request& req, wallet_rpc::COMMAND_RPC_SIGN::response& res, epee::json_rpc::error& er)
+  {
+    if (m_wallet.restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
+    res.signature = m_wallet.sign(req.data);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_verify(const wallet_rpc::COMMAND_RPC_VERIFY::request& req, wallet_rpc::COMMAND_RPC_VERIFY::response& res, epee::json_rpc::error& er)
+  {
+    if (m_wallet.restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet.testnet(), req.address))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+      er.message = "";
+      return false;
+    }
+
+    res.good = m_wallet.verify(req.data, address, req.signature);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -875,8 +918,8 @@ namespace tools
       std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
       m_wallet.get_payments_out(payments, min_height, max_height);
       for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
-        res.in.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
-        wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.in.back();
+        res.out.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
+        wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.out.back();
         const tools::wallet2::confirmed_transfer_details &pd = i->second;
 
         entry.txid = string_tools::pod_to_hex(i->first);
@@ -924,6 +967,95 @@ namespace tools
         entry.amount = amount - pd.m_change - entry.fee;
         entry.note = m_wallet.get_tx_note(i->first);
       }
+    }
+
+    if (req.pool)
+    {
+      m_wallet.update_pool_state();
+
+      std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+      m_wallet.get_unconfirmed_payments(payments);
+      for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+        res.pool.push_back(wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry());
+        wallet_rpc::COMMAND_RPC_GET_TRANSFERS::entry &entry = res.pool.back();
+        const tools::wallet2::payment_details &pd = i->second;
+
+        entry.txid = string_tools::pod_to_hex(pd.m_tx_hash);
+        entry.payment_id = string_tools::pod_to_hex(i->first);
+        if (entry.payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+          entry.payment_id = entry.payment_id.substr(0,16);
+        entry.height = 0;
+        entry.timestamp = pd.m_timestamp;
+        entry.amount = pd.m_amount;
+        entry.fee = 0; // TODO
+        entry.note = m_wallet.get_tx_note(pd.m_tx_hash);
+      }
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_export_key_images(const wallet_rpc::COMMAND_RPC_EXPORT_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_EXPORT_KEY_IMAGES::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      std::vector<std::pair<crypto::key_image, crypto::signature>> ski = m_wallet.export_key_images();
+      res.signed_key_images.resize(ski.size());
+      for (size_t n = 0; n < ski.size(); ++n)
+      {
+         res.signed_key_images[n].key_image = epee::string_tools::pod_to_hex(ski[n].first);
+         res.signed_key_images[n].signature = epee::string_tools::pod_to_hex(ski[n].second);
+      }
+    }
+
+    catch (...)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed";
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_import_key_images(const wallet_rpc::COMMAND_RPC_IMPORT_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_IMPORT_KEY_IMAGES::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
+      ski.resize(req.signed_key_images.size());
+      for (size_t n = 0; n < ski.size(); ++n)
+      {
+        cryptonote::blobdata bd;
+
+        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].key_image, bd))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
+          er.message = "failed to parse key image";
+          return false;
+        }
+        ski[n].first = *reinterpret_cast<const crypto::key_image*>(bd.data());
+
+        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].signature, bd))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
+          er.message = "failed to parse signature";
+          return false;
+        }
+        ski[n].second = *reinterpret_cast<const crypto::signature*>(bd.data());
+      }
+      uint64_t spent = 0, unspent = 0;
+      uint64_t height = m_wallet.import_key_images(ski, spent, unspent);
+      res.spent = spent;
+      res.unspent = unspent;
+      res.height = height;
+    }
+
+    catch (...)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed";
+      return false;
     }
 
     return true;

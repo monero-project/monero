@@ -262,6 +262,8 @@ namespace nodetool
         pe.id = crypto::rand<uint64_t>();
         bool r = parse_peer_from_string(pe.adr, pr_str);
         CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
+        if (pe.adr.port == 0)
+          pe.adr.port = testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
         m_command_line_peers.push_back(pe);
       }
     }
@@ -1505,12 +1507,15 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container)
   {
     std::vector<std::string> perrs = command_line::get_arg(vm, arg);
+    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     for(const std::string& pr_str: perrs)
     {
       nodetool::net_address na = AUTO_VAL_INIT(na);
       bool r = parse_peer_from_string(na, pr_str);
       CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
+      if (na.port == 0)
+        na.port = testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
       container.push_back(na);
     }
 

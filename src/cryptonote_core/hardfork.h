@@ -155,13 +155,6 @@ namespace cryptonote
     uint8_t get(uint64_t height) const;
 
     /**
-     * @brief returns the height of the first block on the fork with th given version
-     *
-     * @param version version of the fork to query the starting block for
-     */
-    uint64_t get_start_height(uint8_t version) const;
-
-    /**
      * @brief returns the latest "ideal" version
      *
      * This is the latest version that's been scheduled

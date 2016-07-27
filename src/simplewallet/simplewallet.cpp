@@ -115,6 +115,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view-only commands"), false};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
+  const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
@@ -485,6 +486,68 @@ bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = s
   }
 }
 
+bool simple_wallet::set_default_fee_multiplier(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  int fee_multiplier = 0;
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
+    return true;
+  }
+  try
+  {
+    if (strchr(args[1].c_str(), '-'))
+    {
+      fail_msg_writer() << tr("fee multiplier must be 0, 1, 2, or 3 ");
+      return true;
+    }
+    if (args[1] == "0")
+    {
+      fee_multiplier = 0;
+    }
+    else
+    {
+      fee_multiplier = boost::lexical_cast<int>(args[1]);
+      if (fee_multiplier != 1 && fee_multiplier != 2 && fee_multiplier != 3)
+      {
+        fail_msg_writer() << tr("fee multiplier must be 0, 1, 2, or 3");
+        return true;
+      }
+    }
+
+    tools::password_container pwd_container;
+    success = pwd_container.read_password();
+    if (!success)
+    {
+      fail_msg_writer() << tr("failed to read wallet password");
+      return true;
+    }
+
+    /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+    success = m_wallet->verify_password(pwd_container.password());
+    if (!success)
+    {
+      fail_msg_writer() << tr("invalid password");
+      return true;
+    }
+
+    m_wallet->set_default_fee_multiplier(fee_multiplier);
+    m_wallet->rewrite(m_wallet_file, pwd_container.password());
+    return true;
+  }
+  catch(const boost::bad_lexical_cast &)
+  {
+    fail_msg_writer() << tr("fee multiplier must be 0, 1, 2 or 3");
+    return true;
+  }
+  catch(...)
+  {
+    fail_msg_writer() << tr("could not change default fee multiplier");
+    return true;
+  }
+}
+
 bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
@@ -561,7 +624,8 @@ bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<st
 }
 
 simple_wallet::simple_wallet()
-  : m_daemon_port(0)
+  : m_allow_mismatched_daemon_version(false)
+  , m_daemon_port(0)
   , m_refresh_progress_reporter(*this)
   , m_auto_refresh_run(false)
   , m_auto_refresh_refreshing(false)
@@ -587,7 +651,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Display private spend key"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Display Electrum-style mnemonic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("Available options: seed language - set wallet seed language; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin <n> - set default mixin (default default is 4); auto-refresh <1|0> - whether to automatically sync new blocks from the daemon; refresh-type <full|optimize-coinbase|no-coinbase|default> - set wallet refresh behaviour"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("Available options: seed language - set wallet seed language; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin <n> - set default mixin (default default is 4); auto-refresh <1|0> - whether to automatically sync new blocks from the daemon; refresh-type <full|optimize-coinbase|no-coinbase|default> - set wallet refresh behaviour; fee-multiplier [1|2|3] - normal/elevated/priority fee"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given <txid>"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to <address> in <txid>"));
@@ -595,6 +659,11 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_bc", boost::bind(&simple_wallet::rescan_blockchain, this, _1), tr("Rescan blockchain from scratch"));
   m_cmd_binder.set_handler("set_tx_note", boost::bind(&simple_wallet::set_tx_note, this, _1), tr("Set an arbitrary string note for a txid"));
   m_cmd_binder.set_handler("get_tx_note", boost::bind(&simple_wallet::get_tx_note, this, _1), tr("Get a string note for a txid"));
+  m_cmd_binder.set_handler("status", boost::bind(&simple_wallet::status, this, _1), tr("Show wallet status information"));
+  m_cmd_binder.set_handler("sign", boost::bind(&simple_wallet::sign, this, _1), tr("Sign the contents of a file"));
+  m_cmd_binder.set_handler("verify", boost::bind(&simple_wallet::verify, this, _1), tr("Verify a signature on the contents of a file"));
+  m_cmd_binder.set_handler("export_key_images", boost::bind(&simple_wallet::export_key_images, this, _1), tr("Export a signed set of key images"));
+  m_cmd_binder.set_handler("import_key_images", boost::bind(&simple_wallet::import_key_images, this, _1), tr("Import signed key images list and verify their spent status"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -608,6 +677,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "default-mixin = " << m_wallet->default_mixin();
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
+    success_msg_writer() << "fee-multiplier = " << m_wallet->get_default_fee_multiplier();
     return true;
   }
   else
@@ -700,6 +770,21 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
         set_refresh_type(local_args);
+        return true;
+      }
+    }
+    else if (args[0] == "fee-multiplier")
+    {
+      if (args.size() <= 1)
+      {
+        fail_msg_writer() << tr("set fee-multiplier: needs an argument: 0, 1, 2, or 3");
+        return true;
+      }
+      else
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        set_default_fee_multiplier(local_args);
         return true;
       }
     }
@@ -1360,18 +1445,28 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
   m_trusted_daemon                = command_line::get_arg(vm, arg_trusted_daemon);
+  m_allow_mismatched_daemon_version = command_line::get_arg(vm, arg_allow_mismatched_daemon_version);
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
 
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::try_connect_to_daemon()
+bool simple_wallet::try_connect_to_daemon(bool silent)
 {
-  if (!m_wallet->check_connection())
+  bool same_version = false;
+  if (!m_wallet->check_connection(&same_version))
   {
-    fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_daemon_address << ". " <<
-      tr("Daemon either is not started or wrong port was passed. "
-      "Please make sure daemon is running or restart the wallet with the correct daemon address.");
+    if (!silent)
+      fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_daemon_address << ". " <<
+        tr("Daemon either is not started or wrong port was passed. "
+        "Please make sure daemon is running or restart the wallet with the correct daemon address.");
+    return false;
+  }
+  if (!m_allow_mismatched_daemon_version && !same_version)
+  {
+    if (!silent)
+      fail_msg_writer() << tr("Daemon uses a different RPC version that the wallet: ") << m_daemon_address << ". " <<
+        tr("Either update one of them, or use --allow-mismatched-daemon-version.");
     return false;
   }
   return true;
@@ -1604,6 +1699,7 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
   catch (const std::exception& e)
   {
     fail_msg_writer() << tr("failed to load wallet: ") << e.what();
+    fail_msg_writer() << boost::format(tr("You may want to remove the file \"%s\" and try again")) % wallet_file;
     return false;
   }
 
@@ -2968,13 +3064,17 @@ static std::string get_human_readable_timestamp(uint64_t ts)
     return "<unknown>";
   time_t tt = ts;
   struct tm tm;
+#ifdef WIN32
+  gmtime_s(&tm, &tt);
+#else
   gmtime_r(&tt, &tm);
+#endif
   uint64_t now = time(NULL);
   uint64_t diff = ts > now ? ts - now : now - ts;
   if (diff > 24*3600)
-    strftime(buffer, sizeof(buffer), "%F", &tm);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d", &tm);
   else
-    strftime(buffer, sizeof(buffer), "%r", &tm);
+    strftime(buffer, sizeof(buffer), "%I:%M:%S %p", &tm);
   return std::string(buffer);
 }
 //----------------------------------------------------------------------------------------------------
@@ -2985,6 +3085,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   bool out = true;
   bool pending = true;
   bool failed = true;
+  bool pool = true;
   uint64_t min_height = 0;
   uint64_t max_height = (uint64_t)-1;
 
@@ -2994,7 +3095,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   }
 
   LOCK_REFRESH_THREAD_SCOPE();
-
+  
   // optional in/out selector
   if (local_args.size() > 0) {
     if (local_args[0] == "in" || local_args[0] == "incoming") {
@@ -3002,7 +3103,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "out" || local_args[0] == "outgoing") {
-      in = false;
+      in = pool = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "pending") {
@@ -3010,7 +3111,11 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "failed") {
-      in = out = pending = false;
+      in = out = pending = pool = false;
+      local_args.erase(local_args.begin());
+    }
+    else if (local_args[0] == "pool") {
+      in = out = pending = failed = false;
       local_args.erase(local_args.begin());
     }
     else if (local_args[0] == "all" || local_args[0] == "both") {
@@ -3085,6 +3190,27 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       ((unsigned long long)i->first) % (i->second.first ? tr("in") : tr("out")) % i->second.second;
   }
 
+  if (pool) {
+    try
+    {
+      m_wallet->update_pool_state();
+      std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+      m_wallet->get_unconfirmed_payments(payments);
+      for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+        const tools::wallet2::payment_details &pd = i->second;
+        std::string payment_id = string_tools::pod_to_hex(i->first);
+        if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+          payment_id = payment_id.substr(0,16);
+        std::string note = m_wallet->get_tx_note(pd.m_tx_hash);
+        message_writer() << (boost::format("%8.8s %6.6s %16.16s %20.20s %s %s %s %s") % "pool" % "in" % get_human_readable_timestamp(pd.m_timestamp) % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % "-" % note).str();
+      }
+    }
+    catch (...)
+    {
+      fail_msg_writer() << "Failed to get pool state";
+    }
+  }
+
   // print unconfirmed last
   if (pending || failed) {
     std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
@@ -3124,7 +3250,8 @@ void simple_wallet::wallet_refresh_thread()
     try
     {
       uint64_t fetched_blocks;
-      m_wallet->refresh(0, fetched_blocks);
+      if (try_connect_to_daemon(true))
+        m_wallet->refresh(0, fetched_blocks);
     }
     catch(...) {}
     m_auto_refresh_refreshing = false;
@@ -3136,6 +3263,11 @@ void simple_wallet::wallet_refresh_thread()
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
+  // check and display warning, but go on anyway
+  try_connect_to_daemon();
+
+  refresh_main(0, false);
+
   std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
   m_auto_refresh_run = m_wallet->auto_refresh();
   if (m_auto_refresh_run)
@@ -3146,6 +3278,7 @@ bool simple_wallet::run()
   {
     refresh(std::vector<std::string>());
   }
+  message_writer(epee::log_space::console_color_green, false) << "Background refresh thread started";
   return m_cmd_binder.run_handling(std::string("[") + tr("wallet") + " " + addr_start + "]: ", "");
 }
 //----------------------------------------------------------------------------------------------------
@@ -3261,6 +3394,199 @@ bool simple_wallet::get_tx_note(const std::vector<std::string> &args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::status(const std::vector<std::string> &args)
+{
+  uint64_t local_height = m_wallet->get_blockchain_current_height();
+  if (!try_connect_to_daemon())
+  {
+    success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected";
+    return true;
+  }
+
+  std::string err;
+  uint64_t bc_height = get_daemon_blockchain_height(err);
+  if (err.empty())
+  {
+    bool synced = local_height == bc_height;
+    success_msg_writer() << "Refreshed " << local_height << "/" << bc_height << ", " << (synced ? "synced" : "syncing");
+  }
+  else
+  {
+    fail_msg_writer() << "Refreshed " << local_height << "/?, daemon connection error";
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sign(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: sign <filename>");
+    return true;
+  }
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot sign");
+    return true;
+  }
+  std::string filename = args[0];
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+  std::string signature = m_wallet->sign(data);
+  success_msg_writer() << signature;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::verify(const std::vector<std::string> &args)
+{
+  if (args.size() != 3)
+  {
+    fail_msg_writer() << tr("usage: verify <filename> <address> <signature>");
+    return true;
+  }
+  std::string filename = args[0];
+  std::string address_string = args[1];
+  std::string signature= args[2];
+
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+
+  cryptonote::account_public_address address;
+  bool has_payment_id;
+  crypto::hash8 payment_id;
+  if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), address_string))
+  {
+    fail_msg_writer() << tr("failed to parse address");
+    return true;
+  }
+
+  r = m_wallet->verify(data, address, signature);
+  if (!r)
+  {
+    fail_msg_writer() << tr("Bad signature from ") << address_string;
+  }
+  else
+  {
+    success_msg_writer() << tr("Good signature from ") << address_string;
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::export_key_images(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: export_key_images <filename>");
+    return true;
+  }
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot export key images");
+    return true;
+  }
+  std::string filename = args[0];
+
+  try
+  {
+    std::vector<std::pair<crypto::key_image, crypto::signature>> ski = m_wallet->export_key_images();
+    std::string data;
+    for (const auto &i: ski)
+    {
+      data += epee::string_tools::pod_to_hex(i.first);
+      data += epee::string_tools::pod_to_hex(i.second);
+    }
+    bool r = epee::file_io_utils::save_string_to_file(filename, data);
+    if (!r)
+    {
+      fail_msg_writer() << tr("failed to save file ") << filename;
+      return true;
+    }
+  }
+  catch (std::exception &e)
+  {
+    LOG_ERROR("Error exporting key images: " << e.what());
+    fail_msg_writer() << "Error exporting key images: " << e.what();
+    return true;
+  }
+
+  success_msg_writer() << tr("Signed key images exported to ") << filename;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::import_key_images(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: import_key_images <filename>");
+    return true;
+  }
+  std::string filename = args[0];
+
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+
+  const size_t record_size = sizeof(crypto::key_image)*2 + sizeof(crypto::signature)*2;
+  if (data.size() % record_size)
+  {
+    fail_msg_writer() << "Bad data size from file " << filename;
+    return true;
+  }
+  size_t nki = data.size() / record_size;
+
+  std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
+  ski.reserve(nki);
+  for (size_t n = 0; n < nki; ++n)
+  {
+    cryptonote::blobdata bd;
+
+    if(!epee::string_tools::parse_hexstr_to_binbuff(std::string(&data[n * record_size], sizeof(crypto::key_image)*2), bd))
+    {
+      fail_msg_writer() << tr("failed to parse key image");
+      return false;
+    }
+    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(bd.data());
+
+    if(!epee::string_tools::parse_hexstr_to_binbuff(std::string(&data[n * record_size + sizeof(crypto::key_image)*2], sizeof(crypto::signature)*2), bd))
+    {
+      fail_msg_writer() << tr("failed to parse signature");
+      return false;
+    }
+    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(bd.data());
+
+    ski.push_back(std::make_pair(key_image, signature));
+  }
+
+  try
+  {
+    uint64_t spent = 0, unspent = 0;
+    uint64_t height = m_wallet->import_key_images(ski, spent, unspent);
+    success_msg_writer() << "Signed key images imported to height " << height << ", "
+        << print_money(spent) << " spent, " << print_money(unspent) << " unspent";
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Failed to import key images: " << e.what();
+    return true;
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::process_command(const std::vector<std::string> &args)
 {
   return m_cmd_binder.process_command_vec(args);
@@ -3337,6 +3663,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_testnet);
   command_line::add_arg(desc_params, arg_restricted);
   command_line::add_arg(desc_params, arg_trusted_daemon);
+  command_line::add_arg(desc_params, arg_allow_mismatched_daemon_version);
   command_line::add_arg(desc_params, arg_restore_height);
   tools::wallet_rpc_server::init_options(desc_params);
 

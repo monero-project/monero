@@ -2,14 +2,15 @@
 
 Copyright (c) 2014-2016, The Monero Project
 
+[![Build Status](https://travis-ci.org/monero-project/bitmonero.svg?branch=master)](https://travis-ci.org/monero-project/bitmonero)
+
 ## Development Resources
 
-Web: [getmonero.org](https://getmonero.org)  
-Forum: [forum.getmonero.org](https://forum.getmonero.org)  
-Mail: [dev@getmonero.org](mailto:dev@getmonero.org)  
-Github (staging): [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)  
-Github (development): [http://github.com/monero-project/bitmonero/tree/development](http://github.com/monero-project/bitmonero/tree/development)  
-IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
+- Web: [getmonero.org](https://getmonero.org)
+- Forum: [forum.getmonero.org](https://forum.getmonero.org)
+- Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
+- GitHub: [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)
+- IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
 
 ## Introduction
 
@@ -47,21 +48,7 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 ## License
 
-Copyright (c) 2014-2016, The Monero Project
-
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-Parts of the project are originally copyright (c) 2012-2013 The Cryptonote developers
+See [LICENSE](LICENSE).
 
 ## Compiling Monero
 
@@ -126,8 +113,7 @@ pacman -Su --ignoregroup base
 pacman -Su
 ```
 * For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
-* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-unbound mingw-w64-x86_64-boost`
-* If you are planning to build statically you will also need to install: `pacman -S mingw-w64-x86_64-ldns mingw-w64-x86_64-expat` (note that these are likely already installed by the unbound dependency installation above)
+* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-expat mingw-w64-x86_64-boost`
 
 **Building**
 

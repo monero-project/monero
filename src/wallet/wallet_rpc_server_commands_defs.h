@@ -110,7 +110,7 @@ namespace wallet_rpc
     struct request
     {
       std::list<transfer_destination> destinations;
-      uint64_t fee;
+      uint64_t fee_multiplier;
       uint64_t mixin;
       uint64_t unlock_time;
       std::string payment_id;
@@ -119,7 +119,7 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
-        KV_SERIALIZE(fee)
+        KV_SERIALIZE(fee_multiplier)
         KV_SERIALIZE(mixin)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
@@ -145,7 +145,7 @@ namespace wallet_rpc
     struct request
     {
       std::list<transfer_destination> destinations;
-      uint64_t fee;
+      uint64_t fee_multiplier;
       uint64_t mixin;
       uint64_t unlock_time;
       std::string payment_id;
@@ -155,7 +155,7 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
-        KV_SERIALIZE(fee)
+        KV_SERIALIZE(fee_multiplier)
         KV_SERIALIZE(mixin)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
@@ -207,7 +207,7 @@ namespace wallet_rpc
     struct request
     {
       std::string address;
-      uint64_t fee;
+      uint64_t fee_multiplier;
       uint64_t mixin;
       uint64_t unlock_time;
       std::string payment_id;
@@ -216,7 +216,7 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
-        KV_SERIALIZE(fee)
+        KV_SERIALIZE(fee_multiplier)
         KV_SERIALIZE(mixin)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
@@ -496,6 +496,7 @@ namespace wallet_rpc
       bool out;
       bool pending;
       bool failed;
+      bool pool;
 
       bool filter_by_height;
       uint64_t min_height;
@@ -506,6 +507,7 @@ namespace wallet_rpc
         KV_SERIALIZE(out);
         KV_SERIALIZE(pending);
         KV_SERIALIZE(failed);
+        KV_SERIALIZE(pool);
         KV_SERIALIZE(filter_by_height);
         KV_SERIALIZE(min_height);
         KV_SERIALIZE(max_height);
@@ -541,16 +543,128 @@ namespace wallet_rpc
       std::list<entry> out;
       std::list<entry> pending;
       std::list<entry> failed;
+      std::list<entry> pool;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(in);
         KV_SERIALIZE(out);
         KV_SERIALIZE(pending);
         KV_SERIALIZE(failed);
+        KV_SERIALIZE(pool);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SIGN
+  {
+    struct request
+    {
+      std::string data;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(data);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_VERIFY
+  {
+    struct request
+    {
+      std::string data;
+      std::string address;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(data);
+        KV_SERIALIZE(address);
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool good;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(good);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_EXPORT_KEY_IMAGES
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct signed_key_image
+    {
+      std::string key_image;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_image);
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<signed_key_image> signed_key_images;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signed_key_images);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_IMPORT_KEY_IMAGES
+  {
+    struct signed_key_image
+    {
+      std::string key_image;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_image);
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      std::vector<signed_key_image> signed_key_images;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signed_key_images);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t height;
+      uint64_t spent;
+      uint64_t unspent;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(spent)
+        KV_SERIALIZE(unspent)
       END_KV_SERIALIZE_MAP()
     };
   };
 
 }
 }
-

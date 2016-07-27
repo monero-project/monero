@@ -419,10 +419,6 @@ int main(int argc, char* argv[])
         for (uint64_t h = 0; h < height; ++h)
           write_pod(d, boost::lexical_cast<std::string>(h), (unsigned int)db->get_hard_fork_version(h));
       end_compound(d);
-      start_struct(d, "hf_starting_heights", true);
-        for (unsigned int v = 0; v <= 255; ++v)
-          write_pod(d, boost::lexical_cast<std::string>(v), db->get_hard_fork_starting_height(v));
-      end_compound(d);
     }
 #endif
   end_compound(d);

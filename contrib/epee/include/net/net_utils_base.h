@@ -119,7 +119,7 @@ namespace net_utils
     virtual bool add_ref()=0;
     virtual bool release()=0;
   protected:
-    virtual ~i_service_endpoint(){}
+    virtual ~i_service_endpoint() noexcept(false) {}
 	};
 
 

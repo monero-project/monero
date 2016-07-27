@@ -137,10 +137,6 @@ bool HardFork::add(uint8_t block_version, uint8_t voting_version, uint64_t heigh
 
   uint8_t voted = get_voted_fork_index(height + 1);
   if (voted > current_fork_index) {
-    for (int v = heights[current_fork_index].version + 1; v <= heights[voted].version; ++v) {
-      // we reached the vote threshold with this block, next one will be forked
-      db.set_hard_fork_starting_height(v, height + 1);
-    }
     current_fork_index = voted;
   }
 
@@ -168,11 +164,16 @@ void HardFork::init()
   // restore state from DB
   uint64_t height = db.height();
   if (height > window_size)
-    height -= window_size;
+    height -= window_size - 1;
   else
     height = 1;
 
-  bool populate = db.get_hard_fork_starting_height(original_version) == std::numeric_limits<uint64_t>::max();
+  bool populate = false;
+  try
+  {
+    db.get_hard_fork_version(0);
+  }
+  catch (...) { populate = true; }
   if (populate) {
     LOG_PRINT_L0("The DB has no hard fork info, reparsing from start");
     height = 1;
@@ -182,7 +183,6 @@ void HardFork::init()
     reorganize_from_chain_height(height);
     // reorg will not touch the genesis block, use this as a flag for populating done
     db.set_hard_fork_version(0, original_version);
-    db.set_hard_fork_starting_height(original_version, 0);
   }
   else {
     rescan_from_chain_height(height);
@@ -215,7 +215,6 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
   const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size  -1) : 0;
   const uint8_t start_version = height == 0 ? original_version : db.get_hard_fork_version(height);
   while (current_fork_index > 0 && heights[current_fork_index].version > start_version) {
-    db.set_hard_fork_starting_height(heights[current_fork_index].version, std::numeric_limits<uint64_t>::max());
     --current_fork_index;
   }
   for (uint64_t h = rescan_height; h <= height; ++h) {
@@ -227,10 +226,6 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
 
   uint8_t voted = get_voted_fork_index(height + 1);
   if (voted > current_fork_index) {
-    for (int v = heights[current_fork_index].version + 1; v <= heights[voted].version; ++v) {
-      // we reached the vote threshold with this block, next one will be forked
-      db.set_hard_fork_starting_height(v, height + 1);
-    }
     current_fork_index = voted;
   }
 
@@ -264,8 +259,7 @@ bool HardFork::rescan_from_block_height(uint64_t height)
 
   for (size_t n = 0; n < 256; ++n)
     last_versions[n] = 0;
-  const uint64_t rescan_height = height >= (window_size - 1) ? height - (window_size  -1) : 0;
-  for (uint64_t h = rescan_height; h <= height; ++h) {
+  for (uint64_t h = height; h < db.height(); ++h) {
     cryptonote::block b = db.get_block_from_height(h);
     const uint8_t v = get_effective_version(get_block_vote(b));
     last_versions[v]++;
@@ -276,6 +270,12 @@ bool HardFork::rescan_from_block_height(uint64_t height)
   current_fork_index = 0;
   while (current_fork_index + 1 < heights.size() && heights[current_fork_index].version != lastv)
     ++current_fork_index;
+
+  uint8_t voted = get_voted_fork_index(db.height());
+  if (voted > current_fork_index) {
+    current_fork_index = voted;
+  }
+
   db.block_txn_stop();
 
   return true;
@@ -335,12 +335,6 @@ uint8_t HardFork::get(uint64_t height) const
     return get_current_version();
   }
   return db.get_hard_fork_version(height);
-}
-
-uint64_t HardFork::get_start_height(uint8_t version) const
-{
-  CRITICAL_REGION_LOCAL(lock);
-  return db.get_hard_fork_starting_height(version);
 }
 
 uint8_t HardFork::get_current_version() const

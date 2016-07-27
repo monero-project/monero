@@ -139,9 +139,11 @@ namespace string_tools
   }
   //----------------------------------------------------------------------------
   template<class CharT>
-  bool parse_hexstr_to_binbuff(const std::basic_string<CharT>& s, std::basic_string<CharT>& res)
+  bool parse_hexstr_to_binbuff(const std::basic_string<CharT>& s, std::basic_string<CharT>& res, bool allow_partial_byte = false)
   {
     res.clear();
+    if (!allow_partial_byte && (s.size() & 1))
+      return false;
     try
     {
       long v = 0;
@@ -348,19 +350,24 @@ POP_WARNINGS
   {
     //parse ip and address
     std::string::size_type p = addres.find(':');
+    std::string ip_str, port_str;
     if(p == std::string::npos)
     {
-      return false;
+      port = 0;
+      ip_str = addres;
     }
-    std::string ip_str = addres.substr(0, p);
-    std::string port_str = addres.substr(p+1, addres.size());
+    else
+    {
+      ip_str = addres.substr(0, p);
+      port_str = addres.substr(p+1, addres.size());
+    }
 
     if(!get_ip_int32_from_string(ip, ip_str))
     {
       return false;
     }
 
-    if(!get_xtype_from_string(port, port_str))
+    if(p != std::string::npos && !get_xtype_from_string(port, port_str))
     {
       return false;
     }

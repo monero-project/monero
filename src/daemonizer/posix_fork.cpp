@@ -50,20 +50,6 @@ void fork()
   // terminal.
   setsid();
 
-  // A process inherits its working directory from its parent. This could be
-  // on a mounted filesystem, which means that the running daemon would
-  // prevent this filesystem from being unmounted. Changing to the root
-  // directory avoids this problem.
-  if (chdir("/") < 0)
-  {
-    quit("Unable to change working directory to root");
-  }
-
-  // The file mode creation mask is also inherited from the parent process.
-  // We don't want to restrict the permissions on files created by the
-  // daemon, so the mask is cleared.
-  umask(0);
-
   // A second fork ensures the process cannot acquire a controlling terminal.
   if (pid_t pid = ::fork())
   {
