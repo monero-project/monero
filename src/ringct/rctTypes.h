@@ -116,7 +116,7 @@ namespace rct {
         BEGIN_SERIALIZE_OBJECT()
           FIELD(mask)
           FIELD(amount)
-          FIELD(senderPk)
+          // FIELD(senderPk) // not serialized, as we do not use it in monero currently
         END_SERIALIZE()
     };
 
