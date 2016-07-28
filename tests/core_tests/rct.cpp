@@ -437,7 +437,7 @@ bool gen_rct_tx_pre_rct_increase_vin_and_fee::generate(std::vector<test_event_en
 bool gen_rct_tx_pre_rct_remove_vin::generate(std::vector<test_event_entry>& events) const
 {
   const int mixin = 2;
-  const int out_idx[] = {1, -1};
+  const int out_idx[] = {0, -1};
   const uint64_t amount_paid = 10000;
   return generate_with(events, out_idx, mixin, amount_paid, false,
     NULL, [](transaction &tx) {tx.vin.pop_back();});
@@ -455,7 +455,7 @@ bool gen_rct_tx_rct_remove_vin::generate(std::vector<test_event_entry>& events) 
 bool gen_rct_tx_pre_rct_add_vout::generate(std::vector<test_event_entry>& events) const
 {
   const int mixin = 2;
-  const int out_idx[] = {1, -1};
+  const int out_idx[] = {0, -1};
   const uint64_t amount_paid = 10000;
   return generate_with(events, out_idx, mixin, amount_paid, false,
     NULL, [](transaction &tx) {tx.vout.push_back(tx.vout.back());});
