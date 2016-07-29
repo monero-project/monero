@@ -52,7 +52,8 @@ namespace tools
 
   private:
     bool read_from_file();
-    bool read_from_tty();
+    bool read_from_tty(std::string & pass);
+    bool read_from_tty_temp(const char *message);
 
   private:
     bool m_empty;
