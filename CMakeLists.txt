@@ -470,11 +470,9 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
-if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
-  if(NOT MINGW AND NOT APPLE)
-    find_library(ATOMIC atomic)
-    list(APPEND EXTRA_LIBRARIES ${ATOMIC})
-  endif()
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND ARCH_WIDTH EQUAL "32")
+  find_library(ATOMIC atomic)
+  list(APPEND EXTRA_LIBRARIES ${ATOMIC})
 endif()
 
 include(version.cmake)
