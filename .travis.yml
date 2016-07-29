@@ -3,6 +3,7 @@ dist: trusty
 language: cpp
 compiler:
 - gcc
+- clang
 addons:
   apt:
     packages:
@@ -11,6 +12,7 @@ addons:
     - doxygen
     - g++
     - gcc
+    - clang
     - graphviz
     - libboost1.55-all-dev
     - libdb++-dev
