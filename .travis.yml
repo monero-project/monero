@@ -23,7 +23,7 @@ addons:
     - libunwind8-dev
     #sources:
     #- ubuntu-toolchain-r-test
-script: make -j2 && HAVE_DOT=YES doxygen Doxyfile
+script: make -j2 && travis_wait make -j2 release-test && HAVE_DOT=YES doxygen Doxyfile
 notifications:
   email: false
   irc:
