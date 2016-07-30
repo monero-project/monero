@@ -135,31 +135,33 @@ bool password_container::read_from_tty_double_check(const char *message) {
     std::string pass1;
     std::string pass2;
     bool match=false;
+    bool doNotVerifyEntry=false;
     do{
         if (message)
             std::cout << message <<": ";
         if (!password_container::read_from_tty(pass1))
             return false;
-        if (m_wallet_file_name.empty()){        
+        if (m_wallet_file_name.empty()){//double check password; new wallet
             if (message)
                 std::cout << message << ": ";
             if (!password_container::read_from_tty(pass2))
                 return false;
-            if(pass1!=pass2){
+            if(pass1!=pass2){ //new password entered did not match
 
                 std::cout << "Passwords do not match" << std::endl;
                 pass1="";
                 pass2="";
                 match=false;
             }
-            else{
+            else{//new password matches
                 match=true;
             }
         }
         else
-            match=true;
+            doNotVerifyEntry=true; //this is not a new wallet  
+            //No need to verify password entered at this point in the code 
             
-    }while(match==false);
+    }while(match==false && doNotVerifyEntry==false);
 
     m_password=pass1;
     return true;

@@ -1222,7 +1222,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   }
   catch (const std::exception &e) { }
 
-  tools::password_container pwd_container(m_wallet_file);
+  tools::password_container pwd_container(m_wallet_file); //m_wallet_file will be empty at this point for new wallets
   if (!cryptonote::simple_wallet::get_password(vm, true, pwd_container))
     return false;
 
