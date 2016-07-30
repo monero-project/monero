@@ -151,7 +151,6 @@ namespace wallet_rpc
       uint64_t mixin;
       uint64_t unlock_time;
       std::string payment_id;
-      bool new_algorithm;
       bool get_tx_keys;
       bool trusted_daemon;
 
@@ -161,7 +160,6 @@ namespace wallet_rpc
         KV_SERIALIZE(mixin)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
-        KV_SERIALIZE(new_algorithm)
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE(trusted_daemon)
       END_KV_SERIALIZE_MAP()
