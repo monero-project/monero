@@ -54,17 +54,23 @@ namespace tools
   {
 
   }
-  password_container::password_container(const std::string m_wallet_file)
-    : m_empty(true),m_wallet_file_name(m_wallet_file)
+  password_container::password_container(bool verify)
+    : m_empty(true),m_verify(m_verify)
   {
 
   }
 
+  password_container::password_container(std::string&& password)
+    : m_empty(false)
+    , m_password(std::move(password))
+	, m_verify(false)
+  {
+  }
 
   password_container::password_container(password_container&& rhs)
     : m_empty(std::move(rhs.m_empty))
     , m_password(std::move(rhs.m_password))
-    , m_wallet_file_name(std::move(rhs.m_wallet_file_name))
+    , m_verify(std::move(rhs.m_verify))
   {
   }
   password_container::~password_container()
@@ -141,7 +147,7 @@ bool password_container::read_from_tty_double_check(const char *message) {
             std::cout << message <<": ";
         if (!password_container::read_from_tty(pass1))
             return false;
-        if (m_wallet_file_name.empty()){//double check password; new wallet
+        if (m_verify=false){//double check password; new wallet
             if (message)
                 std::cout << message << ": ";
             if (!password_container::read_from_tty(pass2))

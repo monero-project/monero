@@ -229,11 +229,13 @@ namespace cryptonote
 
   private:
     std::string m_wallet_file;
+    bool m_wallet_file_set;
     std::string m_generate_new;
     std::string m_generate_from_view_key;
     std::string m_generate_from_keys;
     std::string m_generate_from_json;
     std::string m_import_path;
+    bool set_wallet_file(std::string  name){m_wallet_file=name;m_wallet_file_set=true;return true;};
 
     std::string m_electrum_seed;  // electrum-style seed parameter
 

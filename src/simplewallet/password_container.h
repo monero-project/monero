@@ -39,7 +39,8 @@ namespace tools
   {
   public:
     static const size_t max_password_size = 1024;
-    password_container(const std::string walletFileName);
+    password_container(bool verify);
+    password_container( std::string&& password);
     password_container(password_container&& rhs);
     ~password_container();
 
@@ -58,6 +59,6 @@ namespace tools
 
     bool m_empty;
     std::string m_password;
-    const std::string m_wallet_file_name;
+    bool m_verify;
   };
 }

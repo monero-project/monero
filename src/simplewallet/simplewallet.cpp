@@ -347,7 +347,7 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
     fail_msg_writer() << tr("wallet is non-deterministic and has no seed");
     return true;
   }
-  tools::password_container pwd_container(m_wallet_file);
+  tools::password_container pwd_container(m_wallet_file_set);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -379,7 +379,7 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
     fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
     return true;
   }
-  tools::password_container pwd_container(m_wallet_file);
+  tools::password_container pwd_container(m_wallet_file_set);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -408,7 +408,7 @@ bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = s
     fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
     return true;
   }
-  tools::password_container pwd_container(m_wallet_file);
+  tools::password_container pwd_container(m_wallet_file_set);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -453,7 +453,7 @@ bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = s
     if (mixin == 0)
       mixin = DEFAULT_MIX;
 
-    tools::password_container pwd_container(m_wallet_file);
+    tools::password_container pwd_container(m_wallet_file_set);
     success = pwd_container.read_password();
     if (!success)
     {
@@ -515,7 +515,7 @@ bool simple_wallet::set_default_fee_multiplier(const std::vector<std::string> &a
       }
     }
 
-    tools::password_container pwd_container(m_wallet_file);
+    tools::password_container pwd_container(m_wallet_file_set);
     success = pwd_container.read_password();
     if (!success)
     {
@@ -550,7 +550,7 @@ bool simple_wallet::set_default_fee_multiplier(const std::vector<std::string> &a
 bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
-  tools::password_container pwd_container(m_wallet_file);
+  tools::password_container pwd_container(m_wallet_file_set);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -594,7 +594,7 @@ bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = st
     return true;
   }
 
-  tools::password_container pwd_container(m_wallet_file);
+  tools::password_container pwd_container(m_wallet_file_set);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -858,7 +858,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
   bool r;
   if(keys_file_exists)
   {
-    m_wallet_file = wallet_path;
+    set_wallet_file(m_wallet_file);
     r = true;
   }else
   {
@@ -1083,7 +1083,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     }
   }
 
-  m_wallet_file = field_filename;
+  set_wallet_file(m_wallet_file);
 
   bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
     crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
@@ -1221,8 +1221,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
   }
   catch (const std::exception &e) { }
-
-  tools::password_container pwd_container(m_wallet_file); //m_wallet_file will be empty at this point for new wallets
+    
+  tools::password_container pwd_container(m_wallet_file_set); //m_wallet_file will be empty at this point for new wallets
   if (!cryptonote::simple_wallet::get_password(vm, true, pwd_container))
     return false;
 
@@ -1309,7 +1309,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
 
-      m_wallet_file = m_generate_from_view_key;
+      set_wallet_file( m_generate_from_view_key);
 
       // check the view key matches the given address
       crypto::public_key pkey;
@@ -1376,7 +1376,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
 
-      m_wallet_file = m_generate_from_keys;
+      set_wallet_file(m_generate_from_keys);
 
       // check the spend and view keys match the given address
       crypto::public_key pkey;
@@ -1432,7 +1432,7 @@ bool simple_wallet::deinit()
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::handle_command_line(const boost::program_options::variables_map& vm)
 {
-  m_wallet_file                   = command_line::get_arg(vm, arg_wallet_file);
+  bool result=set_wallet_file(command_line::get_arg(vm, arg_wallet_file));
   m_generate_new                  = command_line::get_arg(vm, arg_generate_new_wallet);
   m_generate_from_view_key        = command_line::get_arg(vm, arg_generate_from_view_key);
   m_generate_from_keys            = command_line::get_arg(vm, arg_generate_from_keys);
@@ -1538,7 +1538,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
       return false;
   }
 
-  m_wallet_file = wallet_file;
+  set_wallet_file(wallet_file);
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
@@ -1597,7 +1597,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
   const crypto::secret_key& viewkey, bool testnet)
 {
-  m_wallet_file = wallet_file;
+  set_wallet_file(wallet_file);
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
@@ -1625,7 +1625,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
   const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool testnet)
 {
-  m_wallet_file = wallet_file;
+  set_wallet_file(wallet_file);
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
@@ -1657,7 +1657,7 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
     return false;
   }
 
-  m_wallet_file = wallet_file;
+  set_wallet_file(wallet_file);
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
 
@@ -1762,7 +1762,7 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
-  tools::password_container pwd_container(m_wallet_file);
+  tools::password_container pwd_container(m_wallet_file_set);
 
   success = pwd_container.read_password(tr("Password for the new watch-only wallet"));
   if (!success)
@@ -3618,7 +3618,8 @@ int main(int argc, char* argv[])
     bool testnet = command_line::get_arg(vm, arg_testnet);
     bool restricted = command_line::get_arg(vm, arg_restricted);
     std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
-    tools::password_container pwd_container(wallet_file);
+    bool wallet_exists=true;
+    tools::password_container pwd_container(wallet_exists);
     if (!cryptonote::simple_wallet::get_password(vm, false, pwd_container))
       return 1;
     std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
