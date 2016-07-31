@@ -662,6 +662,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::validate(uint8_t version)
   {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
     size_t n_removed = 0;
     size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
