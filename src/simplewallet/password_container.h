@@ -41,6 +41,7 @@ namespace tools
     static const size_t max_password_size = 1024;
     password_container(bool verify);
     password_container(password_container&& rhs);
+    password_container(std::string&& password);
     ~password_container();
 
     void clear();

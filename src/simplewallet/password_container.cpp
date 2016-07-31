@@ -60,6 +60,14 @@ namespace tools
 
   }
 
+  password_container::password_container(std::string&& password)
+    : m_empty(false)
+    , m_password(std::move(password))
+	, m_verify(false)
+  {
+
+  }
+
 
   password_container::password_container(password_container&& rhs)
     : m_empty(std::move(rhs.m_empty))
