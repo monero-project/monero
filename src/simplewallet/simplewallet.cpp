@@ -33,7 +33,6 @@
  * 
  * \brief Source file that defines simple_wallet class.
  */
-
 #include <thread>
 #include <iostream>
 #include <sstream>
@@ -348,7 +347,11 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
     fail_msg_writer() << tr("wallet is non-deterministic and has no seed");
     return true;
   }
-  tools::password_container pwd_container;
+  bool verify=false;
+  if(m_wallet_file.empty())
+    verify=true;
+ 
+  tools::password_container pwd_container(verify);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -380,7 +383,10 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
     fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
     return true;
   }
-  tools::password_container pwd_container;
+  bool verify=false;
+  if(m_wallet_file.empty()==true)
+        verify=true;
+  tools::password_container pwd_container(verify);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -409,7 +415,11 @@ bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = s
     fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
     return true;
   }
-  tools::password_container pwd_container;
+  bool verify=false;
+  if(m_wallet_file.empty())
+     verify=true;
+ 
+  tools::password_container pwd_container(verify);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -453,8 +463,11 @@ bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = s
     }
     if (mixin == 0)
       mixin = DEFAULT_MIX;
-
-    tools::password_container pwd_container;
+    bool verify=false;
+    if(m_wallet_file.empty())
+      verify=true;
+ 
+    tools::password_container pwd_container(verify);
     success = pwd_container.read_password();
     if (!success)
     {
@@ -515,8 +528,11 @@ bool simple_wallet::set_default_fee_multiplier(const std::vector<std::string> &a
         return true;
       }
     }
-
-    tools::password_container pwd_container;
+    bool verify=false;
+    if(m_wallet_file.empty())
+      verify=true;
+ 
+    tools::password_container pwd_container(verify);
     success = pwd_container.read_password();
     if (!success)
     {
@@ -551,7 +567,11 @@ bool simple_wallet::set_default_fee_multiplier(const std::vector<std::string> &a
 bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
-  tools::password_container pwd_container;
+  bool verify=false;
+  if(m_wallet_file.empty()==true)
+        verify=true;
+ 
+  tools::password_container pwd_container(verify);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -594,8 +614,11 @@ bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = st
   {
     return true;
   }
-
-  tools::password_container pwd_container;
+  bool verify=false;
+  if(m_wallet_file.empty())
+     verify=true;
+ 
+  tools::password_container pwd_container(verify);
   success = pwd_container.read_password();
   if (!success)
   {
@@ -896,7 +919,7 @@ void simple_wallet::print_seed(std::string seed)
 }
 
 //----------------------------------------------------------------------------------------------------
-static bool get_password(const boost::program_options::variables_map& vm, bool allow_entry, tools::password_container &pwd_container)
+bool simple_wallet::get_password(const boost::program_options::variables_map& vm, bool allow_entry, tools::password_container &pwd_container)
 {
   // has_arg returns true even when the parameter is not passed ??
   const std::string gfj = command_line::get_arg(vm, arg_generate_from_json);
@@ -937,6 +960,8 @@ static bool get_password(const boost::program_options::variables_map& vm, bool a
 
   if (allow_entry)
   {
+      //vm is already part of the password container class.  just need to check vm for an already existing wallet
+      //here need to pass in variable map.  This will indicate if the wallet already exists to the read password function
     bool r = pwd_container.read_password();
     if (!r)
     {
@@ -1222,9 +1247,11 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
   }
   catch (const std::exception &e) { }
-
-  tools::password_container pwd_container;
-  if (!get_password(vm, true, pwd_container))
+  bool verify=false;
+  if(m_wallet_file.empty())
+      verify=true;
+  tools::password_container pwd_container(verify); //m_wallet_file will be empty at this point for new wallets
+  if (!cryptonote::simple_wallet::get_password(vm, true, pwd_container))
     return false;
 
   if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty() || !m_generate_from_json.empty())
@@ -1764,7 +1791,10 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   bool success = false;
-  tools::password_container pwd_container;
+  bool verify=false;
+  if(m_wallet_file.empty())
+      verify=true;
+  tools::password_container pwd_container(verify);
 
   success = pwd_container.read_password(tr("Password for the new watch-only wallet"));
   if (!success)
@@ -3753,8 +3783,12 @@ int main(int argc, char* argv[])
     bool testnet = command_line::get_arg(vm, arg_testnet);
     bool restricted = command_line::get_arg(vm, arg_restricted);
     std::string wallet_file     = command_line::get_arg(vm, arg_wallet_file);
-    tools::password_container pwd_container;
-    if (!get_password(vm, false, pwd_container))
+    bool verify=false;
+    if(wallet_file.empty())
+      verify=true;
+ 
+    tools::password_container pwd_container(verify);
+    if (!cryptonote::simple_wallet::get_password(vm, false, pwd_container))
       return 1;
     std::string daemon_address  = command_line::get_arg(vm, arg_daemon_address);
     std::string daemon_host = command_line::get_arg(vm, arg_daemon_host);
