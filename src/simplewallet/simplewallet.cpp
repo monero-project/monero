@@ -1336,7 +1336,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
 
-      m_wallet_file= m_generate_from_view_key;
+      m_wallet_file=m_generate_from_view_key;
 
       // check the view key matches the given address
       crypto::public_key pkey;
