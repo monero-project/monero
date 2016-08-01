@@ -1126,7 +1126,7 @@ namespace cryptonote
     std::map<uint64_t, uint64_t> histogram;
     try
     {
-      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts);
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked);
     }
     catch (const std::exception &e)
     {

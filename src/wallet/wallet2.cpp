@@ -2238,7 +2238,7 @@ uint64_t wallet2::sanitize_fee_multiplier(uint64_t fee_multiplier) const
 // transactions will be required
 std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
-  const std::vector<size_t> unused_transfers_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, trusted_daemon);
+  const std::vector<size_t> unused_transfers_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, true, trusted_daemon);
 
   fee_multiplier = sanitize_fee_multiplier(fee_multiplier);
 
@@ -3061,7 +3061,7 @@ std::vector<uint64_t> wallet2::get_unspent_amounts_vector()
   return vector;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t count, bool atleast, bool trusted_daemon)
+std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool trusted_daemon)
 {
   epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
   epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
@@ -3073,6 +3073,7 @@ std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t co
     req_t.params.amounts = get_unspent_amounts_vector();
   req_t.params.min_count = count;
   req_t.params.max_count = 0;
+  req_t.params.unlocked = unlocked;
   bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "select_available_unmixable_outputs");
@@ -3102,13 +3103,13 @@ std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t co
 std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
 {
   // request all outputs with less than 3 instances
-  return select_available_outputs_from_histogram(3, false, trusted_daemon);
+  return select_available_outputs_from_histogram(3, false, true, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_mixable_outputs(bool trusted_daemon)
 {
   // request all outputs with at least 3 instances, so we can use mixin 2 with
-  return select_available_outputs_from_histogram(3, true, trusted_daemon);
+  return select_available_outputs_from_histogram(3, true, true, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bool trusted_daemon)

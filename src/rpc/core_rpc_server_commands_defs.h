@@ -1071,11 +1071,13 @@ namespace cryptonote
       std::vector<uint64_t> amounts;
       uint64_t min_count;
       uint64_t max_count;
+      bool unlocked;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amounts);
         KV_SERIALIZE(min_count);
         KV_SERIALIZE(max_count);
+        KV_SERIALIZE(unlocked);
       END_KV_SERIALIZE_MAP()
     };
 

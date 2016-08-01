@@ -688,10 +688,11 @@ namespace cryptonote
      * @brief return a histogram of outputs on the blockchain
      *
      * @param amounts optional set of amounts to lookup
+     * @param unlocked whether to restrict instances to unlocked ones
      *
      * @return a set of amount/instances
      */
-    std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const;
+    std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const;
 
     /**
      * @brief perform a check on all key images in the blockchain

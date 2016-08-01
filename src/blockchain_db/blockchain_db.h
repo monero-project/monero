@@ -1140,7 +1140,7 @@ public:
    *
    * @return the tx hash and output index
    */
-  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) = 0;
+  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const = 0;
 
   /**
    * @brief gets some outputs' tx hashes and indices
@@ -1153,7 +1153,7 @@ public:
    * @param offsets a list of amount-specific output indices
    * @param indices return-by-reference a list of tx hashes and output indices (as pairs)
    */
-  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) = 0;
+  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const = 0;
 
   /**
    * @brief gets outputs' data
@@ -1305,10 +1305,11 @@ public:
    * @brief return a histogram of outputs on the blockchain
    *
    * @param amounts optional set of amounts to lookup
+   * @param unlocked whether to restrict count to unlocked outputs
    *
    * @return a set of amount/instances
    */
-  virtual std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const = 0;
+  virtual std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const = 0;
 
   /**
    * @brief is BlockchainDB in read-only mode?
