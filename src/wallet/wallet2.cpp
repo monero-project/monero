@@ -2364,44 +2364,107 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   LOG_PRINT_L2("wanted " << print_money(needed_money) << ", found " << print_money(found_money) << ", fee " << print_money(fee));
   THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
 
-  typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
-  typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
-
-  COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
-  if(fake_outputs_count)
+  COMMAND_RPC_GET_OUTPUTS::request req = AUTO_VAL_INIT(req);
+  COMMAND_RPC_GET_OUTPUTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
+  if (fake_outputs_count)
   {
-    COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
-    req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
-    BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
-    {
-      THROW_WALLET_EXCEPTION_IF(it->m_tx.vout.size() <= it->m_internal_output_index, error::wallet_internal_error,
-        "m_internal_output_index = " + std::to_string(it->m_internal_output_index) +
-        " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size()));
-      req.amounts.push_back(it->amount());
-    }
-
+    // get histogram for the amounts we need
+    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
+    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
     m_daemon_rpc_mutex.lock();
-    bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
+    req_t.jsonrpc = "2.0";
+    req_t.id = epee::serialization::storage_entry(0);
+    req_t.method = "get_output_histogram";
+    for(auto it: selected_transfers)
+      req_t.params.amounts.push_back(it->amount());
+    req_t.params.unlocked = true;
+    bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
     m_daemon_rpc_mutex.unlock();
-    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != selected_transfers.size(), error::wallet_internal_error,
-      "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
-      std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
+    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
+    THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
+    THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.result.status);
 
-    std::vector<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount> scanty_outs;
-    BOOST_FOREACH(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs, daemon_resp.outs)
+    // generate output indices to request
+    for(transfer_container::iterator it: selected_transfers)
     {
-      if (amount_outs.outs.size() < fake_outputs_count)
+      std::unordered_set<uint64_t> seen_indices;
+      size_t start = req.outputs.size();
+
+      // if there aren't enough outputs to mix with (or just enough),
+      // use all of them.  Eventually this should become impossible.
+      uint64_t num_outs = 0;
+      for (auto he: resp_t.result.histogram)
       {
-        scanty_outs.push_back(amount_outs);
+        if (he.amount == it->amount())
+        {
+          num_outs = he.instances;
+          break;
+        }
       }
+      THROW_WALLET_EXCEPTION_IF(num_outs == 0, error::wallet_internal_error,
+          "no outs found for amount " + boost::lexical_cast<std::string>(it->amount()));
+
+      if (num_outs <= fake_outputs_count + 1)
+      {
+        for (uint64_t i = 0; i < num_outs; i++)
+        {
+          req.outputs.push_back({it->amount(), i});
+        }
+      }
+      else
+      {
+        // start with real one
+        uint64_t num_found = 1;
+        seen_indices.emplace(it->m_global_output_index);
+        req.outputs.push_back({it->amount(), it->m_global_output_index});
+
+        // while we still need more mixins
+        while (num_found < fake_outputs_count + 1)
+        {
+          // if we've gone through every possible output, we've gotten all we can
+          if (seen_indices.size() == num_outs)
+            break;
+
+          // get a random output index from the DB.  If we've already seen it,
+          // return to the top of the loop and try again, otherwise add it to the
+          // list of output indices we've seen.
+
+          // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+          uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+          double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+          uint64_t i = (uint64_t)(frac*num_outs);
+          // just in case rounding up to 1 occurs after sqrt
+          if (i == num_outs)
+            --i;
+
+          if (seen_indices.count(i))
+            continue;
+          seen_indices.emplace(i);
+
+          req.outputs.push_back({it->amount(), i});
+          ++num_found;
+        }
+      }
+
+      // sort the subsection
+      std::sort(req.outputs.begin() + start, req.outputs.end(),
+          [](const COMMAND_RPC_GET_OUTPUTS::out &a, const COMMAND_RPC_GET_OUTPUTS::out &b) { return a.index < b.index; });
     }
-    THROW_WALLET_EXCEPTION_IF(!scanty_outs.empty(), error::not_enough_outs_to_mix, scanty_outs, fake_outputs_count);
+
+    // get the keys for those
+    m_daemon_rpc_mutex.lock();
+    r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_outs.bin", req, daemon_resp, m_http_client, 200000);
+    m_daemon_rpc_mutex.unlock();
+    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_outs.bin");
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_outs.bin");
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != req.outputs.size(), error::wallet_internal_error,
+      "daemon returned wrong response for get_outs.bin, wrong amounts count = " +
+      std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(req.outputs.size()));
   }
 
   //prepare inputs
+  typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
   size_t i = 0;
   std::vector<cryptonote::tx_source_entry> sources;
   BOOST_FOREACH(transfer_container::iterator it, selected_transfers)
@@ -2410,38 +2473,33 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     cryptonote::tx_source_entry& src = sources.back();
     transfer_details& td = *it;
     src.amount = td.amount();
-    //paste mixin transaction
-    if(daemon_resp.outs.size())
+    //paste keys (fake and real)
+
+    for (size_t n = 0; n < fake_outputs_count + 1; ++n)
     {
-      daemon_resp.outs[i].outs.sort([](const out_entry& a, const out_entry& b){return a.global_amount_index < b.global_amount_index;});
-      BOOST_FOREACH(out_entry& daemon_oe, daemon_resp.outs[i].outs)
-      {
-        if(td.m_global_output_index == daemon_oe.global_amount_index)
-          continue;
-        tx_output_entry oe;
-        oe.first = daemon_oe.global_amount_index;
-        oe.second = daemon_oe.out_key;
-        src.outputs.push_back(oe);
-        if(src.outputs.size() >= fake_outputs_count)
-          break;
-      }
+      tx_output_entry oe;
+      oe.first = req.outputs[i].index;
+      oe.second = daemon_resp.outs[i].key;
+      src.outputs.push_back(oe);
+      ++i;
     }
 
     //paste real transaction to the random index
-    auto it_to_insert = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
+    auto it_to_replace = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
     {
-      return a.first >= td.m_global_output_index;
+      return a.first == td.m_global_output_index;
     });
-    //size_t real_index = src.outputs.size() ? (rand() % src.outputs.size() ):0;
+    THROW_WALLET_EXCEPTION_IF(it_to_replace == src.outputs.end(), error::wallet_internal_error,
+        "real output not found");
+
     tx_output_entry real_oe;
     real_oe.first = td.m_global_output_index;
     real_oe.second = boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key;
-    auto interted_it = src.outputs.insert(it_to_insert, real_oe);
+    *it_to_replace = real_oe;
     src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx);
-    src.real_output = interted_it - src.outputs.begin();
+    src.real_output = it_to_replace - src.outputs.begin();
     src.real_output_in_tx_index = td.m_internal_output_index;
     detail::print_source_entry(src);
-    ++i;
   }
 
   cryptonote::tx_destination_entry change_dts = AUTO_VAL_INIT(change_dts);

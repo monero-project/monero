@@ -42,6 +42,7 @@ using namespace epee;
 #include "core_rpc_server_error_codes.h"
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
+#define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 500
 
 namespace cryptonote
 {
@@ -222,6 +223,29 @@ namespace cryptonote
     });
     std::string s = ss.str();
     LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: " << ENDL << s);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res)
+  {
+    CHECK_CORE_BUSY();
+    res.status = "Failed";
+
+    if (m_restricted)
+    {
+      if (req.outputs.size() > MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT)
+      {
+        res.status = "Too many outs requested";
+        return true;
+      }
+    }
+
+    if(!m_core.get_outs(req, res))
+    {
+      return true;
+    }
+
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

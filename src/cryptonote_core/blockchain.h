@@ -440,6 +440,21 @@ namespace cryptonote
     bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
 
     /**
+     * @brief gets specific outputs to mix with
+     *
+     * This function takes an RPC request for outputs to mix with
+     * and creates an RPC response with the resultant output indices.
+     *
+     * Outputs to mix with are specified in the request.
+     *
+     * @param req the outputs to return
+     * @param res return-by-reference the resultant output indices and keys
+     *
+     * @return true
+     */
+    bool get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res) const;
+
+    /**
      * @brief gets the global indices for outputs from a given transaction
      *
      * This function gets the global indices for all outputs belonging
