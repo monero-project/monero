@@ -112,7 +112,7 @@ namespace rpc
 
     for (uint32_t i=0; i < found_hashes.size(); i++)
     {
-      cryptonote::transaction_info info;
+      cryptonote::rpc::transaction_info info;
       info.height = heights[i];
       info.in_pool = in_pool[i];
       info.transaction = std::move(found_txs_vec[i]);

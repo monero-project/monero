@@ -30,6 +30,7 @@
 
 #include "message.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
+#include "rpc/message_data_structs.h"
 #include "cryptonote_core/cryptonote_basic.h"
 
 namespace cryptonote
@@ -99,7 +100,7 @@ class GetBlocksFast
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        std::vector<block_with_transactions> blocks;
+        std::vector<cryptonote::rpc::block_with_transactions> blocks;
         uint64_t start_height;
         uint64_t current_height;
     };
@@ -130,12 +131,12 @@ class GetHashesFast
         Response() { }
         ~Response() { }
 
+        rapidjson::Value toJson(rapidjson::Document& doc);
+        void fromJson(rapidjson::Value& val);
+
         std::list<crypto::hash> m_block_ids;
         uint64_t start_height;
         uint64_t current_height;
-
-        rapidjson::Value toJson(rapidjson::Document& doc);
-        void fromJson(rapidjson::Value& val);
 
     };
 };
@@ -165,7 +166,7 @@ class GetTransactions
         Response() { }
         ~Response() { }
 
-        std::unordered_map<crypto::hash, cryptonote::transaction_info> txs;
+        std::unordered_map<crypto::hash, cryptonote::rpc::transaction_info> txs;
 
         std::vector<crypto::hash> missed_hashes;
 

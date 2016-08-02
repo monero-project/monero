@@ -104,19 +104,6 @@ namespace cryptonote
     END_KV_SERIALIZE_MAP()
   };
 
-  struct block_with_transactions
-  {
-    cryptonote::block block;
-    std::unordered_map<crypto::hash, cryptonote::transaction> transactions;
-  };
-
-  struct transaction_info
-  {
-    cryptonote::transaction transaction;
-    bool in_pool;
-    uint64_t height;
-  };
-
 
   /************************************************************************/
   /*                                                                      */

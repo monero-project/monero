@@ -586,7 +586,7 @@ cryptonote::block_complete_entry fromJsonValue<cryptonote::block_complete_entry>
 }
 
 template <>
-rapidjson::Value toJsonValue<cryptonote::block_with_transactions>(rapidjson::Document& doc, const cryptonote::block_with_transactions& blk)
+rapidjson::Value toJsonValue<cryptonote::rpc::block_with_transactions>(rapidjson::Document& doc, const cryptonote::rpc::block_with_transactions& blk)
 {
   rapidjson::Value val;
 
@@ -599,9 +599,9 @@ rapidjson::Value toJsonValue<cryptonote::block_with_transactions>(rapidjson::Doc
 }
 
 template <>
-cryptonote::block_with_transactions fromJsonValue<cryptonote::block_with_transactions>(const rapidjson::Value& val)
+cryptonote::rpc::block_with_transactions fromJsonValue<cryptonote::rpc::block_with_transactions>(const rapidjson::Value& val)
 {
-  cryptonote::block_with_transactions blk;
+  cryptonote::rpc::block_with_transactions blk;
 
   blk.block = fromJsonValue<block>(val["block"]);
   blk.transactions = fromJsonValue<std::unordered_map<crypto::hash, cryptonote::transaction> >(val["transactions"]);
@@ -610,7 +610,7 @@ cryptonote::block_with_transactions fromJsonValue<cryptonote::block_with_transac
 }
 
 template <>
-rapidjson::Value toJsonValue<cryptonote::transaction_info>(rapidjson::Document& doc, const cryptonote::transaction_info& tx_info)
+rapidjson::Value toJsonValue<cryptonote::rpc::transaction_info>(rapidjson::Document& doc, const cryptonote::rpc::transaction_info& tx_info)
 {
   rapidjson::Value val;
 
@@ -626,9 +626,9 @@ rapidjson::Value toJsonValue<cryptonote::transaction_info>(rapidjson::Document& 
 }
 
 template <>
-cryptonote::transaction_info fromJsonValue<cryptonote::transaction_info>(const rapidjson::Value& val)
+cryptonote::rpc::transaction_info fromJsonValue<cryptonote::rpc::transaction_info>(const rapidjson::Value& val)
 {
-  cryptonote::transaction_info tx_info;
+  cryptonote::rpc::transaction_info tx_info;
 
   tx_info.height = fromJsonValue<uint64_t>(val["height"]);
   tx_info.in_pool = fromJsonValue<bool>(val["in_pool"]);

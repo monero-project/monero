@@ -30,6 +30,7 @@
 
 #include "rapidjson/document.h"
 #include "cryptonote_core/cryptonote_basic.h"
+#include "rpc/message_data_structs.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "common/sfinae_helpers.h"
 
@@ -165,16 +166,16 @@ template <>
 cryptonote::block_complete_entry fromJsonValue<cryptonote::block_complete_entry>(const rapidjson::Value& val);
 
 template <>
-rapidjson::Value toJsonValue<cryptonote::block_with_transactions>(rapidjson::Document& doc, const cryptonote::block_with_transactions& blk);
+rapidjson::Value toJsonValue<cryptonote::rpc::block_with_transactions>(rapidjson::Document& doc, const cryptonote::rpc::block_with_transactions& blk);
 
 template <>
-cryptonote::block_with_transactions fromJsonValue<cryptonote::block_with_transactions>(const rapidjson::Value& val);
+cryptonote::rpc::block_with_transactions fromJsonValue<cryptonote::rpc::block_with_transactions>(const rapidjson::Value& val);
 
 template <>
-rapidjson::Value toJsonValue<cryptonote::transaction_info>(rapidjson::Document& doc, const cryptonote::transaction_info& tx_info);
+rapidjson::Value toJsonValue<cryptonote::rpc::transaction_info>(rapidjson::Document& doc, const cryptonote::rpc::transaction_info& tx_info);
 
 template <>
-cryptonote::transaction_info fromJsonValue<cryptonote::transaction_info>(const rapidjson::Value& val);
+cryptonote::rpc::transaction_info fromJsonValue<cryptonote::rpc::transaction_info>(const rapidjson::Value& val);
 
 
 // ideally would like to have the below functions in the .cpp file, but

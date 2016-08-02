@@ -3,6 +3,7 @@
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "serialization/json_object.h"
+#include "rpc/message_data_structs.h"
 
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
@@ -234,14 +235,14 @@ TEST(JsonSerialization, SerializeBlockWithTransactions)
 
     auto block_txs = getBlockTransactions(block, transactions);
 
-    cryptonote::block_with_transactions bwt;
+    cryptonote::rpc::block_with_transactions bwt;
 
     bwt.block = block;
     bwt.transactions = block_txs;
 
     auto block_as_json = json::toJsonValue(d, bwt);
 
-    auto back_to_class = json::fromJsonValue<cryptonote::block_with_transactions>(block_as_json);
+    auto back_to_class = json::fromJsonValue<cryptonote::rpc::block_with_transactions>(block_as_json);
 
     ASSERT_EQ(bwt.block, back_to_class.block);
     ASSERT_EQ(bwt.transactions, back_to_class.transactions);
