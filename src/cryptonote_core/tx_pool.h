@@ -249,6 +249,15 @@ namespace cryptonote
     bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
 
     /**
+     * @brief for each key image, check if spent in a transaction in the pool
+     *
+     * @param key_images the spent key images to look for
+     *
+     * @return vector of spent or not for each key image
+     */
+    void have_key_images_as_spent(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const;
+
+    /**
      * @brief get a specific transaction from the pool
      *
      * @param h the hash of the transaction to get

@@ -856,6 +856,11 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  tx_memory_pool& core::get_pool()
+  {
+    return m_mempool;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions(std::list<transaction>& txs) const
   {
     m_mempool.get_transactions(txs);

@@ -391,6 +391,13 @@ namespace cryptonote
      void set_enforce_dns_checkpoints(bool enforce_dns);
 
      /**
+      * @brief get a reference to the transaction pool
+      *
+      * @return a reference to the transaction pool
+      */
+     tx_memory_pool& get_pool();
+
+     /**
       * @copydoc tx_memory_pool::get_transactions
       *
       * @note see tx_memory_pool::get_transactions

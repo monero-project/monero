@@ -55,7 +55,7 @@ class DaemonHandler : public RpcHandler
 
     void handle(GetTransactions::Request& req, GetTransactions::Response& res);
 
-    void handle(IsKeyImageSpent::Request& req, IsKeyImageSpent::Response& res);
+    void handle(KeyImagesSpent::Request& req, KeyImagesSpent::Response& res);
 
     void handle(GetTxGlobalOutputIndexes::Request& req, GetTxGlobalOutputIndexes::Response& res);
 

@@ -123,8 +123,27 @@ namespace rpc
     res.missed_hashes = std::move(missed_vec);
   }
 
-  void DaemonHandler::handle(IsKeyImageSpent::Request& req, IsKeyImageSpent::Response& res)
+  void DaemonHandler::handle(KeyImagesSpent::Request& req, KeyImagesSpent::Response& res)
   {
+    res.spent_status.resize(req.key_images.size(), KeyImagesSpent::STATUS::UNSPENT);
+
+    std::vector<bool> chain_spent_status;
+    std::vector<bool> pool_spent_status;
+
+    m_core.are_key_images_spent(req.key_images, chain_spent_status);
+    m_core.get_pool().have_key_images_as_spent(req.key_images, pool_spent_status);
+
+    for(uint64_t i=0; i < req.key_images.size(); i++)
+    {
+      if ( chain_spent_status[i] )
+      {
+        res.spent_status[i] = KeyImagesSpent::STATUS::SPENT_IN_BLOCKCHAIN;
+      }
+      else if ( pool_spent_status[i] )
+      {
+        res.spent_status[i] = KeyImagesSpent::STATUS::SPENT_IN_POOL;
+      }
+    }
   }
 
   void DaemonHandler::handle(GetTxGlobalOutputIndexes::Request& req, GetTxGlobalOutputIndexes::Response& res)
@@ -268,6 +287,7 @@ namespace rpc
     // create correct Message subclass and call handle() on it
     REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetHeight, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetTransactions, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::KeyImagesSpent, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

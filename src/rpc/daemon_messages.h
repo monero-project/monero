@@ -176,14 +176,21 @@ class GetTransactions
     };
 };
 
-class IsKeyImageSpent
+class KeyImagesSpent
 {
   public:
     static const char* name;
 
+    enum STATUS {
+      UNSPENT = 0,
+      SPENT_IN_BLOCKCHAIN = 1,
+      SPENT_IN_POOL = 2,
+    };
+
     class Request : public Message
     {
       public:
+
         Request() { }
         ~Request() { }
 
@@ -191,6 +198,7 @@ class IsKeyImageSpent
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<crypto::key_image> key_images;
     };
 
     class Response : public Message
@@ -203,6 +211,7 @@ class IsKeyImageSpent
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<uint64_t> spent_status;
     };
 };
 
@@ -221,6 +230,7 @@ class GetTxGlobalOutputIndexes
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        crypto::hash tx_hash;
     };
 
     class Response : public Message
@@ -233,6 +243,7 @@ class GetTxGlobalOutputIndexes
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<uint64_t> output_indices;
     };
 };
 
@@ -251,6 +262,8 @@ class GetRandomOutputsForAmounts
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<uint64_t> amounts;
+        uint64_t count;
     };
 
     class Response : public Message
@@ -263,6 +276,7 @@ class GetRandomOutputsForAmounts
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<outputs_for_amount> outputs;
     };
 };
 
@@ -311,6 +325,8 @@ class StartMining
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::string miner_address;
+        uint64_t thread_count;
     };
 
     class Response : public Message
@@ -323,6 +339,7 @@ class StartMining
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        bool success;
     };
 };
 
@@ -353,6 +370,19 @@ class GetInfo
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        uint64_t height;
+        uint64_t target_height;
+        uint64_t difficulty;
+        uint64_t target;
+        uint64_t tx_count;
+        uint64_t tx_pool_size;
+        uint64_t alt_blocks_count;
+        uint64_t outgoing_connections_count;
+        uint64_t incoming_connections_count;
+        uint64_t white_peerlist_size;
+        uint64_t grey_peerlist_size;
+        bool testnet;
+        std::string top_block_hash;
     };
 };
 
@@ -383,6 +413,7 @@ class StopMining
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        bool success;
     };
 };
 
@@ -413,6 +444,10 @@ class MiningStatus
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        bool active;
+        uint64_t speed;
+        uint64_t thread_count;
+        std::string address;
     };
 };
 
@@ -443,9 +478,11 @@ class SaveBC
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        bool success;
     };
 };
 
+// TODO: rename to GetHeight?
 class GetBlockCount
 {
   public:
@@ -473,9 +510,11 @@ class GetBlockCount
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        uint64_t count;
     };
 };
 
+// TODO: rename to GetHash?
 class GetBlockHash
 {
   public:

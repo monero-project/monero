@@ -50,6 +50,7 @@ namespace rpc
 
 const char* GetHeight::name = "get_height";
 const char* GetTransactions::name = "get_transactions";
+const char* KeyImagesSpent::name = "key_images_spent";
 
 
 
@@ -172,7 +173,37 @@ void GetTransactions::Response::fromJson(rapidjson::Value& val)
   missed_hashes = cryptonote::json::fromJsonValue<decltype(missed_hashes)>(val["missed_hashes"]);
 }
 
+rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc)
+{
+  rapidjson::Value val(rapidjson::kObjectType);
 
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("key_images", cryptonote::json::toJsonValue<decltype(key_images)>(doc, key_images), al);
+
+  return val;
+}
+
+void KeyImagesSpent::Request::fromJson(rapidjson::Value& val)
+{
+  key_images = cryptonote::json::fromJsonValue<decltype(key_images)>(val["key_images"]);
+}
+
+rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
+{
+  rapidjson::Value val(rapidjson::kObjectType);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("spent_status", cryptonote::json::toJsonValue<decltype(spent_status)>(doc, spent_status), al);
+
+  return val;
+}
+
+void KeyImagesSpent::Response::fromJson(rapidjson::Value& val)
+{
+  spent_status = cryptonote::json::fromJsonValue<decltype(spent_status)>(val["spent_status"]);
+}
 
 
 }  // namespace rpc

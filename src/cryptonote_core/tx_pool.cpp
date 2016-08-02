@@ -481,6 +481,15 @@ namespace cryptonote
     return m_spent_key_images.end() != m_spent_key_images.find(key_im);
   }
   //---------------------------------------------------------------------------------
+  void tx_memory_pool::have_key_images_as_spent(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    for (const auto& image : key_images)
+    {
+      spent.push_back(have_tx_keyimg_as_spent(image));
+    }
+  }
+  //---------------------------------------------------------------------------------
   void tx_memory_pool::lock() const
   {
     m_transactions_lock.lock();
