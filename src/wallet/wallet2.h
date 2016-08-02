@@ -383,7 +383,7 @@ namespace tools
     std::string get_keys_file() const;
     std::string get_daemon_address() const;
 
-    std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool trusted_daemon);
+    std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool trusted_daemon);
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
     std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);

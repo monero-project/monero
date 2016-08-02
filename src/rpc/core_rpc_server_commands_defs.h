@@ -271,6 +271,51 @@ namespace cryptonote
     };
   };
   //-----------------------------------------------
+  struct COMMAND_RPC_GET_OUTPUTS
+  {
+    struct out
+    {
+      uint64_t amount;
+      uint64_t index;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(index)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      std::vector<out> outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct outkey
+    {
+      crypto::public_key key;
+      bool unlocked;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_VAL_POD_AS_BLOB(key)
+        KV_SERIALIZE(unlocked)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<outkey> outs;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outs)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  //-----------------------------------------------
   struct COMMAND_RPC_SEND_RAW_TX
   {
     struct request
@@ -1071,11 +1116,13 @@ namespace cryptonote
       std::vector<uint64_t> amounts;
       uint64_t min_count;
       uint64_t max_count;
+      bool unlocked;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amounts);
         KV_SERIALIZE(min_count);
         KV_SERIALIZE(max_count);
+        KV_SERIALIZE(unlocked);
       END_KV_SERIALIZE_MAP()
     };
 

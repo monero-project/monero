@@ -1597,6 +1597,25 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
   return true;
 }
 //------------------------------------------------------------------
+bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  res.outs.clear();
+  res.outs.reserve(req.outputs.size());
+  for (const auto &i: req.outputs)
+  {
+    // get tx_hash, tx_out_index from DB
+    crypto::public_key key = m_db->get_output_key(i.amount, i.index).pubkey;
+    tx_out_index toi = m_db->get_output_tx_and_index(i.amount, i.index);
+    bool unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
+
+    res.outs.push_back({key, unlocked});
+  }
+  return true;
+}
+//------------------------------------------------------------------
 // This function takes a list of block hashes from another node
 // on the network to find where the split point is between us and them.
 // This is used to see what to send another node that needs to sync.
@@ -3316,9 +3335,9 @@ bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, ui
   return m_hardfork->get_voting_info(version, window, votes, threshold, earliest_height, voting);
 }
 
-std::map<uint64_t, uint64_t> Blockchain:: get_output_histogram(const std::vector<uint64_t> &amounts) const
+std::map<uint64_t, uint64_t> Blockchain:: get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const
 {
-  return m_db->get_output_histogram(amounts);
+  return m_db->get_output_histogram(amounts, unlocked);
 }
 
 void Blockchain::load_compiled_in_block_hashes()
