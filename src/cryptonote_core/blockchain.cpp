@@ -1597,6 +1597,25 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
   return true;
 }
 //------------------------------------------------------------------
+bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  res.outs.clear();
+  res.outs.reserve(req.outputs.size());
+  for (const auto &i: req.outputs)
+  {
+    // get tx_hash, tx_out_index from DB
+    crypto::public_key key = m_db->get_output_key(i.amount, i.index).pubkey;
+    tx_out_index toi = m_db->get_output_tx_and_index(i.amount, i.index);
+    bool unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
+
+    res.outs.push_back({key, unlocked});
+  }
+  return true;
+}
+//------------------------------------------------------------------
 // This function takes a list of block hashes from another node
 // on the network to find where the split point is between us and them.
 // This is used to see what to send another node that needs to sync.

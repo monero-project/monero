@@ -41,7 +41,7 @@ namespace cryptonote
 #define CORE_RPC_STATUS_BUSY   "BUSY"
 #define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
-#define CORE_RPC_VERSION 1
+#define CORE_RPC_VERSION 2
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -264,6 +264,51 @@ namespace cryptonote
     {
       std::vector<outs_for_amount> outs;
       std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outs)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_OUTPUTS
+  {
+    struct out
+    {
+      uint64_t amount;
+      uint64_t index;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(index)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      std::vector<out> outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct outkey
+    {
+      crypto::public_key key;
+      bool unlocked;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_VAL_POD_AS_BLOB(key)
+        KV_SERIALIZE(unlocked)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<outkey> outs;
+      std::string status;
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(outs)
         KV_SERIALIZE(status)

@@ -86,8 +86,8 @@ public:
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) { return output_data_t(); }
   virtual output_data_t get_output_key(const uint64_t& global_index) const { return output_data_t(); }
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const { return tx_out_index(); }
-  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) { return tx_out_index(); }
-  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) {}
+  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const { return tx_out_index(); }
+  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const {}
   virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) {}
   virtual bool can_thread_bulk_indices() const { return false; }
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const { return std::vector<uint64_t>(); }
@@ -106,7 +106,7 @@ public:
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const { return true; }
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const { return true; }
   virtual bool is_read_only() const { return false; }
-  virtual std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const { return std::map<uint64_t, uint64_t>(); }
+  virtual std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const { return std::map<uint64_t, uint64_t>(); }
 
   virtual void add_block( const block& blk
                         , const size_t& block_size

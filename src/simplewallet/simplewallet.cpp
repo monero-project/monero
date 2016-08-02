@@ -2466,9 +2466,9 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
   {
     auto writer = fail_msg_writer();
     writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs())
+    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outs.size();
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
@@ -2629,9 +2629,9 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   {
     auto writer = fail_msg_writer();
     writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs())
+    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outs.size();
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
@@ -2861,9 +2861,9 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   {
     auto writer = fail_msg_writer();
     writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (const cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& outs_for_amount : e.scanty_outs())
+    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outs.size();
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
