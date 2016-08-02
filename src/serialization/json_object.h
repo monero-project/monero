@@ -31,6 +31,7 @@
 #include "rapidjson/document.h"
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
+#include "common/sfinae_helpers.h"
 
 namespace cryptonote
 {
@@ -39,10 +40,10 @@ namespace json
 {
 
 // POD to json value
-template <class Type>
+template <typename Type, typename = typename std::enable_if<sfinae::is_not_container<Type>::value, Type>::type>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const Type& pod);
 
-template <class Type>
+template <typename Type, typename = typename std::enable_if<sfinae::is_not_container<Type>::value, Type>::type>
 Type fromJsonValue(const rapidjson::Value& val);
 
 template <>
@@ -179,8 +180,8 @@ cryptonote::transaction_info fromJsonValue<cryptonote::transaction_info>(const r
 // ideally would like to have the below functions in the .cpp file, but
 // unfortunately because of how templates work they have to be here.
 
-template <class Key, class Value, class Map = std::unordered_map<Key, Value> >
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const Map& val)
+template <typename Map>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enable_if<sfinae::is_map_like<Map>::value, Map >::type &val)
 {
   rapidjson::Value obj(rapidjson::kObjectType);
 
@@ -188,14 +189,14 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const Map& val)
 
   for (auto& i : val)
   {
-    obj.AddMember(toJsonValue<Key>(doc, i.first), toJsonValue<Value>(doc, i.second), al);
+    obj.AddMember(toJsonValue<typename Map::key_type>(doc, i.first), toJsonValue<typename Map::mapped_type>(doc, i.second), al);
   }
 
   return obj;
 }
 
-template <class Key, class Value, class Map = std::unordered_map<Key, Value> >
-Map fromJsonValue(const rapidjson::Value& val)
+template <typename Map>
+typename std::enable_if<sfinae::is_map_like<Map>::value, Map>::type fromJsonValue(const rapidjson::Value& val)
 {
   Map retmap;
 
@@ -203,49 +204,34 @@ Map fromJsonValue(const rapidjson::Value& val)
 
   while (itr != val.MemberEnd())
   {
-    retmap.emplace(fromJsonValue<Key>(itr->name), fromJsonValue<Value>(itr->value));
+    retmap.emplace(fromJsonValue<typename Map::key_type>(itr->name), fromJsonValue<typename Map::mapped_type>(itr->value));
     ++itr;
   }
 
   return retmap;
 }
 
-template <class Type, template <typename, typename=std::allocator<Type> > class Container>
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const Container<Type>& vec)
+template <typename Vec>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enable_if<sfinae::is_vector_like<Vec>::value, Vec>::type &vec)
 {
   rapidjson::Value arr(rapidjson::kArrayType);
 
-  for (const Type& t : vec)
+  for (const typename Vec::value_type& t : vec)
   {
-    arr.PushBack(toJsonValue(doc, t), doc.GetAllocator());
+    arr.PushBack(toJsonValue<typename Vec::value_type>(doc, t), doc.GetAllocator());
   }
 
   return arr;
 }
 
-template <class Type, template <typename, typename=std::allocator<Type> > class Container>
-Container<Type> fromJsonValue(const rapidjson::Value& val)
+template <typename Vec>
+typename std::enable_if<sfinae::is_vector_like<Vec>::value, Vec>::type fromJsonValue(const rapidjson::Value& val)
 {
-  Container<Type> vec;
+  Vec vec;
 
   for (rapidjson::SizeType i=0; i < val.Size(); i++)
   {
-    vec.push_back(fromJsonValue<Type>(val[i]));
-  }
-
-  return vec;
-}
-
-template <class Type,
-          template <typename, typename=std::allocator<Type> > class Inner,
-          template <typename, typename=std::allocator<Inner<Type> > > class Outer>
-Outer<Inner<Type>> fromJsonValue(const rapidjson::Value& val)
-{
-  Outer<Inner<Type> > vec;
-
-  for (rapidjson::SizeType i=0; i < val.Size(); i++)
-  {
-    vec.push_back(fromJsonValue<Type, Inner>(val[i]));
+    vec.push_back(fromJsonValue<typename Vec::value_type>(val[i]));
   }
 
   return vec;

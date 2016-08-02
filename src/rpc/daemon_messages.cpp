@@ -140,14 +140,14 @@ rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx_hashes", cryptonote::json::toJsonValue<crypto::hash, std::vector>(doc, tx_hashes), al);
+  val.AddMember("tx_hashes", cryptonote::json::toJsonValue<decltype(tx_hashes)>(doc, tx_hashes), al);
 
   return val;
 }
 
 void GetTransactions::Request::fromJson(rapidjson::Value& val)
 {
-  tx_hashes = cryptonote::json::fromJsonValue<crypto::hash, std::vector>(val["tx_hashes"]);
+  tx_hashes = cryptonote::json::fromJsonValue<decltype(tx_hashes)>(val["tx_hashes"]);
 }
 
 rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
@@ -157,10 +157,10 @@ rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
   auto& al = doc.GetAllocator();
 
   val.AddMember("txs",
-                cryptonote::json::toJsonValue<crypto::hash, cryptonote::transaction_info>(doc, txs),
+                cryptonote::json::toJsonValue<decltype(txs)>(doc, txs),
                 al);
   val.AddMember("missed_hashes",
-                cryptonote::json::toJsonValue<crypto::hash, std::vector>(doc, missed_hashes),
+                cryptonote::json::toJsonValue<decltype(missed_hashes)>(doc, missed_hashes),
                 al);
 
   return val;
@@ -168,8 +168,8 @@ rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
 
 void GetTransactions::Response::fromJson(rapidjson::Value& val)
 {
-  txs = cryptonote::json::fromJsonValue<crypto::hash, cryptonote::transaction_info>(val["txs"]);
-  missed_hashes = cryptonote::json::fromJsonValue<crypto::hash, std::vector>(val["missed_hashes"]);
+  txs = cryptonote::json::fromJsonValue<decltype(txs)>(val["txs"]);
+  missed_hashes = cryptonote::json::fromJsonValue<decltype(missed_hashes)>(val["missed_hashes"]);
 }
 
 

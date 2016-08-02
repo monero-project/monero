@@ -134,7 +134,7 @@ TEST(JsonSerialization, SerializeBlock)
 
   for (auto& bl : blocks)
   {
-    auto b_as_json = json::toJsonValue(d, bl);
+    auto b_as_json = json::toJsonValue<block>(d, bl);
 
     auto b_from_json = json::fromJsonValue<block>(b_as_json);
 
@@ -188,13 +188,13 @@ TEST(JsonSerialization, SerializeTransaction)
 
 TEST(JsonSerialization, SerializeUnorderedMap)
 {
-  std::unordered_map<std::string, std::string> map;
+  std::unordered_map<std::string, std::string> u_map;
 
-  map.emplace("foo", "bar");
-  map.emplace("bar", "baz");
+  u_map.emplace("foo", "bar");
+  u_map.emplace("bar", "baz");
 
   std::cout << "map init:" << std::endl;
-  for (auto& i : map)
+  for (auto& i : u_map)
   {
     std::cout << "  " << i.first << ": " << i.second << std::endl;
   }
@@ -205,13 +205,13 @@ TEST(JsonSerialization, SerializeUnorderedMap)
 
   d.SetObject();
 
-  auto map_as_json = json::toJsonValue<std::string, std::string, std::unordered_map<std::string, std::string> >(d, map);
+  auto map_as_json = json::toJsonValue<decltype(u_map)>(d, u_map);
 
-  auto back_to_map = json::fromJsonValue<std::string, std::string, std::unordered_map<std::string, std::string> >(map_as_json);
+  auto back_to_map = json::fromJsonValue<decltype(u_map)>(map_as_json);
 
   std::cout << "back to map successful" << std::endl;
 
-  ASSERT_EQ(map, back_to_map);
+  ASSERT_EQ(u_map, back_to_map);
 
   d.AddMember("map", map_as_json, d.GetAllocator());
 
