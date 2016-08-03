@@ -130,7 +130,7 @@ bool t_daemon::run(bool interactive)
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
-    cryptonote::rpc::DaemonHandler rpc_daemon_handler(mp_internals->core.get());
+    cryptonote::rpc::DaemonHandler rpc_daemon_handler(mp_internals->core.get(), mp_internals->p2p.get());
     cryptonote::rpc::ZmqServer zmq_server(rpc_daemon_handler);
 
     zmq_server.addTCPSocket("*", "31337");

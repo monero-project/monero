@@ -31,6 +31,13 @@
 #include "daemon_messages.h"
 #include "rpc_handler.h"
 #include "cryptonote_core/cryptonote_core.h"
+#include "cryptonote_protocol/cryptonote_protocol_handler.h"
+#include "p2p/net_node.h"
+
+namespace
+{
+  typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> > t_p2p;
+}  // anonymous namespace
 
 namespace cryptonote
 {
@@ -38,12 +45,11 @@ namespace cryptonote
 namespace rpc
 {
 
-
 class DaemonHandler : public RpcHandler
 {
   public:
 
-    DaemonHandler(cryptonote::core& c) : m_core(c) { }
+    DaemonHandler(cryptonote::core& c, t_p2p& p2p) : m_core(c), m_p2p(p2p) { }
 
     ~DaemonHandler() { }
 
@@ -125,6 +131,7 @@ class DaemonHandler : public RpcHandler
 
   private:
     cryptonote::core& m_core;
+    t_p2p& m_p2p;
 };
 
 }  // namespace rpc
