@@ -714,7 +714,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_timestamps = timestamps;
     m_difficulties = difficulties;
   }
-  size_t target = get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+  size_t target = get_difficulty_target();
   return next_difficulty(timestamps, difficulties, target);
 }
 //------------------------------------------------------------------
@@ -2291,7 +2291,7 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
   {
     //interpret as time
     uint64_t current_time = static_cast<uint64_t>(time(NULL));
-    if(current_time + (get_current_hard_fork_version() < 2 ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2) >= unlock_time)
+    if(current_time + (get_difficulty_target()) >= unlock_time)
       return true;
     else
       return false;
@@ -2781,7 +2781,7 @@ leave:
 //------------------------------------------------------------------
 bool Blockchain::update_next_cumulative_size_limit()
 {
-  uint64_t full_reward_zone = get_current_hard_fork_version() < 2 ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2;
+  uint64_t full_reward_zone = get_difficulty_target();
 
   LOG_PRINT_L3("Blockchain::" << __func__);
   std::vector<size_t> sz;
@@ -3314,6 +3314,11 @@ HardFork::State Blockchain::get_hard_fork_state() const
 bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
   return m_hardfork->get_voting_info(version, window, votes, threshold, earliest_height, voting);
+}
+
+uint64_t Blockchain::get_difficulty_target() const
+{
+  return get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
 }
 
 std::map<uint64_t, uint64_t> Blockchain:: get_output_histogram(const std::vector<uint64_t> &amounts) const
