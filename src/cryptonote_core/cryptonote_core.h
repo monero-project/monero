@@ -612,6 +612,13 @@ namespace cryptonote
       */
      bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
 
+     /**
+      * @brief Are we on testnet?
+      *
+      * @return true if on testnet
+      */
+     bool is_testnet() const;
+
    private:
 
      /**
