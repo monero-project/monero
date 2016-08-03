@@ -164,6 +164,31 @@ namespace rpc
 
   void DaemonHandler::handle(GetInfo::Request& req, GetInfo::Response& res)
   {
+    res.height = m_core.get_current_blockchain_height();
+
+    res.target_height = m_core.get_target_blockchain_height();
+
+    auto& chain = m_core.get_blockchain_storage();
+
+    res.difficulty = chain.get_difficulty_for_next_block();
+
+    res.target = chain.get_difficulty_target();
+
+    res.tx_count = chain.get_total_transactions() - res.height; //without coinbase
+
+    res.tx_pool_size = m_core.get_pool_transactions_count();
+
+    res.alt_blocks_count = chain.get_alternative_blocks_count();
+
+    uint64_t total_conn = m_p2p.get_connections_count();
+    res.outgoing_connections_count = m_p2p.get_outgoing_connections_count();
+    res.incoming_connections_count = total_conn - res.outgoing_connections_count;
+
+    res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
+
+    res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
+
+    res.testnet = m_core.is_testnet();
   }
 
   void DaemonHandler::handle(StopMining::Request& req, StopMining::Response& res)
@@ -288,6 +313,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetHeight, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetTransactions, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::KeyImagesSpent, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetInfo, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

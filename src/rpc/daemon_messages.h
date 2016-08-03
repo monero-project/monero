@@ -382,7 +382,7 @@ class GetInfo
         uint64_t white_peerlist_size;
         uint64_t grey_peerlist_size;
         bool testnet;
-        std::string top_block_hash;
+        crypto::hash top_block_hash;
     };
 };
 

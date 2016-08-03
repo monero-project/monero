@@ -51,6 +51,7 @@ namespace rpc
 const char* GetHeight::name = "get_height";
 const char* GetTransactions::name = "get_transactions";
 const char* KeyImagesSpent::name = "key_images_spent";
+const char* GetInfo::name = "get_info";
 
 
 
@@ -173,6 +174,7 @@ void GetTransactions::Response::fromJson(rapidjson::Value& val)
   missed_hashes = cryptonote::json::fromJsonValue<decltype(missed_hashes)>(val["missed_hashes"]);
 }
 
+
 rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc)
 {
   rapidjson::Value val(rapidjson::kObjectType);
@@ -203,6 +205,56 @@ rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
 void KeyImagesSpent::Response::fromJson(rapidjson::Value& val)
 {
   spent_status = cryptonote::json::fromJsonValue<decltype(spent_status)>(val["spent_status"]);
+}
+
+
+rapidjson::Value GetInfo::Request::toJson(rapidjson::Document& doc)
+{
+  return emptyRequest();
+}
+
+void GetInfo::Request::fromJson(rapidjson::Value& val)
+{
+}
+
+rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc)
+{
+  rapidjson::Value val(rapidjson::kObjectType);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
+  val.AddMember("target_height", cryptonote::json::toJsonValue<decltype(target_height)>(doc, target_height), al);
+  val.AddMember("difficulty", cryptonote::json::toJsonValue<decltype(difficulty)>(doc, difficulty), al);
+  val.AddMember("target", cryptonote::json::toJsonValue<decltype(target)>(doc, target), al);
+  val.AddMember("tx_count", cryptonote::json::toJsonValue<decltype(tx_count)>(doc, tx_count), al);
+  val.AddMember("tx_pool_size", cryptonote::json::toJsonValue<decltype(tx_pool_size)>(doc, tx_pool_size), al);
+  val.AddMember("alt_blocks_count", cryptonote::json::toJsonValue<decltype(alt_blocks_count)>(doc, alt_blocks_count), al);
+  val.AddMember("outgoing_connections_count", cryptonote::json::toJsonValue<decltype(outgoing_connections_count)>(doc, outgoing_connections_count), al);
+  val.AddMember("incoming_connections_count", cryptonote::json::toJsonValue<decltype(incoming_connections_count)>(doc, incoming_connections_count), al);
+  val.AddMember("white_peerlist_size", cryptonote::json::toJsonValue<decltype(white_peerlist_size)>(doc, white_peerlist_size), al);
+  val.AddMember("grey_peerlist_size", cryptonote::json::toJsonValue<decltype(grey_peerlist_size)>(doc, grey_peerlist_size), al);
+  val.AddMember("testnet", cryptonote::json::toJsonValue<decltype(testnet)>(doc, testnet), al);
+  val.AddMember("top_block_hash", cryptonote::json::toJsonValue<decltype(top_block_hash)>(doc, top_block_hash), al);
+
+  return val;
+}
+
+void GetInfo::Response::fromJson(rapidjson::Value& val)
+{
+  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+  target_height = cryptonote::json::fromJsonValue<decltype(target_height)>(val["target_height"]);
+  difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
+  target = cryptonote::json::fromJsonValue<decltype(target)>(val["target"]);
+  tx_count = cryptonote::json::fromJsonValue<decltype(tx_count)>(val["tx_count"]);
+  tx_pool_size = cryptonote::json::fromJsonValue<decltype(tx_pool_size)>(val["tx_pool_size"]);
+  alt_blocks_count = cryptonote::json::fromJsonValue<decltype(alt_blocks_count)>(val["alt_blocks_count"]);
+  outgoing_connections_count = cryptonote::json::fromJsonValue<decltype(outgoing_connections_count)>(val["outgoing_connections_count"]);
+  incoming_connections_count = cryptonote::json::fromJsonValue<decltype(incoming_connections_count)>(val["incoming_connections_count"]);
+  white_peerlist_size = cryptonote::json::fromJsonValue<decltype(white_peerlist_size)>(val["white_peerlist_size"]);
+  grey_peerlist_size = cryptonote::json::fromJsonValue<decltype(grey_peerlist_size)>(val["grey_peerlist_size"]);
+  testnet = cryptonote::json::fromJsonValue<decltype(testnet)>(val["testnet"]);
+  top_block_hash = cryptonote::json::fromJsonValue<decltype(top_block_hash)>(val["top_block_hash"]);
 }
 
 
