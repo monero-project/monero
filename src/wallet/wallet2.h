@@ -99,7 +99,8 @@ namespace tools
     struct transfer_details
     {
       uint64_t m_block_height;
-      cryptonote::transaction m_tx;
+      cryptonote::transaction_prefix m_tx;
+      crypto::hash m_txid;
       size_t m_internal_output_index;
       uint64_t m_global_output_index;
       bool m_spent;
@@ -123,7 +124,7 @@ namespace tools
 
     struct unconfirmed_transfer_details
     {
-      cryptonote::transaction m_tx;
+      cryptonote::transaction_prefix m_tx;
       uint64_t m_amount_in;
       uint64_t m_amount_out;
       uint64_t m_change;
@@ -502,9 +503,9 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 14)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 2)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 3)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
-BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 4)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 5)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 2)
 
 namespace boost
@@ -535,7 +536,17 @@ namespace boost
       a & x.m_block_height;
       a & x.m_global_output_index;
       a & x.m_internal_output_index;
-      a & x.m_tx;
+      if (ver < 3)
+      {
+        cryptonote::transaction tx;
+        a & tx;
+        x.m_tx = (const cryptonote::transaction_prefix&)tx;
+        x.m_txid = cryptonote::get_transaction_hash(tx);
+      }
+      else
+      {
+        a & x.m_tx;
+      }
       a & x.m_spent;
       a & x.m_key_image;
       if (ver < 1)
@@ -552,6 +563,9 @@ namespace boost
         return;
       }
       a & x.m_spent_height;
+      if (ver < 3)
+        return;
+      a & x.m_txid;
     }
 
     template <class Archive>
@@ -559,7 +573,16 @@ namespace boost
     {
       a & x.m_change;
       a & x.m_sent_time;
-      a & x.m_tx;
+      if (ver < 5)
+      {
+        cryptonote::transaction tx;
+        a & tx;
+        x.m_tx = (const cryptonote::transaction_prefix&)tx;
+      }
+      else
+      {
+        a & x.m_tx;
+      }
       if (ver < 1)
         return;
       a & x.m_dests;

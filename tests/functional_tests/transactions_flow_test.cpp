@@ -281,7 +281,7 @@ bool transactions_flow_test(std::string& working_folder,
     w2.get_transfers(tc);
     BOOST_FOREACH(tools::wallet2::transfer_details& td, tc)
     {
-      auto it = txs.find(get_transaction_hash(td.m_tx));
+      auto it = txs.find(td.m_txid);
       CHECK_AND_ASSERT_MES(it != txs.end(), false, "transaction not found in local cache");
       it->second.m_received_count += 1;
     }

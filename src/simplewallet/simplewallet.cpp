@@ -2068,7 +2068,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         (m_wallet->is_transfer_unlocked(td) ? tr("unlocked") : tr("locked")) %
         (td.is_rct() ? tr("RingCT") : tr("-")) %
         td.m_global_output_index %
-        get_transaction_hash (td.m_tx);
+        td.m_txid;
     }
   }
 

@@ -144,6 +144,16 @@ namespace boost
 
 
   template <class Archive>
+  inline void serialize(Archive &a, cryptonote::transaction_prefix &x, const boost::serialization::version_type ver)
+  {
+    a & x.version;
+    a & x.unlock_time;
+    a & x.vin;
+    a & x.vout;
+    a & x.extra;
+  }
+
+  template <class Archive>
   inline void serialize(Archive &a, cryptonote::transaction &x, const boost::serialization::version_type ver)
   {
     a & x.version;

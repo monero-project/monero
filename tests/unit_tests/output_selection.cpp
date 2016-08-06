@@ -42,6 +42,11 @@ static tools::wallet2::transfer_container make_transfers_container(size_t N)
     tools::wallet2::transfer_details &td = transfers.back();
     td.m_block_height = 1000;
     td.m_spent = false;
+    td.m_txid = cryptonote::null_hash;
+    td.m_txid.data[0] = n & 0xff;
+    td.m_txid.data[1] = (n >> 8) & 0xff;
+    td.m_txid.data[2] = (n >> 16) & 0xff;
+    td.m_txid.data[3] = (n >> 24) & 0xff;
   }
   return transfers;
 }

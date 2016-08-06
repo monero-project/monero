@@ -321,6 +321,11 @@ namespace cryptonote
     return pub_key_field.pub_key;
   }
   //---------------------------------------------------------------
+  crypto::public_key get_tx_pub_key_from_extra(const transaction_prefix& tx_prefix)
+  {
+    return get_tx_pub_key_from_extra(tx_prefix.extra);
+  }
+  //---------------------------------------------------------------
   crypto::public_key get_tx_pub_key_from_extra(const transaction& tx)
   {
     return get_tx_pub_key_from_extra(tx.extra);

@@ -729,7 +729,7 @@ namespace tools
         rpc_transfers.amount       = td.amount();
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
-        rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(td.m_tx));
+        rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(td.m_txid);
         rpc_transfers.tx_size      = txBlob.size();
         res.transfers.push_back(rpc_transfers);
       }

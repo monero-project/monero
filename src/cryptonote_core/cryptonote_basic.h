@@ -180,7 +180,7 @@ namespace cryptonote
       FIELD(extra)
     END_SERIALIZE()
 
-  protected:
+  public:
     transaction_prefix(){}
   };
 
