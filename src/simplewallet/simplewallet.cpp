@@ -77,21 +77,20 @@ typedef cryptonote::simple_wallet sw;
 
 #define DEFAULT_MIX 4
 
-#define LOCK_REFRESH_THREAD_SCOPE() \
-  bool auto_refresh_run = m_auto_refresh_run.load(std::memory_order_relaxed); \
-  m_auto_refresh_run.store(false, std::memory_order_relaxed); \
+#define LOCK_IDLE_SCOPE() \
+  bool auto_refresh_enabled = m_auto_refresh_enabled.load(std::memory_order_relaxed); \
+  m_auto_refresh_enabled.store(false, std::memory_order_relaxed); \
   /* stop any background refresh, and take over */ \
   m_wallet->stop(); \
-  m_auto_refresh_mutex.lock(); \
-  m_auto_refresh_cond.notify_one(); \
-  m_auto_refresh_mutex.unlock(); \
-  if (auto_refresh_run) \
-    m_auto_refresh_thread.join(); \
-  boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex); \
+  m_idle_mutex.lock(); \
+  while (m_auto_refresh_refreshing) \
+    m_idle_cond.notify_one(); \
+  m_idle_mutex.unlock(); \
+/*  if (auto_refresh_run)*/ \
+    /*m_auto_refresh_thread.join();*/ \
+  boost::unique_lock<boost::mutex> lock(m_idle_mutex); \
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
-    m_auto_refresh_run.store(auto_refresh_run, std::memory_order_relaxed); \
-    if (auto_refresh_run) \
-      m_auto_refresh_thread = boost::thread([&]{wallet_refresh_thread();}); \
+    m_auto_refresh_enabled.store(auto_refresh_enabled, std::memory_order_relaxed); \
   })
 
 namespace
@@ -569,17 +568,10 @@ bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = st
 
   bool auto_refresh = is_it_true(args[1]);
   m_wallet->auto_refresh(auto_refresh);
-  if (auto_refresh && !m_auto_refresh_run.load(std::memory_order_relaxed))
-  {
-    m_auto_refresh_run.store(true, std::memory_order_relaxed);
-    m_auto_refresh_thread = boost::thread([&]{wallet_refresh_thread();});
-  }
-  else if (!auto_refresh && m_auto_refresh_run.load(std::memory_order_relaxed))
-  {
-    m_auto_refresh_run.store(false, std::memory_order_relaxed);
-    m_wallet->stop();
-    m_auto_refresh_thread.join();
-  }
+  m_idle_mutex.lock();
+  m_auto_refresh_enabled.store(auto_refresh, std::memory_order_relaxed);
+  m_idle_cond.notify_one();
+  m_idle_mutex.unlock();
 
   m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
@@ -627,7 +619,8 @@ simple_wallet::simple_wallet()
   : m_allow_mismatched_daemon_version(false)
   , m_daemon_port(0)
   , m_refresh_progress_reporter(*this)
-  , m_auto_refresh_run(false)
+  , m_idle_run(true)
+  , m_auto_refresh_enabled(false)
   , m_auto_refresh_refreshing(false)
   , m_in_manual_refresh(false)
 {
@@ -1714,15 +1707,15 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::close_wallet()
 {
-  if (m_auto_refresh_run.load(std::memory_order_relaxed))
+  if (m_idle_run.load(std::memory_order_relaxed))
   {
-    m_auto_refresh_run.store(false, std::memory_order_relaxed);
+    m_idle_run.store(false, std::memory_order_relaxed);
     m_wallet->stop();
     {
-      boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex);
-      m_auto_refresh_cond.notify_one();
+      boost::unique_lock<boost::mutex> lock(m_idle_mutex);
+      m_idle_cond.notify_one();
     }
-    m_auto_refresh_thread.join();
+    m_idle_thread.join();
   }
 
   bool r = m_wallet->deinit();
@@ -1749,7 +1742,7 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 {
   try
   {
-    LOCK_REFRESH_THREAD_SCOPE();
+    LOCK_IDLE_SCOPE();
     m_wallet->store();
     success_msg_writer() << tr("Wallet data saved");
   }
@@ -1918,7 +1911,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset)
   if (!try_connect_to_daemon())
     return true;
 
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
 
   if (reset)
     m_wallet->rescan_blockchain(false);
@@ -2006,14 +1999,14 @@ bool simple_wallet::show_balance_unlocked()
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_balance(const std::vector<std::string>& args/* = std::vector<std::string>()*/)
 {
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
   show_balance_unlocked();
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args)
 {
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
 
   bool filter = false;
   bool available = false;
@@ -2080,7 +2073,7 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
     return true;
   }
 
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
 
   message_writer() << boost::format("%68s%68s%12s%21s%16s") %
     tr("payment") % tr("transaction") % tr("height") % tr("amount") % tr("unlock time");
@@ -2159,7 +2152,7 @@ bool simple_wallet::rescan_spent(const std::vector<std::string> &args)
 
   try
   {
-    LOCK_REFRESH_THREAD_SCOPE();
+    LOCK_IDLE_SCOPE();
     m_wallet->rescan_spent();
   }
   catch (const tools::error::daemon_busy&)
@@ -2268,7 +2261,7 @@ bool simple_wallet::transfer_main(bool new_algorithm, const std::vector<std::str
   if (!try_connect_to_daemon())
     return true;
 
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
 
   std::vector<std::string> local_args = args_;
 
@@ -2540,7 +2533,7 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
      return true;
   }
 
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
   try
   {
     // figure out what tx will be necessary
@@ -2930,7 +2923,7 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   }
   crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
 
   crypto::secret_key tx_key;
   bool r = m_wallet->get_tx_key(txid, tx_key);
@@ -2966,7 +2959,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   }
   crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
 
   cryptonote::blobdata tx_key_data;
   if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[1], tx_key_data))
@@ -3094,7 +3087,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     return true;
   }
 
-  LOCK_REFRESH_THREAD_SCOPE();
+  LOCK_IDLE_SCOPE();
   
   // optional in/out selector
   if (local_args.size() > 0) {
@@ -3239,25 +3232,31 @@ bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
   return refresh_main(0, true);
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::wallet_refresh_thread()
+void simple_wallet::wallet_idle_thread()
 {
   while (true)
   {
-    boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex);
-    if (!m_auto_refresh_run.load(std::memory_order_relaxed))
+    boost::unique_lock<boost::mutex> lock(m_idle_mutex);
+    if (!m_idle_run.load(std::memory_order_relaxed))
       break;
-    m_auto_refresh_refreshing = true;
-    try
+
+    // auto refresh
+    if (m_auto_refresh_enabled)
     {
-      uint64_t fetched_blocks;
-      if (try_connect_to_daemon(true))
-        m_wallet->refresh(0, fetched_blocks);
+      m_auto_refresh_refreshing = true;
+      try
+      {
+        uint64_t fetched_blocks;
+        if (try_connect_to_daemon(true))
+          m_wallet->refresh(0, fetched_blocks);
+      }
+      catch(...) {}
+      m_auto_refresh_refreshing = false;
     }
-    catch(...) {}
-    m_auto_refresh_refreshing = false;
-    if (!m_auto_refresh_run.load(std::memory_order_relaxed))
+
+    if (!m_idle_run.load(std::memory_order_relaxed))
       break;
-    m_auto_refresh_cond.wait_for(lock, boost::chrono::seconds(90));
+    m_idle_cond.wait_for(lock, boost::chrono::seconds(90));
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -3268,16 +3267,10 @@ bool simple_wallet::run()
 
   refresh_main(0, false);
 
+  m_auto_refresh_enabled = m_wallet->auto_refresh();
+  m_idle_thread = boost::thread([&]{wallet_idle_thread();});
+
   std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
-  m_auto_refresh_run = m_wallet->auto_refresh();
-  if (m_auto_refresh_run)
-  {
-    m_auto_refresh_thread = boost::thread([&]{wallet_refresh_thread();});
-  }
-  else
-  {
-    refresh(std::vector<std::string>());
-  }
   message_writer(epee::log_space::console_color_green, false) << "Background refresh thread started";
   return m_cmd_binder.run_handling(std::string("[") + tr("wallet") + " " + addr_start + "]: ", "");
 }
@@ -3286,11 +3279,11 @@ void simple_wallet::stop()
 {
   m_cmd_binder.stop_handling();
 
-  m_auto_refresh_run.store(false, std::memory_order_relaxed);
+  m_idle_run.store(false, std::memory_order_relaxed);
   m_wallet->stop();
   // make the background refresh thread quit
-  boost::unique_lock<boost::mutex> lock(m_auto_refresh_mutex);
-  m_auto_refresh_cond.notify_one();
+  boost::unique_lock<boost::mutex> lock(m_idle_mutex);
+  m_idle_cond.notify_one();
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)

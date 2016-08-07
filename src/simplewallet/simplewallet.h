@@ -79,7 +79,7 @@ namespace cryptonote
 
     bool run_console_handler();
 
-    void wallet_refresh_thread();
+    void wallet_idle_thread();
 
     bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, bool testnet, const std::string &old_language);
@@ -255,11 +255,13 @@ namespace cryptonote
     epee::net_utils::http::http_simple_client m_http_client;
     refresh_progress_reporter_t m_refresh_progress_reporter;
 
-    std::atomic<bool> m_auto_refresh_run;
+    std::atomic<bool> m_idle_run;
+    boost::thread m_idle_thread;
+    boost::mutex m_idle_mutex;
+    boost::condition_variable m_idle_cond;
+
+    std::atomic<bool> m_auto_refresh_enabled;
     bool m_auto_refresh_refreshing;
-    boost::thread m_auto_refresh_thread;
-    boost::mutex m_auto_refresh_mutex;
-    boost::condition_variable m_auto_refresh_cond;
     std::atomic<bool> m_in_manual_refresh;
   };
 }
