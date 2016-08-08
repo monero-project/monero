@@ -591,7 +591,7 @@ TEST(Serialization, serializes_ringct_types)
 
   ASSERT_TRUE(serialization::dump_binary(s0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, s1));
-  ASSERT_TRUE(s0.simple == s1.simple);
+  ASSERT_TRUE(s0.type == s1.type);
   ASSERT_TRUE(s0.rangeSigs.size() == s1.rangeSigs.size());
   for (size_t n = 0; n < s0.rangeSigs.size(); ++n)
   {

@@ -173,8 +173,12 @@ namespace rct {
     // ecdhInfo holds an encoded mask / amount to be passed to each receiver
     // outPk contains public keypairs which are destinations (P, C),
     //  P = address, C = commitment to amount
+    enum {
+      RCTTypeFull = 0,
+      RCTTypeSimple = 1,
+    };
     struct rctSig {
-        bool simple;
+        uint8_t type;
         key message;
         vector<rangeSig> rangeSigs;
         mgSig MG; // for non simple rct
@@ -187,15 +191,15 @@ namespace rct {
         xmr_amount txnFee; // contains b
 
         BEGIN_SERIALIZE_OBJECT()
-            FIELD(simple)
+            FIELD(type)
             // FIELD(message) - not serialized, it can be reconstructed
             FIELD(rangeSigs)
-            if (simple)
+            if (type == RCTTypeSimple)
               FIELD(MGs)
             else
               FIELD(MG)
             // FIELD(mixRing) - not serialized, it can be reconstructed
-            if (simple)
+            if (type == RCTTypeSimple)
               FIELD(pseudoOuts)
             FIELD(ecdhInfo)
             if (typename Archive<W>::is_saving()) {

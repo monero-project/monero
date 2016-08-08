@@ -563,7 +563,7 @@ namespace rct {
         }
 
         rctSig rv;
-        rv.simple = false;
+        rv.type = RCTTypeFull;
         rv.outPk.resize(destinations.size());
         rv.rangeSigs.resize(destinations.size());
         rv.ecdhInfo.resize(destinations.size());
@@ -625,7 +625,7 @@ namespace rct {
         }
 
         rctSig rv;
-        rv.simple = true;
+        rv.type = RCTTypeSimple;
         rv.message = message;
         rv.outPk.resize(destinations.size());
         rv.rangeSigs.resize(destinations.size());
@@ -700,7 +700,7 @@ namespace rct {
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const ctkeyV &outPk, const key &message) {
-        CHECK_AND_ASSERT_MES(!rv.simple, false, "verRct called on simple rctSig");
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "verRct called on non-full rctSig");
         CHECK_AND_ASSERT_MES(outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.rangeSigs");
         CHECK_AND_ASSERT_MES(outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
 
@@ -739,7 +739,7 @@ namespace rct {
         size_t i = 0;
         bool rvb = true;
         
-        CHECK_AND_ASSERT_MES(rv.simple, false, "verRctSimple called on non simple rctSig");
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
         CHECK_AND_ASSERT_MES(outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.rangeSigs");
         CHECK_AND_ASSERT_MES(outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.MGs");
@@ -803,7 +803,7 @@ namespace rct {
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     static xmr_amount decodeRctMain(const rctSig & rv, const key & sk, unsigned int i, key & mask, void (*decode)(ecdhTuple&, const key&)) {
-        CHECK_AND_ASSERT_MES(!rv.simple, false, "decodeRct called on simple rctSig");
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "decodeRct called on non-full rctSig");
         CHECK_AND_ASSERT_THROW_MES(rv.rangeSigs.size() > 0, "Empty rv.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
@@ -840,7 +840,7 @@ namespace rct {
     }
 
     static xmr_amount decodeRctSimpleMain(const rctSig & rv, const key & sk, unsigned int i, key &mask, void (*decode)(ecdhTuple &ecdh, const key&)) {
-        CHECK_AND_ASSERT_MES(rv.simple, false, "decodeRct called on non simple rctSig");
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "decodeRct called on non simple rctSig");
         CHECK_AND_ASSERT_THROW_MES(rv.rangeSigs.size() > 0, "Empty rv.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");

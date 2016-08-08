@@ -211,10 +211,16 @@ static uint64_t decodeRct(const rct::rctSig & rv, const rct::key & sk, unsigned 
 {
   try
   {
-    if (rv.simple)
+    switch (rv.type)
+    {
+    case rct::RCTTypeSimple:
       return rct::decodeRctSimpleFromSharedSecret(rv, sk, i, mask);
-    else
+    case rct::RCTTypeFull:
       return rct::decodeRctFromSharedSecret(rv, sk, i, mask);
+    default:
+      LOG_ERROR("Unsupported rct type: " << rv.type);
+      return 0;
+    }
   }
   catch (const std::exception &e)
   {

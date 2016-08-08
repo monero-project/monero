@@ -126,7 +126,7 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     for (size_t o = 0; o < 4; ++o)
     {
       rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(tx_pub_key), rct::sk2rct(miner_accounts[n].get_keys().m_view_secret_key)));
-      if (rct_txes[n].rct_signatures.simple)
+      if (rct_txes[n].rct_signatures.type == rct::RCTTypeSimple)
         rct::decodeRctSimpleFromSharedSecret(rct_txes[n].rct_signatures, amount_key, o, rct_tx_masks[o+n*4]);
       else
         rct::decodeRctFromSharedSecret(rct_txes[n].rct_signatures, amount_key, o, rct_tx_masks[o+n*4]);

@@ -248,15 +248,17 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, rct::rctSig &x, const boost::serialization::version_type ver)
   {
-    a & x.simple;
+    a & x.type;
+    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple)
+      throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported rct type");
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data
     a & x.rangeSigs;
-    if (x.simple)
+    if (x.type == rct::RCTTypeSimple)
       a & x.MGs;
-    else
+    if (x.type == rct::RCTTypeFull)
       a & x.MG;
     // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
-    if (x.simple)
+    if (x.type == rct::RCTTypeSimple)
       a & x.pseudoOuts;
     a & x.ecdhInfo;
     serializeOutPk(a, x.outPk, ver);
