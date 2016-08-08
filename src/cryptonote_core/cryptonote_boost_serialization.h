@@ -209,19 +209,12 @@ namespace boost
     a & x.s;
   }
 
-  inline void serialize(boost::archive::binary_iarchive &a, rct::mgSig &x, const boost::serialization::version_type ver)
+  template <class Archive>
+  inline void serialize(Archive &a, rct::mgSig &x, const boost::serialization::version_type ver)
   {
     a & x.ss;
     a & x.cc;
-    x.II.resize(1);
-    a & x.II[0];
-  }
-
-  inline void serialize(boost::archive::binary_oarchive &a, rct::mgSig &x, const boost::serialization::version_type ver)
-  {
-    a & x.ss;
-    a & x.cc;
-    a & x.II.back();
+    // a & x.II; // not serialized, we can recover it from the tx vin
   }
 
   template <class Archive>

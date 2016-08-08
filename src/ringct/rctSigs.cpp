@@ -148,7 +148,7 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly        
-    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index) {
+    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows) {
         mgSig rv;
         size_t cols = pk.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 2, "Error! What is c if cols = 1!");
@@ -159,20 +159,21 @@ namespace rct {
           CHECK_AND_ASSERT_THROW_MES(pk[i].size() == rows, "pk is not rectangular");
         }
         CHECK_AND_ASSERT_THROW_MES(xx.size() == rows, "Bad xx size");
+        CHECK_AND_ASSERT_THROW_MES(dsRows <= rows, "Bad dsRows size");
 
-        size_t i = 0, j = 0;
+        size_t i = 0, j = 0, ii = 0;
         key c, c_old, L, R, Hi;
         sc_0(c_old.bytes);
-        vector<geDsmp> Ip(rows);
-        rv.II = keyV(rows);
-        rv.ss = keyM(cols, rv.II);
+        vector<geDsmp> Ip(dsRows);
+        rv.II = keyV(dsRows);
         keyV alpha(rows);
         keyV aG(rows);
-        keyV aHP(rows);
-        keyV toHash(1 + 3 * rows);
+        rv.ss = keyM(cols, aG);
+        keyV aHP(dsRows);
+        keyV toHash(1 + 3 * dsRows + 2 * (rows - dsRows));
         toHash[0] = message;
         DP("here1");
-        for (i = 0; i < rows; i++) {
+        for (i = 0; i < dsRows; i++) {
             skpkGen(alpha[i], aG[i]); //need to save alphas for later..
             Hi = hashToPoint(pk[index][i]);
             aHP[i] = scalarmultKey(Hi, alpha[i]);
@@ -182,6 +183,13 @@ namespace rct {
             rv.II[i] = scalarmultKey(Hi, xx[i]);
             precomp(Ip[i].k, rv.II[i]);
         }
+        size_t ndsRows = 3 * dsRows; //non Double Spendable Rows (see identity chains paper)
+        for (i = dsRows, ii = 0 ; i < rows ; i++, ii++) {
+            skpkGen(alpha[i], aG[i]); //need to save alphas for later..
+            toHash[ndsRows + 2 * ii + 1] = pk[index][i];
+            toHash[ndsRows + 2 * ii + 2] = aG[i];
+        }
+
         c_old = hash_to_scalar(toHash);
 
         
@@ -193,13 +201,18 @@ namespace rct {
 
             rv.ss[i] = skvGen(rows);            
             sc_0(c.bytes);
-            for (j = 0; j < rows; j++) {
+            for (j = 0; j < dsRows; j++) {
                 addKeys2(L, rv.ss[i][j], c_old, pk[i][j]);
                 hashToPoint(Hi, pk[i][j]);
                 addKeys3(R, rv.ss[i][j], Hi, c_old, Ip[j].k);
                 toHash[3 * j + 1] = pk[i][j];
                 toHash[3 * j + 2] = L; 
                 toHash[3 * j + 3] = R;
+            }
+            for (j = dsRows, ii = 0; j < rows; j++, ii++) {
+                addKeys2(L, rv.ss[i][j], c_old, pk[i][j]);
+                toHash[ndsRows + 2 * ii + 1] = pk[i][j];
+                toHash[ndsRows + 2 * ii + 2] = L;
             }
             c = hash_to_scalar(toHash);
             copy(c_old, c);
@@ -224,7 +237,7 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly            
-    bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv, const keyV &II) {
+    bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv, const keyV &II, size_t dsRows) {
 
         size_t cols = pk.size();
         CHECK_AND_ASSERT_MES(cols >= 2, false, "Error! What is c if cols = 1!");
@@ -233,31 +246,38 @@ namespace rct {
         for (size_t i = 1; i < cols; ++i) {
           CHECK_AND_ASSERT_MES(pk[i].size() == rows, false, "pk is not rectangular");
         }
-        CHECK_AND_ASSERT_MES(II.size() == rows, false, "Bad II size");
+        CHECK_AND_ASSERT_MES(II.size() == dsRows, false, "Bad II size");
         CHECK_AND_ASSERT_MES(rv.ss.size() == cols, false, "Bad rv.ss size");
         for (size_t i = 0; i < cols; ++i) {
           CHECK_AND_ASSERT_MES(rv.ss[i].size() == rows, false, "rv.ss is not rectangular");
         }
+        CHECK_AND_ASSERT_MES(dsRows <= rows, false, "Bad dsRows value");
 
-        size_t i = 0, j = 0;
+        size_t i = 0, j = 0, ii = 0;
         key c,  L, R, Hi;
         key c_old = copy(rv.cc);
-        vector<geDsmp> Ip(rows);
-        for (i= 0 ; i< rows ; i++) {
+        vector<geDsmp> Ip(dsRows);
+        for (i = 0 ; i < dsRows ; i++) {
             precomp(Ip[i].k, II[i]);
         }
-        keyV toHash(1 + 3 * rows);
+        size_t ndsRows = 3 * dsRows; //non Double Spendable Rows (see identity chains paper
+        keyV toHash(1 + 3 * dsRows + 2 * (rows - dsRows));
         toHash[0] = message;
         i = 0;
         while (i < cols) {
             sc_0(c.bytes);
-            for (j = 0; j < rows; j++) {
+            for (j = 0; j < dsRows; j++) {
                 addKeys2(L, rv.ss[i][j], c_old, pk[i][j]);
                 hashToPoint(Hi, pk[i][j]);
                 addKeys3(R, rv.ss[i][j], Hi, c_old, Ip[j].k);
                 toHash[3 * j + 1] = pk[i][j];
                 toHash[3 * j + 2] = L; 
                 toHash[3 * j + 3] = R;
+            }
+            for (j = dsRows, ii = 0 ; j < rows ; j++, ii++) {
+                addKeys2(L, rv.ss[i][j], c_old, pk[i][j]);
+                toHash[ndsRows + 2 * ii + 1] = pk[i][j];
+                toHash[ndsRows + 2 * ii + 2] = L;
             }
             c = hash_to_scalar(toHash);
             copy(c_old, c);
@@ -376,7 +396,7 @@ namespace rct {
         ctkeyV signed_data = outPk;
         signed_data.push_back(ctkey({message, identity()}));
         key msg = cn_fast_hash(signed_data);
-        return MLSAG_Gen(msg, M, sk, index);
+        return MLSAG_Gen(msg, M, sk, index, rows);
     }
 
 
@@ -403,7 +423,7 @@ namespace rct {
             sk[0] = copy(inSk.dest);
             sc_sub(sk[1].bytes, inSk.mask.bytes, a.bytes);  
         }
-        return MLSAG_Gen(message, M, sk, index);
+        return MLSAG_Gen(message, M, sk, index, rows);
     }
 
 
@@ -451,7 +471,7 @@ namespace rct {
         key msg = cn_fast_hash(signed_data);
         DP("message:");
         DP(msg);
-        return MLSAG_Ver(msg, M, mg, II);
+        return MLSAG_Ver(msg, M, mg, II, rows);
     }
 
     //Ring-ct Simple MG sigs
@@ -472,7 +492,7 @@ namespace rct {
                     subKeys(M[i][1], pubs[i].mask, C);
             }
             //DP(C);
-            return MLSAG_Ver(message, M, mg, II);
+            return MLSAG_Ver(message, M, mg, II, rows);
     }
 
     //These functions get keys from blockchain
@@ -729,7 +749,7 @@ namespace rct {
         {
           for (size_t n = 0; n < II->size(); ++n)
           {
-            CHECK_AND_ASSERT_MES((*II)[n].size() == 2, false, "Bad II size");
+            CHECK_AND_ASSERT_MES((*II)[n].size() == 1, false, "Bad II size");
           }
         }
 

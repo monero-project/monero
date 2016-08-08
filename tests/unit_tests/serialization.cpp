@@ -582,8 +582,7 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_TRUE(mg0.cc == mg1.cc);
 
   // mixRing and II are not serialized, they are meant to be reconstructed
-  ASSERT_TRUE(mg1.II.size() == 1);
-  ASSERT_TRUE(mg1.II[0] == mg0.II.back());
+  ASSERT_TRUE(mg1.II.empty());
 
   rg0 = s0.rangeSigs.front();
   ASSERT_TRUE(serialization::dump_binary(rg0, blob));
@@ -605,8 +604,7 @@ TEST(Serialization, serializes_ringct_types)
   }
   ASSERT_TRUE(s0.MG.cc == s1.MG.cc);
   // mixRing and II are not serialized, they are meant to be reconstructed
-  ASSERT_TRUE(s1.MG.II.size() == 1);
-  ASSERT_TRUE(s1.MG.II[0] == s0.MG.II.back());
+  ASSERT_TRUE(s1.MGs[0].II.empty());
 
   // mixRing and II are not serialized, they are meant to be reconstructed
   ASSERT_TRUE(s1.mixRing.size() == 0);

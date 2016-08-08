@@ -2475,12 +2475,12 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
       const rct::ctkeyM &mixRing = tx.rct_signatures.mixRing.empty() ? reconstructed_mixRing : tx.rct_signatures.mixRing;
       // always do II, because it's split in the simple version, and always do outPk
 
-      // all MGs should have the same II size (1)
+      // all MGs should have empty II
       for (size_t n = 0; n < tx.rct_signatures.MGs.size(); ++n)
       {
-        if (tx.rct_signatures.MGs[n].II.size() != 1)
+        if (tx.rct_signatures.MGs[n].II.size() != 0)
         {
-          LOG_PRINT_L1("Failed to check ringct signatures: mismatched MGs II sizes");
+          LOG_PRINT_L1("Failed to check ringct signatures: non empty MGs II");
           return false;
         }
       }
@@ -2489,7 +2489,6 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
       for (size_t n = 0; n < tx.vin.size(); ++n)
       {
         reconstructed_II[n].push_back(rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image));
-        reconstructed_II[n].push_back(tx.rct_signatures.MGs[n].II[0]);
       }
 
       if (tx.rct_signatures.outPk.size() != tx.vout.size())
@@ -2579,7 +2578,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
       // if the tx already has a non empty mixRing and/or II, use them,
       // else reconstruct them. Always do outPk.
       const rct::ctkeyM &mixRing = tx.rct_signatures.mixRing.empty() ? reconstructed_mixRing : tx.rct_signatures.mixRing;
-      const rct::keyV &II = tx.rct_signatures.MG.II.size() == 1 ? reconstructed_II : tx.rct_signatures.MG.II;
+      const rct::keyV &II = tx.rct_signatures.MG.II.empty() ? reconstructed_II : tx.rct_signatures.MG.II;
       const rct::ctkeyV outPk = reconstructed_outPk;
 
       // RCT needs the same mixin for all inputs
@@ -2604,14 +2603,13 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
         }
       }
 
-      if (tx.rct_signatures.MG.II.size() == 1)
+      if (tx.rct_signatures.MG.II.empty())
       {
         reconstructed_II.resize(tx.vin.size());
         for (size_t n = 0; n < tx.vin.size(); ++n)
         {
           reconstructed_II[n] = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
         }
-        reconstructed_II.push_back(tx.rct_signatures.MG.II.back());
       }
 
       if (tx.rct_signatures.outPk.size() != tx.vout.size())
@@ -2657,7 +2655,7 @@ bool Blockchain::check_tx_inputs(const transaction& tx, tx_verification_context 
         }
       }
 
-      if (II.size() != 1 + tx.vin.size())
+      if (II.size() != tx.vin.size())
       {
         LOG_PRINT_L1("Failed to check ringct signatures: mismatched II/vin sizes");
         return false;

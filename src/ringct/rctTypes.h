@@ -148,16 +148,7 @@ namespace rct {
         BEGIN_SERIALIZE_OBJECT()
             FIELD(ss)
             FIELD(cc)
-            if (II.size() == 0) {
-              // loading
-              FIELD(II)
-            }
-            else {
-              // saving
-              keyV II;
-              II.push_back(this->II.back());
-              FIELD(II)
-            }
+            // FIELD(II) - not serialized, it can be reconstructed
         END_SERIALIZE()
     };
     //contains the data for an asnl sig
