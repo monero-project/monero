@@ -243,6 +243,7 @@ namespace cryptonote
     bool m_non_deterministic;  // old 2-random generation
     bool m_trusted_daemon;
     bool m_allow_mismatched_daemon_version;
+    bool m_restoring;           // are we restoring, by whatever method?
     uint64_t m_restore_height;  // optional
 
     std::string m_daemon_address;
