@@ -101,7 +101,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
     //TODO: validate tx
 
-    crypto::cn_fast_hash(tx_blob.data(), tx_blob.size(), tx_hash);
+    get_transaction_hash(tx, tx_hash);
     get_transaction_prefix_hash(tx, tx_prefix_hash);
     return true;
   }
@@ -905,20 +905,49 @@ namespace cryptonote
   crypto::hash get_transaction_hash(const transaction& t)
   {
     crypto::hash h = null_hash;
-    size_t blob_size = 0;
-    get_object_hash(t, h, blob_size);
+    get_transaction_hash(t, h, NULL);
     return h;
   }
   //---------------------------------------------------------------
   bool get_transaction_hash(const transaction& t, crypto::hash& res)
   {
-    size_t blob_size = 0;
-    return get_object_hash(t, res, blob_size);
+    return get_transaction_hash(t, res, NULL);
+  }
+  //---------------------------------------------------------------
+  bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
+  {
+    // v1 transactions hash the entire blob
+    if (t.version == 1)
+    {
+      size_t ignored_blob_size, &blob_size_ref = blob_size ? *blob_size : ignored_blob_size;
+      return get_object_hash(t, res, blob_size_ref);
+    }
+
+    // v2 transactions hash different parts together, than hash the set of those hashes
+    crypto::hash hashes[3];
+
+    // prefix
+    get_transaction_prefix_hash(t, hashes[0]);
+
+    // base rct data
+    get_blob_hash(t_serializable_object_to_blob((const rct::rctSigBase&)t.rct_signatures), hashes[1]);
+
+    // prunable rct data
+    get_blob_hash(t_serializable_object_to_blob(t.rct_signatures.p), hashes[2]);
+
+    // the tx hash is the hash of the 3 hashes
+    res = cn_fast_hash(hashes, sizeof(hashes));
+
+    // we still need the size
+    if (blob_size)
+      *blob_size = get_object_blobsize(t);
+
+    return true;
   }
   //---------------------------------------------------------------
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t& blob_size)
   {
-    return get_object_hash(t, res, blob_size);
+    return get_transaction_hash(t, res, &blob_size);
   }
   //---------------------------------------------------------------
   blobdata get_block_hashing_blob(const block& b)

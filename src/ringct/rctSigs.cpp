@@ -346,7 +346,7 @@ namespace rct {
       keyV kv;
       kv.push_back(d2h(rv.type));
       kv.push_back(rv.message);
-      for (auto r: rv.rangeSigs)
+      for (auto r: rv.p.rangeSigs)
       {
         for (size_t n = 0; n < 64; ++n)
           kv.push_back(r.asig.L1[n]);
@@ -593,8 +593,9 @@ namespace rct {
 
         rctSig rv;
         rv.type = RCTTypeFull;
+        rv.message = message;
         rv.outPk.resize(destinations.size());
-        rv.rangeSigs.resize(destinations.size());
+        rv.p.rangeSigs.resize(destinations.size());
         rv.ecdhInfo.resize(destinations.size());
 
         size_t i = 0;
@@ -604,9 +605,9 @@ namespace rct {
             //add destination to sig
             rv.outPk[i].dest = copy(destinations[i]);
             //compute range proof
-            rv.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, amounts[i]);
+            rv.p.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, amounts[i]);
             #ifdef DBG
-                CHECK_AND_ASSERT_THROW_MES(verRange(rv.outPk[i].mask, rv.rangeSigs[i]), "verRange failed on newly created proof");
+                CHECK_AND_ASSERT_THROW_MES(verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]), "verRange failed on newly created proof");
             #endif
 
             //mask amount and mask
@@ -628,7 +629,7 @@ namespace rct {
         key txnFeeKey = scalarmultH(d2h(rv.txnFee));
 
         rv.mixRing = mixRing;
-        rv.MG = proveRctMG(get_pre_mlsag_hash(rv), rv.mixRing, inSk, outSk, rv.outPk, index, txnFeeKey);
+        rv.p.MGs.push_back(proveRctMG(get_pre_mlsag_hash(rv), rv.mixRing, inSk, outSk, rv.outPk, index, txnFeeKey));
         return rv;
     }
 
@@ -654,8 +655,9 @@ namespace rct {
 
         rctSig rv;
         rv.type = RCTTypeSimple;
+        rv.message = message;
         rv.outPk.resize(destinations.size());
-        rv.rangeSigs.resize(destinations.size());
+        rv.p.rangeSigs.resize(destinations.size());
         rv.ecdhInfo.resize(destinations.size());
 
         size_t i;
@@ -667,9 +669,9 @@ namespace rct {
             //add destination to sig
             rv.outPk[i].dest = copy(destinations[i]);
             //compute range proof
-            rv.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, outamounts[i]);
+            rv.p.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, outamounts[i]);
          #ifdef DBG
-             verRange(rv.outPk[i].mask, rv.rangeSigs[i]);
+             verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
          #endif
          
             sc_add(sumout.bytes, outSk[i].mask.bytes, sumout.bytes);
@@ -686,7 +688,7 @@ namespace rct {
 //        key txnFeeKey = scalarmultH(d2h(rv.txnFee));
         rv.mixRing = mixRing;
         rv.pseudoOuts.resize(inamounts.size());
-        rv.MGs.resize(inamounts.size());
+        rv.p.MGs.resize(inamounts.size());
         key sumpouts = zero(); //sum pseudoOut masks
         keyV a(inamounts.size());
         for (i = 0 ; i < inamounts.size() - 1; i++) {
@@ -701,7 +703,7 @@ namespace rct {
 
         key full_message = get_pre_mlsag_hash(rv);
         for (i = 0 ; i < inamounts.size(); i++) {
-            rv.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], rv.pseudoOuts[i], index[i]);
+            rv.p.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], rv.pseudoOuts[i], index[i]);
         }
         return rv;
     }
@@ -731,8 +733,9 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number    
     bool verRct(const rctSig & rv) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "verRct called on non-full rctSig");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
+        CHECK_AND_ASSERT_MES(rv.p.MGs.size() == 1, false, "full rctSig has not one MG");
 
         // some rct ops can throw
         try
@@ -742,13 +745,13 @@ namespace rct {
           bool tmp;
           DP("range proofs verified?");
           for (i = 0; i < rv.outPk.size(); i++) {
-              tmp = verRange(rv.outPk[i].mask, rv.rangeSigs[i]);
+              tmp = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
               DP(tmp);
               rvb = (rvb && tmp);
           }
           //compute txn fee
           key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-          bool mgVerd = verRctMG(rv.MG, rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
+          bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
           DP("mg sig verified?");
           DP(mgVerd);
 
@@ -767,14 +770,14 @@ namespace rct {
         bool rvb = true;
 
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
-        CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.MGs");
+        CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
 
         key sumOutpks = identity();
         for (i = 0; i < rv.outPk.size(); i++) {
-            if (!verRange(rv.outPk[i].mask, rv.rangeSigs[i])) {
+            if (!verRange(rv.outPk[i].mask, rv.p.rangeSigs[i])) {
                 return false;
             }
             addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
@@ -787,7 +790,7 @@ namespace rct {
         key message = get_pre_mlsag_hash(rv);
         key sumPseudoOuts = identity();
         for (i = 0 ; i < rv.mixRing.size() ; i++) {
-            tmpb = verRctMGSimple(message, rv.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
+            tmpb = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
             addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
             DP(tmpb);
             if (!tmpb) {
@@ -820,8 +823,8 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number    
     static xmr_amount decodeRctMain(const rctSig & rv, const key & sk, unsigned int i, key & mask, void (*decode)(ecdhTuple&, const key&)) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "decodeRct called on non-full rctSig");
-        CHECK_AND_ASSERT_THROW_MES(rv.rangeSigs.size() > 0, "Empty rv.rangeSigs");
-        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.p.rangeSigs.size() > 0, "Empty rv.p.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.p.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.p.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
 
         //mask amount and mask
@@ -857,8 +860,8 @@ namespace rct {
 
     static xmr_amount decodeRctSimpleMain(const rctSig & rv, const key & sk, unsigned int i, key &mask, void (*decode)(ecdhTuple &ecdh, const key&)) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "decodeRct called on non simple rctSig");
-        CHECK_AND_ASSERT_THROW_MES(rv.rangeSigs.size() > 0, "Empty rv.rangeSigs");
-        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.p.rangeSigs.size() > 0, "Empty rv.p.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.p.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.p.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
 
         //mask amount and mask

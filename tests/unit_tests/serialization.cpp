@@ -571,7 +571,7 @@ TEST(Serialization, serializes_ringct_types)
   //compute rct data with mixin 500
   s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);
 
-  mg0 = s0.MG;
+  mg0 = s0.p.MGs[0];
   ASSERT_TRUE(serialization::dump_binary(mg0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, mg1));
   ASSERT_TRUE(mg0.ss.size() == mg1.ss.size());
@@ -584,7 +584,7 @@ TEST(Serialization, serializes_ringct_types)
   // mixRing and II are not serialized, they are meant to be reconstructed
   ASSERT_TRUE(mg1.II.empty());
 
-  rg0 = s0.rangeSigs.front();
+  rg0 = s0.p.rangeSigs.front();
   ASSERT_TRUE(serialization::dump_binary(rg0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, rg1));
   ASSERT_TRUE(!memcmp(&rg0, &rg1, sizeof(rg0)));
@@ -592,19 +592,20 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_TRUE(serialization::dump_binary(s0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, s1));
   ASSERT_TRUE(s0.type == s1.type);
-  ASSERT_TRUE(s0.rangeSigs.size() == s1.rangeSigs.size());
-  for (size_t n = 0; n < s0.rangeSigs.size(); ++n)
+  ASSERT_TRUE(s0.p.rangeSigs.size() == s1.p.rangeSigs.size());
+  for (size_t n = 0; n < s0.p.rangeSigs.size(); ++n)
   {
-    ASSERT_TRUE(!memcmp(&s0.rangeSigs[n], &s1.rangeSigs[n], sizeof(s0.rangeSigs[n])));
+    ASSERT_TRUE(!memcmp(&s0.p.rangeSigs[n], &s1.p.rangeSigs[n], sizeof(s0.p.rangeSigs[n])));
   }
-  ASSERT_TRUE(s0.MG.ss.size() == s1.MG.ss.size());
-  for (size_t n = 0; n < s0.MG.ss.size(); ++n)
+  ASSERT_TRUE(s0.p.MGs.size() == s1.p.MGs.size());
+  ASSERT_TRUE(s0.p.MGs[0].ss.size() == s1.p.MGs[0].ss.size());
+  for (size_t n = 0; n < s0.p.MGs[0].ss.size(); ++n)
   {
-    ASSERT_TRUE(s0.MG.ss[n] == s1.MG.ss[n]);
+    ASSERT_TRUE(s0.p.MGs[0].ss[n] == s1.p.MGs[0].ss[n]);
   }
-  ASSERT_TRUE(s0.MG.cc == s1.MG.cc);
+  ASSERT_TRUE(s0.p.MGs[0].cc == s1.p.MGs[0].cc);
   // mixRing and II are not serialized, they are meant to be reconstructed
-  ASSERT_TRUE(s1.MGs[0].II.empty());
+  ASSERT_TRUE(s1.p.MGs[0].II.empty());
 
   // mixRing and II are not serialized, they are meant to be reconstructed
   ASSERT_TRUE(s1.mixRing.size() == 0);
@@ -631,10 +632,10 @@ TEST(Serialization, serializes_ringct_types)
   tx0.vin.push_back(txin_to_key2);
   tx0.vout.push_back(cryptonote::tx_out());
   tx0.rct_signatures = s0;
-  ASSERT_EQ(tx0.rct_signatures.rangeSigs.size(), 2);
+  ASSERT_EQ(tx0.rct_signatures.p.rangeSigs.size(), 2);
   ASSERT_TRUE(serialization::dump_binary(tx0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, tx1));
-  ASSERT_EQ(tx1.rct_signatures.rangeSigs.size(), 2);
+  ASSERT_EQ(tx1.rct_signatures.p.rangeSigs.size(), 2);
   std::string blob2;
   ASSERT_TRUE(serialization::dump_binary(tx1, blob2));
   ASSERT_TRUE(blob == blob2);

@@ -2279,17 +2279,18 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
   // II
   if (rv.type == rct::RCTTypeFull)
   {
-    rv.MG.II.resize(tx.vin.size());
+    rv.p.MGs.resize(1);
+    rv.p.MGs[0].II.resize(tx.vin.size());
     for (size_t n = 0; n < tx.vin.size(); ++n)
-      rv.MG.II[n] = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
+      rv.p.MGs[0].II[n] = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
   }
   else if (rv.type == rct::RCTTypeSimple)
   {
-    CHECK_AND_ASSERT_MES(rv.MGs.size() == tx.vin.size(), false, "Bad MGs size");
+    CHECK_AND_ASSERT_MES(rv.p.MGs.size() == tx.vin.size(), false, "Bad MGs size");
     for (size_t n = 0; n < tx.vin.size(); ++n)
     {
-      rv.MGs[n].II.resize(1);
-      rv.MGs[n].II[0] = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
+      rv.p.MGs[n].II.resize(1);
+      rv.p.MGs[n].II[0] = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
     }
   }
   else
@@ -2577,14 +2578,14 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
       }
 
-      if (rv.MGs.size() != tx.vin.size())
+      if (rv.p.MGs.size() != tx.vin.size())
       {
         LOG_PRINT_L1("Failed to check ringct signatures: mismatched MGs/vin sizes");
         return false;
       }
       for (size_t n = 0; n < tx.vin.size(); ++n)
       {
-        if (memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.MGs[n].II[0], 32))
+        if (memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.p.MGs[n].II[0], 32))
         {
           LOG_PRINT_L1("Failed to check ringct signatures: mismatched key image");
           return false;
@@ -2630,14 +2631,19 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
       }
 
-      if (rv.MG.II.size() != tx.vin.size())
+      if (rv.p.MGs.size() != 1)
+      {
+        LOG_PRINT_L1("Failed to check ringct signatures: Bad MGs size");
+        return false;
+      }
+      if (rv.p.MGs[0].II.size() != tx.vin.size())
       {
         LOG_PRINT_L1("Failed to check ringct signatures: mismatched II/vin sizes");
         return false;
       }
       for (size_t n = 0; n < tx.vin.size(); ++n)
       {
-        if (memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.MG.II[n], 32))
+        if (memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.p.MGs[0].II[n], 32))
         {
           LOG_PRINT_L1("Failed to check ringct signatures: mismatched II/vin sizes");
           return false;

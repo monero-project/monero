@@ -177,12 +177,9 @@ namespace rct {
       RCTTypeFull = 0,
       RCTTypeSimple = 1,
     };
-    struct rctSig {
+    struct rctSigBase {
         uint8_t type;
         key message;
-        vector<rangeSig> rangeSigs;
-        mgSig MG; // for non simple rct
-        vector<mgSig> MGs; // for simple rct
         ctkeyM mixRing; //the set of all pubkeys / copy
         //pairs that you mix with
         keyV pseudoOuts; //C - for simple rct
@@ -190,14 +187,9 @@ namespace rct {
         ctkeyV outPk;
         xmr_amount txnFee; // contains b
 
-        BEGIN_SERIALIZE_OBJECT()
+        BEGIN_SERIALIZE()
             FIELD(type)
             // FIELD(message) - not serialized, it can be reconstructed
-            FIELD(rangeSigs)
-            if (type == RCTTypeSimple)
-              FIELD(MGs)
-            else
-              FIELD(MG)
             // FIELD(mixRing) - not serialized, it can be reconstructed
             if (type == RCTTypeSimple)
               FIELD(pseudoOuts)
@@ -216,6 +208,23 @@ namespace rct {
                 this->outPk[n].mask = outPk[n];
             }
             FIELD(txnFee)
+        END_SERIALIZE()
+    };
+    struct rctSigPrunable {
+        vector<rangeSig> rangeSigs;
+        vector<mgSig> MGs; // simple rct has N, full has 1
+
+        BEGIN_SERIALIZE()
+            FIELD(rangeSigs)
+            FIELD(MGs)
+        END_SERIALIZE()
+    };
+    struct rctSig: public rctSigBase {
+        rctSigPrunable p;
+
+        BEGIN_SERIALIZE_OBJECT()
+            FIELDS(*static_cast<rctSigBase *>(this))
+            FIELDS(p);
         END_SERIALIZE()
     };
 
