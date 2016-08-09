@@ -91,7 +91,7 @@ namespace rct {
     // Ver verifies that the MG sig was created correctly
     keyV keyImageV(const keyV &xx);
     mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows);
-    bool MLSAG_Ver(key message, const keyM &pk, const mgSig &sig, const keyV &II, size_t dsRows);
+    bool MLSAG_Ver(key message, const keyM &pk, const mgSig &sig, size_t dsRows);
     //mgSig MLSAG_Gen_Old(const keyM & pk, const keyV & xx, const int index);
 
     //proveRange and verRange
@@ -115,7 +115,7 @@ namespace rct {
     mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index, key txnFee, const key &message);
     mgSig proveRctMGSimple(const key & message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, unsigned int index);
     bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFee, const key &message);
-    bool verRctMGSimple(const key &message, const mgSig &mg, const keyV &II, const ctkeyV & pubs, const key & C);
+    bool verRctMGSimple(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C);
 
     //These functions get keys from blockchain
     //replace these when connecting blockchain
@@ -140,9 +140,7 @@ namespace rct {
     rctSig genRctSimple(const key & message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, const keyV &amount_keys, xmr_amount txnFee, unsigned int mixin);
     rctSig genRctSimple(const key & message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk);
     bool verRct(const rctSig & rv);
-    bool verRct(const rctSig & rv, const ctkeyM &mixRing, const keyV &II, const ctkeyV &outPk, const key &message);
     bool verRctSimple(const rctSig & rv);
-    bool verRctSimple(const rctSig & rv, const ctkeyM &mixRing, const std::vector<keyV> *II, const ctkeyV &outPk, const key &message);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRctFromSharedSecret(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i);

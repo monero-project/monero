@@ -500,6 +500,7 @@ namespace cryptonote
      * validates a transaction's inputs as correctly used and not previously
      * spent.  also returns the hash and height of the most recent block
      * which contains an output that was used as an input to the transaction.
+     * The transaction's rct signatures, if any, are expanded.
      *
      * @param tx the transaction to validate
      * @param pmax_used_block_height return-by-reference block height of most recent input
@@ -509,7 +510,7 @@ namespace cryptonote
      *
      * @return false if any input is invalid, otherwise true
      */
-    bool check_tx_inputs(const transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false);
+    bool check_tx_inputs(transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false);
 
     /**
      * @brief check that a transaction's outputs conform to current standards
@@ -919,6 +920,7 @@ namespace cryptonote
      * This function validates transaction inputs and their keys.  Previously
      * it also performed double spend checking, but that has been moved to its
      * own function.
+     * The transaction's rct signatures, if any, are expanded.
      *
      * If pmax_related_block_height is not NULL, its value is set to the height
      * of the most recent block which contains an output used in any input set
@@ -932,7 +934,7 @@ namespace cryptonote
      *
      * @return false if any validation step fails, otherwise true
      */
-    bool check_tx_inputs(const transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL);
+    bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL);
 
     /**
      * @brief performs a blockchain reorganization according to the longest chain rule
@@ -1211,5 +1213,14 @@ namespace cryptonote
      * a useful state.
      */
     void load_compiled_in_block_hashes();
+
+    /**
+     * @brief expands v2 transaction data from blockchain
+     *
+     * RingCT transactions do not transmit some of their data if it
+     * can be reconstituted by the receiver. This function expands
+     * that implicit data.
+     */
+    bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys);
   };
 }  // namespace cryptonote

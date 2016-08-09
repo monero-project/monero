@@ -190,7 +190,9 @@ namespace cryptonote
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
-    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, kept_by_block);
+    tx_details txd;
+    txd.tx = tx;
+    bool ch_inp_res = m_blockchain.check_tx_inputs(txd.tx, max_used_block_height, max_used_block_id, tvc, kept_by_block);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     if(!ch_inp_res)
     {
@@ -198,10 +200,9 @@ namespace cryptonote
       // may become valid again, so ignore the failed inputs check.
       if(kept_by_block)
       {
-        auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
+        auto txd_p = m_transactions.insert(transactions_container::value_type(id, txd));
         CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
         txd_p.first->second.blob_size = blob_size;
-        txd_p.first->second.tx = tx;
         txd_p.first->second.fee = fee;
         txd_p.first->second.max_used_block_id = null_hash;
         txd_p.first->second.max_used_block_height = 0;
@@ -220,10 +221,9 @@ namespace cryptonote
     }else
     {
       //update transactions container
-      auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
+      auto txd_p = m_transactions.insert(transactions_container::value_type(id, txd));
       CHECK_AND_ASSERT_MES(txd_p.second, false, "intrnal error: transaction already exists at inserting in memorypool");
       txd_p.first->second.blob_size = blob_size;
-      txd_p.first->second.tx = tx;
       txd_p.first->second.kept_by_block = kept_by_block;
       txd_p.first->second.fee = fee;
       txd_p.first->second.max_used_block_id = max_used_block_id;

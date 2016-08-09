@@ -130,8 +130,8 @@ TEST(ringct, MG_sigs)
             sk[j] = xm[ind][j];
         }
         key message = identity();
-        mgSig IIccss = MLSAG_Gen(message, P, sk, ind);
-        ASSERT_TRUE(MLSAG_Ver(message, P, IIccss, IIccss.II));
+        mgSig IIccss = MLSAG_Gen(message, P, sk, ind, R);
+        ASSERT_TRUE(MLSAG_Ver(message, P, IIccss, R));
 
         //#MG sig: false one
         N = 3;// #cols
@@ -151,8 +151,8 @@ TEST(ringct, MG_sigs)
             sk[j] = xx[ind][j];
         }
         sk[2] = skGen();//asume we don't know one of the private keys..
-        IIccss = MLSAG_Gen(message, P, sk, ind);
-        ASSERT_FALSE(MLSAG_Ver(message, P, IIccss, IIccss.II));
+        IIccss = MLSAG_Gen(message, P, sk, ind, R);
+        ASSERT_FALSE(MLSAG_Ver(message, P, IIccss, R));
 }
 
 TEST(ringct, range_proofs)
