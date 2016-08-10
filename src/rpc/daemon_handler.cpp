@@ -311,9 +311,8 @@ namespace rpc
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 
-    delete resp_message;
-
     std::string response = resp_full.getJson();
+    delete resp_message;
 
     std::cout << "DaemonHandler::handle() response: " << response << std::endl;
 
