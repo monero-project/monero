@@ -41,6 +41,46 @@ namespace rpc
 
   void DaemonHandler::handle(GetBlocksFast::Request& req, GetBlocksFast::Response& res)
   {
+    std::list<std::pair<block, std::list<transaction> > > blocks;
+
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "core::find_blockchain_supplement() returned false";
+      return;
+    }
+
+    res.blocks.resize(blocks.size());
+
+    //TODO: really need to switch uses of std::list to std::vector unless
+    //      it's a huge performance concern
+
+    auto it = blocks.begin();
+
+    uint64_t block_count = 0;
+    while (it != blocks.end())
+    {
+      cryptonote::rpc::block_with_transactions& bwt = res.blocks[block_count];
+
+      block& blk = it->first;
+      bwt.block = blk;
+
+      std::list<transaction>& txs = it->second;
+
+      // assume each block returned is returned with all its transactions
+      // in the correct order.
+      auto tx_it = txs.begin();
+      for (crypto::hash& h : blk.tx_hashes)
+      {
+        bwt.transactions.emplace(h, *tx_it);
+        tx_it++;
+      }
+
+      it++;
+      block_count++;
+    }
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(GetHashesFast::Request& req, GetHashesFast::Response& res)
@@ -304,10 +344,11 @@ namespace rpc
     Message* resp_message = NULL;
 
     // create correct Message subclass and call handle() on it
-    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetHeight, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetTransactions, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::KeyImagesSpent, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, cryptonote::rpc::GetInfo, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetHeight, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetBlocksFast, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetTransactions, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

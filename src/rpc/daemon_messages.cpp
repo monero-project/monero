@@ -36,6 +36,7 @@ namespace rpc
 {
 
 const char* GetHeight::name = "get_height";
+const char* GetBlocksFast::name = "get_blocks_fast";
 const char* GetTransactions::name = "get_transactions";
 const char* KeyImagesSpent::name = "key_images_spent";
 const char* GetInfo::name = "get_info";
@@ -75,11 +76,16 @@ rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
+  val.AddMember("block_ids", cryptonote::json::toJsonValue<decltype(block_ids)>(doc, block_ids), al);
+  val.AddMember("start_height", start_height, al);
+
   return val;
 }
 
 void GetBlocksFast::Request::fromJson(rapidjson::Value& val)
 {
+  block_ids = cryptonote::json::fromJsonValue<decltype(block_ids)>(val["block_ids"]);
+  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
 }
 
 rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
@@ -88,11 +94,18 @@ rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
+  val.AddMember("blocks", cryptonote::json::toJsonValue<decltype(blocks)>(doc, blocks), al);
+  val.AddMember("start_height", start_height, al);
+  val.AddMember("current_height", current_height, al);
+
   return val;
 }
 
 void GetBlocksFast::Response::fromJson(rapidjson::Value& val)
 {
+  blocks = cryptonote::json::fromJsonValue<decltype(blocks)>(val["blocks"]);
+  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
+  current_height = cryptonote::json::fromJsonValue<uint64_t>(val["current_height"]);
 }
 
 

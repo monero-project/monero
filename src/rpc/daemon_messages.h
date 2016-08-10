@@ -86,7 +86,7 @@ class GetBlocksFast
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        std::vector<crypto::hash> block_ids;
+        std::list<crypto::hash> block_ids;
         uint64_t start_height;
     };
 
