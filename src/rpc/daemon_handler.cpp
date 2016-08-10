@@ -203,10 +203,6 @@ namespace rpc
   {
   }
 
-  void DaemonHandler::handle(GetBlockCount::Request& req, GetBlockCount::Response& res)
-  {
-  }
-
   void DaemonHandler::handle(GetBlockHash::Request& req, GetBlockHash::Response& res)
   {
   }

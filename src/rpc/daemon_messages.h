@@ -482,38 +482,6 @@ class SaveBC
     };
 };
 
-// TODO: rename to GetHeight?
-class GetBlockCount
-{
-  public:
-    static const char* name;
-
-    class Request : public Message
-    {
-      public:
-        Request() { }
-        ~Request() { }
-
-
-        rapidjson::Value toJson(rapidjson::Document& doc);
-        void fromJson(rapidjson::Value& val);
-
-    };
-
-    class Response : public Message
-    {
-      public:
-        Response() { }
-        ~Response() { }
-
-
-        rapidjson::Value toJson(rapidjson::Document& doc);
-        void fromJson(rapidjson::Value& val);
-
-        uint64_t count;
-    };
-};
-
 // TODO: rename to GetHash?
 class GetBlockHash
 {

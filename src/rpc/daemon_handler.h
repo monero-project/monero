@@ -79,8 +79,6 @@ class DaemonHandler : public RpcHandler
 
     void handle(SaveBC::Request& req, SaveBC::Response& res);
 
-    void handle(GetBlockCount::Request& req, GetBlockCount::Response& res);
-
     void handle(GetBlockHash::Request& req, GetBlockHash::Response& res);
 
     void handle(GetBlockTemplate::Request& req, GetBlockTemplate::Response& res);
