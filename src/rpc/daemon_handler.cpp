@@ -49,7 +49,6 @@ namespace rpc
 
   void DaemonHandler::handle(GetTransactions::Request& req, GetTransactions::Response& res)
   {
-    std::cout << "DaemonHandler::handle(GetTransactions)" << std::endl;
     std::list<cryptonote::transaction> found_txs;
     std::list<crypto::hash> missed_hashes;
 
@@ -61,7 +60,6 @@ namespace rpc
     }
 
     uint64_t num_found = found_txs.size();
-    std::cout << "found " << num_found << " transactions, " << missed_hashes.size() << " missing." << std::endl;
 
     // std::list is annoying
     std::vector<cryptonote::transaction> found_txs_vec
