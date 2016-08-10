@@ -458,8 +458,9 @@ namespace cryptonote
     return encrypt_payment_id(payment_id, public_key, secret_key);
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_keys(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &amount_keys, bool rct)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
   {
+    std::vector<crypto::secret_key> amount_keys;
     tx.vin.clear();
     tx.vout.clear();
     tx.signatures.clear();
@@ -577,6 +578,12 @@ namespace cryptonote
       bool r = crypto::generate_key_derivation(dst_entr.addr.m_view_public_key, txkey.sec, derivation);
       CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << dst_entr.addr.m_view_public_key << ", " << txkey.sec << ")");
 
+      if (tx.version > 1)
+      {
+        crypto::secret_key scalar1;
+        crypto::derivation_to_scalar(derivation, output_index, scalar1);
+        amount_keys.push_back(scalar1);
+      }
       r = crypto::derive_public_key(derivation, output_index, dst_entr.addr.m_spend_public_key, out_eph_public_key);
       CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to derive_public_key(" << derivation << ", " << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")");
 
@@ -686,7 +693,6 @@ namespace cryptonote
         destinations.push_back(rct::pk2rct(boost::get<txout_to_key>(tx.vout[i].target).key));
         outamounts.push_back(tx.vout[i].amount);
         amount_out += tx.vout[i].amount;
-        amount_keys.push_back(rct::rct2sk(rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(shuffled_dsts[i].addr.m_view_public_key), rct::sk2rct(txkey.sec)))));
       }
 
       if (use_simple_rct)
@@ -745,8 +751,7 @@ namespace cryptonote
   bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
   {
      crypto::secret_key tx_key;
-     std::vector<crypto::secret_key> amount_keys;
-     return construct_tx_and_get_tx_keys(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key, amount_keys);
+     return construct_tx_and_get_tx_key(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key);
   }
   //---------------------------------------------------------------
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money)

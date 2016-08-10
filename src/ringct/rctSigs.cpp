@@ -613,7 +613,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(amounts[i]);
-            ecdhEncodeFromSharedSecret(rv.ecdhInfo[i], amount_keys[i]);
+            ecdhEncode(rv.ecdhInfo[i], amount_keys[i]);
 
         }
 
@@ -679,7 +679,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(outamounts[i]);
-            ecdhEncodeFromSharedSecret(rv.ecdhInfo[i], amount_keys[i]);
+            ecdhEncode(rv.ecdhInfo[i], amount_keys[i]);
         }
             
         //set txn fee
@@ -821,7 +821,7 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
-    static xmr_amount decodeRctMain(const rctSig & rv, const key & sk, unsigned int i, key & mask, void (*decode)(ecdhTuple&, const key&)) {
+    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "decodeRct called on non-full rctSig");
         CHECK_AND_ASSERT_THROW_MES(rv.p.rangeSigs.size() > 0, "Empty rv.p.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.p.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.p.rangeSigs");
@@ -829,7 +829,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        (*decode)(ecdh_info, sk);
+        ecdhDecode(ecdh_info, sk);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -843,14 +843,6 @@ namespace rct {
             CHECK_AND_ASSERT_THROW_MES(false, "warning, amount decoded incorrectly, will be unable to spend");
         }
         return h2d(amount);
-    }
-
-    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask) {
-        return decodeRctMain(rv, sk, i, mask, &ecdhDecode);
-    }
-
-    xmr_amount decodeRctFromSharedSecret(const rctSig & rv, const key & sk, unsigned int i, key & mask) {
-        return decodeRctMain(rv, sk, i, mask, &ecdhDecodeFromSharedSecret);
     }
 
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i) {
@@ -858,7 +850,7 @@ namespace rct {
       return decodeRct(rv, sk, i, mask);
     }
 
-    static xmr_amount decodeRctSimpleMain(const rctSig & rv, const key & sk, unsigned int i, key &mask, void (*decode)(ecdhTuple &ecdh, const key&)) {
+    xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "decodeRct called on non simple rctSig");
         CHECK_AND_ASSERT_THROW_MES(rv.p.rangeSigs.size() > 0, "Empty rv.p.rangeSigs");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.p.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.p.rangeSigs");
@@ -866,7 +858,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        (*decode)(ecdh_info, sk);
+        ecdhDecode(ecdh_info, sk);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -880,14 +872,6 @@ namespace rct {
             CHECK_AND_ASSERT_THROW_MES(false, "warning, amount decoded incorrectly, will be unable to spend");
         }
         return h2d(amount);
-    }
-
-    xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask) {
-        return decodeRctSimpleMain(rv, sk, i, mask, &ecdhDecode);
-    }
-
-    xmr_amount decodeRctSimpleFromSharedSecret(const rctSig & rv, const key & sk, unsigned int i, key &mask) {
-        return decodeRctSimpleMain(rv, sk, i, mask, &ecdhDecodeFromSharedSecret);
     }
 
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i) {

@@ -196,7 +196,7 @@ TEST(ringct, range_proofs)
         ASSERT_TRUE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRctFromSharedSecret(s, amount_keys[1], 1, mask));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -213,7 +213,7 @@ TEST(ringct, range_proofs)
         ASSERT_FALSE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRctFromSharedSecret(s, amount_keys[1], 1, mask));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
 }
 
 TEST(ringct, range_proofs_with_fee)
@@ -261,7 +261,7 @@ TEST(ringct, range_proofs_with_fee)
         ASSERT_TRUE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRctFromSharedSecret(s, amount_keys[1], 1, mask));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -278,7 +278,7 @@ TEST(ringct, range_proofs_with_fee)
         ASSERT_FALSE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRctFromSharedSecret(s, amount_keys[1], 1, mask));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
 }
 
 TEST(ringct, simple)
@@ -336,7 +336,7 @@ TEST(ringct, simple)
         ASSERT_TRUE(verRctSimple(s));
 
         //decode received amount corresponding to output pubkey index 1
-        ASSERT_TRUE(decodeRctSimpleFromSharedSecret(s, amount_keys[1], 1, mask));
+        ASSERT_TRUE(decodeRctSimple(s, amount_keys[1], 1, mask));
 }
 
 static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
@@ -843,17 +843,17 @@ static const xmr_amount test_amounts[]={0, 1, 2, 3, 4, 5, 10000, 100000000000000
 
 TEST(ringct, ecdh_roundtrip)
 {
-  key k, P1;
+  key k;
   ecdhTuple t0, t1;
 
   for (auto amount: test_amounts) {
-    skpkGen(k, P1);
+    skGen(k);
 
     t0.mask = skGen();
     t0.amount = d2h(amount);
 
     t1 = t0;
-    ecdhEncode(t1, P1);
+    ecdhEncode(t1, k);
     ecdhDecode(t1, k);
     ASSERT_TRUE(t0.mask == t1.mask);
     ASSERT_TRUE(equalKeys(t0.mask, t1.mask));

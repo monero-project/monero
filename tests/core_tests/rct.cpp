@@ -116,20 +116,22 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     destinations.push_back(td); // 30 -> 7.39 * 4
 
     crypto::secret_key tx_key;
-    std::vector<crypto::secret_key> amount_keys;
-    bool r = construct_tx_and_get_tx_keys(miner_accounts[n].get_keys(), sources, destinations, std::vector<uint8_t>(), rct_txes[n], 0, tx_key, amount_keys, true);
+    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), sources, destinations, std::vector<uint8_t>(), rct_txes[n], 0, tx_key, true);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
     events.push_back(rct_txes[n]);
     starting_rct_tx_hashes.push_back(get_transaction_hash(rct_txes[n]));
 
-    crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(rct_txes[n]);
     for (size_t o = 0; o < 4; ++o)
     {
-      rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(tx_pub_key), rct::sk2rct(miner_accounts[n].get_keys().m_view_secret_key)));
+      crypto::key_derivation derivation;
+      bool r = crypto::generate_key_derivation(destinations[o].addr.m_view_public_key, tx_key, derivation);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
+      crypto::secret_key amount_key;
+      crypto::derivation_to_scalar(derivation, o, amount_key);
       if (rct_txes[n].rct_signatures.type == rct::RCTTypeSimple)
-        rct::decodeRctSimpleFromSharedSecret(rct_txes[n].rct_signatures, amount_key, o, rct_tx_masks[o+n*4]);
+        rct::decodeRctSimple(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4]);
       else
-        rct::decodeRctFromSharedSecret(rct_txes[n].rct_signatures, amount_key, o, rct_tx_masks[o+n*4]);
+        rct::decodeRct(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4]);
     }
 
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes[n], blk_last, miner_account,
@@ -205,8 +207,7 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
 
   transaction tx;
   crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> amount_keys;
-  bool r = construct_tx_and_get_tx_keys(miner_accounts[0].get_keys(), sources, destinations, std::vector<uint8_t>(), tx, 0, tx_key, amount_keys, true);
+  bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), sources, destinations, std::vector<uint8_t>(), tx, 0, tx_key, true);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
   if (post_tx)

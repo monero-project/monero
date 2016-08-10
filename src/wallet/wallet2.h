@@ -162,7 +162,6 @@ namespace tools
       std::list<transfer_container::iterator> selected_transfers;
       std::string key_images;
       crypto::secret_key tx_key;
-      std::vector<crypto::secret_key> amount_keys;
       std::vector<cryptonote::tx_destination_entry> dests;
     };
 
@@ -828,8 +827,7 @@ namespace tools
     }
 
     crypto::secret_key tx_key;
-    std::vector<crypto::secret_key> amount_keys;
-    bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, amount_keys);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
     THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -855,7 +853,6 @@ namespace tools
     ptx.change_dts = change_dts;
     ptx.selected_transfers = selected_transfers;
     ptx.tx_key = tx_key;
-    ptx.amount_keys = amount_keys;
     ptx.dests = dsts;
   }
 

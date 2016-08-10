@@ -151,7 +151,7 @@ namespace crypto {
     return true;
   }
 
-  static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res) {
+  void crypto_ops::derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res) {
     struct {
       key_derivation derivation;
       char output_index[(sizeof(size_t) * 8 + 6) / 7];

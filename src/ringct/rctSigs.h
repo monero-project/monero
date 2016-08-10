@@ -142,9 +142,7 @@ namespace rct {
     bool verRct(const rctSig & rv);
     bool verRctSimple(const rctSig & rv);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask);
-    xmr_amount decodeRctFromSharedSecret(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i);
-    xmr_amount decodeRctSimpleFromSharedSecret(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i);
 }

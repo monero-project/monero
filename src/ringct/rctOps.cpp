@@ -741,28 +741,18 @@ void fe_mul(fe h,const fe f,const fe g)
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
-    void ecdhEncodeFromSharedSecret(ecdhTuple & unmasked, const key & sharedSec1) {
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec) {
+        key sharedSec1 = hash_to_scalar(sharedSec);
         key sharedSec2 = hash_to_scalar(sharedSec1);
         //encode
         sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
         sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
     }
-    void ecdhEncode(ecdhTuple & unmasked, const key & receiverPk) {
-        key esk;
-        //compute shared secret
-        skpkGen(esk, unmasked.senderPk);
-        key sharedSec1 = hash_to_scalar(scalarmultKey(receiverPk, esk));
-        ecdhEncodeFromSharedSecret(unmasked, sharedSec1);
-    }
-    void ecdhDecodeFromSharedSecret(ecdhTuple & masked, const key & sharedSec1) {
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec) {
+        key sharedSec1 = hash_to_scalar(sharedSec);
         key sharedSec2 = hash_to_scalar(sharedSec1);
         //decode
         sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
         sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
-    }
-    void ecdhDecode(ecdhTuple & masked, const key & receiverSk) {
-        //compute shared secret
-        key sharedSec1 = hash_to_scalar(scalarmultKey(masked.senderPk, receiverSk));
-        ecdhDecodeFromSharedSecret(masked, sharedSec1);
     }
 }

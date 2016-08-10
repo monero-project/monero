@@ -3077,15 +3077,27 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
           try
           {
             rct::key Ctmp;
-            rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
-            rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-            rct::ecdhDecodeFromSharedSecret(ecdh_info, amount_key);
-            rct::key C = tx.rct_signatures.outPk[n].mask;
-            rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
-            if (rct::equalKeys(C, Ctmp))
-              amount = rct::h2d(ecdh_info.amount);
-            else
+            //rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
+            crypto::key_derivation derivation;
+            bool r = crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation);
+            if (!r)
+            {
+              LOG_ERROR("Failed to generate key derivation to decode rct output " << n);
               amount = 0;
+            }
+            else
+            {
+              crypto::secret_key scalar1;
+              crypto::derivation_to_scalar(derivation, n, scalar1);
+              rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
+              rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1));
+              rct::key C = tx.rct_signatures.outPk[n].mask;
+              rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
+              if (rct::equalKeys(C, Ctmp))
+                amount = rct::h2d(ecdh_info.amount);
+              else
+                amount = 0;
+            }
           }
           catch (...) { amount = 0; }
         }

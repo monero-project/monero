@@ -178,12 +178,10 @@ namespace wallet_rpc
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
-      std::list<key_list> amount_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
-        KV_SERIALIZE(amount_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -214,12 +212,10 @@ namespace wallet_rpc
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
-      std::list<key_list> amount_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
-        KV_SERIALIZE(amount_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -260,12 +256,10 @@ namespace wallet_rpc
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
-      std::list<key_list> amount_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
-        KV_SERIALIZE(amount_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };

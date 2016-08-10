@@ -207,16 +207,25 @@ void wallet2::check_acc_out(const account_keys &acc, const tx_out &o, const cryp
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
-static uint64_t decodeRct(const rct::rctSig & rv, const rct::key & sk, unsigned int i, rct::key & mask)
+static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key pub, const crypto::secret_key &sec, unsigned int i, rct::key & mask)
 {
+  crypto::key_derivation derivation;
+  bool r = crypto::generate_key_derivation(pub, sec, derivation);
+  if (!r)
+  {
+    LOG_ERROR("Failed to generate key derivation to decode rct output " << i);
+    return 0;
+  }
+  crypto::secret_key scalar1;
+  crypto::derivation_to_scalar(derivation, i, scalar1);
   try
   {
     switch (rv.type)
     {
     case rct::RCTTypeSimple:
-      return rct::decodeRctSimpleFromSharedSecret(rv, sk, i, mask);
+      return rct::decodeRctSimple(rv, rct::sk2rct(scalar1), i, mask);
     case rct::RCTTypeFull:
-      return rct::decodeRctFromSharedSecret(rv, sk, i, mask);
+      return rct::decodeRct(rv, rct::sk2rct(scalar1), i, mask);
     default:
       LOG_ERROR("Unsupported rct type: " << rv.type);
       return 0;
@@ -308,8 +317,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           if (money_transfered == 0)
           {
             const cryptonote::account_keys& keys = m_account.get_keys();
-            rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
-            money_transfered = tools::decodeRct(tx.rct_signatures, amount_key, 0, mask[0]);
+            money_transfered = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, 0, mask[0]);
           }
           amount[0] = money_transfered;
           tx_money_got_in_outs = money_transfered;
@@ -352,8 +360,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
               if (money_transfered[i] == 0)
               {
                 const cryptonote::account_keys& keys = m_account.get_keys();
-                rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
-                money_transfered[i] = tools::decodeRct(tx.rct_signatures, amount_key, i, mask[i]);
+                money_transfered[i] = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
               }
               tx_money_got_in_outs += money_transfered[i];
               amount[i] = money_transfered[i];
@@ -401,8 +408,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           if (money_transfered[i] == 0)
           {
             const cryptonote::account_keys& keys = m_account.get_keys();
-            rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
-            money_transfered[i] = tools::decodeRct(tx.rct_signatures, amount_key, i, mask[i]);
+            money_transfered[i] = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
           }
           tx_money_got_in_outs += money_transfered[i];
           amount[i] = money_transfered[i];
@@ -434,8 +440,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             if (money_transfered == 0)
             {
               const cryptonote::account_keys& keys = m_account.get_keys();
-              rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(pub_key_field.pub_key), rct::sk2rct(keys.m_view_secret_key)));
-              money_transfered = tools::decodeRct(tx.rct_signatures, amount_key, i, mask[i]);
+              money_transfered = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
             }
             amount[i] = money_transfered;
             tx_money_got_in_outs += money_transfered;
@@ -2896,8 +2901,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   }
 
   crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> amount_keys;
-  bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, amount_keys);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -2924,7 +2928,6 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
-  ptx.amount_keys = amount_keys;
   ptx.dests = dsts;
 }
 
@@ -3113,8 +3116,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   dsts.push_back(change_dts);
 
   crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> amount_keys;
-  bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, dsts, extra, tx, unlock_time, tx_key, amount_keys, true);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, dsts, extra, tx, unlock_time, tx_key, true);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -3135,7 +3137,6 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
-  ptx.amount_keys = amount_keys;
   ptx.dests = dsts;
 }
 
@@ -3764,8 +3765,7 @@ void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs,
   }
 
   crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> amount_keys;
-  bool r = cryptonote::construct_tx_and_get_tx_keys(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, amount_keys);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
@@ -3785,7 +3785,6 @@ void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs,
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
-  ptx.amount_keys = amount_keys;
   ptx.dests = dsts;
 }
 
