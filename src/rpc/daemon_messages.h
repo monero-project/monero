@@ -215,7 +215,7 @@ class KeyImagesSpent
     };
 };
 
-class GetTxGlobalOutputIndexes
+class GetTxGlobalOutputIndices
 {
   public:
     static const char* name;

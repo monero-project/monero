@@ -40,6 +40,7 @@ const char* GetBlocksFast::name = "get_blocks_fast";
 const char* GetHashesFast::name = "get_hashes_fast";
 const char* GetTransactions::name = "get_transactions";
 const char* KeyImagesSpent::name = "key_images_spent";
+const char* GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
 const char* GetInfo::name = "get_info";
 
 
@@ -218,6 +219,39 @@ rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
 void KeyImagesSpent::Response::fromJson(rapidjson::Value& val)
 {
   spent_status = cryptonote::json::fromJsonValue<decltype(spent_status)>(val["spent_status"]);
+}
+
+
+rapidjson::Value GetTxGlobalOutputIndices::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("tx_hash", cryptonote::json::toJsonValue<decltype(tx_hash)>(doc, tx_hash), al);
+
+  return val;
+}
+
+void GetTxGlobalOutputIndices::Request::fromJson(rapidjson::Value& val)
+{
+  tx_hash = cryptonote::json::fromJsonValue<decltype(tx_hash)>(val["tx_hash"]);
+}
+
+rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("output_indices", cryptonote::json::toJsonValue<decltype(output_indices)>(doc, output_indices), al);
+
+  return val;
+}
+
+void GetTxGlobalOutputIndices::Response::fromJson(rapidjson::Value& val)
+{
+  output_indices = cryptonote::json::fromJsonValue<decltype(output_indices)>(val["output_indices"]);
 }
 
 

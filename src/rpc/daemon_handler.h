@@ -63,7 +63,7 @@ class DaemonHandler : public RpcHandler
 
     void handle(KeyImagesSpent::Request& req, KeyImagesSpent::Response& res);
 
-    void handle(GetTxGlobalOutputIndexes::Request& req, GetTxGlobalOutputIndexes::Response& res);
+    void handle(GetTxGlobalOutputIndices::Request& req, GetTxGlobalOutputIndices::Response& res);
 
     void handle(GetRandomOutputsForAmounts::Request& req, GetRandomOutputsForAmounts::Response& res);
 

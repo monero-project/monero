@@ -196,8 +196,17 @@ namespace rpc
     }
   }
 
-  void DaemonHandler::handle(GetTxGlobalOutputIndexes::Request& req, GetTxGlobalOutputIndexes::Response& res)
+  void DaemonHandler::handle(GetTxGlobalOutputIndices::Request& req, GetTxGlobalOutputIndices::Response& res)
   {
+    if (!m_core.get_tx_outputs_gindexs(req.tx_hash, res.output_indices))
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "core::get_tx_outputs_gindexs() returned false";
+      return;
+    }
+
+    res.status = Message::STATUS_OK;
+
   }
 
   void DaemonHandler::handle(GetRandomOutputsForAmounts::Request& req, GetRandomOutputsForAmounts::Response& res)
@@ -361,6 +370,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetHashesFast, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetTransactions, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetTxGlobalOutputIndices, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
