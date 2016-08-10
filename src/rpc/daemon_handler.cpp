@@ -85,6 +85,18 @@ namespace rpc
 
   void DaemonHandler::handle(GetHashesFast::Request& req, GetHashesFast::Response& res)
   {
+    res.start_height = req.start_height;
+
+    auto& chain = m_core.get_blockchain_storage();
+
+    if (!chain.find_blockchain_supplement(req.known_hashes, res.hashes, res.start_height, res.current_height))
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Blockchain::find_blockchain_supplement() returned false";
+      return;
+    }
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(GetTransactions::Request& req, GetTransactions::Response& res)
@@ -346,6 +358,7 @@ namespace rpc
     // create correct Message subclass and call handle() on it
     REQ_RESP_TYPES_MACRO(request_type, GetHeight, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetBlocksFast, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetHashesFast, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetTransactions, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);

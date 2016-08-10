@@ -121,7 +121,7 @@ class GetHashesFast
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        std::list<crypto::hash> block_ids;
+        std::list<crypto::hash> known_hashes;
         uint64_t start_height;
     };
 
@@ -134,7 +134,7 @@ class GetHashesFast
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        std::list<crypto::hash> m_block_ids;
+        std::list<crypto::hash> hashes;
         uint64_t start_height;
         uint64_t current_height;
 

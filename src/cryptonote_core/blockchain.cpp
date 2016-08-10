@@ -1783,24 +1783,32 @@ void Blockchain::print_blockchain_outs(const std::string& file) const
 // Find the split point between us and foreign blockchain and return
 // (by reference) the most recent common block hash along with up to
 // BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.
-bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
+bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::list<crypto::hash>& hashes, uint64_t& start_height, uint64_t& current_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   // if we can't find the split point, return false
-  if(!find_blockchain_supplement(qblock_ids, resp.start_height))
+  if(!find_blockchain_supplement(qblock_ids, start_height))
   {
     return false;
   }
 
-  resp.total_height = get_current_blockchain_height();
+  current_height = get_current_blockchain_height();
   size_t count = 0;
-  for(size_t i = resp.start_height; i < resp.total_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
+  for(size_t i = start_height; i < current_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
   {
-    resp.m_block_ids.push_back(m_db->get_block_hash_from_height(i));
+    hashes.push_back(m_db->get_block_hash_from_height(i));
   }
   return true;
+}
+
+bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  return find_blockchain_supplement(qblock_ids, resp.m_block_ids, resp.start_height, resp.total_height);
 }
 //------------------------------------------------------------------
 //FIXME: change argument to std::vector, low priority

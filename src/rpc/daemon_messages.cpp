@@ -37,6 +37,7 @@ namespace rpc
 
 const char* GetHeight::name = "get_height";
 const char* GetBlocksFast::name = "get_blocks_fast";
+const char* GetHashesFast::name = "get_hashes_fast";
 const char* GetTransactions::name = "get_transactions";
 const char* KeyImagesSpent::name = "key_images_spent";
 const char* GetInfo::name = "get_info";
@@ -115,11 +116,16 @@ rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
+  val.AddMember("known_hashes", cryptonote::json::toJsonValue<decltype(known_hashes)>(doc, known_hashes), al);
+  val.AddMember("start_height", start_height, al);
+
   return val;
 }
 
 void GetHashesFast::Request::fromJson(rapidjson::Value& val)
 {
+  known_hashes = cryptonote::json::fromJsonValue<decltype(known_hashes)>(val["known_hashes"]);
+  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
 }
 
 rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
@@ -128,11 +134,18 @@ rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
+  val.AddMember("hashes", cryptonote::json::toJsonValue<decltype(hashes)>(doc, hashes), al);
+  val.AddMember("start_height", start_height, al);
+  val.AddMember("current_height", current_height, al);
+
   return val;
 }
 
 void GetHashesFast::Response::fromJson(rapidjson::Value& val)
 {
+  hashes = cryptonote::json::fromJsonValue<decltype(hashes)>(val["hashes"]);
+  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
+  current_height = cryptonote::json::fromJsonValue<uint64_t>(val["current_height"]);
 }
 
 

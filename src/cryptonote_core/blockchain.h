@@ -371,6 +371,22 @@ namespace cryptonote
      * BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.
      *
      * @param qblock_ids the foreign chain's "short history" (see get_short_chain_history)
+     * @param hashes the hashes to be returned, return-by-reference
+     * @param start_height the start height, return-by-reference
+     * @param current_height the current blockchain height, return-by-reference
+     *
+     * @return true if a block found in common, else false
+     */
+    bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::list<crypto::hash>& hashes, uint64_t& start_height, uint64_t& current_height) const;
+
+    /**
+     * @brief get recent block hashes for a foreign chain
+     *
+     * Find the split point between us and foreign blockchain and return
+     * (by reference) the most recent common block hash along with up to
+     * BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.
+     *
+     * @param qblock_ids the foreign chain's "short history" (see get_short_chain_history)
      * @param resp return-by-reference the split height and subsequent blocks' hashes
      *
      * @return true if a block found in common, else false
