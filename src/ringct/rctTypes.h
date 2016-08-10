@@ -207,7 +207,7 @@ namespace rct {
               for (size_t n = 0; n < outPk.size(); ++n)
                 this->outPk[n].mask = outPk[n];
             }
-            FIELD(txnFee)
+            VARINT_FIELD(txnFee)
         END_SERIALIZE()
     };
     struct rctSigPrunable {
