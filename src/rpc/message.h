@@ -61,13 +61,19 @@ namespace rpc
       Message() { }
 
     public:
+
+      static const char* STATUS_OK;
+      static const char* STATUS_RETRY;
+      static const char* STATUS_FAILED;
+
       virtual ~Message() { }
 
-      virtual rapidjson::Value toJson(rapidjson::Document& doc) = 0;
+      virtual rapidjson::Value toJson(rapidjson::Document& doc);
 
-      virtual void fromJson(rapidjson::Value& val) = 0;
+      virtual void fromJson(rapidjson::Value& val);
 
-      std::string error;
+      std::string status;
+      std::string error_details;
   };
 
   class FullMessage

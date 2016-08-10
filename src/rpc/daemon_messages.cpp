@@ -29,19 +29,6 @@
 #include "daemon_messages.h"
 #include "serialization/json_object.h"
 
-namespace
-{
-
-inline rapidjson::Value emptyRequest()
-{
-  rapidjson::Value val;
-  val.SetObject();
-
-  return val;
-}
-
-}  // anonymous namespace
-
 namespace cryptonote
 {
 
@@ -58,7 +45,7 @@ const char* GetInfo::name = "get_info";
 
 rapidjson::Value GetHeight::Request::toJson(rapidjson::Document& doc)
 {
-  return emptyRequest();
+  return Message::toJson(doc);
 }
 
 void GetHeight::Request::fromJson(rapidjson::Value& val)
@@ -67,7 +54,7 @@ void GetHeight::Request::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetHeight::Response::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -84,7 +71,7 @@ void GetHeight::Response::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -97,7 +84,7 @@ void GetBlocksFast::Request::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -111,7 +98,7 @@ void GetBlocksFast::Response::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -124,7 +111,7 @@ void GetHashesFast::Request::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -138,7 +125,7 @@ void GetHashesFast::Response::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -177,7 +164,7 @@ void GetTransactions::Response::fromJson(rapidjson::Value& val)
 
 rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -193,7 +180,7 @@ void KeyImagesSpent::Request::fromJson(rapidjson::Value& val)
 
 rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
@@ -210,7 +197,7 @@ void KeyImagesSpent::Response::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetInfo::Request::toJson(rapidjson::Document& doc)
 {
-  return emptyRequest();
+  return Message::toJson(doc);
 }
 
 void GetInfo::Request::fromJson(rapidjson::Value& val)
@@ -219,7 +206,7 @@ void GetInfo::Request::fromJson(rapidjson::Value& val)
 
 rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc)
 {
-  rapidjson::Value val(rapidjson::kObjectType);
+  auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 

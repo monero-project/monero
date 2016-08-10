@@ -38,6 +38,32 @@ namespace cryptonote
 namespace rpc
 {
 
+const char* Message::STATUS_OK = "OK";
+const char* Message::STATUS_RETRY = "Retry";
+const char* Message::STATUS_FAILED = "Failed";
+
+rapidjson::Value Message::toJson(rapidjson::Document& doc)
+{
+  rapidjson::Value val(rapidjson::kObjectType);
+
+  auto& al = doc.GetAllocator();
+
+  // if status not explicitly set, assume OK.
+  if (status.empty()) status = STATUS_OK;
+
+  val.AddMember("status", rapidjson::StringRef(status.c_str()), al);
+  val.AddMember("error_details", rapidjson::StringRef(error_details.c_str()), al);
+
+  return val;
+}
+
+void Message::fromJson(rapidjson::Value& val)
+{
+  status = cryptonote::json::fromJsonValue<std::string>(val["status"]);
+  error_details = cryptonote::json::fromJsonValue<std::string>(val["error_details"]);
+}
+
+
 FullMessage::FullMessage(int version, std::string& request, Message* message)
 {
   doc.SetObject();
