@@ -847,7 +847,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
   // add logic to error out if new wallet requested but named wallet file exists
   if (keys_file_exists || wallet_file_exists)
   {
-    if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty() || !m_generate_from_json.empty())
+    if (!m_generate_new.empty() || m_restoring)
     {
       fail_msg_writer() << tr("attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.");
       return false;
@@ -1224,7 +1224,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (!cryptonote::simple_wallet::get_password(vm, true, pwd_container))
     return false;
 
-  if (!m_generate_new.empty() || m_restore_deterministic_wallet || !m_generate_from_view_key.empty() || !m_generate_from_keys.empty() || !m_generate_from_json.empty())
+  if (!m_generate_new.empty() || m_restoring)
   {
     if (m_wallet_file.empty()) m_wallet_file = m_generate_new;  // alias for simplicity later
 
@@ -1256,7 +1256,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
     }
-    if (!m_restore_height && m_generate_new.empty())
+    if (!m_restore_height && m_restoring)
     {
       std::string heightstr = command_line::input_line("Restore from specific blockchain height (optional, default 0): ");
       if (std::cin.eof())
@@ -1444,6 +1444,10 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_trusted_daemon                = command_line::get_arg(vm, arg_trusted_daemon);
   m_allow_mismatched_daemon_version = command_line::get_arg(vm, arg_allow_mismatched_daemon_version);
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
+  m_restoring                     = !m_generate_from_view_key.empty() ||
+                                    !m_generate_from_keys.empty() ||
+                                    !m_generate_from_json.empty() ||
+                                    m_restore_deterministic_wallet;
 
   return true;
 }
@@ -1544,7 +1548,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   m_wallet->set_seed_language(mnemonic_language);
 
   // for a totally new account, we don't care about older blocks.
-  if (!m_generate_new.empty())
+  if (!m_restoring)
   {
     std::string err;
     m_wallet->set_refresh_from_block_height(get_daemon_blockchain_height(err));
