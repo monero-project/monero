@@ -44,6 +44,7 @@ const char* GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
 const char* GetRandomOutputsForAmounts::name = "get_random_outputs_for_amounts";
 const char* SendRawTx::name = "send_raw_tx";
 const char* GetInfo::name = "get_info";
+const char* SaveBC::name = "save_bc";
 
 
 
@@ -374,6 +375,33 @@ void GetInfo::Response::fromJson(rapidjson::Value& val)
   grey_peerlist_size = cryptonote::json::fromJsonValue<decltype(grey_peerlist_size)>(val["grey_peerlist_size"]);
   testnet = cryptonote::json::fromJsonValue<decltype(testnet)>(val["testnet"]);
   top_block_hash = cryptonote::json::fromJsonValue<decltype(top_block_hash)>(val["top_block_hash"]);
+}
+
+
+rapidjson::Value SaveBC::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  return val;
+}
+
+void SaveBC::Request::fromJson(rapidjson::Value& val)
+{
+}
+
+rapidjson::Value SaveBC::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  return val;
+}
+
+void SaveBC::Response::fromJson(rapidjson::Value& val)
+{
 }
 
 

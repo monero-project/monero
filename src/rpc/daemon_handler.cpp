@@ -345,6 +345,15 @@ namespace rpc
 
   void DaemonHandler::handle(SaveBC::Request& req, SaveBC::Response& res)
   {
+    if (!m_core.get_blockchain_storage().store_blockchain())
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Error storing the blockchain";
+    }
+    else
+    {
+      res.status = Message::STATUS_OK;
+    }
   }
 
   void DaemonHandler::handle(GetBlockHash::Request& req, GetBlockHash::Response& res)
@@ -459,6 +468,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetRandomOutputsForAmounts, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, SendRawTx, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, SaveBC, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

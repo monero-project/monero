@@ -481,7 +481,6 @@ class SaveBC
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        bool success;
     };
 };
 
