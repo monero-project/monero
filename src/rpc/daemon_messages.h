@@ -604,6 +604,15 @@ class GetLastBlockHeader
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        uint64_t major_version;
+        uint64_t minor_version;
+        uint64_t timestamp;
+        crypto::hash  prev_id;
+        uint32_t nonce;
+        uint64_t height;
+        crypto::hash hash;
+        uint64_t difficulty;
+        uint64_t reward;
     };
 };
 
@@ -622,6 +631,7 @@ class GetBlockHeaderByHash
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        crypto::hash hash;
     };
 
     class Response : public Message
@@ -633,6 +643,17 @@ class GetBlockHeaderByHash
 
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
+
+        uint64_t major_version;
+        uint64_t minor_version;
+        uint64_t timestamp;
+        crypto::hash  prev_id;
+        uint32_t nonce;
+        uint64_t height;
+        uint64_t depth;
+        crypto::hash hash;
+        uint64_t difficulty;
+        uint64_t reward;
 
     };
 };
@@ -652,6 +673,7 @@ class GetBlockHeaderByHeight
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        uint64_t height;
     };
 
     class Response : public Message
@@ -663,6 +685,17 @@ class GetBlockHeaderByHeight
 
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
+
+        uint64_t major_version;
+        uint64_t minor_version;
+        uint64_t timestamp;
+        crypto::hash  prev_id;
+        uint32_t nonce;
+        uint64_t height;
+        uint64_t depth;
+        crypto::hash hash;
+        uint64_t difficulty;
+        uint64_t reward;
 
     };
 };

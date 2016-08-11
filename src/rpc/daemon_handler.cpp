@@ -381,14 +381,96 @@ namespace rpc
 
   void DaemonHandler::handle(GetLastBlockHeader::Request& req, GetLastBlockHeader::Response& res)
   {
+    res.hash = m_core.get_tail_id();
+
+    GetBlockHeaderByHash::Request fake_req;
+    fake_req.hash = res.hash;
+
+    GetBlockHeaderByHash::Response fake_res;
+
+    handle(fake_req, fake_res);
+
+    if (!fake_res.error_details.empty())
+    {
+      res.status = fake_res.status;
+      res.error_details = fake_res.error_details;
+      return;
+    }
+
+    res.major_version = fake_res.major_version;
+    res.minor_version = fake_res.minor_version;
+    res.timestamp = fake_res.timestamp;
+    res.prev_id = fake_res.prev_id;
+    res.nonce = fake_res.nonce;
+    res.height = fake_res.height;
+    res.difficulty = fake_res.difficulty;
+    res.reward = fake_res.reward;
+
+    res.status = fake_res.status;
   }
 
   void DaemonHandler::handle(GetBlockHeaderByHash::Request& req, GetBlockHeaderByHash::Response& res)
   {
+    block b;
+
+    if (!m_core.get_block_by_hash(req.hash, b))
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Requested block does not exist";
+      return;
+    }
+
+    res.hash = req.hash;
+    res.height = boost::get<txin_gen>(b.miner_tx.vin.front()).height;
+
+    res.major_version = b.major_version;
+    res.minor_version = b.minor_version;
+    res.timestamp = b.timestamp;
+    res.nonce = b.nonce;
+    res.prev_id = b.prev_id;
+
+    res.depth = m_core.get_current_blockchain_height() - res.height - 1;
+
+    res.reward = 0;
+    for (auto& out : b.miner_tx.vout)
+    {
+      res.reward += out.amount;
+    }
+
+    res.difficulty = m_core.get_blockchain_storage().block_difficulty(res.height);
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(GetBlockHeaderByHeight::Request& req, GetBlockHeaderByHeight::Response& res)
   {
+    res.hash = m_core.get_block_id_by_height(req.height);
+
+    GetBlockHeaderByHash::Request fake_req;
+    fake_req.hash = res.hash;
+
+    GetBlockHeaderByHash::Response fake_res;
+
+    handle(fake_req, fake_res);
+
+    if (!fake_res.error_details.empty())
+    {
+      res.status = fake_res.status;
+      res.error_details = fake_res.error_details;
+      return;
+    }
+
+    res.major_version = fake_res.major_version;
+    res.minor_version = fake_res.minor_version;
+    res.timestamp = fake_res.timestamp;
+    res.prev_id = fake_res.prev_id;
+    res.nonce = fake_res.nonce;
+    res.height = fake_res.height;
+    res.depth = fake_res.depth;
+    res.difficulty = fake_res.difficulty;
+    res.reward = fake_res.reward;
+
+    res.status = fake_res.status;
   }
 
   void DaemonHandler::handle(GetBlock::Request& req, GetBlock::Response& res)
@@ -481,6 +563,9 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, SaveBC, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetBlockHash, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetLastBlockHeader, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHash, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHeight, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 
