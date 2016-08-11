@@ -45,6 +45,7 @@ const char* GetRandomOutputsForAmounts::name = "get_random_outputs_for_amounts";
 const char* SendRawTx::name = "send_raw_tx";
 const char* GetInfo::name = "get_info";
 const char* SaveBC::name = "save_bc";
+const char* GetBlockHash::name = "get_block_hash";
 
 
 
@@ -402,6 +403,39 @@ rapidjson::Value SaveBC::Response::toJson(rapidjson::Document& doc)
 
 void SaveBC::Response::fromJson(rapidjson::Value& val)
 {
+}
+
+
+rapidjson::Value GetBlockHash::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
+
+  return val;
+}
+
+void GetBlockHash::Request::fromJson(rapidjson::Value& val)
+{
+  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+}
+
+rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("hash", cryptonote::json::toJsonValue<decltype(hash)>(doc, hash), al);
+
+  return val;
+}
+
+void GetBlockHash::Response::fromJson(rapidjson::Value& val)
+{
+  hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
 }
 
 

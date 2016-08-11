@@ -358,6 +358,17 @@ namespace rpc
 
   void DaemonHandler::handle(GetBlockHash::Request& req, GetBlockHash::Response& res)
   {
+    if (m_core.get_current_blockchain_height() <= req.height)
+    {
+      res.hash = cryptonote::null_hash;
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "height given is higher than current chain height";
+      return;
+    }
+
+    res.hash = m_core.get_block_id_by_height(req.height);
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(GetBlockTemplate::Request& req, GetBlockTemplate::Response& res)
@@ -469,6 +480,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, SendRawTx, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, SaveBC, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetBlockHash, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

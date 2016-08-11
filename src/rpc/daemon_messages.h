@@ -484,7 +484,6 @@ class SaveBC
     };
 };
 
-// TODO: rename to GetHash?
 class GetBlockHash
 {
   public:
@@ -500,6 +499,8 @@ class GetBlockHash
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        uint64_t height;
+
     };
 
     class Response : public Message
@@ -512,6 +513,7 @@ class GetBlockHash
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        crypto::hash hash;
     };
 };
 
