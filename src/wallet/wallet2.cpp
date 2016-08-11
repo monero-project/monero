@@ -3369,7 +3369,8 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     std::vector<const crypto::public_key*> pkeys;
     pkeys.push_back(&pkey);
     THROW_WALLET_EXCEPTION_IF(!crypto::check_ring_signature((const crypto::hash&)key_image, key_image, pkeys, &signature),
-        error::wallet_internal_error, "Signature check failed: key image " + epee::string_tools::pod_to_hex(key_image)
+        error::wallet_internal_error, "Signature check failed: input " + boost::lexical_cast<std::string>(n) + "/"
+        + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
         + ", signature " + epee::string_tools::pod_to_hex(signature) + ", pubkey " + epee::string_tools::pod_to_hex(*pkeys[0]));
 
     req.key_images.push_back(epee::string_tools::pod_to_hex(key_image));
