@@ -209,8 +209,34 @@ namespace rpc
 
   }
 
+  //TODO: handle "restricted" RPC
   void DaemonHandler::handle(GetRandomOutputsForAmounts::Request& req, GetRandomOutputsForAmounts::Response& res)
   {
+    auto& chain = m_core.get_blockchain_storage();
+
+    for (uint64_t& amount : req.amounts)
+    {
+      std::vector<uint64_t> indices = chain.get_random_outputs(amount, req.count);
+
+      outputs_for_amount ofa;
+
+      ofa.resize(indices.size());
+
+      for (uint64_t i = 0; i < indices.size(); i++)
+      {
+        crypto::public_key key = chain.get_output_key(amount, indices[i]);
+        ofa[i].amount_index = indices[i];
+        ofa[i].key = key;
+      }
+
+      amount_with_random_outputs amt;
+      amt.amount = amount;
+      amt.outputs = ofa;
+
+      res.amounts_with_outputs.push_back(amt);
+    }
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(SendRawTx::Request& req, SendRawTx::Response& res)
@@ -371,6 +397,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetTransactions, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetTxGlobalOutputIndices, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetRandomOutputsForAmounts, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);

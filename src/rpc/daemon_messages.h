@@ -276,7 +276,7 @@ class GetRandomOutputsForAmounts
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        std::vector<outputs_for_amount> outputs;
+        std::vector<amount_with_random_outputs> amounts_with_outputs;
     };
 };
 

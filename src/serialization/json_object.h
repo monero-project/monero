@@ -177,6 +177,30 @@ rapidjson::Value toJsonValue<cryptonote::rpc::transaction_info>(rapidjson::Docum
 template <>
 cryptonote::rpc::transaction_info fromJsonValue<cryptonote::rpc::transaction_info>(const rapidjson::Value& val);
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_amount_index>(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_amount_index& out);
+
+template <>
+cryptonote::rpc::output_key_and_amount_index fromJsonValue<cryptonote::rpc::output_key_and_amount_index>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::amount_with_random_outputs>(rapidjson::Document& doc, const cryptonote::rpc::amount_with_random_outputs& out);
+
+template <>
+cryptonote::rpc::amount_with_random_outputs fromJsonValue<cryptonote::rpc::amount_with_random_outputs>(const rapidjson::Value& val);
+
+template <typename Map>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enable_if<sfinae::is_map_like<Map>::value, Map >::type &val);
+
+template <typename Map>
+typename std::enable_if<sfinae::is_map_like<Map>::value, Map>::type fromJsonValue(const rapidjson::Value& val);
+
+template <typename Vec>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enable_if<sfinae::is_vector_like<Vec>::value, Vec>::type &vec);
+
+template <typename Vec>
+typename std::enable_if<sfinae::is_vector_like<Vec>::value, Vec>::type fromJsonValue(const rapidjson::Value& val);
+
 
 // ideally would like to have the below functions in the .cpp file, but
 // unfortunately because of how templates work they have to be here.

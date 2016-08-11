@@ -440,6 +440,35 @@ namespace cryptonote
     bool handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp);
 
     /**
+     * @brief get number of outputs of an amount past the minimum spendable age
+     *
+     * @param amount the output amount
+     *
+     * @return the number of mature outputs
+     */
+    uint64_t get_num_mature_outputs(uint64_t amount) const;
+
+    /**
+     * @brief get random outputs (indices) for an amount
+     *
+     * @param amount the amount
+     * @param count the number of random outputs to choose
+     *
+     * @return the outputs' amount-global indices
+     */
+    std::vector<uint64_t> get_random_outputs(uint64_t amount, uint64_t count) const;
+
+    /**
+     * @brief get the public key for an output
+     *
+     * @param amount the output amount
+     * @param global_index the output amount-global index
+     *
+     * @return the public key
+     */
+    crypto::public_key get_output_key(uint64_t amount, uint64_t global_index) const;
+
+    /**
      * @brief gets random outputs to mix with
      *
      * This function takes an RPC request for outputs to mix with

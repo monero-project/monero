@@ -30,10 +30,12 @@ namespace rpc
     crypto::public_key key;
   };
 
-  struct outputs_for_amount
+  typedef std::vector<output_key_and_amount_index> outputs_for_amount;
+
+  struct amount_with_random_outputs
   {
     uint64_t amount;
-    std::vector<output_key_and_amount_index> outputs;
+    outputs_for_amount outputs;
   };
 
 }  // namespace rpc

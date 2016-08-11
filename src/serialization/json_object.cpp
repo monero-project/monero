@@ -637,6 +637,58 @@ cryptonote::rpc::transaction_info fromJsonValue<cryptonote::rpc::transaction_inf
   return tx_info;
 }
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_amount_index>(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_amount_index& out)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("amount_index", toJsonValue<decltype(out.amount_index)>(doc, out.amount_index), al);
+  val.AddMember("key", toJsonValue<decltype(out.key)>(doc, out.key), al);
+
+  return val;
+}
+
+template <>
+cryptonote::rpc::output_key_and_amount_index fromJsonValue<cryptonote::rpc::output_key_and_amount_index>(const rapidjson::Value& val)
+{
+  cryptonote::rpc::output_key_and_amount_index out;
+
+  out.amount_index = fromJsonValue<decltype(out.amount_index)>(val["amount_index"]);
+  out.key = fromJsonValue<decltype(out.key)>(val["key"]);
+
+  return out;
+}
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::amount_with_random_outputs>(rapidjson::Document& doc, const cryptonote::rpc::amount_with_random_outputs& out)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("amount", toJsonValue<decltype(out.amount)>(doc, out.amount), al);
+  val.AddMember("outputs", toJsonValue<decltype(out.outputs)>(doc, out.outputs), al);
+
+  return val;
+}
+
+template <>
+cryptonote::rpc::amount_with_random_outputs fromJsonValue<cryptonote::rpc::amount_with_random_outputs>(const rapidjson::Value& val)
+{
+  cryptonote::rpc::amount_with_random_outputs out;
+
+  out.amount = fromJsonValue<decltype(out.amount)>(val["amount"]);
+  out.outputs = fromJsonValue<decltype(out.outputs)>(val["outputs"]);
+
+  return out;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote

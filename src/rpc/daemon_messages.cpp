@@ -41,6 +41,7 @@ const char* GetHashesFast::name = "get_hashes_fast";
 const char* GetTransactions::name = "get_transactions";
 const char* KeyImagesSpent::name = "key_images_spent";
 const char* GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
+const char* GetRandomOutputsForAmounts::name = "get_random_outputs_for_amounts";
 const char* GetInfo::name = "get_info";
 
 
@@ -252,6 +253,41 @@ rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document&
 void GetTxGlobalOutputIndices::Response::fromJson(rapidjson::Value& val)
 {
   output_indices = cryptonote::json::fromJsonValue<decltype(output_indices)>(val["output_indices"]);
+}
+
+
+rapidjson::Value GetRandomOutputsForAmounts::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("amounts", cryptonote::json::toJsonValue<decltype(amounts)>(doc, amounts), al);
+  val.AddMember("count", cryptonote::json::toJsonValue<decltype(count)>(doc, count), al);
+
+  return val;
+}
+
+void GetRandomOutputsForAmounts::Request::fromJson(rapidjson::Value& val)
+{
+  amounts = cryptonote::json::fromJsonValue<decltype(amounts)>(val["amounts"]);
+  count = cryptonote::json::fromJsonValue<decltype(count)>(val["count"]);
+}
+
+rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("amounts_with_outputs", cryptonote::json::toJsonValue<decltype(amounts_with_outputs)>(doc, amounts_with_outputs), al);
+
+  return val;
+}
+
+void GetRandomOutputsForAmounts::Response::fromJson(rapidjson::Value& val)
+{
+  amounts_with_outputs = cryptonote::json::fromJsonValue<decltype(amounts_with_outputs)>(val["amounts_with_outputs"]);
 }
 
 

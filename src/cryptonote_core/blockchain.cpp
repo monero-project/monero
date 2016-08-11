@@ -1504,6 +1504,98 @@ void Blockchain::add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_A
   output_data_t data = m_db->get_output_key(amount, i);
   oen.out_key = data.pubkey;
 }
+
+uint64_t Blockchain::get_num_mature_outputs(uint64_t amount) const
+{
+  auto num_outs = m_db->get_num_outputs(amount);
+  // ensure we don't include outputs that aren't yet eligible to be used
+  // outpouts are sorted by height
+  while (num_outs > 0)
+  {
+    const tx_out_index toi = m_db->get_output_tx_and_index(amount, num_outs - 1);
+    const uint64_t height = m_db->get_tx_block_height(toi.first);
+    if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= m_db->height())
+      break;
+    --num_outs;
+  }
+
+  return num_outs;
+}
+
+std::vector<uint64_t> Blockchain::get_random_outputs(uint64_t amount, uint64_t count) const
+{
+  uint64_t num_outs = get_num_mature_outputs(amount);
+
+  std::vector<uint64_t> indices;
+
+  std::unordered_set<uint64_t> seen_indices;
+
+  // if there aren't enough outputs to mix with (or just enough),
+  // use all of them.  Eventually this should become impossible.
+  if (num_outs <= count)
+  {
+    for (uint64_t i = 0; i < num_outs; i++)
+    {
+      // get tx_hash, tx_out_index from DB
+      tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
+
+      // if tx is unlocked, add output to indices
+      if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
+      {
+        indices.push_back(i);
+      }
+    }
+  }
+  else
+  {
+    // while we still need more mixins
+    while (indices.size() < count)
+    {
+      // if we've gone through every possible output, we've gotten all we can
+      if (seen_indices.size() == num_outs)
+      {
+        break;
+      }
+
+      // get a random output index from the DB.  If we've already seen it,
+      // return to the top of the loop and try again, otherwise add it to the
+      // list of output indices we've seen.
+
+      // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+      uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+      double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+      uint64_t i = (uint64_t)(frac*num_outs);
+      // just in case rounding up to 1 occurs after sqrt
+      if (i == num_outs)
+        --i;
+
+      if (seen_indices.count(i))
+      {
+        continue;
+      }
+      seen_indices.emplace(i);
+
+      // get tx_hash, tx_out_index from DB
+      tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
+
+      // if the output's transaction is unlocked, add the output's index to
+      // our list.
+      if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
+      {
+        indices.push_back(i);
+      }
+    }
+  }
+
+  return indices;
+}
+
+crypto::public_key Blockchain::get_output_key(uint64_t amount, uint64_t global_index) const
+{
+  output_data_t data = m_db->get_output_key(amount, global_index);
+  return data.pubkey;
+}
+
 //------------------------------------------------------------------
 // This function takes an RPC request for mixins and creates an RPC response
 // with the requested mixins.
@@ -1518,80 +1610,18 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
   // from BlockchainDB where <n> is req.outs_count (number of mixins).
   for (uint64_t amount : req.amounts)
   {
-    auto num_outs = m_db->get_num_outputs(amount);
-    // ensure we don't include outputs that aren't yet eligible to be used
-    // outpouts are sorted by height
-    while (num_outs > 0)
-    {
-      const tx_out_index toi = m_db->get_output_tx_and_index(amount, num_outs - 1);
-      const uint64_t height = m_db->get_tx_block_height(toi.first);
-      if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= m_db->height())
-        break;
-      --num_outs;
-    }
-
     // create outs_for_amount struct and populate amount field
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs = *res.outs.insert(res.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount());
     result_outs.amount = amount;
 
-    std::unordered_set<uint64_t> seen_indices;
+    std::vector<uint64_t> indices = get_random_outputs(amount, req.outs_count);
 
-    // if there aren't enough outputs to mix with (or just enough),
-    // use all of them.  Eventually this should become impossible.
-    if (num_outs <= req.outs_count)
+    for (auto i : indices)
     {
-      for (uint64_t i = 0; i < num_outs; i++)
-      {
-        // get tx_hash, tx_out_index from DB
-        tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
+      COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry& oe = *result_outs.outs.insert(result_outs.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry());
 
-        // if tx is unlocked, add output to result_outs
-        if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
-        {
-          add_out_to_get_random_outs(result_outs, amount, i);
-        }
-
-      }
-    }
-    else
-    {
-      // while we still need more mixins
-      while (result_outs.outs.size() < req.outs_count)
-      {
-        // if we've gone through every possible output, we've gotten all we can
-        if (seen_indices.size() == num_outs)
-        {
-          break;
-        }
-
-        // get a random output index from the DB.  If we've already seen it,
-        // return to the top of the loop and try again, otherwise add it to the
-        // list of output indices we've seen.
-
-        // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
-        uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-        double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-        uint64_t i = (uint64_t)(frac*num_outs);
-        // just in case rounding up to 1 occurs after sqrt
-        if (i == num_outs)
-          --i;
-
-        if (seen_indices.count(i))
-        {
-          continue;
-        }
-        seen_indices.emplace(i);
-
-        // get tx_hash, tx_out_index from DB
-        tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
-
-        // if the output's transaction is unlocked, add the output's index to
-        // our list.
-        if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
-        {
-          add_out_to_get_random_outs(result_outs, amount, i);
-        }
-      }
+      oe.global_amount_index = i;
+      oe.out_key = get_output_key(amount, i);
     }
   }
   return true;
