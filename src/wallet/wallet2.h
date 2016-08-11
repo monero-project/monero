@@ -383,7 +383,7 @@ namespace tools
     std::string get_keys_file() const;
     std::string get_daemon_address() const;
 
-    std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool trusted_daemon);
+    std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool trusted_daemon);
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
     std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);
@@ -668,12 +668,12 @@ namespace tools
         "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
         std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
 
-      std::vector<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount> scanty_outs;
+      std::unordered_map<uint64_t, uint64_t> scanty_outs;
       BOOST_FOREACH(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs, daemon_resp.outs)
       {
         if (amount_outs.outs.size() < fake_outputs_count)
         {
-          scanty_outs.push_back(amount_outs);
+          scanty_outs[amount_outs.amount] = amount_outs.outs.size();
         }
       }
       THROW_WALLET_EXCEPTION_IF(!scanty_outs.empty(), error::not_enough_outs_to_mix, scanty_outs, fake_outputs_count);

@@ -1944,7 +1944,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t&
   return ret;
 }
 
-tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index)
+tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   std::vector < uint64_t > offsets;
@@ -2550,7 +2550,7 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
   LOG_PRINT_L3("db3: " << db3);
 }
 
-void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices)
+void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2585,7 +2585,7 @@ void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::
   LOG_PRINT_L3("db3: " << db3);
 }
 
-std::map<uint64_t, uint64_t> BlockchainLMDB::get_output_histogram(const std::vector<uint64_t> &amounts) const
+std::map<uint64_t, uint64_t> BlockchainLMDB::get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2634,6 +2634,23 @@ std::map<uint64_t, uint64_t> BlockchainLMDB::get_output_histogram(const std::vec
       {
         throw0(DB_ERROR(lmdb_error("Failed to enumerate outputs: ", ret).c_str()));
       }
+    }
+  }
+
+  if (unlocked) {
+    const uint64_t blockchain_height = height();
+    for (auto i: histogram) {
+      uint64_t amount = i.first;
+      uint64_t num_elems = i.second;
+      while (num_elems > 0) {
+        const tx_out_index toi = get_output_tx_and_index(amount, num_elems - 1);
+        const uint64_t height = get_tx_block_height(toi.first);
+        if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= blockchain_height)
+          break;
+        --num_elems;
+      }
+      // modifying second does not invalidate the iterator
+      i.second = num_elems;
     }
   }
 
