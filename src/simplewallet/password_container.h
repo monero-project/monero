@@ -31,6 +31,7 @@
 #pragma once
 
 #include <string>
+#include <boost/program_options/variables_map.hpp>
 
 namespace tools
 {
@@ -38,10 +39,9 @@ namespace tools
   {
   public:
     static const size_t max_password_size = 1024;
-
-    password_container();
-    password_container(std::string&& password);
+    password_container(bool verify);
     password_container(password_container&& rhs);
+    password_container(std::string&& password);
     ~password_container();
 
     void clear();
@@ -51,11 +51,14 @@ namespace tools
     bool read_password(const char *message = "password");
 
   private:
+    //delete constructor with no parameters
+    password_container();
     bool read_from_file();
-    bool read_from_tty();
+    bool read_from_tty(std::string & pass);
+    bool read_from_tty_double_check(const char *message);
 
-  private:
     bool m_empty;
     std::string m_password;
+    bool m_verify;
   };
 }
