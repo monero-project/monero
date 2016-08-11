@@ -295,6 +295,8 @@ class SendRawTx
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        cryptonote::transaction tx;
+        bool do_not_relay;
     };
 
     class Response : public Message
@@ -307,6 +309,7 @@ class SendRawTx
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        bool relayed;
     };
 };
 

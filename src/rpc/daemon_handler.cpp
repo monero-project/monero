@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "daemon_handler.h"
+#include "cryptonote_core/cryptonote_format_utils.h"
 
 namespace cryptonote
 {
@@ -241,6 +242,64 @@ namespace rpc
 
   void DaemonHandler::handle(SendRawTx::Request& req, SendRawTx::Response& res)
   {
+    auto tx_blob = cryptonote::tx_to_blob(req.tx);
+
+    cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+    tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false) || tvc.m_verifivation_failed)
+    {
+      if (tvc.m_verifivation_failed)
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed");
+      }
+      else
+      {
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
+      }
+      res.status = Message::STATUS_FAILED;
+
+      //TODO: these should be mutually exclusive, as encountering one
+      //      cancels the verification process.  Need to confirm this.
+      if (tvc.m_low_mixin)
+        res.error_details = "mixin too low";
+      else if (tvc.m_double_spend)
+        res.error_details = "double spend";
+      else if (tvc.m_invalid_input)
+        res.error_details = "invalid input";
+      else if (tvc.m_invalid_output)
+        res.error_details = "invalid output";
+      else if (tvc.m_too_big)
+        res.error_details = "too big";
+      else if (tvc.m_overspend)
+        res.error_details = "overspend";
+      else if (tvc.m_fee_too_low)
+        res.error_details = "fee too low";
+      else
+        res.error_details = "an unknown issue was found with the transaction";
+
+      return;
+    }
+
+    if(!tvc.m_should_be_relayed || req.do_not_relay)
+    {
+      LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
+      res.error_details = "Not relayed";
+      res.relayed = false;
+      res.status = Message::STATUS_OK;
+
+      return;
+    }
+
+    NOTIFY_NEW_TRANSACTIONS::request r;
+    r.txs.push_back(tx_blob);
+    m_core.get_protocol()->relay_transactions(r, fake_context);
+
+    //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
+    res.status = Message::STATUS_OK;
+    res.relayed = true;
+
+    return;
   }
 
   void DaemonHandler::handle(StartMining::Request& req, StartMining::Response& res)
@@ -398,6 +457,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetTxGlobalOutputIndices, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetRandomOutputsForAmounts, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, SendRawTx, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);

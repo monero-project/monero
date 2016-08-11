@@ -42,6 +42,7 @@ const char* GetTransactions::name = "get_transactions";
 const char* KeyImagesSpent::name = "key_images_spent";
 const char* GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
 const char* GetRandomOutputsForAmounts::name = "get_random_outputs_for_amounts";
+const char* SendRawTx::name = "send_raw_tx";
 const char* GetInfo::name = "get_info";
 
 
@@ -288,6 +289,41 @@ rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Documen
 void GetRandomOutputsForAmounts::Response::fromJson(rapidjson::Value& val)
 {
   amounts_with_outputs = cryptonote::json::fromJsonValue<decltype(amounts_with_outputs)>(val["amounts_with_outputs"]);
+}
+
+
+rapidjson::Value SendRawTx::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("tx", cryptonote::json::toJsonValue<decltype(tx)>(doc, tx), al);
+  val.AddMember("do_not_relay", cryptonote::json::toJsonValue<decltype(do_not_relay)>(doc, do_not_relay), al);
+
+  return val;
+}
+
+void SendRawTx::Request::fromJson(rapidjson::Value& val)
+{
+  tx = cryptonote::json::fromJsonValue<decltype(tx)>(val["tx"]);
+  do_not_relay = cryptonote::json::fromJsonValue<decltype(do_not_relay)>(val["do_not_relay"]);
+}
+
+rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("relayed", cryptonote::json::toJsonValue<decltype(relayed)>(doc, relayed), al);
+
+  return val;
+}
+
+void SendRawTx::Response::fromJson(rapidjson::Value& val)
+{
+  relayed = cryptonote::json::fromJsonValue<decltype(relayed)>(val["relayed"]);
 }
 
 
