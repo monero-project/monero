@@ -274,6 +274,27 @@ static std::string get_mining_speed(uint64_t hr)
   return (boost::format("%.0f H/s") % hr).str();
 }
 
+static std::string get_fork_extra_info(uint64_t t, uint64_t now, uint64_t block_time)
+{
+  uint64_t blocks_per_day = 86400 / block_time;
+
+  if (t == now)
+    return " (forking now)";
+
+  if (t > now)
+  {
+    uint64_t dblocks = t - now;
+    if (dblocks <= 30)
+      return (boost::format(" (next fork in %u blocks)") % (unsigned)dblocks).str();
+    if (dblocks <= blocks_per_day / 2)
+      return (boost::format(" (next fork in %.1f hours)") % (dblocks / (float)(blocks_per_day / 24))).str();
+    if (dblocks <= blocks_per_day * 30)
+      return (boost::format(" (next fork in %.1f days)") % (dblocks / (float)blocks_per_day)).str();
+    return "";
+  }
+  return "";
+}
+
 bool t_rpc_command_executor::show_status() {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
@@ -331,7 +352,7 @@ bool t_rpc_command_executor::show_status() {
     }
   }
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u, %s, %u+%u connections")
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u+%u connections")
     % (unsigned long long)ires.height
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % (100.0f * ires.height / (ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height))
@@ -339,6 +360,7 @@ bool t_rpc_command_executor::show_status() {
     % (mining_busy ? "syncing" : mres.active ? "mining at " + get_mining_speed(mres.speed) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
+    % get_fork_extra_info(hfres.earliest_height, ires.height, ires.target)
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)ires.outgoing_connections_count % (unsigned)ires.incoming_connections_count
   ;

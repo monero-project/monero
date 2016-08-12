@@ -369,6 +369,18 @@ uint64_t HardFork::get_earliest_ideal_height_for_version(uint8_t version) const
   return 0;
 }
 
+uint8_t HardFork::get_next_version() const
+{
+  CRITICAL_REGION_LOCAL(lock);
+  uint64_t height = db.height();
+  for (unsigned int n = heights.size() - 1; n > 0; --n) {
+    if (height >= heights[n].height) {
+      return heights[n < heights.size() - 1 ? n + 1 : n].version;
+    }
+  }
+  return original_version;
+}
+
 bool HardFork::get_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
   CRITICAL_REGION_LOCAL(lock);

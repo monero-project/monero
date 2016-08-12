@@ -667,6 +667,13 @@ namespace cryptonote
     uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
 
     /**
+     * @brief returns the next hardfork version
+     *
+     * @return the version
+     */
+    uint8_t get_next_hard_fork_version() const { return m_hardfork->get_next_version(); }
+
+    /**
      * @brief returns the newest hardfork version voted to be enabled
      * as of a certain height
      *

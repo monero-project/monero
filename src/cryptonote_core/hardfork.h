@@ -169,6 +169,13 @@ namespace cryptonote
     uint8_t get_ideal_version(uint64_t height) const;
 
     /**
+     * @brief returns the next version
+     *
+     * This is the version which will we fork to next
+     */
+    uint8_t get_next_version() const;
+
+    /**
      * @brief returns the current version
      *
      * This is the latest version that's past its trigger date and had enough votes
