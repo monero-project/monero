@@ -741,21 +741,27 @@ namespace rct {
         try
         {
           size_t i = 0;
-          bool rvb = true;
           bool tmp;
           DP("range proofs verified?");
           for (i = 0; i < rv.outPk.size(); i++) {
               tmp = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
               DP(tmp);
-              rvb = (rvb && tmp);
+              if (!tmp) {
+                LOG_ERROR("Range proof verification failed for input " << i);
+                return false;
+              }
           }
           //compute txn fee
           key txnFeeKey = scalarmultH(d2h(rv.txnFee));
           bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
           DP("mg sig verified?");
           DP(mgVerd);
+          if (!mgVerd) {
+            LOG_ERROR("MG signature verification failed");
+            return false;
+          }
 
-          return (rvb && mgVerd);
+          return true;
         }
         catch(...)
         {
@@ -767,7 +773,6 @@ namespace rct {
     //assumes only post-rct style inputs (at least for max anonymity)
     bool verRctSimple(const rctSig & rv) {
         size_t i = 0;
-        bool rvb = true;
 
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
@@ -778,6 +783,7 @@ namespace rct {
         key sumOutpks = identity();
         for (i = 0; i < rv.outPk.size(); i++) {
             if (!verRange(rv.outPk[i].mask, rv.p.rangeSigs[i])) {
+                LOG_ERROR("Range proof verified failed for input " << i);
                 return false;
             }
             addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
@@ -794,21 +800,19 @@ namespace rct {
             addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
             DP(tmpb);
             if (!tmpb) {
+                LOG_ERROR("verRctMGSimple failed for input " << i);
                 return false;
             }
         }
         DP(sumPseudoOuts);
-        bool mgVerd = true;
         
         //check pseudoOuts vs Outs..
         if (!equalKeys(sumPseudoOuts, sumOutpks)) {
+            LOG_ERROR("Sum check failed");
             return false;
         }
-        
-        DP("mg sig verified?");
-        DP(mgVerd);
 
-        return (rvb && mgVerd);
+        return true;
     }
 
     //RingCT protocol
