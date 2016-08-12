@@ -30,6 +30,8 @@
 
 #include "misc_log_ex.h"
 #include "rctSigs.h"
+#include "cryptonote_core/cryptonote_format_utils.h"
+
 using namespace crypto;
 using namespace std;
 
@@ -343,9 +345,12 @@ namespace rct {
 
     key get_pre_mlsag_hash(const rctSig &rv)
     {
+      keyV hashes;
+      hashes.push_back(rv.message);
+      crypto::hash h;
+      cryptonote::get_blob_hash(cryptonote::t_serializable_object_to_blob((const rctSigBase&)rv), h);
+      hashes.push_back(hash2rct(h));
       keyV kv;
-      kv.push_back(d2h(rv.type));
-      kv.push_back(rv.message);
       for (auto r: rv.p.rangeSigs)
       {
         for (size_t n = 0; n < 64; ++n)
@@ -356,26 +361,9 @@ namespace rct {
         for (size_t n = 0; n < 64; ++n)
           kv.push_back(r.Ci[n]);
       }
-      // no MG/MGs, that's what will sign all this
-      // no mixRing, it's part of the vin already
-      for (auto o: rv.pseudoOuts)
-      {
-        kv.push_back(o);
-      }
-      for (auto i: rv.ecdhInfo)
-      {
-        kv.push_back(i.mask);
-        kv.push_back(i.amount);
-        // no senderPk, unused here
-      }
-      for (auto o: rv.outPk)
-      {
-        kv.push_back(o.dest);
-        kv.push_back(o.mask);
-      }
-      kv.push_back(d2h(rv.txnFee));
+      hashes.push_back(cn_fast_hash(kv));
 
-      return cn_fast_hash(kv);
+      return cn_fast_hash(hashes);
     }
 
     //Ring-ct MG sigs
