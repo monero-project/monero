@@ -233,6 +233,8 @@ namespace cryptonote
         FIELD(rct_signatures)
         switch (rct_signatures.type)
         {
+        case rct::RCTTypeNull:
+          break;
         case rct::RCTTypeSimple:
           if (rct_signatures.mixRing.size() && rct_signatures.mixRing.size() != vin.size())
             return false;
@@ -276,6 +278,7 @@ namespace cryptonote
     vout.clear();
     extra.clear();
     signatures.clear();
+    rct_signatures.type = rct::RCTTypeNull;
   }
 
   inline

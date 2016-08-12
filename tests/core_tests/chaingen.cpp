@@ -458,6 +458,7 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
               continue;
 
             ts.real_output = realOutput;
+            ts.rct = false;
 
             sources.push_back(ts);
 

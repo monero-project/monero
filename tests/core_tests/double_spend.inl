@@ -130,6 +130,7 @@ bool gen_double_spend_in_tx<txs_keeped_by_block>::generate(std::vector<test_even
   se.amount = tx_0.vout[0].amount;
   se.push_output(0, boost::get<cryptonote::txout_to_key>(tx_0.vout[0].target).key, se.amount);
   se.real_output = 0;
+  se.rct = false;
   se.real_out_tx_key = get_tx_pub_key_from_extra(tx_0);
   se.real_output_in_tx_index = 0;
   sources.push_back(se);

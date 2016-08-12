@@ -174,8 +174,9 @@ namespace rct {
     // outPk contains public keypairs which are destinations (P, C),
     //  P = address, C = commitment to amount
     enum {
-      RCTTypeFull = 0,
-      RCTTypeSimple = 1,
+      RCTTypeNull = 0,
+      RCTTypeFull = 1,
+      RCTTypeSimple = 2,
     };
     struct rctSigBase {
         uint8_t type;
@@ -189,6 +190,8 @@ namespace rct {
 
         BEGIN_SERIALIZE()
             FIELD(type)
+            if (type == RCTTypeNull)
+              return true;
             // FIELD(message) - not serialized, it can be reconstructed
             // FIELD(mixRing) - not serialized, it can be reconstructed
             if (type == RCTTypeSimple)
@@ -224,6 +227,8 @@ namespace rct {
 
         BEGIN_SERIALIZE_OBJECT()
             FIELDS(*static_cast<rctSigBase *>(this))
+            if (type == RCTTypeNull)
+              return true;
             FIELDS(p);
         END_SERIALIZE()
     };

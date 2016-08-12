@@ -249,6 +249,8 @@ namespace boost
   inline void serialize(Archive &a, rct::rctSigBase &x, const boost::serialization::version_type ver)
   {
     a & x.type;
+    if (x.type == rct::RCTTypeNull)
+      return;
     if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple)
       throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported rct type");
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data
@@ -264,6 +266,8 @@ namespace boost
   inline void serialize(Archive &a, rct::rctSig &x, const boost::serialization::version_type ver)
   {
     a & x.type;
+    if (x.type == rct::RCTTypeNull)
+      return;
     if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple)
       throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported rct type");
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data

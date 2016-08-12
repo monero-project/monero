@@ -97,6 +97,7 @@ bool test_transaction_generation_and_ring_signature()
 
     src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(tx_mine_2);
     src.real_output = 1;
+    src.rct = false;
     src.real_output_in_tx_index = 0;
   }
   //fill outputs entry

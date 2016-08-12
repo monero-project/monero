@@ -108,8 +108,9 @@ namespace tools
       crypto::key_image m_key_image; //TODO: key_image stored twice :(
       rct::key m_mask;
       uint64_t m_amount;
+      bool m_rct;
 
-      bool is_rct() const { return m_tx.vout[m_internal_output_index].amount == 0; }
+      bool is_rct() const { return m_rct; }
       uint64_t amount() const { return m_amount; }
     };
 
@@ -502,7 +503,7 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 14)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 3)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 4)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 5)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 2)
@@ -526,6 +527,10 @@ namespace boost
         if (ver < 2)
         {
           x.m_spent_height = 0;
+        }
+        if (ver < 4)
+        {
+          x.m_rct = x.m_tx.vout[x.m_internal_output_index].amount == 0;
         }
     }
 
@@ -563,8 +568,17 @@ namespace boost
       }
       a & x.m_spent_height;
       if (ver < 3)
+      {
+        initialize_transfer_details(a, x, ver);
         return;
+      }
       a & x.m_txid;
+      if (ver < 4)
+      {
+        initialize_transfer_details(a, x, ver);
+        return;
+      }
+      a & x.m_rct;
     }
 
     template <class Archive>
@@ -770,6 +784,7 @@ namespace tools
       cryptonote::tx_source_entry& src = sources.back();
       transfer_details& td = *it;
       src.amount = td.amount();
+      src.rct = false;
       //paste mixin transaction
       if(daemon_resp.outs.size())
       {

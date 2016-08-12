@@ -46,6 +46,7 @@ void BlockchainDB::pop_block()
 
 void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr)
 {
+  bool miner_tx = false;
   crypto::hash tx_hash;
   if (!tx_hash_ptr)
   {
@@ -67,6 +68,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     else if (tx_input.type() == typeid(txin_gen))
     {
       /* nothing to do here */
+      miner_tx = true;
     }
     else
     {
@@ -90,8 +92,21 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   // we need the index
   for (uint64_t i = 0; i < tx.vout.size(); ++i)
   {
-    amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
-      tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL));
+    // miner v2 txes have their coinbase output in one single out to save space,
+    // and we store them as rct outputs with an identity mask
+    if (miner_tx && tx.version == 2)
+    {
+      cryptonote::tx_out vout = tx.vout[i];
+      rct::key commitment = rct::zeroCommit(vout.amount);
+      vout.amount = 0;
+      amount_output_indices.push_back(add_output(tx_hash, vout, i, tx.unlock_time,
+        &commitment));
+    }
+    else
+    {
+      amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
+        tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL));
+    }
   }
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }

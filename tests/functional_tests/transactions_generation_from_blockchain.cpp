@@ -113,6 +113,7 @@ bool make_tx(blockchain_storage& bch)
     src.real_out_tx_key = td.m_tx.tx_pub_key;
     src.real_output = interted_it - src.outputs.begin();
     src.real_output_in_tx_index = td.m_internal_output_index;
+    src.rct = false;
     ++i;
   }
 

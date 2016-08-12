@@ -959,7 +959,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     money_in_use += o.amount;
   partial_block_reward = false;
 
-  if (version >= 3) {
+  if (version == 3) {
     for (auto &o: b.miner_tx.vout) {
       if (!is_valid_decomposed_amount(o.amount)) {
         LOG_PRINT_L1("miner tx output " << print_money(o.amount) << " is not a valid decomposed amount");
@@ -1128,7 +1128,9 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
    block size, so first miner transaction generated with fake amount of money, and with phase we know think we know expected block size
    */
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob size
-  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, 11, m_hardfork->get_current_version());
+  uint8_t hf_version = m_hardfork->get_current_version();
+  size_t max_outs = hf_version >= 4 ? 1 : 11;
+  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, first chance");
   size_t cumulative_size = txs_size + get_object_blobsize(b.miner_tx);
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
@@ -1137,7 +1139,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, 11, m_hardfork->get_current_version());
+    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construc miner tx, second chance");
     size_t coinbase_blob_size = get_object_blobsize(b.miner_tx);
@@ -2354,17 +2356,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
 
-    // for v3, we force txes with all mixable inputs to be rct
-    if (m_hardfork->get_current_version() >= 4)
-    {
-      if (n_unmixable == 0 && tx.version == 1)
-      {
-        LOG_PRINT_L1("Tx " << get_transaction_hash(tx) << " is not rct and does not have unmixable inputs");
-        tvc.m_not_rct = true;
-        return false;
-      }
-    }
-
     if (mixin < 2)
     {
       if (n_unmixable == 0)
@@ -2543,6 +2534,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     const rct::rctSig &rv = tx.rct_signatures;
     switch (rv.type)
     {
+    case rct::RCTTypeNull: {
+      // we only accept no signatures for coinbase txes
+      LOG_PRINT_L1("Null rct signature on non-coinbase tx");
+      return false;
+    }
     case rct::RCTTypeSimple: {
       // check all this, either recontructed (so should really pass), or not
       {

@@ -96,6 +96,7 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     }
     src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(blocks[0].miner_tx);
     src.real_output = 0;
+    src.rct = false;
     src.real_output_in_tx_index = out_idx[out_idx_idx];
   }
 
