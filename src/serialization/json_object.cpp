@@ -775,6 +775,32 @@ cryptonote::rpc::tx_in_pool fromJsonValue<cryptonote::rpc::tx_in_pool>(const rap
   return tx;
 }
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& oac)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("amount", toJsonValue<decltype(oac.amount)>(doc, oac.amount), al);
+  val.AddMember("count", toJsonValue<decltype(oac.count)>(doc, oac.count), al);
+
+  return val;
+}
+
+template <>
+cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amount_count>(const rapidjson::Value& val)
+{
+  cryptonote::rpc::output_amount_count oac;
+
+  oac.amount = fromJsonValue<decltype(oac.amount)>(val["amount"]);
+  oac.count = fromJsonValue<decltype(oac.count)>(val["count"]);
+
+  return oac;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote

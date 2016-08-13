@@ -1198,10 +1198,12 @@ class GetOutputHistogram
         Request() { }
         ~Request() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<uint64_t> amounts;
+        uint64_t min_count;
+        uint64_t max_count;
     };
 
     class Response : public Message
@@ -1210,10 +1212,10 @@ class GetOutputHistogram
         Response() { }
         ~Response() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<output_amount_count> histogram;
     };
 };
 

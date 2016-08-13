@@ -66,6 +66,12 @@ namespace rpc
     bool relayed;
   };
 
+  struct output_amount_count
+  {
+    uint64_t amount;
+    uint64_t count;
+  };
+
 }  // namespace rpc
 
 }  // namespace cryptonote

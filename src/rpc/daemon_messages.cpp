@@ -53,6 +53,7 @@ const char* GetPeerList::name = "get_peer_list";
 const char* SetLogLevel::name = "set_log_level";
 const char* GetTransactionPool::name = "get_transaction_pool";
 const char* HardForkInfo::name = "hard_fork_info";
+const char* GetOutputHistogram::name = "get_output_histogram";
 const char* GetRPCVersion::name = "get_rpc_version";
 
 
@@ -725,6 +726,43 @@ void HardForkInfo::Response::fromJson(rapidjson::Value& val)
   voting = cryptonote::json::fromJsonValue<decltype(voting)>(val["voting"]);
   state = cryptonote::json::fromJsonValue<decltype(state)>(val["state"]);
   earliest_height = cryptonote::json::fromJsonValue<decltype(earliest_height)>(val["earliest_height"]);
+}
+
+
+rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("amounts", cryptonote::json::toJsonValue<decltype(amounts)>(doc, amounts), al);
+  val.AddMember("min_count", cryptonote::json::toJsonValue<decltype(min_count)>(doc, min_count), al);
+  val.AddMember("max_count", cryptonote::json::toJsonValue<decltype(max_count)>(doc, max_count), al);
+
+  return val;
+}
+
+void GetOutputHistogram::Request::fromJson(rapidjson::Value& val)
+{
+  amounts = cryptonote::json::fromJsonValue<decltype(amounts)>(val["amounts"]);
+  min_count = cryptonote::json::fromJsonValue<decltype(min_count)>(val["min_count"]);
+  max_count = cryptonote::json::fromJsonValue<decltype(max_count)>(val["max_count"]);
+}
+
+rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("histogram", cryptonote::json::toJsonValue<decltype(histogram)>(doc, histogram), al);
+
+  return val;
+}
+
+void GetOutputHistogram::Response::fromJson(rapidjson::Value& val)
+{
+  histogram = cryptonote::json::fromJsonValue<decltype(histogram)>(val["histogram"]);
 }
 
 

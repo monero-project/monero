@@ -603,6 +603,27 @@ namespace rpc
 
   void DaemonHandler::handle(GetOutputHistogram::Request& req, GetOutputHistogram::Response& res)
   {
+    std::map<uint64_t, uint64_t> histogram;
+    try
+    {
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts);
+    }
+    catch (const std::exception &e)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = e.what();
+      return;
+    }
+
+    res.histogram.clear();
+    res.histogram.reserve(histogram.size());
+    for (const auto &i: histogram)
+    {
+      if (i.second >= req.min_count && (i.second <= req.max_count || req.max_count == 0))
+        res.histogram.emplace_back(output_amount_count{i.first, i.second});
+    }
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(GetRPCVersion::Request& req, GetRPCVersion::Response& res)
@@ -639,6 +660,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, HardForkInfo, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetOutputHistogram, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetRPCVersion, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
