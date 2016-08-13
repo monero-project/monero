@@ -689,6 +689,36 @@ cryptonote::rpc::amount_with_random_outputs fromJsonValue<cryptonote::rpc::amoun
   return out;
 }
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::peer>(rapidjson::Document& doc, const cryptonote::rpc::peer& peer)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("id", toJsonValue<decltype(peer.id)>(doc, peer.id), al);
+  val.AddMember("ip", toJsonValue<decltype(peer.ip)>(doc, peer.ip), al);
+  val.AddMember("port", toJsonValue<decltype(peer.port)>(doc, peer.port), al);
+  val.AddMember("last_seen", toJsonValue<decltype(peer.last_seen)>(doc, peer.last_seen), al);
+
+  return val;
+}
+
+template <>
+cryptonote::rpc::peer fromJsonValue<cryptonote::rpc::peer>(const rapidjson::Value& val)
+{
+  cryptonote::rpc::peer peer;
+
+  peer.id = fromJsonValue<decltype(peer.id)>(val["id"]);
+  peer.ip = fromJsonValue<decltype(peer.ip)>(val["ip"]);
+  peer.port = fromJsonValue<decltype(peer.port)>(val["port"]);
+  peer.last_seen = fromJsonValue<decltype(peer.last_seen)>(val["last_seen"]);
+
+  return peer;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote

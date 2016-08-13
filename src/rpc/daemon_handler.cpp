@@ -477,8 +477,24 @@ namespace rpc
   {
   }
 
+  //FIXME: nodetool::peerlist_entry.adr.port is uint32_t for some reason
   void DaemonHandler::handle(GetPeerList::Request& req, GetPeerList::Response& res)
   {
+    std::list<nodetool::peerlist_entry> white_list;
+    std::list<nodetool::peerlist_entry> gray_list;
+    m_p2p.get_peerlist_manager().get_peerlist_full(gray_list, white_list);
+
+    for (auto & entry : white_list)
+    {
+      res.white_list.emplace_back(peer{entry.id, entry.adr.ip, (uint16_t)entry.adr.port, (uint64_t)entry.last_seen});
+    }
+
+    for (auto & entry : gray_list)
+    {
+      res.gray_list.emplace_back(peer{entry.id, entry.adr.ip, (uint16_t)entry.adr.port, (uint64_t)entry.last_seen});
+    }
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(SetLogHashRate::Request& req, SetLogHashRate::Response& res)
@@ -566,6 +582,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetLastBlockHeader, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHash, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHeight, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetPeerList, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

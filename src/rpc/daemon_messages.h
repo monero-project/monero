@@ -741,7 +741,6 @@ class GetPeerList
         Request() { }
         ~Request() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
@@ -753,10 +752,11 @@ class GetPeerList
         Response() { }
         ~Response() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::vector<peer> white_list;
+        std::vector<peer> gray_list;
     };
 };
 

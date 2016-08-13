@@ -38,6 +38,14 @@ namespace rpc
     outputs_for_amount outputs;
   };
 
+  struct peer
+  {
+    uint64_t id;
+    uint32_t ip;
+    uint16_t port;
+    uint64_t last_seen;
+  };
+
 }  // namespace rpc
 
 }  // namespace cryptonote

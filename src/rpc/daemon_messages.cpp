@@ -49,6 +49,7 @@ const char* GetBlockHash::name = "get_block_hash";
 const char* GetLastBlockHeader::name = "get_last_block_header";
 const char* GetBlockHeaderByHash::name = "get_block_header_by_hash";
 const char* GetBlockHeaderByHeight::name = "get_block_header_by_height";
+const char* GetPeerList::name = "get_peer_list";
 
 
 
@@ -587,6 +588,38 @@ void GetBlockHeaderByHeight::Response::fromJson(rapidjson::Value& val)
   hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
   difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
   reward = cryptonote::json::fromJsonValue<decltype(reward)>(val["reward"]);
+}
+
+
+rapidjson::Value GetPeerList::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  return val;
+}
+
+void GetPeerList::Request::fromJson(rapidjson::Value& val)
+{
+}
+
+rapidjson::Value GetPeerList::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("white_list", cryptonote::json::toJsonValue<decltype(white_list)>(doc, white_list), al);
+  val.AddMember("gray_list", cryptonote::json::toJsonValue<decltype(gray_list)>(doc, gray_list), al);
+
+  return val;
+}
+
+void GetPeerList::Response::fromJson(rapidjson::Value& val)
+{
+  white_list = cryptonote::json::fromJsonValue<decltype(white_list)>(val["white_list"]);
+  gray_list = cryptonote::json::fromJsonValue<decltype(gray_list)>(val["gray_list"]);
 }
 
 

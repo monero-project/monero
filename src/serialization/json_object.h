@@ -189,6 +189,12 @@ rapidjson::Value toJsonValue<cryptonote::rpc::amount_with_random_outputs>(rapidj
 template <>
 cryptonote::rpc::amount_with_random_outputs fromJsonValue<cryptonote::rpc::amount_with_random_outputs>(const rapidjson::Value& val);
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::peer>(rapidjson::Document& doc, const cryptonote::rpc::peer& out);
+
+template <>
+cryptonote::rpc::peer fromJsonValue<cryptonote::rpc::peer>(const rapidjson::Value& val);
+
 template <typename Map>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enable_if<sfinae::is_map_like<Map>::value, Map >::type &val);
 
