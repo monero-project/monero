@@ -1071,10 +1071,10 @@ class HardForkInfo
         Request() { }
         ~Request() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        uint8_t version;
     };
 
     class Response : public Message
@@ -1083,10 +1083,17 @@ class HardForkInfo
         Response() { }
         ~Response() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        uint8_t version;
+        bool enabled;
+        uint32_t window;
+        uint32_t votes;
+        uint32_t threshold;
+        uint8_t voting;
+        uint32_t state;
+        uint64_t earliest_height;
     };
 };
 
@@ -1207,6 +1214,35 @@ class GetOutputHistogram
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+    };
+};
+
+class GetVersion
+{
+  public:
+    static const char* name;
+
+    class Request : public Message
+    {
+      public:
+        Request() { }
+        ~Request() { }
+
+        rapidjson::Value toJson(rapidjson::Document& doc);
+        void fromJson(rapidjson::Value& val);
+
+    };
+
+    class Response : public Message
+    {
+      public:
+        Response() { }
+        ~Response() { }
+
+        rapidjson::Value toJson(rapidjson::Document& doc);
+        void fromJson(rapidjson::Value& val);
+
+        uint32_t version;
     };
 };
 

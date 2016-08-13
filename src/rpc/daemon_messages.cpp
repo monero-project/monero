@@ -52,6 +52,7 @@ const char* GetBlockHeaderByHeight::name = "get_block_header_by_height";
 const char* GetPeerList::name = "get_peer_list";
 const char* SetLogLevel::name = "set_log_level";
 const char* GetTransactionPool::name = "get_transaction_pool";
+const char* HardForkInfo::name = "hard_fork_info";
 
 
 
@@ -676,6 +677,53 @@ void GetTransactionPool::Response::fromJson(rapidjson::Value& val)
 {
   transactions = cryptonote::json::fromJsonValue<decltype(transactions)>(val["transactions"]);
   key_images = cryptonote::json::fromJsonValue<decltype(key_images)>(val["key_images"]);
+}
+
+
+rapidjson::Value HardForkInfo::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("version", cryptonote::json::toJsonValue<decltype(version)>(doc, version), al);
+
+  return val;
+}
+
+void HardForkInfo::Request::fromJson(rapidjson::Value& val)
+{
+  version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
+}
+
+rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("version", cryptonote::json::toJsonValue<decltype(version)>(doc, version), al);
+  val.AddMember("enabled", cryptonote::json::toJsonValue<decltype(enabled)>(doc, enabled), al);
+  val.AddMember("window", cryptonote::json::toJsonValue<decltype(window)>(doc, window), al);
+  val.AddMember("votes", cryptonote::json::toJsonValue<decltype(votes)>(doc, votes), al);
+  val.AddMember("threshold", cryptonote::json::toJsonValue<decltype(threshold)>(doc, threshold), al);
+  val.AddMember("voting", cryptonote::json::toJsonValue<decltype(voting)>(doc, voting), al);
+  val.AddMember("state", cryptonote::json::toJsonValue<decltype(state)>(doc, state), al);
+  val.AddMember("earliest_height", cryptonote::json::toJsonValue<decltype(earliest_height)>(doc, earliest_height), al);
+
+  return val;
+}
+
+void HardForkInfo::Response::fromJson(rapidjson::Value& val)
+{
+  version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
+  enabled = cryptonote::json::fromJsonValue<decltype(enabled)>(val["enabled"]);
+  window = cryptonote::json::fromJsonValue<decltype(window)>(val["window"]);
+  votes = cryptonote::json::fromJsonValue<decltype(votes)>(val["votes"]);
+  threshold = cryptonote::json::fromJsonValue<decltype(threshold)>(val["threshold"]);
+  voting = cryptonote::json::fromJsonValue<decltype(voting)>(val["voting"]);
+  state = cryptonote::json::fromJsonValue<decltype(state)>(val["state"]);
+  earliest_height = cryptonote::json::fromJsonValue<decltype(earliest_height)>(val["earliest_height"]);
 }
 
 

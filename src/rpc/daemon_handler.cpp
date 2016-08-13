@@ -581,6 +581,12 @@ namespace rpc
 
   void DaemonHandler::handle(HardForkInfo::Request& req, HardForkInfo::Response& res)
   {
+    const Blockchain &blockchain = m_core.get_blockchain_storage();
+    uint8_t version = req.version > 0 ? req.version : blockchain.get_ideal_hard_fork_version();
+    res.version = blockchain.get_current_hard_fork_version();
+    res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.earliest_height, res.voting);
+    res.state = blockchain.get_hard_fork_state();
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(GetBans::Request& req, GetBans::Response& res)
@@ -627,6 +633,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetPeerList, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, HardForkInfo, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 
