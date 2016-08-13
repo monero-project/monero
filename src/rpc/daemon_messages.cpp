@@ -50,6 +50,7 @@ const char* GetLastBlockHeader::name = "get_last_block_header";
 const char* GetBlockHeaderByHash::name = "get_block_header_by_hash";
 const char* GetBlockHeaderByHeight::name = "get_block_header_by_height";
 const char* GetPeerList::name = "get_peer_list";
+const char* SetLogLevel::name = "set_log_level";
 
 
 
@@ -620,6 +621,32 @@ void GetPeerList::Response::fromJson(rapidjson::Value& val)
 {
   white_list = cryptonote::json::fromJsonValue<decltype(white_list)>(val["white_list"]);
   gray_list = cryptonote::json::fromJsonValue<decltype(gray_list)>(val["gray_list"]);
+}
+
+
+rapidjson::Value SetLogLevel::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("level", level, al);
+
+  return val;
+}
+
+void SetLogLevel::Request::fromJson(rapidjson::Value& val)
+{
+  level = cryptonote::json::fromJsonValue<decltype(level)>(val["level"]);
+}
+
+rapidjson::Value SetLogLevel::Response::toJson(rapidjson::Document& doc)
+{
+  return Message::toJson(doc);
+}
+
+void SetLogLevel::Response::fromJson(rapidjson::Value& val)
+{
 }
 
 

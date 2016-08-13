@@ -801,10 +801,10 @@ class SetLogLevel
         Request() { }
         ~Request() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        int8_t level;
     };
 
     class Response : public Message
@@ -813,10 +813,8 @@ class SetLogLevel
         Response() { }
         ~Response() { }
 
-
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
-
     };
 };
 

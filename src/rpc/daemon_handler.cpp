@@ -503,6 +503,18 @@ namespace rpc
 
   void DaemonHandler::handle(SetLogLevel::Request& req, SetLogLevel::Response& res)
   {
+    if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Error: log level not valid";
+    }
+    else
+    {
+      epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
+      int otshell_utils_log_level = 100 - (req.level * 20);
+      gCurrentLogger.setDebugLevel(otshell_utils_log_level);
+      res.status = Message::STATUS_OK;
+    }
   }
 
   void DaemonHandler::handle(GetTransactionPool::Request& req, GetTransactionPool::Response& res)
@@ -583,6 +595,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHash, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHeight, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetPeerList, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

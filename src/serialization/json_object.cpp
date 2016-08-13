@@ -93,6 +93,18 @@ uint8_t fromJsonValue(const rapidjson::Value& i)
 }
 
 template <>
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const int8_t& i)
+{
+  return rapidjson::Value(i);
+}
+
+template <>
+int8_t fromJsonValue(const rapidjson::Value& i)
+{
+  return (int8_t) ( i.GetInt() & 0xFF);
+}
+
+template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint16_t& i)
 {
   return rapidjson::Value(i);
