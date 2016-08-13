@@ -731,6 +731,50 @@ cryptonote::rpc::peer fromJsonValue<cryptonote::rpc::peer>(const rapidjson::Valu
   return peer;
 }
 
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::tx_in_pool>(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& tx)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("tx", toJsonValue<decltype(tx.tx)>(doc, tx.tx), al);
+  val.AddMember("blob_size", toJsonValue<decltype(tx.blob_size)>(doc, tx.blob_size), al);
+  val.AddMember("fee", toJsonValue<decltype(tx.fee)>(doc, tx.fee), al);
+  val.AddMember("max_used_block_hash", toJsonValue<decltype(tx.max_used_block_hash)>(doc, tx.max_used_block_hash), al);
+  val.AddMember("max_used_block_height", toJsonValue<decltype(tx.max_used_block_height)>(doc, tx.max_used_block_height), al);
+  val.AddMember("kept_by_block", toJsonValue<decltype(tx.kept_by_block)>(doc, tx.kept_by_block), al);
+  val.AddMember("last_failed_block_hash", toJsonValue<decltype(tx.last_failed_block_hash)>(doc, tx.last_failed_block_hash), al);
+  val.AddMember("last_failed_block_height", toJsonValue<decltype(tx.last_failed_block_height)>(doc, tx.last_failed_block_height), al);
+  val.AddMember("receive_time", toJsonValue<decltype(tx.receive_time)>(doc, tx.receive_time), al);
+  val.AddMember("last_relayed_time", toJsonValue<decltype(tx.last_relayed_time)>(doc, tx.last_relayed_time), al);
+  val.AddMember("relayed", toJsonValue<decltype(tx.relayed)>(doc, tx.relayed), al);
+
+  return val;
+}
+
+template <>
+cryptonote::rpc::tx_in_pool fromJsonValue<cryptonote::rpc::tx_in_pool>(const rapidjson::Value& val)
+{
+  cryptonote::rpc::tx_in_pool tx;
+
+  tx.tx = fromJsonValue<decltype(tx.tx)>(val["tx"]);
+  tx.blob_size = fromJsonValue<decltype(tx.blob_size)>(val["blob_size"]);
+  tx.fee = fromJsonValue<decltype(tx.fee)>(val["fee"]);
+  tx.max_used_block_hash = fromJsonValue<decltype(tx.max_used_block_hash)>(val["max_used_block_hash"]);
+  tx.max_used_block_height = fromJsonValue<decltype(tx.max_used_block_height)>(val["max_used_block_height"]);
+  tx.kept_by_block = fromJsonValue<decltype(tx.kept_by_block)>(val["kept_by_block"]);
+  tx.last_failed_block_hash = fromJsonValue<decltype(tx.last_failed_block_hash)>(val["last_failed_block_hash"]);
+  tx.last_failed_block_height = fromJsonValue<decltype(tx.last_failed_block_height)>(val["last_failed_block_height"]);
+  tx.receive_time = fromJsonValue<decltype(tx.receive_time)>(val["receive_time"]);
+  tx.last_relayed_time = fromJsonValue<decltype(tx.last_relayed_time)>(val["last_relayed_time"]);
+  tx.relayed = fromJsonValue<decltype(tx.relayed)>(val["relayed"]);
+
+  return tx;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote

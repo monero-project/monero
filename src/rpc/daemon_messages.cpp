@@ -51,6 +51,7 @@ const char* GetBlockHeaderByHash::name = "get_block_header_by_hash";
 const char* GetBlockHeaderByHeight::name = "get_block_header_by_height";
 const char* GetPeerList::name = "get_peer_list";
 const char* SetLogLevel::name = "set_log_level";
+const char* GetTransactionPool::name = "get_transaction_pool";
 
 
 
@@ -647,6 +648,34 @@ rapidjson::Value SetLogLevel::Response::toJson(rapidjson::Document& doc)
 
 void SetLogLevel::Response::fromJson(rapidjson::Value& val)
 {
+}
+
+
+rapidjson::Value GetTransactionPool::Request::toJson(rapidjson::Document& doc)
+{
+  return Message::toJson(doc);
+}
+
+void GetTransactionPool::Request::fromJson(rapidjson::Value& val)
+{
+}
+
+rapidjson::Value GetTransactionPool::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("transactions", cryptonote::json::toJsonValue<decltype(transactions)>(doc, transactions), al);
+  val.AddMember("key_images", cryptonote::json::toJsonValue<decltype(key_images)>(doc, key_images), al);
+
+  return val;
+}
+
+void GetTransactionPool::Response::fromJson(rapidjson::Value& val)
+{
+  transactions = cryptonote::json::fromJsonValue<decltype(transactions)>(val["transactions"]);
+  key_images = cryptonote::json::fromJsonValue<decltype(key_images)>(val["key_images"]);
 }
 
 

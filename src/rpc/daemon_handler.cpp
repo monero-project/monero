@@ -27,6 +27,10 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "daemon_handler.h"
+
+// likely included by daemon_handler.h's includes,
+// but including here for clarity
+#include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
 namespace cryptonote
@@ -519,6 +523,32 @@ namespace rpc
 
   void DaemonHandler::handle(GetTransactionPool::Request& req, GetTransactionPool::Response& res)
   {
+    cryptonote::tx_memory_pool::transactions_container txs;
+    cryptonote::tx_memory_pool::key_images_container images;
+
+    m_core.get_pool().get_transactions_and_key_images(txs, images);
+
+    for (auto itr : txs)
+    {
+      tx_in_pool tx;
+
+      tx.tx = itr.second.tx;
+      tx.blob_size = itr.second.blob_size;
+      tx.fee = itr.second.fee;
+
+      tx.max_used_block_height = itr.second.max_used_block_height;
+      tx.max_used_block_hash = itr.second.max_used_block_id;
+
+      tx.kept_by_block = itr.second.kept_by_block;
+      tx.last_failed_block_height = itr.second.last_failed_height;
+      tx.last_failed_block_hash = itr.second.last_failed_id;
+
+      tx.receive_time = itr.second.receive_time;
+      tx.last_relayed_time = itr.second.last_relayed_time;
+      tx.relayed = itr.second.relayed;
+
+      res.transactions[itr.first] = tx;
+    }
   }
 
   void DaemonHandler::handle(GetConnections::Request& req, GetConnections::Response& res)
@@ -596,6 +626,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHeight, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetPeerList, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

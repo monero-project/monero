@@ -380,6 +380,28 @@ namespace cryptonote
       bool relayed;  //!< whether or not the transaction has been relayed to the network
     };
 
+
+    //! map transactions (and related info) by their hashes
+    typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
+
+    //TODO: confirm the below comments and investigate whether or not this
+    //      is the desired behavior
+    //! map key images to transactions which spent them
+    /*! this seems odd, but it seems that multiple transactions can exist
+     *  in the pool which both have the same spent key.  This would happen
+     *  in the event of a reorg where someone creates a new/different
+     *  transaction on the assumption that the original will not be in a
+     *  block again.
+     */
+    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
+
+    /**
+     * @brief get the pool's transactions (with tx_details) and key images (with spending tx hashes)
+     *
+     * @return return-by-reference the pool's transactions and key images
+     */
+    void get_transactions_and_key_images(transactions_container& txs, key_images_container& key_images) const;
+
   private:
 
     /**
@@ -457,20 +479,6 @@ namespace cryptonote
      * @return true if the transaction is good to go, otherwise false
      */
     bool is_transaction_ready_to_go(tx_details& txd) const;
-
-    //! map transactions (and related info) by their hashes
-    typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
-
-    //TODO: confirm the below comments and investigate whether or not this
-    //      is the desired behavior
-    //! map key images to transactions which spent them
-    /*! this seems odd, but it seems that multiple transactions can exist
-     *  in the pool which both have the same spent key.  This would happen
-     *  in the event of a reorg where someone creates a new/different
-     *  transaction on the assumption that the original will not be in a
-     *  block again.
-     */
-    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
 
     mutable epee::critical_section m_transactions_lock;  //!< lock for the pool
     transactions_container m_transactions;  //!< container for transactions in the pool

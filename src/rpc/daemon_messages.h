@@ -845,6 +845,8 @@ class GetTransactionPool
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
+        std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool> transactions;
+        std::unordered_map<crypto::key_image, std::vector<crypto::hash> > key_images;
     };
 };
 

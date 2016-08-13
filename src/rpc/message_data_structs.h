@@ -46,6 +46,26 @@ namespace rpc
     uint64_t last_seen;
   };
 
+  // hate to duplicate tx_memory_pool::tx_details here, but
+  // including tx_pool.h seems unnecessarily heavy
+  struct tx_in_pool
+  {
+    cryptonote::transaction tx;
+    uint64_t blob_size;
+    uint64_t fee;
+    crypto::hash max_used_block_hash;
+    uint64_t max_used_block_height;
+    bool kept_by_block;
+    crypto::hash last_failed_block_hash;
+    uint64_t last_failed_block_height;
+    uint64_t receive_time;
+
+    // parameters present in tx_memory_pool::tx_details but
+    // not in the old RPC.  May as well include.
+    uint64_t last_relayed_time;
+    bool relayed;
+  };
+
 }  // namespace rpc
 
 }  // namespace cryptonote

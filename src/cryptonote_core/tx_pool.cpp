@@ -547,6 +547,15 @@ namespace cryptonote
     //transaction is ok.
     return true;
   }
+
+  //---------------------------------------------------------------------------------
+    void tx_memory_pool::get_transactions_and_key_images(transactions_container& txs, key_images_container& key_images) const
+  {
+    // need to lock so the transactions container doesn't change during copy
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    txs = m_transactions;
+    key_images = m_spent_key_images;
+  }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::have_key_images(const std::unordered_set<crypto::key_image>& k_images, const transaction& tx)
   {
