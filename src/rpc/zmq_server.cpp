@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "zmq_server.h"
+#include <boost/chrono/chrono.hpp>
 
 namespace cryptonote
 {
@@ -59,7 +60,7 @@ void ZmqServer::serve()
     {
       zmq::message_t message;
 
-      if (socket->recv(&message, ZMQ_DONTWAIT))
+      while (socket->recv(&message, ZMQ_DONTWAIT))
       {
         std::string message_string(reinterpret_cast<const char *>(message.data()), message.size());
 
@@ -70,6 +71,8 @@ void ZmqServer::serve()
 
         socket->send(reply);
       }
+
+      boost::this_thread::sleep_for(boost::chrono::milliseconds(5));
     }
   }
 }
