@@ -125,6 +125,8 @@ class DaemonHandler : public RpcHandler
 
     void handle(GetOutputHistogram::Request& req, GetOutputHistogram::Response& res);
 
+    void handle(GetRPCVersion::Request& req, GetRPCVersion::Response& res);
+
     std::string handle(std::string& request);
 
   private:

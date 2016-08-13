@@ -605,6 +605,11 @@ namespace rpc
   {
   }
 
+  void DaemonHandler::handle(GetRPCVersion::Request& req, GetRPCVersion::Response& res)
+  {
+    res.version = 1; // TODO: put this in a constant somewhere
+  }
+
   std::string DaemonHandler::handle(std::string& request)
   {
     FullMessage req_full(request);
@@ -634,6 +639,7 @@ namespace rpc
     REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);
     REQ_RESP_TYPES_MACRO(request_type, HardForkInfo, req_json, resp_message, handle);
+    REQ_RESP_TYPES_MACRO(request_type, GetRPCVersion, req_json, resp_message, handle);
 
     FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 

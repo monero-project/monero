@@ -53,6 +53,7 @@ const char* GetPeerList::name = "get_peer_list";
 const char* SetLogLevel::name = "set_log_level";
 const char* GetTransactionPool::name = "get_transaction_pool";
 const char* HardForkInfo::name = "hard_fork_info";
+const char* GetRPCVersion::name = "get_rpc_version";
 
 
 
@@ -724,6 +725,32 @@ void HardForkInfo::Response::fromJson(rapidjson::Value& val)
   voting = cryptonote::json::fromJsonValue<decltype(voting)>(val["voting"]);
   state = cryptonote::json::fromJsonValue<decltype(state)>(val["state"]);
   earliest_height = cryptonote::json::fromJsonValue<decltype(earliest_height)>(val["earliest_height"]);
+}
+
+
+rapidjson::Value GetRPCVersion::Request::toJson(rapidjson::Document& doc)
+{
+  return Message::toJson(doc);
+}
+
+void GetRPCVersion::Request::fromJson(rapidjson::Value& val)
+{
+}
+
+rapidjson::Value GetRPCVersion::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("version", cryptonote::json::toJsonValue<decltype(version)>(doc, version), al);
+
+  return val;
+}
+
+void GetRPCVersion::Response::fromJson(rapidjson::Value& val)
+{
+  version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
 }
 
 

@@ -1217,7 +1217,7 @@ class GetOutputHistogram
     };
 };
 
-class GetVersion
+class GetRPCVersion
 {
   public:
     static const char* name;
