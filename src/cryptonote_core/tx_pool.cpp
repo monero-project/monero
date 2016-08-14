@@ -86,21 +86,6 @@ namespace cryptonote
       return false;
     }
 
-    const size_t max_tx_version = (version <= 3) ? 1 : 2;
-    if (tx.version > max_tx_version)
-    {
-      LOG_PRINT_L1("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
-      tvc.m_verifivation_failed = true;
-      return false;
-    }
-    const size_t min_tx_version = (version >= 5) ? 2 : 1;
-    if (tx.version < min_tx_version)
-    {
-      LOG_PRINT_L1("transaction version " << (unsigned)tx.version << " is lower than min accepted version " << min_tx_version);
-      tvc.m_verifivation_failed = true;
-      return false;
-    }
-
     // we do not accept transactions that timed out before, unless they're
     // kept_by_block
     if (!kept_by_block && m_timed_out_transactions.find(id) != m_timed_out_transactions.end())
