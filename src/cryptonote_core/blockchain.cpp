@@ -2330,6 +2330,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   {
     size_t n_unmixable = 0, n_mixable = 0;
     size_t mixin = std::numeric_limits<size_t>::max();
+    const size_t min_mixin = hf_version >= 5 ? 4 : 2;
     for (const auto& txin : tx.vin)
     {
       // non txin_to_key inputs will be rejected below
@@ -2348,7 +2349,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
           LOG_PRINT_L2("output size " << print_money(in_to_key.amount) << ": " << n_outputs << " available");
           // n_outputs includes the output we're considering
-          if (n_outputs <= 2)
+          if (n_outputs <= min_mixin)
             ++n_unmixable;
           else
             ++n_mixable;
@@ -2358,7 +2359,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
 
-    if (mixin < 2)
+    if (mixin < min_mixin)
     {
       if (n_unmixable == 0)
       {
