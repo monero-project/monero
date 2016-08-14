@@ -400,10 +400,9 @@ else()
   endif()
 
   if(ARM8)
-    message(STATUS "Setting ARM8 C and C++ flags")
-
     execute_process(COMMAND taskset -c 1 grep "^CPU part" /proc/cpuinfo OUTPUT_VARIABLE PROC_PART)
     if (PROC_PART MATCHES "0xd03")
+      message(STATUS "Setting ARMv8 Cortex-A53 C and C++ flags")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a53")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=cortex-a53")
       message(STATUS "Enabling Tuning for Cortex-A53.")
