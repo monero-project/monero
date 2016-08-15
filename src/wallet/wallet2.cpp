@@ -115,6 +115,8 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
 {
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = daemon_address;
+
+  m_daemon.connect("localhost", "31337");
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const
@@ -2989,30 +2991,23 @@ void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs,
 //----------------------------------------------------------------------------------------------------
 bool wallet2::use_fork_rules(uint8_t version)
 {
-  cryptonote::COMMAND_RPC_GET_HEIGHT::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_HEIGHT::response res = AUTO_VAL_INIT(res);
   epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
   epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
 
-  m_daemon_rpc_mutex.lock();
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, false, "Failed to get current blockchain height");
+  uint64_t current_height = m_daemon.getHeight();
 
   m_daemon_rpc_mutex.lock();
   req_t.jsonrpc = "2.0";
   req_t.id = epee::serialization::storage_entry(0);
   req_t.method = "hard_fork_info";
   req_t.params.version = version;
-  r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
+  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
   m_daemon_rpc_mutex.unlock();
   CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
   CHECK_AND_ASSERT_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
   CHECK_AND_ASSERT_MES(resp_t.result.status == CORE_RPC_STATUS_OK, false, "Failed to get hard fork status");
 
-  bool close_enough = res.height >=  resp_t.result.earliest_height - 10; // start using the rules a bit beforehand
+  bool close_enough = current_height >=  resp_t.result.earliest_height - 10; // start using the rules a bit beforehand
   if (close_enough)
     LOG_PRINT_L2("Using HF1 rules");
   else

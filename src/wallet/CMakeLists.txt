@@ -68,6 +68,7 @@ target_link_libraries(wallet
   LINK_PUBLIC
     cryptonote_core
     mnemonics
+    daemon_rpc_client
   LINK_PRIVATE
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

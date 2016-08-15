@@ -48,6 +48,7 @@
 #include "crypto/hash.h"
 
 #include "wallet_errors.h"
+#include "rpc/daemon_rpc_client.h"
 
 #include <iostream>
 #define WALLET_RCP_CONNECTION_TIMEOUT                          200000
@@ -476,6 +477,8 @@ namespace tools
     RefreshType m_refresh_type;
     bool m_auto_refresh;
     uint64_t m_refresh_from_block_height;
+
+    cryptonote::rpc::DaemonRPCClient m_daemon;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 13)
