@@ -26,28 +26,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "rpc/daemon_rpc_client.h"
 
-#include "rapidjson/document.h"
-#include <string>
-
-/* I normally hate using macros, but in this case it would be untenably
- * verbose to not use a macro.  This macro saves the trouble of explicitly
- * writing the below if block for every single RPC call.
- */
-#define REQ_RESP_TYPES_MACRO( runtime_str, type, reqjson, resp_message_ptr, handler) \
-  \
-  if (runtime_str == type::name) \
-  { \
-    type::Request reqvar; \
-    type::Response *respvar = new type::Response(); \
-    \
-    reqvar.fromJson(reqjson); \
-    \
-    handler(reqvar, *respvar); \
-    \
-    resp_message_ptr = respvar; \
-  }
+#include "rpc/daemon_messages.h"
 
 namespace cryptonote
 {
@@ -55,49 +36,43 @@ namespace cryptonote
 namespace rpc
 {
 
-  class Message
-  {
-    protected:
-      Message() { }
+DaemonRPCClient::DaemonRPCClient()
+{
+}
+DaemonRPCClient::~DaemonRPCClient()
+{
+}
 
-    public:
+void DaemonRPCClient::connect(const std::string& addr, const std::string& port)
+{
+  zmq_client.connect(addr, port);
+}
 
-      static const char* STATUS_OK;
-      static const char* STATUS_RETRY;
-      static const char* STATUS_FAILED;
+uint64_t DaemonRPCClient::getHeight()
+{
+  GetHeight::Request request;
 
-      virtual ~Message() { }
+  GetHeight::Response response = doRequest<GetHeight>(request);
 
-      virtual rapidjson::Value toJson(rapidjson::Document& doc);
+  return response.height;
+}
 
-      virtual void fromJson(rapidjson::Value& val);
 
-      std::string status;
-      std::string error_details;
-  };
+template <typename ReqType>
+typename ReqType::Response DaemonRPCClient::doRequest(typename ReqType::Request& request)
+{
+  FullMessage full_request(1, ReqType::name, &request);
 
-  class FullMessage
-  {
-    public:
+  std::string resp = zmq_client.doRequest(full_request.getJson());
 
-      FullMessage(int version, const std::string& request, Message* message);
-      FullMessage(const std::string& json_string);
+  FullMessage full_response(resp);
 
-      ~FullMessage() { }
+  typename ReqType::Response response;
 
-      std::string getJson() const;
+  response.fromJson(full_response.getMessage());
 
-      std::string getRequestType() const;
-
-      int getVersion() const;
-
-      rapidjson::Value& getMessage();
-
-    private:
-
-      rapidjson::Document doc;
-  };
-
+  return response;
+}
 
 }  // namespace rpc
 

@@ -29,44 +29,77 @@
 set(rpc_sources
   core_rpc_server.cpp)
 
-set(zmq_rpc_sources
+set(daemon_messages_sources
+  "message.cpp"
+  daemon_messages.cpp)
+
+set(daemon_rpc_server_sources
   "message.cpp"
   daemon_messages.cpp
   daemon_handler.cpp
   zmq_server.cpp)
 
+set(daemon_rpc_client_sources
+  zmq_client.cpp
+  daemon_rpc_client.cpp)
+
+
 set(rpc_headers)
 
-set(zmq_rpc_headers)
+set(daemon_rpc_server_headers)
 
-set(rpc_private_headers
+set(daemon_rpc_client_headers)
+
+
+set(rpc_daemon_private_headers
   core_rpc_server.h
   core_rpc_server_commands_defs.h
   core_rpc_server_error_codes.h)
 
-set(zmq_rpc_private_headers
+set(daemon_messages_private_headers
+  "message.h"
+  daemon_messages.h)
+
+set(daemon_rpc_server_private_headers
   "message.h"
   daemon_messages.h
   daemon_handler.h
   rpc_handler.h
   zmq_server.h)
 
+set(daemon_rpc_client_private_headers
+  zmq_client.h
+  daemon_rpc_client.h)
+
 
 bitmonero_private_headers(rpc
   ${rpc_private_headers})
 
-bitmonero_private_headers(zmq_rpc
-  ${zmq_rpc_private_headers})
+bitmonero_private_headers(daemon_rpc_server
+  ${daemon_rpc_server_private_headers})
+
+bitmonero_private_headers(daemon_rpc_client
+  ${daemon_rpc_client_private_headers})
 
 bitmonero_add_library(rpc
   ${rpc_sources}
   ${rpc_headers}
   ${rpc_private_headers})
 
-bitmonero_add_library(zmq_rpc
-  ${zmq_rpc_sources}
-  ${zmq_rpc_headers}
-  ${zmq_rpc_private_headers})
+bitmonero_add_library(daemon_messages
+  ${daemon_messages_sources}
+  ${daemon_messages_headers}
+  ${daemon_messages_private_headers})
+
+bitmonero_add_library(daemon_rpc_server
+  ${daemon_rpc_server_sources}
+  ${daemon_rpc_server_headers}
+  ${daemon_rpc_server_private_headers})
+
+bitmonero_add_library(daemon_rpc_client
+  ${daemon_rpc_client_sources}
+  ${daemon_rpc_client_headers}
+  ${daemon_rpc_client_private_headers})
 
 target_link_libraries(rpc
   LINK_PRIVATE
@@ -78,10 +111,31 @@ target_link_libraries(rpc
     ${Boost_THREAD_LIBRARY}
     ${EXTRA_LIBRARIES})
 
-target_link_libraries(zmq_rpc
+target_link_libraries(daemon_messages
   LINK_PRIVATE
     cryptonote_core
     cryptonote_protocol
+    serialization
+    ${EXTRA_LIBRARIES})
+
+target_link_libraries(daemon_rpc_server
+  LINK_PRIVATE
+    cryptonote_core
+    cryptonote_protocol
+    daemon_messages
+    serialization
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${EXTRA_LIBRARIES}
+    ${ZMQ_LIB})
+
+target_link_libraries(daemon_rpc_client
+  LINK_PRIVATE
+    cryptonote_core
+    cryptonote_protocol
+    daemon_messages
     serialization
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
@@ -93,5 +147,8 @@ target_link_libraries(zmq_rpc
 add_dependencies(rpc
   version)
 
-add_dependencies(zmq_rpc
+add_dependencies(daemon_rpc_server
+  version)
+
+add_dependencies(daemon_rpc_client
   version)

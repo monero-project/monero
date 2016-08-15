@@ -64,7 +64,7 @@ void Message::fromJson(rapidjson::Value& val)
 }
 
 
-FullMessage::FullMessage(int version, std::string& request, Message* message)
+FullMessage::FullMessage(int version, const std::string& request, Message* message)
 {
   doc.SetObject();
 

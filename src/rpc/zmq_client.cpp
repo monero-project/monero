@@ -26,28 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-
-#include "rapidjson/document.h"
-#include <string>
-
-/* I normally hate using macros, but in this case it would be untenably
- * verbose to not use a macro.  This macro saves the trouble of explicitly
- * writing the below if block for every single RPC call.
- */
-#define REQ_RESP_TYPES_MACRO( runtime_str, type, reqjson, resp_message_ptr, handler) \
-  \
-  if (runtime_str == type::name) \
-  { \
-    type::Request reqvar; \
-    type::Response *respvar = new type::Response(); \
-    \
-    reqvar.fromJson(reqjson); \
-    \
-    handler(reqvar, *respvar); \
-    \
-    resp_message_ptr = respvar; \
-  }
+#include "zmq_client.h"
 
 namespace cryptonote
 {
@@ -55,48 +34,61 @@ namespace cryptonote
 namespace rpc
 {
 
-  class Message
+ZmqClient::ZmqClient() : context(1 /* one zmq thread */),
+              req_socket(NULL),
+              sub_socket(NULL)
+{
+}
+
+ZmqClient::~ZmqClient()
+{
+}
+
+void ZmqClient::connect(const std::string& address, const std::string& port)
+{
+  try
   {
-    protected:
-      Message() { }
+    std::string addr_prefix("tcp://");
 
-    public:
+    zmq::socket_t *socket = new zmq::socket_t(context, ZMQ_REQ);
 
-      static const char* STATUS_OK;
-      static const char* STATUS_RETRY;
-      static const char* STATUS_FAILED;
-
-      virtual ~Message() { }
-
-      virtual rapidjson::Value toJson(rapidjson::Document& doc);
-
-      virtual void fromJson(rapidjson::Value& val);
-
-      std::string status;
-      std::string error_details;
-  };
-
-  class FullMessage
+    std::string connect_address = addr_prefix + address + std::string(":") + port;
+    socket->connect(connect_address.c_str());
+    req_socket = socket;
+  }
+  catch (...)
   {
-    public:
+  }
+}
 
-      FullMessage(int version, const std::string& request, Message* message);
-      FullMessage(const std::string& json_string);
+std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms)
+{
+  // TODO: error handling
+  if (req_socket == NULL)
+  {
+    return std::string();
+  }
 
-      ~FullMessage() { }
+  zmq::message_t request_message(request.size());
+  memcpy((void *) request_message.data(), request.c_str(), request.size());
 
-      std::string getJson() const;
+  req_socket->send(request_message);
 
-      std::string getRequestType() const;
+  std::string response;
 
-      int getVersion() const;
+  // ignore timeout for now
+  // TODO: implement timeout feature
+  if (timeout_ms == 0)
+  {
+    zmq::message_t response_message;
 
-      rapidjson::Value& getMessage();
+    req_socket->recv(&response_message);
 
-    private:
+    response = std::string(reinterpret_cast<const char *>(response_message.data()), response_message.size());
+  }
 
-      rapidjson::Document doc;
-  };
+  return response;
+}
 
 
 }  // namespace rpc

@@ -28,26 +28,7 @@
 
 #pragma once
 
-#include "rapidjson/document.h"
-#include <string>
-
-/* I normally hate using macros, but in this case it would be untenably
- * verbose to not use a macro.  This macro saves the trouble of explicitly
- * writing the below if block for every single RPC call.
- */
-#define REQ_RESP_TYPES_MACRO( runtime_str, type, reqjson, resp_message_ptr, handler) \
-  \
-  if (runtime_str == type::name) \
-  { \
-    type::Request reqvar; \
-    type::Response *respvar = new type::Response(); \
-    \
-    reqvar.fromJson(reqjson); \
-    \
-    handler(reqvar, *respvar); \
-    \
-    resp_message_ptr = respvar; \
-  }
+#include "zmq_client.h"
 
 namespace cryptonote
 {
@@ -55,49 +36,24 @@ namespace cryptonote
 namespace rpc
 {
 
-  class Message
-  {
-    protected:
-      Message() { }
+class DaemonRPCClient
+{
+  public:
 
-    public:
+    DaemonRPCClient();
+    ~DaemonRPCClient();
 
-      static const char* STATUS_OK;
-      static const char* STATUS_RETRY;
-      static const char* STATUS_FAILED;
+    void connect(const std::string& addr, const std::string& port);
 
-      virtual ~Message() { }
+    uint64_t getHeight();
 
-      virtual rapidjson::Value toJson(rapidjson::Document& doc);
+  private:
 
-      virtual void fromJson(rapidjson::Value& val);
+    template <typename ReqType>
+    typename ReqType::Response doRequest(typename ReqType::Request& request);
 
-      std::string status;
-      std::string error_details;
-  };
-
-  class FullMessage
-  {
-    public:
-
-      FullMessage(int version, const std::string& request, Message* message);
-      FullMessage(const std::string& json_string);
-
-      ~FullMessage() { }
-
-      std::string getJson() const;
-
-      std::string getRequestType() const;
-
-      int getVersion() const;
-
-      rapidjson::Value& getMessage();
-
-    private:
-
-      rapidjson::Document doc;
-  };
-
+    ZmqClient zmq_client;
+};
 
 }  // namespace rpc
 

@@ -94,7 +94,7 @@ target_link_libraries(daemon
     cryptonote_protocol
     daemonizer
     serialization
-    zmq_rpc
+    daemon_rpc_server
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
