@@ -51,6 +51,12 @@ if ("${ARCH}" STREQUAL "" OR "${ARCH}" STREQUAL "native")
 endif()
 
 if (NOT "${ARCH}" STREQUAL "")
+  if ("${ARCH}" STREQUAL "aarch64") #Detect ARMv8
+    set(ARM8 1)
+  else()
+    set(ARM8 0)
+  endif()
+
   string(SUBSTRING ${ARCH} 0 3 IS_ARM)
   string(TOLOWER ${IS_ARM} IS_ARM)
 
@@ -72,7 +78,7 @@ if (NOT "${ARCH}" STREQUAL "")
   endif()
 endif()
 
-if(WIN32 OR ARM7 OR ARM6)
+if(WIN32 OR ARM7 OR ARM6) #ARM8 may benefit from vectorisation
   set(OPT_FLAGS_RELEASE "-O2")
 else()
   set(OPT_FLAGS_RELEASE "-Ofast")
@@ -314,7 +320,7 @@ if(MSVC)
 else()
   set(ARCH native CACHE STRING "CPU to build for: -march value or default")
   # -march=armv7-a conflicts with -mcpu=cortex-a7
-  if(ARCH STREQUAL "default" OR ARM7 OR ARM6)
+  if(ARCH STREQUAL "default" OR ARM8 OR ARM7 OR ARM6)
     set(ARCH_FLAG "")
   else()
     if(ARCH STREQUAL "x86_64")
@@ -366,27 +372,89 @@ else()
 
   option(NO_AES "Explicitly disable AES support" ${NO_AES})
 
-  if(NOT NO_AES AND NOT (ARM6 OR ARM7))
+  if(NOT NO_AES AND NOT (ARM6 OR ARM7 OR ARM8))
     message(STATUS "AES support enabled")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
   elseif(ARM7 OR ARM6)
-    message(STATUS "AES support disabled (not available on ARM)")
+    message(STATUS "AES support disabled (not available on ARMv6 or ARMv7)")
   else()
     message(STATUS "AES support disabled")
   endif()
 
+  if(ARM6 OR ARM7 OR ARM8)
+  message(STATUS "Setting FPU Flags for ARM Processors")
+  include(TestCXXAcceptsFlag)
+
+  #NB NEON hardware does not fully implement the IEEE 754 standard for floating-point arithmetic
+  #No point implementing NEON SIMD flags until custom assembly code written
+  #Cortex-A5/9  -mfpu=neon-fp16
+  #Cortex-A7/15 -mfpu=neon-vfpv4
+  #Cortex-A8    -mfpu=neon
+  #For future reference, processor IDs for ARMv8-A series:
+  #0xd04 - Cortex-A35
+  #0xd07 - Cortex-A57
+  #0xd08 - Cortex-A72
+  #0xd03 - Cortex-A73
+
+  #CHECK_CXX_ACCEPTS_FLAG(-ffast-math CXX_ACCEPTS_FFAST_MATH) #For SIMD
+  CHECK_CXX_ACCEPTS_FLAG(-mfpu=vfp3-d16 CXX_ACCEPTS_VFP3_D16)
+  CHECK_CXX_ACCEPTS_FLAG(-mfpu=vfp4 CXX_ACCEPTS_VFP4)
+  CHECK_CXX_ACCEPTS_FLAG(-mfloat-abi=hard CXX_ACCEPTS_MFLOAT_HARD)
+  CHECK_CXX_ACCEPTS_FLAG(-mfloat-abi=softfp CXX_ACCEPTS_MFLOAT_SOFTFP)
+  CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-835769 CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+  CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-843419 CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+  CHECK_CXX_ACCEPTS_FLAG(-mtune=native CXX_ACCEPTS_MTUNE_NATIVE)
+
   if(ARM6)
-    message(STATUS "Setting ARM6 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
+    message(STATUS "Selecting VFP")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp")
   endif()
 
-  if(ARM7)
-    message(STATUS "Setting ARM7 C and C++ flags")
+  if(CXX_ACCEPTS_VFP3_D16 AND NOT CXX_ACCEPTS_VFP4)
+    message(STATUS "Selecting VFP3")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp3-d16")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp3-d16")
+  endif()
+
+  if(CXX_ACCEPTS_VFP4)
+    message(STATUS "Selecting VFP4")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp4")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp4")
+  endif()
+
+  if(CXX_ACCEPTS_MFLOAT_HARD)
+    message(STATUS "Setting Hardware ABI for Floating Point")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
   endif()
+
+  if(CXX_ACCEPTS_MFLOAT_SOFTFP AND NOT CXX_ACCEPTS_MFLOAT_HARD)
+    message(STATUS "Setting Software ABI for Floating Point")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=softfp")
+  endif()
+
+  if(CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+    message(STATUS "Enabling Cortex-A53 workaround 835769")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-835769")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-835769")
+  endif()
+
+  if(CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+    message(STATUS "Enabling Cortex-A53 workaround 843419")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-843419")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-843419")
+  endif()
+
+  if(CXX_ACCEPTS_MTUNE_NATIVE)
+    message(STATUS "Tuning for Native ARM Architecture")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native")
+  endif()
+
+  endif(ARM6 OR ARM7 OR ARM8)
 
   if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
@@ -515,4 +583,3 @@ if(BUILD_DOCUMENTATION)
       COMMENT "Generating API documentation with Doxygen.." VERBATIM)
   endif()
 endif()
-
