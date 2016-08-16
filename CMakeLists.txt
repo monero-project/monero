@@ -51,6 +51,12 @@ if ("${ARCH}" STREQUAL "" OR "${ARCH}" STREQUAL "native")
 endif()
 
 if (NOT "${ARCH}" STREQUAL "")
+  if ("${ARCH}" STREQUAL "aarch64")
+     set(ARM8 1)
+  else()
+     set(ARM8 0)
+  endif()
+
   string(SUBSTRING ${ARCH} 0 3 IS_ARM)
   string(TOLOWER ${IS_ARM} IS_ARM)
 
@@ -69,10 +75,11 @@ if (NOT "${ARCH}" STREQUAL "")
     else()
       set(ARM7 0)
     endif()
+
   endif()
 endif()
 
-if(WIN32 OR ARM7 OR ARM6)
+if(WIN32 OR ARM8 OR ARM7 OR ARM6)
   set(OPT_FLAGS_RELEASE "-O2")
 else()
   set(OPT_FLAGS_RELEASE "-Ofast")
@@ -314,7 +321,7 @@ if(MSVC)
 else()
   set(ARCH native CACHE STRING "CPU to build for: -march value or default")
   # -march=armv7-a conflicts with -mcpu=cortex-a7
-  if(ARCH STREQUAL "default" OR ARM7 OR ARM6)
+  if(ARCH STREQUAL "default" OR ARM8 OR ARM7 OR ARM6)
     set(ARCH_FLAG "")
   else()
     if(ARCH STREQUAL "x86_64")
@@ -366,27 +373,61 @@ else()
 
   option(NO_AES "Explicitly disable AES support" ${NO_AES})
 
-  if(NOT NO_AES AND NOT (ARM6 OR ARM7))
+  if(NOT NO_AES AND NOT (ARM6 OR ARM7 OR ARM8))
     message(STATUS "AES support enabled")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
+  elseif(ARM8)
+    message(STATUS "AES support enabled for ARMv8")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a+crypto")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+crypto")
   elseif(ARM7 OR ARM6)
-    message(STATUS "AES support disabled (not available on ARM)")
+    message(STATUS "AES support disabled (not available on ARMv6 or ARMv7)")
   else()
     message(STATUS "AES support disabled")
   endif()
 
   if(ARM6)
-    message(STATUS "Setting ARM6 C and C++ flags")
+    message(STATUS "Setting ARMv6 C and C++ flags")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
   endif()
 
   if(ARM7)
-    message(STATUS "Setting ARM7 C and C++ flags")
+    message(STATUS "Setting ARMv7 C and C++ flags")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
   endif()
+
+  if(ARM8)
+    message(STATUS "Setting ARMv8 C and C++ flags") #mtune=native only works under GNU/Linux
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -mfloat-abi=hard -mfpu=neon-fp-armv8 -funsafe-math-optimizations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -mfloat-abi=hard -mfpu=neon-fp-armv8 -funsafe-math-optimizations")
+
+    message(STATUS "Attempting to detect specific ARMv8 Architecture")
+    execute_process(COMMAND taskset -c 1 grep "^CPU part" /proc/cpuinfo OUTPUT_VARIABLE PROC_PART)
+#    if (PROC_PART MATCHES "0xd04") #Cortex-A35 -  for later use
+#    if (PROC_PART MATCHES "0xd07") #Cortex-A57 - for later use
+#    if (PROC_PART MATCHES "0xd08") #Cortex-A72 - for later use
+    if (PROC_PART MATCHES "0xd03") #Cortex-A53
+      execute_process(COMMAND taskset -c 1 grep "^CPU variant" /proc/cpuinfo OUTPUT_VARIABLE PROC_REVISION)
+      if (PROC_REVISION MATCHES "0x0") #Check for processor revision, called 'CPU variant' for some reason - r0 is susceptible
+          include(TestCXXAcceptsFlag)  #both of these errata are present in r0 product vesions 0-4 and need fixing
+          CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-835769 CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+          if (CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-835769")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-835769")
+            message(STATUS "Enabling Cortex-A53 workaround 835769.")
+          endif()
+          CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-843419 CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+          if (CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-843419")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-843419")
+            message(STATUS "Enabling Cortex-A53 workaround 843419.")
+          endif()
+      endif() #Checking CPU revision
+    endif() #Checking for Cortex-A53
+  endif() #Checking if ARMv8
 
   if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
