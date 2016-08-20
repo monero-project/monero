@@ -54,8 +54,21 @@ See [LICENSE](LICENSE).
 
 ### Overview:
 
-Dependencies: GCC 4.7.3 or later, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
-Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, bison or yacc
+Dependencies:
+
+* GCC `>=4.7.3`
+* CMake `>=3.0.0`
+* libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
+* libevent `>=2.0`
+* libgtest `>=1.5`
+* Boost `>=1.53 && !=1.54` (note: 1.54 is not supported [more details here](http://goo.gl/RrCFmA)),
+* BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
+
+Static Build Additional Dependencies:
+
+* ldns `>=1.6.17`
+* expat `>=1.1`
+* bison or yacc
 
 **Basic Process:**
 
