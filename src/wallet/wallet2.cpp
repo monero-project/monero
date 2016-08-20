@@ -719,31 +719,22 @@ void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_hei
 void wallet2::update_pool_state()
 {
   // get the pool state
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
-  m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/get_transaction_pool", req, res, m_http_client, 200000);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_transaction_pool");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_transaction_pool");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+  std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool> transactions;
+  std::unordered_map<crypto::key_image, std::vector<crypto::hash> > key_images;
+
+  bool r = m_daemon.getTransactionPool(transactions, key_images);
+  THROW_WALLET_EXCEPTION_IF(!r, error::get_tx_pool_error);
 
   // remove any pending tx that's not in the pool
   std::unordered_map<crypto::hash, wallet2::unconfirmed_transfer_details>::iterator it = m_unconfirmed_txs.begin();
   while (it != m_unconfirmed_txs.end())
   {
-    const std::string txid = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(it->second.m_tx));
-    bool found = false;
-    for (auto it2: res.transactions)
-    {
-      if (it2.id_hash == txid)
-      {
-        found = true;
-        break;
-      }
-    }
+    const crypto::hash tx_hash = cryptonote::get_transaction_hash(it->second.m_tx);
+    const std::string txid = epee::string_tools::pod_to_hex(tx_hash);
+    auto it2 = transactions.find(tx_hash);
+
     auto pit = it++;
-    if (!found)
+    if (it2 == transactions.end())
     {
       // we want to avoid a false positive when we ask for the pool just after
       // a tx is removed from the pool due to being found in a new block, but
@@ -767,113 +758,33 @@ void wallet2::update_pool_state()
   std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
   while (uit != m_unconfirmed_payments.end())
   {
-    const std::string txid = string_tools::pod_to_hex(uit->first);
-    bool found = false;
-    for (auto it2: res.transactions)
-    {
-      if (it2.id_hash == txid)
-      {
-        found = true;
-        break;
-      }
-    }
     auto pit = uit++;
-    if (!found)
+    auto it2 = transactions.find(uit->first);
+    if (it2 == transactions.end())
     {
       m_unconfirmed_payments.erase(pit);
     }
   }
 
   // add new pool txes to us
-  for (auto it: res.transactions)
+  for (auto it: transactions)
   {
-    cryptonote::blobdata txid_data;
-    if(epee::string_tools::parse_hexstr_to_binbuff(it.id_hash, txid_data))
+    const crypto::hash& txid = it.first;
+    if (m_unconfirmed_payments.find(txid) == m_unconfirmed_payments.end())
     {
-      const crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
-      if (m_unconfirmed_payments.find(txid) == m_unconfirmed_payments.end())
+      LOG_PRINT_L1("Found new pool tx: " << txid);
+      if (m_unconfirmed_txs.find(txid) == m_unconfirmed_txs.end())
       {
-        LOG_PRINT_L1("Found new pool tx: " << txid);
-        bool found = false;
-        for (const auto &i: m_unconfirmed_txs)
-        {
-          if (i.first == txid)
-          {
-            found = true;
-            break;
-          }
-        }
-        if (!found)
-        {
-          // not one of those we sent ourselves
-          cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
-          cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
-          req.txs_hashes.push_back(it.id_hash);
-          req.decode_as_json = false;
-          m_daemon_rpc_mutex.lock();
-          bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/gettransactions", req, res, m_http_client, 200000);
-          m_daemon_rpc_mutex.unlock();
-          if (r && res.status == CORE_RPC_STATUS_OK)
-          {
-            if (res.txs.size() == 1)
-            {
-              // might have just been put in a block
-              if (res.txs[0].in_pool)
-              {
-                cryptonote::transaction tx;
-                cryptonote::blobdata bd;
-                crypto::hash tx_hash, tx_prefix_hash;
-                if (epee::string_tools::parse_hexstr_to_binbuff(res.txs[0].as_hex, bd))
-                {
-                  if (cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash))
-                  {
-                    if (tx_hash == txid)
-                    {
-                      process_new_transaction(tx, 0, time(NULL), false, true);
-                    }
-                    else
-                    {
-                      LOG_PRINT_L0("Mismatched txids when processing unconfimed txes from pool");
-                    }
-                  }
-                  else
-                  {
-                    LOG_PRINT_L0("failed to validate transaction from daemon");
-                  }
-                }
-                else
-                {
-                  LOG_PRINT_L0("Failed to parse tx " << txid);
-                }
-              }
-              else
-              {
-                LOG_PRINT_L1("Tx " << txid << " was in pool, but is no more");
-              }
-            }
-            else
-            {
-              LOG_PRINT_L0("Expected 1 tx, got " << res.txs.size());
-            }
-          }
-          else
-          {
-            LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << res.status);
-          }
-        }
-        else
-        {
-          LOG_PRINT_L1("We sent that one");
-        }
+	process_new_transaction(it.second.tx, 0, time(NULL), false, true);
       }
       else
       {
-        LOG_PRINT_L1("Already saw that one");
+	LOG_PRINT_L1("We sent that one");
       }
     }
     else
     {
-      LOG_PRINT_L0("Failed to parse txid");
+      LOG_PRINT_L1("Already saw that one");
     }
   }
 }

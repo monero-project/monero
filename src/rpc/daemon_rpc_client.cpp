@@ -138,6 +138,33 @@ bool DaemonRPCClient::getHashesFast(
   return false;
 }
 
+bool DaemonRPCClient::getTransactionPool(
+    std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool>& transactions,
+    std::unordered_map<crypto::key_image, std::vector<crypto::hash> >& key_images)
+{
+  try
+  {
+    GetTransactionPool::Request request;
+
+    GetTransactionPool::Response response = doRequest<GetTransactionPool>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    transactions = response.transactions;
+    key_images = response.key_images;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices)
 {
   try

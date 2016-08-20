@@ -63,6 +63,10 @@ class DaemonRPCClient
         uint64_t& start_height_out,
         uint64_t& current_height);
 
+    bool getTransactionPool(
+        std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool>& transactions,
+        std::unordered_map<crypto::key_image, std::vector<crypto::hash> >& key_images);
+
     bool getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices);
 
   private:
