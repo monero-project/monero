@@ -69,6 +69,8 @@ class DaemonRPCClient
 
     bool getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices);
 
+    bool getRPCVersion(uint32_t& version);
+
   private:
 
     template <typename ReqType>

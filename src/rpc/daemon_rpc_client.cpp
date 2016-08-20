@@ -191,6 +191,30 @@ bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std:
   return false;
 }
 
+bool DaemonRPCClient::getRPCVersion(uint32_t& version)
+{
+  try
+  {
+    GetRPCVersion::Request request;
+
+    GetRPCVersion::Response response = doRequest<GetRPCVersion>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    version = response.version;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 
 template <typename ReqType>
 typename ReqType::Response DaemonRPCClient::doRequest(typename ReqType::Request& request)
