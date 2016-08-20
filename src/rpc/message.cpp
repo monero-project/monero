@@ -41,6 +41,8 @@ namespace rpc
 const char* Message::STATUS_OK = "OK";
 const char* Message::STATUS_RETRY = "Retry";
 const char* Message::STATUS_FAILED = "Failed";
+const char* Message::STATUS_BAD_REQUEST = "Invalid request type";
+const char* Message::STATUS_BAD_JSON = "Malformed json";
 
 rapidjson::Value Message::toJson(rapidjson::Document& doc)
 {
@@ -59,8 +61,12 @@ rapidjson::Value Message::toJson(rapidjson::Document& doc)
 
 void Message::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "status")
   status = cryptonote::json::fromJsonValue<std::string>(val["status"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "error_details")
   error_details = cryptonote::json::fromJsonValue<std::string>(val["error_details"]);
+
 }
 
 
@@ -76,6 +82,13 @@ FullMessage::FullMessage(int version, const std::string& request, Message* messa
 FullMessage::FullMessage(const std::string& json_string)
 {
   doc.Parse(json_string.c_str());
+  if (doc.HasParseError())
+  {
+    throw cryptonote::json::PARSE_FAIL();
+  }
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "request")
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "version")
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "message")
 }
 
 std::string FullMessage::getJson() const
@@ -91,17 +104,47 @@ std::string FullMessage::getJson() const
 
 std::string FullMessage::getRequestType() const
 {
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "request")
   return doc["request"].GetString();
+
 }
 
 int FullMessage::getVersion() const
 {
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "version")
   return doc["version"].GetInt();
+
 }
 
 rapidjson::Value& FullMessage::getMessage()
 {
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "message")
   return doc["message"];
+
+}
+
+
+// convenience functions for bad input
+std::string BAD_REQUEST(const std::string& request)
+{
+  Message fail;
+  fail.status = Message::STATUS_BAD_REQUEST;
+  fail.error_details = std::string("\"") + request + "\" is not a valid request.";
+
+  FullMessage fail_response(1 /*TODO: constant */, request, &fail);
+
+  return fail_response.getJson();
+}
+
+std::string BAD_JSON(const std::string& error_details)
+{
+  Message fail;
+  fail.status = Message::STATUS_BAD_JSON;
+  fail.error_details = error_details;
+
+  FullMessage fail_response(1 /*TODO: constant */, "bad_json", &fail);
+
+  return fail_response.getJson();
 }
 
 

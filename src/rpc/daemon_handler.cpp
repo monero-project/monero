@@ -633,44 +633,60 @@ namespace rpc
 
   std::string DaemonHandler::handle(std::string& request)
   {
-    FullMessage req_full(request);
+    try
+    {
+      FullMessage req_full(request);
 
-    rapidjson::Value& req_json = req_full.getMessage();
+      rapidjson::Value& req_json = req_full.getMessage();
 
-    std::string request_type = req_full.getRequestType();
+      std::string request_type = req_full.getRequestType();
 
-    Message* resp_message = NULL;
+      Message* resp_message = NULL;
 
-    // create correct Message subclass and call handle() on it
-    REQ_RESP_TYPES_MACRO(request_type, GetHeight, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetBlocksFast, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetHashesFast, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetTransactions, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetTxGlobalOutputIndices, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetRandomOutputsForAmounts, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, SendRawTx, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, SaveBC, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetBlockHash, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetLastBlockHeader, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHash, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHeight, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetPeerList, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, HardForkInfo, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetOutputHistogram, req_json, resp_message, handle);
-    REQ_RESP_TYPES_MACRO(request_type, GetRPCVersion, req_json, resp_message, handle);
+      // create correct Message subclass and call handle() on it
+      REQ_RESP_TYPES_MACRO(request_type, GetHeight, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetBlocksFast, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetHashesFast, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetTransactions, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetTxGlobalOutputIndices, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetRandomOutputsForAmounts, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, SendRawTx, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, SaveBC, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetBlockHash, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetLastBlockHeader, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHash, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHeight, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetPeerList, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, HardForkInfo, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetOutputHistogram, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetRPCVersion, req_json, resp_message, handle);
 
-    FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
+      // if none of the request types matches
+      if (resp_message == NULL)
+      {
+        return BAD_REQUEST(request_type);
+      }
 
-    std::string response = resp_full.getJson();
-    delete resp_message;
+      FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
 
-    std::cout << "DaemonHandler::handle() response: " << response << std::endl;
+      std::string response = resp_full.getJson();
+      delete resp_message;
 
-    return response;
+      std::cout << "DaemonHandler::handle() response: " << response << std::endl;
+
+      return response;
+    }
+    catch (std::exception& e)
+    {
+      return BAD_JSON(e.what());
+    }
+
+    // if we get here, something's gone terribly wrong
+    return std::string("");
   }
 
 }  // namespace rpc

@@ -48,8 +48,18 @@ Type fromJsonValue(const rapidjson::Value& val)
 {
   Type retval;
 
+  if (!val.IsString())
+  {
+    throw WRONG_TYPE("string");
+  }
+
   //TODO: handle failure to convert hex string to POD type
   bool success = epee::string_tools::hex_to_pod(val.GetString(), retval);
+
+  if (!success)
+  {
+    throw BAD_INPUT();
+  }
 
   return retval;
 }
@@ -63,6 +73,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const std::string& i)
 template <>
 std::string fromJsonValue(const rapidjson::Value& i)
 {
+  if (!i.IsString())
+  {
+    throw WRONG_TYPE("string");
+  }
+
   return i.GetString();
 }
 
@@ -77,6 +92,10 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, bool i)
 
 bool fromJsonValue(const rapidjson::Value& i)
 {
+  if (!i.IsBool())
+  {
+    throw WRONG_TYPE("boolean");
+  }
   return i.GetBool();
 }
 
@@ -89,6 +108,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint8_t& i)
 template <>
 uint8_t fromJsonValue(const rapidjson::Value& i)
 {
+  if (!i.IsUint())
+  {
+    throw WRONG_TYPE("unsigned integer");
+  }
+
   return (uint8_t) ( i.GetUint() & 0xFF);
 }
 
@@ -101,6 +125,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const int8_t& i)
 template <>
 int8_t fromJsonValue(const rapidjson::Value& i)
 {
+  if (!i.IsInt())
+  {
+    throw WRONG_TYPE("integer");
+  }
+
   return (int8_t) ( i.GetInt() & 0xFF);
 }
 
@@ -113,6 +142,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint16_t& i)
 template <>
 uint16_t fromJsonValue(const rapidjson::Value& i)
 {
+  if (!i.IsUint())
+  {
+    throw WRONG_TYPE("unsigned integer");
+  }
+
   return (uint16_t) ( i.GetUint() & 0xFFFF);
 }
 
@@ -125,6 +159,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint32_t& i)
 template <>
 uint32_t fromJsonValue(const rapidjson::Value& i)
 {
+  if (!i.IsUint())
+  {
+    throw WRONG_TYPE("unsigned integer");
+  }
+
   return i.GetUint();
 }
 
@@ -137,6 +176,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint64_t& i)
 template <>
 uint64_t fromJsonValue(const rapidjson::Value& i)
 {
+  if (!i.IsUint())
+  {
+    throw WRONG_TYPE("unsigned integer");
+  }
+
   return i.GetUint64();
 }
 
@@ -160,14 +204,31 @@ rapidjson::Value toJsonValue<cryptonote::transaction>(rapidjson::Document& doc, 
 template <>
 cryptonote::transaction fromJsonValue<cryptonote::transaction>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::transaction tx;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
   tx.version = fromJsonValue<size_t>(val["version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "unlock_time")
   tx.unlock_time = fromJsonValue<uint64_t>(val["unlock_time"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "vin")
   tx.vin = fromJsonValue<std::vector<cryptonote::txin_v> >(val["vin"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "vout")
   tx.vout = fromJsonValue<std::vector<cryptonote::tx_out> >(val["vout"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "extra")
   tx.extra = fromJsonValue<std::vector<uint8_t> >(val["extra"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "signatures")
   tx.signatures = fromJsonValue<std::vector<std::vector<crypto::signature> > >(val["signatures"]);
+
 
   return tx;
 }
@@ -193,15 +254,34 @@ rapidjson::Value toJsonValue<cryptonote::block>(rapidjson::Document& doc, const 
 template <>
 cryptonote::block fromJsonValue<cryptonote::block>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::block b;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
   b.major_version = fromJsonValue<uint8_t>(val["major_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
   b.minor_version = fromJsonValue<uint8_t>(val["minor_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
   b.timestamp = fromJsonValue<uint64_t>(val["timestamp"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
   b.prev_id = fromJsonValue<crypto::hash>(val["prev_id"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
   b.nonce = fromJsonValue<uint32_t>(val["nonce"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "miner_tx")
   b.miner_tx = fromJsonValue<transaction>(val["miner_tx"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_hashes")
   b.tx_hashes = fromJsonValue<std::vector<crypto::hash> >(val["tx_hashes"]);
+
 
   return b;
 }
@@ -240,23 +320,44 @@ rapidjson::Value toJsonValue<cryptonote::txin_v>(rapidjson::Document& doc, const
 template <>
 cryptonote::txin_v fromJsonValue<cryptonote::txin_v>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txin_v txin;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "type")
   if (val["type"]== "txin_gen")
+
   {
+    OBJECT_HAS_MEMBER_OR_THROW(val, "value")
     txin = fromJsonValue<cryptonote::txin_gen>(val["value"]);
+
   }
+  OBJECT_HAS_MEMBER_OR_THROW(val, "type")
   else if (val["type"]== "txin_to_script")
+
   {
+    OBJECT_HAS_MEMBER_OR_THROW(val, "value")
     txin = fromJsonValue<cryptonote::txin_to_script>(val["value"]);
+
   }
+  OBJECT_HAS_MEMBER_OR_THROW(val, "type")
   else if (val["type"] == "txin_to_scripthash")
+
   {
+    OBJECT_HAS_MEMBER_OR_THROW(val, "value")
     txin = fromJsonValue<cryptonote::txin_to_scripthash>(val["value"]);
+
   }
+  OBJECT_HAS_MEMBER_OR_THROW(val, "type")
   else if (val["type"] == "txin_to_key")
+
   {
+    OBJECT_HAS_MEMBER_OR_THROW(val, "value")
     txin = fromJsonValue<cryptonote::txin_to_key>(val["value"]);
+
   }
 
   return txin;
@@ -277,9 +378,16 @@ rapidjson::Value toJsonValue<cryptonote::txin_gen>(rapidjson::Document& doc, con
 template <>
 cryptonote::txin_gen fromJsonValue<cryptonote::txin_gen>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txin_gen txin;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   txin.height = fromJsonValue<size_t>(val["height"]);
+
 
   return txin;
 }
@@ -301,11 +409,22 @@ rapidjson::Value toJsonValue<cryptonote::txin_to_script>(rapidjson::Document& do
 template <>
 cryptonote::txin_to_script fromJsonValue<cryptonote::txin_to_script>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txin_to_script txin;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prev")
   txin.prev = fromJsonValue<crypto::hash>(val["prev"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prevout")
   txin.prevout = fromJsonValue<size_t>(val["prevout"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "sigset")
   txin.sigset = fromJsonValue<std::vector<uint8_t> >(val["sigset"]);
+
 
   return txin;
 }
@@ -328,12 +447,25 @@ rapidjson::Value toJsonValue<cryptonote::txin_to_scripthash>(rapidjson::Document
 template <>
 cryptonote::txin_to_scripthash fromJsonValue<cryptonote::txin_to_scripthash>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txin_to_scripthash txin;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prev")
   txin.prev = fromJsonValue<crypto::hash>(val["prev"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prevout")
   txin.prevout = fromJsonValue<size_t>(val["prevout"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "script")
   txin.script = fromJsonValue<txout_to_script>(val["script"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "sigset")
   txin.sigset = fromJsonValue<std::vector<uint8_t> >(val["sigset"]);
+
 
   return txin;
 }
@@ -355,11 +487,22 @@ rapidjson::Value toJsonValue<cryptonote::txin_to_key>(rapidjson::Document& doc, 
 template <>
 cryptonote::txin_to_key fromJsonValue<cryptonote::txin_to_key>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txin_to_key txin;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amount")
   txin.amount = fromJsonValue<uint64_t>(val["amount"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "key_offsets")
   txin.key_offsets = fromJsonValue<std::vector<uint64_t> >(val["key_offsets"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "k_image")
   txin.k_image = fromJsonValue<crypto::key_image>(val["k_image"]);
+
 
   return txin;
 }
@@ -393,19 +536,36 @@ rapidjson::Value toJsonValue<cryptonote::txout_target_v>(rapidjson::Document& do
 template <>
 cryptonote::txout_target_v fromJsonValue<cryptonote::txout_target_v>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txout_target_v txout;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "type")
   if (val["type"]== "txout_to_script")
+
   {
+    OBJECT_HAS_MEMBER_OR_THROW(val, "value")
     txout = fromJsonValue<cryptonote::txout_to_script>(val["value"]);
+
   }
+  OBJECT_HAS_MEMBER_OR_THROW(val, "type")
   else if (val["type"] == "txout_to_scripthash")
+
   {
+    OBJECT_HAS_MEMBER_OR_THROW(val, "value")
     txout = fromJsonValue<cryptonote::txout_to_scripthash>(val["value"]);
+
   }
+  OBJECT_HAS_MEMBER_OR_THROW(val, "type")
   else if (val["type"] == "txout_to_key")
+
   {
+    OBJECT_HAS_MEMBER_OR_THROW(val, "value")
     txout = fromJsonValue<cryptonote::txout_to_key>(val["value"]);
+
   }
 
   return txout;
@@ -427,10 +587,19 @@ rapidjson::Value toJsonValue<cryptonote::txout_to_script>(rapidjson::Document& d
 template <>
 cryptonote::txout_to_script fromJsonValue<cryptonote::txout_to_script>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txout_to_script txout;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "keys")
   txout.keys = fromJsonValue<std::vector<crypto::public_key> >(val["keys"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "script")
   txout.script = fromJsonValue<std::vector<uint8_t> >(val["script"]);
+
 
   return txout;
 }
@@ -450,9 +619,16 @@ rapidjson::Value toJsonValue<cryptonote::txout_to_scripthash>(rapidjson::Documen
 template <>
 cryptonote::txout_to_scripthash fromJsonValue<cryptonote::txout_to_scripthash>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txout_to_scripthash txout;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
   txout.hash = fromJsonValue<crypto::hash>(val["hash"]);
+
 
   return txout;
 }
@@ -472,9 +648,16 @@ rapidjson::Value toJsonValue<cryptonote::txout_to_key>(rapidjson::Document& doc,
 template <>
 cryptonote::txout_to_key fromJsonValue<cryptonote::txout_to_key>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::txout_to_key txout;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "key")
   txout.key = fromJsonValue<crypto::public_key>(val["key"]);
+
 
   return txout;
 }
@@ -495,10 +678,19 @@ rapidjson::Value toJsonValue<cryptonote::tx_out>(rapidjson::Document& doc, const
 template <>
 cryptonote::tx_out fromJsonValue<cryptonote::tx_out>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::tx_out txout;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amount")
   txout.amount = fromJsonValue<uint64_t>(val["amount"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "target")
   txout.target = fromJsonValue<txout_target_v>(val["target"]);
+
 
   return txout;
 }
@@ -543,32 +735,69 @@ rapidjson::Value toJsonValue<cryptonote::connection_info>(rapidjson::Document& d
 template <>
 cryptonote::connection_info fromJsonValue<cryptonote::connection_info>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::connection_info info;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "incoming")
   info.incoming = fromJsonValue<bool>(val["incoming"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "localhost")
   info.localhost = fromJsonValue<bool>(val["localhost"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "local_ip")
   info.local_ip = fromJsonValue<bool>(val["local_ip"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "ip")
   info.ip = fromJsonValue<std::string>(val["ip"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "port")
   info.port = fromJsonValue<std::string>(val["port"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "peer_id")
   info.peer_id = fromJsonValue<std::string>(val["peer_id"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "recv_count")
   info.recv_count = fromJsonValue<uint64_t>(val["recv_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "recv_idle_time")
   info.recv_idle_time = fromJsonValue<uint64_t>(val["recv_idle_time"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "send_count")
   info.send_count = fromJsonValue<uint64_t>(val["send_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "send_idle_time")
   info.send_idle_time = fromJsonValue<uint64_t>(val["send_idle_time"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "state")
   info.state = fromJsonValue<std::string>(val["state"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "live_time")
   info.live_time = fromJsonValue<uint64_t>(val["live_time"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "avg_download")
   info.avg_download = fromJsonValue<uint64_t>(val["avg_download"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "current_download")
   info.current_download = fromJsonValue<uint64_t>(val["current_download"]);
 
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "avg_upload")
   info.avg_upload = fromJsonValue<uint64_t>(val["avg_upload"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "current_upload")
   info.current_upload = fromJsonValue<uint64_t>(val["current_upload"]);
+
 
   return info;
 }
@@ -589,10 +818,19 @@ rapidjson::Value toJsonValue<cryptonote::block_complete_entry>(rapidjson::Docume
 template <>
 cryptonote::block_complete_entry fromJsonValue<cryptonote::block_complete_entry>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::block_complete_entry blk;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "block")
   blk.block = fromJsonValue<blobdata>(val["block"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "txs")
   blk.txs = fromJsonValue<std::list<blobdata> >(val["txs"]);
+
 
   return blk;
 }
@@ -613,10 +851,19 @@ rapidjson::Value toJsonValue<cryptonote::rpc::block_with_transactions>(rapidjson
 template <>
 cryptonote::rpc::block_with_transactions fromJsonValue<cryptonote::rpc::block_with_transactions>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::rpc::block_with_transactions blk;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "block")
   blk.block = fromJsonValue<block>(val["block"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "transactions")
   blk.transactions = fromJsonValue<std::unordered_map<crypto::hash, cryptonote::transaction> >(val["transactions"]);
+
 
   return blk;
 }
@@ -640,11 +887,22 @@ rapidjson::Value toJsonValue<cryptonote::rpc::transaction_info>(rapidjson::Docum
 template <>
 cryptonote::rpc::transaction_info fromJsonValue<cryptonote::rpc::transaction_info>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::rpc::transaction_info tx_info;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   tx_info.height = fromJsonValue<uint64_t>(val["height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "in_pool")
   tx_info.in_pool = fromJsonValue<bool>(val["in_pool"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "transaction")
   tx_info.transaction = fromJsonValue<cryptonote::transaction>(val["transaction"]);
+
 
   return tx_info;
 }
@@ -667,10 +925,19 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_amount_index>(rapid
 template <>
 cryptonote::rpc::output_key_and_amount_index fromJsonValue<cryptonote::rpc::output_key_and_amount_index>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::rpc::output_key_and_amount_index out;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amount_index")
   out.amount_index = fromJsonValue<decltype(out.amount_index)>(val["amount_index"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "key")
   out.key = fromJsonValue<decltype(out.key)>(val["key"]);
+
 
   return out;
 }
@@ -693,10 +960,19 @@ rapidjson::Value toJsonValue<cryptonote::rpc::amount_with_random_outputs>(rapidj
 template <>
 cryptonote::rpc::amount_with_random_outputs fromJsonValue<cryptonote::rpc::amount_with_random_outputs>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::rpc::amount_with_random_outputs out;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amount")
   out.amount = fromJsonValue<decltype(out.amount)>(val["amount"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "outputs")
   out.outputs = fromJsonValue<decltype(out.outputs)>(val["outputs"]);
+
 
   return out;
 }
@@ -721,12 +997,25 @@ rapidjson::Value toJsonValue<cryptonote::rpc::peer>(rapidjson::Document& doc, co
 template <>
 cryptonote::rpc::peer fromJsonValue<cryptonote::rpc::peer>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::rpc::peer peer;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "id")
   peer.id = fromJsonValue<decltype(peer.id)>(val["id"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "ip")
   peer.ip = fromJsonValue<decltype(peer.ip)>(val["ip"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "port")
   peer.port = fromJsonValue<decltype(peer.port)>(val["port"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "last_seen")
   peer.last_seen = fromJsonValue<decltype(peer.last_seen)>(val["last_seen"]);
+
 
   return peer;
 }
@@ -758,19 +1047,46 @@ rapidjson::Value toJsonValue<cryptonote::rpc::tx_in_pool>(rapidjson::Document& d
 template <>
 cryptonote::rpc::tx_in_pool fromJsonValue<cryptonote::rpc::tx_in_pool>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::rpc::tx_in_pool tx;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "tx")
   tx.tx = fromJsonValue<decltype(tx.tx)>(val["tx"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "blob_size")
   tx.blob_size = fromJsonValue<decltype(tx.blob_size)>(val["blob_size"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "fee")
   tx.fee = fromJsonValue<decltype(tx.fee)>(val["fee"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "max_used_block_hash")
   tx.max_used_block_hash = fromJsonValue<decltype(tx.max_used_block_hash)>(val["max_used_block_hash"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "max_used_block_height")
   tx.max_used_block_height = fromJsonValue<decltype(tx.max_used_block_height)>(val["max_used_block_height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "kept_by_block")
   tx.kept_by_block = fromJsonValue<decltype(tx.kept_by_block)>(val["kept_by_block"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "last_failed_block_hash")
   tx.last_failed_block_hash = fromJsonValue<decltype(tx.last_failed_block_hash)>(val["last_failed_block_hash"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "last_failed_block_height")
   tx.last_failed_block_height = fromJsonValue<decltype(tx.last_failed_block_height)>(val["last_failed_block_height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "receive_time")
   tx.receive_time = fromJsonValue<decltype(tx.receive_time)>(val["receive_time"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "last_relayed_time")
   tx.last_relayed_time = fromJsonValue<decltype(tx.last_relayed_time)>(val["last_relayed_time"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "relayed")
   tx.relayed = fromJsonValue<decltype(tx.relayed)>(val["relayed"]);
+
 
   return tx;
 }
@@ -793,10 +1109,19 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Do
 template <>
 cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amount_count>(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   cryptonote::rpc::output_amount_count oac;
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amount")
   oac.amount = fromJsonValue<decltype(oac.amount)>(val["amount"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "count")
   oac.count = fromJsonValue<decltype(oac.count)>(val["count"]);
+
 
   return oac;
 }

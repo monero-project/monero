@@ -81,7 +81,9 @@ rapidjson::Value GetHeight::Response::toJson(rapidjson::Document& doc)
 
 void GetHeight::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   height = cryptonote::json::fromJsonValue<uint64_t>(val["height"]);
+
 }
 
 
@@ -99,8 +101,12 @@ rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
 
 void GetBlocksFast::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "block_ids")
   block_ids = cryptonote::json::fromJsonValue<decltype(block_ids)>(val["block_ids"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
   start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
+
 }
 
 rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
@@ -118,9 +124,15 @@ rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
 
 void GetBlocksFast::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "blocks")
   blocks = cryptonote::json::fromJsonValue<decltype(blocks)>(val["blocks"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
   start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "current_height")
   current_height = cryptonote::json::fromJsonValue<uint64_t>(val["current_height"]);
+
 }
 
 
@@ -138,8 +150,12 @@ rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
 
 void GetHashesFast::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "known_hashes")
   known_hashes = cryptonote::json::fromJsonValue<decltype(known_hashes)>(val["known_hashes"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
   start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
+
 }
 
 rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
@@ -157,9 +173,15 @@ rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
 
 void GetHashesFast::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hashes")
   hashes = cryptonote::json::fromJsonValue<decltype(hashes)>(val["hashes"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
   start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "current_height")
   current_height = cryptonote::json::fromJsonValue<uint64_t>(val["current_height"]);
+
 }
 
 
@@ -176,7 +198,9 @@ rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc)
 
 void GetTransactions::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_hashes")
   tx_hashes = cryptonote::json::fromJsonValue<decltype(tx_hashes)>(val["tx_hashes"]);
+
 }
 
 rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
@@ -197,8 +221,12 @@ rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
 
 void GetTransactions::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "txs")
   txs = cryptonote::json::fromJsonValue<decltype(txs)>(val["txs"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "missed_hashes")
   missed_hashes = cryptonote::json::fromJsonValue<decltype(missed_hashes)>(val["missed_hashes"]);
+
 }
 
 
@@ -215,7 +243,9 @@ rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc)
 
 void KeyImagesSpent::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "key_images")
   key_images = cryptonote::json::fromJsonValue<decltype(key_images)>(val["key_images"]);
+
 }
 
 rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
@@ -231,7 +261,9 @@ rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
 
 void KeyImagesSpent::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "spent_status")
   spent_status = cryptonote::json::fromJsonValue<decltype(spent_status)>(val["spent_status"]);
+
 }
 
 
@@ -248,7 +280,9 @@ rapidjson::Value GetTxGlobalOutputIndices::Request::toJson(rapidjson::Document& 
 
 void GetTxGlobalOutputIndices::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_hash")
   tx_hash = cryptonote::json::fromJsonValue<decltype(tx_hash)>(val["tx_hash"]);
+
 }
 
 rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document& doc)
@@ -264,7 +298,9 @@ rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document&
 
 void GetTxGlobalOutputIndices::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "output_indices")
   output_indices = cryptonote::json::fromJsonValue<decltype(output_indices)>(val["output_indices"]);
+
 }
 
 
@@ -282,8 +318,12 @@ rapidjson::Value GetRandomOutputsForAmounts::Request::toJson(rapidjson::Document
 
 void GetRandomOutputsForAmounts::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amounts")
   amounts = cryptonote::json::fromJsonValue<decltype(amounts)>(val["amounts"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "count")
   count = cryptonote::json::fromJsonValue<decltype(count)>(val["count"]);
+
 }
 
 rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Document& doc)
@@ -299,7 +339,9 @@ rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Documen
 
 void GetRandomOutputsForAmounts::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amounts_with_outputs")
   amounts_with_outputs = cryptonote::json::fromJsonValue<decltype(amounts_with_outputs)>(val["amounts_with_outputs"]);
+
 }
 
 
@@ -317,8 +359,12 @@ rapidjson::Value SendRawTx::Request::toJson(rapidjson::Document& doc)
 
 void SendRawTx::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "tx")
   tx = cryptonote::json::fromJsonValue<decltype(tx)>(val["tx"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "do_not_relay")
   do_not_relay = cryptonote::json::fromJsonValue<decltype(do_not_relay)>(val["do_not_relay"]);
+
 }
 
 rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc)
@@ -334,7 +380,9 @@ rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc)
 
 void SendRawTx::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "relayed")
   relayed = cryptonote::json::fromJsonValue<decltype(relayed)>(val["relayed"]);
+
 }
 
 
@@ -372,19 +420,45 @@ rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc)
 
 void GetInfo::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "target_height")
   target_height = cryptonote::json::fromJsonValue<decltype(target_height)>(val["target_height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
   difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "target")
   target = cryptonote::json::fromJsonValue<decltype(target)>(val["target"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_count")
   tx_count = cryptonote::json::fromJsonValue<decltype(tx_count)>(val["tx_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_pool_size")
   tx_pool_size = cryptonote::json::fromJsonValue<decltype(tx_pool_size)>(val["tx_pool_size"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "alt_blocks_count")
   alt_blocks_count = cryptonote::json::fromJsonValue<decltype(alt_blocks_count)>(val["alt_blocks_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "outgoing_connections_count")
   outgoing_connections_count = cryptonote::json::fromJsonValue<decltype(outgoing_connections_count)>(val["outgoing_connections_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "incoming_connections_count")
   incoming_connections_count = cryptonote::json::fromJsonValue<decltype(incoming_connections_count)>(val["incoming_connections_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "white_peerlist_size")
   white_peerlist_size = cryptonote::json::fromJsonValue<decltype(white_peerlist_size)>(val["white_peerlist_size"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "grey_peerlist_size")
   grey_peerlist_size = cryptonote::json::fromJsonValue<decltype(grey_peerlist_size)>(val["grey_peerlist_size"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "testnet")
   testnet = cryptonote::json::fromJsonValue<decltype(testnet)>(val["testnet"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "top_block_hash")
   top_block_hash = cryptonote::json::fromJsonValue<decltype(top_block_hash)>(val["top_block_hash"]);
+
 }
 
 
@@ -428,7 +502,9 @@ rapidjson::Value GetBlockHash::Request::toJson(rapidjson::Document& doc)
 
 void GetBlockHash::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+
 }
 
 rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc)
@@ -444,7 +520,9 @@ rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc)
 
 void GetBlockHash::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
   hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
+
 }
 
 
@@ -482,15 +560,33 @@ rapidjson::Value GetLastBlockHeader::Response::toJson(rapidjson::Document& doc)
 
 void GetLastBlockHeader::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
   major_version = cryptonote::json::fromJsonValue<decltype(major_version)>(val["major_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
   minor_version = cryptonote::json::fromJsonValue<decltype(minor_version)>(val["minor_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
   timestamp = cryptonote::json::fromJsonValue<decltype(timestamp)>(val["timestamp"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
   prev_id = cryptonote::json::fromJsonValue<decltype(prev_id)>(val["prev_id"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
   nonce = cryptonote::json::fromJsonValue<decltype(nonce)>(val["nonce"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
   hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
   difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "reward")
   reward = cryptonote::json::fromJsonValue<decltype(reward)>(val["reward"]);
+
 }
 
 
@@ -507,7 +603,9 @@ rapidjson::Value GetBlockHeaderByHash::Request::toJson(rapidjson::Document& doc)
 
 void GetBlockHeaderByHash::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
   hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
+
 }
 
 rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc)
@@ -532,16 +630,36 @@ rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc
 
 void GetBlockHeaderByHash::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
   major_version = cryptonote::json::fromJsonValue<decltype(major_version)>(val["major_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
   minor_version = cryptonote::json::fromJsonValue<decltype(minor_version)>(val["minor_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
   timestamp = cryptonote::json::fromJsonValue<decltype(timestamp)>(val["timestamp"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
   prev_id = cryptonote::json::fromJsonValue<decltype(prev_id)>(val["prev_id"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
   nonce = cryptonote::json::fromJsonValue<decltype(nonce)>(val["nonce"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "depth")
   depth = cryptonote::json::fromJsonValue<decltype(depth)>(val["depth"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
   hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
   difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "reward")
   reward = cryptonote::json::fromJsonValue<decltype(reward)>(val["reward"]);
+
 }
 
 
@@ -558,7 +676,9 @@ rapidjson::Value GetBlockHeaderByHeight::Request::toJson(rapidjson::Document& do
 
 void GetBlockHeaderByHeight::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+
 }
 
 rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& doc)
@@ -583,16 +703,36 @@ rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& d
 
 void GetBlockHeaderByHeight::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
   major_version = cryptonote::json::fromJsonValue<decltype(major_version)>(val["major_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
   minor_version = cryptonote::json::fromJsonValue<decltype(minor_version)>(val["minor_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
   timestamp = cryptonote::json::fromJsonValue<decltype(timestamp)>(val["timestamp"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
   prev_id = cryptonote::json::fromJsonValue<decltype(prev_id)>(val["prev_id"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
   nonce = cryptonote::json::fromJsonValue<decltype(nonce)>(val["nonce"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
   height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "depth")
   depth = cryptonote::json::fromJsonValue<decltype(depth)>(val["depth"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
   hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
   difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "reward")
   reward = cryptonote::json::fromJsonValue<decltype(reward)>(val["reward"]);
+
 }
 
 
@@ -623,8 +763,12 @@ rapidjson::Value GetPeerList::Response::toJson(rapidjson::Document& doc)
 
 void GetPeerList::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "white_list")
   white_list = cryptonote::json::fromJsonValue<decltype(white_list)>(val["white_list"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "gray_list")
   gray_list = cryptonote::json::fromJsonValue<decltype(gray_list)>(val["gray_list"]);
+
 }
 
 
@@ -641,7 +785,9 @@ rapidjson::Value SetLogLevel::Request::toJson(rapidjson::Document& doc)
 
 void SetLogLevel::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "level")
   level = cryptonote::json::fromJsonValue<decltype(level)>(val["level"]);
+
 }
 
 rapidjson::Value SetLogLevel::Response::toJson(rapidjson::Document& doc)
@@ -677,8 +823,12 @@ rapidjson::Value GetTransactionPool::Response::toJson(rapidjson::Document& doc)
 
 void GetTransactionPool::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "transactions")
   transactions = cryptonote::json::fromJsonValue<decltype(transactions)>(val["transactions"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "key_images")
   key_images = cryptonote::json::fromJsonValue<decltype(key_images)>(val["key_images"]);
+
 }
 
 
@@ -695,7 +845,9 @@ rapidjson::Value HardForkInfo::Request::toJson(rapidjson::Document& doc)
 
 void HardForkInfo::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
   version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
+
 }
 
 rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
@@ -718,14 +870,30 @@ rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
 
 void HardForkInfo::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
   version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "enabled")
   enabled = cryptonote::json::fromJsonValue<decltype(enabled)>(val["enabled"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "window")
   window = cryptonote::json::fromJsonValue<decltype(window)>(val["window"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "votes")
   votes = cryptonote::json::fromJsonValue<decltype(votes)>(val["votes"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "threshold")
   threshold = cryptonote::json::fromJsonValue<decltype(threshold)>(val["threshold"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "voting")
   voting = cryptonote::json::fromJsonValue<decltype(voting)>(val["voting"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "state")
   state = cryptonote::json::fromJsonValue<decltype(state)>(val["state"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "earliest_height")
   earliest_height = cryptonote::json::fromJsonValue<decltype(earliest_height)>(val["earliest_height"]);
+
 }
 
 
@@ -744,9 +912,15 @@ rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc)
 
 void GetOutputHistogram::Request::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amounts")
   amounts = cryptonote::json::fromJsonValue<decltype(amounts)>(val["amounts"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "min_count")
   min_count = cryptonote::json::fromJsonValue<decltype(min_count)>(val["min_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "max_count")
   max_count = cryptonote::json::fromJsonValue<decltype(max_count)>(val["max_count"]);
+
 }
 
 rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
@@ -762,7 +936,9 @@ rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
 
 void GetOutputHistogram::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "histogram")
   histogram = cryptonote::json::fromJsonValue<decltype(histogram)>(val["histogram"]);
+
 }
 
 
@@ -788,7 +964,9 @@ rapidjson::Value GetRPCVersion::Response::toJson(rapidjson::Document& doc)
 
 void GetRPCVersion::Response::fromJson(rapidjson::Value& val)
 {
+  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
   version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
+
 }
 
 

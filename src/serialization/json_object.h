@@ -40,6 +40,62 @@ namespace cryptonote
 namespace json
 {
 
+struct JSON_ERROR : public std::exception
+{
+  protected:
+    JSON_ERROR() { }
+    std::string m;
+
+  public:
+    virtual ~JSON_ERROR() { }
+
+    const char* what() const throw()
+    {
+      return m.c_str();
+    }
+};
+
+struct MISSING_KEY : public JSON_ERROR
+{
+  MISSING_KEY(const char* key)
+  {
+    m = std::string("Key \"") + key + "\" missing from object.";
+  }
+};
+
+struct WRONG_TYPE : public JSON_ERROR
+{
+  WRONG_TYPE(const char* type)
+  {
+    m = std::string("Json value has incorrect type, expected: ") + type;
+  }
+};
+
+struct BAD_INPUT : public JSON_ERROR
+{
+  BAD_INPUT()
+  {
+    m = "An item failed to convert from json object to native object";
+  }
+};
+
+struct PARSE_FAIL : public JSON_ERROR
+{
+  PARSE_FAIL()
+  {
+    m = "Failed to parse the json request";
+  }
+};
+
+// convenience macro
+#define OBJECT_HAS_MEMBER_OR_THROW(val, key) \
+  if (!val.HasMember(key)) \
+  { \
+    throw cryptonote::json::MISSING_KEY(key); \
+  }
+
+
+
 // POD to json value
 template <typename Type, typename = typename std::enable_if<sfinae::is_not_container<Type>::value, Type>::type>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const Type& pod);
@@ -247,6 +303,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enabl
 template <typename Map>
 typename std::enable_if<sfinae::is_map_like<Map>::value, Map>::type fromJsonValue(const rapidjson::Value& val)
 {
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
   Map retmap;
 
   auto itr = val.MemberBegin();
@@ -276,6 +337,11 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enabl
 template <typename Vec>
 typename std::enable_if<sfinae::is_vector_like<Vec>::value, Vec>::type fromJsonValue(const rapidjson::Value& val)
 {
+  if (!val.IsArray())
+  {
+    throw WRONG_TYPE("json array");
+  }
+
   Vec vec;
 
   for (rapidjson::SizeType i=0; i < val.Size(); i++)

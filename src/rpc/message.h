@@ -57,14 +57,14 @@ namespace rpc
 
   class Message
   {
-    protected:
-      Message() { }
-
     public:
+      Message() { }
 
       static const char* STATUS_OK;
       static const char* STATUS_RETRY;
       static const char* STATUS_FAILED;
+      static const char* STATUS_BAD_REQUEST;
+      static const char* STATUS_BAD_JSON;
 
       virtual ~Message() { }
 
@@ -97,6 +97,12 @@ namespace rpc
 
       rapidjson::Document doc;
   };
+
+
+  // convenience functions for bad input
+  std::string BAD_REQUEST(const std::string& request);
+
+  std::string BAD_JSON(const std::string& error_details);
 
 
 }  // namespace rpc
