@@ -49,6 +49,13 @@ class DaemonRPCClient
 
     bool getHeight(uint64_t& height);
 
+    bool getBlocksFast(
+        const std::list<crypto::hash>& block_ids,
+        const uint64_t start_height_in,
+        std::vector<cryptonote::rpc::block_with_transactions>& blocks,
+        uint64_t& start_height_out,
+        uint64_t& current_height);
+
     bool getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices);
 
   private:

@@ -70,6 +70,40 @@ bool DaemonRPCClient::getHeight(uint64_t& height)
   return false;
 }
 
+bool DaemonRPCClient::getBlocksFast(
+    const std::list<crypto::hash>& block_ids,
+    const uint64_t start_height_in,
+    std::vector<cryptonote::rpc::block_with_transactions>& blocks,
+    uint64_t& start_height_out,
+    uint64_t& current_height)
+{
+  try
+  {
+    GetBlocksFast::Request request;
+
+    request.block_ids = block_ids;
+    request.start_height = start_height_in;
+
+    GetBlocksFast::Response response = doRequest<GetBlocksFast>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    blocks = response.blocks;
+    start_height_out = response.start_height;
+    current_height = response.current_height;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices)
 {
   try

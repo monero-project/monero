@@ -415,17 +415,17 @@ namespace tools
      */
     bool load_keys(const std::string& keys_file_name, const std::string& password);
     void process_new_transaction(const cryptonote::transaction& tx, uint64_t height, uint64_t ts, bool miner_tx, bool pool);
-    void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height);
+    void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::rpc::block_with_transactions& bche, const crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
     bool is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool clear();
-    void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks);
+    void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::rpc::block_with_transactions> &blocks);
     void pull_hashes(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes);
     void fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history);
-    void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, bool &error);
-    void process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, uint64_t& blocks_added);
+    void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::rpc::block_with_transactions> &prev_blocks, std::vector<cryptonote::rpc::block_with_transactions> &blocks, bool &error);
+    void process_blocks(uint64_t start_height, const std::vector<cryptonote::rpc::block_with_transactions> &blocks, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::list<transfer_container::iterator>& selected_transfers, bool trusted_daemon);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const cryptonote::transaction& tx, uint64_t height);
@@ -436,7 +436,7 @@ namespace tools
     bool generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) const;
     crypto::hash get_payment_id(const pending_tx &ptx) const;
     void check_acc_out(const cryptonote::account_keys &acc, const cryptonote::tx_out &o, const crypto::public_key &tx_pub_key, size_t i, uint64_t &money_transfered, bool &error) const;
-    void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
+    void parse_block_round(const cryptonote::block &block_in, cryptonote::block &bl, crypto::hash &bl_id) const;
     uint64_t get_upper_tranaction_size_limit();
     std::vector<uint64_t> get_unspent_amounts_vector();
     uint64_t sanitize_fee_multiplier(uint64_t fee_multiplier) const;
