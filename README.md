@@ -189,7 +189,7 @@ To list all available options, run `./bin/bitmonerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
-of the argument without any dashes, for example `log-level=1`.
+of the argument without the leading dashes, for example `log-level=1`.
 
 ## Internationalization
 
