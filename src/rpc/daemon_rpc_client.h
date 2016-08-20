@@ -30,6 +30,8 @@
 
 #include "zmq_client.h"
 
+#include "rpc/daemon_messages.h"
+
 namespace cryptonote
 {
 
@@ -46,6 +48,8 @@ class DaemonRPCClient
     void connect(const std::string& addr, const std::string& port);
 
     bool getHeight(uint64_t& height);
+
+    bool getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices);
 
   private:
 

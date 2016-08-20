@@ -318,20 +318,14 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     {
       //good news - got money! take care about it
       //usually we have only one transfer for user in transaction
-      cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
-      cryptonote::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
+      std::vector<uint64_t> output_indices;
       if (!pool)
       {
-        req.txid = get_transaction_hash(tx);
-        m_daemon_rpc_mutex.lock();
-        bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-        m_daemon_rpc_mutex.unlock();
-        THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
-        THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
-        THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
-        THROW_WALLET_EXCEPTION_IF(res.o_indexes.size() != tx.vout.size(), error::wallet_internal_error,
+        bool r = m_daemon.getTxGlobalOutputIndices(get_transaction_hash(tx), output_indices);
+        THROW_WALLET_EXCEPTION_IF(!r, error::get_out_indices_error, "Error getting tx global output indices from daemon");
+        THROW_WALLET_EXCEPTION_IF(output_indices.size() != tx.vout.size(), error::wallet_internal_error,
 				  "transactions outputs size=" + std::to_string(tx.vout.size()) +
-				  " not match with COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES response size=" + std::to_string(res.o_indexes.size()));
+				  " not match with RPC GetTxGlobalOutputIndices response size=" + std::to_string(output_indices.size()));
       }
 
       BOOST_FOREACH(size_t o, outs)
@@ -358,7 +352,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
 	    transfer_details& td = m_transfers.back();
 	    td.m_block_height = height;
 	    td.m_internal_output_index = o;
-	    td.m_global_output_index = res.o_indexes[o];
+	    td.m_global_output_index = output_indices[o];
 	    td.m_tx = tx;
             td.m_key_image = ki;
 	    td.m_spent = false;
@@ -388,7 +382,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
             transfer_details &td = m_transfers[kit->second];
 	    td.m_block_height = height;
 	    td.m_internal_output_index = o;
-	    td.m_global_output_index = res.o_indexes[o];
+	    td.m_global_output_index = output_indices[o];
 	    td.m_tx = tx;
             THROW_WALLET_EXCEPTION_IF(td.m_key_image != ki, error::wallet_internal_error, "Inconsistent key images");
 	    THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");

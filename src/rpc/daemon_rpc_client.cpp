@@ -28,8 +28,6 @@
 
 #include "rpc/daemon_rpc_client.h"
 
-#include "rpc/daemon_messages.h"
-
 namespace cryptonote
 {
 
@@ -62,6 +60,32 @@ bool DaemonRPCClient::getHeight(uint64_t& height)
     }
 
     height = response.height;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
+bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices)
+{
+  try
+  {
+    GetTxGlobalOutputIndices::Request request;
+
+    request.tx_hash = tx_hash;
+
+    GetTxGlobalOutputIndices::Response response = doRequest<GetTxGlobalOutputIndices>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    output_indices = response.output_indices;
 
     return true;
   }
