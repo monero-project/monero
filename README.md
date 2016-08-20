@@ -63,6 +63,7 @@ Dependencies:
 
 * GCC `>=4.7.3`
 * CMake `>=3.0.0`
+* pkg-config
 * libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
 * libevent `>=2.0`
 * libgtest `>=1.5`
