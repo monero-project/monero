@@ -34,8 +34,6 @@ set(daemon_messages_sources
   daemon_messages.cpp)
 
 set(daemon_rpc_server_sources
-  "message.cpp"
-  daemon_messages.cpp
   daemon_handler.cpp
   zmq_server.cpp)
 
