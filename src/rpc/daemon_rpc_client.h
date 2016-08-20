@@ -63,6 +63,13 @@ class DaemonRPCClient
         uint64_t& start_height_out,
         uint64_t& current_height);
 
+    bool keyImagesSpent(
+        const std::vector<crypto::key_image>& images,
+        std::vector<bool>& spent,
+        std::vector<bool>& spent_in_chain,
+        std::vector<bool>& spent_in_pool,
+        bool where = false);
+
     bool getTransactionPool(
         std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool>& transactions,
         std::unordered_map<crypto::key_image, std::vector<crypto::hash> >& key_images);

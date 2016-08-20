@@ -138,6 +138,52 @@ bool DaemonRPCClient::getHashesFast(
   return false;
 }
 
+bool DaemonRPCClient::keyImagesSpent(
+    const std::vector<crypto::key_image>& images,
+    std::vector<bool>& spent,
+    std::vector<bool>& spent_in_chain,
+    std::vector<bool>& spent_in_pool,
+    bool where)
+{
+  try
+  {
+    KeyImagesSpent::Request request;
+
+    request.key_images = images;
+
+    KeyImagesSpent::Response response = doRequest<KeyImagesSpent>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    spent.resize(images.size());
+    if (where)
+    {
+      spent_in_chain.resize(images.size());
+      spent_in_pool.resize(images.size());
+    }
+
+    for (size_t i=0; i < response.spent_status.size(); i++)
+    {
+      spent[i] = (response.spent_status[i] != KeyImagesSpent::UNSPENT);
+      if (where)
+      {
+        spent_in_chain[i] = (response.spent_status[i] == KeyImagesSpent::SPENT_IN_BLOCKCHAIN);
+        spent_in_pool[i] = (response.spent_status[i] == KeyImagesSpent::SPENT_IN_POOL);
+      }
+    }
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 bool DaemonRPCClient::getTransactionPool(
     std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool>& transactions,
     std::unordered_map<crypto::key_image, std::vector<crypto::hash> >& key_images)
