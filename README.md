@@ -72,11 +72,16 @@ Dependencies:
 * libunwind (optional, for stack trace on exception)
 * miniupnpc (optional, for NAT punching)
 
-Static Build Additional Dependencies:
+Additional dependencies for statically-linked build:
 
 * ldns `>=1.6.17`
 * expat `>=1.1`
 * bison or yacc
+
+Additional dependencies for building documentation:
+
+* Doxygen
+* graphviz
 
 **Basic Process:**
 
