@@ -45,7 +45,7 @@ class DaemonRPCClient
 
     void connect(const std::string& addr, const std::string& port);
 
-    uint64_t getHeight();
+    bool getHeight(uint64_t& height);
 
   private:
 

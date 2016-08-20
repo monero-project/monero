@@ -2994,14 +2994,17 @@ bool wallet2::use_fork_rules(uint8_t version)
   epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
   epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
 
-  uint64_t current_height = m_daemon.getHeight();
+  uint64_t current_height;
+  
+  bool r = m_daemon.getHeight(current_height);
+  CHECK_AND_ASSERT_MES(r, false, "Failed to get chain height from daemon");
 
   m_daemon_rpc_mutex.lock();
   req_t.jsonrpc = "2.0";
   req_t.id = epee::serialization::storage_entry(0);
   req_t.method = "hard_fork_info";
   req_t.params.version = version;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
+  r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
   m_daemon_rpc_mutex.unlock();
   CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
   CHECK_AND_ASSERT_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");

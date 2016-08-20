@@ -48,13 +48,28 @@ void DaemonRPCClient::connect(const std::string& addr, const std::string& port)
   zmq_client.connect(addr, port);
 }
 
-uint64_t DaemonRPCClient::getHeight()
+bool DaemonRPCClient::getHeight(uint64_t& height)
 {
-  GetHeight::Request request;
+  try
+  {
+    GetHeight::Request request;
 
-  GetHeight::Response response = doRequest<GetHeight>(request);
+    GetHeight::Response response = doRequest<GetHeight>(request);
 
-  return response.height;
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    height = response.height;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
 }
 
 
