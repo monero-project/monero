@@ -37,13 +37,13 @@ namespace json
 {
 
 
-template <class Type, typename = typename std::enable_if<sfinae::is_not_container<Type>::value>::type>
+template <class Type, typename>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const Type& pod)
 {
   return rapidjson::Value(epee::string_tools::pod_to_hex(pod).c_str(), doc.GetAllocator());
 }
 
-template <class Type, typename = typename std::enable_if<sfinae::is_not_container<Type>::value>::type>
+template <class Type, typename>
 Type fromJsonValue(const rapidjson::Value& val)
 {
   Type retval;
