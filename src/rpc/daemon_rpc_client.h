@@ -56,6 +56,13 @@ class DaemonRPCClient
         uint64_t& start_height_out,
         uint64_t& current_height);
 
+    bool getHashesFast(
+        const std::list<crypto::hash>& known_hashes,
+        const uint64_t start_height_in,
+        std::list<crypto::hash>& hashes,
+        uint64_t& start_height_out,
+        uint64_t& current_height);
+
     bool getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices);
 
   private:

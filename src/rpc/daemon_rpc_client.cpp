@@ -104,6 +104,40 @@ bool DaemonRPCClient::getBlocksFast(
   return false;
 }
 
+bool DaemonRPCClient::getHashesFast(
+    const std::list<crypto::hash>& known_hashes,
+    const uint64_t start_height_in,
+    std::list<crypto::hash>& hashes,
+    uint64_t& start_height_out,
+    uint64_t& current_height)
+{
+  try
+  {
+    GetHashesFast::Request request;
+
+    request.known_hashes = known_hashes;
+    request.start_height = start_height_in;
+
+    GetHashesFast::Response response = doRequest<GetHashesFast>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    hashes = response.hashes;
+    start_height_out = response.start_height;
+    current_height = response.current_height;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices)
 {
   try
