@@ -38,6 +38,7 @@
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "include_base_utils.h"
+#include "rpc/message_data_structs.h"
 
 
 namespace tools
@@ -377,7 +378,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct not_enough_outs_to_mix : public transfer_error
     {
-      typedef std::vector<cryptonote::COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount> scanty_outs_t;
+      typedef std::vector<cryptonote::rpc::amount_with_random_outputs> scanty_outs_t;
 
       explicit not_enough_outs_to_mix(std::string&& loc, const scanty_outs_t& scanty_outs, size_t mixin_count)
         : transfer_error(std::move(loc), "not enough outputs to mix")
@@ -395,7 +396,7 @@ namespace tools
         ss << transfer_error::to_string() << ", mixin_count = " << m_mixin_count << ", scanty_outs:";
         for (const auto& outs_for_amount : m_scanty_outs)
         {
-          ss << '\n' << cryptonote::print_money(outs_for_amount.amount) << " - " << outs_for_amount.outs.size();
+          ss << '\n' << cryptonote::print_money(outs_for_amount.amount) << " - " << outs_for_amount.outputs.size();
         }
         return ss.str();
       }

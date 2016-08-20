@@ -261,6 +261,36 @@ bool DaemonRPCClient::getRPCVersion(uint32_t& version)
   return false;
 }
 
+bool DaemonRPCClient::getRandomOutputsForAmounts(
+    const std::vector<uint64_t>& amounts,
+    const uint64_t count,
+    std::vector<amount_with_random_outputs>& amounts_with_outputs)
+{
+  try
+  {
+    GetRandomOutputsForAmounts::Request request;
+
+    request.amounts = amounts;
+    request.count = count;
+
+    GetRandomOutputsForAmounts::Response response = doRequest<GetRandomOutputsForAmounts>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    amounts_with_outputs = response.amounts_with_outputs;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 bool DaemonRPCClient::sendRawTx(
     const cryptonote::transaction& tx,
     bool& relayed,

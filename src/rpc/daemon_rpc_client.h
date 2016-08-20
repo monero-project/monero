@@ -76,6 +76,11 @@ class DaemonRPCClient
 
     bool getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices);
 
+    bool getRandomOutputsForAmounts(
+        const std::vector<uint64_t>& amounts,
+        const uint64_t count,
+        std::vector<amount_with_random_outputs>& amounts_with_outputs);
+
     bool sendRawTx(
         const cryptonote::transaction& tx,
         bool& relayed,
