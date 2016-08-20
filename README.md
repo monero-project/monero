@@ -69,6 +69,8 @@ Dependencies:
 * libgtest `>=1.5`
 * Boost `>=1.53 && !=1.54` (note: 1.54 is not supported [more details here](http://goo.gl/RrCFmA)),
 * BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
+* libunwind (optional, for stack trace on exception)
+* miniupnpc (optional, for NAT punching)
 
 Static Build Additional Dependencies:
 
