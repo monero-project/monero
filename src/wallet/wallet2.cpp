@@ -2836,26 +2836,17 @@ void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs,
 //----------------------------------------------------------------------------------------------------
 bool wallet2::use_fork_rules(uint8_t version)
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-
   uint64_t current_height;
   
   bool r = m_daemon.getHeight(current_height);
   CHECK_AND_ASSERT_MES(r, false, "Failed to get chain height from daemon");
 
-  m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "hard_fork_info";
-  req_t.params.version = version;
-  r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(resp_t.result.status == CORE_RPC_STATUS_OK, false, "Failed to get hard fork status");
+  cryptonote::rpc::hard_fork_info info;
 
-  bool close_enough = current_height >=  resp_t.result.earliest_height - 10; // start using the rules a bit beforehand
+  r = m_daemon.hardForkInfo(version, info);
+  CHECK_AND_ASSERT_MES(r, false, "Daemon RPC command HardForkInfo failed");
+
+  bool close_enough = current_height >=  info.earliest_height - 10; // start using the rules a bit beforehand
   if (close_enough)
     LOG_PRINT_L2("Using HF1 rules");
   else

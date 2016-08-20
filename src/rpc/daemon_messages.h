@@ -1086,14 +1086,7 @@ class HardForkInfo
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        uint8_t version;
-        bool enabled;
-        uint32_t window;
-        uint32_t votes;
-        uint32_t threshold;
-        uint8_t voting;
-        uint32_t state;
-        uint64_t earliest_height;
+        hard_fork_info info;
     };
 };
 

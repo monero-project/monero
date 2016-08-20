@@ -856,44 +856,15 @@ rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("version", cryptonote::json::toJsonValue<decltype(version)>(doc, version), al);
-  val.AddMember("enabled", cryptonote::json::toJsonValue<decltype(enabled)>(doc, enabled), al);
-  val.AddMember("window", cryptonote::json::toJsonValue<decltype(window)>(doc, window), al);
-  val.AddMember("votes", cryptonote::json::toJsonValue<decltype(votes)>(doc, votes), al);
-  val.AddMember("threshold", cryptonote::json::toJsonValue<decltype(threshold)>(doc, threshold), al);
-  val.AddMember("voting", cryptonote::json::toJsonValue<decltype(voting)>(doc, voting), al);
-  val.AddMember("state", cryptonote::json::toJsonValue<decltype(state)>(doc, state), al);
-  val.AddMember("earliest_height", cryptonote::json::toJsonValue<decltype(earliest_height)>(doc, earliest_height), al);
+  val.AddMember("info", cryptonote::json::toJsonValue<decltype(info)>(doc, info), al);
 
   return val;
 }
 
 void HardForkInfo::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
-  version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "enabled")
-  enabled = cryptonote::json::fromJsonValue<decltype(enabled)>(val["enabled"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "window")
-  window = cryptonote::json::fromJsonValue<decltype(window)>(val["window"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "votes")
-  votes = cryptonote::json::fromJsonValue<decltype(votes)>(val["votes"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "threshold")
-  threshold = cryptonote::json::fromJsonValue<decltype(threshold)>(val["threshold"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "voting")
-  voting = cryptonote::json::fromJsonValue<decltype(voting)>(val["voting"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "state")
-  state = cryptonote::json::fromJsonValue<decltype(state)>(val["state"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "earliest_height")
-  earliest_height = cryptonote::json::fromJsonValue<decltype(earliest_height)>(val["earliest_height"]);
-
+  OBJECT_HAS_MEMBER_OR_THROW(val, "info")
+  info = cryptonote::json::fromJsonValue<decltype(info)>(val["info"]);
 }
 
 

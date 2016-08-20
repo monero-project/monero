@@ -87,6 +87,10 @@ class DaemonRPCClient
         std::string& error_details,
         bool relay = true);
 
+    bool hardForkInfo(
+        const uint8_t version,
+        hard_fork_info& info);
+
     bool getRPCVersion(uint32_t& version);
 
   private:

@@ -72,6 +72,18 @@ namespace rpc
     uint64_t count;
   };
 
+  struct hard_fork_info
+  {
+    uint8_t version;
+    bool enabled;
+    uint32_t window;
+    uint32_t votes;
+    uint32_t threshold;
+    uint8_t voting;
+    uint32_t state;
+    uint64_t earliest_height;
+  };
+
 }  // namespace rpc
 
 }  // namespace cryptonote

@@ -324,6 +324,34 @@ bool DaemonRPCClient::sendRawTx(
   return false;
 }
 
+bool DaemonRPCClient::hardForkInfo(
+    const uint8_t version,
+    hard_fork_info& info)
+{
+  try
+  {
+    HardForkInfo::Request request;
+
+    request.version = version;
+
+    HardForkInfo::Response response = doRequest<HardForkInfo>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    info = response.info;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 
 template <typename ReqType>
 typename ReqType::Response DaemonRPCClient::doRequest(typename ReqType::Request& request)

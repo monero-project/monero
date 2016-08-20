@@ -267,6 +267,13 @@ template <>
 rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& out);
 
 template <>
+cryptonote::rpc::hard_fork_info fromJsonValue<cryptonote::rpc::hard_fork_info>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::hard_fork_info>(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info);
+
+
+template <>
 cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amount_count>(const rapidjson::Value& val);
 
 template <typename Map>

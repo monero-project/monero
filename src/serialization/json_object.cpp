@@ -1126,6 +1126,64 @@ cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amoun
   return oac;
 }
 
+template <>
+cryptonote::rpc::hard_fork_info fromJsonValue<cryptonote::rpc::hard_fork_info>(const rapidjson::Value& val)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  cryptonote::rpc::hard_fork_info info;
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
+  info.version = fromJsonValue<decltype(info.version)>(val["version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "enabled")
+  info.enabled = fromJsonValue<decltype(info.enabled)>(val["enabled"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "window")
+  info.window = fromJsonValue<decltype(info.window)>(val["window"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "votes")
+  info.votes = fromJsonValue<decltype(info.votes)>(val["votes"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "threshold")
+  info.threshold = fromJsonValue<decltype(info.threshold)>(val["threshold"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "voting")
+  info.voting = fromJsonValue<decltype(info.voting)>(val["voting"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "state")
+  info.state = fromJsonValue<decltype(info.state)>(val["state"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "earliest_height")
+  info.earliest_height = fromJsonValue<decltype(info.earliest_height)>(val["earliest_height"]);
+
+  return info;
+}
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::hard_fork_info>(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("version", toJsonValue<decltype(info.version)>(doc, info.version), al);
+  val.AddMember("enabled", toJsonValue<decltype(info.enabled)>(doc, info.enabled), al);
+  val.AddMember("window", toJsonValue<decltype(info.window)>(doc, info.window), al);
+  val.AddMember("votes", toJsonValue<decltype(info.votes)>(doc, info.votes), al);
+  val.AddMember("threshold", toJsonValue<decltype(info.threshold)>(doc, info.threshold), al);
+  val.AddMember("voting", toJsonValue<decltype(info.voting)>(doc, info.voting), al);
+  val.AddMember("state", toJsonValue<decltype(info.state)>(doc, info.state), al);
+  val.AddMember("earliest_height", toJsonValue<decltype(info.earliest_height)>(doc, info.earliest_height), al);
+
+  return val;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote
