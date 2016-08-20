@@ -352,7 +352,7 @@ rapidjson::Value SendRawTx::Request::toJson(rapidjson::Document& doc)
   auto& al = doc.GetAllocator();
 
   val.AddMember("tx", cryptonote::json::toJsonValue<decltype(tx)>(doc, tx), al);
-  val.AddMember("do_not_relay", cryptonote::json::toJsonValue<decltype(do_not_relay)>(doc, do_not_relay), al);
+  val.AddMember("relay", cryptonote::json::toJsonValue<decltype(relay)>(doc, relay), al);
 
   return val;
 }
@@ -362,8 +362,8 @@ void SendRawTx::Request::fromJson(rapidjson::Value& val)
   OBJECT_HAS_MEMBER_OR_THROW(val, "tx")
   tx = cryptonote::json::fromJsonValue<decltype(tx)>(val["tx"]);
 
-  OBJECT_HAS_MEMBER_OR_THROW(val, "do_not_relay")
-  do_not_relay = cryptonote::json::fromJsonValue<decltype(do_not_relay)>(val["do_not_relay"]);
+  OBJECT_HAS_MEMBER_OR_THROW(val, "relay")
+  relay = cryptonote::json::fromJsonValue<decltype(relay)>(val["relay"]);
 
 }
 

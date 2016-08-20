@@ -296,7 +296,7 @@ class SendRawTx
         void fromJson(rapidjson::Value& val);
 
         cryptonote::transaction tx;
-        bool do_not_relay;
+        bool relay;
     };
 
     class Response : public Message

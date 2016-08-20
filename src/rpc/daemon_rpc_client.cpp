@@ -261,6 +261,39 @@ bool DaemonRPCClient::getRPCVersion(uint32_t& version)
   return false;
 }
 
+bool DaemonRPCClient::sendRawTx(
+    const cryptonote::transaction& tx,
+    bool& relayed,
+    std::string& error_details,
+    bool relay)
+{
+  try
+  {
+    SendRawTx::Request request;
+
+    request.tx = tx;
+    request.relay = relay;
+
+    SendRawTx::Response response = doRequest<SendRawTx>(request);
+
+    error_details = response.error_details;
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    relayed = response.relayed;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
 
 template <typename ReqType>
 typename ReqType::Response DaemonRPCClient::doRequest(typename ReqType::Request& request)

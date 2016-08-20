@@ -285,7 +285,7 @@ namespace rpc
       return;
     }
 
-    if(!tvc.m_should_be_relayed || req.do_not_relay)
+    if(!tvc.m_should_be_relayed || !req.relay)
     {
       LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
       res.error_details = "Not relayed";

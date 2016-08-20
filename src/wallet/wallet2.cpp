@@ -2029,16 +2029,11 @@ void wallet2::commit_tx(pending_tx& ptx)
   using namespace cryptonote;
   crypto::hash txid;
 
-  COMMAND_RPC_SEND_RAW_TX::request req;
-  req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
-  req.do_not_relay = false;
-  COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
-  m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/sendrawtransaction", req, daemon_send_resp, m_http_client, 200000);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status, daemon_send_resp.reason);
+  bool relayed;
+  std::string error_details;
+  bool r = m_daemon.sendRawTx(ptx.tx, relayed, error_details, /*want to relay=*/ true);
+
+  THROW_WALLET_EXCEPTION_IF(!r, error::tx_rejected, ptx.tx, "Failed", error_details);
 
   txid = get_transaction_hash(ptx.tx);
   crypto::hash payment_id = cryptonote::null_hash;

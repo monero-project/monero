@@ -76,6 +76,12 @@ class DaemonRPCClient
 
     bool getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices);
 
+    bool sendRawTx(
+        const cryptonote::transaction& tx,
+        bool& relayed,
+        std::string& error_details,
+        bool relay = true);
+
     bool getRPCVersion(uint32_t& version);
 
   private:
