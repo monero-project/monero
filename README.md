@@ -237,6 +237,10 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 
 ## Using readline
 
-While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
-rlwrap bin/simplewallet --wallet-file /path/to/wallet
+While bitmonerod and simplewallet do not use readline directly, most of the
+functionality can be obtained by running them via rlwrap. This allows command
+recall, edit capabilities, etc. It does not give autocompletion without an
+extra completion file, however. To use rlwrap, prefix the command with
+`rlwrap`:
 
+    rlwrap bin/simplewallet --wallet-file /path/to/wallet
