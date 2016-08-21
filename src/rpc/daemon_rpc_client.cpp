@@ -400,6 +400,7 @@ bool DaemonRPCClient::getOutputHistogram(
     const std::vector<uint64_t>& amounts,
     uint64_t min_count,
     uint64_t max_count,
+    bool unlocked,
     std::vector<output_amount_count>& histogram)
 {
   rapidjson::Value response_json;
@@ -411,6 +412,7 @@ bool DaemonRPCClient::getOutputHistogram(
     request.amounts = amounts;
     request.min_count = min_count;
     request.max_count = max_count;
+    request.unlocked = unlocked;
 
     response_json = doRequest<GetOutputHistogram>(request);
   }
@@ -424,6 +426,40 @@ bool DaemonRPCClient::getOutputHistogram(
     GetOutputHistogram::Response response = parseResponse<GetOutputHistogram>(response_json);
 
     histogram = response.histogram;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
+bool DaemonRPCClient::getOutputKeys(
+    std::vector<output_amount_and_index>& outputs,
+    std::vector<output_key_and_unlocked>& keys)
+{
+  rapidjson::Value response_json;
+
+  try
+  {
+    GetOutputKeys::Request request;
+
+    request.outputs = outputs;
+
+    response_json = doRequest<GetOutputKeys>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
+
+  try
+  {
+    GetOutputKeys::Response response = parseResponse<GetOutputKeys>(response_json);
+
+    keys = response.keys;
 
     return true;
   }

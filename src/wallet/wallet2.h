@@ -384,7 +384,7 @@ namespace tools
     std::string get_keys_file() const;
     std::string get_daemon_address() const;
 
-    std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool trusted_daemon);
+    std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool trusted_daemon);
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
     std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);
@@ -669,12 +669,12 @@ namespace tools
           "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
           std::to_string(amounts_with_outputs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
 
-      std::vector<cryptonote::rpc::amount_with_random_outputs> scanty_outs;
+      std::unordered_map<uint64_t, uint64_t> scanty_outs;
       for(const cryptonote::rpc::amount_with_random_outputs& amount_outs : amounts_with_outputs)
       {
         if (amount_outs.outputs.size() < fake_outputs_count)
         {
-          scanty_outs.push_back(amount_outs);
+          scanty_outs[amount_outs.amount] = amount_outs.outputs.size();
         }
       }
       THROW_WALLET_EXCEPTION_IF(!scanty_outs.empty(), error::not_enough_outs_to_mix, scanty_outs, fake_outputs_count);

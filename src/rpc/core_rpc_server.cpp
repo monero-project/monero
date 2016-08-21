@@ -42,6 +42,7 @@ using namespace epee;
 #include "core_rpc_server_error_codes.h"
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
+#define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 500
 
 namespace cryptonote
 {
@@ -222,6 +223,29 @@ namespace cryptonote
     });
     std::string s = ss.str();
     LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: " << ENDL << s);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res)
+  {
+    CHECK_CORE_BUSY();
+    res.status = "Failed";
+
+    if (m_restricted)
+    {
+      if (req.outputs.size() > MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT)
+      {
+        res.status = "Too many outs requested";
+        return true;
+      }
+    }
+
+    if(!m_core.get_outs(req, res))
+    {
+      return true;
+    }
+
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -1001,7 +1025,7 @@ namespace cryptonote
 
 #if BLOCKCHAIN_DB == DB_LMDB
     const Blockchain &blockchain = m_core.get_blockchain_storage();
-    uint8_t version = req.version > 0 ? req.version : blockchain.get_ideal_hard_fork_version();
+    uint8_t version = req.version > 0 ? req.version : blockchain.get_next_hard_fork_version();
     res.version = blockchain.get_current_hard_fork_version();
     res.enabled = blockchain.get_hard_fork_voting_info(version, res.window, res.votes, res.threshold, res.earliest_height, res.voting);
     res.state = blockchain.get_hard_fork_state();
@@ -1126,7 +1150,7 @@ namespace cryptonote
     std::map<uint64_t, uint64_t> histogram;
     try
     {
-      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts);
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked);
     }
     catch (const std::exception &e)
     {

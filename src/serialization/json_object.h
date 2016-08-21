@@ -276,6 +276,18 @@ template <>
 rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& out);
 
 template <>
+cryptonote::rpc::output_amount_and_index fromJsonValue<cryptonote::rpc::output_amount_and_index>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_and_index>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_and_index& out);
+
+template <>
+cryptonote::rpc::output_key_and_unlocked fromJsonValue<cryptonote::rpc::output_key_and_unlocked>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_unlocked>(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_unlocked& out);
+
+template <>
 cryptonote::rpc::error fromJsonValue<cryptonote::rpc::error>(const rapidjson::Value& val);
 
 template <>

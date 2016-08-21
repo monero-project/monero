@@ -224,8 +224,8 @@ public:
   virtual void get_output_tx_and_index_from_global(const std::vector<uint64_t> &global_indices,
       std::vector<tx_out_index> &tx_out_indices) const;
 
-  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index);
-  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices);
+  virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const;
+  virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const;
 
   virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_id) const;
 
@@ -263,10 +263,11 @@ public:
    * @brief return a histogram of outputs on the blockchain
    *
    * @param amounts optional set of amounts to lookup
+   * @param unlocked whether to restrict count to unlocked outputs
    *
    * @return a set of amount/instances
    */
-  std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const;
+  std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const;
 
 private:
   void do_resize(uint64_t size_increase=0);

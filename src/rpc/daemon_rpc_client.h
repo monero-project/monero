@@ -95,7 +95,12 @@ class DaemonRPCClient
         const std::vector<uint64_t>& amounts,
         uint64_t min_count,
         uint64_t max_count,
+        bool unlocked,
         std::vector<output_amount_count>& histogram);
+
+    bool getOutputKeys(
+        std::vector<output_amount_and_index>& outputs,
+        std::vector<output_key_and_unlocked>& keys);
 
     bool getRPCVersion(uint32_t& version);
 

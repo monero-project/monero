@@ -72,6 +72,18 @@ namespace rpc
     uint64_t count;
   };
 
+  struct output_amount_and_index
+  {
+    uint64_t amount;
+    uint64_t index;
+  };
+
+  struct output_key_and_unlocked
+  {
+    crypto::public_key key;
+    bool unlocked;
+  };
+
   struct hard_fork_info
   {
     uint8_t version;

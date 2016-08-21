@@ -58,6 +58,7 @@ namespace cryptonote
   class simple_wallet : public tools::i_wallet2_callback
   {
   public:
+    static bool get_password(const boost::program_options::variables_map& vm, bool allow_entry, tools::password_container &pwd_container);
     static const char *tr(const char *str) { return i18n_translate(str, "cryptonote::simple_wallet"); }
 
   public:
@@ -79,7 +80,7 @@ namespace cryptonote
 
     bool run_console_handler();
 
-    void wallet_refresh_thread();
+    void wallet_idle_thread();
 
     bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, bool testnet, const std::string &old_language);
@@ -243,6 +244,7 @@ namespace cryptonote
     bool m_non_deterministic;  // old 2-random generation
     bool m_trusted_daemon;
     bool m_allow_mismatched_daemon_version;
+    bool m_restoring;           // are we restoring, by whatever method?
     uint64_t m_restore_height;  // optional
 
     std::string m_daemon_address;
@@ -255,11 +257,13 @@ namespace cryptonote
     epee::net_utils::http::http_simple_client m_http_client;
     refresh_progress_reporter_t m_refresh_progress_reporter;
 
-    std::atomic<bool> m_auto_refresh_run;
+    std::atomic<bool> m_idle_run;
+    boost::thread m_idle_thread;
+    boost::mutex m_idle_mutex;
+    boost::condition_variable m_idle_cond;
+
+    std::atomic<bool> m_auto_refresh_enabled;
     bool m_auto_refresh_refreshing;
-    boost::thread m_auto_refresh_thread;
-    boost::mutex m_auto_refresh_mutex;
-    boost::condition_variable m_auto_refresh_cond;
     std::atomic<bool> m_in_manual_refresh;
   };
 }

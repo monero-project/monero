@@ -606,7 +606,7 @@ namespace rpc
     std::map<uint64_t, uint64_t> histogram;
     try
     {
-      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts);
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked);
     }
     catch (const std::exception &e)
     {
@@ -621,6 +621,19 @@ namespace rpc
     {
       if (i.second >= req.min_count && (i.second <= req.max_count || req.max_count == 0))
         res.histogram.emplace_back(output_amount_count{i.first, i.second});
+    }
+
+    res.status = Message::STATUS_OK;
+  }
+
+  void DaemonHandler::handle(GetOutputKeys::Request& req, GetOutputKeys::Response& res)
+  {
+    for (auto& i : req.outputs)
+    {
+      crypto::public_key key;
+      bool unlocked;
+      m_core.get_blockchain_storage().get_output_key_and_unlocked(i.amount, i.index, key, unlocked);
+      res.keys.emplace_back(output_key_and_unlocked{key, unlocked});
     }
 
     res.status = Message::STATUS_OK;
@@ -663,6 +676,7 @@ namespace rpc
       REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, HardForkInfo, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetOutputHistogram, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetOutputKeys, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetRPCVersion, req_json, resp_message, handle);
 
       // if none of the request types matches

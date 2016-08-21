@@ -48,24 +48,33 @@ namespace tools
   {
     bool is_cin_tty();
   }
-
+  // deleted via private member
   password_container::password_container()
-    : m_empty(true)
+    : m_empty(true),m_verify(true)
   {
+
+  }
+  password_container::password_container(bool verify)
+    : m_empty(true),m_verify(verify)
+  {
+
   }
 
   password_container::password_container(std::string&& password)
     : m_empty(false)
     , m_password(std::move(password))
+	, m_verify(false)
   {
+
   }
+
 
   password_container::password_container(password_container&& rhs)
     : m_empty(std::move(rhs.m_empty))
     , m_password(std::move(rhs.m_password))
+    , m_verify(std::move(rhs.m_verify))
   {
   }
-
   password_container::~password_container()
   {
     clear();
@@ -88,9 +97,7 @@ namespace tools
     bool r;
     if (is_cin_tty())
     {
-      if (message)
-        std::cout << message << ": ";
-      r = read_from_tty();
+     r = read_from_tty_double_check(message);
     }
     else
     {
@@ -132,6 +139,43 @@ namespace tools
     return true;
   }
 
+bool password_container::read_from_tty_double_check(const char *message) {
+    std::string pass1;
+    std::string pass2;
+    bool match=false;
+    bool doNotVerifyEntry=false;
+    do{
+        if (message)
+            std::cout << message <<": ";
+        if (!password_container::read_from_tty(pass1))
+            return false;
+        if (m_verify==true){//double check password; 
+            if (message)
+                std::cout << message << ": ";
+            if (!password_container::read_from_tty(pass2))
+                return false;
+            if(pass1!=pass2){ //new password entered did not match
+
+                std::cout << "Passwords do not match" << std::endl;
+                pass1="";
+                pass2="";
+                match=false;
+            }
+            else{//new password matches
+                match=true;
+            }
+        }
+        else
+            doNotVerifyEntry=true; //do not verify
+            //No need to verify password entered at this point in the code 
+            
+    }while(match==false && doNotVerifyEntry==false);
+
+    m_password=pass1;
+    return true;
+  }
+
+
 #if defined(_WIN32)
 
   namespace
@@ -142,7 +186,7 @@ namespace tools
     }
   }
 
-  bool password_container::read_from_tty()
+  bool password_container::read_from_tty(std::string & pass)
   {
     const char BACKSPACE = 8;
 
@@ -154,8 +198,8 @@ namespace tools
     ::SetConsoleMode(h_cin, mode_new);
 
     bool r = true;
-    m_password.reserve(max_password_size);
-    while (m_password.size() < max_password_size)
+    pass.reserve(max_password_size);
+    while (pass.size() < max_password_size)
     {
       DWORD read;
       char ch;
@@ -172,16 +216,16 @@ namespace tools
       }
       else if (ch == BACKSPACE)
       {
-        if (!m_password.empty())
+        if (!pass.empty())
         {
-          m_password.back() = '\0';
-          m_password.resize(m_password.size() - 1);
+          pass.back() = '\0';
+          pass.resize(pass.size() - 1);
           std::cout << "\b \b";
         }
       }
       else
       {
-        m_password.push_back(ch);
+        pass.push_back(ch);
         std::cout << '*';
       }
     }
@@ -217,13 +261,12 @@ namespace tools
       return ch;
     }
   }
-
-  bool password_container::read_from_tty()
+  bool password_container::read_from_tty(std::string &aPass)
   {
     const char BACKSPACE = 127;
 
-    m_password.reserve(max_password_size);
-    while (m_password.size() < max_password_size)
+    aPass.reserve(max_password_size);
+    while (aPass.size() < max_password_size)
     {
       int ch = getch();
       if (EOF == ch)
@@ -237,16 +280,16 @@ namespace tools
       }
       else if (ch == BACKSPACE)
       {
-        if (!m_password.empty())
+        if (!aPass.empty())
         {
-          m_password.back() = '\0';
-          m_password.resize(m_password.size() - 1);
+          aPass.back() = '\0';
+          aPass.resize(aPass.size() - 1);
           std::cout << "\b \b";
         }
       }
       else
       {
-        m_password.push_back(ch);
+        aPass.push_back(ch);
         std::cout << '*';
       }
     }

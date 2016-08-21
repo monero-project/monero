@@ -485,6 +485,31 @@ namespace cryptonote
     bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
 
     /**
+     * @brief gets specific outputs to mix with
+     *
+     * This function takes an RPC request for outputs to mix with
+     * and creates an RPC response with the resultant output indices.
+     *
+     * Outputs to mix with are specified in the request.
+     *
+     * @param req the outputs to return
+     * @param res return-by-reference the resultant output indices and keys
+     *
+     * @return true
+     */
+    bool get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res) const;
+
+    /**
+     * @brief gets an output's key and unlocked state
+     *
+     * @param amount in - the output amount
+     * @param index in - the output global amount index
+     * @param key out - the output's key
+     * @param unlocked out - the output's unlocked state
+     */
+    void get_output_key_and_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, bool& unlocked);
+
+    /**
      * @brief gets the global indices for outputs from a given transaction
      *
      * This function gets the global indices for all outputs belonging
@@ -697,6 +722,13 @@ namespace cryptonote
     uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
 
     /**
+     * @brief returns the next hardfork version
+     *
+     * @return the version
+     */
+    uint8_t get_next_hard_fork_version() const { return m_hardfork->get_next_version(); }
+
+    /**
      * @brief returns the newest hardfork version voted to be enabled
      * as of a certain height
      *
@@ -740,10 +772,11 @@ namespace cryptonote
      * @brief return a histogram of outputs on the blockchain
      *
      * @param amounts optional set of amounts to lookup
+     * @param unlocked whether to restrict instances to unlocked ones
      *
      * @return a set of amount/instances
      */
-    std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts) const;
+    std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const;
 
     /**
      * @brief perform a check on all key images in the blockchain

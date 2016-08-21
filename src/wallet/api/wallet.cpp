@@ -528,8 +528,9 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         } catch (const tools::error::not_enough_outs_to_mix& e) {
             std::ostringstream writer;
             writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-            for (const cryptonote::rpc::amount_with_random_outputs& outs_for_amount : e.scanty_outs()) {
-                writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.amount) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.outputs.size();
+            for (const auto& outs : e.scanty_outs())
+            {
+                writer << "\n" << tr("output amount") << " = " << print_money(outs.first) << ", " << tr("found outputs to mix") << " = " << outs.second;
             }
             m_errorString = writer.str();
             m_status = Status_Error;

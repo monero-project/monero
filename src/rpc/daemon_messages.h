@@ -1198,6 +1198,7 @@ class GetOutputHistogram
         std::vector<uint64_t> amounts;
         uint64_t min_count;
         uint64_t max_count;
+        bool unlocked;
     };
 
     class Response : public Message
@@ -1210,6 +1211,37 @@ class GetOutputHistogram
         void fromJson(rapidjson::Value& val);
 
         std::vector<output_amount_count> histogram;
+    };
+};
+
+class GetOutputKeys
+{
+  public:
+    static const char* name;
+
+    class Request : public Message
+    {
+      public:
+        Request() { }
+        ~Request() { }
+
+        rapidjson::Value toJson(rapidjson::Document& doc);
+        void fromJson(rapidjson::Value& val);
+
+        std::vector<output_amount_and_index> outputs;
+
+    };
+
+    class Response : public Message
+    {
+      public:
+        Response() { }
+        ~Response() { }
+
+        rapidjson::Value toJson(rapidjson::Document& doc);
+        void fromJson(rapidjson::Value& val);
+
+        std::vector<output_key_and_unlocked> keys;
     };
 };
 

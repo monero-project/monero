@@ -6599,8 +6599,14 @@ mdb_cursor_set(MDB_cursor *mc, MDB_val *key, MDB_val *data,
 	if (key->mv_size == 0)
 		return MDB_BAD_VALSIZE;
 
-	if (mc->mc_xcursor)
+	if (mc->mc_xcursor) {
+#ifdef MDB_VL32
+		if (mc->mc_xcursor->mx_cursor.mc_flags & C_INITIALIZED) {
+			mdb_cursor_unref(&mc->mc_xcursor->mx_cursor);
+		}
+#endif
 		mc->mc_xcursor->mx_cursor.mc_flags &= ~(C_INITIALIZED|C_EOF);
+	}
 
 	/* See if we're already on the right page */
 	if (mc->mc_flags & C_INITIALIZED) {
@@ -6732,11 +6738,6 @@ set1:
 		return MDB_SUCCESS;
 	}
 
-#ifdef MDB_VL32
-	if (mc->mc_xcursor && mc->mc_xcursor->mx_cursor.mc_flags & C_INITIALIZED) {
-		mdb_cursor_unref(&mc->mc_xcursor->mx_cursor);
-	}
-#endif
 	if (F_ISSET(leaf->mn_flags, F_DUPDATA)) {
 		mdb_xcursor_init1(mc, leaf);
 	}
@@ -8311,6 +8312,11 @@ mdb_cursor_count(MDB_cursor *mc, mdb_size_t *countp)
 void
 mdb_cursor_close(MDB_cursor *mc)
 {
+#ifdef MDB_VL32
+	if (mc) {
+		mdb_cursor_unref(mc);
+	}
+#endif
 	if (mc && !mc->mc_backup) {
 		/* remove from txn, if tracked */
 		if ((mc->mc_flags & C_UNTRACK) && mc->mc_txn->mt_cursors) {

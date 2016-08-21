@@ -54,6 +54,7 @@ const char* SetLogLevel::name = "set_log_level";
 const char* GetTransactionPool::name = "get_transaction_pool";
 const char* HardForkInfo::name = "hard_fork_info";
 const char* GetOutputHistogram::name = "get_output_histogram";
+const char* GetOutputKeys::name = "get_output_keys";
 const char* GetRPCVersion::name = "get_rpc_version";
 
 
@@ -877,6 +878,7 @@ rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc)
   val.AddMember("amounts", cryptonote::json::toJsonValue<decltype(amounts)>(doc, amounts), al);
   val.AddMember("min_count", cryptonote::json::toJsonValue<decltype(min_count)>(doc, min_count), al);
   val.AddMember("max_count", cryptonote::json::toJsonValue<decltype(max_count)>(doc, max_count), al);
+  val.AddMember("unlocked", cryptonote::json::toJsonValue<decltype(unlocked)>(doc, unlocked), al);
 
   return val;
 }
@@ -892,6 +894,8 @@ void GetOutputHistogram::Request::fromJson(rapidjson::Value& val)
   OBJECT_HAS_MEMBER_OR_THROW(val, "max_count")
   max_count = cryptonote::json::fromJsonValue<decltype(max_count)>(val["max_count"]);
 
+  OBJECT_HAS_MEMBER_OR_THROW(val, "unlocked")
+  unlocked = cryptonote::json::fromJsonValue<decltype(unlocked)>(val["unlocked"]);
 }
 
 rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
@@ -910,6 +914,41 @@ void GetOutputHistogram::Response::fromJson(rapidjson::Value& val)
   OBJECT_HAS_MEMBER_OR_THROW(val, "histogram")
   histogram = cryptonote::json::fromJsonValue<decltype(histogram)>(val["histogram"]);
 
+}
+
+
+rapidjson::Value GetOutputKeys::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("outputs", cryptonote::json::toJsonValue<decltype(outputs)>(doc, outputs), al);
+
+  return val;
+}
+
+void GetOutputKeys::Request::fromJson(rapidjson::Value& val)
+{
+  OBJECT_HAS_MEMBER_OR_THROW(val, "outputs")
+  outputs = cryptonote::json::fromJsonValue<decltype(outputs)>(val["outputs"]);
+}
+
+rapidjson::Value GetOutputKeys::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("keys", cryptonote::json::toJsonValue<decltype(keys)>(doc, keys), al);
+
+  return val;
+}
+
+void GetOutputKeys::Response::fromJson(rapidjson::Value& val)
+{
+  OBJECT_HAS_MEMBER_OR_THROW(val, "keys")
+  keys = cryptonote::json::fromJsonValue<decltype(keys)>(val["keys"]);
 }
 
 

@@ -1127,6 +1127,76 @@ cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amoun
 }
 
 template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_and_index>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_and_index& out)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("amount", toJsonValue<decltype(out.amount)>(doc, out.amount), al);
+  val.AddMember("index", toJsonValue<decltype(out.index)>(doc, out.index), al);
+
+  return val;
+}
+
+template <>
+cryptonote::rpc::output_amount_and_index fromJsonValue<cryptonote::rpc::output_amount_and_index>(const rapidjson::Value& val)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  cryptonote::rpc::output_amount_and_index out;
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "amount")
+  out.amount = fromJsonValue<decltype(out.amount)>(val["amount"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "index")
+  out.index = fromJsonValue<decltype(out.index)>(val["index"]);
+
+
+  return out;
+}
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_unlocked>(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_unlocked& out)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("key", toJsonValue<decltype(out.key)>(doc, out.key), al);
+  val.AddMember("unlocked", toJsonValue<decltype(out.unlocked)>(doc, out.unlocked), al);
+
+  return val;
+}
+
+template <>
+cryptonote::rpc::output_key_and_unlocked fromJsonValue<cryptonote::rpc::output_key_and_unlocked>(const rapidjson::Value& val)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  cryptonote::rpc::output_key_and_unlocked out;
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "key")
+  out.key = fromJsonValue<decltype(out.key)>(val["key"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "unlocked")
+  out.unlocked = fromJsonValue<decltype(out.unlocked)>(val["unlocked"]);
+
+
+  return out;
+}
+
+template <>
 cryptonote::rpc::hard_fork_info fromJsonValue<cryptonote::rpc::hard_fork_info>(const rapidjson::Value& val)
 {
   if (!val.IsObject())
