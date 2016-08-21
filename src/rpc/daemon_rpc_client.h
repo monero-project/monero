@@ -91,6 +91,12 @@ class DaemonRPCClient
         const uint8_t version,
         hard_fork_info& info);
 
+    bool getOutputHistogram(
+        const std::vector<uint64_t>& amounts,
+        uint64_t min_count,
+        uint64_t max_count,
+        std::vector<output_amount_count>& histogram);
+
     bool getRPCVersion(uint32_t& version);
 
   private:

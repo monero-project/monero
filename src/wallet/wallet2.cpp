@@ -2897,24 +2897,19 @@ std::vector<uint64_t> wallet2::get_unspent_amounts_vector()
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t count, bool atleast, bool trusted_daemon)
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-  m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "get_output_histogram";
+  std::vector<uint64_t> amounts;
   if (trusted_daemon)
-    req_t.params.amounts = get_unspent_amounts_vector();
-  req_t.params.min_count = count;
-  req_t.params.max_count = 0;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "select_available_unmixable_outputs");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.result.status);
+  {
+    amounts = get_unspent_amounts_vector();
+  }
+
+  std::vector<cryptonote::rpc::output_amount_count> histogram;
+
+  bool r = m_daemon.getOutputHistogram(amounts, count, 0, histogram);
+  THROW_WALLET_EXCEPTION_IF(!r, error::get_histogram_error, "Error in daemon RPC call to GetOutputHistogram");
 
   std::set<uint64_t> mixable;
-  for (const auto &i: resp_t.result.histogram)
+  for (const auto &i: histogram)
   {
     mixable.insert(i.amount);
   }
@@ -2933,12 +2928,14 @@ std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t co
   });
 }
 //----------------------------------------------------------------------------------------------------
+//TODO: mixin count should b a parameter
 std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
 {
   // request all outputs with less than 3 instances
   return select_available_outputs_from_histogram(3, false, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
+//TODO: mixin count should b a parameter
 std::vector<size_t> wallet2::select_available_mixable_outputs(bool trusted_daemon)
 {
   // request all outputs with at least 3 instances, so we can use mixin 2 with

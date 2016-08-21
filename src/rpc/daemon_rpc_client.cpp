@@ -237,30 +237,6 @@ bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std:
   return false;
 }
 
-bool DaemonRPCClient::getRPCVersion(uint32_t& version)
-{
-  try
-  {
-    GetRPCVersion::Request request;
-
-    GetRPCVersion::Response response = doRequest<GetRPCVersion>(request);
-
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
-
-    version = response.version;
-
-    return true;
-  }
-  catch (...)
-  {
-  }
-
-  return false;
-}
-
 bool DaemonRPCClient::getRandomOutputsForAmounts(
     const std::vector<uint64_t>& amounts,
     const uint64_t count,
@@ -342,6 +318,62 @@ bool DaemonRPCClient::hardForkInfo(
     }
 
     info = response.info;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
+bool DaemonRPCClient::getOutputHistogram(
+    const std::vector<uint64_t>& amounts,
+    uint64_t min_count,
+    uint64_t max_count,
+    std::vector<output_amount_count>& histogram)
+{
+  try
+  {
+    GetOutputHistogram::Request request;
+
+    request.amounts = amounts;
+    request.min_count = min_count;
+    request.max_count = max_count;
+
+    GetOutputHistogram::Response response = doRequest<GetOutputHistogram>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    histogram = response.histogram;
+
+    return true;
+  }
+  catch (...)
+  {
+  }
+
+  return false;
+}
+
+bool DaemonRPCClient::getRPCVersion(uint32_t& version)
+{
+  try
+  {
+    GetRPCVersion::Request request;
+
+    GetRPCVersion::Response response = doRequest<GetRPCVersion>(request);
+
+    if (response.status != Message::STATUS_OK)
+    {
+      return false;
+    }
+
+    version = response.version;
 
     return true;
   }
