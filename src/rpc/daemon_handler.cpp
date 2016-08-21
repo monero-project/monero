@@ -628,7 +628,7 @@ namespace rpc
 
   void DaemonHandler::handle(GetRPCVersion::Request& req, GetRPCVersion::Response& res)
   {
-    res.version = 1; // TODO: put this in a constant somewhere
+    res.version = DAEMON_RPC_VERSION;
   }
 
   std::string DaemonHandler::handle(std::string& request)
@@ -668,7 +668,7 @@ namespace rpc
       // if none of the request types matches
       if (resp_message == NULL)
       {
-        return BAD_REQUEST(request_type);
+        return BAD_REQUEST(DAEMON_RPC_VERSION, request_type);
       }
 
       FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
@@ -682,7 +682,7 @@ namespace rpc
     }
     catch (std::exception& e)
     {
-      return BAD_JSON(e.what());
+      return BAD_JSON(DAEMON_RPC_VERSION, e.what());
     }
 
     // if we get here, something's gone terribly wrong

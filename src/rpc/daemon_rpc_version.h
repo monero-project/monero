@@ -28,82 +28,13 @@
 
 #pragma once
 
-#include "rapidjson/document.h"
-#include <string>
-
-/* I normally hate using macros, but in this case it would be untenably
- * verbose to not use a macro.  This macro saves the trouble of explicitly
- * writing the below if block for every single RPC call.
- */
-#define REQ_RESP_TYPES_MACRO( runtime_str, type, reqjson, resp_message_ptr, handler) \
-  \
-  if (runtime_str == type::name) \
-  { \
-    type::Request reqvar; \
-    type::Response *respvar = new type::Response(); \
-    \
-    reqvar.fromJson(reqjson); \
-    \
-    handler(reqvar, *respvar); \
-    \
-    resp_message_ptr = respvar; \
-  }
-
 namespace cryptonote
 {
 
 namespace rpc
 {
 
-  class Message
-  {
-    public:
-      Message() { }
-
-      static const char* STATUS_OK;
-      static const char* STATUS_RETRY;
-      static const char* STATUS_FAILED;
-      static const char* STATUS_BAD_REQUEST;
-      static const char* STATUS_BAD_JSON;
-
-      virtual ~Message() { }
-
-      virtual rapidjson::Value toJson(rapidjson::Document& doc);
-
-      virtual void fromJson(rapidjson::Value& val);
-
-      std::string status;
-      std::string error_details;
-  };
-
-  class FullMessage
-  {
-    public:
-
-      FullMessage(int version, const std::string& request, Message* message);
-      FullMessage(const std::string& json_string);
-
-      ~FullMessage() { }
-
-      std::string getJson() const;
-
-      std::string getRequestType() const;
-
-      int getVersion() const;
-
-      rapidjson::Value& getMessage();
-
-    private:
-
-      rapidjson::Document doc;
-  };
-
-
-  // convenience functions for bad input
-  std::string BAD_REQUEST(uint32_t version, const std::string& request);
-
-  std::string BAD_JSON(uint32_t version, const std::string& error_details);
-
+static const uint32_t DAEMON_RPC_VERSION = 2;
 
 }  // namespace rpc
 

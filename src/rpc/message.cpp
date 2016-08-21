@@ -125,24 +125,24 @@ rapidjson::Value& FullMessage::getMessage()
 
 
 // convenience functions for bad input
-std::string BAD_REQUEST(const std::string& request)
+std::string BAD_REQUEST(uint32_t version, const std::string& request)
 {
   Message fail;
   fail.status = Message::STATUS_BAD_REQUEST;
   fail.error_details = std::string("\"") + request + "\" is not a valid request.";
 
-  FullMessage fail_response(1 /*TODO: constant */, request, &fail);
+  FullMessage fail_response(version, request, &fail);
 
   return fail_response.getJson();
 }
 
-std::string BAD_JSON(const std::string& error_details)
+std::string BAD_JSON(uint32_t version, const std::string& error_details)
 {
   Message fail;
   fail.status = Message::STATUS_BAD_JSON;
   fail.error_details = error_details;
 
-  FullMessage fail_response(1 /*TODO: constant */, "bad_json", &fail);
+  FullMessage fail_response(version, "bad_json", &fail);
 
   return fail_response.getJson();
 }

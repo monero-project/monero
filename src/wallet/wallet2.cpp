@@ -1442,8 +1442,7 @@ bool wallet2::check_connection(bool *same_version)
     }
     else
     {
-      //TODO: new version constant for new RPC
-      *same_version = (version == CORE_RPC_VERSION);
+      *same_version = (version == cryptonote::rpc::DAEMON_RPC_VERSION);
     }
   }
 
