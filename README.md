@@ -126,7 +126,14 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: mingw-w64, msys2, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
+Dependencies:
+
+* mingw-w64
+* msys2
+* CMake `>=3.0.0`
+* libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
+* Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA))
+* BerkeleyDB `>=4.8`
 
 **Preparing the Build Environment**
 
