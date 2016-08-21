@@ -41,7 +41,7 @@ namespace cryptonote
 #define CORE_RPC_STATUS_BUSY   "BUSY"
 #define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
-#define CORE_RPC_VERSION 2
+#define CORE_RPC_VERSION 3
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -316,10 +316,12 @@ namespace cryptonote
     struct outkey
     {
       crypto::public_key key;
+      rct::key mask;
       bool unlocked;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_VAL_POD_AS_BLOB(key)
+        KV_SERIALIZE_VAL_POD_AS_BLOB(mask)
         KV_SERIALIZE(unlocked)
       END_KV_SERIALIZE_MAP()
     };

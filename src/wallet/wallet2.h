@@ -463,6 +463,8 @@ namespace tools
     std::vector<size_t> pick_prefered_rct_inputs(uint64_t needed_money) const;
     void set_spent(transfer_details &td, uint64_t height);
     void set_unspent(transfer_details &td);
+    template<typename entry>
+    void get_outs(std::vector<std::vector<entry>> &outs, const std::list<transfer_container::iterator> &selected_transfers, size_t fake_outputs_count);
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;
