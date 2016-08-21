@@ -2672,6 +2672,9 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
     req_t.method = "get_output_histogram";
     for(auto it: selected_transfers)
       req_t.params.amounts.push_back(it->is_rct() ? 0 : it->amount());
+    std::sort(req_t.params.amounts.begin(), req_t.params.amounts.end());
+    auto end = std::unique(req_t.params.amounts.begin(), req_t.params.amounts.end());
+    req_t.params.amounts.resize(std::distance(req_t.params.amounts.begin(), end));
     req_t.params.unlocked = true;
     bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
     m_daemon_rpc_mutex.unlock();
