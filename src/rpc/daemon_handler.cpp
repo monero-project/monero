@@ -635,7 +635,7 @@ namespace rpc
   {
     try
     {
-      FullMessage req_full(request);
+      FullMessage req_full(request, true);
 
       rapidjson::Value& req_json = req_full.getMessage();
 
@@ -668,10 +668,10 @@ namespace rpc
       // if none of the request types matches
       if (resp_message == NULL)
       {
-        return BAD_REQUEST(DAEMON_RPC_VERSION, request_type);
+        return BAD_REQUEST(DAEMON_RPC_VERSION, request_type, req_full.getID());
       }
 
-      FullMessage resp_full(req_full.getVersion(), request_type, resp_message);
+      FullMessage resp_full = FullMessage::responseMessage(req_full.getVersion(), resp_message, req_full.getID());
 
       std::string response = resp_full.getJson();
       delete resp_message;

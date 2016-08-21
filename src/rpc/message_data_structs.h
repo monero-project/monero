@@ -84,6 +84,24 @@ namespace rpc
     uint64_t earliest_height;
   };
 
+  //required by JSON-RPC 2.0 spec
+  struct error
+  {
+    // not really using code, maybe later.
+    error() : use(false), code(1) { }
+
+    bool use;  // do not serialize
+
+    int32_t code;
+
+    // not required by spec, but int error codes aren't perfect
+    std::string error_str;
+
+    std::string message;
+
+    //TODO: data member?  not required, may want later.
+  };
+
 }  // namespace rpc
 
 }  // namespace cryptonote

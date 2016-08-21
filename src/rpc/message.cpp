@@ -75,24 +75,71 @@ FullMessage::FullMessage(int version, const std::string& request, Message* messa
   doc.SetObject();
 
   doc.AddMember("version", version, doc.GetAllocator());
-  doc.AddMember("request", rapidjson::StringRef(request.c_str()), doc.GetAllocator());
-  doc.AddMember("message", message->toJson(doc), doc.GetAllocator());
+  doc.AddMember("method", rapidjson::StringRef(request.c_str()), doc.GetAllocator());
+  doc.AddMember("params", message->toJson(doc), doc.GetAllocator());
+
+  // required by JSON-RPC 2.0 spec
+  doc.AddMember("jsonrpc", rapidjson::Value("2.0"), doc.GetAllocator());
 }
 
-FullMessage::FullMessage(const std::string& json_string)
+FullMessage::FullMessage(int version, Message* message)
+{
+  doc.SetObject();
+
+  doc.AddMember("version", version, doc.GetAllocator());
+
+  // required by JSON-RPC 2.0 spec
+  doc.AddMember("jsonrpc", "2.0", doc.GetAllocator());
+
+  if (message->status == Message::STATUS_OK)
+  {
+    doc.AddMember("response", message->toJson(doc), doc.GetAllocator());
+  }
+  else
+  {
+    cryptonote::rpc::error err;
+
+    err.error_str = message->status;
+    err.message = message->error_details;
+
+    doc.AddMember("error", cryptonote::json::toJsonValue<decltype(err)>(doc, err), doc.GetAllocator());
+  }
+}
+
+FullMessage::FullMessage(const std::string& json_string, bool request)
 {
   doc.Parse(json_string.c_str());
   if (doc.HasParseError())
   {
     throw cryptonote::json::PARSE_FAIL();
   }
-  OBJECT_HAS_MEMBER_OR_THROW(doc, "request")
+
   OBJECT_HAS_MEMBER_OR_THROW(doc, "version")
-  OBJECT_HAS_MEMBER_OR_THROW(doc, "message")
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "jsonrpc")
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "id")
+
+  if (request)
+  {
+    OBJECT_HAS_MEMBER_OR_THROW(doc, "method")
+    OBJECT_HAS_MEMBER_OR_THROW(doc, "params")
+  }
+  else
+  {
+    if (!doc.HasMember("response") && !doc.HasMember("error"))
+    {
+      throw cryptonote::json::MISSING_KEY("error/response");
+    }
+  }
 }
 
-std::string FullMessage::getJson() const
+std::string FullMessage::getJson()
 {
+
+  if (!doc.HasMember("id"))
+  {
+    doc.AddMember("id", rapidjson::Value("unused"), doc.GetAllocator());
+  }
+
   rapidjson::StringBuffer buf;
 
   rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
@@ -104,7 +151,7 @@ std::string FullMessage::getJson() const
 
 std::string FullMessage::getRequestType() const
 {
-  OBJECT_HAS_MEMBER_OR_THROW(doc, "request")
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "method")
   return doc["request"].GetString();
 
 }
@@ -118,9 +165,82 @@ int FullMessage::getVersion() const
 
 rapidjson::Value& FullMessage::getMessage()
 {
-  OBJECT_HAS_MEMBER_OR_THROW(doc, "message")
-  return doc["message"];
+  if (doc.HasMember("params"))
+  {
+    return doc["params"];
+  }
+  else if (doc.HasMember("response"))
+  {
+    return doc["response"];
+  }
 
+  //else
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "error")
+  return doc["error"];
+
+}
+
+rapidjson::Value FullMessage::getMessageCopy()
+{
+  rapidjson::Value& val = getMessage();
+
+  return rapidjson::Value(val, doc.GetAllocator());
+}
+
+rapidjson::Value& FullMessage::getID()
+{
+  OBJECT_HAS_MEMBER_OR_THROW(doc, "id")
+  return doc["id"];
+}
+
+void FullMessage::setID(rapidjson::Value& id)
+{
+  auto itr = doc.FindMember("id");
+  if (itr != doc.MemberEnd())
+  {
+    itr->value = id;
+  }
+  else
+  {
+    doc.AddMember("id", id, doc.GetAllocator());
+  }
+}
+
+cryptonote::rpc::error FullMessage::getError()
+{
+  cryptonote::rpc::error err;
+  err.use = false;
+  if (doc.HasMember("error"))
+  {
+    err = cryptonote::json::fromJsonValue<cryptonote::rpc::error>(doc["error"]);
+    err.use = true;
+  }
+
+  return err;
+}
+
+FullMessage FullMessage::requestMessage(int version, const std::string& request, Message* message)
+{
+  return FullMessage(version, request, message);
+}
+
+FullMessage FullMessage::requestMessage(int version, const std::string& request, Message* message, rapidjson::Value& id)
+{
+  auto mes = requestMessage(version, request, message);
+  mes.setID(id);
+  return mes;
+}
+
+FullMessage FullMessage::responseMessage(int version, Message* message)
+{
+  return FullMessage(version, message);
+}
+
+FullMessage FullMessage::responseMessage(int version, Message* message, rapidjson::Value& id)
+{
+  auto mes = responseMessage(version, message);
+  mes.setID(id);
+  return mes;
 }
 
 
@@ -131,7 +251,18 @@ std::string BAD_REQUEST(uint32_t version, const std::string& request)
   fail.status = Message::STATUS_BAD_REQUEST;
   fail.error_details = std::string("\"") + request + "\" is not a valid request.";
 
-  FullMessage fail_response(version, request, &fail);
+  FullMessage fail_response = FullMessage::responseMessage(version, &fail);
+
+  return fail_response.getJson();
+}
+
+std::string BAD_REQUEST(uint32_t version, const std::string& request, rapidjson::Value& id)
+{
+  Message fail;
+  fail.status = Message::STATUS_BAD_REQUEST;
+  fail.error_details = std::string("\"") + request + "\" is not a valid request.";
+
+  FullMessage fail_response = FullMessage::responseMessage(version, &fail, id);
 
   return fail_response.getJson();
 }
@@ -142,7 +273,7 @@ std::string BAD_JSON(uint32_t version, const std::string& error_details)
   fail.status = Message::STATUS_BAD_JSON;
   fail.error_details = error_details;
 
-  FullMessage fail_response(version, "bad_json", &fail);
+  FullMessage fail_response = FullMessage::responseMessage(version, &fail);
 
   return fail_response.getJson();
 }

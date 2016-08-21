@@ -29,6 +29,7 @@
 #pragma once
 
 #include "rapidjson/document.h"
+#include "rpc/message_data_structs.h"
 #include <string>
 
 /* I normally hate using macros, but in this case it would be untenably
@@ -58,13 +59,13 @@ namespace rpc
   class Message
   {
     public:
-      Message() { }
-
       static const char* STATUS_OK;
       static const char* STATUS_RETRY;
       static const char* STATUS_FAILED;
       static const char* STATUS_BAD_REQUEST;
       static const char* STATUS_BAD_JSON;
+
+      Message() : status(STATUS_OK) { }
 
       virtual ~Message() { }
 
@@ -80,12 +81,14 @@ namespace rpc
   {
     public:
 
-      FullMessage(int version, const std::string& request, Message* message);
-      FullMessage(const std::string& json_string);
-
+      FullMessage() = default;
       ~FullMessage() { }
 
-      std::string getJson() const;
+      FullMessage(FullMessage&& rhs) noexcept : doc(std::move(rhs.doc)) { }
+
+      FullMessage(const std::string& json_string, bool request=false);
+
+      std::string getJson();
 
       std::string getRequestType() const;
 
@@ -93,7 +96,23 @@ namespace rpc
 
       rapidjson::Value& getMessage();
 
+      rapidjson::Value getMessageCopy();
+
+      rapidjson::Value& getID();
+
+      void setID(rapidjson::Value& id);
+
+      cryptonote::rpc::error getError();
+
+      static FullMessage requestMessage(int version, const std::string& request, Message* message);
+      static FullMessage requestMessage(int version, const std::string& request, Message* message, rapidjson::Value& id);
+
+      static FullMessage responseMessage(int version, Message* message);
+      static FullMessage responseMessage(int version, Message* message, rapidjson::Value& id);
     private:
+
+      FullMessage(int version, const std::string& request, Message* message);
+      FullMessage(int version, Message* message);
 
       rapidjson::Document doc;
   };
@@ -101,6 +120,7 @@ namespace rpc
 
   // convenience functions for bad input
   std::string BAD_REQUEST(uint32_t version, const std::string& request);
+  std::string BAD_REQUEST(uint32_t version, const std::string& request, rapidjson::Value& id);
 
   std::string BAD_JSON(uint32_t version, const std::string& error_details);
 

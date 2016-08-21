@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rpc/daemon_rpc_client.h"
+#include "serialization/json_object.h"
 
 namespace cryptonote
 {
@@ -48,16 +49,22 @@ void DaemonRPCClient::connect(const std::string& addr, const std::string& port)
 
 bool DaemonRPCClient::getHeight(uint64_t& height)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetHeight::Request request;
 
-    GetHeight::Response response = doRequest<GetHeight>(request);
+    response_json = doRequest<GetHeight>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    GetHeight::Response response = parseResponse<GetHeight>(response_json);
 
     height = response.height;
 
@@ -77,6 +84,8 @@ bool DaemonRPCClient::getBlocksFast(
     uint64_t& start_height_out,
     uint64_t& current_height)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetBlocksFast::Request request;
@@ -84,12 +93,16 @@ bool DaemonRPCClient::getBlocksFast(
     request.block_ids = block_ids;
     request.start_height = start_height_in;
 
-    GetBlocksFast::Response response = doRequest<GetBlocksFast>(request);
+    response_json = doRequest<GetBlocksFast>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    GetBlocksFast::Response response = parseResponse<GetBlocksFast>(response_json);
 
     blocks = response.blocks;
     start_height_out = response.start_height;
@@ -111,6 +124,8 @@ bool DaemonRPCClient::getHashesFast(
     uint64_t& start_height_out,
     uint64_t& current_height)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetHashesFast::Request request;
@@ -118,12 +133,16 @@ bool DaemonRPCClient::getHashesFast(
     request.known_hashes = known_hashes;
     request.start_height = start_height_in;
 
-    GetHashesFast::Response response = doRequest<GetHashesFast>(request);
+    response_json = doRequest<GetHashesFast>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    GetHashesFast::Response response = parseResponse<GetHashesFast>(response_json);
 
     hashes = response.hashes;
     start_height_out = response.start_height;
@@ -145,18 +164,24 @@ bool DaemonRPCClient::keyImagesSpent(
     std::vector<bool>& spent_in_pool,
     bool where)
 {
+  rapidjson::Value response_json;
+
   try
   {
     KeyImagesSpent::Request request;
 
     request.key_images = images;
 
-    KeyImagesSpent::Response response = doRequest<KeyImagesSpent>(request);
+    response_json = doRequest<KeyImagesSpent>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    KeyImagesSpent::Response response = parseResponse<KeyImagesSpent>(response_json);
 
     spent.resize(images.size());
     if (where)
@@ -188,11 +213,22 @@ bool DaemonRPCClient::getTransactionPool(
     std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool>& transactions,
     std::unordered_map<crypto::key_image, std::vector<crypto::hash> >& key_images)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetTransactionPool::Request request;
 
-    GetTransactionPool::Response response = doRequest<GetTransactionPool>(request);
+    response_json = doRequest<GetTransactionPool>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
+
+  try
+  {
+    GetTransactionPool::Response response = parseResponse<GetTransactionPool>(response_json);
 
     if (response.status != Message::STATUS_OK)
     {
@@ -213,18 +249,24 @@ bool DaemonRPCClient::getTransactionPool(
 
 bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetTxGlobalOutputIndices::Request request;
 
     request.tx_hash = tx_hash;
 
-    GetTxGlobalOutputIndices::Response response = doRequest<GetTxGlobalOutputIndices>(request);
+    response_json = doRequest<GetTxGlobalOutputIndices>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    GetTxGlobalOutputIndices::Response response = parseResponse<GetTxGlobalOutputIndices>(response_json);
 
     output_indices = response.output_indices;
 
@@ -242,6 +284,8 @@ bool DaemonRPCClient::getRandomOutputsForAmounts(
     const uint64_t count,
     std::vector<amount_with_random_outputs>& amounts_with_outputs)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetRandomOutputsForAmounts::Request request;
@@ -249,12 +293,16 @@ bool DaemonRPCClient::getRandomOutputsForAmounts(
     request.amounts = amounts;
     request.count = count;
 
-    GetRandomOutputsForAmounts::Response response = doRequest<GetRandomOutputsForAmounts>(request);
+    response_json = doRequest<GetRandomOutputsForAmounts>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    GetRandomOutputsForAmounts::Response response = parseResponse<GetRandomOutputsForAmounts>(response_json);
 
     amounts_with_outputs = response.amounts_with_outputs;
 
@@ -273,6 +321,8 @@ bool DaemonRPCClient::sendRawTx(
     std::string& error_details,
     bool relay)
 {
+  rapidjson::Value response_json;
+
   try
   {
     SendRawTx::Request request;
@@ -280,14 +330,16 @@ bool DaemonRPCClient::sendRawTx(
     request.tx = tx;
     request.relay = relay;
 
-    SendRawTx::Response response = doRequest<SendRawTx>(request);
+    response_json = doRequest<SendRawTx>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    error_details = response.error_details;
-
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    SendRawTx::Response response = parseResponse<SendRawTx>(response_json);
 
     relayed = response.relayed;
 
@@ -295,6 +347,16 @@ bool DaemonRPCClient::sendRawTx(
   }
   catch (...)
   {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
   }
 
   return false;
@@ -304,18 +366,24 @@ bool DaemonRPCClient::hardForkInfo(
     const uint8_t version,
     hard_fork_info& info)
 {
+  rapidjson::Value response_json;
+
   try
   {
     HardForkInfo::Request request;
 
     request.version = version;
 
-    HardForkInfo::Response response = doRequest<HardForkInfo>(request);
+    response_json = doRequest<HardForkInfo>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    HardForkInfo::Response response = parseResponse<HardForkInfo>(response_json);
 
     info = response.info;
 
@@ -334,6 +402,8 @@ bool DaemonRPCClient::getOutputHistogram(
     uint64_t max_count,
     std::vector<output_amount_count>& histogram)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetOutputHistogram::Request request;
@@ -342,12 +412,16 @@ bool DaemonRPCClient::getOutputHistogram(
     request.min_count = min_count;
     request.max_count = max_count;
 
-    GetOutputHistogram::Response response = doRequest<GetOutputHistogram>(request);
+    response_json = doRequest<GetOutputHistogram>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    GetOutputHistogram::Response response = parseResponse<GetOutputHistogram>(response_json);
 
     histogram = response.histogram;
 
@@ -362,16 +436,22 @@ bool DaemonRPCClient::getOutputHistogram(
 
 bool DaemonRPCClient::getRPCVersion(uint32_t& version)
 {
+  rapidjson::Value response_json;
+
   try
   {
     GetRPCVersion::Request request;
 
-    GetRPCVersion::Response response = doRequest<GetRPCVersion>(request);
+    response_json = doRequest<GetRPCVersion>(request);
+  }
+  catch (...)
+  {
+    return false;
+  }
 
-    if (response.status != Message::STATUS_OK)
-    {
-      return false;
-    }
+  try
+  {
+    GetRPCVersion::Response response = parseResponse<GetRPCVersion>(response_json);
 
     version = response.version;
 
@@ -384,21 +464,31 @@ bool DaemonRPCClient::getRPCVersion(uint32_t& version)
   return false;
 }
 
-
 template <typename ReqType>
-typename ReqType::Response DaemonRPCClient::doRequest(typename ReqType::Request& request)
+rapidjson::Value DaemonRPCClient::doRequest(typename ReqType::Request& request)
 {
-  FullMessage full_request(1, ReqType::name, &request);
+  auto full_request = FullMessage::requestMessage(DAEMON_RPC_VERSION, ReqType::name, &request);
 
   std::string resp = zmq_client.doRequest(full_request.getJson());
 
   FullMessage full_response(resp);
 
+  return full_response.getMessageCopy();
+}
+
+template <typename ReqType>
+typename ReqType::Response DaemonRPCClient::parseResponse(rapidjson::Value& resp)
+{
   typename ReqType::Response response;
 
-  response.fromJson(full_response.getMessage());
+  response.fromJson(resp);
 
   return response;
+}
+
+cryptonote::rpc::error DaemonRPCClient::parseError(rapidjson::Value& err)
+{
+  return cryptonote::json::fromJsonValue<cryptonote::rpc::error>(err);
 }
 
 }  // namespace rpc

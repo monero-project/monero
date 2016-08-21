@@ -264,17 +264,23 @@ template <>
 cryptonote::rpc::tx_in_pool fromJsonValue<cryptonote::rpc::tx_in_pool>(const rapidjson::Value& val);
 
 template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& out);
-
-template <>
 cryptonote::rpc::hard_fork_info fromJsonValue<cryptonote::rpc::hard_fork_info>(const rapidjson::Value& val);
 
 template <>
 rapidjson::Value toJsonValue<cryptonote::rpc::hard_fork_info>(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info);
 
-
 template <>
 cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amount_count>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& out);
+
+template <>
+cryptonote::rpc::error fromJsonValue<cryptonote::rpc::error>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::error>(rapidjson::Document& doc, const cryptonote::rpc::error& err);
+
 
 template <typename Map>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enable_if<sfinae::is_map_like<Map>::value, Map >::type &val);

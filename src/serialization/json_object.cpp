@@ -1184,6 +1184,44 @@ rapidjson::Value toJsonValue<cryptonote::rpc::hard_fork_info>(rapidjson::Documen
   return val;
 }
 
+template <>
+cryptonote::rpc::error fromJsonValue<cryptonote::rpc::error>(const rapidjson::Value& val)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  cryptonote::rpc::error err;
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "code")
+  err.code = fromJsonValue<decltype(err.code)>(val["code"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "error_str")
+  err.error_str = fromJsonValue<decltype(err.error_str)>(val["error_str"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "message")
+  err.message = fromJsonValue<decltype(err.message)>(val["message"]);
+
+  return err;
+}
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::error>(rapidjson::Document& doc, const cryptonote::rpc::error& err)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("code", toJsonValue<decltype(err.code)>(doc, err.code), al);
+  val.AddMember("error_str", toJsonValue<decltype(err.error_str)>(doc, err.error_str), al);
+  val.AddMember("message", toJsonValue<decltype(err.message)>(doc, err.message), al);
+
+  return val;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote

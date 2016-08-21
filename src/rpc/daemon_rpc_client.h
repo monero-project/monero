@@ -102,7 +102,12 @@ class DaemonRPCClient
   private:
 
     template <typename ReqType>
-    typename ReqType::Response doRequest(typename ReqType::Request& request);
+    rapidjson::Value doRequest(typename ReqType::Request& request);
+
+    template <typename ReqType>
+    typename ReqType::Response parseResponse(rapidjson::Value& resp);
+
+    cryptonote::rpc::error parseError(rapidjson::Value& resp);
 
     ZmqClient zmq_client;
 };
