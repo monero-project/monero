@@ -35,9 +35,9 @@ cmake-debug:
 debug: cmake-debug
 	cd build/debug && $(MAKE)
 
-debug-test: debug
+debug-test:
 	mkdir -p build/debug
-	cd build/debug && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Debug ../.. && $(MAKE) test
+	cd build/debug && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Debug ../.. && $(MAKE) && $(MAKE) test
 
 debug-all:
 	mkdir -p build/debug

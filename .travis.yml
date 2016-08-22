@@ -38,7 +38,6 @@ matrix:
     install:
       - sudo apt-get -y install libboost-{chrono,program-options,date-time,thread,system,filesystem,regex,serialization}1.58{-dev,.0}
     script:
-      - make debug-all
       - make debug-test
     after_success:
       - coveralls --exclude external --exclude tests -e cmake -e contrib -e translations -e utils --gcov-options '\-lp'
