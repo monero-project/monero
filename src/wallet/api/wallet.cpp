@@ -267,16 +267,18 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
 
 bool WalletImpl::close()
 {
-    clearStatus();
+
     bool result = false;
     try {
-        // LOG_PRINT_L0("Calling wallet::store...");
-        m_wallet->store();
+        // do not store wallet with invalid status
+        if (status() == Status_Ok)
+            m_wallet->store();
         // LOG_PRINT_L0("wallet::store done");
         // LOG_PRINT_L0("Calling wallet::stop...");
         m_wallet->stop();
         // LOG_PRINT_L0("wallet::stop done");
         result = true;
+        clearStatus();
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();

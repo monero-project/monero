@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 #include "wallet/wallet2_api.h"
+#include "wallet/wallet2.h"
 #include "include_base_utils.h"
 
 #include <boost/filesystem.hpp>
@@ -41,6 +42,7 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <functional>
 #include <condition_variable>
 
 
@@ -140,7 +142,7 @@ struct WalletManagerTest : public testing::Test
     {
         std::cout << __FUNCTION__ << std::endl;
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
-        // Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_4);
+        Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_4);
         Utils::deleteWallet(WALLET_NAME);
         Utils::deleteDir(boost::filesystem::path(WALLET_NAME_WITH_DIR).parent_path().string());
     }
@@ -210,6 +212,69 @@ TEST_F(WalletManagerTest, WalletManagerOpensWallet)
     std::cout << "** seed: " << wallet2->seed() << std::endl;
 }
 
+
+void open_wallet(Bitmonero::WalletManager *wmgr, Bitmonero::Wallet **wallet, const std::string &pass, std::mutex *mutex)
+{
+    if (mutex)
+        mutex->lock();
+    LOG_PRINT_L3("opening wallet with password '" << pass << "'  in thread: " << std::this_thread::get_id());
+    *wallet = wmgr->openWallet(WALLET_NAME, pass, true);
+    LOG_PRINT_L3("wallet address: " << (*wallet)->address());
+    LOG_PRINT_L3("wallet status: " << (*wallet)->status());
+    LOG_PRINT_L3("closing wallet with password '" << pass << "'  in thread: " << std::this_thread::get_id());
+    if (mutex)
+        mutex->unlock();
+}
+
+//TEST_F(WalletManagerTest, WalletManagerOpensWalletWithPasswordAndReopenMultiThreaded)
+//{
+//    // create password protected wallet
+//    std::string wallet_pass = "password";
+//    std::string wrong_wallet_pass = "1111";
+//    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, wallet_pass, WALLET_LANG, true);
+//    std::string seed1 = wallet1->seed();
+//    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+
+//    Bitmonero::Wallet *wallet2 = nullptr;
+//    Bitmonero::Wallet *wallet3 = nullptr;
+
+//    std::mutex mutex;
+//    std::thread thread1(open_wallet, wmgr, &wallet2, wrong_wallet_pass, &mutex);
+//    thread1.join();
+//    ASSERT_TRUE(wallet2->status() != Bitmonero::Wallet::Status_Ok);
+//    ASSERT_TRUE(wmgr->closeWallet(wallet2));
+
+//    std::thread thread2(open_wallet, wmgr, &wallet3, wallet_pass, &mutex);
+//    thread2.join();
+
+//    ASSERT_TRUE(wallet3->status() == Bitmonero::Wallet::Status_Ok);
+//    ASSERT_TRUE(wmgr->closeWallet(wallet3));
+//}
+
+
+TEST_F(WalletManagerTest, WalletManagerOpensWalletWithPasswordAndReopen)
+{
+    // create password protected wallet
+    std::string wallet_pass = "password";
+    std::string wrong_wallet_pass = "1111";
+    Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, wallet_pass, WALLET_LANG, true);
+    std::string seed1 = wallet1->seed();
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+
+    Bitmonero::Wallet *wallet2 = nullptr;
+    Bitmonero::Wallet *wallet3 = nullptr;
+    std::mutex mutex;
+
+    open_wallet(wmgr, &wallet2, wrong_wallet_pass, nullptr);
+    ASSERT_TRUE(wallet2->status() != Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
+
+    open_wallet(wmgr, &wallet3, wallet_pass, nullptr);
+    ASSERT_TRUE(wallet3->status() == Bitmonero::Wallet::Status_Ok);
+    ASSERT_TRUE(wmgr->closeWallet(wallet3));
+}
+
+
 TEST_F(WalletManagerTest, WalletManagerStoresWallet)
 {
 
@@ -237,7 +302,6 @@ TEST_F(WalletManagerTest, WalletManagerMovesWallet)
     ASSERT_TRUE(wallet2->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
 }
-
 
 
 TEST_F(WalletManagerTest, WalletManagerChangesPassword)
@@ -817,6 +881,7 @@ TEST_F(WalletTest2, WalletCallbackReceived)
     wmgr->closeWallet(wallet_src);
     wmgr->closeWallet(wallet_dst);
 }
+
 
 
 int main(int argc, char** argv)
