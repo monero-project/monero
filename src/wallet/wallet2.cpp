@@ -3503,6 +3503,9 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     req.key_images.push_back(epee::string_tools::pod_to_hex(key_image));
   }
 
+  for (size_t n = 0; n < signed_key_images.size(); ++n)
+    m_transfers[n].m_key_image = signed_key_images[n].first;
+
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/is_key_image_spent", req, daemon_resp, m_http_client, 200000);
   m_daemon_rpc_mutex.unlock();
