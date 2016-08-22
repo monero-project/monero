@@ -13,24 +13,24 @@ matrix:
       - gcc
     addons:
       apt:
-	packages:
-    	  - build-essential
-    	  - cmake
-    	  - doxygen
-    	  - g++
-    	  - gcc
-    	  - clang
-    	  - graphviz
-    	  - libdb++-dev
-    	  - libdb-dev
-    	  - libgtest-dev
-    	  - libminiupnpc-dev
-    	  - libssl-dev
-    	  - libssl1.0.0
-    	  - libunbound-dev
-    	  - libunwind8-dev
-    	sources:
-    	  - ubuntu-toolchain-r-test
+        packages:
+          - build-essential
+          - cmake
+          - doxygen
+          - g++
+          - gcc
+          - clang
+          - graphviz
+          - libdb++-dev
+          - libdb-dev
+          - libgtest-dev
+          - libminiupnpc-dev
+          - libssl-dev
+          - libssl1.0.0
+          - libunbound-dev
+          - libunwind8-dev
+      sources:
+        - ubuntu-toolchain-r-test
     before_install:
       - sudo add-apt-repository -y ppa:kojoley/boost
       - sudo apt-get -q update
@@ -51,24 +51,24 @@ matrix:
       - clang
     addons:
       apt:
-	packages:
-    	  - build-essential
-    	  - cmake
-    	  - doxygen
-    	  - g++
-    	  - gcc
-    	  - clang
-    	  - graphviz
-    	  - libdb++-dev
-    	  - libdb-dev
-    	  - libgtest-dev
-    	  - libminiupnpc-dev
-    	  - libssl-dev
-    	  - libssl1.0.0
-    	  - libunbound-dev
-    	  - libunwind8-dev
-    	sources:
-    	  - ubuntu-toolchain-r-test
+        packages:
+          - build-essential
+          - cmake
+          - doxygen
+          - g++
+          - gcc
+          - clang
+          - graphviz
+          - libdb++-dev
+          - libdb-dev
+          - libgtest-dev
+          - libminiupnpc-dev
+          - libssl-dev
+          - libssl1.0.0
+          - libunbound-dev
+          - libunwind8-dev
+      sources:
+        - ubuntu-toolchain-r-test
     before_install:
       - sudo add-apt-repository -y ppa:kojoley/boost
       - sudo apt-get -q update
