@@ -36,9 +36,9 @@ Monero development can be supported directly through donations.
 
 Both Monero and Bitcoin donations can be made to donate.getmonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
 
-The Monero donation address is: 44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A (viewkey: f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501)
+The Monero donation address is: `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A` (viewkey: `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`)
 
-The Bitcoin donation address is: 1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H
+The Bitcoin donation address is: `1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H`
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
@@ -211,6 +211,6 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 
 ## Using readline
 
-While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
-rlwrap bin/simplewallet --wallet-file /path/to/wallet
+While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
+`rlwrap bin/simplewallet --wallet-file /path/to/wallet`
 
