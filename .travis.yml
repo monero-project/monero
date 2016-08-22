@@ -27,9 +27,12 @@ addons:
 before_install:
 - sudo add-apt-repository -y ppa:kojoley/boost
 - sudo apt-get -q update
+- pip install --user cpp-coveralls
 install:
 - sudo apt-get -y install libboost-{chrono,program-options,date-time,thread,system,filesystem,regex,serialization}1.58{-dev,.0}
-script: make -j2 && HAVE_DOT=YES doxygen Doxyfile
+script:
+- make -j2 && HAVE_DOT=YES doxygen Doxyfile
+#- ./configure --enable-gcov && make && make check
 notifications:
   email: false
   irc:
