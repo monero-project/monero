@@ -42,7 +42,12 @@ The Bitcoin donation address is: 1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
-[![MyMonero](https://static.getmonero.org/images/sponsors/mymonero.png)](https://mymonero.com) [![Kitware](https://static.getmonero.org/images/sponsors/kitware.png?1)](http://kitware.com) [![Dome9](https://static.getmonero.org/images/sponsors/dome9.png)](http://dome9.com) [![Araxis](https://static.getmonero.org/images/sponsors/araxis.png)](http://araxis.com) [![JetBrains](https://static.getmonero.org/images/sponsors/jetbrains.png)](http://www.jetbrains.com/) [![Navicat](https://static.getmonero.org/images/sponsors/navicat.png)](http://www.navicat.com/)
+[<img width="80" src="https://static.getmonero.org/images/sponsors/mymonero.png"/>](https://mymonero.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/kitware.png?1"/>](http://kitware.com)
+[<img width="100" src="https://static.getmonero.org/images/sponsors/dome9.png"/>](http://dome9.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](http://araxis.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](http://www.jetbrains.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](http://www.navicat.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
@@ -54,8 +59,29 @@ See [LICENSE](LICENSE).
 
 ### Overview:
 
-Dependencies: GCC 4.7.3 or later, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.58 or later, BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
-Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, bison or yacc
+Dependencies:
+
+* GCC `>=4.7.3`
+* CMake `>=3.0.0`
+* pkg-config
+* libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
+* libevent `>=2.0`
+* libgtest `>=1.5`
+* Boost `>=1.53 && !=1.54` (note: 1.54 is not supported [more details here](http://goo.gl/RrCFmA)),
+* BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
+* libunwind (optional, for stack trace on exception)
+* miniupnpc (optional, for NAT punching)
+
+Additional dependencies for statically-linked build:
+
+* ldns `>=1.6.17`
+* expat `>=1.1`
+* bison or yacc
+
+Additional dependencies for building documentation:
+
+* Doxygen
+* graphviz
 
 **Basic Process:**
 
@@ -100,7 +126,14 @@ Alternatively, it can be built in an easier and more automated fashion using Hom
 
 ### On Windows:
 
-Dependencies: mingw-w64, msys2, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.58 or later, BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
+Dependencies:
+
+* mingw-w64
+* msys2
+* CMake `>=3.0.0`
+* libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
+* Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA))
+* BerkeleyDB `>=4.8`
 
 **Preparing the Build Environment**
 
@@ -189,7 +222,7 @@ To list all available options, run `./bin/bitmonerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
-of the argument without any dashes, for example `log-level=1`.
+of the argument without the leading dashes, for example `log-level=1`.
 
 ## Internationalization
 
@@ -211,6 +244,10 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 
 ## Using readline
 
-While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
-rlwrap bin/simplewallet --wallet-file /path/to/wallet
+While bitmonerod and simplewallet do not use readline directly, most of the
+functionality can be obtained by running them via rlwrap. This allows command
+recall, edit capabilities, etc. It does not give autocompletion without an
+extra completion file, however. To use rlwrap, prefix the command with
+`rlwrap`:
 
+    rlwrap bin/simplewallet --wallet-file /path/to/wallet
