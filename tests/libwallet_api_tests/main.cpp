@@ -217,11 +217,11 @@ void open_wallet(Bitmonero::WalletManager *wmgr, Bitmonero::Wallet **wallet, con
 {
     if (mutex)
         mutex->lock();
-    LOG_PRINT_L3("opening wallet with password '" << pass << "'  in thread: " << std::this_thread::get_id());
+    LOG_PRINT_L3("opening wallet in thread: " << std::this_thread::get_id());
     *wallet = wmgr->openWallet(WALLET_NAME, pass, true);
     LOG_PRINT_L3("wallet address: " << (*wallet)->address());
     LOG_PRINT_L3("wallet status: " << (*wallet)->status());
-    LOG_PRINT_L3("closing wallet with password '" << pass << "'  in thread: " << std::this_thread::get_id());
+    LOG_PRINT_L3("closing wallet in thread: " << std::this_thread::get_id());
     if (mutex)
         mutex->unlock();
 }
