@@ -39,7 +39,7 @@ matrix:
     script:
       - make -j2 debug-test
     after_success:
-      - coveralls --exclude external --exclude tests -e cmake -e contrib -e translations -e utils --gcov-options '\-lp'
+      - travis_wait coveralls -e external -e tests -e cmake -e contrib -e translations -e utils --gcov-options '\-lp' &> /dev/null
 
   #
   # Monero release-all (gcc)
