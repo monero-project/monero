@@ -66,7 +66,9 @@ add_subdirectory(unit_tests)
 add_subdirectory(difficulty)
 add_subdirectory(hash)
 add_subdirectory(net_load_tests)
-add_subdirectory(libwallet_api_tests)
+
+# Disabled until issue #895 is resolved
+#add_subdirectory(libwallet_api_tests)
 
 # add_subdirectory(daemon_tests)
 
