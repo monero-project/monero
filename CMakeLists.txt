@@ -430,7 +430,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
   endif()
 
-  if(CXX_ACCEPTS_MFLOAT_SOFTFP NOT CXX_ACCEPTS_MFLOAT_HARD)
+  if(CXX_ACCEPTS_MFLOAT_SOFTFP AND NOT CXX_ACCEPTS_MFLOAT_HARD)
     message(STATUS "Setting Software ABI for Floating Point")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=softfp")
