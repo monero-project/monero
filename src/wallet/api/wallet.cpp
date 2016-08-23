@@ -154,6 +154,11 @@ bool Wallet::paymentIdValid(const string &paiment_id)
     return tools::wallet2::parse_short_payment_id(paiment_id, pid);
 }
 
+uint64_t Wallet::maximumAllowedAmount()
+{
+    return std::numeric_limits<uint64_t>::max();
+}
+
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
