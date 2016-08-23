@@ -142,7 +142,7 @@ struct WalletManagerTest : public testing::Test
     {
         std::cout << __FUNCTION__ << std::endl;
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
-        Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_4);
+        // Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_4);
         Utils::deleteWallet(WALLET_NAME);
         Utils::deleteDir(boost::filesystem::path(WALLET_NAME_WITH_DIR).parent_path().string());
     }
@@ -233,7 +233,7 @@ TEST_F(WalletManagerTest, WalletAmountFromString)
 
 }
 
-void open_wallet(Bitmonero::WalletManager *wmgr, Bitmonero::Wallet **wallet, const std::string &pass, std::mutex *mutex)
+void open_wallet_helper(Bitmonero::WalletManager *wmgr, Bitmonero::Wallet **wallet, const std::string &pass, std::mutex *mutex)
 {
     if (mutex)
         mutex->lock();
@@ -288,11 +288,13 @@ TEST_F(WalletManagerTest, WalletManagerOpensWalletWithPasswordAndReopen)
     Bitmonero::Wallet *wallet3 = nullptr;
     std::mutex mutex;
 
-    open_wallet(wmgr, &wallet2, wrong_wallet_pass, nullptr);
+    open_wallet_helper(wmgr, &wallet2, wrong_wallet_pass, nullptr);
+    ASSERT_TRUE(wallet2 != nullptr);
     ASSERT_TRUE(wallet2->status() != Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 
-    open_wallet(wmgr, &wallet3, wallet_pass, nullptr);
+    open_wallet_helper(wmgr, &wallet3, wallet_pass, nullptr);
+    ASSERT_TRUE(wallet3 != nullptr);
     ASSERT_TRUE(wallet3->status() == Bitmonero::Wallet::Status_Ok);
     ASSERT_TRUE(wmgr->closeWallet(wallet3));
 }
