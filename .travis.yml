@@ -9,8 +9,7 @@ matrix:
   # Coveralls.io
   #
   - os: linux
-    compiler:
-      - gcc
+    compiler: gcc
     addons:
       apt:
         packages:
@@ -38,17 +37,15 @@ matrix:
     install:
       - sudo apt-get -y install libboost-{chrono,program-options,date-time,thread,system,filesystem,regex,serialization}1.58{-dev,.0}
     script:
-      - make debug-test
+      - make -j2 debug-test
     after_success:
       - coveralls --exclude external --exclude tests -e cmake -e contrib -e translations -e utils --gcov-options '\-lp'
 
   #
-  # Monero release-all
+  # Monero release-all (gcc)
   #
   - os: linux
-    compiler:
-      - gcc
-      - clang
+    compiler: gcc
     addons:
       apt:
         packages:
@@ -57,6 +54,37 @@ matrix:
           - doxygen
           - g++
           - gcc
+          - clang
+          - graphviz
+          - libdb++-dev
+          - libdb-dev
+          - libgtest-dev
+          - libminiupnpc-dev
+          - libssl-dev
+          - libssl1.0.0
+          - libunbound-dev
+          - libunwind8-dev
+      sources:
+        - ubuntu-toolchain-r-test
+    before_install:
+      - sudo add-apt-repository -y ppa:kojoley/boost
+      - sudo apt-get -q update
+    install:
+      - sudo apt-get -y install libboost-{chrono,program-options,date-time,thread,system,filesystem,regex,serialization}1.58{-dev,.0}
+    script:
+      - make -j2 && HAVE_DOT=YES doxygen Doxyfile
+
+  #
+  # Monero release-all (clang)
+  #
+  - os: linux
+    compiler: clang
+    addons:
+      apt:
+        packages:
+          - build-essential
+          - cmake
+          - doxygen
           - clang
           - graphviz
           - libdb++-dev
