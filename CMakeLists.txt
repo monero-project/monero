@@ -78,7 +78,7 @@ if (NOT "${ARCH}" STREQUAL "")
   endif()
 endif()
 
-if(WIN32 OR ARM8 OR ARM7 OR ARM6)
+if(WIN32 OR ARM7 OR ARM6) #ARM8 benefits from vectorisation
   set(OPT_FLAGS_RELEASE "-O2")
 else()
   set(OPT_FLAGS_RELEASE "-Ofast")
@@ -376,77 +376,75 @@ else()
     message(STATUS "AES support enabled")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
-  elseif(ARM8)
-    message(STATUS "AES support enabled for ARMv8")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a+crypto")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+crypto")
   elseif(ARM7 OR ARM6)
     message(STATUS "AES support disabled (not available on ARMv6 or ARMv7)")
   else()
     message(STATUS "AES support disabled")
   endif()
 
-  if(ARM6)
-    message(STATUS "Setting ARMv6 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
-  endif()
+  if(ARM6 OR ARM7 OR ARM8)
+  message(STATUS "Setting FPU Flags for ARM Processors")
+  include(TestCXXAcceptsFlag)
 
-  if(ARM7)
-    message(STATUS "Setting ARMv7 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
-  endif()
+  #NB NEON hardware does not fully implement the IEEE 754 standard for floating-point arithmetic
+  #No point implementing NEON SIMD flags until custom assembly code written
+  #Cortex-A5/9  -mfpu=neon-fp16
+  #Cortex-A7/15 -mfpu=neon-vfpv4
+  #Cortex-A8    -mfpu=neon
+  #For future reference, processor IDs for ARMv8-A series:
+  #0xd04 - Cortex-A35
+  #0xd07 - Cortex-A57
+  #0xd08 - Cortex-A72
+  #0xd03 - Cortex-A73
 
-  if(ARM8)
-  include(TestCXXAcceptsFlag) #for Raspberry Pi 3
-  CHECK_CXX_ACCEPTS_FLAG(-mfpu=neon-fp-armv8 CXX_ACCEPTS_NEON_FP_ARMV8)
-  if(CXX_ACCEPTS_NEON_FP_ARMV8)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon-fp-armv8 -funsafe-math-optimizations")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon-fp-armv8 -funsafe-math-optimizations")
-  endif()
+  #CHECK_CXX_ACCEPTS_FLAG(-ffast-math CXX_ACCEPTS_FFAST_MATH) #For SIMD
+  CHECK_CXX_ACCEPTS_FLAG(-mfpu=vfp3-d16 CXX_ACCEPTS_VFP3_D16)
+  CHECK_CXX_ACCEPTS_FLAG(-mfpu=vfp4 CXX_ACCEPTS_VFP4)
   CHECK_CXX_ACCEPTS_FLAG(-mfloat-abi=hard CXX_ACCEPTS_MFLOAT_HARD)
-  if (CXX_ACCEPTS_MFLOAT_HARD)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
+  CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-835769 CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+  CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-843419 CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+
+  if(NOT (CXX_ACCEPTS_VFP3_D16 OR CXX_ACCEPTS_VFP4))
+    message(STATUS "Selecting VFP")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp")
   endif()
 
-  message(STATUS "Attempting to tune for specific ARMv8 Architecture")
-  execute_process(COMMAND taskset -c 1 grep "^CPU part" /proc/cpuinfo OUTPUT_VARIABLE PROC_PART)
-  if (PROC_PART MATCHES "0xd04") #Cortex-A35
-    message(STATUS "Tuning for Cortex-A35")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a35")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=cortex-a35")
-  elseif (PROC_PART MATCHES "0xd07") #Cortex-A57
-    message(STATUS "Tuning for Cortex-A57")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a57")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=cortex-a57")
-  elseif (PROC_PART MATCHES "0xd08") #Cortex-A72
-    message(STATUS "Tuning for Cortex-A72")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a72")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=cortex-a72")
-  elseif (PROC_PART MATCHES "0xd03") #Cortex-A53
-    message(STATUS "Tuning for Cortex-A53")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a53")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=cortex-a53")
-    execute_process(COMMAND taskset -c 1 grep "^CPU variant" /proc/cpuinfo OUTPUT_VARIABLE PROC_REVISION)
-    if (PROC_REVISION MATCHES "0x0") #Check for processor revision, called 'CPU variant' for some reason - r0 is susceptible
-        #both of these errata are present in r0 product vesions 0-4 and need fixing
-        CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-835769 CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
-        if (CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
-          set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-835769")
-          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-835769")
-          message(STATUS "Enabling Cortex-A53 workaround 835769.")
-        endif()
-        CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-843419 CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
-        if (CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
-          set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-843419")
-          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-843419")
-          message(STATUS "Enabling Cortex-A53 workaround 843419.")
-        endif()
-    endif() #Checking CPU revision
-  endif() #Checking for Architecture
-  endif() #Checking if ARMv8
+  if(CXX_ACCEPTS_VFP3_D16 AND NOT CXX_ACCEPTS_VFP4)
+    message(STATUS "Selecting VFP3")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp3-d16")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp3-d16")
+  endif()
+
+  if(CXX_ACCEPTS_VFP4)
+    message(STATUS "Selecting VFP4")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp4")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp4")
+  endif()
+
+  if(CXX_ACCEPTS_MFLOAT_HARD)
+    message(STATUS "Setting Hardware ABI for Floating Point")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
+  else()
+    message(STATUS "Setting Software ABI for Floating Point")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=softfp")
+  endif()
+
+  if(CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+    message(STATUS "Enabling Cortex-A53 workaround 835769")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-835769")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-835769")
+  endif()
+
+  if(CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+    message(STATUS "Enabling Cortex-A53 workaround 843419")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-843419")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-843419")
+  endif()
+
+  endif(ARM6 OR ARM7 OR ARM8)
 
   if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
