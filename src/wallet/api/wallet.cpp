@@ -129,7 +129,7 @@ string Wallet::displayAmount(uint64_t amount)
 
 uint64_t Wallet::amountFromString(const string &amount)
 {
-    uint64_t result;
+    uint64_t result = 0;
     cryptonote::parse_amount(result, amount);
     return result;
 }

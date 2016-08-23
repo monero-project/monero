@@ -213,6 +213,26 @@ TEST_F(WalletManagerTest, WalletManagerOpensWallet)
 }
 
 
+TEST_F(WalletManagerTest, WalletMaxAmountAsString)
+{
+    LOG_PRINT_L3("max amount: " << Bitmonero::Wallet::displayAmount(
+                     Bitmonero::Wallet::maximumAllowedAmount()));
+
+}
+
+TEST_F(WalletManagerTest, WalletAmountFromString)
+{
+    uint64_t amount = Bitmonero::Wallet::amountFromString("18446740");
+    ASSERT_TRUE(amount > 0);
+    amount = Bitmonero::Wallet::amountFromString("11000000000000");
+    ASSERT_FALSE(amount > 0);
+    amount = Bitmonero::Wallet::amountFromString("0.0");
+    ASSERT_FALSE(amount > 0);
+    amount = Bitmonero::Wallet::amountFromString("10.1");
+    ASSERT_TRUE(amount > 0);
+
+}
+
 void open_wallet(Bitmonero::WalletManager *wmgr, Bitmonero::Wallet **wallet, const std::string &pass, std::mutex *mutex)
 {
     if (mutex)
@@ -225,6 +245,9 @@ void open_wallet(Bitmonero::WalletManager *wmgr, Bitmonero::Wallet **wallet, con
     if (mutex)
         mutex->unlock();
 }
+
+
+
 
 //TEST_F(WalletManagerTest, WalletManagerOpensWalletWithPasswordAndReopenMultiThreaded)
 //{
