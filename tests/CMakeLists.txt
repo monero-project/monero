@@ -54,7 +54,10 @@ else ()
   endif()
 endif ()
 
-add_subdirectory(core_tests)
+# Skip the core_tests if we are running in Travis-CI because they will take too long
+if (NOT DEFINED ENV{TRAVIS})
+  add_subdirectory(core_tests)
+endif ()
 add_subdirectory(crypto)
 add_subdirectory(functional_tests)
 add_subdirectory(performance_tests)
@@ -86,5 +89,11 @@ add_test(
   NAME    hash-target
   COMMAND hash-target-tests)
 
-add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
+# Skip the core_tests if we are running in Travis-CI because they will take too long
+if (DEFINED ENV{TRAVIS})
+  add_custom_target(tests DEPENDS difficulty hash performance_tests core_proxy unit_tests)
+else ()
+  add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
+endif ()
+
 set_property(TARGET gtest gtest_main hash-target-tests tests PROPERTY FOLDER "tests")
