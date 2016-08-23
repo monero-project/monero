@@ -48,6 +48,7 @@ Core development funding and/or some supporting services are also graciously pro
 [<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](http://araxis.com)
 [<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](http://www.jetbrains.com/)
 [<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](http://www.navicat.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/symas.png"/>](http://www.symas.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
@@ -67,7 +68,7 @@ Dependencies:
 * libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
 * libevent `>=2.0`
 * libgtest `>=1.5`
-* Boost `>=1.53 && !=1.54` (note: 1.54 is not supported [more details here](http://goo.gl/RrCFmA)),
+* Boost `>=1.58`
 * BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
 * libunwind (optional, for stack trace on exception)
 * miniupnpc (optional, for NAT punching)
@@ -132,7 +133,7 @@ Dependencies:
 * msys2
 * CMake `>=3.0.0`
 * libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
-* Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA))
+* Boost `>=1.58`
 * BerkeleyDB `>=4.8`
 
 **Preparing the Build Environment**

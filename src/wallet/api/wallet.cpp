@@ -129,7 +129,7 @@ string Wallet::displayAmount(uint64_t amount)
 
 uint64_t Wallet::amountFromString(const string &amount)
 {
-    uint64_t result;
+    uint64_t result = 0;
     cryptonote::parse_amount(result, amount);
     return result;
 }
@@ -152,6 +152,11 @@ bool Wallet::paymentIdValid(const string &paiment_id)
 {
     crypto::hash8 pid;
     return tools::wallet2::parse_short_payment_id(paiment_id, pid);
+}
+
+uint64_t Wallet::maximumAllowedAmount()
+{
+    return std::numeric_limits<uint64_t>::max();
 }
 
 
@@ -267,16 +272,18 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
 
 bool WalletImpl::close()
 {
-    clearStatus();
+
     bool result = false;
     try {
-        // LOG_PRINT_L0("Calling wallet::store...");
-        m_wallet->store();
+        // do not store wallet with invalid status
+        if (status() == Status_Ok)
+            m_wallet->store();
         // LOG_PRINT_L0("wallet::store done");
         // LOG_PRINT_L0("Calling wallet::stop...");
         m_wallet->stop();
         // LOG_PRINT_L0("wallet::stop done");
         result = true;
+        clearStatus();
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();
