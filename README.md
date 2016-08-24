@@ -133,7 +133,7 @@ Dependencies:
 * msys2
 * CMake `>=3.0.0`
 * libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
-* Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA))
+* Boost `>=1.58`
 * BerkeleyDB `>=4.8`
 
 **Preparing the Build Environment**
