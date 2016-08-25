@@ -152,7 +152,7 @@ std::string FullMessage::getJson()
 std::string FullMessage::getRequestType() const
 {
   OBJECT_HAS_MEMBER_OR_THROW(doc, "method")
-  return doc["request"].GetString();
+  return doc["method"].GetString();
 
 }
 
