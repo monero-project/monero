@@ -36,9 +36,9 @@ Monero development can be supported directly through donations.
 
 Both Monero and Bitcoin donations can be made to donate.getmonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
 
-The Monero donation address is: 44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A (viewkey: f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501)
+The Monero donation address is: `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A` (viewkey: `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`)
 
-The Bitcoin donation address is: 1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H
+The Bitcoin donation address is: `1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H`
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
@@ -48,6 +48,7 @@ Core development funding and/or some supporting services are also graciously pro
 [<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](http://araxis.com)
 [<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](http://www.jetbrains.com/)
 [<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](http://www.navicat.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/symas.png"/>](http://www.symas.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
@@ -67,7 +68,7 @@ Dependencies:
 * libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
 * libevent `>=2.0`
 * libgtest `>=1.5`
-* Boost `>=1.53 && !=1.54` (note: 1.54 is not supported [more details here](http://goo.gl/RrCFmA)),
+* Boost `>=1.58`
 * BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
 * libunwind (optional, for stack trace on exception)
 * miniupnpc (optional, for NAT punching)
@@ -244,10 +245,6 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 
 ## Using readline
 
-While bitmonerod and simplewallet do not use readline directly, most of the
-functionality can be obtained by running them via rlwrap. This allows command
-recall, edit capabilities, etc. It does not give autocompletion without an
-extra completion file, however. To use rlwrap, prefix the command with
-`rlwrap`:
+While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
 
-    rlwrap bin/simplewallet --wallet-file /path/to/wallet
+`rlwrap bin/simplewallet --wallet-file /path/to/wallet`
