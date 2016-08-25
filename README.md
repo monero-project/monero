@@ -215,15 +215,22 @@ foreground:
 
     ./bin/bitmonerod
 
-To run in background:
-
-    ./bin/bitmonerod --log-file bitmonerod.log --detach
-
 To list all available options, run `./bin/bitmonerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
 of the argument without the leading dashes, for example `log-level=1`.
+
+To run in background:
+
+    ./bin/bitmonerod --log-file bitmonerod.log --detach
+
+To run as a systemd service, copy
+[bitmonerod.service](utils/systemd/bitmonerod.service) to `/etc/systemd/system/` and
+[bitmonerod.conf](utils/conf/bitmonerod.conf) to `/etc/`. The [example
+service](utils/systemd/bitmonerod.service) assumes that the user `bitmonero` exists
+and its home is the data directory specified in the [example
+config](utils/conf/bitmonerod.conf).
 
 ## Internationalization
 

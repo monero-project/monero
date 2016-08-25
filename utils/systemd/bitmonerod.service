@@ -1,0 +1,22 @@
+[Unit]
+Description=Monero cryptocurrency node
+After=network.target
+
+[Service]
+User=bitmonero
+Group=bitmonero
+WorkingDirectory=~
+
+Type=forking
+ExecStart=/usr/bin/bitmonerod --config-file /etc/bitmonerod.conf --detach
+
+# This is necessary because bitmonerod does not yet support
+# writing a PID file, which means systemd tries to guess the PID
+# by default, but it guesses wrong (sometimes, depending on
+# random timing of events), because the daemon forks twice.
+# The ultimate fix is for the daemon to write a PID file, and
+# a workaround is to disable the guessing feature in systemd.
+GuessMainPID=no
+
+[Install]
+WantedBy=multi-user.target
