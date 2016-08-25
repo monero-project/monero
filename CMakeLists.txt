@@ -78,7 +78,7 @@ if (NOT "${ARCH}" STREQUAL "")
   endif()
 endif()
 
-if(WIN32 OR ARM7 OR ARM6) #ARM8 may benefit from vectorisation
+if(WIN32 OR ARM8 OR ARM7 OR ARM6)
   set(OPT_FLAGS_RELEASE "-O2")
 else()
   set(OPT_FLAGS_RELEASE "-Ofast")
