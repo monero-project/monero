@@ -1084,7 +1084,12 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
-  lmdb_db_open(txn, LMDB_HF_STARTING_HEIGHTS, MDB_CREATE, m_hf_starting_heights, "Failed to open db handle for m_hf_starting_heights");
+  // this subdb is dropped on sight, so it may not be present when we open the DB.
+  // Since we use MDB_CREATE, we'll get an exception if we open read-only and it does not exist.
+  // So we don't open for read-only, and also not drop below. It is not used elsewhere.
+  if (!(mdb_flags & MDB_RDONLY))
+    lmdb_db_open(txn, LMDB_HF_STARTING_HEIGHTS, MDB_CREATE, m_hf_starting_heights, "Failed to open db handle for m_hf_starting_heights");
+
   lmdb_db_open(txn, LMDB_HF_VERSIONS, MDB_INTEGERKEY | MDB_CREATE, m_hf_versions, "Failed to open db handle for m_hf_versions");
 
   lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
@@ -1098,9 +1103,12 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   mdb_set_compare(txn, m_properties, compare_string);
 
-  result = mdb_drop(txn, m_hf_starting_heights, 1);
-  if (result)
-    throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_starting_heights: ", result).c_str()));
+  if (!(mdb_flags & MDB_RDONLY))
+  {
+    result = mdb_drop(txn, m_hf_starting_heights, 1);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_starting_heights: ", result).c_str()));
+  }
 
   // get and keep current height
   MDB_stat db_stats;
