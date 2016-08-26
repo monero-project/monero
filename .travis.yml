@@ -105,14 +105,13 @@ matrix:
     script:
       - make -j2 && HAVE_DOT=YES doxygen Doxyfile
 
-
-#notifications:
-#  email: false
-#  irc:
-#    on_success: change
-#    on_failure: change
-#    channels:
-#      - "chat.freenode.net#monero-dev"
-#    nick: monero
-#    template:
-#      - "%{result} | %{repository}#%{build_number} (%{commit} : %{author}) | Build details : %{build_url}"
+notifications:
+  email: false
+  irc:
+    on_success: change
+    on_failure: change
+    channels:
+      - "chat.freenode.net#monero-dev"
+    nick: monero
+    template:
+      - "%{result} | %{repository}#%{build_number} (%{commit} : %{author}) | Build details : %{build_url}"
