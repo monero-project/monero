@@ -50,9 +50,9 @@ cmake-release:
 release: cmake-release
 	cd build/release && $(MAKE)
 
-release-test: release
+release-test:
 	mkdir -p build/release
-	cd build/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE) test
+	cd build/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE) && $(MAKE) test
 
 release-all:
 	mkdir -p build/release
