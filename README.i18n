@@ -13,7 +13,7 @@ To update ts files after changing source code:
 
 To add a new language, eg Spanish (ISO code es):
 
-  cp transations/monero.ts transations/monero_es.ts
+  cp translations/monero.ts translations/monero_es.ts
 
 To edit translations for Spanish:
 
