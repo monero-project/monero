@@ -76,6 +76,13 @@ typedef cryptonote::simple_wallet sw;
 
 #define DEFAULT_MIX 4
 
+// workaround for a suspected bug in pthread/kernel on MacOS X
+#ifdef __APPLE__
+#define DEFAULT_MAX_CONCURRENCY 1
+#else
+#define DEFAULT_MAX_CONCURRENCY 0
+#endif
+
 #define LOCK_IDLE_SCOPE() \
   bool auto_refresh_enabled = m_auto_refresh_enabled.load(std::memory_order_relaxed); \
   m_auto_refresh_enabled.store(false, std::memory_order_relaxed); \
@@ -108,7 +115,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Create non-deterministic view and spend keys"), false};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", sw::tr("Use daemon instance at port <arg> instead of 18081"), 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"log-level", "", LOG_LEVEL_0};
-  const command_line::arg_descriptor<uint32_t> arg_max_concurrency = {"max-concurrency", "Max number of threads to use for a parallel job", 0};
+  const command_line::arg_descriptor<uint32_t> arg_max_concurrency = {"max-concurrency", "Max number of threads to use for a parallel job", DEFAULT_MAX_CONCURRENCY};
   const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", sw::tr("Specify log file"), ""};
   const command_line::arg_descriptor<bool> arg_testnet = {"testnet", sw::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", sw::tr("Restricts RPC to view-only commands"), false};
