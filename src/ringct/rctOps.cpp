@@ -334,12 +334,7 @@ namespace rct {
     //be careful these are also in crypto namespace
     //cn_fast_hash for arbitrary multiples of 32 bytes
     void cn_fast_hash(key &hash, const void * data, const std::size_t l) {
-        uint8_t md2[32];
-        int j = 0;
-        keccak((uint8_t *)data, l, md2, 32);
-        for (j = 0; j < 32; j++) {
-            hash[j] = (unsigned char)md2[j];
-        }
+        keccak((uint8_t *)data, l, hash.bytes, 32);
     }
     
     void hash_to_scalar(key &hash, const void * data, const std::size_t l) {
@@ -349,12 +344,7 @@ namespace rct {
 
     //cn_fast_hash for a 32 byte key
     void cn_fast_hash(key & hash, const key & in) {
-        uint8_t md2[32];
-        int j = 0;
-        keccak((uint8_t *)in.bytes, 32, md2, 32);
-        for (j = 0; j < 32; j++) {
-            hash[j] = (unsigned char)md2[j];
-        }
+        keccak((uint8_t *)in.bytes, 32, hash.bytes, 32);
     }
     
     void hash_to_scalar(key & hash, const key & in) {
@@ -364,13 +354,8 @@ namespace rct {
 
     //cn_fast_hash for a 32 byte key
     key cn_fast_hash(const key & in) {
-        uint8_t md2[32];
-        int j = 0;
         key hash;
-        keccak((uint8_t *)in.bytes, 32, md2, 32);
-        for (j = 0; j < 32; j++) {
-            hash[j] = (unsigned char)md2[j];
-        }
+        keccak((uint8_t *)in.bytes, 32, hash.bytes, 32);
         return hash;
     }
     
@@ -382,13 +367,8 @@ namespace rct {
     
     //cn_fast_hash for a 128 byte unsigned char
     key cn_fast_hash128(const void * in) {
-        uint8_t md2[32];
-        int j = 0;
         key hash;
-        keccak((uint8_t *)in, 128, md2, 32);
-        for (j = 0; j < 32; j++) {
-            hash[j] = (unsigned char)md2[j];
-        }
+        keccak((uint8_t *)in, 128, hash.bytes, 32);
         return hash;
     }
     
