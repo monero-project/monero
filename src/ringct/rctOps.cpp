@@ -39,52 +39,38 @@ namespace rct {
 
     //Creates a zero scalar
     void zero(key &zero) {
-        int i = 0;
-        for (i = 0; i < 32; i++) {
-            zero[i] = (unsigned char)(0x00);
-        }
+        memset(&zero, 0, 32);
     }
 
     //Creates a zero scalar
     key zero() {
-        return{ {0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
+        static const key z = { {0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
+        return z;
     }
 
     //Creates a zero elliptic curve point
     void identity(key &Id) {
-        int i = 0;
         Id[0] = (unsigned char)(0x01);
-        for (i = 1; i < 32; i++) {
-            Id[i] = (unsigned char)(0x00);
-        }
+        memset(Id.bytes+1, 0, 31);
     }
 
     //Creates a zero elliptic curve point
     key identity() {
         key Id;
-        int i = 0;
         Id[0] = (unsigned char)(0x01);
-        for (i = 1; i < 32; i++) {
-            Id[i] = (unsigned char)(0x00);
-        }
+        memset(Id.bytes+1, 0, 31);
         return Id;
     }
 
     //copies a scalar or point
     void copy(key &AA, const key &A) {
-        int i = 0;
-        for (i = 0; i < 32; i++) {
-            AA[i] = A.bytes[i];
-        }
+        memcpy(&AA, &A, 32);
     }
 
     //copies a scalar or point
     key copy(const key &A) {
-        int i = 0;
         key AA;
-        for (i = 0; i < 32; i++) {
-            AA[i] = A.bytes[i];
-        }
+        memcpy(&AA, &A, 32);
         return AA;
     }
 
@@ -387,10 +373,8 @@ namespace rct {
         size_t i = 0, j = 0;
         vector<char> m(l * 64);
         for (i = 0 ; i < l ; i++) {
-            for (j = 0 ; j < 32 ; j++) {
-                m[i * 64 + j] = PC[i].dest[j];
-                m[i * 64 + 32 + j] = PC[i].mask[j];
-            }
+            memcpy(&m[i * 64], &PC[i].dest, 32);
+            memcpy(&m[i * 64 + 32], &PC[i].mask, 32);
         }
         cn_fast_hash(rv, &m[0], 64*l);
         return rv;
@@ -409,11 +393,9 @@ namespace rct {
    key cn_fast_hash(const keyV &keys) {
        size_t l = keys.size();
        vector<unsigned char> m(l * 32);
-       size_t i, j;
+       size_t i;
        for (i = 0 ; i < l ; i++) {
-           for (j = 0 ; j < 32 ; j++) {
-               m[i * 32 + j] = keys[i][j];
-           }
+           memcpy(&m[i * 32], keys[i].bytes, 32);
        }
        key rv;
        cn_fast_hash(rv, &m[0], 32 * l);
