@@ -1495,26 +1495,25 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     const char *field_key_data = json["key_data"].GetString();
     account_data = std::string(field_key_data, field_key_data + json["key_data"].GetStringLength());
 
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_language, std::string, String, false);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_language, std::string, String, false, std::string());
     if (field_seed_language_found)
     {
       set_seed_language(field_seed_language);
     }
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, watch_only, int, Int, false);
-    m_watch_only = field_watch_only_found && field_watch_only;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, watch_only, int, Int, false, false);
+    m_watch_only = field_watch_only;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false, false);
     m_always_confirm_transfers = field_always_confirm_transfers_found && field_always_confirm_transfers;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, false);
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_info, int, Int, false);
-    m_store_tx_info = (field_store_tx_keys_found && (field_store_tx_keys != 0))
-                   || (field_store_tx_info_found && (field_store_tx_info != 0));
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_mixin, unsigned int, Uint, false);
-    m_default_mixin = field_default_mixin_found ? field_default_mixin : 0;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false);
-    m_default_fee_multiplier = field_default_fee_multiplier_found ? field_default_fee_multiplier : 0;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_refresh, int, Int, false);
-    m_auto_refresh = !field_auto_refresh_found || (field_auto_refresh != 0);
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_type, int, Int, false);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, false, true);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_info, int, Int, false, true);
+    m_store_tx_info = ((field_store_tx_keys != 0) || (field_store_tx_info != 0));
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_mixin, unsigned int, Uint, false, 0);
+    m_default_mixin = field_default_mixin;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
+    m_default_fee_multiplier = field_default_fee_multiplier;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_refresh, int, Int, false, true);
+    m_auto_refresh = field_auto_refresh;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_type, int, Int, false, RefreshType::RefreshDefault);
     m_refresh_type = RefreshType::RefreshDefault;
     if (field_refresh_type_found)
     {
@@ -1523,7 +1522,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
       else
         LOG_PRINT_L0("Unknown refresh-type value (" << field_refresh_type << "), using default");
     }
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
     if (field_refresh_height_found)
       m_refresh_from_block_height = field_refresh_height;
   }

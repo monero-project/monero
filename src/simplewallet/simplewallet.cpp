@@ -979,22 +979,22 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     return false;
   }
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, version, unsigned, Uint, true);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, version, unsigned, Uint, true, 0);
   const int current_version = 1;
   if (field_version > current_version) {
     fail_msg_writer() << boost::format(tr("Version %u too new, we can only grok up to %u")) % field_version % current_version;
     return false;
   }
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, filename, std::string, String, true);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, filename, std::string, String, true, std::string());
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, scan_from_height, uint64_t, Uint64, false);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, scan_from_height, uint64_t, Uint64, false, 0);
   bool recover = field_scan_from_height_found;
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, password, std::string, String, false);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, password, std::string, String, false, std::string());
   password = field_password;
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, viewkey, std::string, String, false);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, viewkey, std::string, String, false, std::string());
   crypto::secret_key viewkey;
   if (field_viewkey_found)
   {
@@ -1012,7 +1012,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     }
   }
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, spendkey, std::string, String, false);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, spendkey, std::string, String, false, std::string());
   crypto::secret_key spendkey;
   if (field_spendkey_found)
   {
@@ -1030,7 +1030,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     }
   }
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed, std::string, String, false);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed, std::string, String, false, std::string());
   std::string old_language;
   if (field_seed_found)
   {
@@ -1043,7 +1043,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
     m_restore_deterministic_wallet = true;
   }
 
-  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false);
+  GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false, std::string());
 
   // compatibility checks
   if (!field_seed_found && !field_viewkey_found)

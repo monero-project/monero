@@ -28,8 +28,8 @@
 
 #pragma once 
 
-#define GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, name, type, jtype, mandatory) \
-  type field_##name; \
+#define GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, name, type, jtype, mandatory, def) \
+  type field_##name = def; \
   bool field_##name##_found = false; \
   (void)field_##name##_found; \
   do if (json.HasMember(#name)) \
