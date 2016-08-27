@@ -430,8 +430,18 @@ else()
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 
-  if(STATIC AND NOT APPLE AND NOT FREEBSD AND NOT OPENBSD)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+  if(STATIC)
+    # STATIC already configures most deps to be linked in statically,
+    # here we make more deps static if the platform permits it
+    if (MINGW)
+      # On Windows, this is as close to fully-static as we get:
+      # this leaves only deps on /c/Windows/system32/*.dll
+      set(STATIC_FLAGS "-static")
+    elseif (NOT (APPLE OR FREEBSD OR OPENBSD))
+      # On Linux, we don't support fully static build, but these can be static
+      set(STATIC_FLAGS "-static-libgcc -static-libstdc++")
+    endif()
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${STATIC_FLAGS} ")
   endif()
 endif()
 
