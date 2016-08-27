@@ -114,7 +114,7 @@ namespace rct {
     //   verifies the above sig is created corretly
     mgSig proveRctMG(const ctkeyM & pubs, const ctkeyV & inSk, const keyV &outMasks, const ctkeyV & outPk, unsigned int index, key txnFee, const key &message);
     mgSig proveRctMGSimple(const key & message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, unsigned int index);
-    bool verRctMG(mgSig mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFee, const key &message);
+    bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFee, const key &message);
     bool verRctMGSimple(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C);
 
     //These functions get keys from blockchain
