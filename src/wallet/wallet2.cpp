@@ -3047,9 +3047,12 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   }
 
   cryptonote::tx_destination_entry change_dts = AUTO_VAL_INIT(change_dts);
-  change_dts.addr = m_account.get_keys().m_account_address;
-  change_dts.amount = found_money - needed_money; // may be 0, we allow 0 change
-  dsts.push_back(change_dts);
+  if (needed_money < found_money)
+  {
+    change_dts.addr = m_account.get_keys().m_account_address;
+    change_dts.amount = found_money - needed_money;
+    dsts.push_back(change_dts);
+  }
 
   crypto::secret_key tx_key;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, dsts, extra, tx, unlock_time, tx_key, true);
