@@ -338,9 +338,11 @@ namespace rct {
             subKeys(CiH[i], as.Ci[i], H2[i]);
             addKeys(Ctmp, Ctmp, as.Ci[i]);
         }
-        bool reb = equalKeys(C, Ctmp);
-        bool rab = VerASNL(as.Ci, CiH, as.asig);
-        return (reb && rab);
+        if (!equalKeys(C, Ctmp))
+          return false;
+        if (!VerASNL(as.Ci, CiH, as.asig))
+          return false;
+        return true;
     }
 
     key get_pre_mlsag_hash(const rctSig &rv)
