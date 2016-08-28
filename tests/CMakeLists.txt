@@ -63,7 +63,9 @@ add_subdirectory(unit_tests)
 add_subdirectory(difficulty)
 add_subdirectory(hash)
 add_subdirectory(net_load_tests)
-add_subdirectory(libwallet_api_tests)
+
+# Disabled until issue #895 is resolved
+#add_subdirectory(libwallet_api_tests)
 
 # add_subdirectory(daemon_tests)
 
@@ -86,5 +88,11 @@ add_test(
   NAME    hash-target
   COMMAND hash-target-tests)
 
-add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
+# Skip the core_tests if we are running in Travis-CI because they will take too long
+if (DEFINED ENV{TRAVIS})
+  add_custom_target(tests DEPENDS difficulty hash performance_tests core_proxy unit_tests)
+else ()
+  add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
+endif ()
+
 set_property(TARGET gtest gtest_main hash-target-tests tests PROPERTY FOLDER "tests")
