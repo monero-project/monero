@@ -57,11 +57,22 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 See [LICENSE](LICENSE).
 
-## Compiling Monero
+## Installing Monero from a Package
 
-### Overview:
+Packages are available for
 
-Dependencies:
+* Arch Linux via AUR: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
+
+* OS X via [Homebrew](http://brew.sh)
+
+     brew tap sammy007/cryptonight
+     brew install bitmonero --build-from-source
+
+Packaging for your favorite distribution would be a welcome contribution!
+
+## Compiling Monero from Source
+
+### Dependencies
 
 * GCC `>=4.7.3`
 * CMake `>=3.0.0`
@@ -73,113 +84,95 @@ Dependencies:
 * BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
 * libunwind (optional, for stack trace on exception)
 * miniupnpc (optional, for NAT punching)
+* ldns `>=1.6.17` (optional, for statically-linked binaries)
+* expat `>=1.1` (optional, for statically-linked binaries)
+* bison or yacc (optional, for statically-linked binaries)
+* Doxygen (optional, for generating documentation)
+* graphviz (optional, for generating documentation)
 
-Additional dependencies for statically-linked build:
+### Build instructions
 
-* ldns `>=1.6.17`
-* expat `>=1.1`
-* bison or yacc
+Monero uses the CMake build system and a top-level [Makefile](Makefile) that
+invokes cmake commands as needed.
 
-Additional dependencies for building documentation:
+#### On Linux and OS X
 
-* Doxygen
-* graphviz
+* Install the dependencies
+* Change to the root of the source code directory and build:
 
-**Basic Process:**
+        cd bitmonero
+        make
 
-* Install the dependencies (see below for more detailed instructions for your OS)
-* To build, change to the root of the source code directory, and run `make`. Please note that Windows systems follow a slightly different process, outlined below.
-* The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.
+    *Optional*: If your machine has several cores and enough memory, enable
+    parallel build by running `make -j<number of threads>` instead of `make`. For
+    this to be worthwhile, the machine should have one core and about 2GB of RAM
+    available per thread.
 
-**Advanced options:**
+* The resulting executables can be found in `build/release/bin`.
 
-* Parallel build: run `make -j<number of threads>` instead of `make`.
-* Statically linked release build: run `make release-static`.
-* Debug build: run `make debug`.
-* Test suite: run `make release-test` to run tests in addition to building. Running `make debug-test` will do the same to the debug version.
+* **Optional**: build and run the test suite to verify the binaries:
 
-**Makefile Targets for Static Builds:**
+        make release-test
 
-For static builds there are a number of Makefile targets to make the build process easier.
+    *NOTE*: `coretests` test may take a few hours to complete.
 
-* ```make release-static-win64``` builds statically for 64-bit Windows systems
-* ```make release-static-win32``` builds statically for 32-bit Windows systems
-* ```make release-static-64``` the default, builds statically for 64-bit non-Windows systems
-* ```make release-static-32``` builds statically for 32-bit non-Windows systems
-* ```make release-static-arm6``` builds statically for ARMv6 devices, such as the Raspberry Pi
+* **Optional**: to build binaries suitable for debugging:
 
-### On Linux:
+         make debug
 
-The instructions above should provide enough detail.
+* **Optional**: to build statically-linked binaries:
 
-### On OS X:
+         make release-static
 
-**Basic Process:**
+#### On Windows:
 
-The project can be built from scratch by following instructions for Unix and Linux above.
-
-**Alternate Process:**
-
-Alternatively, it can be built in an easier and more automated fashion using Homebrew:
-
-* Ensure Homebrew is installed, it can be found at http://brew.sh
-* Add the repository to brew: `brew tap sammy007/cryptonight`
-* Build Monero: `brew install bitmonero --build-from-source`
-
-### On Windows:
-
-Dependencies:
-
-* mingw-w64
-* msys2
-* CMake `>=3.0.0`
-* libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
-* Boost `>=1.58`
-* BerkeleyDB `>=4.8`
+Binaries for Windows are built on Windows using the MinGW toolchain within
+[MSYS2 environment](http://msys2.github.io). The MSYS2 environment emulates a
+POSIX system. The toolchain runs within the environment and *cross-compiles*
+binaries that can run outside of the environment as a regular Windows
+application.
 
 **Preparing the Build Environment**
 
-* Download the [MSYS2 installer](http://msys2.github.io), 64-bit or 32-bit as needed, and run it.
-* Use the shortcut associated with your architecture to launch the MSYS2 environment. On 64-bit systems that would be the MinGW-w64 Win64 Shell shortcut. Note that if you are running 64-bit Windows, you will have both 64-bit and 32-bit environments.
+* Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
+* Open the MSYS shell via the `MSYS2 Shell` shortcut
 * Update the packages in your MSYS2 install:
-```
-pacman -Sy
-pacman -Su --ignoregroup base
-pacman -Su
-```
-* For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
-* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-expat mingw-w64-x86_64-boost`
+
+        pacman -Sy
+        pacman -Su --ignoregroup base
+        pacman -Su
+
+    For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
+
+* Install dependencies:
+
+    To build for 64-bit Windows:
+
+        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost
+
+    To build for 32-bit Windows:
+ 
+        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost
+
+* Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
+  or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
+  running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
 
 **Building**
 
-* From the root of the source code directory run:
-```
-mkdir build
-cd build
-```
 * If you are on a 64-bit system, run:
-```
-cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="x86-64" -D BUILD_64=ON -D CMAKE_TOOLCHAIN_FILE=../cmake/64-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys64 ..
-```
+
+        make release-static-win64
+
 * If you are on a 32-bit system, run:
-```
-cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="i686" -D BUILD_64=OFF -D CMAKE_TOOLCHAIN_FILE=../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ..
-```
-* You can now run `make` to have it build
-* The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.
 
-If you installed MSYS2 in a folder other than c:/msys64, make the appropriate substitution above.
+        make release-static-win32
 
-**Advanced options:**
-
-* Parallel build: run `make -j<number of threads>` instead of `make`.
-* Statically linked release build: run `make release-static`.
-* Debug build: run `make debug`.
-* Test suite: run `make release-test` to run tests in addition to building. Running `make debug-test` will do the same to the debug version.
+* The resulting executables can be found in `build/release/bin`
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Unix and Linux above.
+The project can be built from scratch by following instructions for Linux above.
 
 We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
@@ -198,14 +191,32 @@ You will have to add the serialization, date_time, and regex modules to Boost wh
 
 To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
 
-## Building Documentation
+### Building Portable Statically Linked Binaries
+
+By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
+
+* ```make release-static-64``` builds binaries on Linux on x86_64 portable across POSIX systems on x86_64 processors
+* ```make release-static-32``` builds binaries on Linux on x86_64 or i686 portable across POSIX systems on i686 processors
+* ```make release-static-arm7``` builds binaries on Linux on armv7 portable across POSIX systesm on armv7 processors
+* ```make release-static-arm6``` builds binaries on Linux on armv7 or armv6 portable across POSIX systems on armv6 processors, such as the Raspberry Pi
+* ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
+* ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
+
+### Building Documentation
 
 Monero developer documentation uses Doxygen, and is currently a work-in-progress.
 
-Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
+Dependencies: Doxygen `>=1.8.0`, Graphviz `>=2.28` (optional).
 
-* To build, change to the root of the source code directory, and run `doxygen Doxyfile`
-* If you have installed Graphviz, you can also generate in-doc diagrams by instead running `HAVE_DOT=YES doxygen Doxyfile`
+* To build the HTML documentation without diagrams, change
+  to the root of the source code directory, and run
+
+        doxygen Doxyfile
+
+* To build the HTML documentation with diagrams (Graphviz required):
+
+        HAVE_DOT=YES doxygen Doxyfile
+
 * The output will be built in doc/html/
 
 ## Running bitmonerod
