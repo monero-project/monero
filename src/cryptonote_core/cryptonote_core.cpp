@@ -293,20 +293,23 @@ namespace cryptonote
     catch (...) { }
 
     BlockchainDB* db = nullptr;
-    uint64_t BDB_FAST_MODE = 0;
-    uint64_t BDB_FASTEST_MODE = 0;
-    uint64_t BDB_SAFE_MODE = 0;
+    uint64_t DBS_FAST_MODE = 0;
+    uint64_t DBS_FASTEST_MODE = 0;
+    uint64_t DBS_SAFE_MODE = 0;
     if (db_type == "lmdb")
     {
       db = new BlockchainLMDB();
+      DBS_SAFE_MODE = MDB_NORDAHEAD;
+      DBS_FAST_MODE = MDB_NORDAHEAD | MDB_NOSYNC;
+      DBS_FASTEST_MODE = MDB_NORDAHEAD | MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
     }
     else if (db_type == "berkeley")
     {
 #if defined(BERKELEY_DB)
       db = new BlockchainBDB();
-      BDB_FAST_MODE = DB_TXN_WRITE_NOSYNC;
-      BDB_FASTEST_MODE = DB_TXN_NOSYNC;
-      BDB_SAFE_MODE = DB_TXN_SYNC;
+      DBS_FAST_MODE = DB_TXN_WRITE_NOSYNC;
+      DBS_FASTEST_MODE = DB_TXN_NOSYNC;
+      DBS_SAFE_MODE = DB_TXN_SYNC;
 #else
       LOG_ERROR("BerkeleyDB support disabled.");
       return false;
@@ -329,7 +332,6 @@ namespace cryptonote
     try
     {
       uint64_t db_flags = 0;
-      bool islmdb = db_type == "lmdb";
 
       std::vector<std::string> options;
       boost::trim(db_sync_mode);
@@ -338,9 +340,8 @@ namespace cryptonote
       for(const auto &option : options)
         LOG_PRINT_L0("option: " << option);
 
-      // temporarily default to fastest:async:1000
-      uint64_t DEFAULT_FLAGS = islmdb ? MDB_WRITEMAP | MDB_MAPASYNC | MDB_NORDAHEAD | MDB_NOMETASYNC | MDB_NOSYNC :
-          BDB_FASTEST_MODE;
+      // default to fast:async:1000
+      uint64_t DEFAULT_FLAGS = DBS_FAST_MODE;
 
       if(options.size() == 0)
       {
@@ -354,13 +355,13 @@ namespace cryptonote
         if(options[0] == "safe")
         {
           safemode = true;
-          db_flags = islmdb ? MDB_NORDAHEAD : BDB_SAFE_MODE;
+          db_flags = DBS_SAFE_MODE;
           sync_mode = db_nosync;
         }
         else if(options[0] == "fast")
-          db_flags = islmdb ? MDB_NOMETASYNC | MDB_NOSYNC | MDB_NORDAHEAD : BDB_FAST_MODE;
+          db_flags = DBS_FAST_MODE;
         else if(options[0] == "fastest")
-          db_flags = islmdb ? MDB_WRITEMAP | MDB_MAPASYNC | MDB_NORDAHEAD | MDB_NOMETASYNC | MDB_NOSYNC : BDB_FASTEST_MODE;
+          db_flags = DBS_FASTEST_MODE;
         else
           db_flags = DEFAULT_FLAGS;
       }
