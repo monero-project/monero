@@ -111,7 +111,7 @@ notifications:
     on_success: change
     on_failure: change
     channels:
-      - "chat.freenode.net#monero-dev"
+      - "chat.freenode.net#monero-bots"
     nick: monero
     template:
       - "%{result} | %{repository}#%{build_number} (%{commit} : %{author}) | Build details : %{build_url}"
