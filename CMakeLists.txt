@@ -45,31 +45,26 @@ function (die msg)
   message(FATAL_ERROR "${BoldRed}${msg}${ColourReset}")
 endfunction ()
 
-if ("${ARCH}" STREQUAL "" OR "${ARCH}" STREQUAL "native")
-  set(ARCH ${CMAKE_SYSTEM_PROCESSOR})
-  message(STATUS "Building natively on ${ARCH}")
+# ARCH defines the target architecture, either by an explicit identifier or
+# one of the following two keywords. By default, ARCH a value of 'native':
+# target arch = host arch, binary is not portable. When ARCH is set to the
+# string 'default', no -march arg is passed, which creates a binary that is
+# portable across processors in the same family as host processor.  In cases
+# when ARCH is not set to an explicit identifier, cmake's builtin is used
+# to identify the target architecture, to direct logic in this cmake script.
+# Since ARCH is a cached variable, it will not be set on first cmake invocation.
+if (NOT ARCH OR ARCH STREQUAL "" OR ARCH STREQUAL "native" OR ARCH STREQUAL "default")
+  set(ARCH_ID "${CMAKE_SYSTEM_PROCESSOR}")
+else()
+  set(ARCH_ID "${ARCH}")
 endif()
-
-if (NOT "${ARCH}" STREQUAL "")
-  string(SUBSTRING ${ARCH} 0 3 IS_ARM)
-  string(TOLOWER ${IS_ARM} IS_ARM)
-
-  if (${IS_ARM} STREQUAL "arm")
-    string(SUBSTRING ${ARCH} 0 5 ARM_TEST)
-    string(TOLOWER ${ARM_TEST} ARM_TEST)
-
-    if (${ARM_TEST} STREQUAL "armv6")
-      set(ARM6 1)
-    else()
-      set(ARM6 0)
-    endif()
-
-    if (${ARM_TEST} STREQUAL "armv7")
-      set(ARM7 1)
-    else()
-      set(ARM7 0)
-    endif()
-  endif()
+string(SUBSTRING ${ARCH_ID} 0 5 ARM_TEST)
+string(TOLOWER ${ARM_TEST} ARM_TEST)
+if (${ARM_TEST} STREQUAL "armv6")
+  set(ARM6 1)
+endif()
+if (${ARM_TEST} STREQUAL "armv7")
+  set(ARM7 1)
 endif()
 
 if(WIN32 OR ARM7 OR ARM6)
@@ -312,9 +307,9 @@ if(MSVC)
   endif()
   include_directories(SYSTEM src/platform/msc)
 else()
-  set(ARCH native CACHE STRING "CPU to build for: -march value or default")
-  # -march=armv7-a conflicts with -mcpu=cortex-a7
-  if(ARCH STREQUAL "default" OR ARM7 OR ARM6)
+  set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
+  message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
+  if(ARCH STREQUAL "default")
     set(ARCH_FLAG "")
   else()
     if(ARCH STREQUAL "x86_64")
