@@ -36,7 +36,6 @@
 
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/cryptonote_boost_serialization.h"
-#include "cryptonote_core/blockchain_storage.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
@@ -60,21 +59,12 @@ class BlocksdatFile
 {
 public:
 
-#if SOURCE_DB == DB_MEMORY
-  bool store_blockchain_raw(cryptonote::blockchain_storage* cs, cryptonote::tx_memory_pool* txp,
-      boost::filesystem::path& output_file, uint64_t use_block_height=0);
-#else
   bool store_blockchain_raw(cryptonote::Blockchain* cs, cryptonote::tx_memory_pool* txp,
       boost::filesystem::path& output_file, uint64_t use_block_height=0);
-#endif
 
 protected:
 
-#if SOURCE_DB == DB_MEMORY
-  blockchain_storage* m_blockchain_storage;
-#else
   Blockchain* m_blockchain_storage;
-#endif
 
   std::ofstream * m_raw_data_file;
 

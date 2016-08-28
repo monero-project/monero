@@ -26,15 +26,6 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(blockchain_converter_sources
-  blockchain_converter.cpp
-  )
-
-set(blockchain_converter_private_headers)
-
-bitmonero_private_headers(blockchain_converter
-	  ${blockchain_converter_private_headers})
-
 set(blockchain_import_sources
   blockchain_import.cpp
   bootstrap_file.cpp
@@ -86,30 +77,6 @@ set(cn_deserialize_private_headers)
 bitmonero_private_headers(cn_deserialize
 	  ${cn_deserialize_private_headers})
 
-
-if (BLOCKCHAIN_DB STREQUAL DB_LMDB)
-bitmonero_add_executable(blockchain_converter
-  ${blockchain_converter_sources}
-  ${blockchain_converter_private_headers})
-
-target_link_libraries(blockchain_converter
-  LINK_PRIVATE
-    cryptonote_core
-	p2p
-	blockchain_db
-    ${CMAKE_THREAD_LIBS_INIT})
-
-if(ARCH_WIDTH)
-  target_compile_definitions(blockchain_converter
-    PUBLIC -DARCH_WIDTH=${ARCH_WIDTH})
-endif()
-
-add_dependencies(blockchain_converter
-	version)
-set_property(TARGET blockchain_converter
-	PROPERTY
-	OUTPUT_NAME "blockchain_converter")
-endif ()
 
 bitmonero_add_executable(blockchain_import
   ${blockchain_import_sources}

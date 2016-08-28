@@ -110,6 +110,7 @@ struct output_data_t
   crypto::public_key pubkey;       //!< the output's public key (for spend verification)
   uint64_t           unlock_time;  //!< the output's unlock time (or height)
   uint64_t           height;       //!< the height of the block which created the output
+  rct::key           commitment;   //!< the output's amount commitment (for spend verification)
 };
 #pragma pack(pop)
 
@@ -407,9 +408,10 @@ private:
    * @param tx_output the output
    * @param local_index index of the output in its transaction
    * @param unlock_time unlock time/height of the output
+   * @param commitment the rct commitment to the output amount
    * @return amount output index
    */
-  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) = 0;
+  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
 
   /**
    * @brief store amount output indices for a tx's outputs

@@ -235,11 +235,11 @@ namespace tools
     try
     {
       uint64_t mixin = req.mixin;
-      if (mixin < 2 && m_wallet.use_fork_rules(2)) {
+      if (mixin < 2 && m_wallet.use_fork_rules(2, 10)) {
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -254,7 +254,9 @@ namespace tools
       // populate response with tx hash
       res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx_vector.back().tx));
       if (req.get_tx_key)
+      {
         res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
+      }
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -300,15 +302,12 @@ namespace tools
     try
     {
       uint64_t mixin = req.mixin;
-      if (mixin < 2 && m_wallet.use_fork_rules(2)) {
+      if (mixin < 2 && m_wallet.use_fork_rules(2, 10)) {
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
       std::vector<wallet2::pending_tx> ptx_vector;
-      if (req.new_algorithm)
-        ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
-      else
-        ptx_vector = m_wallet.create_transactions(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
+      ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.fee_multiplier, extra, req.trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
 
@@ -317,7 +316,9 @@ namespace tools
       {
         res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
+        {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+        }
       }
 
       return true;
@@ -363,7 +364,9 @@ namespace tools
       {
         res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
+        {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+        }
       }
 
       return true;
@@ -422,7 +425,9 @@ namespace tools
       {
         res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
+        {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+        }
       }
 
       return true;
@@ -693,7 +698,7 @@ namespace tools
         rpc_transfers.amount       = td.amount();
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
-        rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(td.m_tx));
+        rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(td.m_txid);
         rpc_transfers.tx_size      = txBlob.size();
         res.transfers.push_back(rpc_transfers);
       }
@@ -961,10 +966,8 @@ namespace tools
           entry.payment_id = entry.payment_id.substr(0,16);
         entry.height = 0;
         entry.timestamp = pd.m_timestamp;
-        uint64_t amount = 0;
-        cryptonote::get_inputs_money_amount(pd.m_tx, amount);
-        entry.fee = amount - get_outs_money_amount(pd.m_tx);
-        entry.amount = amount - pd.m_change - entry.fee;
+        entry.fee = pd.m_amount_in - pd.m_amount_out;
+        entry.amount = pd.m_amount_in - pd.m_change - entry.fee;
         entry.note = m_wallet.get_tx_note(i->first);
       }
     }

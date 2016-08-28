@@ -37,11 +37,7 @@
 #include "cryptonote_format_utils.h"
 #include "cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
-#if BLOCKCHAIN_DB == DB_LMDB
 #include "blockchain.h"
-#else
-#include "blockchain_storage.h"
-#endif
 #include "common/boost_serialization_helper.h"
 #include "common/int-util.h"
 #include "misc_language.h"
@@ -74,21 +70,22 @@ namespace cryptonote
     }
   }
   //---------------------------------------------------------------------------------
-#if BLOCKCHAIN_DB == DB_LMDB
   //---------------------------------------------------------------------------------
   tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs)
   {
 
   }
-#else
-  tx_memory_pool::tx_memory_pool(blockchain_storage& bchs): m_blockchain(bchs)
-  {
-
-  }
-#endif
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
   {
+    if (tx.version == 0)
+    {
+      // v0 never accepted
+      LOG_PRINT_L1("transaction version 0 is invalid");
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
     // we do not accept transactions that timed out before, unless they're
     // kept_by_block
     if (!kept_by_block && m_timed_out_transactions.find(id) != m_timed_out_transactions.end())
@@ -106,25 +103,34 @@ namespace cryptonote
       return false;
     }
 
-    uint64_t inputs_amount = 0;
-    if(!get_inputs_money_amount(tx, inputs_amount))
-    {
-      tvc.m_verifivation_failed = true;
-      return false;
-    }
-
-    uint64_t outputs_amount = get_outs_money_amount(tx);
-
-    if(outputs_amount >= inputs_amount)
-    {
-      LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
-      tvc.m_verifivation_failed = true;
-      tvc.m_overspend = true;
-      return false;
-    }
-
     // fee per kilobyte, size rounded up.
-    uint64_t fee = inputs_amount - outputs_amount;
+    uint64_t fee;
+
+    if (tx.version == 1)
+    {
+      uint64_t inputs_amount = 0;
+      if(!get_inputs_money_amount(tx, inputs_amount))
+      {
+        tvc.m_verifivation_failed = true;
+        return false;
+      }
+
+      uint64_t outputs_amount = get_outs_money_amount(tx);
+      if(outputs_amount >= inputs_amount)
+      {
+        LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
+        tvc.m_verifivation_failed = true;
+        tvc.m_overspend = true;
+        return false;
+      }
+
+      fee = inputs_amount - outputs_amount;
+    }
+    else
+    {
+      fee = tx.rct_signatures.txnFee;
+    }
+
     uint64_t needed_fee = blob_size / 1024;
     needed_fee += (blob_size % 1024) ? 1 : 0;
     needed_fee *= FEE_PER_KB;
@@ -161,7 +167,7 @@ namespace cryptonote
 
     if (!m_blockchain.check_tx_outputs(tx, tvc))
     {
-      LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid outout");
+      LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid output");
       tvc.m_verifivation_failed = true;
       tvc.m_invalid_output = true;
       return false;
@@ -169,11 +175,9 @@ namespace cryptonote
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
-#if BLOCKCHAIN_DB == DB_LMDB
-    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, kept_by_block);
-#else
-    bool ch_inp_res = m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id);
-#endif
+    tx_details txd;
+    txd.tx = tx;
+    bool ch_inp_res = m_blockchain.check_tx_inputs(txd.tx, max_used_block_height, max_used_block_id, tvc, kept_by_block);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     if(!ch_inp_res)
     {
@@ -181,11 +185,10 @@ namespace cryptonote
       // may become valid again, so ignore the failed inputs check.
       if(kept_by_block)
       {
-        auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
+        auto txd_p = m_transactions.insert(transactions_container::value_type(id, txd));
         CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
         txd_p.first->second.blob_size = blob_size;
-        txd_p.first->second.tx = tx;
-        txd_p.first->second.fee = inputs_amount - outputs_amount;
+        txd_p.first->second.fee = fee;
         txd_p.first->second.max_used_block_id = null_hash;
         txd_p.first->second.max_used_block_height = 0;
         txd_p.first->second.kept_by_block = kept_by_block;
@@ -203,12 +206,11 @@ namespace cryptonote
     }else
     {
       //update transactions container
-      auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
+      auto txd_p = m_transactions.insert(transactions_container::value_type(id, txd));
       CHECK_AND_ASSERT_MES(txd_p.second, false, "intrnal error: transaction already exists at inserting in memorypool");
       txd_p.first->second.blob_size = blob_size;
-      txd_p.first->second.tx = tx;
       txd_p.first->second.kept_by_block = kept_by_block;
-      txd_p.first->second.fee = inputs_amount - outputs_amount;
+      txd_p.first->second.fee = fee;
       txd_p.first->second.max_used_block_id = max_used_block_id;
       txd_p.first->second.max_used_block_height = max_used_block_height;
       txd_p.first->second.last_failed_height = 0;
@@ -518,12 +520,8 @@ namespace cryptonote
         if(txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
           return false;
         //check ring signature again, it is possible (with very small chance) that this transaction become again valid
-#if BLOCKCHAIN_DB == DB_LMDB
         tx_verification_context tvc;
         if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id, tvc))
-#else
-        if(!m_blockchain.check_tx_inputs(txd.tx, txd.max_used_block_height, txd.max_used_block_id))
-#endif
         {
           txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
           txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);
@@ -649,6 +647,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::validate(uint8_t version)
   {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
     size_t n_removed = 0;
     size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {

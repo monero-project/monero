@@ -43,6 +43,7 @@ using namespace epee;
 #include "misc_language.h"
 #include <csignal>
 #include "cryptonote_core/checkpoints.h"
+#include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #if defined(BERKELEY_DB)
@@ -57,11 +58,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
-#if BLOCKCHAIN_DB == DB_LMDB
               m_blockchain_storage(m_mempool),
-#else
-              m_blockchain_storage(&m_mempool),
-#endif
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()),
               m_starter_message_showed(false),
@@ -257,7 +254,6 @@ namespace cryptonote
     r = m_mempool.init(m_fakechain ? std::string() : m_config_folder);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
-#if BLOCKCHAIN_DB == DB_LMDB
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
     std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
     bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
@@ -405,9 +401,6 @@ namespace cryptonote
 
     bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
-#else
-    r = m_blockchain_storage.init(m_config_folder, m_testnet);
-#endif
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     // load json & DNS checkpoints, and verify them
@@ -505,6 +498,15 @@ namespace cryptonote
     }
     //std::cout << "!"<< tx.vin.size() << std::endl;
 
+    uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
+    const size_t max_tx_version = version == 1 ? 1 : 2;
+    if (tx.version == 0 || tx.version > max_tx_version)
+    {
+      // v2 is the latest one we know
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
     if(!check_tx_syntax(tx))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " syntax, rejected");
@@ -560,6 +562,14 @@ namespace cryptonote
       LOG_PRINT_RED_L1("tx with invalid outputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
+    if (tx.version > 1)
+    {
+      if (tx.rct_signatures.outPk.size() != tx.vout.size())
+      {
+        LOG_PRINT_RED_L1("tx with mismatched vout/outPk count, rejected for tx id= " << get_transaction_hash(tx));
+        return false;
+      }
+    }
 
     if(!check_money_overflow(tx))
     {
@@ -567,15 +577,19 @@ namespace cryptonote
       return false;
     }
 
-    uint64_t amount_in = 0;
-    get_inputs_money_amount(tx, amount_in);
-    uint64_t amount_out = get_outs_money_amount(tx);
-
-    if(amount_in <= amount_out)
+    if (tx.version == 1)
     {
-      LOG_PRINT_RED_L1("tx with wrong amounts: ins " << amount_in << ", outs " << amount_out << ", rejected for tx id= " << get_transaction_hash(tx));
-      return false;
+      uint64_t amount_in = 0;
+      get_inputs_money_amount(tx, amount_in);
+      uint64_t amount_out = get_outs_money_amount(tx);
+
+      if(amount_in <= amount_out)
+      {
+        LOG_PRINT_RED_L1("tx with wrong amounts: ins " << amount_in << ", outs " << amount_out << ", rejected for tx id= " << get_transaction_hash(tx));
+        return false;
+      }
     }
+    // for version > 1, ringct signatures check verifies amounts match
 
     if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_cumulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
     {
@@ -714,6 +728,11 @@ namespace cryptonote
     return m_blockchain_storage.get_outs(req, res);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const
+  {
+    return m_blockchain_storage.get_random_rct_outs(req, res);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const
   {
     return m_blockchain_storage.get_tx_outputs_gindexs(tx_id, indexs);
@@ -780,18 +799,14 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::prepare_handle_incoming_blocks(const std::list<block_complete_entry> &blocks)
   {
-#if BLOCKCHAIN_DB == DB_LMDB
     m_blockchain_storage.prepare_handle_incoming_blocks(blocks);
-#endif
     return true;
   }
 
   //-----------------------------------------------------------------------------------------------
   bool core::cleanup_handle_incoming_blocks(bool force_sync)
   {
-#if BLOCKCHAIN_DB == DB_LMDB
     m_blockchain_storage.cleanup_handle_incoming_blocks(force_sync);
-#endif
     return true;
   }
 
@@ -918,11 +933,6 @@ namespace cryptonote
       m_starter_message_showed = true;
     }
 
-#if BLOCKCHAIN_DB == DB_LMDB
-    // m_store_blockchain_interval.do_call(boost::bind(&Blockchain::store_blockchain, &m_blockchain_storage));
-#else
-    m_store_blockchain_interval.do_call(boost::bind(&blockchain_storage::store_blockchain, &m_blockchain_storage));
-#endif
     m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_miner.on_idle();
@@ -932,7 +942,6 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_fork_time()
   {
-#if BLOCKCHAIN_DB == DB_LMDB
     HardFork::State state = m_blockchain_storage.get_hard_fork_state();
     switch (state) {
       case HardFork::LikelyForked:
@@ -951,7 +960,6 @@ namespace cryptonote
       default:
         break;
     }
-#endif
     return true;
   }
   //-----------------------------------------------------------------------------------------------

@@ -30,7 +30,7 @@
 
 #include <boost/filesystem.hpp>
 #include "cryptonote_core/blockchain.h" // BlockchainDB
-#include "cryptonote_core/blockchain_storage.h" // in-memory DB
+#include "cryptonote_core/tx_pool.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #if defined(BERKELEY_DB)
@@ -48,8 +48,6 @@ namespace
 }
 
 
-#if !defined(BLOCKCHAIN_DB) || BLOCKCHAIN_DB == DB_LMDB
-
 struct fake_core_db
 {
   Blockchain m_storage;
@@ -59,12 +57,7 @@ struct fake_core_db
   bool support_add_block;
 
   // for multi_db_runtime:
-#if !defined(BLOCKCHAIN_DB)
-  fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const std::string& db_type="lmdb", const int db_flags=0) : m_pool(&m_storage), m_storage(m_pool)
-  // for multi_db_compile:
-#else
   fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const std::string& db_type="lmdb", const int db_flags=0) : m_pool(m_storage), m_storage(m_pool)
-#endif
   {
     m_pool.init(path.string());
 
@@ -137,59 +130,4 @@ struct fake_core_db
   }
 
 };
-#endif
 
-#if !defined(BLOCKCHAIN_DB) || BLOCKCHAIN_DB == DB_MEMORY
-
-struct fake_core_memory
-{
-  blockchain_storage m_storage;
-  tx_memory_pool m_pool;
-  bool support_batch;
-  bool support_add_block;
-
-  // for multi_db_runtime:
-#if !defined(BLOCKCHAIN_DB)
-  fake_core_memory(const boost::filesystem::path &path, const bool use_testnet=false) : m_pool(&m_storage), m_storage(m_pool)
-#else
-  // for multi_db_compile:
-  fake_core_memory(const boost::filesystem::path &path, const bool use_testnet=false) : m_pool(m_storage), m_storage(&m_pool)
-#endif
-  {
-    m_pool.init(path.string());
-    m_storage.init(path.string(), use_testnet);
-    support_batch = false;
-    support_add_block = false;
-  }
-  ~fake_core_memory()
-  {
-    LOG_PRINT_L3("fake_core_memory() destructor called - want to see it ripple down");
-    m_storage.deinit();
-  }
-
-  uint64_t add_block(const block& blk
-                            , const size_t& block_size
-                            , const difficulty_type& cumulative_difficulty
-                            , const uint64_t& coins_generated
-                            , const std::vector<transaction>& txs
-                            )
-  {
-    // TODO:
-    // would need to refactor handle_block_to_main_chain() to have a direct add_block() method like Blockchain class
-    throw std::runtime_error("direct add_block() method not implemented for in-memory db");
-    return 2;
-  }
-
-  void batch_start(uint64_t batch_num_blocks = 0)
-  {
-    LOG_PRINT_L0("WARNING: [batch_start] opt_batch set, but this database doesn't support/need transactions - ignoring");
-  }
-
-  void batch_stop()
-  {
-    LOG_PRINT_L0("WARNING: [batch_stop] opt_batch set, but this database doesn't support/need transactions - ignoring");
-  }
-
-};
-
-#endif

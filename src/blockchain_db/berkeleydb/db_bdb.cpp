@@ -361,7 +361,7 @@ void BlockchainBDB::remove_transaction_data(const crypto::hash& tx_hash, const t
         throw1(DB_ERROR("Failed to add removal of tx outputs to db transaction"));
 }
 
-void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time)
+void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();

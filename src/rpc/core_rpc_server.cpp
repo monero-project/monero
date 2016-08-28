@@ -159,9 +159,25 @@ namespace cryptonote
     {
       res.blocks.resize(res.blocks.size()+1);
       res.blocks.back().block = block_to_blob(b.first);
+      res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
+      res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
+      bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(b.first.miner_tx), res.output_indices.back().indices.back().indices);
+      if (!r)
+      {
+        res.status = "Failed";
+        return false;
+      }
+      size_t txidx = 0;
       BOOST_FOREACH(auto& t, b.second)
       {
         res.blocks.back().txs.push_back(tx_to_blob(t));
+        res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
+        bool r = m_core.get_tx_outputs_gindexs(b.first.tx_hashes[txidx++], res.output_indices.back().indices.back().indices);
+        if (!r)
+        {
+          res.status = "Failed";
+          return false;
+        }
       }
     }
 
@@ -246,6 +262,30 @@ namespace cryptonote
       return true;
     }
 
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res)
+  {
+    CHECK_CORE_BUSY();
+    res.status = "Failed";
+    if(!m_core.get_random_rct_outs(req, res))
+    {
+      return true;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    std::stringstream ss;
+    typedef COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry out_entry;
+    CHECK_AND_ASSERT_MES(res.outs.size(), true, "internal error: res.outs.size() is empty");
+    std::for_each(res.outs.begin(), res.outs.end(), [&](out_entry& oe)
+      {
+        ss << oe.global_amount_index << " ";
+      });
+    ss << ENDL;
+    std::string s = ss.str();
+    LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS: " << ENDL << s);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -459,6 +499,8 @@ namespace cryptonote
         res.reason = "overspend";
       if ((res.fee_too_low = tvc.m_fee_too_low))
         res.reason = "fee too low";
+      if ((res.not_rct = tvc.m_not_rct))
+        res.reason = "tx is not ringct";
       return true;
     }
 
@@ -1023,7 +1065,6 @@ namespace cryptonote
       return false;
     }
 
-#if BLOCKCHAIN_DB == DB_LMDB
     const Blockchain &blockchain = m_core.get_blockchain_storage();
     uint8_t version = req.version > 0 ? req.version : blockchain.get_next_hard_fork_version();
     res.version = blockchain.get_current_hard_fork_version();
@@ -1031,11 +1072,6 @@ namespace cryptonote
     res.state = blockchain.get_hard_fork_state();
     res.status = CORE_RPC_STATUS_OK;
     return true;
-#else
-    error_resp.code = CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC;
-    error_resp.message = "Hard fork inoperative in memory mode.";
-    return false;
-#endif
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_bans(const COMMAND_RPC_GETBANS::request& req, COMMAND_RPC_GETBANS::response& res, epee::json_rpc::error& error_resp)

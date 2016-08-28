@@ -364,7 +364,7 @@ private:
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
-  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time);
+  virtual void add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment);
 
   virtual void remove_output(const tx_out& tx_output);
 

@@ -30,6 +30,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_protocol/blobdatatype.h" // for type blobdata
+#include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
 
 #include <lmdb.h>
@@ -292,7 +293,8 @@ private:
   virtual uint64_t add_output(const crypto::hash& tx_hash,
       const tx_out& tx_output,
       const uint64_t& local_index,
-      const uint64_t unlock_time
+      const uint64_t unlock_time,
+      const rct::key *commitment
       );
 
   virtual void add_tx_amount_output_indices(const uint64_t tx_id,

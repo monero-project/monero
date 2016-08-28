@@ -51,6 +51,13 @@ using epee::string_tools::pod_to_hex;
 namespace
 {
 
+struct pre_rct_output_data_t
+{
+  crypto::public_key pubkey;       //!< the output's public key (for spend verification)
+  uint64_t           unlock_time;  //!< the output's unlock time (or height)
+  uint64_t           height;       //!< the height of the block which created the output
+};
+
 template <typename T>
 inline void throw0(const T &e)
 {
@@ -241,6 +248,12 @@ typedef struct txindex {
     crypto::hash key;
     tx_data_t data;
 } txindex;
+
+typedef struct pre_rct_outkey {
+    uint64_t amount_index;
+    uint64_t output_id;
+    pre_rct_output_data_t data;
+} pre_rct_outkey;
 
 typedef struct outkey {
     uint64_t amount_index;
@@ -765,7 +778,8 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
 uint64_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
     const tx_out& tx_output,
     const uint64_t& local_index,
-    const uint64_t unlock_time)
+    const uint64_t unlock_time,
+    const rct::key *commitment)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -778,6 +792,8 @@ uint64_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
 
   if (tx_output.target.type() != typeid(txout_to_key))
     throw0(DB_ERROR("Wrong output type: expected txout_to_key"));
+  if (tx_output.amount == 0 && !commitment)
+    throw0(DB_ERROR("RCT output without commitment"));
 
   outtx ot = {m_num_outputs, tx_hash, local_index};
   MDB_val_set(vot, ot);
@@ -806,8 +822,16 @@ uint64_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
   ok.data.pubkey = boost::get < txout_to_key > (tx_output.target).key;
   ok.data.unlock_time = unlock_time;
   ok.data.height = m_height;
+  if (tx_output.amount == 0)
+  {
+    ok.data.commitment = *commitment;
+    data.mv_size = sizeof(ok);
+  }
+  else
+  {
+    data.mv_size = sizeof(pre_rct_outkey);
+  }
   data.mv_data = &ok;
-  data.mv_size = sizeof(ok);
 
   if ((result = mdb_cursor_put(m_cur_output_amounts, &val_amount, &data, MDB_APPENDDUP)))
       throw0(DB_ERROR(lmdb_error("Failed to add output pubkey to db transaction: ", result).c_str()));
@@ -1234,6 +1258,7 @@ void BlockchainLMDB::reset()
   mdb_txn_safe txn;
   if (auto result = mdb_txn_begin(m_env, NULL, 0, txn))
     throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+
   if (auto result = mdb_drop(txn, m_blocks, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_blocks: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_block_info, 0))
@@ -1242,6 +1267,8 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_block_heights: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_txs, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_txs: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_tx_indices, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_tx_indices: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_tx_outputs, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_tx_outputs: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_output_txs, 0))
@@ -1255,6 +1282,13 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_versions: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_properties, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_properties: ", result).c_str()));
+
+  // init with current version
+  MDB_val_copy<const char*> k("version");
+  MDB_val_copy<uint32_t> v(VERSION);
+  if (auto result = mdb_put(txn, m_properties, &k, &v, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to write version to database: ", result).c_str()));
+
   txn.commit();
   m_height = 0;
   m_num_outputs = 0;
@@ -1923,8 +1957,19 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint6
     throw1(OUTPUT_DNE("Attempting to get output pubkey by index, but key does not exist"));
   else if (get_result)
     throw0(DB_ERROR("Error attempting to retrieve an output pubkey from the db"));
-  outkey *okp = (outkey *)v.mv_data;
-  output_data_t ret = okp->data;
+
+  output_data_t ret;
+  if (amount == 0)
+  {
+    const outkey *okp = (const outkey *)v.mv_data;
+    ret = okp->data;
+  }
+  else
+  {
+    const pre_rct_outkey *okp = (const pre_rct_outkey *)v.mv_data;
+    memcpy(&ret, &okp->data, sizeof(pre_rct_output_data_t));;
+    ret.commitment = rct::zeroCommit(amount);
+  }
   TXN_POSTFIX_RDONLY();
   return ret;
 }
@@ -2547,8 +2592,18 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
     else if (get_result)
       throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output pubkey from the db", get_result).c_str()));
 
-    outkey *okp = (outkey *)v.mv_data;
-    output_data_t data = okp->data;
+    output_data_t data;
+    if (amount == 0)
+    {
+      const outkey *okp = (const outkey *)v.mv_data;
+      data = okp->data;
+    }
+    else
+    {
+      const pre_rct_outkey *okp = (const pre_rct_outkey *)v.mv_data;
+      memcpy(&data, &okp->data, sizeof(pre_rct_output_data_t));
+      data.commitment = rct::zeroCommit(amount);
+    }
     outputs.push_back(data);
   }
 

@@ -27,8 +27,8 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/blockchain_storage.h"
 #include "cryptonote_core/blockchain.h"
+#include "cryptonote_core/tx_pool.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #ifdef BERKELEY_DB
@@ -103,7 +103,6 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<std::string> arg_output_file = {"output-file", "Specify output file", "", true};
   const command_line::arg_descriptor<uint32_t> arg_log_level  = {"log-level",  "", log_level};
   const command_line::arg_descriptor<uint64_t> arg_block_stop = {"block-stop", "Stop at block number", block_stop};
-#if SOURCE_DB != DB_MEMORY
   const command_line::arg_descriptor<std::string> arg_db_type = {
     "db-type"
   , "Specify database type"
@@ -114,7 +113,6 @@ int main(int argc, char* argv[])
       , "Include data that is only in a database version."
       , false
   };
-#endif
   const command_line::arg_descriptor<bool>     arg_testnet_on = {
     "testnet"
       , "Run on testnet."
@@ -125,10 +123,8 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, command_line::arg_data_dir, default_data_path.string());
   command_line::add_arg(desc_cmd_sett, command_line::arg_testnet_data_dir, default_testnet_data_path.string());
   command_line::add_arg(desc_cmd_sett, arg_output_file);
-#if SOURCE_DB != DB_MEMORY
   command_line::add_arg(desc_cmd_sett, arg_db_type);
   command_line::add_arg(desc_cmd_sett, arg_include_db_only_data);
-#endif
   command_line::add_arg(desc_cmd_sett, arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_block_stop);
@@ -164,9 +160,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Setting log level = " << log_level);
 
   bool opt_testnet = command_line::get_arg(vm, arg_testnet_on);
-#if SOURCE_DB != DB_MEMORY
   bool opt_include_db_only_data = command_line::get_arg(vm, arg_include_db_only_data);
-#endif
 
   std::string m_config_folder;
 
@@ -208,15 +202,6 @@ int main(int argc, char* argv[])
 
   // If we wanted to use the memory pool, we would set up a fake_core.
 
-#if SOURCE_DB == DB_MEMORY
-  // blockchain_storage* core_storage = NULL;
-  // tx_memory_pool m_mempool(*core_storage); // is this fake anyway? just passing in NULL! so m_mempool can't be used anyway, right?
-  // core_storage = new blockchain_storage(&m_mempool);
-
-  blockchain_storage* core_storage = new blockchain_storage(NULL);
-  LOG_PRINT_L0("Initializing source blockchain (in-memory database)");
-  r = core_storage->init(m_config_folder, opt_testnet);
-#else
   // Use Blockchain instead of lower-level BlockchainDB for two reasons:
   // 1. Blockchain has the init() method for easy setup
   // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
@@ -267,7 +252,6 @@ int main(int argc, char* argv[])
     return 1;
   }
   r = core_storage->init(db, opt_testnet);
-#endif
 
   CHECK_AND_ASSERT_MES(r, false, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");
@@ -340,7 +324,6 @@ int main(int argc, char* argv[])
         write_pod(d,key_images[n]);
     }
     end_compound(d);
-#if SOURCE_DB != DB_MEMORY
     if (opt_include_db_only_data)
     {
       start_struct(d, "block_timestamps", true);
@@ -420,7 +403,6 @@ int main(int argc, char* argv[])
           write_pod(d, boost::lexical_cast<std::string>(h), (unsigned int)db->get_hard_fork_version(h));
       end_compound(d);
     }
-#endif
   end_compound(d);
 
   CHECK_AND_ASSERT_MES(r, false, "Failed to dump blockchain");

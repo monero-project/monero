@@ -132,10 +132,12 @@ namespace wallet_rpc
     {
       std::string tx_hash;
       std::string tx_key;
+      std::list<std::string> amount_keys;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(amount_keys)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -149,7 +151,6 @@ namespace wallet_rpc
       uint64_t mixin;
       uint64_t unlock_time;
       std::string payment_id;
-      bool new_algorithm;
       bool get_tx_keys;
       bool trusted_daemon;
 
@@ -159,9 +160,17 @@ namespace wallet_rpc
         KV_SERIALIZE(mixin)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
-        KV_SERIALIZE(new_algorithm)
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE(trusted_daemon)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct key_list
+    {
+      std::list<std::string> keys;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -187,6 +196,15 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE(trusted_daemon)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct key_list
+    {
+      std::list<std::string> keys;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -222,6 +240,15 @@ namespace wallet_rpc
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE(trusted_daemon)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct key_list
+    {
+      std::list<std::string> keys;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
       END_KV_SERIALIZE_MAP()
     };
 
