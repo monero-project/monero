@@ -45,6 +45,11 @@ function (die msg)
   message(FATAL_ERROR "${BoldRed}${msg}${ColourReset}")
 endfunction ()
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+  message(STATUS "Setting default build type: ${CMAKE_BUILD_TYPE}")
+endif()
+
 # ARCH defines the target architecture, either by an explicit identifier or
 # one of the following two keywords. By default, ARCH a value of 'native':
 # target arch = host arch, binary is not portable. When ARCH is set to the
