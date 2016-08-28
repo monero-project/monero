@@ -246,7 +246,8 @@ add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 find_package(Libunwind)
 # Can't install hook in static build on OSX, because OSX linker does not support --wrap
-if(LIBUNWIND_FOUND AND NOT (STATIC AND APPLE))
+# On ARM, having libunwind package (with .so's only) installed breaks static link.
+if(LIBUNWIND_FOUND AND NOT (STATIC AND (APPLE OR ARM6 OR ARM7)))
   set(DEFAULT_STACK_TRACE ON)
 else()
   set(DEFAULT_STACK_TRACE OFF)
