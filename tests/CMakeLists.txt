@@ -97,11 +97,17 @@ add_test(
   NAME    hash-target
   COMMAND hash-target-tests)
 
-# Skip the core_tests if we are running in Travis-CI because they will take too long
-if (DEFINED ENV{TRAVIS})
-  add_custom_target(tests DEPENDS difficulty hash performance_tests core_proxy unit_tests)
-else ()
-  add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
-endif ()
+set(enabled_tests
+    difficulty
+    hash
+    performance_tests
+    core_proxy
+    unit_tests)
 
+# Skip the core_tests in Travis-CI because they will take too long
+if (NOT DEFINED ENV{TRAVIS})
+    list(APPEND enabled_tests coretests)
+endif()
+
+add_custom_target(tests DEPENDS enabled_tests)
 set_property(TARGET tests PROPERTY FOLDER "${folder}")
