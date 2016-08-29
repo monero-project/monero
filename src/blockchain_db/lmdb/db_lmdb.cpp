@@ -877,10 +877,12 @@ void BlockchainLMDB::remove_tx_outputs(const uint64_t tx_id, const transaction& 
       throw0(DB_ERROR("tx has outputs, but no output indices found"));
   }
 
+  bool is_miner_tx = tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
   for (uint64_t i = tx.vout.size(); i > 0; --i)
   {
     const tx_out tx_output = tx.vout[i-1];
-    remove_output(tx_output.amount, amount_output_indices[i-1]);
+    uint64_t amount = is_miner_tx && tx.version >= 2 ? 0 : tx_output.amount;
+    remove_output(amount, amount_output_indices[i-1]);
   }
 }
 
