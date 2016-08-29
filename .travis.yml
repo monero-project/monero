@@ -37,7 +37,7 @@ matrix:
     install:
       - sudo apt-get -y install libboost-{chrono,program-options,date-time,thread,system,filesystem,regex,serialization}1.58{-dev,.0}
     script:
-      - make -j2 debug-test
+      - make -j2 coverage
     after_success:
       - travis_wait coveralls -e external -e tests -e cmake -e contrib -e translations -e utils --gcov-options '\-lp' &> /dev/null
 
