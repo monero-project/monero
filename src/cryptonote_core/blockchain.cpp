@@ -3378,7 +3378,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
         store_blockchain();
       m_sync_counter = 0;
     }
-    else if (m_sync_counter >= m_db_blocks_per_sync)
+    else if (m_db_blocks_per_sync && m_sync_counter >= m_db_blocks_per_sync)
     {
       if(m_db_sync_mode == db_async)
       {
