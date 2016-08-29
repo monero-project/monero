@@ -74,21 +74,34 @@ Packaging for your favorite distribution would be a welcome contribution!
 
 ### Dependencies
 
-* GCC `>=4.7.3`
-* CMake `>=3.0.0`
-* pkg-config
-* libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
-* libevent `>=2.0`
-* Boost `>=1.58`
-* BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
-* libunwind (optional, for stack trace on exception)
-* miniupnpc (optional, for NAT punching)
-* ldns `>=1.6.17` (optional, for statically-linked binaries)
-* expat `>=1.1` (optional, for statically-linked binaries)
-* bison or yacc (optional, for statically-linked binaries)
-* GTest `>=1.5` (optional, for running test suite) (NOTE: `libgtest-dev` package in Ubuntu ships without binaries and requires a manual build; `gtest` on Arch includes binaries)
-* Doxygen (optional, for generating documentation)
-* graphviz (optional, for generating documentation)
+The following table summarizes the tools and libraries required to build.  A
+few of the libraries are also included in this repository (marked as
+"Vendored"). By default, the build uses the library installed on the system,
+and ignores the vendored sources. However, if no library is found installed on
+the system, then the vendored source will be built and used. The vendored
+sources are also used for statically-linked builds because distribution
+packages often include only shared library binaries (`.so`) but not static
+library archives (`.a`).
+
+| Dep            | Min. Version  | Vendored | Debian/Ubuntu Pkg  | Arch Pkg       | Optional | Purpose        |
+| -------------- | ------------- | ---------| ------------------ | -------------- | -------- | -------------- |
+| GCC            | 4.7.3         | NO       | `build-essential`  | `base-devel`   | NO       |                |
+| CMake          | 3.0.0         | NO       | `cmake`            | `cmake`        | NO       |                |
+| pkg-config     | any           | NO       | `pkg-config`       | `base-devel`   | NO       |                |
+| Boost          | 1.58          | NO       | `libboost-all-dev` | `boost`        | NO       |                |
+| BerkeleyDB     | 4.8           | NO       | `libdb{,++}-dev`   | `db`           | NO       |                |
+| libevent       | 2.0           | NO       | `libevent-dev`     | `libevent`     | NO       |                |
+| libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       |                |
+| libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
+| libunwind      | any           | NO       | `libunwind-dev`    | `libunwind`    | YES      | stack traces   |
+| ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | ?              |
+| expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | ?              |
+| GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | test suite     |
+| Doxygen        | any           | NO       | `doxygen`          | `doxygen`      | YES      | documentation  |
+| Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | documentation  |
+
+[^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
+build the library binary manually.
 
 ### Build instructions
 
