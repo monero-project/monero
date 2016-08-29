@@ -69,7 +69,7 @@ namespace command_line
   const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
     "db-sync-mode"
   , "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[nblocks_per_sync]." 
-  , "fastest:async:1000"
+  , "fast:async:1000"
   };
   const command_line::arg_descriptor<uint64_t> arg_fast_block_sync = {
     "fast-block-sync"
