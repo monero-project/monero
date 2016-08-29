@@ -79,7 +79,6 @@ Packaging for your favorite distribution would be a welcome contribution!
 * pkg-config
 * libunbound `>=1.4.16` (note: Unbound is not a dependency, libunbound is)
 * libevent `>=2.0`
-* libgtest `>=1.5`
 * Boost `>=1.58`
 * BerkeleyDB `>=4.8` (note: on Ubuntu this means installing libdb-dev and libdb++-dev)
 * libunwind (optional, for stack trace on exception)
@@ -87,6 +86,7 @@ Packaging for your favorite distribution would be a welcome contribution!
 * ldns `>=1.6.17` (optional, for statically-linked binaries)
 * expat `>=1.1` (optional, for statically-linked binaries)
 * bison or yacc (optional, for statically-linked binaries)
+* GTest `>=1.5` (optional, for running test suite) (NOTE: `libgtest-dev` package in Ubuntu ships without binaries and requires a manual build; `gtest` on Arch includes binaries)
 * Doxygen (optional, for generating documentation)
 * graphviz (optional, for generating documentation)
 

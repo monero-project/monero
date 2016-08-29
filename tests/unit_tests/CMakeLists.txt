@@ -69,7 +69,7 @@ target_link_libraries(unit_tests
     rpc
     wallet
     p2p
-    ${GTEST_MAIN_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

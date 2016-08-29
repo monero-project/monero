@@ -42,21 +42,22 @@ find_package(GTest)
 if (GTest_FOUND)
   include_directories(SYSTEM ${GTEST_INCLUDE_DIRS})
 else ()
+  message(STATUS "GTest not found on the system: will use GTest bundled with this source")
   add_subdirectory(gtest)
   include_directories(SYSTEM "${gtest_SOURCE_DIR}/include" "${gtest_SOURCE_DIR}")
 
   # Emulate the FindGTest module's variable.
-  set(GTEST_MAIN_LIBRARIES gtest_main)
+  set(GTEST_LIBRARIES gtest)
 
   # Ignore some warnings when building gtest binaries.
   if(NOT MSVC)
-    set_property(TARGET gtest gtest_main
+    set_property(TARGET gtest
       APPEND_STRING
       PROPERTY
         COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
   endif()
 
-  set_property(TARGET gtest gtest_main
+  set_property(TARGET gtest
       PROPERTY
         FOLDER "${folder}")
 endif ()

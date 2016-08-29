@@ -42,7 +42,7 @@ target_link_libraries(transfers
     crypto
     common
     epee
-    ${GTEST_MAIN_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${Boost_LIBRARIES})
 
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_transfers")
