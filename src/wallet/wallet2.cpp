@@ -2682,8 +2682,8 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
     THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.result.status);
 
     // we ask for more, to have spares if some outputs are still locked
-    size_t requested_outputs_count = (size_t)((fake_outputs_count + 1) * 1.5 + 1);
-    LOG_PRINT_L2("requested_outputs_count: " << requested_outputs_count);
+    size_t base_requested_outputs_count = (size_t)((fake_outputs_count + 1) * 1.5 + 1);
+    LOG_PRINT_L2("base_requested_outputs_count: " << base_requested_outputs_count);
 
     // generate output indices to request
     COMMAND_RPC_GET_OUTPUTS::request req = AUTO_VAL_INIT(req);
@@ -2693,6 +2693,8 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
     {
       const uint64_t amount = it->is_rct() ? 0 : it->amount();
       std::unordered_set<uint64_t> seen_indices;
+      // request more for rct in base recent (locked) coinbases are picked, since they're locked for longer
+      size_t requested_outputs_count = base_requested_outputs_count + (it->is_rct() ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
       size_t start = req.outputs.size();
 
       // if there are just enough outputs to mix with, use all of them.
@@ -2777,6 +2779,7 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
     outs.reserve(selected_transfers.size());
     for(transfer_container::iterator it: selected_transfers)
     {
+      size_t requested_outputs_count = base_requested_outputs_count + (it->is_rct() ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
       outs.push_back(std::vector<entry>());
       outs.back().reserve(fake_outputs_count + 1);
       const rct::key mask = it->is_rct() ? rct::commit(it->amount(), it->m_mask) : rct::zeroCommit(it->amount());
@@ -2792,9 +2795,11 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
         order[n] = n;
       std::shuffle(order.begin(), order.end(), std::default_random_engine(crypto::rand<unsigned>()));
 
+      LOG_PRINT_L2("Looking for " << (fake_outputs_count+1) << " outputs of size " << print_money(it->is_rct() ? 0 : it->amount()));
       for (size_t o = 0; o < requested_outputs_count && outs.back().size() < fake_outputs_count + 1; ++o)
       {
         size_t i = base + order[o];
+        LOG_PRINT_L2("Index " << i << "/" << requested_outputs_count << ": idx " << req.outputs[i].index << " (real " << it->m_global_output_index << "), unlocked " << daemon_resp.outs[i].unlocked << ", key " << daemon_resp.outs[i].key);
         if (req.outputs[i].index == it->m_global_output_index) // don't re-add real one
           continue;
         if (!daemon_resp.outs[i].unlocked) // don't add locked outs
@@ -2805,7 +2810,7 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
       }
       if (outs.back().size() < fake_outputs_count + 1)
       {
-        scanty_outs[it->amount()] = outs.back().size();
+        scanty_outs[it->is_rct() ? 0 : it->amount()] = outs.back().size();
       }
       else
       {
