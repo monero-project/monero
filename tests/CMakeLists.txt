@@ -28,6 +28,9 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+# The docs say this only affects grouping in IDEs
+set(folder "tests")
+
 if (WIN32 AND STATIC)
   add_definitions(-DSTATICLIB)
   # miniupnp changed their static define
@@ -52,6 +55,10 @@ else ()
       PROPERTY
         COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
   endif()
+
+  set_property(TARGET gtest gtest_main
+      PROPERTY
+        FOLDER "${folder}")
 endif ()
 
 if (NOT DEFINED ENV{TRAVIS})
@@ -84,7 +91,7 @@ target_link_libraries(hash-target-tests
     cryptonote_core)
 set_property(TARGET hash-target-tests
   PROPERTY
-    FOLDER "tests")
+    FOLDER "${folder}")
 
 add_test(
   NAME    hash-target
@@ -97,4 +104,4 @@ else ()
   add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
 endif ()
 
-set_property(TARGET gtest gtest_main hash-target-tests tests PROPERTY FOLDER "tests")
+set_property(TARGET tests PROPERTY FOLDER "${folder}")
