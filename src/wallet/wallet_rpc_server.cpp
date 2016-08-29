@@ -473,6 +473,7 @@ namespace tools
       }
 
       res.integrated_address = m_wallet.get_account().get_public_integrated_address_str(payment_id, m_wallet.testnet());
+      res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
     catch (std::exception &e)
