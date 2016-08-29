@@ -414,9 +414,11 @@ namespace wallet_rpc
     struct response
     {
       std::string integrated_address;
+      std::string payment_id;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(integrated_address)
+        KV_SERIALIZE(payment_id)
       END_KV_SERIALIZE_MAP()
     };
   };
