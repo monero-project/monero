@@ -62,9 +62,7 @@ else ()
         FOLDER "${folder}")
 endif ()
 
-if (NOT DEFINED ENV{TRAVIS})
-  add_subdirectory(core_tests)
-endif ()
+add_subdirectory(core_tests)
 add_subdirectory(crypto)
 add_subdirectory(functional_tests)
 add_subdirectory(performance_tests)
@@ -73,9 +71,7 @@ add_subdirectory(unit_tests)
 add_subdirectory(difficulty)
 add_subdirectory(hash)
 add_subdirectory(net_load_tests)
-
-# Disabled until issue #895 is resolved
-#add_subdirectory(libwallet_api_tests)
+add_subdirectory(libwallet_api_tests)
 
 # add_subdirectory(daemon_tests)
 
@@ -99,16 +95,12 @@ add_test(
   COMMAND hash-target-tests)
 
 set(enabled_tests
+    coretests
     difficulty
     hash
     performance_tests
     core_proxy
     unit_tests)
-
-# Skip the core_tests in Travis-CI because they will take too long
-if (NOT DEFINED ENV{TRAVIS})
-    list(APPEND enabled_tests coretests)
-endif()
 
 add_custom_target(tests DEPENDS enabled_tests)
 set_property(TARGET tests PROPERTY FOLDER "${folder}")
