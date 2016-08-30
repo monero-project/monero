@@ -3468,7 +3468,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   return ptx_vector;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, const uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -3484,6 +3484,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
   const bool use_rct = use_fork_rules(4, 0);
+
+  fee_multiplier = sanitize_fee_multiplier(fee_multiplier);
 
   // gather all our dust and non dust outputs
   for (size_t i = 0; i < m_transfers.size(); ++i)
