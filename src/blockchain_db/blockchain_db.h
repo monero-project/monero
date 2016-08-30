@@ -736,10 +736,11 @@ public:
    * @brief checks if a block exists
    *
    * @param h the hash of the requested block
+   * @param height if non NULL, returns the block's height if found
    *
    * @return true of the block exists, otherwise false
    */
-  virtual bool block_exists(const crypto::hash& h) const = 0;
+  virtual bool block_exists(const crypto::hash& h, uint64_t *height = NULL) const = 0;
 
   /**
    * @brief fetches the block with the given hash

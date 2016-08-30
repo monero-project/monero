@@ -58,7 +58,7 @@ public:
   virtual void block_txn_stop() {}
   virtual void block_txn_abort() {}
   virtual void drop_hard_fork_info() {}
-  virtual bool block_exists(const crypto::hash& h) const { return false; }
+  virtual bool block_exists(const crypto::hash& h, uint64_t *height) const { return false; }
   virtual block get_block(const crypto::hash& h) const { return block(); }
   virtual uint64_t get_block_height(const crypto::hash& h) const { return 0; }
   virtual block_header get_block_header(const crypto::hash& h) const { return block_header(); }
