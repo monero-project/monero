@@ -225,7 +225,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
 {
   if(!args.size())
   {
-    std::cout << "Please specify a wallet address to mine for: start_mining <addr> [threads=1]" << std::endl;
+    std::cout << "Please specify a wallet address to mine for: start_mining <addr> [<threads>]" << std::endl;
     return true;
   }
 

@@ -92,7 +92,7 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "start_mining"
     , std::bind(&t_command_parser_executor::start_mining, &m_parser, p::_1)
-    , "Start mining for specified address, start_mining <addr> [threads=1]"
+    , "Start mining for specified address, start_mining <addr> [<threads>], default 1 thread"
     );
   m_command_lookup.set_handler(
       "stop_mining"
