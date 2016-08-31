@@ -72,6 +72,25 @@ Packaging for your favorite distribution would be a welcome contribution!
 
 ## Compiling Monero from Source
 
+### Docker
+
+*  Build Monero docker container from the latest master branch of the git project
+
+```
+docker build -t monero .
+```
+
+* Run the node
+
+```
+# foreground
+docker run -it -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
+
+# background
+docker run -it -d -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
+```
+
+
 ### Dependencies
 
 * GCC `>=4.7.3`
