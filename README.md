@@ -65,23 +65,18 @@ Packages are available for
 
 * OS X via [Homebrew](http://brew.sh)
 
-     brew tap sammy007/cryptonight
-     brew install bitmonero --build-from-source
+      brew tap sammy007/cryptonight
+      brew install bitmonero --build-from-source
 
 * Docker
 
-  *  Build Monero docker container from the latest master branch of the git project
+      docker build -t monero .
+     
+      # either run in foreground
+      docker run -it -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
 
-          docker build -t monero .
-
-
-  * Run the node
-
-          # foreground
-          docker run -it -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
-
-          # background
-          docker run -it -d -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
+      # or in background
+      docker run -it -d -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
 
 Packaging for your favorite distribution would be a welcome contribution!
 
