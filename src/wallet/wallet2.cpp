@@ -3105,27 +3105,24 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
 
   // rct signatures
 
-  // simple
+  // type
   size += 1;
-
-  // message
-  size += 32;
 
   // rangeSigs
   size += (2*64*32+32+64*32) * n_outputs;
 
-  // MGs - only the last slot of II is saved, the rest can be reconstructed
-  size += n_inputs * (32 * (mixin+1) * n_inputs + 32 + 32 * (/*n_inputs+*/1));
+  // MGs
+  size += n_inputs * (32 * (mixin+1) + 32);
 
   // mixRing - not serialized, can be reconstructed
   /* size += 2 * 32 * (mixin+1) * n_inputs; */
 
   // pseudoOuts
-  size += 32 * n_outputs;
+  size += 32 * n_inputs;
   // ecdhInfo
-  size += 3 * 32 * n_outputs;
+  size += 2 * 32 * n_outputs;
   // outPk - only commitment is saved
-  size += 1 * 32 * n_outputs;
+  size += 32 * n_outputs;
   // txnFee
   size += 4;
 
