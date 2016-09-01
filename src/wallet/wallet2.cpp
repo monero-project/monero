@@ -2709,6 +2709,8 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
         }
       }
       LOG_PRINT_L1("" << num_outs << " outputs of size " << print_money(amount));
+      THROW_WALLET_EXCEPTION_IF(num_outs == 0, error::wallet_internal_error,
+          "histogram reports no outputs for " + boost::lexical_cast<std::string>(amount) + ", not even ours");
 
       if (num_outs <= requested_outputs_count)
       {
