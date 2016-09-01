@@ -74,7 +74,7 @@ target_link_libraries(wallet
     ${Boost_REGEX_LIBRARY}
     ${EXTRA_LIBRARIES})
 
-set(libs_to_merge wallet cryptonote_core mnemonics common crypto)
+set(libs_to_merge wallet cryptonote_core mnemonics common crypto ringct)
 
 foreach(lib ${libs_to_merge})
     list(APPEND objlibs $<TARGET_OBJECTS:obj_${lib}>) # matches naming convention in src/CMakeLists.txtA
