@@ -28,6 +28,9 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+# The docs say this only affects grouping in IDEs
+set(folder "tests")
+
 if (WIN32 AND STATIC)
   add_definitions(-DSTATICLIB)
   # miniupnp changed their static define
@@ -39,19 +42,24 @@ find_package(GTest)
 if (GTest_FOUND)
   include_directories(SYSTEM ${GTEST_INCLUDE_DIRS})
 else ()
+  message(STATUS "GTest not found on the system: will use GTest bundled with this source")
   add_subdirectory(gtest)
   include_directories(SYSTEM "${gtest_SOURCE_DIR}/include" "${gtest_SOURCE_DIR}")
 
   # Emulate the FindGTest module's variable.
-  set(GTEST_MAIN_LIBRARIES gtest_main)
+  set(GTEST_LIBRARIES gtest)
 
   # Ignore some warnings when building gtest binaries.
   if(NOT MSVC)
-    set_property(TARGET gtest gtest_main
+    set_property(TARGET gtest
       APPEND_STRING
       PROPERTY
         COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
   endif()
+
+  set_property(TARGET gtest
+      PROPERTY
+        FOLDER "${folder}")
 endif ()
 
 if (NOT DEFINED ENV{TRAVIS})
@@ -84,17 +92,23 @@ target_link_libraries(hash-target-tests
     cryptonote_core)
 set_property(TARGET hash-target-tests
   PROPERTY
-    FOLDER "tests")
+    FOLDER "${folder}")
 
 add_test(
   NAME    hash-target
   COMMAND hash-target-tests)
 
-# Skip the core_tests if we are running in Travis-CI because they will take too long
-if (DEFINED ENV{TRAVIS})
-  add_custom_target(tests DEPENDS difficulty hash performance_tests core_proxy unit_tests)
-else ()
-  add_custom_target(tests DEPENDS coretests difficulty hash performance_tests core_proxy unit_tests)
-endif ()
+set(enabled_tests
+    difficulty
+    hash
+    performance_tests
+    core_proxy
+    unit_tests)
 
-set_property(TARGET gtest gtest_main hash-target-tests tests PROPERTY FOLDER "tests")
+# Skip the core_tests in Travis-CI because they will take too long
+if (NOT DEFINED ENV{TRAVIS})
+    list(APPEND enabled_tests coretests)
+endif()
+
+add_custom_target(tests DEPENDS enabled_tests)
+set_property(TARGET tests PROPERTY FOLDER "${folder}")

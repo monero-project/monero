@@ -40,7 +40,7 @@ add_executable(libwallet_api_tests
 target_link_libraries(libwallet_api_tests
   LINK_PRIVATE
     wallet
-    ${GTEST_MAIN_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${EXTRA_LIBRARIES})
 
 set_property(TARGET libwallet_api_tests
