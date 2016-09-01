@@ -372,11 +372,10 @@ namespace cryptonote
 
       if(options.size() >= 3 && !safemode)
       {
-        blocks_per_sync = atoll(options[2].c_str());
-        if(blocks_per_sync > 5000)
-          blocks_per_sync = 5000;
-        if(blocks_per_sync == 0)
-          blocks_per_sync = 1;
+        char *endptr;
+        uint64_t bps = strtoull(options[2].c_str(), &endptr, 0);
+        if (*endptr == '\0')
+          blocks_per_sync = bps;
       }
 
       bool auto_remove_logs = command_line::get_arg(vm, command_line::arg_db_auto_remove_logs) != 0;
