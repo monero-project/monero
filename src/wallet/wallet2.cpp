@@ -3109,9 +3109,9 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
   size += 1;
 
   // rangeSigs
-  size += (2*64*32+64*32) * n_outputs;
+  size += (2*64*32+32+64*32) * n_outputs;
 
-  // MGs - only the last slot of II is saved, the rest can be reconstructed
+  // MGs
   size += n_inputs * (32 * (mixin+1) + 32);
 
   // mixRing - not serialized, can be reconstructed
