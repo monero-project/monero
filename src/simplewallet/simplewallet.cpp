@@ -3586,8 +3586,8 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
     std::string data;
     for (const auto &i: ski)
     {
-      data += epee::string_tools::pod_to_hex(i.first);
-      data += epee::string_tools::pod_to_hex(i.second);
+      data += std::string((const char *)&i.first, sizeof(crypto::key_image));
+      data += std::string((const char *)&i.second, sizeof(crypto::signature));
     }
     bool r = epee::file_io_utils::save_string_to_file(filename, data);
     if (!r)
@@ -3624,7 +3624,7 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
     return true;
   }
 
-  const size_t record_size = sizeof(crypto::key_image)*2 + sizeof(crypto::signature)*2;
+  const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
   if (data.size() % record_size)
   {
     fail_msg_writer() << "Bad data size from file " << filename;
@@ -3636,21 +3636,8 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
   ski.reserve(nki);
   for (size_t n = 0; n < nki; ++n)
   {
-    cryptonote::blobdata bd;
-
-    if(!epee::string_tools::parse_hexstr_to_binbuff(std::string(&data[n * record_size], sizeof(crypto::key_image)*2), bd))
-    {
-      fail_msg_writer() << tr("failed to parse key image");
-      return false;
-    }
-    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(bd.data());
-
-    if(!epee::string_tools::parse_hexstr_to_binbuff(std::string(&data[n * record_size + sizeof(crypto::key_image)*2], sizeof(crypto::signature)*2), bd))
-    {
-      fail_msg_writer() << tr("failed to parse signature");
-      return false;
-    }
-    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(bd.data());
+    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(&data[n * record_size]);
+    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(&data[n * record_size + sizeof(crypto::key_image)]);
 
     ski.push_back(std::make_pair(key_image, signature));
   }
