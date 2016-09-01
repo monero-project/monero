@@ -77,6 +77,8 @@ typedef cryptonote::simple_wallet sw;
 
 #define DEFAULT_MIX 4
 
+#define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\001"
+
 // workaround for a suspected bug in pthread/kernel on MacOS X
 #ifdef __APPLE__
 #define DEFAULT_MAX_CONCURRENCY 1
@@ -3583,7 +3585,10 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
   try
   {
     std::vector<std::pair<crypto::key_image, crypto::signature>> ski = m_wallet->export_key_images();
-    std::string data;
+    std::string data(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
+    const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
+    data += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
+    data += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
     for (const auto &i: ski)
     {
       data += std::string((const char *)&i.first, sizeof(crypto::key_image));
@@ -3623,21 +3628,41 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
     fail_msg_writer() << tr("failed to read file ") << filename;
     return true;
   }
-
-  const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
-  if (data.size() % record_size)
+  const size_t magiclen = strlen(KEY_IMAGE_EXPORT_FILE_MAGIC);
+  if (data.size() < magiclen || memcmp(data.data(), KEY_IMAGE_EXPORT_FILE_MAGIC, magiclen))
+  {
+    fail_msg_writer() << "Bad key image export file magic in " << filename;
+    return true;
+  }
+  const size_t headerlen = magiclen + 2 * sizeof(crypto::public_key);
+  if (data.size() < headerlen)
   {
     fail_msg_writer() << "Bad data size from file " << filename;
     return true;
   }
-  size_t nki = data.size() / record_size;
+  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[magiclen];
+  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[magiclen + sizeof(crypto::public_key)];
+  const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
+  if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
+  {
+    fail_msg_writer() << "Key images from " << filename << " are for a different account";
+    return true;
+  }
+
+  const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
+  if ((data.size() - headerlen) % record_size)
+  {
+    fail_msg_writer() << "Bad data size from file " << filename;
+    return true;
+  }
+  size_t nki = (data.size() - headerlen) / record_size;
 
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
   ski.reserve(nki);
   for (size_t n = 0; n < nki; ++n)
   {
-    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(&data[n * record_size]);
-    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(&data[n * record_size + sizeof(crypto::key_image)]);
+    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(&data[headerlen + n * record_size]);
+    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(&data[headerlen + n * record_size + sizeof(crypto::key_image)]);
 
     ski.push_back(std::make_pair(key_image, signature));
   }
