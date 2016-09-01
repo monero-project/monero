@@ -1387,7 +1387,7 @@ void BlockchainLMDB::unlock()
       auto_txn.commit(); \
   } while(0)
 
-bool BlockchainLMDB::block_exists(const crypto::hash& h) const
+bool BlockchainLMDB::block_exists(const crypto::hash& h, uint64_t *height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1405,7 +1405,14 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h) const
   else if (get_result)
     throw0(DB_ERROR(lmdb_error("DB error attempting to fetch block index from hash", get_result).c_str()));
   else
+  {
+    if (height)
+    {
+      const blk_height *bhp = (const blk_height *)key.mv_data;
+      *height = bhp->bh_height;
+    }
     ret = true;
+  }
 
   TXN_POSTFIX_RDONLY();
   return ret;

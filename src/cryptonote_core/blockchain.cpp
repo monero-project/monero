@@ -1801,12 +1801,8 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   {
     try
     {
-      split_height = m_db->get_block_height(*bl_it);
-      break;
-    }
-    catch (const BLOCK_DNE& e)
-    {
-      continue;
+      if (m_db->block_exists(*bl_it, &split_height))
+        break;
     }
     catch (const std::exception& e)
     {

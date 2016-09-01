@@ -250,7 +250,7 @@ public:
 
   virtual void unlock();
 
-  virtual bool block_exists(const crypto::hash& h) const;
+  virtual bool block_exists(const crypto::hash& h, uint64_t *height = NULL) const;
 
   virtual block get_block(const crypto::hash& h) const;
 
