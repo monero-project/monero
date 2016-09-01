@@ -82,8 +82,13 @@ function (bitmonero_add_library name)
     FILES
       ${ARGN})
 
-  add_library("${name}"
-    ${ARGN})
+  # Define a ("virtual") object library and an actual library that links those
+  # objects together. The virtual libraries can be arbitrarily combined to link
+  # any subset of objects into one library archive. This is used for releasing
+  # libwallet, which combines multiple components.
+  set(objlib obj_${name})
+  add_library(${objlib} OBJECT ${ARGN})
+  add_library("${name}" STATIC $<TARGET_OBJECTS:${objlib}>)
   set_property(TARGET "${name}"
     PROPERTY
       FOLDER "libs")
