@@ -76,6 +76,11 @@ if (ARM_TEST STREQUAL "arm")
   endif()
 endif()
 
+if (ARCH_ID STREQUAL "aarch64")
+  set(ARM 1)
+  set(ARM8 1)
+endif()
+
 if(WIN32 OR ARM)
   set(OPT_FLAGS_RELEASE "-O2")
 else()
@@ -367,23 +372,89 @@ else()
     message(STATUS "AES support enabled")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
-  elseif(ARM)
+  elseif(ARM) #NB ARMv8 DOES support AES, but not yet coded
     message(STATUS "AES support disabled (not available on ARM)")
   else()
     message(STATUS "AES support disabled")
   endif()
 
-  if(ARM6)
-    message(STATUS "Setting ARM6 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -mfloat-abi=hard")
-  endif()
+  if(ARM)
+    message(STATUS "Setting FPU Flags for ARM Processors")
+    include(TestCXXAcceptsFlag)
 
-  if(ARM7)
-    message(STATUS "Setting ARM7 C and C++ flags")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
-  endif()
+    #NB NEON hardware does not fully implement the IEEE 754 standard for floating-point arithmetic
+    #Need custom assembly code to take full advantage of NEON SIMD
+
+    #Cortex-A5/9  -mfpu=neon-fp16
+    #Cortex-A7/15 -mfpu=neon-vfpv4
+    #Cortex-A8    -mfpu=neon
+    #ARMv8  	  -FP and SIMD on by default for all ARM8v-a series, NO -mfpu setting needed
+
+    #For custom -mtune, processor IDs for ARMv8-A series:
+    #0xd04 - Cortex-A35
+    #0xd07 - Cortex-A57
+    #0xd08 - Cortex-A72
+    #0xd03 - Cortex-A73
+
+    if(NOT ARM8)
+      CHECK_CXX_ACCEPTS_FLAG(-mfpu=vfp3-d16 CXX_ACCEPTS_VFP3_D16)
+      CHECK_CXX_ACCEPTS_FLAG(-mfpu=vfp4 CXX_ACCEPTS_VFP4)
+      CHECK_CXX_ACCEPTS_FLAG(-mfloat-abi=hard CXX_ACCEPTS_MFLOAT_HARD)
+      CHECK_CXX_ACCEPTS_FLAG(-mfloat-abi=softfp CXX_ACCEPTS_MFLOAT_SOFTFP)
+    endif()
+
+    if(ARM8)
+      CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-835769 CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+      CHECK_CXX_ACCEPTS_FLAG(-mfix-cortex-a53-843419 CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+    endif()
+
+    if(ARM6)
+      message(STATUS "Selecting VFP for ARMv6")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp")
+    endif(ARM6)
+
+    if(ARM7)
+      if(CXX_ACCEPTS_VFP3_D16 AND NOT CXX_ACCEPTS_VFP4)
+        message(STATUS "Selecting VFP3 for ARMv7")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp3-d16")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp3-d16")
+      endif()
+
+      if(CXX_ACCEPTS_VFP4)
+        message(STATUS "Selecting VFP4 for ARMv7")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp4")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp4")
+      endif()
+
+      if(CXX_ACCEPTS_MFLOAT_HARD)
+        message(STATUS "Setting Hardware ABI for Floating Point")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard")
+      endif()
+
+      if(CXX_ACCEPTS_MFLOAT_SOFTFP AND NOT CXX_ACCEPTS_MFLOAT_HARD)
+        message(STATUS "Setting Software ABI for Floating Point")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=softfp")
+      endif()
+    endif(ARM7)
+
+    if(ARM8)
+      if(CXX_ACCEPTS_MFIX_CORTEX_A53_835769)
+        message(STATUS "Enabling Cortex-A53 workaround 835769")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-835769")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-835769")
+      endif()
+
+      if(CXX_ACCEPTS_MFIX_CORTEX_A53_843419)
+        message(STATUS "Enabling Cortex-A53 workaround 843419")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfix-cortex-a53-843419")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfix-cortex-a53-843419")
+      endif()
+    endif(ARM8)
+
+  endif(ARM)
 
   if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
