@@ -603,3 +603,7 @@ if(BUILD_DOCUMENTATION)
   endif()
 endif()
 
+# when ON - will install libunbound and libwallet_merged into "lib"
+option(BUILD_GUI_DEPS "Build GUI dependencies." OFF)
+
+
