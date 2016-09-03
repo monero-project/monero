@@ -2,15 +2,15 @@
 
 Copyright (c) 2014-2016, The Monero Project
 
-[![Build Status](https://travis-ci.org/monero-project/bitmonero.svg?branch=master)](https://travis-ci.org/monero-project/bitmonero)
-[![Coverage Status](https://coveralls.io/repos/github/monero-project/bitmonero/badge.svg?branch=master)](https://coveralls.io/github/monero-project/bitmonero?branch=master)
+[![Build Status](https://travis-ci.org/monero-project/monero.svg?branch=master)](https://travis-ci.org/monero-project/monero)
+[![Coverage Status](https://coveralls.io/repos/github/monero-project/monero/badge.svg?branch=master)](https://coveralls.io/github/monero-project/monero?branch=master)
 
 ## Development Resources
 
 - Web: [getmonero.org](https://getmonero.org)
 - Forum: [forum.getmonero.org](https://forum.getmonero.org)
 - Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
-- GitHub: [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)
+- GitHub: [https://github.com/monero-project/monero](https://github.com/monero-project/monero)
 - IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
 
 ## Introduction
@@ -73,10 +73,10 @@ Packages are available for
         docker build -t monero .
      
         # either run in foreground
-        docker run -it -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
+        docker run -it -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
 
         # or in background
-        docker run -it -d -v /bitmonero/chain:/root/.bitmonero -v /bitmonero/wallet:/wallet -p 18080:18080 monero
+        docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
 
 Packaging for your favorite distribution would be a welcome contribution!
 
@@ -123,7 +123,7 @@ invokes cmake commands as needed.
 * Install the dependencies
 * Change to the root of the source code directory and build:
 
-        cd bitmonero
+        cd monero
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -243,15 +243,15 @@ Dependencies: Doxygen `>=1.8.0`, Graphviz `>=2.28` (optional).
 
 * The output will be built in doc/html/
 
-## Running bitmonerod
+## Running monerod
 
 The build places the binary in `bin/` sub-directory within the build directory
 from which cmake was invoked (repository root by default). To run in
 foreground:
 
-    ./bin/bitmonerod
+    ./bin/monerod
 
-To list all available options, run `./bin/bitmonerod --help`.  Options can be
+To list all available options, run `./bin/monerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
@@ -259,14 +259,14 @@ of the argument without the leading dashes, for example `log-level=1`.
 
 To run in background:
 
-    ./bin/bitmonerod --log-file bitmonerod.log --detach
+    ./bin/monerod --log-file monerod.log --detach
 
 To run as a systemd service, copy
-[bitmonerod.service](utils/systemd/bitmonerod.service) to `/etc/systemd/system/` and
-[bitmonerod.conf](utils/conf/bitmonerod.conf) to `/etc/`. The [example
-service](utils/systemd/bitmonerod.service) assumes that the user `bitmonero` exists
+[monerod.service](utils/systemd/monerod.service) to `/etc/systemd/system/` and
+[monerod.conf](utils/conf/monerod.conf) to `/etc/`. The [example
+service](utils/systemd/monerod.service) assumes that the user `monero` exists
 and its home is the data directory specified in the [example
-config](utils/conf/bitmonerod.conf).
+config](utils/conf/monerod.conf).
 
 ## Internationalization
 
@@ -274,20 +274,20 @@ See README.i18n
 
 ## Using Tor
 
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmonerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, add TORSOCKS_ALLOW_INBOUND=1. Example:
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the monerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, add TORSOCKS_ALLOW_INBOUND=1. Example:
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks bitmonerod --p2p-bind-ip 127.0.0.1 --no-igd`
+`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd`
 
 TAILS ships with a very restrictive set of firewall rules. Therefore, you need to add a rule to allow this connection too, in addition to telling torsocks to allow inbound connections. Full example:
 
 `sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT`
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks ./bitmonerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
+`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
 
-`./simplewallet`
+`./monero-wallet-cli`
 
 ## Using readline
 
-While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
+While monerod and monero-wallet-cli do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
 
-`rlwrap bin/simplewallet --wallet-file /path/to/wallet`
+`rlwrap bin/monero-wallet-cli --wallet-file /path/to/wallet`

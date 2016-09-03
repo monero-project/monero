@@ -1598,7 +1598,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
     tr("Your wallet has been generated!\n"
     "To start synchronizing with the daemon, use \"refresh\" command.\n"
     "Use \"help\" command to see the list of available commands.\n"
-    "Always use \"exit\" command when closing simplewallet to save your\n"
+    "Always use \"exit\" command when closing monero-wallet-cli to save your\n"
     "current session's state. Otherwise, you might need to synchronize \n"
     "your wallet again (your wallet keys are NOT at risk in any case).\n")
   ;
@@ -3746,7 +3746,7 @@ int main(int argc, char* argv[])
       return false;
     }
     // epee didn't find path to executable from argv[0], so use this default file name.
-    log_file_name = "simplewallet.log";
+    log_file_name = "monero-wallet-cli.log";
     // The full path will use cwd because epee also returned an empty default log folder.
   }
   default_log /= log_file_name;
@@ -3779,7 +3779,7 @@ int main(int argc, char* argv[])
     if (command_line::get_arg(vm, command_line::arg_help))
     {
       success_msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
-      success_msg_writer() << sw::tr("Usage:") << " simplewallet [--wallet-file=<file>|--generate-new-wallet=<file>] [--daemon-address=<host>:<port>] [<COMMAND>]";
+      success_msg_writer() << sw::tr("Usage:") << " monero-wallet-cli [--wallet-file=<file>|--generate-new-wallet=<file>] [--daemon-address=<host>:<port>] [<COMMAND>]";
       success_msg_writer() << desc_all;
       return false;
     }
@@ -3798,8 +3798,8 @@ int main(int argc, char* argv[])
     return 0;
 
   // log_file_path
-  //   default: < argv[0] directory >/simplewallet.log
-  //     so if ran as "simplewallet" (no path), log file will be in cwd
+  //   default: < argv[0] directory >/monero-wallet-cli.log
+  //     so if ran as "monero-wallet-cli" (no path), log file will be in cwd
   //
   //   if log-file argument given:
   //     absolute path
