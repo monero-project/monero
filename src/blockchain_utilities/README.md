@@ -60,7 +60,7 @@ stop at block number
 
 `--database <database type>#<flag(s)>`
 
-database type: `lmdb, berkeley, memory`
+database type: `lmdb, memory`
 
 flags:
 
@@ -77,17 +77,12 @@ LMDB flags (more than one may be specified):
 
 `nosync, nometasync, writemap, mapasync, nordahead`
 
-BerkeleyDB flags (takes one):
-
-`txn_write_nosync, txn_nosync, txn_sync`
+## Examples:
 
 ```
-## Examples:
 $ monero-blockchain-import --database lmdb#fastest
-$ monero-blockchain-import --database berkeley#fastest
 
 $ monero-blockchain-import --database lmdb#nosync
-$ monero-blockchain-import --database lmdb#nosync,nometasync
 
-$ monero-blockchain-import --database berkeley#txn_nosync
+$ monero-blockchain-import --database lmdb#nosync,nometasync
 ```
