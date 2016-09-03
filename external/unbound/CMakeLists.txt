@@ -228,3 +228,9 @@ if (MINGW)
       COPYONLY)
   endforeach ()
 endif ()
+
+
+if (BUILD_GUI_DEPS)
+    install(TARGETS unbound
+        ARCHIVE DESTINATION lib)
+endif()    
