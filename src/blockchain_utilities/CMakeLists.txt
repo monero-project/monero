@@ -68,16 +68,6 @@ bitmonero_private_headers(blockchain_dump
 	  ${blockchain_dump_private_headers})
 
 
-set(cn_deserialize_sources
-  cn_deserialize.cpp
-  )
-
-set(cn_deserialize_private_headers)
-
-bitmonero_private_headers(cn_deserialize
-	  ${cn_deserialize_private_headers})
-
-
 bitmonero_add_executable(blockchain_import
   ${blockchain_import_sources}
   ${blockchain_import_private_headers})
@@ -133,20 +123,3 @@ add_dependencies(blockchain_dump
 set_property(TARGET blockchain_dump
 	PROPERTY
 	OUTPUT_NAME "blockchain_dump")
-
-bitmonero_add_executable(cn_deserialize
-  ${cn_deserialize_sources}
-  ${cn_deserialize_private_headers})
-
-target_link_libraries(cn_deserialize
-  LINK_PRIVATE
-    cryptonote_core
-	p2p
-    ${CMAKE_THREAD_LIBS_INIT})
-
-add_dependencies(cn_deserialize
-	version)
-set_property(TARGET cn_deserialize
-	PROPERTY
-	OUTPUT_NAME "cn_deserialize")
-
