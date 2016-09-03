@@ -34,7 +34,7 @@ VOLUME /root/.bitmonero
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
-# /./bitmonero/simplewallet
+# /./bitmonero/monero-wallet-cli
 VOLUME /wallet
 
 ENV LOG_LEVEL 0
