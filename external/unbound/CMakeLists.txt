@@ -230,7 +230,7 @@ if (MINGW)
 endif ()
 
 
-if (BUILD_GUI_DEPS)
+if (INSTALL_VENDORED_LIBUNBOUND)
     install(TARGETS unbound
         ARCHIVE DESTINATION lib)
 endif()    
