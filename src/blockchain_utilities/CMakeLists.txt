@@ -58,16 +58,6 @@ bitmonero_private_headers(blockchain_export
 	  ${blockchain_export_private_headers})
 
 
-set(blockchain_dump_sources
-  blockchain_dump.cpp
-  )
-
-set(blockchain_dump_private_headers)
-
-bitmonero_private_headers(blockchain_dump
-	  ${blockchain_dump_private_headers})
-
-
 bitmonero_add_executable(blockchain_import
   ${blockchain_import_sources}
   ${blockchain_import_private_headers})
@@ -106,20 +96,3 @@ add_dependencies(blockchain_export
 set_property(TARGET blockchain_export
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-export")
-
-bitmonero_add_executable(blockchain_dump
-  ${blockchain_dump_sources}
-  ${blockchain_dump_private_headers})
-
-target_link_libraries(blockchain_dump
-  LINK_PRIVATE
-    cryptonote_core
-	blockchain_db
-	p2p
-    ${CMAKE_THREAD_LIBS_INIT})
-
-add_dependencies(blockchain_dump
-	version)
-set_property(TARGET blockchain_dump
-	PROPERTY
-	OUTPUT_NAME "monero-blockchain-dump")
