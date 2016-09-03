@@ -280,8 +280,8 @@ namespace cryptonote
       {
         LOG_PRINT_RED_L0("Found old-style blockchain.bin in " << old_files.string());
         LOG_PRINT_RED_L0("Monero now uses a new format. You can either remove blockchain.bin to start syncing");
-        LOG_PRINT_RED_L0("the blockchain anew, or use blockchain_export and blockchain_import to convert your");
-        LOG_PRINT_RED_L0("existing blockchain.bin to the new format. See README.md for instructions.");
+        LOG_PRINT_RED_L0("the blockchain anew, or use monero-blockchain-import and monero-blockchain-export to");
+        LOG_PRINT_RED_L0("convert your existing blockchain.bin to the new format. See README.md for instructions.");
         return false;
       }
     }

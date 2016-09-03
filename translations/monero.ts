@@ -311,7 +311,7 @@ Wallet file name: </source>
         <source>Your wallet has been generated.
 To start synchronizing with the daemon use &quot;refresh&quot; command.
 Use &quot;help&quot; command to see the list of available commands.
-Always use &quot;exit&quot; command when closing simplewallet to save
+Always use &quot;exit&quot; command when closing monero-wallet-cli to save
 current session&apos;s state. Otherwise, you will possibly need to synchronize 
 your wallet again. Your wallet key is NOT under risk anyway.
 </source>
