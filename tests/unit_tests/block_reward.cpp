@@ -84,7 +84,7 @@ namespace
       ASSERT_LT(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, m_standard_block_reward);
     }
 
-    void do_test(size_t median_block_size, size_t current_block_size)
+    void do_test(uint64_t median_block_size, uint64_t current_block_size)
     {
       m_block_not_too_big = get_block_reward(median_block_size, current_block_size, already_generated_coins, m_block_reward, 1);
     }
@@ -141,7 +141,7 @@ namespace
   TEST_F(block_reward_and_current_block_size, fails_on_huge_median_size)
   {
 #if !defined(NDEBUG)
-    size_t huge_size = std::numeric_limits<uint32_t>::max() + UINT64_C(2);
+    uint64_t huge_size = std::numeric_limits<uint32_t>::max() + UINT64_C(2);
     ASSERT_DEATH(do_test(huge_size, huge_size + 1), "");
 #endif
   }
@@ -149,7 +149,7 @@ namespace
   TEST_F(block_reward_and_current_block_size, fails_on_huge_block_size)
   {
 #if !defined(NDEBUG)
-    size_t huge_size = std::numeric_limits<uint32_t>::max() + UINT64_C(2);
+    uint64_t huge_size = std::numeric_limits<uint32_t>::max() + UINT64_C(2);
     ASSERT_DEATH(do_test(huge_size - 2, huge_size), "");
 #endif
   }
@@ -173,7 +173,7 @@ namespace
       ASSERT_LT(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, m_standard_block_reward);
     }
 
-    void do_test(size_t current_block_size)
+    void do_test(uint64_t current_block_size)
     {
       m_block_not_too_big = get_block_reward(epee::misc_utils::median(m_last_block_sizes), current_block_size, already_generated_coins, m_block_reward, 1);
     }
