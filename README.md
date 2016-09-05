@@ -168,7 +168,7 @@ application.
         pacman -Syuu  
 
 * Exit the MSYS shell using Alt+F4  
-* Edit the properties for the `MSYS2 Shell` shortcut changing "msys2_shell.bat" to "msys2_shell.cmd -mingw64"
+* Edit the properties for the `MSYS2 Shell` shortcut changing "msys2_shell.bat" to "msys2_shell.cmd -mingw64" for 64-bit builds or "msys2_shell.cmd -mingw32" for 32-bit builds
 * Restart MSYS shell via modified shortcut and update packages again using pacman:  
 
         pacman -Syuu  
