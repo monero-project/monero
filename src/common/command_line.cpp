@@ -48,6 +48,7 @@ namespace command_line
   const arg_descriptor<bool> arg_version = {"version", "Output version information"};
   const arg_descriptor<std::string> arg_data_dir = {"data-dir", "Specify data directory"};
   const arg_descriptor<std::string> arg_testnet_data_dir = {"testnet-data-dir", "Specify testnet data directory"};
+  const arg_descriptor<std::string> arg_user_agent = {"user-agent", "Restrict RPC use to clients using this user agent"};
   const arg_descriptor<bool>		arg_test_drop_download  		= {"test-drop-download", "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"};
   const arg_descriptor<uint64_t>	arg_test_drop_download_height  	= {"test-drop-download-height", "Like test-drop-download but disards only after around certain height", 0};
   const arg_descriptor<int> 		arg_test_dbg_lock_sleep = {"test-dbg-lock-sleep", "Sleep time in ms, defaults to 0 (off), used to debug before/after locking mutex. Values 100 to 1000 are good for tests."};

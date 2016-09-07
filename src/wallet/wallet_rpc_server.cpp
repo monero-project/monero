@@ -45,11 +45,13 @@ namespace tools
   //-----------------------------------------------------------------------------------
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_port = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
+  const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_user_agent = {"user-agent", "Restrict RPC to clients using this user agent", ""};
 
   void wallet_rpc_server::init_options(boost::program_options::options_description& desc)
   {
     command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
+    command_line::add_arg(desc, arg_user_agent);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w)
@@ -83,6 +85,7 @@ namespace tools
   {
     m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
     m_port = command_line::get_arg(vm, arg_rpc_bind_port);
+    m_user_agent = command_line::get_arg(vm, arg_user_agent);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -91,7 +94,7 @@ namespace tools
     m_net_server.set_threads_prefix("RPC");
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
-    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(m_port, m_bind_ip);
+    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(m_port, m_bind_ip, m_user_agent);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er)
