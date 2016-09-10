@@ -164,13 +164,20 @@ application.
 
 * Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
 * Open the MSYS shell via the `MSYS2 Shell` shortcut
-* Update the packages in your MSYS2 install:
+* Update the core packages in your MSYS2 install:
 
-        pacman -Sy
-        pacman -Su --ignoregroup base
-        pacman -Su
+        update-core  
+        
+* Exit the MSYS shell using Alt+F4, then restart MSYS and update packages using pacman:  
 
-    For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
+        pacman -Syuu  
+
+* Exit the MSYS shell using Alt+F4  
+* Edit the properties for the `MSYS2 Shell` shortcut changing "msys2_shell.bat" to "msys2_shell.cmd -mingw64" for 64-bit builds or "msys2_shell.cmd -mingw32" for 32-bit builds
+* Restart MSYS shell via modified shortcut and update packages again using pacman:  
+
+        pacman -Syuu  
+
 
 * Install dependencies:
 
