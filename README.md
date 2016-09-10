@@ -147,6 +147,11 @@ invokes cmake commands as needed.
 
          make release-static
 
+* **Optional**: build documentation in `doc/html` (omit `HAVE_DOT=YES` if `graphviz` is not installed):
+
+        HAVE_DOT=YES doxygen Doxyfile
+
+
 #### On Windows:
 
 Binaries for Windows are built on Windows using the MinGW toolchain within
@@ -225,23 +230,6 @@ By default, in either dynamically or statically linked builds, binaries target t
 * ```make release-static-arm6``` builds binaries on Linux on armv7 or armv6 portable across POSIX systems on armv6 processors, such as the Raspberry Pi
 * ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
 * ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
-
-### Building Documentation
-
-Monero developer documentation uses Doxygen, and is currently a work-in-progress.
-
-Dependencies: Doxygen `>=1.8.0`, Graphviz `>=2.28` (optional).
-
-* To build the HTML documentation without diagrams, change
-  to the root of the source code directory, and run
-
-        doxygen Doxyfile
-
-* To build the HTML documentation with diagrams (Graphviz required):
-
-        HAVE_DOT=YES doxygen Doxyfile
-
-* The output will be built in doc/html/
 
 ## Running monerod
 
