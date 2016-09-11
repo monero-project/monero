@@ -42,6 +42,12 @@ parts:
  
     cmake-build:
         plugin: cmake
+        configflags:
+            - -DBDB_STATIC=1
+            - -DUPNP_STATIC=1
+            - -DBoost_USE_STATIC_LIBS=1
+            - -DBoost_USE_STATIC_RUNTIME=1
+            - -DARCH=default
         source: .
         build-packages:
             - gcc
@@ -58,5 +64,8 @@ parts:
             - bison
             - doxygen
             - graphviz
+        stage-packages:
+            - libunbound2
         snap:
             - bin
+            - usr
