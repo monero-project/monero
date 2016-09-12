@@ -65,7 +65,9 @@ parts:
             - doxygen
             - graphviz
         stage-packages:
+            - libminiupnpc10
             - libunbound2
+            - libunwind8
         snap:
             - bin
             - usr
