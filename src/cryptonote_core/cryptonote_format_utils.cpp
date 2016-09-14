@@ -475,7 +475,7 @@ namespace cryptonote
     tx.vin.clear();
     tx.vout.clear();
     tx.signatures.clear();
-    tx.rct_signatures = rct::rctSig();
+    tx.rct_signatures.type = rct::RCTTypeNull;
     amount_keys.clear();
 
     tx.version = rct ? 2 : 1;
@@ -948,11 +948,35 @@ namespace cryptonote
     // prefix
     get_transaction_prefix_hash(t, hashes[0]);
 
-    // base rct data
-    get_blob_hash(t_serializable_object_to_blob((const rct::rctSigBase&)t.rct_signatures), hashes[1]);
+    transaction &tt = const_cast<transaction&>(t);
 
-    // prunable rct data
-    get_blob_hash(t_serializable_object_to_blob(t.rct_signatures.p), hashes[2]);
+    // base rct
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      const size_t inputs = t.vin.size();
+      const size_t outputs = t.vout.size();
+      bool r = tt.rct_signatures.serialize_rctsig_base(ba, inputs, outputs);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures base");
+      cryptonote::get_blob_hash(ss.str(), hashes[1]);
+    }
+
+    // prunable rct
+    if (t.rct_signatures.type == rct::RCTTypeNull)
+    {
+      hashes[2] = cryptonote::null_hash;
+    }
+    else
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      const size_t inputs = t.vin.size();
+      const size_t outputs = t.vout.size();
+      const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+      bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
+      cryptonote::get_blob_hash(ss.str(), hashes[2]);
+    }
 
     // the tx hash is the hash of the 3 hashes
     res = cn_fast_hash(hashes, sizeof(hashes));
