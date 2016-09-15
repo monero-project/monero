@@ -395,7 +395,7 @@ namespace tools
     uint64_t get_num_rct_outputs();
 
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
-    bool use_fork_rules(uint8_t version, uint64_t early_blocks = 0);
+    bool use_fork_rules(uint8_t version, int64_t early_blocks = 0);
 
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
