@@ -2806,9 +2806,10 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
           continue;
         if (!daemon_resp.outs[i].unlocked) // don't add locked outs
           continue;
-        if (o > 0 && daemon_resp.outs[i].key == daemon_resp.outs[i - 1].key) // don't add duplicates
+        auto item = std::make_tuple(req.outputs[i].index, daemon_resp.outs[i].key, daemon_resp.outs[i].mask);
+        if (std::find(outs.back().begin(), outs.back().end(), item) != outs.back().end()) // don't add duplicates
           continue;
-        outs.back().push_back(std::make_tuple(req.outputs[i].index, daemon_resp.outs[i].key, daemon_resp.outs[i].mask));
+        outs.back().push_back(item);
       }
       if (outs.back().size() < fake_outputs_count + 1)
       {
@@ -2818,15 +2819,6 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<tr
       {
         // sort the subsection, so any spares are reset in order
         std::sort(outs.back().begin(), outs.back().end(), [](const entry &a, const entry &b) { return std::get<0>(a) < std::get<0>(b); });
-
-        // sanity check
-        for (size_t n = 1; n < outs.back().size(); ++n)
-        {
-          THROW_WALLET_EXCEPTION_IF(std::get<0>(outs.back()[n]) == std::get<0>(outs.back()[n-1]), error::wallet_internal_error,
-              "Duplicate indices though we did not ask for any");
-          THROW_WALLET_EXCEPTION_IF(std::get<1>(outs.back()[n]) == std::get<1>(outs.back()[n-1]), error::wallet_internal_error,
-              "Duplicate keys after we have weeded them out");
-        }
       }
       base += requested_outputs_count;
     }

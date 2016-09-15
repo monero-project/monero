@@ -350,8 +350,16 @@ namespace rct {
       keyV hashes;
       hashes.push_back(rv.message);
       crypto::hash h;
-      cryptonote::get_blob_hash(cryptonote::t_serializable_object_to_blob((const rctSigBase&)rv), h);
+
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      const size_t inputs = rv.pseudoOuts.size();
+      const size_t outputs = rv.ecdhInfo.size();
+      CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
+          "Failed to serialize rctSigBase");
+      cryptonote::get_blob_hash(ss.str(), h);
       hashes.push_back(hash2rct(h));
+
       keyV kv;
       for (auto r: rv.p.rangeSigs)
       {
@@ -364,7 +372,6 @@ namespace rct {
           kv.push_back(r.Ci[n]);
       }
       hashes.push_back(cn_fast_hash(kv));
-
       return cn_fast_hash(hashes);
     }
 

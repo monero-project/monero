@@ -471,11 +471,11 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
   {
-    std::vector<crypto::secret_key> amount_keys;
+    std::vector<rct::key> amount_keys;
     tx.vin.clear();
     tx.vout.clear();
     tx.signatures.clear();
-    tx.rct_signatures = rct::rctSig();
+    tx.rct_signatures.type = rct::RCTTypeNull;
     amount_keys.clear();
 
     tx.version = rct ? 2 : 1;
@@ -593,7 +593,7 @@ namespace cryptonote
       {
         crypto::secret_key scalar1;
         crypto::derivation_to_scalar(derivation, output_index, scalar1);
-        amount_keys.push_back(scalar1);
+        amount_keys.push_back(rct::sk2rct(scalar1));
       }
       r = crypto::derive_public_key(derivation, output_index, dst_entr.addr.m_spend_public_key, out_eph_public_key);
       CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to derive_public_key(" << derivation << ", " << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")");
@@ -750,9 +750,9 @@ namespace cryptonote
       get_transaction_prefix_hash(tx, tx_prefix_hash);
       rct::ctkeyV outSk;
       if (use_simple_rct)
-        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, (const rct::keyV&)amount_keys, index, outSk);
+        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, index, outSk);
       else
-        tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, (const rct::keyV&)amount_keys, sources[0].real_output, outSk); // same index assumption
+        tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, amount_keys, sources[0].real_output, outSk); // same index assumption
 
       CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
 
@@ -948,11 +948,35 @@ namespace cryptonote
     // prefix
     get_transaction_prefix_hash(t, hashes[0]);
 
-    // base rct data
-    get_blob_hash(t_serializable_object_to_blob((const rct::rctSigBase&)t.rct_signatures), hashes[1]);
+    transaction &tt = const_cast<transaction&>(t);
 
-    // prunable rct data
-    get_blob_hash(t_serializable_object_to_blob(t.rct_signatures.p), hashes[2]);
+    // base rct
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      const size_t inputs = t.vin.size();
+      const size_t outputs = t.vout.size();
+      bool r = tt.rct_signatures.serialize_rctsig_base(ba, inputs, outputs);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures base");
+      cryptonote::get_blob_hash(ss.str(), hashes[1]);
+    }
+
+    // prunable rct
+    if (t.rct_signatures.type == rct::RCTTypeNull)
+    {
+      hashes[2] = cryptonote::null_hash;
+    }
+    else
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      const size_t inputs = t.vin.size();
+      const size_t outputs = t.vout.size();
+      const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+      bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
+      cryptonote::get_blob_hash(ss.str(), hashes[2]);
+    }
 
     // the tx hash is the hash of the 3 hashes
     res = cn_fast_hash(hashes, sizeof(hashes));
