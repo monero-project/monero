@@ -66,7 +66,7 @@ Packages are available for
 * OS X via [Homebrew](http://brew.sh)
 
         brew tap sammy007/cryptonight
-        brew install bitmonero --build-from-source
+        brew install monero --build-from-source
 
 * Docker
 
