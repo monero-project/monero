@@ -106,3 +106,4 @@ add_dependencies(daemon version)
 set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "monerod")
+install(TARGETS daemon DESTINATION bin)
