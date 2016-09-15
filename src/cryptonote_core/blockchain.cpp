@@ -2956,8 +2956,8 @@ leave:
   // be a parameter?
   // validate proof_of_work versus difficulty target
   bool precomputed = false;
-#if defined(PER_BLOCK_CHECKPOINT)
   bool fast_check = false;
+#if defined(PER_BLOCK_CHECKPOINT)
   if (m_db->height() < m_blocks_hash_check.size())
   {
     auto hash = get_block_hash(bl);
@@ -3758,6 +3758,7 @@ std::map<uint64_t, uint64_t> Blockchain:: get_output_histogram(const std::vector
   return m_db->get_output_histogram(amounts, unlocked);
 }
 
+#if defined(PER_BLOCK_CHECKPOINT)
 void Blockchain::load_compiled_in_block_hashes()
 {
   if (m_fast_sync && get_blocks_dat_start(m_testnet) != nullptr)
@@ -3800,6 +3801,7 @@ void Blockchain::load_compiled_in_block_hashes()
     }
   }
 }
+#endif
 
 bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
 {
