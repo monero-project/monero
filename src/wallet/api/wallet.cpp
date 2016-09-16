@@ -493,9 +493,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
         try {
-            // priority called "fee_multiplied in terms of underlying wallet interface
             transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
-                                                                      static_cast<uint64_t>(priority),
+                                                                      static_cast<uint32_t>(priority),
                                                                       extra, m_trustedDaemon);
 
         } catch (const tools::error::daemon_busy&) {

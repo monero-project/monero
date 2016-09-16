@@ -143,7 +143,7 @@ namespace cryptonote
     bool set_tx_note(const std::vector<std::string> &args);
     bool get_tx_note(const std::vector<std::string> &args);
     bool status(const std::vector<std::string> &args);
-    bool set_default_fee_multiplier(const std::vector<std::string> &args);
+    bool set_default_priority(const std::vector<std::string> &args);
     bool sign(const std::vector<std::string> &args);
     bool verify(const std::vector<std::string> &args);
     bool export_key_images(const std::vector<std::string> &args);
