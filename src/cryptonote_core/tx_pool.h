@@ -455,8 +455,14 @@ namespace cryptonote
      */
     typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
 
+#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
+public:
+#endif
     mutable epee::critical_section m_transactions_lock;  //!< lock for the pool
     transactions_container m_transactions;  //!< container for transactions in the pool
+#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
+private:
+#endif
 
     //! container for spent key images from the transactions in the pool
     key_images_container m_spent_key_images;  
