@@ -1243,6 +1243,8 @@ bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_c
 
     req.min_count = min_count;
     req.max_count = max_count;
+    req.unlocked = false;
+    req.recent_cutoff = 0;
 
     if (m_is_rpc)
     {
@@ -1261,10 +1263,10 @@ bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_c
     }
 
     std::sort(res.histogram.begin(), res.histogram.end(),
-        [](const cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry &e1, const cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry &e2)->bool { return e1.instances < e2.instances; });
+        [](const cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry &e1, const cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry &e2)->bool { return e1.total_instances < e2.total_instances; });
     for (const auto &e: res.histogram)
     {
-        tools::msg_writer() << e.instances << "  " << cryptonote::print_money(e.amount);
+        tools::msg_writer() << e.total_instances << "  " << cryptonote::print_money(e.amount);
     }
 
     return true;
