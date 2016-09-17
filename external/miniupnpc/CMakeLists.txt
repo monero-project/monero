@@ -124,7 +124,7 @@ if (UPNPC_BUILD_STATIC)
   set (UPNPC_INSTALL_TARGETS ${UPNPC_INSTALL_TARGETS} libminiupnpc-static)
   set (UPNPC_LIBRARY_TARGET libminiupnpc-static)
   # add_executable (upnpc-static upnpc.c)
-  target_link_libraries (upnpc-static LINK_PRIVATE libminiupnpc-static)
+  # target_link_libraries (upnpc-static LINK_PRIVATE libminiupnpc-static)
 endif (UPNPC_BUILD_STATIC)
 
 if (UPNPC_BUILD_SHARED)
