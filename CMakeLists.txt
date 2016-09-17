@@ -497,17 +497,11 @@ else()
     endif()
     # Since gcc 4.9 the LTO format is non-standard (slim), so we need the gcc-specific ar and ranlib binaries
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9.0) AND NOT OPENBSD)
-      # When invoking cmake on distributions on which gcc's binaries are prefix
-      # with an arch-specific triplet, the user has to either specify
-      # -DCHOST=... or -DCMAKE_AR=... and -DCMAKE_RANLIB=...
+      # When invoking cmake on distributions on which gcc's binaries are prefixed
+      # with an arch-specific triplet, the user must specify -DCHOST=<prefix>
       if (DEFINED CHOST)
-        set(CHOST_PREFIX "${CHOST}-")
-        if (NOT DEFINED CMAKE_AR)
-          set(CMAKE_AR "${CHOST_PREFIX}gcc-ar")
-        endif()
-        if (NOT DEFINED CMAKE_RANLIB)
-          set(CMAKE_RANLIB "${CHOST_PREFIX}gcc-ranlib")
-        endif()
+        set(CMAKE_AR "${CHOST}-gcc-ar")
+        set(CMAKE_RANLIB "${CHOST}-gcc-ranlib")
       else()
         set(CMAKE_AR "gcc-ar")
         set(CMAKE_RANLIB "gcc-ranlib")
