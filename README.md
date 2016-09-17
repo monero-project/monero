@@ -286,3 +286,6 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 While monerod and monero-wallet-cli do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
 
 `rlwrap bin/monero-wallet-cli --wallet-file /path/to/wallet`
+
+Note: rlwrap will save things like your seed and private keys, if you supply them on prompt. You may want to not use rlwrap when you use simplewallet to restore from seed, etc.
+
