@@ -62,13 +62,15 @@ bitmonero_add_library(common
   ${common_headers}
   ${common_private_headers})
 target_link_libraries(common
-  LINK_PRIVATE
+  PUBLIC
     crypto
     ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+  PRIVATE
     ${EXTRA_LIBRARIES})
 
 #bitmonero_install_headers(common

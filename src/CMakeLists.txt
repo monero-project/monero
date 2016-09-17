@@ -66,7 +66,7 @@ function (bitmonero_add_executable name)
   add_executable("${name}"
     ${ARGN})
   target_link_libraries("${name}"
-    LINK_PRIVATE
+    PRIVATE
       ${EXTRA_LIBRARIES})
   set_property(TARGET "${name}"
     PROPERTY

@@ -83,7 +83,7 @@ bitmonero_add_executable(daemon
   ${blocksdat}
 )
 target_link_libraries(daemon
-  LINK_PRIVATE
+  PRIVATE
     rpc
     blockchain_db
     cryptonote_core
@@ -98,9 +98,7 @@ target_link_libraries(daemon
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${UPNP_LIBRARIES}
     ${EXTRA_LIBRARIES})
 add_dependencies(daemon version)
 set_property(TARGET daemon

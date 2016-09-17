@@ -32,16 +32,10 @@ project (bitmonero CXX)
 file(GLOB CRYPTONOTE_PROTOCOL *)
 source_group(cryptonote_protocol FILES ${CRYPTONOTE_PROTOCOL})
 
-#add_library(p2p ${P2P})
-
-#bitmonero_private_headers(p2p ${CRYPTONOTE_PROTOCOL})
+#bitmonero_private_headers(cryptonote_protocol ${CRYPTONOTE_PROTOCOL})
 bitmonero_add_library(cryptonote_protocol ${CRYPTONOTE_PROTOCOL})
-#target_link_libraries(p2p)
-#  LINK_PRIVATE
-#    ${Boost_CHRONO_LIBRARY}
-#    ${Boost_REGEX_LIBRARY}
-#    ${Boost_SYSTEM_LIBRARY}
-#    ${Boost_THREAD_LIBRARY}
-#    ${EXTRA_LIBRARIES})
+target_link_libraries(cryptonote_protocol
+  PRIVATE
+    ${EXTRA_LIBRARIES})
 add_dependencies(cryptonote_protocol
   version)

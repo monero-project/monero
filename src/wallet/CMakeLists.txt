@@ -64,16 +64,18 @@ bitmonero_add_library(wallet
   ${wallet_api_headers}
   ${wallet_private_headers})
 target_link_libraries(wallet
-  LINK_PUBLIC
+  PUBLIC
     cryptonote_core
     mnemonics
-  LINK_PRIVATE
+    p2p
+    ${Boost_CHRONO_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
+  PRIVATE
     ${EXTRA_LIBRARIES})
-
 
 # build and install libwallet_merged only if we building for GUI
 if (BUILD_GUI_DEPS)
