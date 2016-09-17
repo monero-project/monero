@@ -100,7 +100,6 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
 
 uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes, uint64_t fee_multiplier)
 {
-  THROW_WALLET_EXCEPTION_IF(fee_multiplier <= 0 || fee_multiplier > 3, tools::error::invalid_fee_multiplier);
   uint64_t kB = (bytes + 1023) / 1024;
   return kB * fee_per_kb * fee_multiplier;
 }
@@ -1402,8 +1401,8 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetUint(m_default_mixin);
   json.AddMember("default_mixin", value2, json.GetAllocator());
 
-  value2.SetUint(m_default_fee_multiplier);
-  json.AddMember("default_fee_multiplier", value2, json.GetAllocator());
+  value2.SetUint(m_default_priority);
+  json.AddMember("default_priority", value2, json.GetAllocator());
 
   value2.SetInt(m_auto_refresh ? 1 :0);
   json.AddMember("auto_refresh", value2, json.GetAllocator());
@@ -1476,7 +1475,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_watch_only = false;
     m_always_confirm_transfers = false;
     m_default_mixin = 0;
-    m_default_fee_multiplier = 0;
+    m_default_priority = 0;
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
   }
@@ -1509,8 +1508,19 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_store_tx_info = ((field_store_tx_keys != 0) || (field_store_tx_info != 0));
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_mixin, unsigned int, Uint, false, 0);
     m_default_mixin = field_default_mixin;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
-    m_default_fee_multiplier = field_default_fee_multiplier;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_priority, unsigned int, Uint, false, 0);
+    if (field_default_priority_found)
+    {
+      m_default_priority = field_default_priority;
+    }
+    else
+    {
+      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
+      if (field_default_fee_multiplier_found)
+        m_default_priority = field_default_fee_multiplier;
+      else
+        m_default_priority = 0;
+    }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_refresh, int, Int, false, true);
     m_auto_refresh = field_auto_refresh;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_type, int, Int, false, RefreshType::RefreshDefault);
@@ -2535,15 +2545,22 @@ void wallet2::commit_tx(std::vector<pending_tx>& ptx_vector)
   }
 }
 
-uint64_t wallet2::sanitize_fee_multiplier(uint64_t fee_multiplier) const
+uint64_t wallet2::get_fee_multiplier(uint32_t priority, bool use_new_fee) const
 {
-  // 0, default value used for previous fee argument, defaults to normal fee
-  if (fee_multiplier == 0)
-    return m_default_fee_multiplier > 0 ? m_default_fee_multiplier : 1;
-  // 1 to 3 are allowed as multipliers
-  if (fee_multiplier >= 1 && fee_multiplier <= 3)
-    return fee_multiplier;
-  THROW_WALLET_EXCEPTION_IF (false, error::invalid_fee_multiplier);
+  static const uint64_t old_multipliers[3] = {1, 2, 3};
+  static const uint64_t new_multipliers[3] = {1, 20, 166};
+
+  // 0 -> default (here, x1)
+  if (priority == 0)
+    priority = m_default_priority;
+  if (priority == 0)
+    priority = 1;
+
+  // 1 to 3 are allowed as priorities
+  if (priority >= 1 && priority <= 3)
+    return (use_new_fee ? new_multipliers : old_multipliers)[priority-1];
+
+  THROW_WALLET_EXCEPTION_IF (false, error::invalid_priority);
   return 1;
 }
 
@@ -2552,12 +2569,13 @@ uint64_t wallet2::sanitize_fee_multiplier(uint64_t fee_multiplier) const
 //
 // this function will make multiple calls to wallet2::transfer if multiple
 // transactions will be required
-std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
   const std::vector<size_t> unused_transfers_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, true, trusted_daemon);
 
-  const uint64_t fee_per_kb  = use_fork_rules(3, -720 * 14) ? FEE_PER_KB : FEE_PER_KB_OLD;
-  fee_multiplier = sanitize_fee_multiplier(fee_multiplier);
+  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
+  const uint64_t fee_per_kb  = use_new_fee ? FEE_PER_KB : FEE_PER_KB_OLD;
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
 
   // failsafe split attempt counter
   size_t attempt_count = 0;
@@ -3198,7 +3216,7 @@ std::vector<size_t> wallet2::pick_prefered_rct_inputs(uint64_t needed_money) con
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -3226,8 +3244,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
   const bool use_rct = use_fork_rules(4, 0);
 
-  const uint64_t fee_per_kb  = use_fork_rules(3, -720 * 14) ? FEE_PER_KB : FEE_PER_KB_OLD;
-  fee_multiplier = sanitize_fee_multiplier(fee_multiplier);
+  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
+  const uint64_t fee_per_kb  = use_new_fee ? FEE_PER_KB : FEE_PER_KB_OLD;
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
 
   // throw if attempting a transaction with no destinations
   THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
@@ -3461,7 +3480,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   return ptx_vector;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, uint64_t fee_multiplier, const std::vector<uint8_t> extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -3478,8 +3497,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
   const bool use_rct = use_fork_rules(4, 0);
 
-  const uint64_t fee_per_kb  = use_fork_rules(3, -720 * 14) ? FEE_PER_KB : FEE_PER_KB_OLD;
-  fee_multiplier = sanitize_fee_multiplier(fee_multiplier);
+  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
+  const uint64_t fee_per_kb  = use_new_fee ? FEE_PER_KB : FEE_PER_KB_OLD;
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
 
   // gather all our dust and non dust outputs
   for (size_t i = 0; i < m_transfers.size(); ++i)
@@ -3893,7 +3913,8 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
   const bool hf1_rules = use_fork_rules(2, 10); // first hard fork has version 2
   tx_dust_policy dust_policy(hf1_rules ? 0 : ::config::DEFAULT_DUST_THRESHOLD);
 
-  const uint64_t fee_per_kb  = use_fork_rules(3, -720 * 14) ? FEE_PER_KB : FEE_PER_KB_OLD;
+  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
+  const uint64_t fee_per_kb  = use_new_fee ? FEE_PER_KB : FEE_PER_KB_OLD;
 
   // may throw
   std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs(trusted_daemon);
