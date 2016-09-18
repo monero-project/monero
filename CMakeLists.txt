@@ -63,7 +63,7 @@ if (NOT ARCH OR ARCH STREQUAL "" OR ARCH STREQUAL "native" OR ARCH STREQUAL "def
 else()
   set(ARCH_ID "${ARCH}")
 endif()
-string(TOLOWER ${ARCH_ID} ARM_ID)
+#string(TOLOWER ${ARCH_ID} ARM_ID)
 string(SUBSTRING ${ARCH_ID} 0 3 ARM_TEST)
 if (ARM_TEST STREQUAL "arm")
   set(ARM 1)
@@ -318,6 +318,7 @@ if(MSVC)
   endif()
   include_directories(SYSTEM src/platform/msc)
 else()
+  include(TestCXXAcceptsFlag)
   set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
   if(ARCH STREQUAL "default")
@@ -365,6 +366,37 @@ else()
     set(COVERAGE_FLAGS "-fprofile-arcs -ftest-coverage --coverage")
   endif()
 
+  option(NO_AES "Explicitly disable AES support" ${NO_AES})
+
+  if(NOT NO_AES AND NOT ARM)
+    message(STATUS "AES support enabled")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
+<<<<<<< Updated upstream
+  elseif(ARM6 OR ARM7)
+    message(STATUS "AES support disabled (not available on ARMv6 or ARMv7)")
+  elseif(ARM8)
+    message(STATUS "AES support enabled for ARMv8-A")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a+crypto")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+crypto")
+=======
+  elseif(ARM6)
+    message(STATUS "AES support not available on ARMv6")
+  elseif(ARM7)
+    message(STATUS "AES support not available on ARMv7")
+  elseif(ARM8)
+    CHECK_CXX_ACCEPTS_FLAG("-march=${ARCH}+crypto" ARCH_PLUS_CRYPTO)
+    if(ARCH_PLUS_CRYPTO)
+      message(STATUS "Cryptograpy extensions enabled for ARMv8")
+      set(ARCH_FLAG "-march=${ARCH}+crypto")
+    else()
+      message(STATUS "Cryptograpy extensions unavailable on your ARMv8 device")
+    endif()
+>>>>>>> Stashed changes
+  else()
+    message(STATUS "AES support disabled")
+  endif()
+
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${ARCH_FLAG} ${COVERAGE_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${ARCH_FLAG} ${COVERAGE_FLAGS}")
 
@@ -373,25 +405,8 @@ else()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
 
-  option(NO_AES "Explicitly disable AES support" ${NO_AES})
-
-  if(NOT NO_AES AND NOT ARM)
-    message(STATUS "AES support enabled")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
-  elseif(ARM6 OR ARM7)
-    message(STATUS "AES support disabled (not available on ARMv6 or ARMv7)")
-  elseif(ARM8)
-    message(STATUS "AES support enabled for ARMv8-A")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a+crypto")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+crypto")
-  else()
-    message(STATUS "AES support disabled")
-  endif()
-
   if(ARM)
     message(STATUS "Setting FPU Flags for ARM Processors")
-    include(TestCXXAcceptsFlag)
 
     #NB NEON hardware does not fully implement the IEEE 754 standard for floating-point arithmetic
     #Need custom assembly code to take full advantage of NEON SIMD
@@ -399,7 +414,7 @@ else()
     #Cortex-A5/9  -mfpu=neon-fp16
     #Cortex-A7/15 -mfpu=neon-vfpv4
     #Cortex-A8    -mfpu=neon
-    #ARMv8  	  -FP and SIMD on by default for all ARM8v-a series, NO -mfpu setting needed
+    #ARMv8  	  -FP and SIMD on by default for all ARM8v-A series, NO -mfpu setting needed
 
     #For custom -mtune, processor IDs for ARMv8-A series:
     #0xd04 - Cortex-A35
