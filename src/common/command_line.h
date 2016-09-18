@@ -204,6 +204,7 @@ namespace command_line
   extern const arg_descriptor<bool> arg_version;
   extern const arg_descriptor<std::string> arg_data_dir;
   extern const arg_descriptor<std::string> arg_testnet_data_dir;
+  extern const arg_descriptor<std::string> arg_user_agent;
   extern const arg_descriptor<bool>		arg_test_drop_download;
   extern const arg_descriptor<uint64_t>	arg_test_drop_download_height;
   extern const arg_descriptor<int> 		arg_test_dbg_lock_sleep;

@@ -638,10 +638,10 @@ using namespace std;
 				LOG_FRAME("http_stream_filter::parse_cached_header(*)", LOG_LEVEL_4);
 				
 				STATIC_REGEXP_EXPR_1(rexp_mach_field, 
-					"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)"
-					//  12            3         4                5              6                   7                  8      9    
+					"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)"
+					//  12            3         4                5              6                   7                  8      9        10
 					"|([\\w-]+?)) ?: ?((.*?)(\r?\n))[^\t ]",	
-					//10             1112   13 
+					//11             1213   14
 					boost::regex::icase | boost::regex::normal);
 
 				boost::smatch		result;
@@ -653,8 +653,8 @@ using namespace std;
 				//lookup all fields and fill well-known fields
 				while( boost::regex_search( it_current_bound, it_end_bound, result, rexp_mach_field, boost::match_default) && result[0].matched) 
 				{
-					const size_t field_val = 12;
-					//const size_t field_etc_name = 10;
+					const size_t field_val = 13;
+					//const size_t field_etc_name = 11;
 
 					int i = 2; //start position = 2
 					if(result[i++].matched)//"Connection"
@@ -675,6 +675,8 @@ using namespace std;
 					}
 					else if(result[i++].matched)//"Cookie"
 						body_info.m_cookie = result[field_val];
+					else if(result[i++].matched)//"User-Agent"
+						body_info.m_user_agent = result[field_val];
 					else if(result[i++].matched)//e.t.c (HAVE TO BE MATCHED!)
 					{;}
 					else

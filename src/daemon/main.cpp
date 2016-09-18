@@ -208,6 +208,7 @@ int main(int argc, char const * argv[])
         {
           rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
         }
+        auto user_agent = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_user_agent);
 
         uint32_t rpc_ip;
         uint16_t rpc_port;
@@ -222,7 +223,7 @@ int main(int argc, char const * argv[])
           return 1;
         }
 
-        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port};
+        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port, user_agent};
         if (rpc_commands.process_command_vec(command))
         {
           return 0;

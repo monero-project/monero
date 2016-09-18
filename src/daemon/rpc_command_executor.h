@@ -57,6 +57,7 @@ public:
   t_rpc_command_executor(
       uint32_t ip
     , uint16_t port
+    , const std::string &user_agent
     , bool is_rpc = true
     , cryptonote::core_rpc_server* rpc_server = NULL
     );

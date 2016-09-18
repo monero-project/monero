@@ -52,7 +52,7 @@ namespace epee
         : m_net_server(external_io_service)
     {}
 
-    bool init(const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0")
+    bool init(const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0", const std::string &user_agent = "")
     {
 
       //set self as callback handler
@@ -60,6 +60,9 @@ namespace epee
 
       //here set folder for hosting reqests
       m_net_server.get_config_object().m_folder = "";
+
+      // workaround till we get auth/encryption
+      m_net_server.get_config_object().m_required_user_agent = user_agent;
 
       LOG_PRINT_L0("Binding on " << bind_ip << ":" << bind_port);
       bool res = m_net_server.init_server(bind_port, bind_ip);

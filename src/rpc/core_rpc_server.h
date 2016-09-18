@@ -56,6 +56,7 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
     static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
     static const command_line::arg_descriptor<bool> arg_restricted_rpc;
+    static const command_line::arg_descriptor<std::string> arg_user_agent;
 
     typedef epee::net_utils::connection_context_base connection_context;
 

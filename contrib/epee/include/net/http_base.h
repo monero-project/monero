@@ -98,6 +98,7 @@ namespace net_utils
 			std::string m_content_encoding; //"Content-Encoding:"
 			std::string m_host;             //"Host:"
 			std::string m_cookie;			//"Cookie:"
+			std::string m_user_agent;	//"User-Agent:"
 			fields_list m_etc_fields;
 
 			void clear()
@@ -110,6 +111,7 @@ namespace net_utils
 				m_content_encoding.clear();
 				m_host.clear();
 				m_cookie.clear();
+				m_user_agent.clear();
 				m_etc_fields.clear();
 			}
 		};
