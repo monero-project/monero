@@ -263,6 +263,9 @@ service](utils/systemd/monerod.service) assumes that the user `monero` exists
 and its home is the data directory specified in the [example
 config](utils/conf/monerod.conf).
 
+If you're on Mac, you may need to add the `--max-concurrency 1` option to
+monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
+
 ## Internationalization
 
 See README.i18n
