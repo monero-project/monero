@@ -3279,6 +3279,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   }
   LOG_PRINT_L2("Starting with " << unused_transfers_indices.size() << " non-dust outputs and " << unused_dust_indices.size() << " dust outputs");
 
+  if (unused_dust_indices.empty() && unused_transfers_indices.empty())
+    return std::vector<wallet2::pending_tx>();
+
   // start with an empty tx
   txes.push_back(TX());
   accumulated_fee = 0;
@@ -3514,6 +3517,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
     }
   }
   LOG_PRINT_L2("Starting with " << unused_transfers_indices.size() << " non-dust outputs and " << unused_dust_indices.size() << " dust outputs");
+
+  if (unused_dust_indices.empty() && unused_transfers_indices.empty())
+    return std::vector<wallet2::pending_tx>();
 
   // start with an empty tx
   txes.push_back(TX());
