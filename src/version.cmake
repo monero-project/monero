@@ -41,43 +41,23 @@ else()
 	message(STATUS "You are currently on commit ${COMMIT}")
 	
 	# Get all the tags
-	execute_process(COMMAND "${GIT}" show-ref --tags -d --abbrev RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMITOUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+	execute_process(COMMAND "${GIT}" rev-list --tags --max-count=1 --abbrev-commit RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
 	
-	# Make sure we actually got some tags
-	if(TAGGEDCOMMITOUT)
-		string(LENGTH ${TAGGEDCOMMITOUT} TLEN)
-	else()
-		set(TLEN 1)
-	endif()
-	
-	if(RET OR TLEN LESS 5)
-	    message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
-	    set(VERSIONTAG "${COMMIT}")		
-	else()
-		# Replace a bunch of things so we end up with a semi-colon separated list
-		string(REPLACE " refs/" "\n" TAGGEDCOMMITOUT2 ${TAGGEDCOMMITOUT})
-		string(REPLACE "\n" ";" TAGGEDCOMMITLIST ${TAGGEDCOMMITOUT2})
-		
-		# Grab the second-last item in the list, as that will be the hash of our most recent commit
-		list(GET TAGGEDCOMMITLIST -2 TAGGEDCOMMIT)
-
-		if(NOT TAGGEDCOMMIT)
-			message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
-			set(VERSIONTAG "${COMMIT}")
-		else()
-			message(STATUS "The most recent tag was at ${TAGGEDCOMMIT}")
-			
-			# Check if we're building that tagged commit or a different one
-			if(COMMIT STREQUAL TAGGEDCOMMIT)
-				message(STATUS "You are building a tagged release")
-				set(VERSIONTAG "release")
-			else()
-				message(STATUS "You are ahead of or behind a tagged release")
-				set(VERSIONTAG "${COMMIT}")
-			endif()
-		endif()	    
-
-	endif()
+    if(NOT TAGGEDCOMMIT)
+        message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
+        set(VERSIONTAG "${COMMIT}")
+    else()
+        message(STATUS "The most recent tag was at ${TAGGEDCOMMIT}")
+        
+        # Check if we're building that tagged commit or a different one
+        if(COMMIT STREQUAL TAGGEDCOMMIT)
+            message(STATUS "You are building a tagged release")
+            set(VERSIONTAG "release")
+        else()
+            message(STATUS "You are ahead of or behind a tagged release")
+            set(VERSIONTAG "${COMMIT}")
+        endif()
+    endif()	    
 
     configure_file("src/version.h.in" "${TO}")
 endif()
