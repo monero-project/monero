@@ -2484,11 +2484,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
   catch (const tools::error::not_enough_money& e)
   {
-    fail_msg_writer() << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)")) %
+    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
       print_money(e.available()) %
       print_money(e.tx_amount() + e.fee())  %
       print_money(e.tx_amount()) %
-      print_money(e.fee());
+      print_money(e.fee()));
+    fail_msg_writer() << tr("Failed to find a way to create transactions");
   }
   catch (const tools::error::not_enough_outs_to_mix& e)
   {
@@ -2645,12 +2646,12 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   }
   catch (const tools::error::not_enough_money& e)
   {
-    fail_msg_writer() << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee).\n%s")) %
+    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
       print_money(e.available()) %
-      print_money(e.tx_amount() + e.fee()) %
+      print_money(e.tx_amount() + e.fee())  %
       print_money(e.tx_amount()) %
-      print_money(e.fee()) %
-      tr("This is usually due to dust which is so small it cannot pay for itself in fees");
+      print_money(e.fee()));
+    fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees");
   }
   catch (const tools::error::not_enough_outs_to_mix& e)
   {
@@ -2877,12 +2878,12 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   }
   catch (const tools::error::not_enough_money& e)
   {
-    fail_msg_writer() << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee).\n%s")) %
+    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
       print_money(e.available()) %
-      print_money(e.tx_amount() + e.fee()) %
+      print_money(e.tx_amount() + e.fee())  %
       print_money(e.tx_amount()) %
-      print_money(e.fee()) %
-      tr("This is usually due to dust which is so small it cannot pay for itself in fees");
+      print_money(e.fee()));
+    fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees");
   }
   catch (const tools::error::not_enough_outs_to_mix& e)
   {
