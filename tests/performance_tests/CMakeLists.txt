@@ -48,11 +48,10 @@ add_executable(performance_tests
   ${performance_tests_sources}
   ${performance_tests_headers})
 target_link_libraries(performance_tests
-  LINK_PRIVATE
+  PRIVATE
     cryptonote_core
     common
     crypto
-    ${UNBOUND_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})

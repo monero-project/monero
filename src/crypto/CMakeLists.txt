@@ -74,6 +74,11 @@ bitmonero_add_library(crypto
   ${crypto_sources}
   ${crypto_headers}
   ${crypto_private_headers})
+target_link_libraries(crypto
+  PUBLIC
+    ${Boost_SYSTEM_LIBRARY}
+  PRIVATE
+    ${EXTRA_LIBRARIES})
 
 if (ARM)
   option(NO_OPTIMIZED_MULTIPLY_ON_ARM

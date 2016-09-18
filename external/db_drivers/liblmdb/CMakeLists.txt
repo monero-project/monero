@@ -39,7 +39,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 add_library(lmdb
   ${lmdb_sources})
 target_link_libraries(lmdb
-  LINK_PRIVATE
+  PRIVATE
     ${CMAKE_THREAD_LIBS_INIT})
 if(WIN32)
   target_link_libraries(lmdb

@@ -62,7 +62,7 @@ add_executable(unit_tests
   ${unit_tests_sources}
   ${unit_tests_headers})
 target_link_libraries(unit_tests
-  LINK_PRIVATE
+  PRIVATE
     ringct
     cryptonote_core
     blockchain_db
@@ -70,11 +70,7 @@ target_link_libraries(unit_tests
     wallet
     p2p
     ${GTEST_LIBRARIES}
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${UNBOUND_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET unit_tests
   PROPERTY

@@ -62,14 +62,10 @@ add_executable(coretests
   ${core_tests_sources}
   ${core_tests_headers})
 target_link_libraries(coretests
-  LINK_PRIVATE
+  PRIVATE
     cryptonote_core
     p2p
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${EXPAT_LIBRARIES}
     ${EXTRA_LIBRARIES})
 set_property(TARGET coretests
   PROPERTY

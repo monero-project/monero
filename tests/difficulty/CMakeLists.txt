@@ -35,8 +35,9 @@ add_executable(difficulty-tests
   ${difficulty_sources}
   ${difficulty_headers})
 target_link_libraries(difficulty-tests
-  LINK_PRIVATE
-    cryptonote_core)
+  PRIVATE
+    cryptonote_core
+    ${EXTRA_LIBRARIES})
 set_property(TARGET difficulty-tests
   PROPERTY
     FOLDER "tests")
