@@ -330,6 +330,7 @@ if(MSVC)
   endif()
   include_directories(SYSTEM src/platform/msc)
 else()
+  include(TestCXXAcceptsFlag)
   set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
   if(ARCH STREQUAL "default")
@@ -391,15 +392,32 @@ else()
     message(STATUS "AES support enabled")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
-  elseif(ARM) #NB ARMv8 DOES support AES, but not yet coded
-    message(STATUS "AES support disabled (not available on ARM)")
+  elseif(ARM6)
+    message(STATUS "AES support not available on ARMv6")
+  elseif(ARM7)
+    message(STATUS "AES support not available on ARMv7")
+  elseif(ARM8)
+    CHECK_CXX_ACCEPTS_FLAG("-march=${ARCH}+crypto" ARCH_PLUS_CRYPTO)
+    if(ARCH_PLUS_CRYPTO)
+      message(STATUS "Crypto extensions enabled for ARMv8")
+      set(ARCH_FLAG "-march=${ARCH}+crypto")
+    else()
+      message(STATUS "Crypto extensions unavailable on your ARMv8 device")
+    endif()
   else()
     message(STATUS "AES support disabled")
   endif()
 
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${ARCH_FLAG} ${COVERAGE_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${ARCH_FLAG} ${COVERAGE_FLAGS}")
+
+  # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
+  # is fixed in the code (Issue #847), force compiler to be conservative.
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
+
   if(ARM)
     message(STATUS "Setting FPU Flags for ARM Processors")
-    include(TestCXXAcceptsFlag)
 
     #NB NEON hardware does not fully implement the IEEE 754 standard for floating-point arithmetic
     #Need custom assembly code to take full advantage of NEON SIMD
@@ -407,7 +425,7 @@ else()
     #Cortex-A5/9  -mfpu=neon-fp16
     #Cortex-A7/15 -mfpu=neon-vfpv4
     #Cortex-A8    -mfpu=neon
-    #ARMv8  	  -FP and SIMD on by default for all ARM8v-a series, NO -mfpu setting needed
+    #ARMv8  	  -FP and SIMD on by default for all ARM8v-A series, NO -mfpu setting needed
 
     #For custom -mtune, processor IDs for ARMv8-A series:
     #0xd04 - Cortex-A35
