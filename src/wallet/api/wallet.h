@@ -35,9 +35,9 @@
 #include "wallet/wallet2.h"
 
 #include <string>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/condition_variable.hpp>
 
 
 namespace Bitmonero {
@@ -113,12 +113,12 @@ private:
     std::atomic<bool> m_refreshThreadDone;
     std::atomic<int>  m_refreshIntervalSeconds;
     // synchronizing  refresh loop;
-    std::mutex        m_refreshMutex;
+    boost::mutex        m_refreshMutex;
 
     // synchronizing  sync and async refresh
-    std::mutex        m_refreshMutex2;
-    std::condition_variable m_refreshCV;
-    std::thread       m_refreshThread;
+    boost::mutex        m_refreshMutex2;
+    boost::condition_variable m_refreshCV;
+    boost::thread       m_refreshThread;
 
 };
 
