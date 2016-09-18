@@ -103,7 +103,7 @@ library archives (`.a`).
 | libevent       | 2.0           | NO       | `libevent-dev`     | `libevent`     | NO       |                |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       |                |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
-| libunwind      | any           | NO       | `libunwind-dev`    | `libunwind`    | YES      | stack traces   |
+| libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | stack traces   |
 | ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | ?              |
 | expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | ?              |
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | test suite     |
