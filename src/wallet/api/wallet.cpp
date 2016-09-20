@@ -428,6 +428,16 @@ void WalletImpl::refreshAsync()
     m_refreshCV.notify_one();
 }
 
+void WalletImpl::setAutoRefreshInterval(int seconds)
+{
+    m_refreshIntervalSeconds = seconds;
+}
+
+int WalletImpl::autoRefreshInterval() const
+{
+    return m_refreshIntervalSeconds;
+}
+
 // TODO:
 // 1 - properly handle payment id (add another menthod with explicit 'payment_id' param)
 // 2 - check / design how "Transaction" can be single interface
@@ -640,7 +650,15 @@ void WalletImpl::refreshThreadFunc()
             break;
         }
         LOG_PRINT_L3(__FUNCTION__ << ": waiting for refresh...");
-        m_refreshCV.wait(lock);
+        // if auto refresh enabled, we wait for the "m_refreshIntervalSeconds" interval.
+        // if not - we wait forever
+        if (m_refreshIntervalSeconds > 0) {
+            boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalSeconds * 1000);
+            m_refreshCV.timed_wait(lock, wait_for_ms);
+        } else {
+            m_refreshCV.wait(lock);
+        }
+
         LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
         LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
         LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << m_status);

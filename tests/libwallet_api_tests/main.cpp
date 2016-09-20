@@ -36,6 +36,8 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <iostream>
 #include <vector>
@@ -181,6 +183,7 @@ struct WalletTest2 : public testing::Test
 
 
 };
+
 
 
 TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
@@ -394,6 +397,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
+
 TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
 {
     Bitmonero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG);
@@ -406,7 +410,8 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
     wallet1 = wmgr->openWallet(WALLET_NAME_WITH_DIR_NON_WRITABLE, WALLET_PASS);
     ASSERT_FALSE(wallet1->status() == Bitmonero::Wallet::Status_Ok);
 
-    ASSERT_FALSE(wmgr->closeWallet(wallet1));
+    // "close" always returns true;
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
     wallet1 = wmgr->openWallet(WALLET_NAME, WALLET_PASS);
     ASSERT_TRUE(wallet1->status() == Bitmonero::Wallet::Status_Ok);
@@ -415,6 +420,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
 }
+
 
 TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
 {
@@ -792,6 +798,7 @@ struct MyWalletListener : public Bitmonero::WalletListener
 };
 
 
+/*
 TEST_F(WalletTest2, WalletCallBackRefreshedSync)
 {
 
@@ -800,11 +807,12 @@ TEST_F(WalletTest2, WalletCallBackRefreshedSync)
     ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_src_listener->refresh_triggered);
     ASSERT_TRUE(wallet_src->connected());
-//    std::chrono::seconds wait_for = std::chrono::seconds(60*3);
-//    std::unique_lock<std::mutex> lock (wallet_src_listener->mutex);
-//    wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
+    std::chrono::seconds wait_for = std::chrono::seconds(60*3);
+    std::unique_lock<std::mutex> lock (wallet_src_listener->mutex);
+    wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
     wmgr->closeWallet(wallet_src);
 }
+*/
 
 
 TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
@@ -908,10 +916,9 @@ TEST_F(WalletTest2, WalletCallbackReceived)
 }
 
 
-
 int main(int argc, char** argv)
 {
-
     ::testing::InitGoogleTest(&argc, argv);
+    // Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_Max);
     return RUN_ALL_TESTS();
 }
