@@ -169,7 +169,9 @@ WalletImpl::WalletImpl(bool testnet)
     m_wallet->callback(m_wallet2Callback);
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
+
     m_refreshIntervalSeconds = DEFAULT_REFRESH_INTERVAL_SECONDS;
+
     m_refreshThread = boost::thread([this] () {
         this->refreshThreadFunc();
     });
@@ -272,14 +274,15 @@ bool WalletImpl::close()
 {
 
     bool result = false;
+    LOG_PRINT_L3("closing wallet...");
     try {
         // do not store wallet with invalid status
         if (status() == Status_Ok)
             m_wallet->store();
-        // LOG_PRINT_L0("wallet::store done");
-        // LOG_PRINT_L0("Calling wallet::stop...");
+        LOG_PRINT_L3("wallet::store done");
+        LOG_PRINT_L3("Calling wallet::stop...");
         m_wallet->stop();
-        // LOG_PRINT_L0("wallet::stop done");
+        LOG_PRINT_L3("wallet::stop done");
         result = true;
         clearStatus();
     } catch (const std::exception &e) {
@@ -680,6 +683,7 @@ void WalletImpl::stopRefresh()
     if (!m_refreshThreadDone) {
         m_refreshEnabled = false;
         m_refreshThreadDone = true;
+        m_refreshCV.notify_one();
         m_refreshThread.join();
     }
 }
