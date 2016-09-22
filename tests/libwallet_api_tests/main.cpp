@@ -65,9 +65,8 @@ const char * WALLET_PASS = "password";
 const char * WALLET_PASS2 = "password22";
 const char * WALLET_LANG = "English";
 
-// change this according your environment
 
-const std::string WALLETS_ROOT_DIR = "/home/mbg033/dev/monero/testnet/";
+const std::string WALLETS_ROOT_DIR = "/var/monero/testnet_pvt/";
 
 const std::string TESTNET_WALLET1_NAME = WALLETS_ROOT_DIR + "wallet_01.bin";
 const std::string TESTNET_WALLET2_NAME = WALLETS_ROOT_DIR + "wallet_02.bin";
@@ -78,10 +77,11 @@ const std::string TESTNET_WALLET6_NAME = WALLETS_ROOT_DIR + "wallet_06.bin";
 
 const char * TESTNET_WALLET_PASS = "";
 
-const std::string CURRENT_SRC_WALLET = TESTNET_WALLET1_NAME;
-const std::string CURRENT_DST_WALLET = TESTNET_WALLET6_NAME;
+const std::string CURRENT_SRC_WALLET = TESTNET_WALLET6_NAME;
+const std::string CURRENT_DST_WALLET = TESTNET_WALLET1_NAME;
 
 const char * TESTNET_DAEMON_ADDRESS = "localhost:38081";
+
 const uint64_t AMOUNT_10XMR =  10000000000000L;
 const uint64_t AMOUNT_5XMR  =  5000000000000L;
 const uint64_t AMOUNT_1XMR  =  1000000000000L;
@@ -181,10 +181,7 @@ struct WalletTest2 : public testing::Test
         wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
     }
 
-
 };
-
-
 
 TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
@@ -222,6 +219,7 @@ TEST_F(WalletManagerTest, WalletMaxAmountAsString)
                      Bitmonero::Wallet::maximumAllowedAmount()));
 
 }
+
 
 TEST_F(WalletManagerTest, WalletAmountFromString)
 {
@@ -457,14 +455,14 @@ TEST_F(WalletManagerTest, WalletManagerFindsWallet)
 }
 
 
-TEST_F(WalletManagerTest, WalletGeneratesPaymentId)
+TEST_F(WalletTest1, WalletGeneratesPaymentId)
 {
     std::string payment_id = Bitmonero::Wallet::genPaymentId();
     ASSERT_TRUE(payment_id.length() == 16);
 }
 
 
-TEST_F(WalletManagerTest, WalletGeneratesIntegratedAddress)
+TEST_F(WalletTest1, WalletGeneratesIntegratedAddress)
 {
     std::string payment_id = Bitmonero::Wallet::genPaymentId();
 
@@ -503,7 +501,6 @@ TEST_F(WalletTest1, WalletRefresh)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
-
 TEST_F(WalletTest1, WalletConvertsToString)
 {
     std::string strAmount = Bitmonero::Wallet::displayAmount(AMOUNT_5XMR);
@@ -518,6 +515,7 @@ TEST_F(WalletTest1, WalletConvertsToString)
 
 
 TEST_F(WalletTest1, WalletTransaction)
+
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
@@ -543,6 +541,8 @@ TEST_F(WalletTest1, WalletTransaction)
     ASSERT_FALSE(wallet1->balance() == balance);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
+
+
 
 TEST_F(WalletTest1, WalletTransactionWithMixin)
 {
@@ -798,7 +798,8 @@ struct MyWalletListener : public Bitmonero::WalletListener
 };
 
 
-/*
+
+
 TEST_F(WalletTest2, WalletCallBackRefreshedSync)
 {
 
@@ -812,7 +813,8 @@ TEST_F(WalletTest2, WalletCallBackRefreshedSync)
     wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
     wmgr->closeWallet(wallet_src);
 }
-*/
+
+
 
 
 TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
