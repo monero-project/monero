@@ -65,28 +65,27 @@ const char * WALLET_PASS = "password";
 const char * WALLET_PASS2 = "password22";
 const char * WALLET_LANG = "English";
 
-
-const std::string WALLETS_ROOT_DIR = "/var/monero/testnet_pvt/";
-
-const std::string TESTNET_WALLET1_NAME = WALLETS_ROOT_DIR + "wallet_01.bin";
-const std::string TESTNET_WALLET2_NAME = WALLETS_ROOT_DIR + "wallet_02.bin";
-const std::string TESTNET_WALLET3_NAME = WALLETS_ROOT_DIR + "wallet_03.bin";
-const std::string TESTNET_WALLET4_NAME = WALLETS_ROOT_DIR + "wallet_04.bin";
-const std::string TESTNET_WALLET5_NAME = WALLETS_ROOT_DIR + "wallet_05.bin";
-const std::string TESTNET_WALLET6_NAME = WALLETS_ROOT_DIR + "wallet_06.bin";
+std::string WALLETS_ROOT_DIR = "/var/monero/testnet_pvt";
+std::string TESTNET_WALLET1_NAME;
+std::string TESTNET_WALLET2_NAME;
+std::string TESTNET_WALLET3_NAME;
+std::string TESTNET_WALLET4_NAME;
+std::string TESTNET_WALLET5_NAME;
+std::string TESTNET_WALLET6_NAME;
 
 const char * TESTNET_WALLET_PASS = "";
 
-const std::string CURRENT_SRC_WALLET = TESTNET_WALLET6_NAME;
-const std::string CURRENT_DST_WALLET = TESTNET_WALLET1_NAME;
-
-const char * TESTNET_DAEMON_ADDRESS = "localhost:38081";
+std::string CURRENT_SRC_WALLET;
+std::string CURRENT_DST_WALLET;
 
 const uint64_t AMOUNT_10XMR =  10000000000000L;
 const uint64_t AMOUNT_5XMR  =  5000000000000L;
 const uint64_t AMOUNT_1XMR  =  1000000000000L;
 
 const std::string PAYMENT_ID_EMPTY = "";
+
+std::string TESTNET_DAEMON_ADDRESS = "localhost:38081";
+
 
 }
 
@@ -494,6 +493,7 @@ TEST_F(WalletTest1, WalletShowsBalance)
 
 TEST_F(WalletTest1, WalletRefresh)
 {
+
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
@@ -920,6 +920,29 @@ TEST_F(WalletTest2, WalletCallbackReceived)
 
 int main(int argc, char** argv)
 {
+    // we can override default values for "TESTNET_DAEMON_ADDRESS" and "WALLETS_ROOT_DIR"
+
+    const char * monero_daemon_addr = std::getenv("TESTNET_DAEMON_ADDRESS");
+    if (monero_daemon_addr) {
+        TESTNET_DAEMON_ADDRESS = monero_daemon_addr;
+    }
+
+    const char * wallets_root_dir = std::getenv("WALLETS_ROOT_DIR");
+    if (wallets_root_dir) {
+        WALLETS_ROOT_DIR = wallets_root_dir;
+    }
+
+
+    TESTNET_WALLET1_NAME = WALLETS_ROOT_DIR + "/wallet_01.bin";
+    TESTNET_WALLET2_NAME = WALLETS_ROOT_DIR + "/wallet_02.bin";
+    TESTNET_WALLET3_NAME = WALLETS_ROOT_DIR + "/wallet_03.bin";
+    TESTNET_WALLET4_NAME = WALLETS_ROOT_DIR + "/wallet_04.bin";
+    TESTNET_WALLET5_NAME = WALLETS_ROOT_DIR + "/wallet_05.bin";
+    TESTNET_WALLET6_NAME = WALLETS_ROOT_DIR + "/wallet_06.bin";
+
+    CURRENT_SRC_WALLET = TESTNET_WALLET6_NAME;
+    CURRENT_DST_WALLET = TESTNET_WALLET5_NAME;
+
     ::testing::InitGoogleTest(&argc, argv);
     // Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_Max);
     return RUN_ALL_TESTS();
