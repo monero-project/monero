@@ -75,6 +75,7 @@ public:
     bool trustedDaemon() const;
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
+    uint64_t blockChainHeight() const;
     bool refresh();
     void refreshAsync();
     void setAutoRefreshInterval(int seconds);

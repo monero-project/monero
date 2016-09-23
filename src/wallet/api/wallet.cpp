@@ -75,8 +75,12 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 
     virtual void on_new_block(uint64_t height, const cryptonote::block& block)
     {
-        // TODO;
         LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
+
+        if (m_listener) {
+            m_listener->newBlock(height);
+            m_listener->updated();
+        }
     }
 
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
@@ -413,6 +417,10 @@ uint64_t WalletImpl::unlockedBalance() const
     return m_wallet->unlocked_balance();
 }
 
+uint64_t WalletImpl::blockChainHeight() const
+{
+    return m_wallet->get_blockchain_current_height();
+}
 
 bool WalletImpl::refresh()
 {
