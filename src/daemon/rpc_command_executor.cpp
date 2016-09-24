@@ -296,6 +296,16 @@ static std::string get_fork_extra_info(uint64_t t, uint64_t now, uint64_t block_
   return "";
 }
 
+static float get_sync_percentage(const cryptonote::COMMAND_RPC_GET_INFO::response &ires)
+{
+  uint64_t height = ires.height;
+  uint64_t target_height = ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height;
+  float pc = 100.0f * height / target_height;
+  if (height < target_height && pc > 99.9f)
+    return 99.9f; // to avoid 100% when not fully synced
+  return pc;
+}
+
 bool t_rpc_command_executor::show_status() {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
@@ -356,7 +366,7 @@ bool t_rpc_command_executor::show_status() {
   tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u+%u connections")
     % (unsigned long long)ires.height
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
-    % (100.0f * ires.height / (ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height))
+    % get_sync_percentage(ires)
     % (ires.testnet ? "testnet" : "mainnet")
     % (mining_busy ? "syncing" : mres.active ? "mining at " + get_mining_speed(mres.speed) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
