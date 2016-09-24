@@ -27,7 +27,6 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # include (${PROJECT_SOURCE_DIR}/cmake/libutils.cmake)
-include (${PROJECT_SOURCE_DIR}/cmake/MergeStaticLibs.cmake)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
@@ -76,10 +75,18 @@ target_link_libraries(wallet
     ${Boost_REGEX_LIBRARY}
     ${EXTRA_LIBRARIES})
 
-set(libs_to_merge wallet cryptonote_core mnemonics common crypto)
-merge_static_libs(wallet_merged "${libs_to_merge}")
-install(TARGETS wallet_merged
-    ARCHIVE DESTINATION lib)
 
-install(FILES ${wallet_api_headers}
-    DESTINATION include/wallet)
+# build and install libwallet_merged only if we building for GUI
+if (BUILD_GUI_DEPS)
+    set(libs_to_merge wallet cryptonote_core mnemonics common crypto ringct)
+
+    foreach(lib ${libs_to_merge})
+        list(APPEND objlibs $<TARGET_OBJECTS:obj_${lib}>) # matches naming convention in src/CMakeLists.txt
+    endforeach()
+    add_library(wallet_merged STATIC ${objlibs})
+    install(TARGETS wallet_merged
+        ARCHIVE DESTINATION lib)
+
+    install(FILES ${wallet_api_headers}
+        DESTINATION include/wallet)
+endif()

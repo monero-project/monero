@@ -221,7 +221,8 @@ public:
     bf_miner_tx  = 1 << 4,
     bf_tx_hashes = 1 << 5,
     bf_diffic    = 1 << 6,
-    bf_max_outs  = 1 << 7
+    bf_max_outs  = 1 << 7,
+    bf_hf_version= 1 << 8
   };
 
   void get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const;
@@ -229,7 +230,8 @@ public:
   uint64_t get_already_generated_coins(const crypto::hash& blk_id) const;
   uint64_t get_already_generated_coins(const cryptonote::block& blk) const;
 
-  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_sizes, uint64_t already_generated_coins);
+  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_sizes, uint64_t already_generated_coins,
+    uint8_t hf_version = 1);
   bool construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
     const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
     std::vector<size_t>& block_sizes, const std::list<cryptonote::transaction>& tx_list);
@@ -241,7 +243,8 @@ public:
     const cryptonote::account_base& miner_acc, int actual_params = bf_none, uint8_t major_ver = 0,
     uint8_t minor_ver = 0, uint64_t timestamp = 0, const crypto::hash& prev_id = crypto::hash(),
     const cryptonote::difficulty_type& diffic = 1, const cryptonote::transaction& miner_tx = cryptonote::transaction(),
-    const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0, size_t max_outs = 999);
+    const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0, size_t max_outs = 999,
+    uint8_t hf_version = 1);
   bool construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, const std::vector<crypto::hash>& tx_hashes, size_t txs_size);
 
@@ -472,11 +475,11 @@ inline bool replay_events_through_core(cryptonote::core& cr, const std::vector<t
 //--------------------------------------------------------------------------
 template<typename t_test_class>
 struct get_test_options {
-  const std::pair<uint8_t, uint64_t> hard_forks[1];
+  const std::pair<uint8_t, uint64_t> hard_forks[2];
   const cryptonote::test_options test_options = {
     hard_forks
   };
-  get_test_options():hard_forks{std::make_pair((uint8_t)1, (uint64_t)0)}{}
+  get_test_options():hard_forks{std::make_pair((uint8_t)1, (uint64_t)0), std::make_pair((uint8_t)0, (uint64_t)0)}{}
 };
 
 //--------------------------------------------------------------------------

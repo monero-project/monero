@@ -57,3 +57,6 @@ target_link_libraries(simplewallet
     ${EXTRA_LIBRARIES})
 add_dependencies(simplewallet
   version)
+set_property(TARGET simplewallet
+  PROPERTY
+    OUTPUT_NAME "monero-wallet-cli")

@@ -151,7 +151,7 @@ namespace crypto {
     return true;
   }
 
-  static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res) {
+  void crypto_ops::derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res) {
     struct {
       key_derivation derivation;
       char output_index[(sizeof(size_t) * 8 + 6) / 7];
@@ -230,7 +230,7 @@ namespace crypto {
     buf.h = prefix_hash;
     buf.key = pub;
     if (ge_frombytes_vartime(&tmp3, &pub) != 0) {
-      abort();
+      return false;
     }
     if (sc_check(&sig.c) != 0 || sc_check(&sig.r) != 0) {
       return false;
@@ -364,7 +364,7 @@ POP_WARNINGS
         return false;
       }
       if (ge_frombytes_vartime(&tmp3, &*pubs[i]) != 0) {
-        abort();
+        return false;
       }
       ge_double_scalarmult_base_vartime(&tmp2, &sig[i].c, &tmp3, &sig[i].r);
       ge_tobytes(&buf->ab[i].a, &tmp2);

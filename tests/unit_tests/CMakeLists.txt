@@ -52,7 +52,9 @@ set(unit_tests_sources
   test_protocol_pack.cpp
   hardfork.cpp
   unbound.cpp
-  varint.cpp)
+  varint.cpp
+  ringct.cpp
+  output_selection.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
@@ -62,13 +64,14 @@ add_executable(unit_tests
   ${unit_tests_headers})
 target_link_libraries(unit_tests
   LINK_PRIVATE
+    ringct
     cryptonote_core
     blockchain_db
     rpc
     serialization
     wallet
     p2p
-    ${GTEST_MAIN_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

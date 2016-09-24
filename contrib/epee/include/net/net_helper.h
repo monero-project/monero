@@ -137,7 +137,7 @@ namespace net_utils
 				//////////////////////////////////////////////////////////////////////////
 
 				boost::asio::ip::tcp::resolver resolver(m_io_service);
-				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), addr, port);
+				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), addr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
 				boost::asio::ip::tcp::resolver::iterator iterator = resolver.resolve(query);
 				boost::asio::ip::tcp::resolver::iterator end;
 				if(iterator == end)

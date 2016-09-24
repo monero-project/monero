@@ -64,6 +64,22 @@ namespace crypto {
     friend class crypto_ops;
   };
 
+  POD_CLASS public_keyV {
+    std::vector<public_key> keys;
+    int rows;
+  };
+
+  POD_CLASS secret_keyV {
+    std::vector<secret_key> keys;
+    int rows;
+  };
+
+  POD_CLASS public_keyM {
+    int cols;
+    int rows;
+    std::vector<secret_keyV> column_vectors;
+  };
+
   POD_CLASS key_derivation: ec_point {
     friend class crypto_ops;
   };
@@ -97,6 +113,8 @@ namespace crypto {
     friend bool secret_key_to_public_key(const secret_key &, public_key &);
     static bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     friend bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
+    static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
+    friend void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
     static bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &);
     friend bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &);
     static void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &);
@@ -164,6 +182,9 @@ namespace crypto {
   inline bool derive_public_key(const key_derivation &derivation, std::size_t output_index,
     const public_key &base, public_key &derived_key) {
     return crypto_ops::derive_public_key(derivation, output_index, base, derived_key);
+  }
+  inline void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res) {
+    return crypto_ops::derivation_to_scalar(derivation, output_index, res);
   }
   inline void derive_secret_key(const key_derivation &derivation, std::size_t output_index,
     const secret_key &base, secret_key &derived_key) {

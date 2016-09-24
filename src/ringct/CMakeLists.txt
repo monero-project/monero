@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2016, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,31 +26,34 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(simpleminer_sources
-  simpleminer.cpp)
+set(ringct_sources
+  rctOps.cpp
+  rctSigs.cpp
+  rctTypes.cpp
+  rctCryptoOps.c)
 
-set(simpleminer_headers)
+set(ringct_headers)
 
-set(simpleminer_private_headers
-  simpleminer.h
-  simpleminer_protocol_defs.h
-  target_helper.h)
+set(ringct_private_headers
+  rctOps.h
+  rctSigs.h
+  rctTypes.h)
 
-bitmonero_private_headers(simpleminer
-  ${simpleminer_private_headers})
-bitmonero_add_executable(simpleminer
-  ${simpleminer_sources}
-  ${simpleminer_headers}
-  ${simpleminer_private_headers})
-target_link_libraries(simpleminer
-  LINK_PRIVATE
-    cryptonote_core
+bitmonero_private_headers(ringct
+  ${crypto_private_headers})
+bitmonero_add_library(ringct
+  ${ringct_sources}
+  ${ringct_headers}
+  ${ringct_private_headers})
+target_link_libraries(ringct
+  LINK_PUBLIC
     common
-    ${Boost_FILESYSTEM_LIBRARY}
+    crypto
+    ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_CHRONO_LIBRARY}
+    ${Boost_SERIALIZATION_LIBRARY}
+  LINK_PRIVATE
+    ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})

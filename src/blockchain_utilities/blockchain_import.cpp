@@ -222,12 +222,8 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
   std::vector<transaction> popped_txs;
   for (int i=0; i < num_blocks; ++i)
   {
-#if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
-    simple_core.m_storage.debug_pop_block_from_blockchain();
-#else
     // simple_core.m_storage.pop_block_from_blockchain() is private, so call directly through db
     simple_core.m_storage.get_db().pop_block(popped_block, popped_txs);
-#endif
     quit = 1;
   }
 
@@ -244,9 +240,7 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
     {
       simple_core.batch_stop();
     }
-#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
     simple_core.m_storage.get_db().show_stats();
-#endif
   }
 
   return num_blocks;
@@ -255,11 +249,6 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
 template <typename FakeCore>
 int import_from_file(FakeCore& simple_core, const std::string& import_file_path, uint64_t block_stop=0)
 {
-#if !defined(BLOCKCHAIN_DB)
-  static_assert(std::is_same<fake_core_memory, FakeCore>::value || std::is_same<fake_core_db, FakeCore>::value,
-      "FakeCore constraint error");
-#endif
-#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
   if (std::is_same<fake_core_db, FakeCore>::value)
   {
     // Reset stats, in case we're using newly created db, accumulating stats
@@ -267,7 +256,6 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     // This aligns internal db counts with importer counts.
     simple_core.m_storage.get_db().reset_stats();
   }
-#endif
   boost::filesystem::path fs_import_file_path(import_file_path);
   boost::system::error_code ec;
   if (!boost::filesystem::exists(fs_import_file_path, ec))
@@ -567,9 +555,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
             simple_core.batch_stop();
             simple_core.batch_start(db_batch_size);
             std::cout << ENDL;
-#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
             simple_core.m_storage.get_db().show_stats();
-#endif
           }
         }
       }
@@ -595,9 +581,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     {
       simple_core.batch_stop();
     }
-#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
     simple_core.m_storage.get_db().show_stats();
-#endif
     LOG_PRINT_L0("Number of blocks imported: " << num_imported);
     if (h > 0)
       // TODO: if there was an error, the last added block is probably at zero-based height h-2
@@ -609,13 +593,8 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 
 int main(int argc, char* argv[])
 {
-#if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
-  std::string default_db_type = "memory";
-  std::string default_db_engine_compiled = "memory";
-#else
   std::string default_db_type = "lmdb";
   std::string default_db_engine_compiled = "blockchain_db";
-#endif
 
   std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
   db_types_all.insert("memory");
@@ -817,15 +796,9 @@ int main(int argc, char* argv[])
   // circumstance.
 
   // for multi_db_runtime:
-#if !defined(BLOCKCHAIN_DB)
   if (db_type == "lmdb" || db_type == "berkeley")
   {
     fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_type, db_flags);
-    import_from_file(simple_core, import_file_path, block_stop);
-  }
-  else if (db_type == "memory")
-  {
-    fake_core_memory simple_core(m_config_folder, opt_testnet);
     import_from_file(simple_core, import_file_path, block_stop);
   }
   else
@@ -835,17 +808,7 @@ int main(int argc, char* argv[])
   }
 
   // for multi_db_compile:
-#else
-  if (db_engine_compiled != default_db_engine_compiled)
-  {
-    std::cerr << "Invalid database type for compiled version: " << db_type << std::endl;
-    return 1;
-  }
-#if BLOCKCHAIN_DB == DB_LMDB
   fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_type, db_flags);
-#else
-  fake_core_memory simple_core(m_config_folder, opt_testnet);
-#endif
 
   if (! vm["pop-blocks"].defaulted())
   {
@@ -856,17 +819,14 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-#if !defined(BLOCKCHAIN_DB) || (BLOCKCHAIN_DB == DB_LMDB)
   if (! vm["drop-hard-fork"].defaulted())
   {
     LOG_PRINT_L0("Dropping hard fork tables...");
     simple_core.m_storage.get_db().drop_hard_fork_info();
     return 0;
   }
-#endif
 
   import_from_file(simple_core, import_file_path, block_stop);
-#endif
 
   }
   catch (const DB_ERROR& e)

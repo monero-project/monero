@@ -361,7 +361,7 @@ void BlockchainBDB::remove_transaction_data(const crypto::hash& tx_hash, const t
         throw1(DB_ERROR("Failed to add removal of tx outputs to db transaction"));
 }
 
-void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time)
+void BlockchainBDB::add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
@@ -1235,7 +1235,7 @@ void BlockchainBDB::unlock()
     check_open();
 }
 
-bool BlockchainBDB::block_exists(const crypto::hash& h) const
+bool BlockchainBDB::block_exists(const crypto::hash& h, uint64_t *height) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
@@ -1250,6 +1250,9 @@ bool BlockchainBDB::block_exists(const crypto::hash& h) const
     }
     else if (get_result)
         throw0(DB_ERROR("DB error attempting to fetch block index from hash"));
+
+    if (height)
+      *height = get_result - 1;
 
     return true;
 }

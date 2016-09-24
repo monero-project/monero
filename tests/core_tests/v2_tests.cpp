@@ -79,7 +79,6 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
   }
 
   // create a tx with the Nth outputs of miner's block reward
-  typedef tx_source_entry::output_entry tx_output_entry;
   std::vector<tx_source_entry> sources;
   for (size_t out_idx_idx = 0; out_idx[out_idx_idx] >= 0; ++out_idx_idx) {
     sources.resize(sources.size()+1);
@@ -88,16 +87,16 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     src.amount = blocks[0].miner_tx.vout[out_idx[out_idx_idx]].amount;
   std::cout << "using " << print_money(src.amount) << " output at index " << out_idx[out_idx_idx] << std::endl;
     for (int m = 0; m <= mixin; ++m) {
-      tx_output_entry oe;
+      int idx;
       if (is_valid_decomposed_amount(src.amount))
-        oe.first = m+1; // one out of that size per miner tx, including genesis
+        idx = m+1; // one out of that size per miner tx, including genesis
       else
-        oe.first = 0; // dusty, no other output of that size
-      oe.second = boost::get<txout_to_key>(blocks[m].miner_tx.vout[out_idx[out_idx_idx]].target).key;
-      src.outputs.push_back(oe);
+        idx = 0; // dusty, no other output of that size
+      src.push_output(idx, boost::get<txout_to_key>(blocks[m].miner_tx.vout[out_idx[out_idx_idx]].target).key, src.amount);
     }
     src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(blocks[0].miner_tx);
     src.real_output = 0;
+    src.rct = false;
     src.real_output_in_tx_index = out_idx[out_idx_idx];
   }
 

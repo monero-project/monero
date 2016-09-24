@@ -2,19 +2,20 @@
 
 Copyright (c) 2014-2016, The Monero Project
 
-[![Build Status](https://travis-ci.org/monero-project/bitmonero.svg?branch=master)](https://travis-ci.org/monero-project/bitmonero)
+[![Build Status](https://travis-ci.org/monero-project/monero.svg?branch=master)](https://travis-ci.org/monero-project/monero)
+[![Coverage Status](https://coveralls.io/repos/github/monero-project/monero/badge.svg?branch=master)](https://coveralls.io/github/monero-project/monero?branch=master)
 
 ## Development Resources
 
 - Web: [getmonero.org](https://getmonero.org)
 - Forum: [forum.getmonero.org](https://forum.getmonero.org)
 - Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
-- GitHub: [https://github.com/monero-project/bitmonero](https://github.com/monero-project/bitmonero)
+- GitHub: [https://github.com/monero-project/monero](https://github.com/monero-project/monero)
 - IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
 
 ## Introduction
 
-Monero is a private, secure, untraceable currency. You are your bank, you control your funds, and nobody can trace your transfers unless you decide so.
+Monero is a private, secure, untraceable, decentralised digital currency. You are your bank, you control your funds, and nobody can trace your transfers unless you allow them to do so.
 
 **Privacy:** Monero uses a cryptographically sound system to allow you to send and receive funds without your transactions being easily revealed on the blockchain (the ledger of transactions that everyone has). This ensures that your purchases, receipts, and all transfers remain absolutely private by default.
 
@@ -26,9 +27,9 @@ Monero is a private, secure, untraceable currency. You are your bank, you contro
 
 This is the core implementation of Monero. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of Monero that uses the protocol and network in a compatible manner.
 
-As with many development projects, the repository on Github is considered to be the "staging" area for the latest changes. Before changes are merged into that branch on the main repository, they are tested by individual developers, committed to the "development" branch, and then subsequently tested by contributors who focus on thorough testing and code reviews. That having been said, the repository should be carefully considered before using it in a production environment, unless there is a patch in the repository for a particular show-stopping issue you are experiencing. It is generally a better idea to use a tagged release for stability.
+As with many development projects, the repository on Github is considered to be the "staging" area for the latest changes. Before changes are merged into that branch on the main repository, they are tested by individual developers in their own branches, submitted as a pull request, and then subsequently tested by contributors who focus on testing and code reviews. That having been said, the repository should be carefully considered before using it in a production environment, unless there is a patch in the repository for a particular show-stopping issue you are experiencing. It is generally a better idea to use a tagged release for stability.
 
-Anyone is welcome to contribute to Monero. If you have a fix or code change, feel free to submit is as a pull request directly to the "development" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
+**Anyone is welcome to contribute to Monero's codebase!** If you have a fix or code change, feel free to submit is as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
 ## Supporting the Project
 
@@ -36,13 +37,19 @@ Monero development can be supported directly through donations.
 
 Both Monero and Bitcoin donations can be made to donate.getmonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
 
-The Monero donation address is: 44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A (viewkey: f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501)
+The Monero donation address is: `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A` (viewkey: `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`)
 
-The Bitcoin donation address is: 1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H
+The Bitcoin donation address is: `1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H`
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
-[![MyMonero](https://static.getmonero.org/images/sponsors/mymonero.png)](https://mymonero.com) [![Kitware](https://static.getmonero.org/images/sponsors/kitware.png?1)](http://kitware.com) [![Dome9](https://static.getmonero.org/images/sponsors/dome9.png)](http://dome9.com) [![Araxis](https://static.getmonero.org/images/sponsors/araxis.png)](http://araxis.com) [![JetBrains](https://static.getmonero.org/images/sponsors/jetbrains.png)](http://www.jetbrains.com/) [![Navicat](https://static.getmonero.org/images/sponsors/navicat.png)](http://www.navicat.com/)
+[<img width="80" src="https://static.getmonero.org/images/sponsors/mymonero.png"/>](https://mymonero.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/kitware.png?1"/>](http://kitware.com)
+[<img width="100" src="https://static.getmonero.org/images/sponsors/dome9.png"/>](http://dome9.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](http://araxis.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](http://www.jetbrains.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](http://www.navicat.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/symas.png"/>](http://www.symas.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
@@ -50,101 +57,157 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 See [LICENSE](LICENSE).
 
-## Compiling Monero
+## Installing Monero from a Package
 
-### Overview:
+Packages are available for
 
-Dependencies: GCC 4.7.3 or later, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), libevent 2.0 or later, libgtest 1.5 or later, and Boost 1.53 or later (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
-Static Build Additional Dependencies: ldns 1.6.17 or later, expat 1.1 or later, bison or yacc
+* Arch Linux via AUR: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
 
-**Basic Process:**
+* OS X via [Homebrew](http://brew.sh)
 
-* Install the dependencies (see below for more detailed instructions for your OS)
-* To build, change to the root of the source code directory, and run `make`. Please note that Windows systems follow a slightly different process, outlined below.
-* The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.
+        brew tap sammy007/cryptonight
+        brew install bitmonero --build-from-source
 
-**Advanced options:**
+* Docker
 
-* Parallel build: run `make -j<number of threads>` instead of `make`.
-* Statically linked release build: run `make release-static`.
-* Debug build: run `make debug`.
-* Test suite: run `make release-test` to run tests in addition to building. Running `make debug-test` will do the same to the debug version.
+        docker build -t monero .
+     
+        # either run in foreground
+        docker run -it -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
 
-**Makefile Targets for Static Builds:**
+        # or in background
+        docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
 
-For static builds there are a number of Makefile targets to make the build process easier.
+Packaging for your favorite distribution would be a welcome contribution!
 
-* ```make release-static-win64``` builds statically for 64-bit Windows systems
-* ```make release-static-win32``` builds statically for 32-bit Windows systems
-* ```make release-static-64``` the default, builds statically for 64-bit non-Windows systems
-* ```make release-static-32``` builds statically for 32-bit non-Windows systems
-* ```make release-static-arm6``` builds statically for ARMv6 devices, such as the Raspberry Pi
+## Compiling Monero from Source
 
-### On Linux:
+### Dependencies
 
-The instructions above should provide enough detail.
+The following table summarizes the tools and libraries required to build.  A
+few of the libraries are also included in this repository (marked as
+"Vendored"). By default, the build uses the library installed on the system,
+and ignores the vendored sources. However, if no library is found installed on
+the system, then the vendored source will be built and used. The vendored
+sources are also used for statically-linked builds because distribution
+packages often include only shared library binaries (`.so`) but not static
+library archives (`.a`).
 
-### On OS X:
+| Dep            | Min. Version  | Vendored | Debian/Ubuntu Pkg  | Arch Pkg       | Optional | Purpose        |
+| -------------- | ------------- | ---------| ------------------ | -------------- | -------- | -------------- |
+| GCC            | 4.7.3         | NO       | `build-essential`  | `base-devel`   | NO       |                |
+| CMake          | 3.0.0         | NO       | `cmake`            | `cmake`        | NO       |                |
+| pkg-config     | any           | NO       | `pkg-config`       | `base-devel`   | NO       |                |
+| Boost          | 1.58          | NO       | `libboost-all-dev` | `boost`        | NO       |                |
+| BerkeleyDB     | 4.8           | NO       | `libdb{,++}-dev`   | `db`           | NO       |                |
+| libevent       | 2.0           | NO       | `libevent-dev`     | `libevent`     | NO       |                |
+| libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       |                |
+| libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
+| libunwind      | any           | NO       | `libunwind-dev`    | `libunwind`    | YES      | stack traces   |
+| ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | ?              |
+| expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | ?              |
+| GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | test suite     |
+| Doxygen        | any           | NO       | `doxygen`          | `doxygen`      | YES      | documentation  |
+| Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | documentation  |
 
-**Basic Process:**
+[^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
+build the library binary manually.
 
-The project can be built from scratch by following instructions for Unix and Linux above.
+### Build instructions
 
-**Alternate Process:**
+Monero uses the CMake build system and a top-level [Makefile](Makefile) that
+invokes cmake commands as needed.
 
-Alternatively, it can be built in an easier and more automated fashion using Homebrew:
+#### On Linux and OS X
 
-* Ensure Homebrew is installed, it can be found at http://brew.sh
-* Add the repository to brew: `brew tap sammy007/cryptonight`
-* Build Monero: `brew install bitmonero --build-from-source`
+* Install the dependencies
+* Change to the root of the source code directory and build:
 
-### On Windows:
+        cd monero
+        make
 
-Dependencies: mingw-w64, msys2, CMake 3.0.0 or later, libunbound 1.4.16 or later (note: Unbound is not a dependency, libunbound is), and Boost 1.53 or 1.55 (except 1.54, [more details here](http://goo.gl/RrCFmA)), BerkeleyDB 4.8 or later (note: on Ubuntu this means installing libdb-dev and libdb++-dev).
+    *Optional*: If your machine has several cores and enough memory, enable
+    parallel build by running `make -j<number of threads>` instead of `make`. For
+    this to be worthwhile, the machine should have one core and about 2GB of RAM
+    available per thread.
+
+* The resulting executables can be found in `build/release/bin`.
+
+* **Optional**: build and run the test suite to verify the binaries:
+
+        make release-test
+
+    *NOTE*: `coretests` test may take a few hours to complete.
+
+* **Optional**: to build binaries suitable for debugging:
+
+         make debug
+
+* **Optional**: to build statically-linked binaries:
+
+         make release-static
+
+* **Optional**: build documentation in `doc/html` (omit `HAVE_DOT=YES` if `graphviz` is not installed):
+
+        HAVE_DOT=YES doxygen Doxyfile
+
+
+#### On Windows:
+
+Binaries for Windows are built on Windows using the MinGW toolchain within
+[MSYS2 environment](http://msys2.github.io). The MSYS2 environment emulates a
+POSIX system. The toolchain runs within the environment and *cross-compiles*
+binaries that can run outside of the environment as a regular Windows
+application.
 
 **Preparing the Build Environment**
 
-* Download the [MSYS2 installer](http://msys2.github.io), 64-bit or 32-bit as needed, and run it.
-* Use the shortcut associated with your architecture to launch the MSYS2 environment. On 64-bit systems that would be the MinGW-w64 Win64 Shell shortcut. Note that if you are running 64-bit Windows, you will have both 64-bit and 32-bit environments.
-* Update the packages in your MSYS2 install:
-```
-pacman -Sy
-pacman -Su --ignoregroup base
-pacman -Su
-```
-* For those of you already familiar with pacman, you can run the normal `pacman -Syu` to update, but you may get errors and need to restart MSYS2 if pacman's dependencies are updated.
-* Install dependencies: `pacman -S mingw-w64-x86_64-gcc make mingw-w64-x86_64-cmake mingw-w64-x86_64-expat mingw-w64-x86_64-boost`
+* Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
+* Open the MSYS shell via the `MSYS2 Shell` shortcut
+* Update the core packages in your MSYS2 install:
+
+        update-core  
+        
+* Exit the MSYS shell using Alt+F4, then restart MSYS and update packages using pacman:  
+
+        pacman -Syuu  
+
+* Exit the MSYS shell using Alt+F4  
+* Edit the properties for the `MSYS2 Shell` shortcut changing "msys2_shell.bat" to "msys2_shell.cmd -mingw64" for 64-bit builds or "msys2_shell.cmd -mingw32" for 32-bit builds
+* Restart MSYS shell via modified shortcut and update packages again using pacman:  
+
+        pacman -Syuu  
+
+
+* Install dependencies:
+
+    To build for 64-bit Windows:
+
+        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost
+
+    To build for 32-bit Windows:
+ 
+        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost
+
+* Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
+  or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
+  running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
 
 **Building**
 
-* From the root of the source code directory run:
-```
-mkdir build
-cd build
-```
 * If you are on a 64-bit system, run:
-```
-cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="x86-64" -D BUILD_64=ON -D CMAKE_TOOLCHAIN_FILE=../cmake/64-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys64 ..
-```
+
+        make release-static-win64
+
 * If you are on a 32-bit system, run:
-```
-cmake -G "MSYS Makefiles" -D CMAKE_BUILD_TYPE=Release -D ARCH="i686" -D BUILD_64=OFF -D CMAKE_TOOLCHAIN_FILE=../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ..
-```
-* You can now run `make` to have it build
-* The resulting executables can be found in `build/release/bin` or `build/debug/bin`, depending on what you're building.
 
-If you installed MSYS2 in a folder other than c:/msys64, make the appropriate substitution above.
+        make release-static-win32
 
-**Advanced options:**
-
-* Parallel build: run `make -j<number of threads>` instead of `make`.
-* Statically linked release build: run `make release-static`.
-* Debug build: run `make debug`.
-* Test suite: run `make release-test` to run tests in addition to building. Running `make debug-test` will do the same to the debug version.
+* The resulting executables can be found in `build/release/bin`
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Unix and Linux above.
+The project can be built from scratch by following instructions for Linux above.
 
 We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
@@ -163,33 +226,42 @@ You will have to add the serialization, date_time, and regex modules to Boost wh
 
 To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
 
-## Building Documentation
+### Building Portable Statically Linked Binaries
 
-Monero developer documentation uses Doxygen, and is currently a work-in-progress.
+By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
 
-Dependencies: Doxygen 1.8.0 or later, Graphviz 2.28 or later (optional).
+* ```make release-static-64``` builds binaries on Linux on x86_64 portable across POSIX systems on x86_64 processors
+* ```make release-static-32``` builds binaries on Linux on x86_64 or i686 portable across POSIX systems on i686 processors
+* ```make release-static-arm8``` builds binaries on Linux on armv8 portable across POSIX systems on armv8 processors
+* ```make release-static-arm7``` builds binaries on Linux on armv7 portable across POSIX systems on armv7 processors
+* ```make release-static-arm6``` builds binaries on Linux on armv7 or armv6 portable across POSIX systems on armv6 processors, such as the Raspberry Pi
+* ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
+* ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
 
-* To build, change to the root of the source code directory, and run `doxygen Doxyfile`
-* If you have installed Graphviz, you can also generate in-doc diagrams by instead running `HAVE_DOT=YES doxygen Doxyfile`
-* The output will be built in doc/html/
-
-## Running bitmonerod
+## Running monerod
 
 The build places the binary in `bin/` sub-directory within the build directory
 from which cmake was invoked (repository root by default). To run in
 foreground:
 
-    ./bin/bitmonerod
+    ./bin/monerod
 
-To run in background:
-
-    ./bin/bitmonerod --log-file bitmonerod.log --detach
-
-To list all available options, run `./bin/bitmonerod --help`.  Options can be
+To list all available options, run `./bin/monerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
-of the argument without any dashes, for example `log-level=1`.
+of the argument without the leading dashes, for example `log-level=1`.
+
+To run in background:
+
+    ./bin/monerod --log-file monerod.log --detach
+
+To run as a systemd service, copy
+[monerod.service](utils/systemd/monerod.service) to `/etc/systemd/system/` and
+[monerod.conf](utils/conf/monerod.conf) to `/etc/`. The [example
+service](utils/systemd/monerod.service) assumes that the user `monero` exists
+and its home is the data directory specified in the [example
+config](utils/conf/monerod.conf).
 
 ## Internationalization
 
@@ -197,20 +269,20 @@ See README.i18n
 
 ## Using Tor
 
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the bitmonerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, add TORSOCKS_ALLOW_INBOUND=1. Example:
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the monerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, add TORSOCKS_ALLOW_INBOUND=1. Example:
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks bitmonerod --p2p-bind-ip 127.0.0.1 --no-igd`
+`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd`
 
 TAILS ships with a very restrictive set of firewall rules. Therefore, you need to add a rule to allow this connection too, in addition to telling torsocks to allow inbound connections. Full example:
 
 `sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT`
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks ./bitmonerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
+`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
 
-`./simplewallet`
+`./monero-wallet-cli`
 
 ## Using readline
 
-While bitmonerod and simplewallet do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend "rlwrap " to the command line, eg:
-rlwrap bin/simplewallet --wallet-file /path/to/wallet
+While monerod and monero-wallet-cli do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
 
+`rlwrap bin/monero-wallet-cli --wallet-file /path/to/wallet`

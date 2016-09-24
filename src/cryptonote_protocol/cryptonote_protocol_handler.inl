@@ -263,7 +263,7 @@ namespace cryptonote
     if(context.m_state == cryptonote_connection_context::state_synchronizing)
       return true;
 
-    if(m_core.have_block(hshd.top_id))
+    if(m_core.have_block(hshd.top_id) && !(hshd.current_height < m_core.get_target_blockchain_height()))
     {
       context.m_state = cryptonote_connection_context::state_normal;
       if(is_inital)
@@ -277,8 +277,11 @@ namespace cryptonote
     m_core.set_target_blockchain_height(static_cast<int64_t>(hshd.current_height));
 
     int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(m_core.get_current_blockchain_height());
+	int64_t max_block_height = max(static_cast<int64_t>(hshd.current_height),static_cast<int64_t>(m_core.get_current_blockchain_height()));
+	int64_t last_block_v1 = 1009826;
+	int64_t diff_v2 = max_block_height > last_block_v1 ? min(abs(diff), max_block_height - last_block_v1) : 0;
     LOG_PRINT_CCONTEXT_YELLOW("Sync data returned unknown top block: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
-      << " [" << std::abs(diff) << " blocks (" << diff / (24 * 60 * 60 / DIFFICULTY_TARGET_V1) << " days) "
+      << " [" << std::abs(diff) << " blocks (" << ((abs(diff) - diff_v2) / (24 * 60 * 60 / DIFFICULTY_TARGET_V1)) + (diff_v2 / (24 * 60 * 60 / DIFFICULTY_TARGET_V2)) << " days) "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
       << "] " << ENDL << "SYNCHRONIZATION started", (is_inital ? LOG_LEVEL_0:LOG_LEVEL_1));
     LOG_PRINT_L1("Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
@@ -703,7 +706,7 @@ namespace cryptonote
     if(m_synchronized.compare_exchange_strong(val_expected, true))
     {
       LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL
-        << "You are now synchronized with the network. You may now start simplewallet." << ENDL
+        << "You are now synchronized with the network. You may now start monero-wallet-cli." << ENDL
         << ENDL
         << "Please note, that the blockchain will be saved only after you quit the daemon with \"exit\" command or if you use \"save\" command." << ENDL
         << "Otherwise, you will possibly need to synchronize the blockchain again." << ENDL

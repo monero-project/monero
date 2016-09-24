@@ -32,6 +32,11 @@
 
 #include "serialization.h"
 
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<false> &ar, std::vector<T> &v);
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<true> &ar, std::vector<T> &v);
+
 namespace serialization
 {
   namespace detail

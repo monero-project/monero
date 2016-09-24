@@ -40,7 +40,7 @@ target_link_libraries(net_load_tests_clt
 	otshell_utils
 	p2p
 	cryptonote_core
-    ${GTEST_MAIN_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -62,7 +62,7 @@ target_link_libraries(net_load_tests_srv
 	otshell_utils
 	p2p
 	cryptonote_core
-    ${GTEST_MAIN_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

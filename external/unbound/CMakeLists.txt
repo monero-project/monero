@@ -228,3 +228,9 @@ if (MINGW)
       COPYONLY)
   endforeach ()
 endif ()
+
+
+if (INSTALL_VENDORED_LIBUNBOUND)
+    install(TARGETS unbound
+        ARCHIVE DESTINATION lib)
+endif()    

@@ -58,7 +58,7 @@ public:
   virtual void block_txn_stop() {}
   virtual void block_txn_abort() {}
   virtual void drop_hard_fork_info() {}
-  virtual bool block_exists(const crypto::hash& h) const { return false; }
+  virtual bool block_exists(const crypto::hash& h, uint64_t *height) const { return false; }
   virtual block get_block(const crypto::hash& h) const { return block(); }
   virtual uint64_t get_block_height(const crypto::hash& h) const { return 0; }
   virtual block_header get_block_header(const crypto::hash& h) const { return block_header(); }
@@ -96,7 +96,7 @@ public:
   virtual void remove_block() { blocks.pop_back(); }
   virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) {return 0;}
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) {}
-  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time) {return 0;}
+  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) {return 0;}
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) {}
   virtual void add_spent_key(const crypto::key_image& k_image) {}
   virtual void remove_spent_key(const crypto::key_image& k_image) {}

@@ -143,3 +143,11 @@ void sc_sub(unsigned char *, const unsigned char *, const unsigned char *);
 void sc_mulsub(unsigned char *, const unsigned char *, const unsigned char *, const unsigned char *);
 int sc_check(const unsigned char *);
 int sc_isnonzero(const unsigned char *); /* Doesn't normalize */
+
+// internal
+uint64_t load_3(const unsigned char *in);
+uint64_t load_4(const unsigned char *in);
+void ge_sub(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q);
+void fe_add(fe h, const fe f, const fe g);
+void fe_tobytes(unsigned char *, const fe);
+void fe_invert(fe out, const fe z);

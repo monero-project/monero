@@ -138,6 +138,7 @@ namespace
     ASSERT_FALSE(m_block_not_too_big);
   }
 
+#ifdef __x86_64__ // For 64-bit systems only, because block size is limited to size_t.
   TEST_F(block_reward_and_current_block_size, fails_on_huge_median_size)
   {
 #if !defined(NDEBUG)
@@ -153,6 +154,7 @@ namespace
     ASSERT_DEATH(do_test(huge_size - 2, huge_size), "");
 #endif
   }
+#endif // __x86_64__
 
   //--------------------------------------------------------------------------------------------------------------------
   class block_reward_and_last_block_sizes : public ::testing::Test

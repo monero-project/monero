@@ -29,6 +29,7 @@
 #include "bootstrap_file.h"
 #include "blocksdat_file.h"
 #include "common/command_line.h"
+#include "cryptonote_core/tx_pool.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #if defined(BERKELEY_DB)
@@ -53,11 +54,7 @@ std::string join_set_strings(const std::unordered_set<std::string>& db_types_all
 
 int main(int argc, char* argv[])
 {
-#if defined(BLOCKCHAIN_DB) && (BLOCKCHAIN_DB == DB_MEMORY)
-  std::string default_db_type = "memory";
-#else
   std::string default_db_type = "lmdb";
-#endif
 
   std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
   db_types_all.insert("memory");
@@ -160,15 +157,6 @@ int main(int argc, char* argv[])
 
   // If we wanted to use the memory pool, we would set up a fake_core.
 
-#if SOURCE_DB == DB_MEMORY
-  // blockchain_storage* core_storage = NULL;
-  // tx_memory_pool m_mempool(*core_storage); // is this fake anyway? just passing in NULL! so m_mempool can't be used anyway, right?
-  // core_storage = new blockchain_storage(&m_mempool);
-
-  blockchain_storage* core_storage = new blockchain_storage(NULL);
-  LOG_PRINT_L0("Initializing source blockchain (in-memory database)");
-  r = core_storage->init(m_config_folder, opt_testnet);
-#else
   // Use Blockchain instead of lower-level BlockchainDB for two reasons:
   // 1. Blockchain has the init() method for easy setup
   // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
@@ -217,7 +205,6 @@ int main(int argc, char* argv[])
     return 1;
   }
   r = core_storage->init(db, opt_testnet);
-#endif
 
   CHECK_AND_ASSERT_MES(r, false, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");

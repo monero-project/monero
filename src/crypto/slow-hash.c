@@ -679,7 +679,7 @@ void slow_hash_free_state(void)
 
 #include "aesb.c"
 
-#ifndef ARM_MUL_IMPL_ASM
+#ifdef NO_OPTIMIZED_MULTIPLY_ON_ARM
 /* The asm corresponds to this C code */
 #define SHORT uint32_t
 #define LONG uint64_t
@@ -712,7 +712,7 @@ void mul(const uint8_t *ca, const uint8_t *cb, uint8_t *cres) {
   res[0] = t.tmp[6];
   res[1] = t.tmp[7];
 }
-#else // ARM_MUL_IMPL_ASM (TODO: this fails hash-slow test with GCC 6.1.1)
+#else // !NO_OPTIMIZED_MULTIPLY_ON_ARM
 
 /* Can work as inline, but actually runs slower. Keep it separate */
 #define mul(a, b, c)	cn_mul128(a, b, c)
@@ -747,7 +747,7 @@ __asm__ __volatile__(
   : [A]"r"(aa[1]), [a]"r"(aa[0]), [B]"r"(bb[1]), [b]"r"(bb[0]), [r]"r"(r)
   : "cc", "memory");
 }
-#endif // ARM_MUL_IMPL_ASM
+#endif // NO_OPTIMIZED_MULTIPLY_ON_ARM
 
 STATIC INLINE void sum_half_blocks(uint8_t* a, const uint8_t* b)
 {
