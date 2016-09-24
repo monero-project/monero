@@ -142,6 +142,7 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_db_sync_mode);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_db_auto_remove_logs);
+    command_line::add_arg(desc, command_line::arg_block_sync_size);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
@@ -402,6 +403,10 @@ namespace cryptonote
     bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
+
+    block_sync_size = command_line::get_arg(vm, command_line::arg_block_sync_size);
+    if (block_sync_size == 0)
+      block_sync_size = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
 
     // load json & DNS checkpoints, and verify them
     // with respect to what blocks we already have

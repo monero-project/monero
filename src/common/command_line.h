@@ -216,4 +216,5 @@ namespace command_line
   extern const arg_descriptor<uint64_t> arg_prep_blocks_threads;
   extern const arg_descriptor<uint64_t> arg_db_auto_remove_logs;
   extern const arg_descriptor<uint64_t> arg_show_time_stats;
+  extern const arg_descriptor<size_t> arg_block_sync_size;
 }
