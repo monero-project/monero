@@ -1828,14 +1828,6 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     return false;
   }
 
-  // if split_height remains 0, we didn't have any but the genesis block in common
-  // which is only fine if the blocks just have the genesis block
-  if(split_height == 0 && qblock_ids.size() > 1)
-  {
-    LOG_ERROR("Ours and foreign blockchain have only genesis block in common... o.O");
-    return false;
-  }
-
   //we start to put block ids INCLUDING last known id, just to make other side be sure
   starter_offset = split_height;
   return true;
