@@ -1132,7 +1132,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   if (!(mdb_flags & MDB_RDONLY))
   {
     result = mdb_drop(txn, m_hf_starting_heights, 1);
-    if (result)
+    if (result && result != MDB_NOTFOUND)
       throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_starting_heights: ", result).c_str()));
   }
 
