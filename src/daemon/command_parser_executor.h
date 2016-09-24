@@ -49,6 +49,7 @@ public:
   t_command_parser_executor(
       uint32_t ip
     , uint16_t port
+    , const std::string &user_agent
     , bool is_rpc
     , cryptonote::core_rpc_server* rpc_server = NULL
     );

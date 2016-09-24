@@ -54,6 +54,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_testnet_rpc_bind_port);
     command_line::add_arg(desc, arg_restricted_rpc);
+    command_line::add_arg(desc, arg_user_agent);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(
@@ -81,11 +82,12 @@ namespace cryptonote
     )
   {
     m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    std::string m_user_agent = command_line::get_arg(vm, command_line::arg_user_agent);
 
     m_net_server.set_threads_prefix("RPC");
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
-    return epee::http_server_impl_base<core_rpc_server, connection_context>::init(m_port, m_bind_ip);
+    return epee::http_server_impl_base<core_rpc_server, connection_context>::init(m_port, m_bind_ip, m_user_agent);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::check_core_busy()
@@ -1275,6 +1277,12 @@ namespace cryptonote
       "restricted-rpc"
     , "Restrict RPC to view only commands"
     , false
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_user_agent = {
+      "user-agent"
+    , "Restrict RPC to clients using this user agent"
+    , ""
     };
 
 }  // namespace cryptonote

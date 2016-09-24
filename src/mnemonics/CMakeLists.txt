@@ -51,5 +51,5 @@ bitmonero_add_library(mnemonics
   ${mnemonics_headers}
   ${mnemonics_private_headers})
 target_link_libraries(mnemonics
-  LINK_PRIVATE
-    ${Boost_SYSTEM_LIBRARY})
+  PRIVATE
+    ${EXTRA_LIBRARIES})

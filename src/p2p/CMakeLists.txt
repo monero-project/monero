@@ -36,12 +36,15 @@ source_group(p2p FILES ${P2P})
 
 #bitmonero_private_headers(p2p ${P2P})
 bitmonero_add_library(p2p ${P2P})
-#target_link_libraries(p2p)
-#  LINK_PRIVATE
-#    ${Boost_CHRONO_LIBRARY}
-#    ${Boost_REGEX_LIBRARY}
-#    ${Boost_SYSTEM_LIBRARY}
-#    ${Boost_THREAD_LIBRARY}
-#    ${EXTRA_LIBRARIES})
+target_link_libraries(p2p
+  PUBLIC
+    ${UPNP_LIBRARIES}
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+  PRIVATE
+    ${EXTRA_LIBRARIES})
 add_dependencies(p2p
   version)

@@ -171,7 +171,7 @@ WalletImpl::WalletImpl(bool testnet)
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
     m_refreshIntervalSeconds = DEFAULT_REFRESH_INTERVAL_SECONDS;
-    m_refreshThread = std::thread([this] () {
+    m_refreshThread = boost::thread([this] () {
         this->refreshThreadFunc();
     });
 
@@ -494,9 +494,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
         try {
-            // priority called "fee_multiplied in terms of underlying wallet interface
             transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
-                                                                      static_cast<uint64_t>(priority),
+                                                                      static_cast<uint32_t>(priority),
                                                                       extra, m_trustedDaemon);
 
         } catch (const tools::error::daemon_busy&) {
@@ -635,12 +634,12 @@ void WalletImpl::refreshThreadFunc()
     LOG_PRINT_L3(__FUNCTION__ << ": starting refresh thread");
 
     while (true) {
-        std::unique_lock<std::mutex> lock(m_refreshMutex);
+        boost::mutex::scoped_lock lock(m_refreshMutex);
         if (m_refreshThreadDone) {
             break;
         }
         LOG_PRINT_L3(__FUNCTION__ << ": waiting for refresh...");
-        m_refreshCV.wait_for(lock, std::chrono::seconds(m_refreshIntervalSeconds));
+        m_refreshCV.wait(lock);
         LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
         LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
         LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << m_status);
@@ -655,7 +654,7 @@ void WalletImpl::refreshThreadFunc()
 void WalletImpl::doRefresh()
 {
     // synchronizing async and sync refresh calls
-    std::lock_guard<std::mutex> guarg(m_refreshMutex2);
+    boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
     try {
         m_wallet->refresh();
     } catch (const std::exception &e) {

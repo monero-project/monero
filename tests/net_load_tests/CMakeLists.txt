@@ -36,16 +36,15 @@ add_executable(net_load_tests_clt
   ${clt_sources}
   ${clt_headers})
 target_link_libraries(net_load_tests_clt
-  LINK_PRIVATE
-	otshell_utils
-	p2p
-	cryptonote_core
+  PRIVATE
+    otshell_utils
+    p2p
+    cryptonote_core
     ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
 set(srv_sources
@@ -58,16 +57,15 @@ add_executable(net_load_tests_srv
   ${srv_sources}
   ${srv_headers})
 target_link_libraries(net_load_tests_srv
-  LINK_PRIVATE
-	otshell_utils
-	p2p
-	cryptonote_core
+  PRIVATE
+    otshell_utils
+    p2p
+    cryptonote_core
     ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
 set_property(TARGET net_load_tests_clt net_load_tests_srv

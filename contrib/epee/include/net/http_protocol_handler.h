@@ -49,6 +49,7 @@ namespace net_utils
 		struct http_server_config
 		{
 			std::string m_folder;
+			std::string m_required_user_agent;
 			critical_section m_lock;
 		};
 

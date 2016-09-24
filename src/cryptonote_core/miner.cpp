@@ -391,7 +391,8 @@ namespace cryptonote
         }else
         {
           //success update, lets update config
-          epee::serialization::store_t_to_json_file(m_config, m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME);
+          if (!m_config_folder_path.empty())
+            epee::serialization::store_t_to_json_file(m_config, m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME);
         }
       }
       nonce+=m_threads_total;

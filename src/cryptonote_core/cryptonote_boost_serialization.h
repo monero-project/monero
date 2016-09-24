@@ -162,11 +162,16 @@ namespace boost
     a & x.vout;
     a & x.extra;
     if (x.version == 1)
+    {
       a & x.signatures;
+    }
     else
-      a & x.rct_signatures;
+    {
+      a & (rct::rctSigBase&)x.rct_signatures;
+      if (x.rct_signatures.type != rct::RCTTypeNull)
+        a & x.rct_signatures.p;
+    }
   }
-
 
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::block &b, const boost::serialization::version_type ver)
@@ -260,6 +265,13 @@ namespace boost
     a & x.ecdhInfo;
     serializeOutPk(a, x.outPk, ver);
     a & x.txnFee;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::rctSigPrunable &x, const boost::serialization::version_type ver)
+  {
+    a & x.rangeSigs;
+    a & x.MGs;
   }
 
   template <class Archive>

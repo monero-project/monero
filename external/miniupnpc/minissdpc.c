@@ -11,6 +11,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#if defined (__NetBSD__)
+#include <net/if.h>
+#endif
 #if defined(_WIN32) || defined(__amigaos__) || defined(__amigaos4__)
 #ifdef _WIN32
 #include <winsock2.h>

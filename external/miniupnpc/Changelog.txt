@@ -1,5 +1,7 @@
-$Id: Changelog.txt,v 1.222 2016/01/24 17:24:35 nanard Exp $
+$Id: Changelog.txt,v 1.223 2016/04/19 21:06:20 nanard Exp $
 miniUPnP client Changelog.
+
+VERSION 2.0 : released 2016/04/19
 
 2016/01/24:
   change miniwget to return HTTP status code

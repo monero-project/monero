@@ -50,6 +50,7 @@ namespace tools
 
     const static command_line::arg_descriptor<std::string> arg_rpc_bind_port;
     const static command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
+    const static command_line::arg_descriptor<std::string> arg_user_agent;
 
 
     static void init_options(boost::program_options::options_description& desc);
@@ -120,6 +121,7 @@ namespace tools
       wallet2& m_wallet;
       std::string m_port;
       std::string m_bind_ip;
+      std::string m_user_agent;
       std::atomic<bool> m_stop;
   };
 }

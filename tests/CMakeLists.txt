@@ -84,7 +84,7 @@ add_executable(hash-target-tests
   ${hash_targets_sources}
   ${hash_targets_headers})
 target_link_libraries(hash-target-tests
-  LINK_PRIVATE
+  PRIVATE
     cryptonote_core)
 set_property(TARGET hash-target-tests
   PROPERTY

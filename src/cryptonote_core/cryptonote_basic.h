@@ -230,24 +230,22 @@ namespace cryptonote
       }
       else
       {
-        FIELD(rct_signatures)
-        switch (rct_signatures.type)
+        ar.tag("rct_signatures");
+        if (!vin.empty())
         {
-        case rct::RCTTypeNull:
-          break;
-        case rct::RCTTypeSimple:
-          if (rct_signatures.mixRing.size() && rct_signatures.mixRing.size() != vin.size())
-            return false;
-          break;
-        case rct::RCTTypeFull:
-          for (size_t i = 0; i < rct_signatures.mixRing.size(); ++i)
+          ar.begin_object();
+          bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
+          if (!r || !ar.stream().good()) return false;
+          ar.end_object();
+          if (rct_signatures.type != rct::RCTTypeNull)
           {
-            if (rct_signatures.mixRing[i].size() != vin.size())
-              return false;
+            ar.tag("rctsig_prunable");
+            ar.begin_object();
+            r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(),
+                vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1 : 0);
+            if (!r || !ar.stream().good()) return false;
+            ar.end_object();
           }
-          break;
-        default:
-          return false;
         }
       }
     END_SERIALIZE()

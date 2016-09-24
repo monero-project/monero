@@ -100,13 +100,11 @@ bitmonero_add_library(daemon_rpc_client
   ${daemon_rpc_client_private_headers})
 
 target_link_libraries(rpc
-  LINK_PRIVATE
+  PUBLIC
     cryptonote_core
     cryptonote_protocol
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+  PRIVATE
     ${EXTRA_LIBRARIES})
 
 target_link_libraries(daemon_messages

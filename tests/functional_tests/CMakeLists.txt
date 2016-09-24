@@ -39,13 +39,13 @@ add_executable(functional_tests
   ${functional_tests_sources}
   ${functional_tests_headers})
 target_link_libraries(functional_tests
-  LINK_PRIVATE
+  PRIVATE
     cryptonote_core
     wallet
     common
     crypto
-    ${UNBOUND_LIBRARY}
     ${Boost_REGEX_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET functional_tests

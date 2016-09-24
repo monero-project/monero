@@ -66,7 +66,7 @@ Packages are available for
 * OS X via [Homebrew](http://brew.sh)
 
         brew tap sammy007/cryptonight
-        brew install bitmonero --build-from-source
+        brew install monero --build-from-source
 
 * Docker
 
@@ -103,7 +103,7 @@ library archives (`.a`).
 | libevent       | 2.0           | NO       | `libevent-dev`     | `libevent`     | NO       |                |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       |                |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
-| libunwind      | any           | NO       | `libunwind-dev`    | `libunwind`    | YES      | stack traces   |
+| libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | stack traces   |
 | ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | ?              |
 | expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | ?              |
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | test suite     |
@@ -263,13 +263,20 @@ service](utils/systemd/monerod.service) assumes that the user `monero` exists
 and its home is the data directory specified in the [example
 config](utils/conf/monerod.conf).
 
+If you're on Mac, you may need to add the `--max-concurrency 1` option to
+monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
+
 ## Internationalization
 
 See README.i18n
 
 ## Using Tor
 
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the monerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, add TORSOCKS_ALLOW_INBOUND=1. Example:
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the monerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp. You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, you might have to add TORSOCKS_ALLOW_INBOUND=1, some OSes need it and some don't. Example:
+
+`DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd`
+
+or:
 
 `DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd`
 
@@ -277,7 +284,7 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 
 `sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT`
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
+`DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
 
 `./monero-wallet-cli`
 
@@ -286,3 +293,6 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 While monerod and monero-wallet-cli do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
 
 `rlwrap bin/monero-wallet-cli --wallet-file /path/to/wallet`
+
+Note: rlwrap will save things like your seed and private keys, if you supply them on prompt. You may want to not use rlwrap when you use simplewallet to restore from seed, etc.
+

@@ -66,7 +66,7 @@ function (bitmonero_add_executable name)
   add_executable("${name}"
     ${ARGN})
   target_link_libraries("${name}"
-    LINK_PRIVATE
+    PRIVATE
       ${EXTRA_LIBRARIES})
   set_property(TARGET "${name}"
     PROPERTY
@@ -88,7 +88,7 @@ function (bitmonero_add_library name)
   # libwallet, which combines multiple components.
   set(objlib obj_${name})
   add_library(${objlib} OBJECT ${ARGN})
-  add_library("${name}" STATIC $<TARGET_OBJECTS:${objlib}>)
+  add_library("${name}" $<TARGET_OBJECTS:${objlib}>)
   set_property(TARGET "${name}"
     PROPERTY
       FOLDER "libs")

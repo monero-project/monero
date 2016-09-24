@@ -63,11 +63,15 @@ bitmonero_add_executable(blockchain_import
   ${blockchain_import_private_headers})
 
 target_link_libraries(blockchain_import
-  LINK_PRIVATE
+  PRIVATE
     cryptonote_core
-	blockchain_db
-	p2p
-    ${CMAKE_THREAD_LIBS_INIT})
+    blockchain_db
+    p2p
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
 
 if(ARCH_WIDTH)
   target_compile_definitions(blockchain_import
@@ -85,11 +89,15 @@ bitmonero_add_executable(blockchain_export
   ${blockchain_export_private_headers})
 
 target_link_libraries(blockchain_export
-  LINK_PRIVATE
+  PRIVATE
     cryptonote_core
-	p2p
-	blockchain_db
-    ${CMAKE_THREAD_LIBS_INIT})
+    blockchain_db
+    p2p
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
 
 add_dependencies(blockchain_export
 	version)

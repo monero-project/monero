@@ -188,49 +188,136 @@ namespace rct {
         ctkeyV outPk;
         xmr_amount txnFee; // contains b
 
-        BEGIN_SERIALIZE()
-            FIELD(type)
-            if (type == RCTTypeNull)
-              return true;
-            // FIELD(message) - not serialized, it can be reconstructed
-            // FIELD(mixRing) - not serialized, it can be reconstructed
-            if (type == RCTTypeSimple)
-              FIELD(pseudoOuts)
-            FIELD(ecdhInfo)
-            if (typename Archive<W>::is_saving()) {
-              keyV outPk(this->outPk.size());
-              for (size_t n = 0; n < outPk.size(); ++n)
-                outPk[n] = this->outPk[n].mask;
-              FIELD(outPk)
+        template<bool W, template <bool> class Archive>
+        bool serialize_rctsig_base(Archive<W> &ar, size_t inputs, size_t outputs)
+        {
+          FIELD(type)
+          if (type == RCTTypeNull)
+            return true;
+          if (type != RCTTypeFull && type != RCTTypeSimple)
+            return false;
+          VARINT_FIELD(txnFee)
+          // inputs/outputs not saved, only here for serialization help
+          // FIELD(message) - not serialized, it can be reconstructed
+          // FIELD(mixRing) - not serialized, it can be reconstructed
+          if (type == RCTTypeSimple)
+          {
+            ar.tag("pseudoOuts");
+            ar.begin_array();
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, pseudoOuts);
+            if (pseudoOuts.size() != inputs)
+              return false;
+            for (size_t i = 0; i < inputs; ++i)
+            {
+              FIELDS(pseudoOuts[i])
+              if (inputs - i > 1)
+                ar.delimit_array();
             }
-            else {
-              keyV outPk;
-              FIELD(outPk)
-              this->outPk.resize(outPk.size());
-              for (size_t n = 0; n < outPk.size(); ++n)
-                this->outPk[n].mask = outPk[n];
-            }
-            VARINT_FIELD(txnFee)
-        END_SERIALIZE()
+            ar.end_array();
+          }
+
+          ar.tag("ecdhInfo");
+          ar.begin_array();
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, ecdhInfo);
+          if (ecdhInfo.size() != outputs)
+            return false;
+          for (size_t i = 0; i < outputs; ++i)
+          {
+            FIELDS(ecdhInfo[i])
+            if (outputs - i > 1)
+              ar.delimit_array();
+          }
+          ar.end_array();
+
+          ar.tag("outPk");
+          ar.begin_array();
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, outPk);
+          if (outPk.size() != outputs)
+            return false;
+          for (size_t i = 0; i < outputs; ++i)
+          {
+            FIELDS(outPk[i].mask)
+            if (outputs - i > 1)
+              ar.delimit_array();
+          }
+          ar.end_array();
+          return true;
+        }
     };
     struct rctSigPrunable {
         vector<rangeSig> rangeSigs;
         vector<mgSig> MGs; // simple rct has N, full has 1
 
-        BEGIN_SERIALIZE()
-            FIELD(rangeSigs)
-            FIELD(MGs)
-        END_SERIALIZE()
+        template<bool W, template <bool> class Archive>
+        bool serialize_rctsig_prunable(Archive<W> &ar, uint8_t type, size_t inputs, size_t outputs, size_t mixin)
+        {
+          if (type == RCTTypeNull)
+            return true;
+          if (type != RCTTypeFull && type != RCTTypeSimple)
+            return false;
+          ar.tag("rangeSigs");
+          ar.begin_array();
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, rangeSigs);
+          if (rangeSigs.size() != outputs)
+            return false;
+          for (size_t i = 0; i < outputs; ++i)
+          {
+            FIELDS(rangeSigs[i])
+            if (outputs - i > 1)
+              ar.delimit_array();
+          }
+          ar.end_array();
+
+          ar.tag("MGs");
+          ar.begin_array();
+          // we keep a byte for size of MGs, because we don't know whether this is
+          // a simple or full rct signature, and it's starting to annoy the hell out of me
+          size_t mg_elements = type == RCTTypeSimple ? inputs : 1;
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_elements, MGs);
+          if (MGs.size() != mg_elements)
+            return false;
+          for (size_t i = 0; i < mg_elements; ++i)
+          {
+            // we save the MGs contents directly, because we want it to save its
+            // arrays and matrices without the size prefixes, and the load can't
+            // know what size to expect if it's not in the data
+            ar.tag("ss");
+            ar.begin_array();
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, MGs[i].ss);
+            if (MGs[i].ss.size() != mixin + 1)
+              return false;
+            for (size_t j = 0; j < mixin + 1; ++j)
+            {
+              ar.begin_array();
+              size_t mg_ss2_elements = (type == RCTTypeSimple ? 1 : inputs) + 1;
+              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_ss2_elements, MGs[i].ss[j]);
+              if (MGs[i].ss[j].size() != mg_ss2_elements)
+                return false;
+              for (size_t k = 0; k < mg_ss2_elements; ++k)
+              {
+                FIELDS(MGs[i].ss[j][k])
+                if (mg_ss2_elements - j > 1)
+                  ar.delimit_array();
+              }
+              ar.end_array();
+
+              if (mixin + 1 - j > 1)
+                ar.delimit_array();
+            }
+            ar.end_array();
+
+            FIELDS(MGs[i].cc)
+            // MGs[i].II not saved, it can be reconstructed
+            if (mg_elements - i > 1)
+              ar.delimit_array();
+          }
+          ar.end_array();
+          return true;
+        }
+
     };
     struct rctSig: public rctSigBase {
         rctSigPrunable p;
-
-        BEGIN_SERIALIZE_OBJECT()
-            FIELDS(*static_cast<rctSigBase *>(this))
-            if (type == RCTTypeNull)
-              return true;
-            FIELDS(p);
-        END_SERIALIZE()
     };
 
     //other basepoint H = toPoint(cn_fast_hash(G)), G the basepoint

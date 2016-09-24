@@ -208,6 +208,7 @@ int main(int argc, char const * argv[])
         {
           rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
         }
+        auto user_agent = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_user_agent);
 
         uint32_t rpc_ip;
         uint16_t rpc_port;
@@ -222,7 +223,7 @@ int main(int argc, char const * argv[])
           return 1;
         }
 
-        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port};
+        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port, user_agent};
         if (rpc_commands.process_command_vec(command))
         {
           return 0;
@@ -279,6 +280,9 @@ int main(int argc, char const * argv[])
 
     if (command_line::has_arg(vm, daemon_args::arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
+
+    // logging is now set up
+    LOG_PRINT_L0("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
 
     _note_c("dbg/main", "Moving from main() into the daemonize now.");
 

@@ -15,7 +15,6 @@
 #ifndef RAPIDJSON_STRTOD_
 #define RAPIDJSON_STRTOD_
 
-#include "../rapidjson.h"
 #include "ieee754.h"
 #include "biginteger.h"
 #include "diyfp.h"
@@ -143,7 +142,7 @@ inline bool StrtodDiyFp(const char* decimals, size_t length, size_t decimalPosit
     size_t remaining = length - i;
     const unsigned kUlpShift = 3;
     const unsigned kUlp = 1 << kUlpShift;
-    int error = (remaining == 0) ? 0 : kUlp / 2;
+    int64_t error = (remaining == 0) ? 0 : kUlp / 2;
 
     DiyFp v(significand, 0);
     v = v.Normalize();
