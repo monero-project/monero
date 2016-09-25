@@ -366,7 +366,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool remove_extra_nonce_tx_extra(std::vector<uint8_t>& tx_extra)
+  bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)
   {
     std::string extra_str(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size());
     std::istringstream iss(extra_str);
@@ -380,7 +380,7 @@ namespace cryptonote
       tx_extra_field field;
       bool r = ::do_serialize(ar, field);
       CHECK_AND_NO_ASSERT_MES_L1(r, false, "failed to deserialize extra field. extra = " << string_tools::buff_to_hex_nodelimer(std::string(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size())));
-      if (field.type() != typeid(tx_extra_nonce))
+      if (field.type() != type)
         ::do_serialize(newar, field);
 
       std::ios_base::iostate state = iss.rdstate();
@@ -472,10 +472,7 @@ namespace cryptonote
   bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
   {
     std::vector<rct::key> amount_keys;
-    tx.vin.clear();
-    tx.vout.clear();
-    tx.signatures.clear();
-    tx.rct_signatures.type = rct::RCTTypeNull;
+    tx.set_null();
     amount_keys.clear();
 
     tx.version = rct ? 2 : 1;
@@ -512,7 +509,7 @@ namespace cryptonote
 
           std::string extra_nonce;
           set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-          remove_extra_nonce_tx_extra(tx.extra);
+          remove_field_from_tx_extra(tx.extra, typeid(tx_extra_fields));
           if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
           {
             LOG_ERROR("Failed to add encrypted payment id to tx extra");
@@ -615,6 +612,15 @@ namespace cryptonote
       return false;
     }
 
+    // check for watch only wallet
+    bool zero_secret_key = true;
+    for (size_t i = 0; i < sizeof(sender_account_keys.m_spend_secret_key); ++i)
+      zero_secret_key &= (sender_account_keys.m_spend_secret_key.data[i] == 0);
+    if (zero_secret_key)
+    {
+      LOG_PRINT_L1("Null secret key, skipping signatures");
+      goto skip_sigs;
+    }
 
     if (tx.version == 1)
     {
@@ -759,6 +765,7 @@ namespace cryptonote
       LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL, LOG_LEVEL_3);
     }
 
+skip_sigs:
     return true;
   }
   //---------------------------------------------------------------

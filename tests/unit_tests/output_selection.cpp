@@ -56,14 +56,14 @@ static tools::wallet2::transfer_container make_transfers_container(size_t N)
     auto i = std::find(unused_indices.begin(), unused_indices.end(), idx); \
     ASSERT_TRUE(i != unused_indices.end()); \
     unused_indices.erase(i); \
-    selected.push_back(transfers.begin() + idx); \
+    selected.push_back(idx); \
   } while(0)
 
 #define PICK(expected) \
   do { \
     size_t idx = w.pop_best_value_from(transfers, unused_indices, selected); \
     ASSERT_EQ(expected, idx); \
-    selected.push_back(transfers.begin() + idx); \
+    selected.push_back(idx); \
   } while(0)
 
 TEST(select_outputs, one_out_of_N)
@@ -76,7 +76,7 @@ TEST(select_outputs, one_out_of_N)
   tools::wallet2::transfer_container transfers = make_transfers_container(10);
   transfers[6].m_block_height = 700;
   std::vector<size_t> unused_indices({0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-  std::list<tools::wallet2::transfer_container::iterator> selected;
+  std::list<size_t> selected;
   SELECT(2);
   PICK(6);
 }
@@ -93,7 +93,7 @@ TEST(select_outputs, order)
   transfers[3].m_block_height = 716;
   transfers[4].m_block_height = 701;
   std::vector<size_t> unused_indices({0, 1, 2, 3, 4});
-  std::list<tools::wallet2::transfer_container::iterator> selected;
+  std::list<size_t> selected;
   SELECT(0);
   PICK(3); // first the one that's far away
   PICK(2); // then the one that's close
