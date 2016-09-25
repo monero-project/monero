@@ -263,7 +263,7 @@ namespace cryptonote
     if(context.m_state == cryptonote_connection_context::state_synchronizing)
       return true;
 
-    if(m_core.have_block(hshd.top_id) && !(hshd.current_height < m_core.get_target_blockchain_height()))
+    if(m_core.have_block(hshd.top_id))
     {
       context.m_state = cryptonote_connection_context::state_normal;
       if(is_inital)
