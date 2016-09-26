@@ -57,9 +57,9 @@ set(wallet_private_headers
   api/pending_transaction.h
   api/common_defines.h)
 
-bitmonero_private_headers(wallet
+monero_private_headers(wallet
   ${wallet_private_headers})
-bitmonero_add_library(wallet
+monero_add_library(wallet
   ${wallet_sources}
   ${wallet_api_headers}
   ${wallet_private_headers})

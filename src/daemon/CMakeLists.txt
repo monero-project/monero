@@ -74,9 +74,9 @@ set(daemon_private_headers
   ../p2p/p2p_protocol_defs.h
   ../p2p/stdafx.h)
 
-bitmonero_private_headers(daemon
+monero_private_headers(daemon
   ${daemon_private_headers})
-bitmonero_add_executable(daemon
+monero_add_executable(daemon
   ${daemon_sources}
   ${daemon_headers}
   ${daemon_private_headers}

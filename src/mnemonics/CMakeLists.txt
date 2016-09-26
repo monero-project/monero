@@ -44,9 +44,9 @@ set(mnemonics_private_headers
   singleton.h
   spanish.h)
 
-bitmonero_private_headers(mnemonics
+monero_private_headers(mnemonics
   ${mnemonics_private_headers})
-bitmonero_add_library(mnemonics
+monero_add_library(mnemonics
   ${mnemonics_sources}
   ${mnemonics_headers}
   ${mnemonics_private_headers})

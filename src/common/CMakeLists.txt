@@ -55,9 +55,9 @@ set(common_private_headers
   i18n.h
   stack_trace.h)
 
-bitmonero_private_headers(common
+monero_private_headers(common
   ${common_private_headers})
-bitmonero_add_library(common
+monero_add_library(common
   ${common_sources}
   ${common_headers}
   ${common_private_headers})
@@ -71,5 +71,5 @@ target_link_libraries(common
     ${Boost_SYSTEM_LIBRARY}
     ${EXTRA_LIBRARIES})
 
-#bitmonero_install_headers(common
+#monero_install_headers(common
 #  ${common_headers})
