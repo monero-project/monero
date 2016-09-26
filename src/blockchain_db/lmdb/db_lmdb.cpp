@@ -1081,7 +1081,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   if (need_resize())
   {
-    LOG_PRINT_L0("LMDB memory map needs resized, doing that now.");
+    LOG_PRINT_L0("LMDB memory map needs to be resized, doing that now.");
     do_resize();
   }
 
@@ -2500,7 +2500,7 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, c
     // for batch mode, DB resize check is done at start of batch transaction
     if (! m_batch_active && need_resize())
     {
-      LOG_PRINT_L0("LMDB memory map needs resized, doing that now.");
+      LOG_PRINT_L0("LMDB memory map needs to be resized, doing that now.");
       do_resize();
     }
   }
