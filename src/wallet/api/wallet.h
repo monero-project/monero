@@ -79,7 +79,7 @@ public:
     uint64_t daemonBlockChainHeight() const;
     bool refresh();
     void refreshAsync();
-    void setAutoRefreshInterval(int seconds);
+    void setAutoRefreshInterval(int millis);
     int autoRefreshInterval() const;
 
 
@@ -118,7 +118,7 @@ private:
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;
     std::atomic<bool> m_refreshThreadDone;
-    std::atomic<int>  m_refreshIntervalSeconds;
+    std::atomic<int>  m_refreshIntervalMillis;
     // synchronizing  refresh loop;
     boost::mutex        m_refreshMutex;
 

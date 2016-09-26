@@ -269,12 +269,12 @@ struct Wallet
 
     /**
      * @brief setAutoRefreshInterval - setup interval for automatic refresh.
-     * @param seconds - interval in seconds. if zero or less than zero - automatic refresh disabled;
+     * @param seconds - interval in millis. if zero or less than zero - automatic refresh disabled;
      */
-    virtual void setAutoRefreshInterval(int seconds) = 0;
+    virtual void setAutoRefreshInterval(int millis) = 0;
 
     /**
-     * @brief autoRefreshInterval - returns automatic refresh interval in seconds
+     * @brief autoRefreshInterval - returns automatic refresh interval in millis
      * @return
      */
     virtual int autoRefreshInterval() const = 0;

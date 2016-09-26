@@ -46,7 +46,7 @@ namespace Bitmonero {
 namespace {
     // copy-pasted from simplewallet
     static const size_t DEFAULT_MIXIN = 4;
-    static const int    DEFAULT_REFRESH_INTERVAL_SECONDS = 10;
+    static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -79,7 +79,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 
         if (m_listener) {
             m_listener->newBlock(height);
-            m_listener->updated();
+            //  m_listener->updated();
         }
     }
 
@@ -174,7 +174,7 @@ WalletImpl::WalletImpl(bool testnet)
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
 
-    m_refreshIntervalSeconds = DEFAULT_REFRESH_INTERVAL_SECONDS;
+    m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
 
     m_refreshThread = boost::thread([this] () {
         this->refreshThreadFunc();
@@ -451,14 +451,14 @@ void WalletImpl::refreshAsync()
     m_refreshCV.notify_one();
 }
 
-void WalletImpl::setAutoRefreshInterval(int seconds)
+void WalletImpl::setAutoRefreshInterval(int millis)
 {
-    m_refreshIntervalSeconds = seconds;
+    m_refreshIntervalMillis = millis;
 }
 
 int WalletImpl::autoRefreshInterval() const
 {
-    return m_refreshIntervalSeconds;
+    return m_refreshIntervalMillis;
 }
 
 // TODO:
@@ -675,8 +675,8 @@ void WalletImpl::refreshThreadFunc()
         LOG_PRINT_L3(__FUNCTION__ << ": waiting for refresh...");
         // if auto refresh enabled, we wait for the "m_refreshIntervalSeconds" interval.
         // if not - we wait forever
-        if (m_refreshIntervalSeconds > 0) {
-            boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalSeconds * 1000);
+        if (m_refreshIntervalMillis > 0) {
+            boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalMillis);
             m_refreshCV.timed_wait(lock, wait_for_ms);
         } else {
             m_refreshCV.wait(lock);
