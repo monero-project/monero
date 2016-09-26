@@ -489,10 +489,28 @@ TEST_F(WalletTest1, WalletShowsBalance)
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
-TEST_F(WalletTest1, WalletReturnsBlockHeight)
+TEST_F(WalletTest1, WalletReturnsCurrentBlockHeight)
 {
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     ASSERT_TRUE(wallet1->blockChainHeight() > 0);
+    wmgr->closeWallet(wallet1);
+}
+
+
+TEST_F(WalletTest1, WalletReturnsDaemonBlockHeight)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+    // wallet not connected to daemon
+    ASSERT_TRUE(wallet1->daemonBlockChainHeight() == 0);
+    ASSERT_TRUE(wallet1->status() != Bitmonero::Wallet::Status_Ok);
+    ASSERT_FALSE(wallet1->errorString().empty());
+    wmgr->closeWallet(wallet1);
+
+    wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+    // wallet connected to daemon
+    wallet1->init(TESTNET_DAEMON_ADDRESS, 0);
+    ASSERT_TRUE(wallet1->daemonBlockChainHeight() > 0);
+    std::cout << "daemonBlockChainHeight: " << wallet1->daemonBlockChainHeight() << std::endl;
     wmgr->closeWallet(wallet1);
 }
 
@@ -942,7 +960,7 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_src->refresh());
-    uint64_t bc1 = wallet_src->blockChainHeight();
+    uint64_t bc1 = wallet_src->currentBlockChainHeight();
     std::cout << "** Block height: " << bc1 << std::endl;
 
 
@@ -956,7 +974,7 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
     std::cerr << "TEST: newblock lock acquired...\n";
     ASSERT_TRUE(wallet_listener->newblock_triggered);
     ASSERT_TRUE(wallet_listener->update_triggered);
-    uint64_t bc2 = wallet_src->blockChainHeight();
+    uint64_t bc2 = wallet_src->currentBlockChainHeight();
     std::cout << "** Block height: " << bc2 << std::endl;
     ASSERT_TRUE(bc2 > bc1);
     wmgr->closeWallet(wallet_src);
