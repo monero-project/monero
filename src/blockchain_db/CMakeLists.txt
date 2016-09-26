@@ -53,9 +53,9 @@ if (BERKELEY_DB)
   )
 endif()
 
-bitmonero_private_headers(blockchain_db
+monero_private_headers(blockchain_db
   ${crypto_private_headers})
-bitmonero_add_library(blockchain_db
+monero_add_library(blockchain_db
   ${blockchain_db_sources}
   ${blockchain_db_headers}
   ${blockchain_db_private_headers})

@@ -68,9 +68,9 @@ set(crypto_private_headers
   skein.h
   skein_port.h)
 
-bitmonero_private_headers(crypto
+monero_private_headers(crypto
   ${crypto_private_headers})
-bitmonero_add_library(crypto
+monero_add_library(crypto
   ${crypto_sources}
   ${crypto_headers}
   ${crypto_private_headers})
