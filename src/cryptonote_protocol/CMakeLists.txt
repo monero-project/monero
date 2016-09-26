@@ -27,15 +27,21 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 cmake_minimum_required (VERSION 2.6)
-project (monero CXX)
+project (bitmonero CXX)
 
 file(GLOB CRYPTONOTE_PROTOCOL *)
 source_group(cryptonote_protocol FILES ${CRYPTONOTE_PROTOCOL})
 
-#monero_private_headers(cryptonote_protocol ${CRYPTONOTE_PROTOCOL})
+#add_library(p2p ${P2P})
+
+#monero_private_headers(p2p ${CRYPTONOTE_PROTOCOL})
 monero_add_library(cryptonote_protocol ${CRYPTONOTE_PROTOCOL})
-target_link_libraries(cryptonote_protocol
-  PRIVATE
-    ${EXTRA_LIBRARIES})
+#target_link_libraries(p2p)
+#  LINK_PRIVATE
+#    ${Boost_CHRONO_LIBRARY}
+#    ${Boost_REGEX_LIBRARY}
+#    ${Boost_SYSTEM_LIBRARY}
+#    ${Boost_THREAD_LIBRARY}
+#    ${EXTRA_LIBRARIES})
 add_dependencies(cryptonote_protocol
   version)
