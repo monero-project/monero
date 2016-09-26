@@ -4050,7 +4050,7 @@ std::string wallet2::get_keys_file() const
 
 std::string wallet2::get_daemon_address() const
 {
-    return m_daemon_address;
+  return m_daemon_address;
 }
 
 uint64_t wallet2::get_daemon_blockchain_height(string &err)
