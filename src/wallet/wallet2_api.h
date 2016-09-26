@@ -223,10 +223,25 @@ struct Wallet
      * @return - true if refreshed successfully;
      */
     virtual bool refresh() = 0;
+
     /**
      * @brief refreshAsync - refreshes wallet asynchronously.
      */
     virtual void refreshAsync() = 0;
+
+    /**
+     * @brief setAutoRefreshInterval - setup interval for automatic refresh.
+     * @param seconds - interval in seconds. if zero or less than zero - automatic refresh disabled;
+     */
+    virtual void setAutoRefreshInterval(int seconds) = 0;
+
+    /**
+     * @brief autoRefreshInterval - returns automatic refresh interval in seconds
+     * @return
+     */
+    virtual int autoRefreshInterval() const = 0;
+
+
     /*!
      * \brief createTransaction creates transaction. if dst_addr is an integrated address, payment_id is ignored
      * \param dst_addr          destination address as string

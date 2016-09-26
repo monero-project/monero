@@ -77,6 +77,11 @@ public:
     uint64_t unlockedBalance() const;
     bool refresh();
     void refreshAsync();
+    void setAutoRefreshInterval(int seconds);
+    int autoRefreshInterval() const;
+
+
+
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         uint64_t amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
