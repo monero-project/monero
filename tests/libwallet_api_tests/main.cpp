@@ -913,16 +913,17 @@ TEST_F(WalletTest2, WalletCallbackSent)
 TEST_F(WalletTest2, WalletCallbackReceived)
 {
 
-    Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET5_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_src->refresh());
-    std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
+    std::cout << "** Balance src1: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
 
     Bitmonero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, true);
     ASSERT_TRUE(wallet_dst->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_dst->refresh());
     uint64_t balance = wallet_dst->balance();
+    std::cout << "** Balance dst1: " << wallet_dst->displayAmount(wallet_dst->balance()) <<  std::endl;
     MyWalletListener * wallet_dst_listener = new MyWalletListener(wallet_dst);
 
     uint64_t amount = AMOUNT_1XMR * 5;
@@ -944,7 +945,10 @@ TEST_F(WalletTest2, WalletCallbackReceived)
     std::cerr << "TEST: receive lock acquired...\n";
     ASSERT_TRUE(wallet_dst_listener->receive_triggered);
     ASSERT_TRUE(wallet_dst_listener->update_triggered);
-    std::cout << "** Balance: " << wallet_dst->displayAmount(wallet_src->balance()) <<  std::endl;
+
+    std::cout << "** Balance src2: " << wallet_dst->displayAmount(wallet_src->balance()) <<  std::endl;
+    std::cout << "** Balance dst2: " << wallet_dst->displayAmount(wallet_dst->balance()) <<  std::endl;
+
     ASSERT_TRUE(wallet_dst->balance() > balance);
 
     wmgr->closeWallet(wallet_src);
