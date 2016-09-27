@@ -960,7 +960,7 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_src->refresh());
-    uint64_t bc1 = wallet_src->currentBlockChainHeight();
+    uint64_t bc1 = wallet_src->blockChainHeight();
     std::cout << "** Block height: " << bc1 << std::endl;
 
 
@@ -974,7 +974,7 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
     std::cerr << "TEST: newblock lock acquired...\n";
     ASSERT_TRUE(wallet_listener->newblock_triggered);
     ASSERT_TRUE(wallet_listener->update_triggered);
-    uint64_t bc2 = wallet_src->currentBlockChainHeight();
+    uint64_t bc2 = wallet_src->blockChainHeight();
     std::cout << "** Block height: " << bc2 << std::endl;
     ASSERT_TRUE(bc2 > bc1);
     wmgr->closeWallet(wallet_src);
