@@ -47,6 +47,8 @@ namespace {
     // copy-pasted from simplewallet
     static const size_t DEFAULT_MIXIN = 4;
     static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
+    // limit maximum refresh interval as one minute
+    static const int    MAX_REFRESH_INTERVAL_MILLIS = 1000 * 60 * 1;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -455,7 +457,13 @@ void WalletImpl::refreshAsync()
 
 void WalletImpl::setAutoRefreshInterval(int millis)
 {
-    m_refreshIntervalMillis = millis;
+    if (millis > MAX_REFRESH_INTERVAL_MILLIS) {
+        LOG_ERROR(__FUNCTION__<< ": invalid refresh interval " << millis
+                  << " ms, maximum allowed is " << MAX_REFRESH_INTERVAL_MILLIS << " ms");
+        m_refreshIntervalMillis = MAX_REFRESH_INTERVAL_MILLIS;
+    } else {
+        m_refreshIntervalMillis = millis;
+    }
 }
 
 int WalletImpl::autoRefreshInterval() const
