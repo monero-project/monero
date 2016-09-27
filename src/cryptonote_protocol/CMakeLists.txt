@@ -39,4 +39,4 @@ target_link_libraries(cryptonote_protocol
     ${EXTRA_LIBRARIES})
 add_dependencies(cryptonote_protocol
   version)
-
+  
