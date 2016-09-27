@@ -4073,6 +4073,10 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err)
     {
       err = res.status;
     }
+    else // success, cleaning up error message
+    {
+      err = "";
+    }
   }
   else
   {
