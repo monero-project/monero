@@ -58,6 +58,7 @@ namespace Consts
 // TODO: get rid of hardcoded paths
 
 const char * WALLET_NAME = "testwallet";
+const char * WALLET_NAME_MAINNET = "testwallet_mainnet";
 const char * WALLET_NAME_COPY = "testwallet_copy";
 const char * WALLET_NAME_WITH_DIR = "walletdir/testwallet_test";
 const char * WALLET_NAME_WITH_DIR_NON_WRITABLE = "/var/walletdir/testwallet_test";
@@ -85,6 +86,7 @@ const uint64_t AMOUNT_1XMR  =  1000000000000L;
 const std::string PAYMENT_ID_EMPTY = "";
 
 std::string TESTNET_DAEMON_ADDRESS = "localhost:38081";
+std::string MAINNET_DAEMON_ADDRESS = "localhost:18081";
 
 
 }
@@ -157,6 +159,25 @@ struct WalletManagerTest : public testing::Test
 
 };
 
+struct WalletManagerMainnetTest : public testing::Test
+{
+    Bitmonero::WalletManager * wmgr;
+
+
+    WalletManagerMainnetTest()
+    {
+        std::cout << __FUNCTION__ << std::endl;
+        wmgr = Bitmonero::WalletManagerFactory::getWalletManager();
+        Utils::deleteWallet(WALLET_NAME_MAINNET);
+    }
+
+
+    ~WalletManagerMainnetTest()
+    {
+        std::cout << __FUNCTION__ << std::endl;
+    }
+
+};
 
 struct WalletTest1 : public testing::Test
 {
@@ -871,6 +892,7 @@ TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
 
 
 
+
 TEST_F(WalletTest2, WalletCallbackSent)
 {
 
@@ -984,16 +1006,41 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
 
 }
 
+TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNet)
+{
+
+    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG);
+    MyWalletListener * wallet_listener = new MyWalletListener(wallet);
+    std::chrono::seconds wait_for = std::chrono::seconds(30);
+    std::unique_lock<std::mutex> lock (wallet_listener->mutex);
+    wallet->initAsync(MAINNET_DAEMON_ADDRESS, 0);
+    std::cerr << "TEST: waiting on refresh lock...\n";
+    wallet_listener->cv_refresh.wait_for(lock, wait_for);
+    std::cerr << "TEST: refresh lock acquired...\n";
+    ASSERT_TRUE(wallet_listener->refresh_triggered);
+    ASSERT_TRUE(wallet->connected());
+    ASSERT_TRUE(wallet->blockChainHeight() == wallet->daemonBlockChainHeight());
+    std::cerr << "TEST: closing wallet...\n";
+    wmgr->closeWallet(wallet);
+}
+
 
 
 int main(int argc, char** argv)
 {
     // we can override default values for "TESTNET_DAEMON_ADDRESS" and "WALLETS_ROOT_DIR"
 
-    const char * monero_daemon_addr = std::getenv("TESTNET_DAEMON_ADDRESS");
-    if (monero_daemon_addr) {
-        TESTNET_DAEMON_ADDRESS = monero_daemon_addr;
+    const char * testnet_daemon_addr = std::getenv("TESTNET_DAEMON_ADDRESS");
+    if (testnet_daemon_addr) {
+        TESTNET_DAEMON_ADDRESS = testnet_daemon_addr;
     }
+
+    const char * mainnet_daemon_addr = std::getenv("MAINNET_DAEMON_ADDRESS");
+    if (mainnet_daemon_addr) {
+        MAINNET_DAEMON_ADDRESS = mainnet_daemon_addr;
+    }
+
+
 
     const char * wallets_root_dir = std::getenv("WALLETS_ROOT_DIR");
     if (wallets_root_dir) {
