@@ -2582,11 +2582,7 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
     }
   }
 
-  if(local_args.size() < 3 )
-  {
-     fail_msg_writer() << tr("wrong number of arguments");
-     return true;
-  }
+
 
   if(m_wallet->watch_only())
   {
@@ -2596,7 +2592,8 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
   int given_unlock_time = 0;
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
-  if (local_args.size() < 5)
+  
+  if (2 < local_args.size() && local_args.size() < 5)
   {
     if (local_args.size() == 4)
     {
