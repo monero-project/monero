@@ -835,7 +835,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
   bool valid_path = false;
   do {
     wallet_path = command_line::input_line(
-        tr("Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
+        tr("NOTE: This is my Wallet- Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
         "Wallet file name: ")
     );
     if (std::cin.eof())
