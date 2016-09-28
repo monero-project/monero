@@ -652,7 +652,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), tr("Show blockchain height"));
   m_cmd_binder.set_handler("transfer_original", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 0 to maximum available)"));
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer_original, but using a new transaction building algorithm"));
-  m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::locked_transfer, this, _1), tr("Make a transfer using unlock_time"));
+  m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::locked_transfer, this, _1), tr("transfer [<mixin_count>] <addr> <amount> <locktime>(Number of blocks to lock the transaction for) [payment_id]"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("Send all unlocked balance an address"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
@@ -836,7 +836,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
   bool valid_path = false;
   do {
     wallet_path = command_line::input_line(
-        tr("NOTE: This is my Wallet- Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
+        tr("Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
         "Wallet file name: ")
     );
     if (std::cin.eof())
@@ -2582,7 +2582,7 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
     }
   }
 
-  if(local_args.size() < 2)
+  if(local_args.size() < 3 )
   {
      fail_msg_writer() << tr("wrong number of arguments");
      return true;
@@ -2593,50 +2593,56 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
      fail_msg_writer() << tr("this is a watch only wallet");
      return true;
   }
-  int given_unlock_time = 10;
+  int given_unlock_time = 0;
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
-  if (1 == local_args.size() % 2)
+  if (local_args.size() < 5)
   {
-    std::string payment_id_str = local_args.back();
-    local_args.pop_back();
+    if (local_args.size() == 4)
+    {
+      std::string payment_id_str = local_args.back();
+      local_args.pop_back();
 
-    crypto::hash payment_id;
-    bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
-    if(r)
-    {
-      std::string extra_nonce;
-      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-      r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-    }
-    else
-    {
-      crypto::hash8 payment_id8;
-      r = tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8);
+      crypto::hash payment_id;
+      bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
       if(r)
       {
         std::string extra_nonce;
-        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
+        set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
         r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
       }
+      else
+      {
+        crypto::hash8 payment_id8;
+        r = tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8);
+        if(r)
+        {
+          std::string extra_nonce;
+          set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
+          r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+        }
+      }
+      payment_id_seen = true;
+      if(!r)
+      {
+        fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character hex string: ") << payment_id_str;
+        return true;
+      }
+
     }
-    payment_id_seen = true;
-    if(!r)
-    {
-      fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character hex string: ") << payment_id_str;
+    //std::string unlock_time_string = local_args.back();
+    given_unlock_time = std::stoi( local_args.back() );
+    local_args.pop_back(); 
       
-      std::string err;
-      int bc_height = get_daemon_blockchain_height(err);
-      
-      given_unlock_time = bc_height + std::stoi(payment_id_str);
-      //return true;
-      payment_id_seen = false;
-    }
-    
+  }
+  else
+  {
+    fail_msg_writer() << tr("wrong number of arguments");
+    return true;
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
-  for (size_t i = 0; i < local_args.size(); i += 2)
+  for (size_t i = 0; i < 1; i += 2)
   {
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
@@ -2677,60 +2683,57 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
   {
     // figure out what tx will be necessary
     std::vector<tools::wallet2::pending_tx> ptx_vector;
-    ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, given_unlock_time /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
 
+    std::string err;
+    int bc_height = get_daemon_blockchain_height(err);
+    int unlock_time = given_unlock_time + bc_height;
+    ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_time , 0 /* unused fee arg*/, extra, m_trusted_daemon);
 
-    // if more than one tx necessary, prompt user to confirm
-    if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
+    uint64_t total_fee = 0;
+    uint64_t dust_not_in_fee = 0;
+    uint64_t dust_in_fee = 0;
+    for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
-        uint64_t total_fee = 0;
-        uint64_t dust_not_in_fee = 0;
-        uint64_t dust_in_fee = 0;
-        for (size_t n = 0; n < ptx_vector.size(); ++n)
-        {
-          total_fee += ptx_vector[n].fee;
+      total_fee += ptx_vector[n].fee;
 
-          if (ptx_vector[n].dust_added_to_fee)
-            dust_in_fee += ptx_vector[n].dust;
-          else
-            dust_not_in_fee += ptx_vector[n].dust;
-        }
-
-        std::stringstream prompt;
-        if (ptx_vector.size() > 1)
-        {
-          prompt << boost::format(tr("Your transaction needs to be split into %llu transactions.  "
-            "This will result in a transaction fee being applied to each transaction, for a total fee of %s")) %
-            ((unsigned long long)ptx_vector.size()) % print_money(total_fee);
-        }
-        else
-        {
-          std::string err;
-          int bc_height = get_daemon_blockchain_height(err);
-          float days = (float)(given_unlock_time - bc_height) / 720.0;
-          prompt << boost::format(tr("The transaction fee is %s")) %
-            print_money(total_fee);
-          prompt << boost::format(tr("The unlock time is approximately %s days")) %
-            days;
-        }
-        if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
-        if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address")) 
-                                                   % print_money(dust_not_in_fee);
-        prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
-        
-        std::string accepted = command_line::input_line(prompt.str());
-        if (std::cin.eof())
-          return true;
-        if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
-        {
-          fail_msg_writer() << tr("transaction cancelled.");
-
-          // would like to return false, because no tx made, but everything else returns true
-          // and I don't know what returning false might adversely affect.  *sigh*
-          return true; 
-        }
+      if (ptx_vector[n].dust_added_to_fee)
+        dust_in_fee += ptx_vector[n].dust;
+      else
+        dust_not_in_fee += ptx_vector[n].dust;
     }
 
+    std::stringstream prompt;
+    if (ptx_vector.size() > 1)
+    {
+      prompt << boost::format(tr("Your transaction needs to be split into %llu transactions.  "
+        "This will result in a transaction fee being applied to each transaction, for a total fee of %s")) %
+        ((unsigned long long)ptx_vector.size()) % print_money(total_fee);
+    }
+    else
+    {
+      
+      prompt << boost::format(tr("Transaction fee is %s")) %
+        print_money(total_fee);
+    }
+    if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
+    if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address")) 
+                                               % print_money(dust_not_in_fee);
+    
+    float days = (float)(given_unlock_time) / 720.0;
+    prompt << boost::format(tr(".\nThe unlock time is approximately %s days")) %
+        days;
+
+    prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
+    
+    std::string accepted = command_line::input_line(prompt.str());
+    if (std::cin.eof())
+      return true;
+    if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+    {
+      fail_msg_writer() << tr("transaction cancelled.");
+      return true; 
+    }
+   
     // actually commit the transactions
     while (!ptx_vector.empty())
     {
@@ -2761,18 +2764,11 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
   }
   catch (const tools::error::not_enough_money& e)
   {
-    std::stringstream prompt;
     LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
       print_money(e.available()) %
       print_money(e.tx_amount() + e.fee())  %
       print_money(e.tx_amount()) %
       print_money(e.fee()));
-    prompt << boost::format(tr("Available %s, transaction amount %s = %s + %s (fee)")) %
-      print_money(e.available()) %
-      print_money(e.tx_amount() + e.fee())  %
-      print_money(e.tx_amount()) %
-      print_money(e.fee());
-    std::string accepted = command_line::input_line(prompt.str());
     fail_msg_writer() << tr("Failed to find a way to create transactions, too bad. This is usually due to dust which is so small it cannot pay for itself in fees");
   }
   catch (const tools::error::not_enough_outs_to_mix& e)
