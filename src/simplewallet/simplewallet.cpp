@@ -652,6 +652,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), tr("Show blockchain height"));
   m_cmd_binder.set_handler("transfer_original", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 0 to maximum available)"));
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer_original, but using a new transaction building algorithm"));
+  m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Make a transfer using unlock_time"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("Send all unlocked balance an address"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
@@ -2318,7 +2319,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
      fail_msg_writer() << tr("this is a watch only wallet");
      return true;
   }
-
+  int given_unlock_time = 10;
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
   if (1 == local_args.size() % 2)
@@ -2345,13 +2346,19 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
       }
     }
-
+    payment_id_seen = true;
     if(!r)
     {
       fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character hex string: ") << payment_id_str;
-      return true;
+      
+      std::string err;
+      int bc_height = get_daemon_blockchain_height(err);
+      
+      given_unlock_time = bc_height + std::stoi(payment_id_str);
+      //return true;
+      payment_id_seen = false;
     }
-    payment_id_seen = true;
+    
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
@@ -2399,12 +2406,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     switch (transfer_type)
     {
       case TransferNew:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, given_unlock_time /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using original");
       case TransferOriginal:
-        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, given_unlock_time /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
         break;
     }
 
@@ -2433,8 +2440,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         }
         else
         {
+          std::string err;
+          int bc_height = get_daemon_blockchain_height(err);
+          float days = (float)(given_unlock_time - bc_height) / 720.0;
           prompt << boost::format(tr("The transaction fee is %s")) %
             print_money(total_fee);
+          prompt << boost::format(tr("The unlock time is approximately %s days")) %
+            days;
         }
         if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
         if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address")) 
