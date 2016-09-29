@@ -175,6 +175,7 @@ WalletImpl::WalletImpl(bool testnet)
     m_wallet->callback(m_wallet2Callback);
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
+    m_newWallet = true;
 
     m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
 
@@ -195,6 +196,7 @@ WalletImpl::~WalletImpl()
 bool WalletImpl::create(const std::string &path, const std::string &password, const std::string &language)
 {
 
+    m_newWallet = true;
     clearStatus();
 
     bool keys_file_exists;
@@ -232,6 +234,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
 
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
+    m_newWallet = false;
     clearStatus();
     try {
         // TODO: handle "deprecated"
@@ -385,11 +388,7 @@ string WalletImpl::keysFilename() const
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-
-    m_wallet->init(daemon_address, upper_transaction_size_limit);
-    if (Utils::isAddressLocal(daemon_address)) {
-        this->setTrustedDaemon(true);
-    }
+    doInit(daemon_address, upper_transaction_size_limit);
     bool result = this->refresh();
     // enabling background refresh thread
     startRefresh();
@@ -400,10 +399,7 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
 void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-    m_wallet->init(daemon_address, upper_transaction_size_limit);
-    if (Utils::isAddressLocal(daemon_address)) {
-        this->setTrustedDaemon(true);
-    }
+    doInit(daemon_address, upper_transaction_size_limit);
     startRefresh();
 }
 
@@ -747,5 +743,25 @@ void WalletImpl::pauseRefresh()
     }
 }
 
+
+bool WalletImpl::isNewWallet() const
+{
+    return m_newWallet;
+}
+
+void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
+{
+    m_wallet->init(daemon_address, upper_transaction_size_limit);
+
+    // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
+    if (isNewWallet()) {
+        m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());
+    }
+
+    if (Utils::isAddressLocal(daemon_address)) {
+        this->setTrustedDaemon(true);
+    }
+
+}
 
 } // namespace

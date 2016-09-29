@@ -830,8 +830,12 @@ struct MyWalletListener : public Bitmonero::WalletListener
 
     virtual void newBlock(uint64_t height)
     {
-        std::cout << "wallet: " << wallet->address()
-                  <<", new block received, blockHeight: " << height << std::endl;
+//        std::cout << "wallet: " << wallet->address()
+//                  <<", new block received, blockHeight: " << height << std::endl;
+        static int bc_height = wallet->daemonBlockChainHeight();
+        std::cout << height
+                  << " / " << bc_height/* 0*/
+                  << std::endl;
         newblock_triggered = true;
         cv_newblock.notify_one();
     }
@@ -1006,7 +1010,27 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
 
 }
 
-TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNet)
+TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNetSync)
+{
+
+    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG);
+    MyWalletListener * wallet_listener = new MyWalletListener(wallet);
+    std::chrono::seconds wait_for = std::chrono::seconds(30);
+    std::unique_lock<std::mutex> lock (wallet_listener->mutex);
+    // wallet->initAsync(MAINNET_DAEMON_ADDRESS, 0);
+    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    std::cerr << "TEST: waiting on refresh lock...\n";
+    //wallet_listener->cv_refresh.wait_for(lock, wait_for);
+    std::cerr << "TEST: refresh lock acquired...\n";
+    ASSERT_TRUE(wallet_listener->refresh_triggered);
+    ASSERT_TRUE(wallet->connected());
+    ASSERT_TRUE(wallet->blockChainHeight() == wallet->daemonBlockChainHeight());
+    std::cerr << "TEST: closing wallet...\n";
+    wmgr->closeWallet(wallet);
+}
+
+
+TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNetAsync)
 {
 
     Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG);
@@ -1014,6 +1038,7 @@ TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNet)
     std::chrono::seconds wait_for = std::chrono::seconds(30);
     std::unique_lock<std::mutex> lock (wallet_listener->mutex);
     wallet->initAsync(MAINNET_DAEMON_ADDRESS, 0);
+    // wallet->init(MAINNET_DAEMON_ADDRESS, 0);
     std::cerr << "TEST: waiting on refresh lock...\n";
     wallet_listener->cv_refresh.wait_for(lock, wait_for);
     std::cerr << "TEST: refresh lock acquired...\n";

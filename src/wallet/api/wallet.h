@@ -101,6 +101,8 @@ private:
     void startRefresh();
     void stopRefresh();
     void pauseRefresh();
+    bool isNewWallet() const;
+    void doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
 
 private:
     friend class PendingTransactionImpl;
@@ -126,6 +128,7 @@ private:
     boost::mutex        m_refreshMutex2;
     boost::condition_variable m_refreshCV;
     boost::thread       m_refreshThread;
+    bool                m_newWallet;
 
 };
 
