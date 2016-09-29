@@ -611,6 +611,13 @@ namespace cryptonote
       */
      bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
 
+     /**
+      * @brief get the number of blocks to sync in one go
+      *
+      * @return the number of blocks to sync in one go
+      */
+     size_t get_block_sync_size() const { return block_sync_size; }
+
    private:
 
      /**
@@ -798,6 +805,8 @@ namespace cryptonote
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
 
      boost::interprocess::file_lock db_lock; //!< a lock object for a file lock in the db directory
+
+     size_t block_sync_size;
    };
 }
 
