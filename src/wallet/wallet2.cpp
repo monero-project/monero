@@ -4053,6 +4053,38 @@ std::string wallet2::get_daemon_address() const
   return m_daemon_address;
 }
 
+uint64_t wallet2::get_daemon_blockchain_height(string &err)
+{
+  // XXX: DRY violation. copy-pasted from simplewallet.cpp:get_daemon_blockchain_height()
+  //      consider to move it from simplewallet to wallet2 ?
+  COMMAND_RPC_GET_HEIGHT::request req;
+  COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
+  m_daemon_rpc_mutex.lock();
+  bool ok = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  // XXX: DRY violation. copy-pasted from simplewallet.cpp:interpret_rpc_response()
+  if (ok)
+  {
+    if (res.status == CORE_RPC_STATUS_BUSY)
+    {
+      err = "daemon is busy. Please try again later.";
+    }
+    else if (res.status != CORE_RPC_STATUS_OK)
+    {
+      err = res.status;
+    }
+    else // success, cleaning up error message
+    {
+      err = "";
+    }
+  }
+  else
+  {
+    err = "possibly lost connection to daemon";
+  }
+  return res.height;
+}
+
 void wallet2::set_tx_note(const crypto::hash &txid, const std::string &note)
 {
   m_tx_notes[txid] = note;

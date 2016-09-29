@@ -114,11 +114,35 @@ struct TransactionHistory
 struct WalletListener
 {
     virtual ~WalletListener() = 0;
+    /**
+     * @brief moneySpent - called when money spent
+     * @param txId       - transaction id
+     * @param amount     - amount
+     */
     virtual void moneySpent(const std::string &txId, uint64_t amount) = 0;
+
+    /**
+     * @brief moneyReceived - called when money received
+     * @param txId          - transaction id
+     * @param amount        - amount
+     */
     virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
-    // generic callback, called when any event (sent/received/block reveived/etc) happened with the wallet;
+
+    /**
+     * @brief newBlock      - called when new block received
+     * @param height        - block height
+     */
+    virtual void newBlock(uint64_t height) = 0;
+
+    /**
+     * @brief updated  - generic callback, called when any event (sent/received/block reveived/etc) happened with the wallet;
+     */
     virtual void updated() = 0;
-    // called when wallet refreshed by background thread or explicitly called be calling "refresh" synchronously
+
+
+    /**
+     * @brief refreshed - called when wallet refreshed by background thread or explicitly refreshed by calling "refresh" synchronously
+     */
     virtual void refreshed() = 0;
 };
 
@@ -211,6 +235,20 @@ struct Wallet
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
 
+    /**
+     * @brief blockChainHeight - returns current blockchain height
+     * @return
+     */
+    virtual uint64_t blockChainHeight() const = 0;
+
+    /**
+     * @brief daemonBlockChainHeight - returns daemon blockchain height
+     * @return 0 - in case error communicating with the daemon.
+     *             status() will return Status_Error and errorString() will return verbose error description
+     */
+    virtual uint64_t daemonBlockChainHeight() const = 0;
+
+
     static std::string displayAmount(uint64_t amount);
     static uint64_t amountFromString(const std::string &amount);
     static uint64_t amountFromDouble(double amount);
@@ -231,12 +269,12 @@ struct Wallet
 
     /**
      * @brief setAutoRefreshInterval - setup interval for automatic refresh.
-     * @param seconds - interval in seconds. if zero or less than zero - automatic refresh disabled;
+     * @param seconds - interval in millis. if zero or less than zero - automatic refresh disabled;
      */
-    virtual void setAutoRefreshInterval(int seconds) = 0;
+    virtual void setAutoRefreshInterval(int millis) = 0;
 
     /**
-     * @brief autoRefreshInterval - returns automatic refresh interval in seconds
+     * @brief autoRefreshInterval - returns automatic refresh interval in millis
      * @return
      */
     virtual int autoRefreshInterval() const = 0;

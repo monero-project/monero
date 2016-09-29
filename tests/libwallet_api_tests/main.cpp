@@ -473,8 +473,6 @@ TEST_F(WalletTest1, WalletGeneratesIntegratedAddress)
 
 TEST_F(WalletTest1, WalletShowsBalance)
 {
-    // TODO: temporary disabled;
-    return;
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     ASSERT_TRUE(wallet1->balance() > 0);
     ASSERT_TRUE(wallet1->unlockedBalance() > 0);
@@ -490,6 +488,32 @@ TEST_F(WalletTest1, WalletShowsBalance)
     std::cout << "wallet unlocked balance: " << wallet2->unlockedBalance() << std::endl;
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
+
+TEST_F(WalletTest1, WalletReturnsCurrentBlockHeight)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+    ASSERT_TRUE(wallet1->blockChainHeight() > 0);
+    wmgr->closeWallet(wallet1);
+}
+
+
+TEST_F(WalletTest1, WalletReturnsDaemonBlockHeight)
+{
+    Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+    // wallet not connected to daemon
+    ASSERT_TRUE(wallet1->daemonBlockChainHeight() == 0);
+    ASSERT_TRUE(wallet1->status() != Bitmonero::Wallet::Status_Ok);
+    ASSERT_FALSE(wallet1->errorString().empty());
+    wmgr->closeWallet(wallet1);
+
+    wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
+    // wallet connected to daemon
+    wallet1->init(TESTNET_DAEMON_ADDRESS, 0);
+    ASSERT_TRUE(wallet1->daemonBlockChainHeight() > 0);
+    std::cout << "daemonBlockChainHeight: " << wallet1->daemonBlockChainHeight() << std::endl;
+    wmgr->closeWallet(wallet1);
+}
+
 
 TEST_F(WalletTest1, WalletRefresh)
 {
@@ -742,8 +766,10 @@ struct MyWalletListener : public Bitmonero::WalletListener
     std::condition_variable cv_receive;
     std::condition_variable cv_update;
     std::condition_variable cv_refresh;
+    std::condition_variable cv_newblock;
     bool send_triggered;
     bool receive_triggered;
+    bool newblock_triggered;
     bool update_triggered;
     bool refresh_triggered;
 
@@ -779,6 +805,14 @@ struct MyWalletListener : public Bitmonero::WalletListener
         total_rx += amount;
         receive_triggered = true;
         cv_receive.notify_one();
+    }
+
+    virtual void newBlock(uint64_t height)
+    {
+        std::cout << "wallet: " << wallet->address()
+                  <<", new block received, blockHeight: " << height << std::endl;
+        newblock_triggered = true;
+        cv_newblock.notify_one();
     }
 
     virtual void updated()
@@ -879,16 +913,17 @@ TEST_F(WalletTest2, WalletCallbackSent)
 TEST_F(WalletTest2, WalletCallbackReceived)
 {
 
-    Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET5_NAME, TESTNET_WALLET_PASS, true);
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
     ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_src->refresh());
-    std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
+    std::cout << "** Balance src1: " << wallet_src->displayAmount(wallet_src->balance()) <<  std::endl;
 
     Bitmonero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, true);
     ASSERT_TRUE(wallet_dst->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet_dst->refresh());
     uint64_t balance = wallet_dst->balance();
+    std::cout << "** Balance dst1: " << wallet_dst->displayAmount(wallet_dst->balance()) <<  std::endl;
     MyWalletListener * wallet_dst_listener = new MyWalletListener(wallet_dst);
 
     uint64_t amount = AMOUNT_1XMR * 5;
@@ -910,12 +945,45 @@ TEST_F(WalletTest2, WalletCallbackReceived)
     std::cerr << "TEST: receive lock acquired...\n";
     ASSERT_TRUE(wallet_dst_listener->receive_triggered);
     ASSERT_TRUE(wallet_dst_listener->update_triggered);
-    std::cout << "** Balance: " << wallet_dst->displayAmount(wallet_src->balance()) <<  std::endl;
+
+    std::cout << "** Balance src2: " << wallet_dst->displayAmount(wallet_src->balance()) <<  std::endl;
+    std::cout << "** Balance dst2: " << wallet_dst->displayAmount(wallet_dst->balance()) <<  std::endl;
+
     ASSERT_TRUE(wallet_dst->balance() > balance);
 
     wmgr->closeWallet(wallet_src);
     wmgr->closeWallet(wallet_dst);
 }
+
+
+
+TEST_F(WalletTest2, WalletCallbackNewBlock)
+{
+
+    Bitmonero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET5_NAME, TESTNET_WALLET_PASS, true);
+    // make sure testnet daemon is running
+    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(wallet_src->refresh());
+    uint64_t bc1 = wallet_src->blockChainHeight();
+    std::cout << "** Block height: " << bc1 << std::endl;
+
+
+    MyWalletListener * wallet_listener = new MyWalletListener(wallet_src);
+
+    // wait max 4 min for new block
+    std::chrono::seconds wait_for = std::chrono::seconds(60*4);
+    std::unique_lock<std::mutex> lock (wallet_listener->mutex);
+    std::cerr << "TEST: waiting on newblock lock...\n";
+    wallet_listener->cv_newblock.wait_for(lock, wait_for);
+    std::cerr << "TEST: newblock lock acquired...\n";
+    ASSERT_TRUE(wallet_listener->newblock_triggered);
+    uint64_t bc2 = wallet_src->blockChainHeight();
+    std::cout << "** Block height: " << bc2 << std::endl;
+    ASSERT_TRUE(bc2 > bc1);
+    wmgr->closeWallet(wallet_src);
+
+}
+
 
 
 int main(int argc, char** argv)

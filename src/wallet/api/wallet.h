@@ -75,9 +75,11 @@ public:
     bool trustedDaemon() const;
     uint64_t balance() const;
     uint64_t unlockedBalance() const;
+    uint64_t blockChainHeight() const;
+    uint64_t daemonBlockChainHeight() const;
     bool refresh();
     void refreshAsync();
-    void setAutoRefreshInterval(int seconds);
+    void setAutoRefreshInterval(int millis);
     int autoRefreshInterval() const;
 
 
@@ -105,8 +107,8 @@ private:
     friend class TransactionHistoryImpl;
 
     tools::wallet2 * m_wallet;
-    std::atomic<int>  m_status;
-    std::string m_errorString;
+    mutable std::atomic<int>  m_status;
+    mutable std::string m_errorString;
     std::string m_password;
     TransactionHistoryImpl * m_history;
     bool        m_trustedDaemon;
@@ -116,7 +118,7 @@ private:
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;
     std::atomic<bool> m_refreshThreadDone;
-    std::atomic<int>  m_refreshIntervalSeconds;
+    std::atomic<int>  m_refreshIntervalMillis;
     // synchronizing  refresh loop;
     boost::mutex        m_refreshMutex;
 
