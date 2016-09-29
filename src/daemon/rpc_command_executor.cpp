@@ -57,7 +57,7 @@ namespace {
     tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
   }
 
-  void print_block_header(cryptonote::block_header_responce const & header)
+  void print_block_header(cryptonote::block_header_response const & header)
   {
     tools::success_msg_writer()
       << "timestamp: " << boost::lexical_cast<std::string>(header.timestamp) << std::endl

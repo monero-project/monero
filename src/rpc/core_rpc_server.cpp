@@ -830,19 +830,19 @@ namespace cryptonote
     return reward;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::fill_block_header_responce(const block& blk, bool orphan_status, uint64_t height, const crypto::hash& hash, block_header_responce& responce)
+  bool core_rpc_server::fill_block_header_response(const block& blk, bool orphan_status, uint64_t height, const crypto::hash& hash, block_header_response& response)
   {
-    responce.major_version = blk.major_version;
-    responce.minor_version = blk.minor_version;
-    responce.timestamp = blk.timestamp;
-    responce.prev_hash = string_tools::pod_to_hex(blk.prev_id);
-    responce.nonce = blk.nonce;
-    responce.orphan_status = orphan_status;
-    responce.height = height;
-    responce.depth = m_core.get_current_blockchain_height() - height - 1;
-    responce.hash = string_tools::pod_to_hex(hash);
-    responce.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
-    responce.reward = get_block_reward(blk);
+    response.major_version = blk.major_version;
+    response.minor_version = blk.minor_version;
+    response.timestamp = blk.timestamp;
+    response.prev_hash = string_tools::pod_to_hex(blk.prev_id);
+    response.nonce = blk.nonce;
+    response.orphan_status = orphan_status;
+    response.height = height;
+    response.depth = m_core.get_current_blockchain_height() - height - 1;
+    response.hash = string_tools::pod_to_hex(hash);
+    response.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
+    response.reward = get_block_reward(blk);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -871,8 +871,8 @@ namespace cryptonote
       error_resp.message = "Internal error: can't get last block.";
       return false;
     }
-    bool responce_filled = fill_block_header_responce(last_block, false, last_block_height, last_block_hash, res.block_header);
-    if (!responce_filled)
+    bool response_filled = fill_block_header_response(last_block, false, last_block_height, last_block_hash, res.block_header);
+    if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: can't produce valid response.";
@@ -912,8 +912,8 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool responce_filled = fill_block_header_responce(blk, false, block_height, block_hash, res.block_header);
-    if (!responce_filled)
+    bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.block_header);
+    if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: can't produce valid response.";
@@ -945,8 +945,8 @@ namespace cryptonote
       error_resp.message = "Internal error: can't get block by height. Height = " + std::to_string(req.height) + '.';
       return false;
     }
-    bool responce_filled = fill_block_header_responce(blk, false, req.height, block_hash, res.block_header);
-    if (!responce_filled)
+    bool response_filled = fill_block_header_response(blk, false, req.height, block_hash, res.block_header);
+    if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: can't produce valid response.";
@@ -999,8 +999,8 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool responce_filled = fill_block_header_responce(blk, false, block_height, block_hash, res.block_header);
-    if (!responce_filled)
+    bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.block_header);
+    if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: can't produce valid response.";
