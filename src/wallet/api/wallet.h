@@ -128,8 +128,6 @@ private:
     boost::mutex        m_refreshMutex2;
     boost::condition_variable m_refreshCV;
     boost::thread       m_refreshThread;
-    bool                m_newWallet;
-
 };
 
 

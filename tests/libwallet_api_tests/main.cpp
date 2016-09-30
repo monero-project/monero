@@ -1030,7 +1030,7 @@ TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNetSync)
 }
 
 
-TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNetAsync)
+TEST_F(WalletManagerMainnetTest, CreateAndRefreshWalletMainNetAsync)
 {
 
     Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG);
@@ -1048,6 +1048,30 @@ TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNetAsync)
     std::cerr << "TEST: closing wallet...\n";
     wmgr->closeWallet(wallet);
 }
+
+TEST_F(WalletManagerMainnetTest, OpenAndRefreshWalletMainNetAsync)
+{
+
+    Bitmonero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG);
+
+    wmgr->closeWallet(wallet);
+    wallet = wmgr->openWallet(WALLET_NAME_MAINNET, "");
+
+    MyWalletListener * wallet_listener = new MyWalletListener(wallet);
+    std::chrono::seconds wait_for = std::chrono::seconds(30);
+    std::unique_lock<std::mutex> lock (wallet_listener->mutex);
+    wallet->initAsync(MAINNET_DAEMON_ADDRESS, 0);
+    // wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    std::cerr << "TEST: waiting on refresh lock...\n";
+    wallet_listener->cv_refresh.wait_for(lock, wait_for);
+    std::cerr << "TEST: refresh lock acquired...\n";
+    ASSERT_TRUE(wallet_listener->refresh_triggered);
+    ASSERT_TRUE(wallet->connected());
+    ASSERT_TRUE(wallet->blockChainHeight() == wallet->daemonBlockChainHeight());
+    std::cerr << "TEST: closing wallet...\n";
+    wmgr->closeWallet(wallet);
+}
+
 
 
 
