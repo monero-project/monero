@@ -56,18 +56,22 @@ bool isAddressLocal(const std::string &address)
         LOG_PRINT_L1("Failed to determine whether daemon is local, assuming not");
         return false;
     }
-
-    // resolve to IP
-    boost::asio::io_service io_service;
-    boost::asio::ip::tcp::resolver resolver(io_service);
-    boost::asio::ip::tcp::resolver::query query(u_c.host, "");
-    boost::asio::ip::tcp::resolver::iterator i = resolver.resolve(query);
-    while (i != boost::asio::ip::tcp::resolver::iterator())
-    {
-        const boost::asio::ip::tcp::endpoint &ep = *i;
-        if (ep.address().is_loopback())
-            return true;
-        ++i;
+    // resolver::resolve can throw an exception
+    try {
+        // resolve to IP
+        boost::asio::io_service io_service;
+        boost::asio::ip::tcp::resolver resolver(io_service);
+        boost::asio::ip::tcp::resolver::query query(u_c.host, "");
+        boost::asio::ip::tcp::resolver::iterator i = resolver.resolve(query);
+        while (i != boost::asio::ip::tcp::resolver::iterator())
+        {
+            const boost::asio::ip::tcp::endpoint &ep = *i;
+            if (ep.address().is_loopback())
+                return true;
+            ++i;
+        }
+    } catch (const boost::system::system_error &e) {
+        LOG_ERROR("Failed to resolve " << address << ", :" << e.what());
     }
 
     return false;
