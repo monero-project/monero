@@ -286,6 +286,8 @@ namespace tools
     bool restricted() const { return m_restricted; }
     bool watch_only() const { return m_watch_only; }
 
+    void set_user_agent(const std::string &user_agent) { m_http_client.set_user_agent(user_agent); }
+
     uint64_t balance() const;
     uint64_t unlocked_balance() const;
     uint64_t unlocked_dust_balance(const tx_dust_policy &dust_policy) const;
