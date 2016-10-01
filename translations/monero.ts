@@ -90,7 +90,7 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="355"/>
-        <source>transfer [&lt;mixin_count&gt;] &lt;addr_1&gt; &lt;amount_1&gt; [&lt;addr_2&gt; &lt;amount_2&gt; ... &lt;addr_N&gt; &lt;amount_N&gt;] [payment_id] - Transfer &lt;amount_1&gt;,... &lt;amount_N&gt; to &lt;address_1&gt;,... &lt;address_N&gt;, respectively. &lt;mixin_count&gt; is the number of transactions yours is indistinguishable from (from 0 to maximum available)</source>
+        <source>transfer [&lt;mixin_count&gt;] &lt;addr_1&gt; &lt;amount_1&gt; [&lt;addr_2&gt; &lt;amount_2&gt; ... &lt;addr_N&gt; &lt;amount_N&gt;] [payment_id] - Transfer &lt;amount_1&gt;,... &lt;amount_N&gt; to &lt;address_1&gt;,... &lt;address_N&gt;, respectively. &lt;mixin_count&gt; is the number of transactions yours is indistinguishable from (from 2 to maximum available)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
