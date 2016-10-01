@@ -627,6 +627,35 @@ bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = st
   return true;
 }
 
+bool simple_wallet::set_confirm_missing_payment_id(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  bool success = false;
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
+    return true;
+  }
+  tools::password_container pwd_container(m_wallet_file.empty());
+  success = pwd_container.read_password();
+  if (!success)
+  {
+    fail_msg_writer() << tr("failed to read wallet password");
+    return true;
+  }
+
+  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
+  success = m_wallet->verify_password(pwd_container.password());
+  if (!success)
+  {
+    fail_msg_writer() << tr("invalid password");
+    return true;
+  }
+
+  m_wallet->confirm_missing_payment_id(is_it_true(args[1]));
+  m_wallet->rewrite(m_wallet_file, pwd_container.password());
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -662,7 +691,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Display private spend key"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Display Electrum-style mnemonic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("Available options: seed language - set wallet seed language; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin <n> - set default mixin (default is 4); auto-refresh <1|0> - whether to automatically sync new blocks from the daemon; refresh-type <full|optimize-coinbase|no-coinbase|default> - set wallet refresh behaviour; priority [1|2|3] - normal/elevated/priority fee"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("Available options: seed language - set wallet seed language; always-confirm-transfers <1|0> - whether to confirm unsplit txes; store-tx-info <1|0> - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin <n> - set default mixin (default is 4); auto-refresh <1|0> - whether to automatically sync new blocks from the daemon; refresh-type <full|optimize-coinbase|no-coinbase|default> - set wallet refresh behaviour; priority [1|2|3] - normal/elevated/priority fee; confirm-missing-payment-id <1|0>"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given <txid>"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to <address> in <txid>"));
@@ -689,6 +718,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
     success_msg_writer() << "priority = " << m_wallet->get_default_priority();
+    success_msg_writer() << "confirm-missing-payment-id = " << m_wallet->confirm_missing_payment_id();
     return true;
   }
   else
@@ -796,6 +826,21 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         std::vector<std::string> local_args = args;
         local_args.erase(local_args.begin(), local_args.begin()+2);
         set_default_priority(local_args);
+        return true;
+      }
+    }
+    else if (args[0] == "confirm-missing-payment-id")
+    {
+      if (args.size() <= 1)
+      {
+        fail_msg_writer() << tr("set confirm-missing-payment-id: needs an argument (0 or 1)");
+        return true;
+      }
+      else
+      {
+        std::vector<std::string> local_args = args;
+        local_args.erase(local_args.begin(), local_args.begin()+2);
+        set_confirm_missing_payment_id(local_args);
         return true;
       }
     }
@@ -2379,6 +2424,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
         return true;
       }
+      payment_id_seen = true;
     }
 
     bool ok = cryptonote::parse_amount(de.amount, local_args[i + 1]);
@@ -2390,6 +2436,22 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
 
     dsts.push_back(de);
+  }
+
+  // prompt is there is no payment id and confirmation is required
+  if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
+  {
+     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No)"));
+     if (std::cin.eof())
+       return true;
+     if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+     {
+       fail_msg_writer() << tr("transaction cancelled.");
+
+       // would like to return false, because no tx made, but everything else returns true
+       // and I don't know what returning false might adversely affect.  *sigh*
+       return true; 
+     }
   }
 
   try
@@ -2799,6 +2861,23 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
       fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
       return true;
     }
+    payment_id_seen = true;
+  }
+
+  // prompt is there is no payment id and confirmation is required
+  if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
+  {
+     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No)"));
+     if (std::cin.eof())
+       return true;
+     if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+     {
+       fail_msg_writer() << tr("transaction cancelled.");
+
+       // would like to return false, because no tx made, but everything else returns true
+       // and I don't know what returning false might adversely affect.  *sigh*
+       return true; 
+     }
   }
 
   try
