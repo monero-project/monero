@@ -62,6 +62,7 @@ public:
   bool prepare_handle_incoming_blocks(const std::list<cryptonote::block_complete_entry>  &blocks) { return true; }
   bool cleanup_handle_incoming_blocks(bool force_sync = false) { return true; }
   uint64_t get_target_blockchain_height() const { return 1; }
+  size_t get_block_sync_size() const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
 };
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
