@@ -432,12 +432,16 @@ namespace cryptonote
     bool core::deinit()
   {
     m_miner.stop();
+    LOG_PRINT_L2("Mining Stopped");
     m_mempool.deinit();
+    LOG_PRINT_L2("Mempool Cleared");
     if (!m_fast_exit)
     {
       m_blockchain_storage.deinit();
+      LOG_PRINT_L2("Local Blockchain Read/Write Stopped");
     }
     unlock_db_directory();
+    LOG_PRINT_L2("Blockchain Directory Unlocked");
     return true;
   }
   //-----------------------------------------------------------------------------------------------
