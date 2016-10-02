@@ -923,6 +923,57 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_block_headers_range(const COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request& req, COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response& res, epee::json_rpc::error& error_resp){
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+    const uint64_t bc_height = m_core.get_current_blockchain_height();
+    if (req.start_height >= bc_height || req.end_height >= bc_height || req.start_height > req.end_height)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
+      error_resp.message = "Invalid start/end heights.";
+      return false;
+    }
+    for (uint64_t h = req.start_height; h <= req.end_height; ++h)
+    {
+      crypto::hash block_hash = m_core.get_block_id_by_height(h);
+      block blk;
+      bool have_block = m_core.get_block_by_hash(block_hash, blk);
+      if (!have_block)
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+        error_resp.message = "Internal error: can't get block by height. Height = " + boost::lexical_cast<std::string>(h) + ". Hash = " + epee::string_tools::pod_to_hex(block_hash) + '.';
+        return false;
+      }
+      if (blk.miner_tx.vin.front().type() != typeid(txin_gen))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+        error_resp.message = "Internal error: coinbase transaction in the block has the wrong type";
+        return false;
+      }
+      uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
+      if (block_height != h)
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+        error_resp.message = "Internal error: coinbase transaction in the block has the wrong height";
+        return false;
+      }
+      res.headers.push_back(block_header_responce());
+      bool responce_filled = fill_block_header_responce(blk, false, block_height, block_hash, res.headers.back());
+      if (!responce_filled)
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+        error_resp.message = "Internal error: can't produce valid response.";
+        return false;
+      }
+    }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res, epee::json_rpc::error& error_resp){
     if(!check_core_busy())
     {
