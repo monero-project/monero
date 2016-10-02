@@ -75,7 +75,7 @@ public:
       m_protocol.set_p2p_endpoint(nullptr);
       LOG_PRINT_L0("Cryptonote protocol stopped successfully.");
     } catch (...) {
-      LOG_PRINT_L0("Failed to stop cryptonote protocol...");
+      LOG_PRINT_RED("Failed to stop cryptonote protocol.");
     }
   }
 };
