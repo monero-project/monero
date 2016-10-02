@@ -30,6 +30,7 @@
 
 #include "command_line.h"
 #include "string_tools.h"
+#include "cryptonote_config.h"
 
 namespace command_line
 {
@@ -91,5 +92,10 @@ namespace command_line
     "show-time-stats"
   , "Show time-stats when processing blocks/txs and disk synchronization."
   , 0
+  };
+  const command_line::arg_descriptor<size_t> arg_block_sync_size  = {
+    "block-sync-size"
+  , "How many blocks to sync at once during chain synchronization."
+  , BLOCKS_SYNCHRONIZING_DEFAULT_COUNT
   };
 }

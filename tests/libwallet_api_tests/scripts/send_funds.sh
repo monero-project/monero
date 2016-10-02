@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 function send_funds {
     local amount=$1
     local dest=$(cat "$2.address.txt")

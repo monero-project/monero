@@ -164,11 +164,7 @@ application.
 
 * Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
 * Open the MSYS shell via the `MSYS2 Shell` shortcut
-* Update the core packages in your MSYS2 install:
-
-        update-core  
-        
-* Exit the MSYS shell using Alt+F4, then restart MSYS and update packages using pacman:  
+* Update packages using pacman:  
 
         pacman -Syuu  
 

@@ -47,7 +47,9 @@ namespace Bitmonero {
 namespace {
     // copy-pasted from simplewallet
     static const size_t DEFAULT_MIXIN = 4;
-    static const int    DEFAULT_REFRESH_INTERVAL_SECONDS = 10;
+    static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
+    // limit maximum refresh interval as one minute
+    static const int    MAX_REFRESH_INTERVAL_MILLIS = 1000 * 60 * 1;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -76,8 +78,12 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 
     virtual void on_new_block(uint64_t height, const cryptonote::block& block)
     {
-        // TODO;
         LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
+
+        if (m_listener) {
+            m_listener->newBlock(height);
+            //  m_listener->updated();
+        }
     }
 
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
@@ -170,7 +176,9 @@ WalletImpl::WalletImpl(bool testnet)
     m_wallet->callback(m_wallet2Callback);
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
-    m_refreshIntervalSeconds = DEFAULT_REFRESH_INTERVAL_SECONDS;
+
+    m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
+
     m_refreshThread = boost::thread([this] () {
         this->refreshThreadFunc();
     });
@@ -273,14 +281,15 @@ bool WalletImpl::close()
 {
 
     bool result = false;
+    LOG_PRINT_L3("closing wallet...");
     try {
         // do not store wallet with invalid status
         if (status() == Status_Ok)
             m_wallet->store();
-        // LOG_PRINT_L0("wallet::store done");
-        // LOG_PRINT_L0("Calling wallet::stop...");
+        LOG_PRINT_L3("wallet::store done");
+        LOG_PRINT_L3("Calling wallet::stop...");
         m_wallet->stop();
-        // LOG_PRINT_L0("wallet::stop done");
+        LOG_PRINT_L3("wallet::stop done");
         result = true;
         clearStatus();
     } catch (const std::exception &e) {
@@ -411,6 +420,27 @@ uint64_t WalletImpl::unlockedBalance() const
     return m_wallet->unlocked_balance();
 }
 
+uint64_t WalletImpl::blockChainHeight() const
+{
+    return m_wallet->get_blockchain_current_height();
+}
+
+uint64_t WalletImpl::daemonBlockChainHeight() const
+{
+    std::string err;
+    uint64_t result = m_wallet->get_daemon_blockchain_height(err);
+    if (!err.empty()) {
+        LOG_ERROR(__FUNCTION__ << ": " << err);
+        result = 0;
+        m_errorString = err;
+        m_status = Status_Error;
+
+    } else {
+        m_status = Status_Ok;
+        m_errorString = "";
+    }
+    return result;
+}
 
 bool WalletImpl::refresh()
 {
@@ -424,6 +454,22 @@ void WalletImpl::refreshAsync()
     LOG_PRINT_L3(__FUNCTION__ << ": Refreshing asyncronously..");
     clearStatus();
     m_refreshCV.notify_one();
+}
+
+void WalletImpl::setAutoRefreshInterval(int millis)
+{
+    if (millis > MAX_REFRESH_INTERVAL_MILLIS) {
+        LOG_ERROR(__FUNCTION__<< ": invalid refresh interval " << millis
+                  << " ms, maximum allowed is " << MAX_REFRESH_INTERVAL_MILLIS << " ms");
+        m_refreshIntervalMillis = MAX_REFRESH_INTERVAL_MILLIS;
+    } else {
+        m_refreshIntervalMillis = millis;
+    }
+}
+
+int WalletImpl::autoRefreshInterval() const
+{
+    return m_refreshIntervalMillis;
 }
 
 // TODO:
@@ -639,7 +685,15 @@ void WalletImpl::refreshThreadFunc()
             break;
         }
         LOG_PRINT_L3(__FUNCTION__ << ": waiting for refresh...");
-        m_refreshCV.wait(lock);
+        // if auto refresh enabled, we wait for the "m_refreshIntervalSeconds" interval.
+        // if not - we wait forever
+        if (m_refreshIntervalMillis > 0) {
+            boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalMillis);
+            m_refreshCV.timed_wait(lock, wait_for_ms);
+        } else {
+            m_refreshCV.wait(lock);
+        }
+
         LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
         LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
         LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << m_status);
@@ -682,6 +736,7 @@ void WalletImpl::stopRefresh()
     if (!m_refreshThreadDone) {
         m_refreshEnabled = false;
         m_refreshThreadDone = true;
+        m_refreshCV.notify_one();
         m_refreshThread.join();
     }
 }
