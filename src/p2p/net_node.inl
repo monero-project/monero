@@ -200,6 +200,18 @@ namespace nodetool
   {
     CRITICAL_REGION_LOCAL(m_blocked_ips_lock);
     m_blocked_ips[addr] = time(nullptr) + seconds;
+
+    // drop any connection to that IP
+    while (!m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+    {
+      if (cntxt.m_remote_ip == addr)
+      {
+        drop_connection(cntxt);
+        return false;
+      }
+      return true;
+    }));
+
     LOG_PRINT_CYAN("IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.", LOG_LEVEL_0);
     return true;
   }
