@@ -689,7 +689,7 @@ namespace cryptonote
     bool res = tools::unserialize_obj_from_file(*this, state_file_path);
     if(!res)
     {
-      LOG_PRINT_L1("Failed to load memory pool from file " << state_file_path);
+      LOG_ERROR("Failed to load memory pool from file " << state_file_path);
 
       m_transactions.clear();
       m_txs_by_fee.clear();
@@ -710,12 +710,15 @@ namespace cryptonote
   //TODO: investigate whether only ever returning true is correct
   bool tx_memory_pool::deinit()
   {
+    LOG_PRINT_L1("Received signal to deactivate memory pool store");
+
     if (m_config_folder.empty())
+      LOG_PRINT_L1("Memory pool store already empty");
       return true;
 
     if (!tools::create_directories_if_necessary(m_config_folder))
     {
-      LOG_PRINT_L1("Failed to create data directory: " << m_config_folder);
+      LOG_ERROR("Failed to create memory pool data directory: " << m_config_folder);
       return false;
     }
 
@@ -723,8 +726,14 @@ namespace cryptonote
     bool res = tools::serialize_obj_to_file(*this, state_file_path);
     if(!res)
     {
-      LOG_PRINT_L1("Failed to serialize memory pool to file " << state_file_path);
+      LOG_ERROR("Failed to serialize memory pool to file " << state_file_path);
+      return false;
     }
-    return true;
+    else
+    {
+      LOG_PRINT_L1("Memory pool store deactivated successfully");
+      return true;
+    }
+
   }
 }

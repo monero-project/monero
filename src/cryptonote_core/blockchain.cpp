@@ -387,7 +387,7 @@ bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet)
 //------------------------------------------------------------------
 bool Blockchain::store_blockchain()
 {
-  LOG_PRINT_YELLOW("Blockchain::" << __func__, LOG_LEVEL_3);
+  LOG_PRINT_L3("Blockchain::" << __func__);
   // lock because the rpc_thread command handler also calls this
   CRITICAL_REGION_LOCAL(m_db->m_synchronization_lock);
 
@@ -419,9 +419,10 @@ bool Blockchain::deinit()
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
-  LOG_PRINT_L0("Closing IO Service.");
-    // stop async service
-    m_async_work_idle.reset();
+  LOG_PRINT_L1("Stopping blockchain read/write activity");
+
+ // stop async service
+  m_async_work_idle.reset();
   m_async_pool.join_all();
   m_async_service.stop();
 
@@ -436,14 +437,15 @@ bool Blockchain::deinit()
   try
   {
     m_db->close();
+    LOG_PRINT_L1("Local blockchain read/write activity stopped successfully");
   }
   catch (const std::exception& e)
   {
-    LOG_PRINT_L0(std::string("Error closing blockchain db: ") + e.what());
+    LOG_ERROR(std::string("Error closing blockchain db: ") + e.what());
   }
   catch (...)
   {
-    LOG_PRINT_L0("There was an issue closing/storing the blockchain, shutting down now to prevent issues!");
+    LOG_ERROR("There was an issue closing/storing the blockchain, shutting down now to prevent issues!");
   }
 
   delete m_hardfork;

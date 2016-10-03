@@ -75,8 +75,6 @@ namespace cryptonote
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::deinit()
   {
-
-
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------

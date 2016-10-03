@@ -228,14 +228,14 @@ namespace cryptonote
       LOG_PRINT_L1("Locking " << lock_path.string());
       if (!db_lock.try_lock())
       {
-        LOG_PRINT_L0("Failed to lock " << lock_path.string());
+        LOG_ERROR("Failed to lock " << lock_path.string());
         return false;
       }
       return true;
     }
     catch (const std::exception &e)
     {
-      LOG_PRINT_L0("Error trying to lock " << lock_path.string() << ": " << e.what());
+      LOG_ERROR("Error trying to lock " << lock_path.string() << ": " << e.what());
       return false;
     }
   }
@@ -244,6 +244,7 @@ namespace cryptonote
   {
     db_lock.unlock();
     db_lock = boost::interprocess::file_lock();
+    LOG_PRINT_L1("Blockchain directory successfully unlocked");
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -387,7 +388,7 @@ namespace cryptonote
     }
     catch (const DB_ERROR& e)
     {
-      LOG_PRINT_L0("Error opening database: " << e.what());
+      LOG_ERROR("Error opening database: " << e.what());
       return false;
     }
 
@@ -432,16 +433,12 @@ namespace cryptonote
     bool core::deinit()
   {
     m_miner.stop();
-    LOG_PRINT_L2("Mining Stopped");
     m_mempool.deinit();
-    LOG_PRINT_L2("Mempool Cleared");
     if (!m_fast_exit)
     {
       m_blockchain_storage.deinit();
-      LOG_PRINT_L2("Local Blockchain Read/Write Stopped");
     }
     unlock_db_directory();
-    LOG_PRINT_L2("Blockchain Directory Unlocked");
     return true;
   }
   //-----------------------------------------------------------------------------------------------
