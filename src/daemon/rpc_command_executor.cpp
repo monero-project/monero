@@ -989,34 +989,6 @@ bool t_rpc_command_executor::set_limit_down(int limit)
     return true;
 }
 
-bool t_rpc_command_executor::fast_exit()
-{
-	cryptonote::COMMAND_RPC_FAST_EXIT::request req;
-	cryptonote::COMMAND_RPC_FAST_EXIT::response res;
-	
-	std::string fail_message = "Daemon did not stop";
-	
-	if (m_is_rpc)
-	{
-		if (!m_rpc_client->rpc_request(req, res, "/fast_exit", fail_message.c_str()))
-		{
-			return true;
-		}
-	}
-	
-	else
-    {
-		if (!m_rpc_server->on_fast_exit(req, res) || res.status != CORE_RPC_STATUS_OK)
-		{
-			tools::fail_msg_writer() << fail_message.c_str();
-			return true;
-		}
-	}
-
-	tools::success_msg_writer() << "Daemon stopped";
-	return true;
-}
-
 bool t_rpc_command_executor::out_peers(uint64_t limit)
 {
 	cryptonote::COMMAND_RPC_OUT_PEERS::request req;

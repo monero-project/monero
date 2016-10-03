@@ -230,27 +230,9 @@ namespace cryptonote
       *
       * Uninitializes the miner instance, transaction pool, and Blockchain
       *
-      * if m_fast_exit is set, the call to Blockchain::deinit() is not made.
-      *
       * @return true
       */
      bool deinit();
-
-     /**
-      * @brief sets fast exit flag
-      *
-      * @note see deinit()
-      */
-     static void set_fast_exit();
-
-     /**
-      * @brief gets the current state of the fast exit flag
-      *
-      * @return the fast exit flag
-      *
-      * @note see deinit()
-      */
-     static bool get_fast_exit();
 
      /**
       * @brief sets to drop blocks downloaded (for testing)
@@ -763,8 +745,6 @@ namespace cryptonote
       * @return true
       */
      bool unlock_db_directory();
-
-     static std::atomic<bool> m_fast_exit; //!< whether or not to deinit Blockchain on exit
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
