@@ -121,6 +121,8 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
 {
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = daemon_address;
+
+  m_daemon.connect("localhost", "31337");
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const
