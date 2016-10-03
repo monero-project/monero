@@ -1916,33 +1916,32 @@ void wallet2::get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2:
 //----------------------------------------------------------------------------------------------------
 void wallet2::rescan_spent()
 {
-  std::vector<std::string> key_images;
+  std::vector<crypto::key_image> key_images;
 
   // make a list of key images for all our outputs
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
-    key_images.push_back(string_tools::pod_to_hex(td.m_key_image));
+    key_images.push_back(td.m_key_image);
   }
 
-  COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req = AUTO_VAL_INIT(req);
-  COMMAND_RPC_IS_KEY_IMAGE_SPENT::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
-  req.key_images = key_images;
-  m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/is_key_image_spent", req, daemon_resp, m_http_client, 200000);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != key_images.size(), error::wallet_internal_error,
+  std::vector<bool> spent;
+  std::vector<bool> spent_in_chain;
+  std::vector<bool> spent_in_pool;
+  std::string error_details;
+
+  bool r = m_daemon.keyImagesSpent(key_images, spent, spent_in_chain, spent_in_pool, error_details, /*care where spent =*/ false);
+
+  THROW_WALLET_EXCEPTION_IF(!r, error::is_key_image_spent_error, error_details);
+  THROW_WALLET_EXCEPTION_IF(spent.size() != key_images.size(), error::wallet_internal_error,
     "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
-    std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(key_images.size()));
+    std::to_string(spent.size()) + ", expected " +  std::to_string(key_images.size()));
 
   // update spent status
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     transfer_details& td = m_transfers[i];
-    if (td.m_spent != (daemon_resp.spent_status[i] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT))
+    if (td.m_spent != spent[i])
     {
       if (td.m_spent)
       {
@@ -4003,9 +4002,6 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent)
 {
-  COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req = AUTO_VAL_INIT(req);
-  COMMAND_RPC_IS_KEY_IMAGE_SPENT::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
-
   THROW_WALLET_EXCEPTION_IF(signed_key_images.size() > m_transfers.size(), error::wallet_internal_error,
       "The blockchain is out of date compared to the signed key images");
 
@@ -4015,6 +4011,8 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     unspent = 0;
     return 0;
   }
+
+  std::vector<crypto::key_image> key_images;
 
   for (size_t n = 0; n < signed_key_images.size(); ++n)
   {
@@ -4036,35 +4034,37 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
         + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
         + ", signature " + epee::string_tools::pod_to_hex(signature) + ", pubkey " + epee::string_tools::pod_to_hex(*pkeys[0]));
 
-    req.key_images.push_back(epee::string_tools::pod_to_hex(key_image));
+    key_images.push_back(key_image);
   }
 
   for (size_t n = 0; n < signed_key_images.size(); ++n)
     m_transfers[n].m_key_image = signed_key_images[n].first;
 
-  m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemon_address + "/is_key_image_spent", req, daemon_resp, m_http_client, 200000);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != signed_key_images.size(), error::wallet_internal_error,
+  std::vector<bool> is_spent;
+  std::vector<bool> is_spent_in_chain;
+  std::vector<bool> is_spent_in_pool;
+  std::string error_details;
+
+  bool r = m_daemon.keyImagesSpent(key_images, is_spent, is_spent_in_chain, is_spent_in_pool, error_details, /*care where spent =*/ false);
+
+  THROW_WALLET_EXCEPTION_IF(!r, error::is_key_image_spent_error, error_details);
+  THROW_WALLET_EXCEPTION_IF(is_spent.size() != key_images.size(), error::wallet_internal_error,
     "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
-    std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(signed_key_images.size()));
+    std::to_string(is_spent.size()) + ", expected " +  std::to_string(key_images.size()));
 
   spent = 0;
   unspent = 0;
-  for (size_t n = 0; n < daemon_resp.spent_status.size(); ++n)
+  for (size_t n = 0; n < is_spent.size(); ++n)
   {
     transfer_details &td = m_transfers[n];
     uint64_t amount = td.amount();
-    td.m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
+    td.m_spent = is_spent[n];
     if (td.m_spent)
       spent += amount;
     else
       unspent += amount;
     LOG_PRINT_L2("Transfer " << n << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
-        << (td.m_spent ? "spent" : "unspent") << " (key image " << req.key_images[n] << ")");
+        << (td.m_spent ? "spent" : "unspent") << " (key image " << epee::string_tools::pod_to_hex(key_images[n]) << ")");
   }
   LOG_PRINT_L1("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
 

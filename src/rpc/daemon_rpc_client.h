@@ -71,6 +71,7 @@ class DaemonRPCClient
         std::vector<bool>& spent,
         std::vector<bool>& spent_in_chain,
         std::vector<bool>& spent_in_pool,
+        std::string& error_details,
         bool where = false);
 
     bool getTransactionPool(

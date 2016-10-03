@@ -186,6 +186,7 @@ bool DaemonRPCClient::keyImagesSpent(
     std::vector<bool>& spent,
     std::vector<bool>& spent_in_chain,
     std::vector<bool>& spent_in_pool,
+    std::string& error_details,
     bool where)
 {
   rapidjson::Value response_json;
@@ -228,6 +229,16 @@ bool DaemonRPCClient::keyImagesSpent(
   }
   catch (...)
   {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
   }
 
   return false;
