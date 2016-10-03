@@ -32,6 +32,7 @@
 // but including here for clarity
 #include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
+#include "ringct/rctSigs.h"
 
 namespace cryptonote
 {
@@ -56,6 +57,7 @@ namespace rpc
     }
 
     res.blocks.resize(blocks.size());
+    res.output_indices.resize(blocks.size());
 
     //TODO: really need to switch uses of std::list to std::vector unless
     //      it's a huge performance concern
@@ -72,6 +74,8 @@ namespace rpc
 
       std::list<transaction>& txs = it->second;
 
+      cryptonote::rpc::block_output_indices& indices = res.output_indices[block_count];
+
       // assume each block returned is returned with all its transactions
       // in the correct order.
       auto tx_it = txs.begin();
@@ -79,6 +83,17 @@ namespace rpc
       {
         bwt.transactions.emplace(h, *tx_it);
         tx_it++;
+
+        cryptonote::rpc::tx_output_indices tx_indices;
+        bool r = m_core.get_tx_outputs_gindexs(h, tx_indices);
+        if (!r)
+        {
+          res.status = Message::STATUS_FAILED;
+          res.error_details = "core::get_tx_outputs_gindexs() returned false";
+          return;
+        }
+
+        indices.push_back(tx_indices);
       }
 
       it++;
@@ -279,6 +294,8 @@ namespace rpc
         res.error_details = "overspend";
       else if (tvc.m_fee_too_low)
         res.error_details = "fee too low";
+      else if (tvc.m_not_rct)
+        res.error_details = "tx is not ringct";
       else
         res.error_details = "an unknown issue was found with the transaction";
 
@@ -631,9 +648,10 @@ namespace rpc
     for (auto& i : req.outputs)
     {
       crypto::public_key key;
+      rct::key mask;
       bool unlocked;
-      m_core.get_blockchain_storage().get_output_key_and_unlocked(i.amount, i.index, key, unlocked);
-      res.keys.emplace_back(output_key_and_unlocked{key, unlocked});
+      m_core.get_blockchain_storage().get_output_key_mask_unlocked(i.amount, i.index, key, mask, unlocked);
+      res.keys.emplace_back(output_key_mask_unlocked{key, mask, unlocked});
     }
 
     res.status = Message::STATUS_OK;

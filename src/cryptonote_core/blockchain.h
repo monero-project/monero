@@ -504,10 +504,11 @@ namespace cryptonote
      *
      * @param amount in - the output amount
      * @param index in - the output global amount index
+     * @param mask out - the output's RingCT mask
      * @param key out - the output's key
      * @param unlocked out - the output's unlocked state
      */
-    void get_output_key_and_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, bool& unlocked);
+    void get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked);
 
     /**
      * @brief gets random ringct outputs to mix with

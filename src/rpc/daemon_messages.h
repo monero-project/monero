@@ -104,6 +104,7 @@ class GetBlocksFast
         std::vector<cryptonote::rpc::block_with_transactions> blocks;
         uint64_t start_height;
         uint64_t current_height;
+        std::vector<cryptonote::rpc::block_output_indices> output_indices;
     };
 };
 
@@ -1241,7 +1242,7 @@ class GetOutputKeys
         rapidjson::Value toJson(rapidjson::Document& doc);
         void fromJson(rapidjson::Value& val);
 
-        std::vector<output_key_and_unlocked> keys;
+        std::vector<output_key_mask_unlocked> keys;
     };
 };
 

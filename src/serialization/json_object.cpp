@@ -1162,7 +1162,7 @@ cryptonote::rpc::output_amount_and_index fromJsonValue<cryptonote::rpc::output_a
 }
 
 template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_unlocked>(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_unlocked& out)
+rapidjson::Value toJsonValue<cryptonote::rpc::output_key_mask_unlocked>(rapidjson::Document& doc, const cryptonote::rpc::output_key_mask_unlocked& out)
 {
   rapidjson::Value val;
 
@@ -1171,23 +1171,27 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_unlocked>(rapidjson
   auto& al = doc.GetAllocator();
 
   val.AddMember("key", toJsonValue<decltype(out.key)>(doc, out.key), al);
+  val.AddMember("mask", toJsonValue<decltype(out.mask)>(doc, out.mask), al);
   val.AddMember("unlocked", toJsonValue<decltype(out.unlocked)>(doc, out.unlocked), al);
 
   return val;
 }
 
 template <>
-cryptonote::rpc::output_key_and_unlocked fromJsonValue<cryptonote::rpc::output_key_and_unlocked>(const rapidjson::Value& val)
+cryptonote::rpc::output_key_mask_unlocked fromJsonValue<cryptonote::rpc::output_key_mask_unlocked>(const rapidjson::Value& val)
 {
   if (!val.IsObject())
   {
     throw WRONG_TYPE("json object");
   }
 
-  cryptonote::rpc::output_key_and_unlocked out;
+  cryptonote::rpc::output_key_mask_unlocked out;
 
   OBJECT_HAS_MEMBER_OR_THROW(val, "key")
   out.key = fromJsonValue<decltype(out.key)>(val["key"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "mask")
+  out.mask = fromJsonValue<decltype(out.mask)>(val["mask"]);
 
   OBJECT_HAS_MEMBER_OR_THROW(val, "unlocked")
   out.unlocked = fromJsonValue<decltype(out.unlocked)>(val["unlocked"]);

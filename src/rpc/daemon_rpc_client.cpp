@@ -438,7 +438,7 @@ bool DaemonRPCClient::getOutputHistogram(
 
 bool DaemonRPCClient::getOutputKeys(
     std::vector<output_amount_and_index>& outputs,
-    std::vector<output_key_and_unlocked>& keys)
+    std::vector<output_key_mask_unlocked>& keys)
 {
   rapidjson::Value response_json;
 

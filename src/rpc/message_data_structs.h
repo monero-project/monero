@@ -2,6 +2,8 @@
 
 #include "crypto/hash.h"
 #include "cryptonote_core/cryptonote_basic.h"
+#include "ringct/rctSigs.h"
+
 #include <unordered_map>
 #include <vector>
 
@@ -16,6 +18,10 @@ namespace rpc
     cryptonote::block block;
     std::unordered_map<crypto::hash, cryptonote::transaction> transactions;
   };
+
+  typedef std::vector<uint64_t> tx_output_indices;
+
+  typedef std::vector<tx_output_indices> block_output_indices;
 
   struct transaction_info
   {
@@ -78,9 +84,10 @@ namespace rpc
     uint64_t index;
   };
 
-  struct output_key_and_unlocked
+  struct output_key_mask_unlocked
   {
     crypto::public_key key;
+    rct::key mask;
     bool unlocked;
   };
 

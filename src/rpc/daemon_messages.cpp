@@ -119,6 +119,7 @@ rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
   val.AddMember("blocks", cryptonote::json::toJsonValue<decltype(blocks)>(doc, blocks), al);
   val.AddMember("start_height", start_height, al);
   val.AddMember("current_height", current_height, al);
+  val.AddMember("output_indices", cryptonote::json::toJsonValue<decltype(output_indices)>(doc, output_indices), al);
 
   return val;
 }
@@ -133,6 +134,9 @@ void GetBlocksFast::Response::fromJson(rapidjson::Value& val)
 
   OBJECT_HAS_MEMBER_OR_THROW(val, "current_height")
   current_height = cryptonote::json::fromJsonValue<uint64_t>(val["current_height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "output_indices")
+  output_indices = cryptonote::json::fromJsonValue<decltype(output_indices)>(val["output_indices"]);
 
 }
 

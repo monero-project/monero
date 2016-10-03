@@ -1803,9 +1803,11 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_R
   return true;
 }
 //------------------------------------------------------------------
-void Blockchain::get_output_key_and_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, bool& unlocked)
+void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked)
 {
-  key = m_db->get_output_key(amount, index).pubkey;
+  const auto& o_data = m_db->get_output_key(amount, index);
+  key = o_data.pubkey;
+  mask = o_data.commitment;
   tx_out_index toi = m_db->get_output_tx_and_index(amount, index);
   unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
 }
