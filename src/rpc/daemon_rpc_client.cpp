@@ -505,7 +505,9 @@ bool DaemonRPCClient::getOutputKeys(
   return false;
 }
 
-bool DaemonRPCClient::getRPCVersion(uint32_t& version)
+bool DaemonRPCClient::getRPCVersion(
+    uint32_t& version,
+    std::string& error_details)
 {
   rapidjson::Value response_json;
 
@@ -530,6 +532,16 @@ bool DaemonRPCClient::getRPCVersion(uint32_t& version)
   }
   catch (...)
   {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
   }
 
   return false;
