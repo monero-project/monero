@@ -101,7 +101,8 @@ class DaemonRPCClient
         uint64_t min_count,
         uint64_t max_count,
         bool unlocked,
-        std::vector<output_amount_count>& histogram);
+        std::vector<output_amount_count>& histogram,
+        std::string& error_details);
 
     bool getOutputKeys(
         std::vector<output_amount_and_index>& outputs,
