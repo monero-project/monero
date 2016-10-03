@@ -63,7 +63,8 @@ class DaemonRPCClient
         const uint64_t start_height_in,
         std::list<crypto::hash>& hashes,
         uint64_t& start_height_out,
-        uint64_t& current_height);
+        uint64_t& current_height,
+        std::string& error_details);
 
     bool keyImagesSpent(
         const std::vector<crypto::key_image>& images,

@@ -135,7 +135,8 @@ bool DaemonRPCClient::getHashesFast(
     const uint64_t start_height_in,
     std::list<crypto::hash>& hashes,
     uint64_t& start_height_out,
-    uint64_t& current_height)
+    uint64_t& current_height,
+    std::string& error_details)
 {
   rapidjson::Value response_json;
 
@@ -165,6 +166,16 @@ bool DaemonRPCClient::getHashesFast(
   }
   catch (...)
   {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
   }
 
   return false;

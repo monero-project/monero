@@ -774,20 +774,11 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes)
 {
-  cryptonote::COMMAND_RPC_GET_HASHES_FAST::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_HASHES_FAST::response res = AUTO_VAL_INIT(res);
-  req.block_ids = short_chain_history;
+  uint64_t current_height;
+  std::string error_details;
+  bool r = m_daemon.getHashesFast(short_chain_history, start_height, hashes, blocks_start_height, current_height, error_details);
 
-  req.start_height = start_height;
-  m_daemon_rpc_mutex.lock();
-  bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/gethashes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gethashes.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gethashes.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, res.status);
-
-  blocks_start_height = res.start_height;
-  hashes = res.m_block_ids;
+  THROW_WALLET_EXCEPTION_IF(!r, error::get_hashes_error, error_details);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_blocks(uint64_t start_height, const std::vector<cryptonote::rpc::block_with_transactions> &blocks, const std::vector<cryptonote::rpc::block_output_indices> &o_indices, uint64_t& blocks_added)
