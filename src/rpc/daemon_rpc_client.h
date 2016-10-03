@@ -106,7 +106,8 @@ class DaemonRPCClient
 
     bool getOutputKeys(
         std::vector<output_amount_and_index>& outputs,
-        std::vector<output_key_mask_unlocked>& keys);
+        std::vector<output_key_mask_unlocked>& keys,
+        std::string& error_details);
 
     bool getRPCVersion(
         uint32_t& version,

@@ -495,7 +495,8 @@ bool DaemonRPCClient::getOutputHistogram(
 
 bool DaemonRPCClient::getOutputKeys(
     std::vector<output_amount_and_index>& outputs,
-    std::vector<output_key_mask_unlocked>& keys)
+    std::vector<output_key_mask_unlocked>& keys,
+    std::string& error_details)
 {
   rapidjson::Value response_json;
 
@@ -522,6 +523,16 @@ bool DaemonRPCClient::getOutputKeys(
   }
   catch (...)
   {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
   }
 
   return false;
