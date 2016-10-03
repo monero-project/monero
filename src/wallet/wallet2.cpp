@@ -3589,20 +3589,14 @@ void wallet2::get_hard_fork_info(uint8_t version, uint64_t &earliest_height)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
 {
-  cryptonote::COMMAND_RPC_GET_HEIGHT::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_HEIGHT::response res = AUTO_VAL_INIT(res);
-
-  m_daemon_rpc_mutex.lock();
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, false, "Failed to get current blockchain height");
+  std::string error;
+  uint64_t current_height = get_daemon_blockchain_height(error);
+  CHECK_AND_ASSERT_MES(!error.empty(), false, "Failed to get current blockchain height");
 
   uint64_t earliest_height;
   get_hard_fork_info(version, earliest_height); // can throw
 
-  bool close_enough = res.height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
+  bool close_enough = current_height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
   if (close_enough)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
@@ -3861,34 +3855,13 @@ std::string wallet2::get_daemon_address() const
 
 uint64_t wallet2::get_daemon_blockchain_height(string &err)
 {
-  // XXX: DRY violation. copy-pasted from simplewallet.cpp:get_daemon_blockchain_height()
-  //      consider to move it from simplewallet to wallet2 ?
-  COMMAND_RPC_GET_HEIGHT::request req;
-  COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
-  m_daemon_rpc_mutex.lock();
-  bool ok = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  // XXX: DRY violation. copy-pasted from simplewallet.cpp:interpret_rpc_response()
-  if (ok)
+  uint64_t current_height;
+  bool r = m_daemon.getHeight(current_height);
+  if (!r)
   {
-    if (res.status == CORE_RPC_STATUS_BUSY)
-    {
-      err = "daemon is busy. Please try again later.";
-    }
-    else if (res.status != CORE_RPC_STATUS_OK)
-    {
-      err = res.status;
-    }
-    else // success, cleaning up error message
-    {
-      err = "";
-    }
+    err = "error getting height via RPC";
   }
-  else
-  {
-    err = "possibly lost connection to daemon";
-  }
-  return res.height;
+  return current_height;
 }
 
 void wallet2::set_tx_note(const crypto::hash &txid, const std::string &note)
