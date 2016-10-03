@@ -328,7 +328,8 @@ bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std:
 bool DaemonRPCClient::getRandomOutputsForAmounts(
     const std::vector<uint64_t>& amounts,
     const uint64_t count,
-    std::vector<amount_with_random_outputs>& amounts_with_outputs)
+    std::vector<amount_with_random_outputs>& amounts_with_outputs,
+    std::string& error_details)
 {
   rapidjson::Value response_json;
 
@@ -356,6 +357,16 @@ bool DaemonRPCClient::getRandomOutputsForAmounts(
   }
   catch (...)
   {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
   }
 
   return false;

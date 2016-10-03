@@ -84,7 +84,8 @@ class DaemonRPCClient
     bool getRandomOutputsForAmounts(
         const std::vector<uint64_t>& amounts,
         const uint64_t count,
-        std::vector<amount_with_random_outputs>& amounts_with_outputs);
+        std::vector<amount_with_random_outputs>& amounts_with_outputs,
+        std::string& error_details);
 
     bool sendRawTx(
         const cryptonote::transaction& tx,
