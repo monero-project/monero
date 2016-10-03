@@ -54,7 +54,9 @@ class DaemonRPCClient
         const uint64_t start_height_in,
         std::vector<cryptonote::rpc::block_with_transactions>& blocks,
         uint64_t& start_height_out,
-        uint64_t& current_height);
+        uint64_t& current_height,
+        std::vector<cryptonote::rpc::block_output_indices>& output_indices,
+        std::string& error_details);
 
     bool getHashesFast(
         const std::list<crypto::hash>& known_hashes,

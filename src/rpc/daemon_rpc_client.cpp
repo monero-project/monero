@@ -82,7 +82,9 @@ bool DaemonRPCClient::getBlocksFast(
     const uint64_t start_height_in,
     std::vector<cryptonote::rpc::block_with_transactions>& blocks,
     uint64_t& start_height_out,
-    uint64_t& current_height)
+    uint64_t& current_height,
+    std::vector<cryptonote::rpc::block_output_indices>& output_indices,
+    std::string& error_details)
 {
   rapidjson::Value response_json;
 
@@ -107,11 +109,22 @@ bool DaemonRPCClient::getBlocksFast(
     blocks = response.blocks;
     start_height_out = response.start_height;
     current_height = response.current_height;
+    output_indices = response.output_indices;
 
     return true;
   }
   catch (...)
   {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
   }
 
   return false;
