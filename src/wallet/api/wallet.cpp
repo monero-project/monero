@@ -167,7 +167,7 @@ uint64_t Wallet::maximumAllowedAmount()
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
     :m_wallet(nullptr), m_status(Wallet::Status_Ok), m_trustedDaemon(false),
-      m_wallet2Callback(nullptr)
+      m_wallet2Callback(nullptr), m_recoveringFromSeed(false)
 {
     m_wallet = new tools::wallet2(testnet);
     m_history = new TransactionHistoryImpl(this);
@@ -175,6 +175,7 @@ WalletImpl::WalletImpl(bool testnet)
     m_wallet->callback(m_wallet2Callback);
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
+
 
     m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
 
@@ -196,7 +197,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
 {
 
     clearStatus();
-
+    m_recoveringFromSeed = false;
     bool keys_file_exists;
     bool wallet_file_exists;
     tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
@@ -233,6 +234,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
     clearStatus();
+    m_recoveringFromSeed = false;
     try {
         // TODO: handle "deprecated"
         m_wallet->load(path, password);
@@ -257,6 +259,7 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
         return false;
     }
 
+    m_recoveringFromSeed = true;
     crypto::secret_key recovery_key;
     std::string old_language;
     if (!crypto::ElectrumWords::words_to_bytes(seed, recovery_key, old_language)) {
@@ -269,6 +272,7 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
         m_wallet->set_seed_language(old_language);
         m_wallet->generate(path, "", recovery_key, true, false);
         // TODO: wallet->init(daemon_address);
+
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();
@@ -385,11 +389,7 @@ string WalletImpl::keysFilename() const
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-
-    m_wallet->init(daemon_address, upper_transaction_size_limit);
-    if (Utils::isAddressLocal(daemon_address)) {
-        this->setTrustedDaemon(true);
-    }
+    doInit(daemon_address, upper_transaction_size_limit);
     bool result = this->refresh();
     // enabling background refresh thread
     startRefresh();
@@ -400,10 +400,7 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
 void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-    m_wallet->init(daemon_address, upper_transaction_size_limit);
-    if (Utils::isAddressLocal(daemon_address)) {
-        this->setTrustedDaemon(true);
-    }
+    doInit(daemon_address, upper_transaction_size_limit);
     startRefresh();
 }
 
@@ -747,5 +744,28 @@ void WalletImpl::pauseRefresh()
     }
 }
 
+
+bool WalletImpl::isNewWallet() const
+{
+    // in case wallet created without daemon connection, closed and opened again,
+    // it's the same case as if it created from scratch, i.e. we need "fast sync"
+    // with the daemon (pull hashes instead of pull blocks)
+    return !(blockChainHeight() > 1 || m_recoveringFromSeed);
+}
+
+void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
+{
+    m_wallet->init(daemon_address, upper_transaction_size_limit);
+
+    // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
+    if (isNewWallet()) {
+        m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());
+    }
+
+    if (Utils::isAddressLocal(daemon_address)) {
+        this->setTrustedDaemon(true);
+    }
+
+}
 
 } // namespace

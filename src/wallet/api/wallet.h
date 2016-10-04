@@ -101,6 +101,8 @@ private:
     void startRefresh();
     void stopRefresh();
     void pauseRefresh();
+    bool isNewWallet() const;
+    void doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
 
 private:
     friend class PendingTransactionImpl;
@@ -126,7 +128,10 @@ private:
     boost::mutex        m_refreshMutex2;
     boost::condition_variable m_refreshCV;
     boost::thread       m_refreshThread;
-
+    // flag indicating wallet is recovering from seed
+    // so it shouldn't be considered as new and pull blocks (slow-refresh)
+    // instead of pulling hashes (fast-refresh)
+    bool                m_recoveringFromSeed;
 };
 
 
