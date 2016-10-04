@@ -366,7 +366,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool remove_extra_nonce_tx_extra(std::vector<uint8_t>& tx_extra)
+  bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)
   {
     std::string extra_str(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size());
     std::istringstream iss(extra_str);
@@ -380,7 +380,7 @@ namespace cryptonote
       tx_extra_field field;
       bool r = ::do_serialize(ar, field);
       CHECK_AND_NO_ASSERT_MES_L1(r, false, "failed to deserialize extra field. extra = " << string_tools::buff_to_hex_nodelimer(std::string(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size())));
-      if (field.type() != typeid(tx_extra_nonce))
+      if (field.type() != type)
         ::do_serialize(newar, field);
 
       std::ios_base::iostate state = iss.rdstate();
@@ -472,10 +472,7 @@ namespace cryptonote
   bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
   {
     std::vector<rct::key> amount_keys;
-    tx.vin.clear();
-    tx.vout.clear();
-    tx.signatures.clear();
-    tx.rct_signatures.type = rct::RCTTypeNull;
+    tx.set_null();
     amount_keys.clear();
 
     tx.version = rct ? 2 : 1;
@@ -512,7 +509,7 @@ namespace cryptonote
 
           std::string extra_nonce;
           set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-          remove_extra_nonce_tx_extra(tx.extra);
+          remove_field_from_tx_extra(tx.extra, typeid(tx_extra_fields));
           if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
           {
             LOG_ERROR("Failed to add encrypted payment id to tx extra");
@@ -615,6 +612,14 @@ namespace cryptonote
       return false;
     }
 
+    // check for watch only wallet
+    bool zero_secret_key = true;
+    for (size_t i = 0; i < sizeof(sender_account_keys.m_spend_secret_key); ++i)
+      zero_secret_key &= (sender_account_keys.m_spend_secret_key.data[i] == 0);
+    if (zero_secret_key)
+    {
+      LOG_PRINT_L1("Null secret key, skipping signatures");
+    }
 
     if (tx.version == 1)
     {
@@ -641,7 +646,8 @@ namespace cryptonote
         tx.signatures.push_back(std::vector<crypto::signature>());
         std::vector<crypto::signature>& sigs = tx.signatures.back();
         sigs.resize(src_entr.outputs.size());
-        crypto::generate_ring_signature(tx_prefix_hash, boost::get<txin_to_key>(tx.vin[i]).k_image, keys_ptrs, in_contexts[i].in_ephemeral.sec, src_entr.real_output, sigs.data());
+        if (!zero_secret_key)
+          crypto::generate_ring_signature(tx_prefix_hash, boost::get<txin_to_key>(tx.vin[i]).k_image, keys_ptrs, in_contexts[i].in_ephemeral.sec, src_entr.real_output, sigs.data());
         ss_ring_s << "signatures:" << ENDL;
         std::for_each(sigs.begin(), sigs.end(), [&](const crypto::signature& s){ss_ring_s << s << ENDL;});
         ss_ring_s << "prefix_hash:" << tx_prefix_hash << ENDL << "in_ephemeral_key: " << in_contexts[i].in_ephemeral.sec << ENDL << "real_output: " << src_entr.real_output;

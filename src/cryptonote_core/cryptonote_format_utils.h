@@ -62,6 +62,16 @@ namespace cryptonote
     rct::key mask;                      //ringct amount mask
 
     void push_output(uint64_t idx, const crypto::public_key &k, uint64_t amount) { outputs.push_back(std::make_pair(idx, rct::ctkey({rct::pk2rct(k), rct::zeroCommit(amount)}))); }
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(outputs)
+      VARINT_FIELD(real_output)
+      FIELD(real_out_tx_key)
+      VARINT_FIELD(real_output_in_tx_index)
+      VARINT_FIELD(amount)
+      FIELD(rct)
+      FIELD(mask)
+    END_SERIALIZE()
   };
 
   struct tx_destination_entry
@@ -71,6 +81,11 @@ namespace cryptonote
 
     tx_destination_entry() : amount(0), addr(AUTO_VAL_INIT(addr)) { }
     tx_destination_entry(uint64_t a, const account_public_address &ad) : amount(a), addr(ad) { }
+
+    BEGIN_SERIALIZE_OBJECT()
+      VARINT_FIELD(amount)
+      FIELD(addr)
+    END_SERIALIZE()
   };
 
   //---------------------------------------------------------------
@@ -94,7 +109,7 @@ namespace cryptonote
   crypto::public_key get_tx_pub_key_from_extra(const transaction& tx);
   bool add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key);
   bool add_extra_nonce_to_tx_extra(std::vector<uint8_t>& tx_extra, const blobdata& extra_nonce);
-  bool remove_extra_nonce_tx_extra(std::vector<uint8_t>& tx_extra);
+  bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type);
   void set_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash& payment_id);
   void set_encrypted_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash8& payment_id);
   bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id);

@@ -125,6 +125,8 @@ namespace cryptonote
     bool transfer_new(const std::vector<std::string> &args);
     bool sweep_all(const std::vector<std::string> &args);
     bool sweep_unmixable(const std::vector<std::string> &args);
+    bool sign_transfer(const std::vector<std::string> &args);
+    bool submit_transfer(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
         std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits
     );
@@ -152,6 +154,7 @@ namespace cryptonote
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false);
     bool ask_wallet_create_if_needed();
+    bool accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs);
     bool get_address_from_str(const std::string &str, cryptonote::account_public_address &address, bool &has_payment_id, crypto::hash8 &payment_id);
 
     /*!
