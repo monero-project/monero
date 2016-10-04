@@ -69,12 +69,13 @@ public:
 
   ~t_protocol()
   {
-    LOG_PRINT_L0("Deinitializing cryptonote_protocol...");
+    LOG_PRINT_L0("Stopping cryptonote protocol...");
     try {
       m_protocol.deinit();
       m_protocol.set_p2p_endpoint(nullptr);
+      LOG_PRINT_L0("Cryptonote protocol stopped successfully");
     } catch (...) {
-      LOG_PRINT_L0("Failed to deinitialize protocol...");
+      LOG_ERROR("Failed to stop cryptonote protocol!");
     }
   }
 };
