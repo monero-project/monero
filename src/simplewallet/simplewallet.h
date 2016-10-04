@@ -124,6 +124,7 @@ namespace cryptonote
     bool transfer_main(int transfer_type, const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
     bool transfer_new(const std::vector<std::string> &args);
+    bool locked_transfer(const std::vector<std::string> &args);
     bool sweep_all(const std::vector<std::string> &args);
     bool sweep_unmixable(const std::vector<std::string> &args);
     bool sign_transfer(const std::vector<std::string> &args);
