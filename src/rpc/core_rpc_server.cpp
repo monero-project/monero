@@ -962,7 +962,7 @@ namespace cryptonote
         return false;
       }
       res.headers.push_back(block_header_response());
-      bool responce_filled = fill_block_header_response(blk, false, block_height, block_hash, res.headers.back());
+      bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.headers.back());
       if (!response_filled)
       {
         error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
