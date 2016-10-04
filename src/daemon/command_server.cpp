@@ -171,11 +171,6 @@ t_command_server::t_command_server(
     , "limit <kB/s> - Set download limit"
     );
     m_command_lookup.set_handler(
-      "fast_exit"
-    , std::bind(&t_command_parser_executor::fast_exit, &m_parser, p::_1)
-    , "Exit"
-    );
-    m_command_lookup.set_handler(
       "out_peers"
     , std::bind(&t_command_parser_executor::out_peers, &m_parser, p::_1)
     , "Set max number of out peers"

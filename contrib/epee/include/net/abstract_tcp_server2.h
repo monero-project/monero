@@ -300,7 +300,6 @@ namespace net_utils
     boost::thread::id m_main_thread_id;
     critical_section m_threads_lock;
     volatile uint32_t m_thread_index; // TODO change to std::atomic
-    void detach_threads();
 
     t_connection_type m_connection_type;
 

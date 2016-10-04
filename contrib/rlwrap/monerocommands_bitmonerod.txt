@@ -2,7 +2,6 @@ ban
 bans
 diff
 exit
-fast_exit
 flush_txpool
 hard_fork_info
 help

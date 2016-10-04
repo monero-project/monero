@@ -98,8 +98,6 @@ public:
 
   bool set_limit_down(const std::vector<std::string>& args);
 
-  bool fast_exit(const std::vector<std::string>& args);
-  
   bool out_peers(const std::vector<std::string>& args);
   
   bool start_save_graph(const std::vector<std::string>& args);

@@ -336,12 +336,6 @@ bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& a
   return m_executor.set_limit_down(limit);
 }
 
-bool t_command_parser_executor::fast_exit(const std::vector<std::string>& args)
-{
-	if (!args.empty()) return false;
-	return m_executor.fast_exit();
-}
-
 bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)
 {
 	if (args.empty()) return false;
