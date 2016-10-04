@@ -438,6 +438,23 @@ uint64_t WalletImpl::daemonBlockChainHeight() const
     return result;
 }
 
+uint64_t WalletImpl::daemonBlockChainTargetHeight() const
+{
+    std::string err;
+    uint64_t result = m_wallet->get_daemon_blockchain_target_height(err);
+    if (!err.empty()) {
+        LOG_ERROR(__FUNCTION__ << ": " << err);
+        result = 0;
+        m_errorString = err;
+        m_status = Status_Error;
+
+    } else {
+        m_status = Status_Ok;
+        m_errorString = "";
+    }
+    return result;
+}
+
 bool WalletImpl::refresh()
 {
     clearStatus();

@@ -4266,6 +4266,38 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err)
   return res.height;
 }
 
+uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
+{
+  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> req_t = AUTO_VAL_INIT(req_t);
+  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  m_daemon_rpc_mutex.lock();
+  req_t.jsonrpc = "2.0";
+  req_t.id = epee::serialization::storage_entry(0);
+  req_t.method = "get_info";
+  bool ok = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  if (ok)
+  {
+    if (resp_t.result.status == CORE_RPC_STATUS_BUSY)
+    {
+      err = "daemon is busy. Please try again later.";
+    }
+    else if (resp_t.result.status != CORE_RPC_STATUS_OK)
+    {
+      err = resp_t.result.status;
+    }
+    else // success, cleaning up error message
+    {
+      err = "";
+    }
+  }
+  else
+  {
+    err = "possibly lost connection to daemon";
+  }
+  return resp_t.result.target_height;
+}
+
 void wallet2::set_tx_note(const crypto::hash &txid, const std::string &note)
 {
   m_tx_notes[txid] = note;
