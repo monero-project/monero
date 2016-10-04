@@ -958,10 +958,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   void core::set_target_blockchain_height(uint64_t target_blockchain_height)
   {
-    if (target_blockchain_height > m_target_blockchain_height)
-    {
-      m_target_blockchain_height = target_blockchain_height;
-    }
+    m_target_blockchain_height = target_blockchain_height;
   }
   //-----------------------------------------------------------------------------------------------
   uint64_t core::get_target_blockchain_height() const
