@@ -1766,7 +1766,7 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_R
   for (const auto &i: req.outputs)
   {
     // get tx_hash, tx_out_index from DB
-    const output_data_t &od = m_db->get_output_key(i.amount, i.index);
+    const output_data_t od = m_db->get_output_key(i.amount, i.index);
     tx_out_index toi = m_db->get_output_tx_and_index(i.amount, i.index);
     bool unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
 
