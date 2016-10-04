@@ -1419,6 +1419,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetUint64(m_refresh_from_block_height);
   json.AddMember("refresh_height", value2, json.GetAllocator());
 
+  value2.SetInt(m_confirm_missing_payment_id ? 1 :0);
+  json.AddMember("confirm_missing_payment_id", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -1484,6 +1487,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_default_priority = 0;
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
+    m_confirm_missing_payment_id = true;
   }
   else
   {
@@ -1541,6 +1545,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
     if (field_refresh_height_found)
       m_refresh_from_block_height = field_refresh_height;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_missing_payment_id, int, Int, false, false);
+    m_confirm_missing_payment_id = !field_confirm_missing_payment_id_found || field_confirm_missing_payment_id;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
