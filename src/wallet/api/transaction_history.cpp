@@ -65,7 +65,11 @@ int TransactionHistoryImpl::count() const
 
 TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) const
 {
-    return nullptr;
+    auto itr = std::find_if(m_history.begin(), m_history.end(),
+                            [&](const TransactionInfo * ti) {
+        return ti->hash() == id;
+    });
+    return itr != m_history.end() ? *itr : nullptr;
 }
 
 std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
@@ -109,7 +113,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
         // TODO:
-        // ti->m_timestamp = pd.m_timestamp;
+        ti->m_timestamp = pd.m_timestamp;
         m_history.push_back(ti);
 
         /* output.insert(std::make_pair(pd.m_block_height, std::make_pair(true, (boost::format("%20.20s %s %s %s")
@@ -151,6 +155,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_hash = string_tools::pod_to_hex(hash);
         ti->m_blockheight = pd.m_block_height;
+        ti->m_timestamp = pd.m_timestamp;
 
         // single output transaction might contain multiple transfers
         for (const auto &d: pd.m_dests) {
@@ -180,6 +185,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_failed = is_failed;
         ti->m_pending = true;
         ti->m_hash = string_tools::pod_to_hex(hash);
+        ti->m_timestamp = pd.m_timestamp;
         m_history.push_back(ti);
     }
 
@@ -187,7 +193,11 @@ void TransactionHistoryImpl::refresh()
 
 TransactionInfo *TransactionHistoryImpl::transaction(int index) const
 {
-    return nullptr;
+    // sanity check
+    if (index < 0)
+        return nullptr;
+    unsigned index_ = static_cast<unsigned>(index);
+    return index_ < m_history.size() ? m_history[index_] : nullptr;
 }
 
 }
