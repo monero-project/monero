@@ -281,8 +281,10 @@ namespace cryptonote
     LOG_PRINT_L1("Miner has received stop signal");
 
     if (!is_mining())
+    {
       LOG_PRINT_L1("Not mining - nothing to stop" );
       return true;
+    }
 
     send_stop_signal();
     CRITICAL_REGION_LOCAL(m_threads_lock);
