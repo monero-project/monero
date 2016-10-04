@@ -440,11 +440,6 @@ bool t_rpc_command_executor::print_connections() {
 }
 
 bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) {
-
-// this function appears to not exist in the json rpc api, and so is commented
-// until such a time as it does.
-
-/*
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response res;
   epee::json_rpc::error error_resp;
@@ -463,25 +458,26 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   }
   else
   {
-    if (!m_rpc_server->on_getblockheadersrange(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+    if (!m_rpc_server->on_get_block_headers_range(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << fail_message.c_str();
       return true;
     }
   }
 
+  bool first = true;
   for (auto & header : res.headers)
   {
+    if (!first)
+      std::cout << std::endl;
     std::cout
-      << "major version: " << header.major_version << std::endl
-      << "minor version: " << header.minor_version << std::endl
+      << "major version: " << (unsigned)header.major_version << ", minor version: " << (unsigned)header.minor_version << std::endl
       << "height: " << header.height << ", timestamp: " << header.timestamp << ", difficulty: " << header.difficulty << std::endl
-      << "block id: " << header.hash << std::endl
-      << "previous block id: " << header.prev_hash << std::endl
-      << "difficulty: " << header.difficulty << ", nonce " << header.nonce << std::endl;
+      << "block id: " << header.hash << ", previous block id: " << header.prev_hash << std::endl
+      << "difficulty: " << header.difficulty << ", nonce " << header.nonce << ", reward " << cryptonote::print_money(header.reward) << std::endl;
+    first = false;
   }
 
-*/
   return true;
 }
 
