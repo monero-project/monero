@@ -79,6 +79,9 @@ std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
 
 void TransactionHistoryImpl::refresh()
 {
+    // multithreaded access:
+    boost::lock_guard<boost::mutex> guarg(m_refreshMutex);
+
     // TODO: configurable values;
     uint64_t min_height = 0;
     uint64_t max_height = (uint64_t)-1;
@@ -87,8 +90,6 @@ void TransactionHistoryImpl::refresh()
     for (auto t : m_history)
         delete t;
     m_history.clear();
-
-
 
     // transactions are stored in wallet2:
     // - confirmed_transfer_details   - out transfers

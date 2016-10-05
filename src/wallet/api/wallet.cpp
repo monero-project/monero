@@ -723,6 +723,12 @@ void WalletImpl::doRefresh()
     boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
     try {
         m_wallet->refresh();
+        // assuming if we have empty history, it wasn't initialized yet
+        // for futher history changes client need to update history in
+        // "on_money_received" and "on_money_sent" callbacks
+        if (m_history->count() == 0) {
+            m_history->refresh();
+        }
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();
