@@ -572,13 +572,14 @@ TEST_F(WalletTest1, WalletTransaction)
     ASSERT_TRUE(wallet1->status() == Bitmonero::PendingTransaction::Status_Ok);
 
     std::string recepient_address = Utils::get_wallet_address(CURRENT_DST_WALLET, TESTNET_WALLET_PASS);
-    wallet1->setDefaultMixin(10);
-    ASSERT_TRUE(wallet1->defaultMixin() == 10);
+    const int MIXIN_COUNT = 4;
+
 
     Bitmonero::PendingTransaction * transaction = wallet1->createTransaction(recepient_address,
                                                                              PAYMENT_ID_EMPTY,
                                                                              AMOUNT_10XMR,
-                                                                             2);
+                                                                             MIXIN_COUNT,
+                                                                             Bitmonero::PendingTransaction::Priority_Medium);
     ASSERT_TRUE(transaction->status() == Bitmonero::PendingTransaction::Status_Ok);
     wallet1->refresh();
 
