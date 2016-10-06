@@ -54,8 +54,9 @@ namespace {
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 {
 
-    Wallet2CallbackImpl()
+    Wallet2CallbackImpl(WalletImpl * wallet)
      : m_listener(nullptr)
+     , m_wallet(wallet)
     {
 
     }
@@ -93,7 +94,8 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
-        if (m_listener) {
+        // do not signal on received tx if wallet is not syncronized completely
+        if (m_listener && m_wallet->synchronized()) {
             m_listener->moneyReceived(tx_hash, amount);
             m_listener->updated();
         }
@@ -107,7 +109,8 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         LOG_PRINT_L3(__FUNCTION__ << ": money spent. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
-        if (m_listener) {
+        // do not signal on sent tx if wallet is not syncronized completely
+        if (m_listener && m_wallet->synchronized()) {
             m_listener->moneySpent(tx_hash, amount);
             m_listener->updated();
         }
@@ -119,6 +122,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
     }
 
     WalletListener * m_listener;
+    WalletImpl     * m_wallet;
 };
 
 Wallet::~Wallet() {}
@@ -166,12 +170,16 @@ uint64_t Wallet::maximumAllowedAmount()
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
-    :m_wallet(nullptr), m_status(Wallet::Status_Ok), m_trustedDaemon(false),
-      m_wallet2Callback(nullptr), m_recoveringFromSeed(false)
+    :m_wallet(nullptr)
+    , m_status(Wallet::Status_Ok)
+    , m_trustedDaemon(false)
+    , m_wallet2Callback(nullptr)
+    , m_recoveringFromSeed(false)
+    , m_synchronized(false)
 {
     m_wallet = new tools::wallet2(testnet);
     m_history = new TransactionHistoryImpl(this);
-    m_wallet2Callback = new Wallet2CallbackImpl;
+    m_wallet2Callback = new Wallet2CallbackImpl(this);
     m_wallet->callback(m_wallet2Callback);
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
@@ -454,6 +462,11 @@ uint64_t WalletImpl::daemonBlockChainTargetHeight() const
     return result;
 }
 
+bool WalletImpl::synchronized() const
+{
+    return m_synchronized;
+}
+
 bool WalletImpl::refresh()
 {
     clearStatus();
@@ -722,6 +735,9 @@ void WalletImpl::doRefresh()
     boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
     try {
         m_wallet->refresh();
+        if (!m_synchronized) {
+            m_synchronized = true;
+        }
         // assuming if we have empty history, it wasn't initialized yet
         // for futher history changes client need to update history in
         // "on_money_received" and "on_money_sent" callbacks
