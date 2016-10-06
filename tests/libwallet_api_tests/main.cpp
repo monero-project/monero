@@ -539,8 +539,10 @@ TEST_F(WalletTest1, WalletReturnsDaemonBlockHeight)
 TEST_F(WalletTest1, WalletRefresh)
 {
 
+    std::cout << "Opening wallet: " << CURRENT_SRC_WALLET << std::endl;
     Bitmonero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, true);
     // make sure testnet daemon is running
+    std::cout << "connecting to daemon: " << TESTNET_DAEMON_ADDRESS << std::endl;
     ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
     ASSERT_TRUE(wallet1->refresh());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
@@ -570,13 +572,13 @@ TEST_F(WalletTest1, WalletTransaction)
     ASSERT_TRUE(wallet1->status() == Bitmonero::PendingTransaction::Status_Ok);
 
     std::string recepient_address = Utils::get_wallet_address(CURRENT_DST_WALLET, TESTNET_WALLET_PASS);
-    wallet1->setDefaultMixin(1);
-    ASSERT_TRUE(wallet1->defaultMixin() == 1);
+    wallet1->setDefaultMixin(10);
+    ASSERT_TRUE(wallet1->defaultMixin() == 10);
 
     Bitmonero::PendingTransaction * transaction = wallet1->createTransaction(recepient_address,
                                                                              PAYMENT_ID_EMPTY,
                                                                              AMOUNT_10XMR,
-                                                                             1);
+                                                                             2);
     ASSERT_TRUE(transaction->status() == Bitmonero::PendingTransaction::Status_Ok);
     wallet1->refresh();
 
@@ -1146,10 +1148,10 @@ int main(int argc, char** argv)
     TESTNET_WALLET5_NAME = WALLETS_ROOT_DIR + "/wallet_05.bin";
     TESTNET_WALLET6_NAME = WALLETS_ROOT_DIR + "/wallet_06.bin";
 
-    CURRENT_SRC_WALLET = TESTNET_WALLET6_NAME;
-    CURRENT_DST_WALLET = TESTNET_WALLET5_NAME;
+    CURRENT_SRC_WALLET = TESTNET_WALLET5_NAME;
+    CURRENT_DST_WALLET = TESTNET_WALLET1_NAME;
 
     ::testing::InitGoogleTest(&argc, argv);
-    // Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_Max);
+    Bitmonero::WalletManagerFactory::setLogLevel(Bitmonero::WalletManagerFactory::LogLevel_Max);
     return RUN_ALL_TESTS();
 }

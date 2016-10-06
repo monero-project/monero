@@ -60,6 +60,7 @@ TransactionHistoryImpl::~TransactionHistoryImpl()
 
 int TransactionHistoryImpl::count() const
 {
+    boost::lock_guard<boost::mutex> guarg(m_historyMutex);
     return m_history.size();
 }
 
@@ -80,7 +81,7 @@ std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
 void TransactionHistoryImpl::refresh()
 {
     // multithreaded access:
-    boost::lock_guard<boost::mutex> guarg(m_refreshMutex);
+    boost::lock_guard<boost::mutex> guarg(m_historyMutex);
 
     // TODO: configurable values;
     uint64_t min_height = 0;

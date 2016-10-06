@@ -52,7 +52,7 @@ private:
     // TransactionHistory is responsible of memory management
     std::vector<TransactionInfo*> m_history;
     WalletImpl *m_wallet;
-    boost::mutex        m_refreshMutex;
+    mutable boost::mutex        m_historyMutex;
 };
 
 }
