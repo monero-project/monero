@@ -885,6 +885,11 @@ bool simple_wallet::ask_wallet_create_if_needed()
     {
       return false;
     }
+    bool protected_name = tools::wallet2::wallet_protected_name(wallet_path);
+    if (protected_name)
+    {
+      return false;
+    }
     valid_path = tools::wallet2::wallet_valid_path_format(wallet_path);
     if (!valid_path)
     {
