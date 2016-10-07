@@ -3662,22 +3662,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
-  uint64_t accumulated_fee, accumulated_outputs, accumulated_change;
-  struct TX {
-    std::list<size_t> selected_transfers;
-    std::vector<cryptonote::tx_destination_entry> dsts;
-    cryptonote::transaction tx;
-    pending_tx ptx;
-    size_t bytes;
-  };
-  std::vector<TX> txes;
-  uint64_t needed_fee, available_for_fee = 0;
-  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
   const bool use_rct = use_fork_rules(4, 0);
-
-  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
-  const uint64_t fee_per_kb  = use_new_fee ? FEE_PER_KB : FEE_PER_KB_OLD;
-  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
 
   // gather all our dust and non dust outputs
   for (size_t i = 0; i < m_transfers.size(); ++i)
@@ -3691,6 +3676,29 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
         unused_dust_indices.push_back(i);
     }
   }
+
+  return create_transactions_from(address, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
+}
+
+std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const cryptonote::account_public_address &address, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon)
+{
+  uint64_t accumulated_fee, accumulated_outputs, accumulated_change;
+  struct TX {
+    std::list<size_t> selected_transfers;
+    std::vector<cryptonote::tx_destination_entry> dsts;
+    cryptonote::transaction tx;
+    pending_tx ptx;
+    size_t bytes;
+  };
+  std::vector<TX> txes;
+  uint64_t needed_fee, available_for_fee = 0;
+  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+
+  const bool use_rct = use_fork_rules(4, 0);
+  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
+  const uint64_t fee_per_kb  = use_new_fee ? FEE_PER_KB : FEE_PER_KB_OLD;
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
+
   LOG_PRINT_L2("Starting with " << unused_transfers_indices.size() << " non-dust outputs and " << unused_dust_indices.size() << " dust outputs");
 
   if (unused_dust_indices.empty() && unused_transfers_indices.empty())
@@ -3820,121 +3828,6 @@ uint64_t wallet2::unlocked_dust_balance(const tx_dust_policy &dust_policy) const
   }
   return money;
 }
-
-template<typename T>
-void wallet2::transfer_from(const std::vector<size_t> &outs, size_t num_outputs, uint64_t unlock_time, uint64_t needed_fee, T destination_split_strategy, const tx_dust_policy& dust_policy, const std::vector<uint8_t> &extra, cryptonote::transaction& tx, pending_tx &ptx)
-{
-  using namespace cryptonote;
-
-  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
-
-  // select all dust inputs for transaction
-  // throw if there are none
-  uint64_t money = 0;
-  std::list<size_t> selected_transfers;
-#if 1
-  for (size_t n = 0; n < outs.size(); ++n)
-  {
-    const transfer_details& td = m_transfers[outs[n]];
-    if (!td.m_spent)
-    {
-      selected_transfers.push_back (outs[n]);
-      money += td.amount();
-      if (selected_transfers.size() >= num_outputs)
-        break;
-    }
-  }
-#else
-  for (transfer_container::iterator i = m_transfers.begin(); i != m_transfers.end(); ++i)
-  {
-    const transfer_details& td = *i;
-    if (!td.m_spent && (td.amount() < dust_policy.dust_threshold || !is_valid_decomposed_amount(td.amount())) && is_transfer_unlocked(td))
-    {
-      selected_transfers.push_back (i);
-      money += td.amount();
-      if (selected_transfers.size() >= num_outputs)
-        break;
-    }
-  }
-#endif
-
-  // we don't allow no output to self, easier, but one may want to burn the dust if = fee
-  THROW_WALLET_EXCEPTION_IF(money <= needed_fee, error::not_enough_money, money, needed_fee, needed_fee);
-
-  typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
-
-  //prepare inputs
-  size_t i = 0;
-  std::vector<cryptonote::tx_source_entry> sources;
-  BOOST_FOREACH(size_t idx, selected_transfers)
-  {
-    sources.resize(sources.size()+1);
-    cryptonote::tx_source_entry& src = sources.back();
-    const transfer_details& td = m_transfers[idx];
-    src.amount = td.amount();
-    src.rct = td.is_rct();
-
-    //paste real transaction to the random index
-    auto it_to_insert = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
-    {
-      return a.first >= td.m_global_output_index;
-    });
-    tx_output_entry real_oe;
-    real_oe.first = td.m_global_output_index;
-    real_oe.second.dest = rct::pk2rct(boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key);
-    real_oe.second.mask = rct::commit(td.amount(), td.m_mask);
-    auto interted_it = src.outputs.insert(it_to_insert, real_oe);
-    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx);
-    src.real_output = interted_it - src.outputs.begin();
-    src.real_output_in_tx_index = td.m_internal_output_index;
-    detail::print_source_entry(src);
-    ++i;
-  }
-
-  cryptonote::tx_destination_entry change_dts = AUTO_VAL_INIT(change_dts);
-
-  std::vector<cryptonote::tx_destination_entry> dsts;
-  uint64_t money_back = money - needed_fee;
-  if (dust_policy.dust_threshold > 0)
-    money_back = money_back - money_back % dust_policy.dust_threshold;
-  dsts.push_back(cryptonote::tx_destination_entry(money_back, m_account_public_address));
-  std::vector<cryptonote::tx_destination_entry> splitted_dsts, dust;
-  destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust);
-  BOOST_FOREACH(auto& d, dust) {
-    THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < d.amount, error::wallet_internal_error, "invalid dust value: dust = " +
-      std::to_string(d.amount) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
-  }
-
-  crypto::secret_key tx_key;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key);
-  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
-  THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
-
-  std::string key_images;
-  bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool
-  {
-    CHECKED_GET_SPECIFIC_VARIANT(s_e, const txin_to_key, in, false);
-    key_images += boost::to_string(in.k_image) + " ";
-    return true;
-  });
-  THROW_WALLET_EXCEPTION_IF(!all_are_txin_to_key, error::unexpected_txin_type, tx);
-
-  ptx.key_images = key_images;
-  ptx.fee = money - money_back;
-  ptx.dust = 0;
-  ptx.tx = tx;
-  ptx.change_dts = change_dts;
-  ptx.selected_transfers = selected_transfers;
-  ptx.tx_key = tx_key;
-  ptx.dests = dsts;
-  ptx.construction_data.sources = sources;
-  ptx.construction_data.destinations = dsts;
-  ptx.construction_data.change_dts = change_dts;
-  ptx.construction_data.extra = tx.extra;
-  ptx.construction_data.unlock_time = unlock_time;
-  ptx.construction_data.use_rct = false;
-}
-
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_hard_fork_info(uint8_t version, uint64_t &earliest_height)
 {
@@ -4114,100 +4007,17 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
     return std::vector<wallet2::pending_tx>();
   }
 
-  // failsafe split attempt counter
-  size_t attempt_count = 0;
-
-  for(attempt_count = 1; ;attempt_count++)
+  // split in "dust" and "non dust" to make it easier to select outputs
+  std::vector<size_t> unmixable_transfer_outputs, unmixable_dust_outputs;
+  for (auto n: unmixable_outputs)
   {
-    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
-    size_t num_outputs_per_tx = (num_dust_outputs + num_tx - 1) / num_tx;
-
-    std::vector<pending_tx> ptx_vector;
-    try
-    {
-      // for each new tx
-      for (size_t i=0; i<num_tx;++i)
-      {
-        cryptonote::transaction tx;
-        pending_tx ptx;
-        std::vector<uint8_t> extra;
-
-	// loop until fee is met without increasing tx size to next KB boundary.
-	uint64_t needed_fee = 0;
-	do
-	{
-	  transfer_from(unmixable_outputs, num_outputs_per_tx, (uint64_t)0 /* unlock_time */, 0, detail::digit_split_strategy, dust_policy, extra, tx, ptx);
-	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
-          needed_fee = calculate_fee(fee_per_kb, txBlob, 1);
-
-          // reroll the tx with the actual amount minus the fee
-          // if there's not enough for the fee, it'll throw
-	  transfer_from(unmixable_outputs, num_outputs_per_tx, (uint64_t)0 /* unlock_time */, needed_fee, detail::digit_split_strategy, dust_policy, extra, tx, ptx);
-	  txBlob = t_serializable_object_to_blob(ptx.tx);
-          needed_fee = calculate_fee(fee_per_kb, txBlob, 1);
-	} while (ptx.fee < needed_fee);
-
-        ptx_vector.push_back(ptx);
-
-        // mark transfers to be used as "spent"
-        BOOST_FOREACH(size_t idx, ptx.selected_transfers)
-        {
-          set_spent(idx, 0);
-        }
-      }
-
-      // if we made it this far, we've selected our transactions.  committing them will mark them spent,
-      // so this is a failsafe in case they don't go through
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        BOOST_FOREACH(size_t idx2, ptx.selected_transfers)
-        {
-          set_unspent(idx2);
-        }
-      }
-
-      // if we made it this far, we're OK to actually send the transactions
-      return ptx_vector;
-
-    }
-    // only catch this here, other exceptions need to pass through to the calling function
-    catch (const tools::error::tx_too_big& e)
-    {
-
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        BOOST_FOREACH(size_t idx2, ptx.selected_transfers)
-        {
-          set_unspent(idx2);
-        }
-      }
-
-      if (attempt_count >= MAX_SPLIT_ATTEMPTS)
-      {
-        throw;
-      }
-    }
-    catch (...)
-    {
-      // in case of some other exception, make sure any tx in queue are marked unspent again
-
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        BOOST_FOREACH(size_t idx2, ptx.selected_transfers)
-        {
-          set_unspent(idx2);
-        }
-      }
-
-      throw;
-    }
+    if (m_transfers[n].amount() < fee_per_kb)
+      unmixable_dust_outputs.push_back(n);
+    else
+      unmixable_transfer_outputs.push_back(n);
   }
+
+  return create_transactions_from(m_account_public_address, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, 0 /* unlock_time */, 1 /*priority */, std::vector<uint8_t>(), trusted_daemon);
 }
 
 bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const
