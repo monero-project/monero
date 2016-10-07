@@ -583,11 +583,14 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             std::string(", expected ") + print_money(td.amount()));
       }
       amount = td.amount();
-      LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << txid());
       tx_money_spent_in_ins += amount;
-      set_spent(it->second, height);
-      if (0 != m_callback)
-        m_callback->on_money_spent(height, tx, amount, tx);
+      if (!pool)
+      {
+        LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << txid());
+        set_spent(it->second, height);
+        if (0 != m_callback)
+          m_callback->on_money_spent(height, tx, amount, tx);
+      }
     }
   }
 
