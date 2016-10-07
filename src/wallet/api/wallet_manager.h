@@ -40,7 +40,7 @@ public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language, bool testnet);
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet);
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet, uint64_t restoreHeight);
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
     std::vector<std::string> findWallets(const std::string &path);
