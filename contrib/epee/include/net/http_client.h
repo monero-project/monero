@@ -241,12 +241,18 @@ using namespace std;
 			chunked_state m_chunked_state;
 			std::string m_chunked_cache;
 			critical_section m_lock;
+			std::string m_user_agent;
 
 		public:
 			void set_host_name(const std::string& name)
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				m_host_buff = name;
+			}
+			void set_user_agent(const std::string& ua)
+			{
+				CRITICAL_REGION_LOCAL(m_lock);
+				m_user_agent = ua;
 			}
       bool connect(const std::string& host, int port, unsigned int timeout)
       {
@@ -306,6 +312,8 @@ using namespace std;
 				std::string req_buff = 	method + " ";
 				req_buff += uri + " HTTP/1.1\r\n" + 
 					"Host: "+ m_host_buff +"\r\n" +	"Content-Length: " + boost::lexical_cast<std::string>(body.size()) + "\r\n";
+                                if (!m_user_agent.empty())
+                                        req_buff += "User-Agent: " + m_user_agent + "\r\n";
 
 
 				//handle "additional_params"

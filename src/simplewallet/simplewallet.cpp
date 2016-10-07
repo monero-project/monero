@@ -1007,7 +1007,7 @@ bool simple_wallet::get_password(const boost::program_options::variables_map& vm
 }
 
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password)
+bool simple_wallet::generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password, const std::string &user_agent)
 {
   bool testnet = command_line::get_arg(vm, arg_testnet);
 
@@ -1151,6 +1151,7 @@ bool simple_wallet::generate_from_json(const boost::program_options::variables_m
 
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
+  m_wallet->set_user_agent(user_agent);
   m_wallet->set_refresh_from_block_height(field_scan_from_height);
 
   try
@@ -1256,6 +1257,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   }
 
   bool testnet = command_line::get_arg(vm, arg_testnet);
+  std::string user_agent = command_line::get_arg(vm, command_line::arg_user_agent);
 
   if (m_daemon_host.empty())
     m_daemon_host = "localhost";
@@ -1378,7 +1380,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
 
-      bool r = new_wallet(m_wallet_file, pwd_container.password(), address, viewkey, testnet);
+      bool r = new_wallet(m_wallet_file, pwd_container.password(), address, viewkey, testnet, user_agent);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
     else if (!m_generate_from_keys.empty())
@@ -1453,25 +1455,25 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
 
-      bool r = new_wallet(m_wallet_file, pwd_container.password(), address, spendkey, viewkey, testnet);
+      bool r = new_wallet(m_wallet_file, pwd_container.password(), address, spendkey, viewkey, testnet, user_agent);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
     else if (!m_generate_from_json.empty())
     {
       std::string wallet_file, password; // we don't need to remember them
-      if (!generate_from_json(vm, wallet_file, password))
+      if (!generate_from_json(vm, wallet_file, password, user_agent))
         return false;
     }
     else
     {
       bool r = new_wallet(m_wallet_file, pwd_container.password(), m_recovery_key, m_restore_deterministic_wallet,
-        m_non_deterministic, testnet, old_language);
+        m_non_deterministic, testnet, old_language, user_agent);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
   }
   else
   {
-    bool r = open_wallet(m_wallet_file, pwd_container.password(), testnet);
+    bool r = open_wallet(m_wallet_file, pwd_container.password(), testnet, user_agent);
     CHECK_AND_ASSERT_MES(r, false, tr("failed to open account"));
   }
 
@@ -1575,7 +1577,7 @@ std::string simple_wallet::get_mnemonic_language()
 
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
-  bool recover, bool two_random, bool testnet, const std::string &old_language)
+  bool recover, bool two_random, bool testnet, const std::string &old_language, const std::string &user_agent)
 {
   bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
     crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
@@ -1604,6 +1606,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   m_wallet.reset(new tools::wallet2(testnet));
   m_wallet->callback(this);
   m_wallet->set_seed_language(mnemonic_language);
+  m_wallet->set_user_agent(user_agent);
 
   // for a totally new account, we don't care about older blocks.
   if (!m_restoring)
@@ -1656,11 +1659,12 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
-  const crypto::secret_key& viewkey, bool testnet)
+  const crypto::secret_key& viewkey, bool testnet, const std::string &user_agent)
 {
   m_wallet_file=wallet_file;
 
   m_wallet.reset(new tools::wallet2(testnet));
+  m_wallet->set_user_agent(user_agent);
   m_wallet->callback(this);
   if (m_restore_height)
     m_wallet->set_refresh_from_block_height(m_restore_height);
@@ -1684,11 +1688,12 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
-  const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool testnet)
+  const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool testnet, const std::string &user_agent)
 {
   m_wallet_file=wallet_file;
 
   m_wallet.reset(new tools::wallet2(testnet));
+  m_wallet->set_user_agent(user_agent);
   m_wallet->callback(this);
   if (m_restore_height)
     m_wallet->set_refresh_from_block_height(m_restore_height);
@@ -1710,7 +1715,7 @@ bool simple_wallet::new_wallet(const std::string &wallet_file, const std::string
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::open_wallet(const string &wallet_file, const std::string& password, bool testnet)
+bool simple_wallet::open_wallet(const string &wallet_file, const std::string& password, bool testnet, const std::string &user_agent)
 {
   if (!tools::wallet2::wallet_valid_path_format(wallet_file))
   {
@@ -1720,6 +1725,7 @@ bool simple_wallet::open_wallet(const string &wallet_file, const std::string& pa
 
   m_wallet_file=wallet_file;
   m_wallet.reset(new tools::wallet2(testnet));
+  m_wallet->set_user_agent(user_agent);
   m_wallet->callback(this);
 
   try
@@ -4443,7 +4449,8 @@ int main(int argc, char* argv[])
     std::string password;
     const std::string gfj = command_line::get_arg(vm, arg_generate_from_json);
     if (!gfj.empty()) {
-      if (!w.generate_from_json(vm, wallet_file, password))
+      std::string user_agent = command_line::get_arg(vm, command_line::arg_user_agent);
+      if (!w.generate_from_json(vm, wallet_file, password, user_agent))
         return 1;
     }
     else {

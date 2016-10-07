@@ -70,7 +70,7 @@ namespace cryptonote
     bool run();
     void stop();
     void interrupt();
-    bool generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password);
+    bool generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password, const std::string &user_agent);
 
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
@@ -83,12 +83,12 @@ namespace cryptonote
     void wallet_idle_thread();
 
     bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
-        bool recover, bool two_random, bool testnet, const std::string &old_language);
+        bool recover, bool two_random, bool testnet, const std::string &old_language, const std::string &user_agent);
     bool new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
-        const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool testnet);
+        const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool testnet, const std::string &user_agent);
     bool new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
-        const crypto::secret_key& viewkey, bool testnet);
-    bool open_wallet(const std::string &wallet_file, const std::string& password, bool testnet);
+        const crypto::secret_key& viewkey, bool testnet, const std::string &user_agent);
+    bool open_wallet(const std::string &wallet_file, const std::string& password, bool testnet, const std::string &user_agent);
     bool close_wallet();
 
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
