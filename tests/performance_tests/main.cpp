@@ -37,6 +37,7 @@
 #include "cn_slow_hash.h"
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
+#include "ge_frombytes_vartime.h"
 #include "generate_key_derivation.h"
 #include "generate_key_image.h"
 #include "generate_key_image_helper.h"
@@ -98,6 +99,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(test_generate_key_image);
   TEST_PERFORMANCE0(test_derive_public_key);
   TEST_PERFORMANCE0(test_derive_secret_key);
+  TEST_PERFORMANCE0(test_ge_frombytes_vartime);
 
   TEST_PERFORMANCE0(test_cn_slow_hash);
 
