@@ -36,7 +36,7 @@
 
 #include "multi_tx_test_base.h"
 
-template<size_t a_in_count, size_t a_out_count>
+template<size_t a_in_count, size_t a_out_count, bool a_rct>
 class test_construct_tx : private multi_tx_test_base<a_in_count>
 {
   static_assert(0 < a_in_count, "in_count must be greater than 0");
@@ -46,6 +46,7 @@ public:
   static const size_t loop_count = (a_in_count + a_out_count < 100) ? 100 : 10;
   static const size_t in_count  = a_in_count;
   static const size_t out_count = a_out_count;
+  static const bool rct = a_rct;
 
   typedef multi_tx_test_base<a_in_count> base_class;
 
@@ -68,7 +69,8 @@ public:
 
   bool test()
   {
-    return cryptonote::construct_tx(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, m_destinations, std::vector<uint8_t>(), m_tx, 0);
+    crypto::secret_key tx_key;
+    return cryptonote::construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, m_destinations, std::vector<uint8_t>(), m_tx, 0, tx_key, rct);
   }
 
 private:

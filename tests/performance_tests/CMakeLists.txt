@@ -30,7 +30,7 @@ set(performance_tests_sources
   main.cpp)
 
 set(performance_tests_headers
-  check_ring_signature.h
+  check_tx_signature.h
   cn_slow_hash.h
   construct_tx.h
   derive_public_key.h
