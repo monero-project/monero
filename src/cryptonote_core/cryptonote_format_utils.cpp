@@ -658,10 +658,7 @@ namespace cryptonote
     }
     else
     {
-      bool all_rct_inputs = true;
       size_t n_total_outs = sources[0].outputs.size(); // only for non-simple rct
-      BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
-        all_rct_inputs &= !(src_entr.mask == rct::identity());
 
       // the non-simple version is slightly smaller, but assumes all real inputs
       // are on the same index, so can only be used if there just one ring.
