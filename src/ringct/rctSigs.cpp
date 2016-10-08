@@ -150,7 +150,7 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly        
-    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows) {
+    mgSig MLSAG_Gen(const key &message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows) {
         mgSig rv;
         size_t cols = pk.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 2, "Error! What is c if cols = 1!");
@@ -239,7 +239,7 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly            
-    bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv, size_t dsRows) {
+    bool MLSAG_Ver(const key &message, const keyM & pk, const mgSig & rv, size_t dsRows) {
 
         size_t cols = pk.size();
         CHECK_AND_ASSERT_MES(cols >= 2, false, "Error! What is c if cols = 1!");

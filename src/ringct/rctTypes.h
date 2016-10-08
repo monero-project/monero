@@ -415,7 +415,7 @@ namespace rct {
     // then the value in the first 8 bytes is returned
     xmr_amount h2d(const key &test);
     //32 byte key to int[64]
-    void h2b(bits  amountb2, key & test);
+    void h2b(bits  amountb2, const key & test);
     //int[64] to 32 byte key
     void b2h(key  & amountdh, bits amountb2);
     //int[64] to uint long long
