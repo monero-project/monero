@@ -404,6 +404,10 @@ void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transact
     startRefresh();
 }
 
+void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
+{
+    m_wallet->set_refresh_from_block_height(refresh_from_block_height);
+}
 
 
 uint64_t WalletImpl::balance() const
