@@ -30,25 +30,27 @@
 
 #pragma once
 
+#include <vector>
+
 #include "cryptonote_core/account.h"
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
+#include "crypto/crypto.h"
+#include "ringct/rctSigs.h"
 
 #include "multi_tx_test_base.h"
 
-template<size_t a_in_count, size_t a_out_count, bool a_rct>
-class test_construct_tx : private multi_tx_test_base<a_in_count>
+template<size_t a_ring_size, bool a_rct>
+class test_check_tx_signature : private multi_tx_test_base<a_ring_size>
 {
-  static_assert(0 < a_in_count, "in_count must be greater than 0");
-  static_assert(0 < a_out_count, "out_count must be greater than 0");
+  static_assert(0 < a_ring_size, "ring_size must be greater than 0");
 
 public:
-  static const size_t loop_count = (a_in_count + a_out_count < 100) ? 100 : 10;
-  static const size_t in_count  = a_in_count;
-  static const size_t out_count = a_out_count;
+  static const size_t loop_count = a_rct ? 10 : a_ring_size < 100 ? 100 : 10;
+  static const size_t ring_size = a_ring_size;
   static const bool rct = a_rct;
 
-  typedef multi_tx_test_base<a_in_count> base_class;
+  typedef multi_tx_test_base<a_ring_size> base_class;
 
   bool init()
   {
@@ -59,22 +61,36 @@ public:
 
     m_alice.generate();
 
-    for (size_t i = 0; i < out_count; ++i)
-    {
-      m_destinations.push_back(tx_destination_entry(this->m_source_amount / out_count, m_alice.get_keys().m_account_address));
-    }
+    std::vector<tx_destination_entry> destinations;
+    destinations.push_back(tx_destination_entry(this->m_source_amount, m_alice.get_keys().m_account_address));
+
+    crypto::secret_key tx_key;
+    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, destinations, std::vector<uint8_t>(), m_tx, 0, tx_key, rct))
+      return false;
+
+    get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);
 
     return true;
   }
 
   bool test()
   {
-    crypto::secret_key tx_key;
-    return cryptonote::construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, m_destinations, std::vector<uint8_t>(), m_tx, 0, tx_key, rct);
+    if (rct)
+    {
+      if (m_tx.rct_signatures.type == rct::RCTTypeFull)
+        return rct::verRct(m_tx.rct_signatures);
+      else
+        return rct::verRctSimple(m_tx.rct_signatures);
+    }
+    else
+    {
+      const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[0]);
+      return crypto::check_ring_signature(m_tx_prefix_hash, txin.k_image, this->m_public_key_ptrs, ring_size, m_tx.signatures[0].data());
+    }
   }
 
 private:
   cryptonote::account_base m_alice;
-  std::vector<cryptonote::tx_destination_entry> m_destinations;
   cryptonote::transaction m_tx;
+  crypto::hash m_tx_prefix_hash;
 };

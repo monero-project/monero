@@ -90,8 +90,8 @@ namespace rct {
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly
     keyV keyImageV(const keyV &xx);
-    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows);
-    bool MLSAG_Ver(key message, const keyM &pk, const mgSig &sig, size_t dsRows);
+    mgSig MLSAG_Gen(const key &message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows);
+    bool MLSAG_Ver(const key &message, const keyM &pk, const mgSig &sig, size_t dsRows);
     //mgSig MLSAG_Gen_Old(const keyM & pk, const keyV & xx, const int index);
 
     //proveRange and verRange

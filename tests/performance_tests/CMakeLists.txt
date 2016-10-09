@@ -30,11 +30,12 @@ set(performance_tests_sources
   main.cpp)
 
 set(performance_tests_headers
-  check_ring_signature.h
+  check_tx_signature.h
   cn_slow_hash.h
   construct_tx.h
   derive_public_key.h
   derive_secret_key.h
+  ge_frombytes_vartime.h
   generate_key_derivation.h
   generate_key_image.h
   generate_key_image_helper.h
