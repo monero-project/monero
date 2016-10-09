@@ -262,6 +262,12 @@ struct Wallet
      */
     virtual uint64_t daemonBlockChainTargetHeight() const = 0;
 
+    /**
+     * @brief synchronized - checks if wallet was ever synchronized
+     * @return
+     */
+    virtual bool synchronized() const = 0;
+
     static std::string displayAmount(uint64_t amount);
     static uint64_t amountFromString(const std::string &amount);
     static uint64_t amountFromDouble(double amount);
