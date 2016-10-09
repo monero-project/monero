@@ -422,6 +422,12 @@ namespace tools
      * \return                Whether path is valid format
      */
     static bool wallet_valid_path_format(const std::string& file_path);
+    /*!
+     * \brief  Check if wallet file name is protected i.e. 'logout' or 'exit'
+     * \param  file_path      Wallet file path
+     * \return                Whether the value is one of the protected values
+     */
+    static bool wallet_protected_name(const std::string& file_path);
 
     static bool parse_long_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
     static bool parse_short_payment_id(const std::string& payment_id_str, crypto::hash8& payment_id);

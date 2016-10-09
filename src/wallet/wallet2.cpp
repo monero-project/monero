@@ -1761,6 +1761,18 @@ bool wallet2::wallet_valid_path_format(const std::string& file_path)
   return !file_path.empty();
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::wallet_protected_name(const std::string& file_path)
+{
+  std::string s = file_path;
+  std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+  if(s == "exit" || s == "logout" || s == "quit" || s == "")
+  {
+    LOG_PRINT_L1("Terminating monero-wallet-cli after " << s << " command received");
+    return true;
+  }
+  return false;
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::parse_long_payment_id(const std::string& payment_id_str, crypto::hash& payment_id)
 {
   cryptonote::blobdata payment_id_data;
