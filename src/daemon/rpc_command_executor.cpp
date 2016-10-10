@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2016, The Monero Project
-//
+// 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-//
+// 
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-//
+// 
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-//
+// 
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-//
+// 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -409,7 +409,7 @@ bool t_rpc_command_executor::print_connections() {
       << std::setw(20) << "Livetime(sec)"
       << std::setw(12) << "Down (kB/s)"
       << std::setw(14) << "Down(now)"
-      << std::setw(10) << "Up (kB/s)"
+      << std::setw(10) << "Up (kB/s)" 
       << std::setw(13) << "Up(now)"
       << std::endl;
 
@@ -418,7 +418,7 @@ bool t_rpc_command_executor::print_connections() {
     std::string address = info.incoming ? "INC " : "OUT ";
     address += info.ip + ":" + info.port;
     //std::string in_out = info.incoming ? "INC " : "OUT ";
-    tools::msg_writer()
+    tools::msg_writer() 
      //<< std::setw(30) << std::left << in_out
      << std::setw(30) << std::left << address
      << std::setw(20) << info.peer_id
@@ -429,11 +429,11 @@ bool t_rpc_command_executor::print_connections() {
      << std::setw(14) << info.current_download
      << std::setw(10) << info.avg_upload
      << std::setw(13) << info.current_upload
-
+     
      << std::left << (info.localhost ? "[LOCALHOST]" : "")
      << std::left << (info.local_ip ? "[LAN]" : "");
     //tools::msg_writer() << boost::format("%-25s peer_id: %-25s %s") % address % info.peer_id % in_out;
-
+    
   }
 
   return true;
@@ -989,11 +989,11 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 {
 	cryptonote::COMMAND_RPC_OUT_PEERS::request req;
 	cryptonote::COMMAND_RPC_OUT_PEERS::response res;
-
+	
 	epee::json_rpc::error error_resp;
 
 	req.out_peers = limit;
-
+	
 	std::string fail_message = "Unsuccessful";
 
 	if (m_is_rpc)
@@ -1022,7 +1022,7 @@ bool t_rpc_command_executor::start_save_graph()
 	cryptonote::COMMAND_RPC_START_SAVE_GRAPH::request req;
 	cryptonote::COMMAND_RPC_START_SAVE_GRAPH::response res;
 	std::string fail_message = "Unsuccessful";
-
+	
 	if (m_is_rpc)
 	{
 		if (!m_rpc_client->rpc_request(req, res, "/start_save_graph", fail_message.c_str()))
@@ -1030,7 +1030,7 @@ bool t_rpc_command_executor::start_save_graph()
 			return true;
 		}
 	}
-
+	
 	else
     {
 		if (!m_rpc_server->on_start_save_graph(req, res) || res.status != CORE_RPC_STATUS_OK)
@@ -1039,7 +1039,7 @@ bool t_rpc_command_executor::start_save_graph()
 			return true;
 		}
 	}
-
+	
 	return true;
 }
 
@@ -1048,7 +1048,7 @@ bool t_rpc_command_executor::stop_save_graph()
 	cryptonote::COMMAND_RPC_STOP_SAVE_GRAPH::request req;
 	cryptonote::COMMAND_RPC_STOP_SAVE_GRAPH::response res;
 	std::string fail_message = "Unsuccessful";
-
+	
 	if (m_is_rpc)
 	{
 		if (!m_rpc_client->rpc_request(req, res, "/stop_save_graph", fail_message.c_str()))
@@ -1056,7 +1056,7 @@ bool t_rpc_command_executor::stop_save_graph()
 			return true;
 		}
 	}
-
+	
 	else
     {
 		if (!m_rpc_server->on_stop_save_graph(req, res) || res.status != CORE_RPC_STATUS_OK)

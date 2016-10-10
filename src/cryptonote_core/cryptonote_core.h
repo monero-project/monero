@@ -141,7 +141,7 @@ namespace cryptonote
       * @note see Blockchain::cleanup_handle_incoming_blocks
       */
      bool cleanup_handle_incoming_blocks(bool force_sync = false);
-
+     	     	
      /**
       * @brief check the size of a block against the current maximum
       *
