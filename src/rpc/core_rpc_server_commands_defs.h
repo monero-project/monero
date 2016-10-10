@@ -1243,11 +1243,13 @@ namespace cryptonote
     struct response
     {
       std::string status;
-      uint64_t amount;
+      uint64_t emission_amount;
+      uint64_t fee_amount;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
-        KV_SERIALIZE(amount)
+        KV_SERIALIZE(emission_amount)
+        KV_SERIALIZE(fee_amount)
       END_KV_SERIALIZE_MAP()
     };
   };

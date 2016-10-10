@@ -1299,7 +1299,9 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
 
   tools::msg_writer() << "Sum of coinbase transactions between block heights ["
     << height << ", " << (height + count) << ") is "
-    << cryptonote::print_money(res.amount);
+    << cryptonote::print_money(res.emission_amount + res.fee_amount) << " "
+    << "consisting of " << cryptonote::print_money(res.emission_amount) 
+    << " in emissions, and " << cryptonote::print_money(res.fee_amount) << " in fees";
   return true;
 }
 
