@@ -351,6 +351,7 @@ namespace rct {
     key get_pre_mlsag_hash(const rctSig &rv)
     {
       keyV hashes;
+      hashes.reserve(3);
       hashes.push_back(rv.message);
       crypto::hash h;
 
@@ -364,6 +365,7 @@ namespace rct {
       hashes.push_back(hash2rct(h));
 
       keyV kv;
+      kv.reserve((64*3+1) * rv.p.rangeSigs.size());
       for (auto r: rv.p.rangeSigs)
       {
         for (size_t n = 0; n < 64; ++n)
