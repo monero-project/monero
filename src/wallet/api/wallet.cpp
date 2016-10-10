@@ -416,6 +416,10 @@ void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
     m_wallet->set_refresh_from_block_height(refresh_from_block_height);
 }
 
+void WalletImpl::setRecoveringFromSeed(bool recoveringFromSeed)
+{
+    m_recoveringFromSeed = recoveringFromSeed;
+}
 
 uint64_t WalletImpl::balance() const
 {

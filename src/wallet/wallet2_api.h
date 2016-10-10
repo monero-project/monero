@@ -226,6 +226,13 @@ struct Wallet
     */
     virtual void setRefreshFromBlockHeight(uint64_t refresh_from_block_height) = 0;
 
+   /*!
+    * \brief setRecoveringFromSeed - set state recover form seed
+    *
+    * \param recoveringFromSeed - true/false
+    */
+    virtual void setRecoveringFromSeed(bool recoveringFromSeed) = 0;
+
     /**
      * @brief connectToDaemon - connects to the daemon. TODO: check if it can be removed
      * @return
