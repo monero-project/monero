@@ -141,7 +141,7 @@ namespace cryptonote
       * @note see Blockchain::cleanup_handle_incoming_blocks
       */
      bool cleanup_handle_incoming_blocks(bool force_sync = false);
-     	     	
+
      /**
       * @brief check the size of a block against the current maximum
       *
@@ -599,6 +599,13 @@ namespace cryptonote
       * @return the number of blocks to sync in one go
       */
      size_t get_block_sync_size() const { return block_sync_size; }
+
+     /**
+      * @brief get the sum of coinbase tx amounts between blocks
+      *
+      * @return the number of blocks to sync in one go
+      */
+     uint64_t get_coinbase_tx_sum(const uint64_t start_height, const uint64_t end_height);
 
    private:
 

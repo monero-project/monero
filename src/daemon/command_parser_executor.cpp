@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2016, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -137,7 +137,7 @@ bool t_command_parser_executor::set_log_level(const std::vector<std::string>& ar
   return m_executor.set_log_level(l);
 }
 
-bool t_command_parser_executor::print_height(const std::vector<std::string>& args) 
+bool t_command_parser_executor::print_height(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
@@ -339,17 +339,17 @@ bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& a
 bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)
 {
 	if (args.empty()) return false;
-	
+
 	unsigned int limit;
 	try {
 		limit = std::stoi(args[0]);
 	}
-	  
+
 	catch(std::invalid_argument& ex) {
 		_erro("stoi exception");
 		return false;
 	}
-	
+
 	return m_executor.out_peers(limit);
 }
 
@@ -452,5 +452,27 @@ bool t_command_parser_executor::output_histogram(const std::vector<std::string>&
   return m_executor.output_histogram(min_count, max_count);
 }
 
+bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::string>& args)
+{
+  if(!args.size())
+  {
+    std::cout << "need block index parameter" << std::endl;
+    return false;
+  }
+  uint64_t start_index = 0;
+  uint64_t end_index = 0;
+  if(!epee::string_tools::get_xtype_from_string(start_index, args[0]))
+  {
+    std::cout << "wrong starter block index parameter" << std::endl;
+    return false;
+  }
+  if(args.size() >1 && !epee::string_tools::get_xtype_from_string(end_index, args[1]))
+  {
+    std::cout << "wrong end block index parameter" << std::endl;
+    return false;
+  }
+
+  return m_executor.print_coinbase_tx_sum(start_index, end_index);
+}
 
 } // namespace daemonize

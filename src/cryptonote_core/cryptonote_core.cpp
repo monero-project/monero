@@ -616,6 +616,20 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_coinbase_tx_sum(const uint64_t start_height, const uint64_t end_height)
+  {
+    std::list<block> blocks;
+    uint64_t coinbase_tx_sum = 0;
+    uint64_t current_index = start_height;
+    this->get_blocks(start_height, end_height - start_height, blocks);
+    BOOST_FOREACH(auto& b, blocks)
+    {
+        coinbase_tx_sum += get_outs_money_amount(b.miner_tx);
+    }
+
+    return coinbase_tx_sum;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx) const
   {
     std::unordered_set<crypto::key_image> ki;
