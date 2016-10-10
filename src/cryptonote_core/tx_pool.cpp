@@ -42,6 +42,7 @@
 #include "common/int-util.h"
 #include "misc_language.h"
 #include "warnings.h"
+#include "common/perf_timer.h"
 #include "crypto/hash.h"
 
 DISABLE_VS_WARNINGS(4244 4345 4503) //'boost::foreach_detail_::or_' : decorated name length exceeded, name was truncated
@@ -78,6 +79,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
   {
+    PERF_TIMER(add_tx);
     if (tx.version == 0)
     {
       // v0 never accepted
