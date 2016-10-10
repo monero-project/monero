@@ -1231,12 +1231,12 @@ namespace cryptonote
   {
     struct request
     {
-      uint64_t start_height;
-      uint64_t end_height;
+      uint64_t height;
+      uint64_t count;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(start_height);
-        KV_SERIALIZE(end_height);
+        KV_SERIALIZE(height);
+        KV_SERIALIZE(count);
       END_KV_SERIALIZE_MAP()
     };
 

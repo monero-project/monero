@@ -456,23 +456,23 @@ bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::str
 {
   if(!args.size())
   {
-    std::cout << "need block index parameter" << std::endl;
+    std::cout << "need block height parameter" << std::endl;
     return false;
   }
-  uint64_t start_index = 0;
-  uint64_t end_index = 0;
-  if(!epee::string_tools::get_xtype_from_string(start_index, args[0]))
+  uint64_t height = 0;
+  uint64_t count = 0;
+  if(!epee::string_tools::get_xtype_from_string(height, args[0]))
   {
-    std::cout << "wrong starter block index parameter" << std::endl;
+    std::cout << "wrong starter block height parameter" << std::endl;
     return false;
   }
-  if(args.size() >1 && !epee::string_tools::get_xtype_from_string(end_index, args[1]))
+  if(args.size() >1 && !epee::string_tools::get_xtype_from_string(count, args[1]))
   {
-    std::cout << "wrong end block index parameter" << std::endl;
+    std::cout << "wrong count parameter" << std::endl;
     return false;
   }
 
-  return m_executor.print_coinbase_tx_sum(start_index, end_index);
+  return m_executor.print_coinbase_tx_sum(height, count);
 }
 
 } // namespace daemonize

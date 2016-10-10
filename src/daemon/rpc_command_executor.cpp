@@ -1270,14 +1270,14 @@ bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_c
     return true;
 }
 
-bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t start_block_index, uint64_t end_block_index)
+bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t count)
 {
   cryptonote::COMMAND_RPC_GET_COINBASE_TX_SUM::request req;
   cryptonote::COMMAND_RPC_GET_COINBASE_TX_SUM::response res;
   epee::json_rpc::error error_resp;
 
-  req.start_height = start_block_index;
-  req.end_height = end_block_index;
+  req.height = height;
+  req.count = count;
 
   std::string fail_message = "Unsuccessful";
 
@@ -1297,8 +1297,8 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t start_block_index, u
     }
   }
 
-  tools::msg_writer() << "Sum of coinbase transactions between block indexes "
-    << start_block_index << " and " << end_block_index << " (inclusive) is "
+  tools::msg_writer() << "Sum of coinbase transactions between block heights ["
+    << height << ", " << (height + count) << ") is "
     << cryptonote::print_money(res.amount);
   return true;
 }

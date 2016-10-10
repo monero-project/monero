@@ -605,7 +605,7 @@ namespace cryptonote
       *
       * @return the number of blocks to sync in one go
       */
-     uint64_t get_coinbase_tx_sum(const uint64_t start_height, const uint64_t end_height);
+     uint64_t get_coinbase_tx_sum(const uint64_t start_offset, const uint64_t count);
 
    private:
 

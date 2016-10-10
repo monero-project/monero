@@ -134,7 +134,7 @@ public:
 
   bool output_histogram(uint64_t min_count, uint64_t max_count);
 
-  bool print_coinbase_tx_sum(uint64_t start_block_index, uint64_t end_block_index);
+  bool print_coinbase_tx_sum(uint64_t height, uint64_t count);
 };
 
 } // namespace daemonize

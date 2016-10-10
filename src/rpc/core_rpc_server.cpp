@@ -1268,7 +1268,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_coinbase_tx_sum(const COMMAND_RPC_GET_COINBASE_TX_SUM::request& req, COMMAND_RPC_GET_COINBASE_TX_SUM::response& res, epee::json_rpc::error& error_resp)
   {
-    res.amount = m_core.get_coinbase_tx_sum(req.start_height, req.end_height);
+    res.amount = m_core.get_coinbase_tx_sum(req.height, req.count);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

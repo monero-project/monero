@@ -616,12 +616,12 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  uint64_t core::get_coinbase_tx_sum(const uint64_t start_height, const uint64_t end_height)
+  uint64_t core::get_coinbase_tx_sum(const uint64_t start_offset, const uint64_t count)
   {
     std::list<block> blocks;
     uint64_t coinbase_tx_sum = 0;
-    uint64_t current_index = start_height;
-    this->get_blocks(start_height, end_height - start_height, blocks);
+    uint64_t current_index = start_offset;
+    this->get_blocks(start_offset, count, blocks);
     BOOST_FOREACH(auto& b, blocks)
     {
         coinbase_tx_sum += get_outs_money_amount(b.miner_tx);
