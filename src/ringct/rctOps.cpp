@@ -367,7 +367,7 @@ namespace rct {
     //cn_fast_hash for multisig purpose
     //This takes the outputs and commitments
     //and hashes them into a 32 byte sized key
-    key cn_fast_hash(ctkeyV PC) {
+    key cn_fast_hash(const ctkeyV &PC) {
         key rv = identity();
         std::size_t l = (std::size_t)PC.size();
         size_t i = 0, j = 0;
@@ -380,7 +380,7 @@ namespace rct {
         return rv;
     }
     
-    key hash_to_scalar(ctkeyV PC) {
+    key hash_to_scalar(const ctkeyV &PC) {
         key rv = cn_fast_hash(PC);
         sc_reduce32(rv.bytes);
         return rv;
