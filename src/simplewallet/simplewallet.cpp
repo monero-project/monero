@@ -873,65 +873,79 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::ask_wallet_create_if_needed()
 {
+  LOG_PRINT_L3("simple_wallet::ask_wallet_create_if_needed() started");
   std::string wallet_path;
-
-  bool valid_path = false;
-  do {
-    wallet_path = command_line::input_line(
-        tr("Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
-        "Wallet file name: ")
-    );
-    if (std::cin.eof())
-    {
-      return false;
-    }
-    valid_path = tools::wallet2::wallet_valid_path_format(wallet_path);
-    if (!valid_path)
-    {
-      fail_msg_writer() << tr("wallet file path not valid: ") << wallet_path;
-    }
-  }
-  while (!valid_path);
-
+  std::string confirm_creation;
+  bool wallet_name_valid = false;
   bool keys_file_exists;
   bool wallet_file_exists;
-  tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exists);
-  LOG_PRINT_L3("wallet_path: " << wallet_path << "");
-  LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
-    << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
 
-  LOG_PRINT_L1("Loading wallet...");
+  do{
+      LOG_PRINT_L3("User asked to specify wallet file name.");
+      wallet_path = command_line::input_line(
+      tr("Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
+         "Wallet file name (or Ctrl-C to quit): ")
+      );
+      if(std::cin.eof())
+      {
+        LOG_ERROR("Unexpected std::cin.eof() - Exited simple_wallet::ask_wallet_create_if_needed()");
+        return false;
+      }
+      if(!tools::wallet2::wallet_valid_path_format(wallet_path))
+      {
+        fail_msg_writer() << tr("Wallet name not valid. Please try again or use Ctrl-C to quit.");
+        wallet_name_valid = false;
+      }
+      else
+      {
+        tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exists);
+        LOG_PRINT_L3("wallet_path: " << wallet_path << "");
+        LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
+        << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
 
-  // add logic to error out if new wallet requested but named wallet file exists
-  if (keys_file_exists || wallet_file_exists)
-  {
-    if (!m_generate_new.empty() || m_restoring)
-    {
-      fail_msg_writer() << tr("attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.");
-      return false;
-    }
-  }
+        if((keys_file_exists || wallet_file_exists) && (!m_generate_new.empty() || m_restoring))
+        {
+          fail_msg_writer() << tr("Attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.");
+          return false;
+        }
+        if(wallet_file_exists && keys_file_exists) //Yes wallet, yes keys
+        {
+          success_msg_writer() << tr("Wallet and key files found, loading...");
+          m_wallet_file = wallet_path;
+          return true;
+        }
+        else if(!wallet_file_exists && keys_file_exists) //No wallet, yes keys
+        {
+          success_msg_writer() << tr("Key file found but not wallet file. Regenerating...");
+          m_wallet_file = wallet_path;
+          return true;
+        }
+        else if(wallet_file_exists && !keys_file_exists) //Yes wallet, no keys
+        {
+          fail_msg_writer() << tr("Key file not found. Failed to open wallet: ") << "\"" << wallet_path << "\". Exiting.";
+          return false;
+        }
+        else if(!wallet_file_exists && !keys_file_exists) //No wallet, no keys
+        {
+          message_writer() << tr("No wallet/key file found with that name. Confirm creation of new wallet named: ") << wallet_path;
+          confirm_creation = command_line::input_line(tr("(y)es/(n)o: "));
+          if(std::cin.eof())
+          {
+            LOG_ERROR("Unexpected std::cin.eof() - Exited simple_wallet::ask_wallet_create_if_needed()");
+            return false;
+          }
+          if(is_it_true(confirm_creation))
+          {
+            success_msg_writer() << tr("Generating new wallet...");
+            m_generate_new = wallet_path;
+            return true;
+          }
+        }
+      }
+    } while(!wallet_name_valid);
 
-  bool r;
-  if(keys_file_exists)
-  {
-    m_wallet_file=wallet_path;
-    r = true;
-  }else
-  {
-    if(!wallet_file_exists)
-    {
-      std::cout << tr("The wallet doesn't exist, generating new one") << std::endl;
-      m_generate_new = wallet_path;
-      r = true;
-    }else
-    {
-      fail_msg_writer() << tr("keys file not found: failed to open wallet: ") << "\"" << wallet_path << "\".";
-      r = false;
-    }
-  }
-
-  return r;
+  LOG_ERROR("Failed out of do-while loop in ask_wallet_create_if_needed()");
+  return false;
 }
 
 /*!
