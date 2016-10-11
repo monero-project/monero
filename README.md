@@ -57,6 +57,20 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 See [LICENSE](LICENSE).
 
+## Monero software updates and consensus protocol changes (hard forking)
+
+Monero uses a hardforking mechanism to implement new features which requires that 
+users of Monero software run current versions and update their software on a 
+regular schedule. Here is the current schedule, versions, and compatability.
+Dates are provided in the format YYYYMMDD. 
+
+
+| Date              | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
+| ----------------- | ----------------- | ---------------------- | -------------------------- | ------------------ |
+| 2016-09-21        | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
+| 2017-01-05        | v4                | v0.9.4                 | v0.10.0                    | Allow normal and RingCT transactions | 
+| 2017-09-21        | v5                | v0.10.0                | v0.10.0                    | Allow only RingCT transactions      |
+
 ## Installing Monero from a Package
 
 Packages are available for
