@@ -43,7 +43,7 @@ namespace rct {
     //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
     //These are called in the below ASNL sig generation    
     
-    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, int index) {
+    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, unsigned int index) {
         key c1, c2, L2;
         key a = skGen();
         if (index == 0) {
@@ -95,7 +95,7 @@ namespace rct {
         asnlSig rv;
         rv.s = zero();
         for (j = 0; j < ATOMS; j++) {
-            GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], (int)indices[j]);
+            GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], indices[j]);
             sc_add(rv.s.bytes, rv.s.bytes, s1[j].bytes);
         }
         return rv;
