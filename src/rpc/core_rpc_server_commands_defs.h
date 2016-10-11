@@ -1226,5 +1226,31 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
-}
 
+  struct COMMAND_RPC_GET_COINBASE_TX_SUM
+  {
+    struct request
+    {
+      uint64_t height;
+      uint64_t count;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height);
+        KV_SERIALIZE(count);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t emission_amount;
+      uint64_t fee_amount;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(emission_amount)
+        KV_SERIALIZE(fee_amount)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+}

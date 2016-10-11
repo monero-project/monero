@@ -1270,5 +1270,40 @@ bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_c
     return true;
 }
 
+bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t count)
+{
+  cryptonote::COMMAND_RPC_GET_COINBASE_TX_SUM::request req;
+  cryptonote::COMMAND_RPC_GET_COINBASE_TX_SUM::response res;
+  epee::json_rpc::error error_resp;
+
+  req.height = height;
+  req.count = count;
+
+  std::string fail_message = "Unsuccessful";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->json_rpc_request(req, res, "get_coinbase_tx_sum", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_coinbase_tx_sum(req, res, error_resp))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  tools::msg_writer() << "Sum of coinbase transactions between block heights ["
+    << height << ", " << (height + count) << ") is "
+    << cryptonote::print_money(res.emission_amount + res.fee_amount) << " "
+    << "consisting of " << cryptonote::print_money(res.emission_amount) 
+    << " in emissions, and " << cryptonote::print_money(res.fee_amount) << " in fees";
+  return true;
+}
+
 
 }// namespace daemonize

@@ -600,6 +600,13 @@ namespace cryptonote
       */
      size_t get_block_sync_size() const { return block_sync_size; }
 
+     /**
+      * @brief get the sum of coinbase tx amounts between blocks
+      *
+      * @return the number of blocks to sync in one go
+      */
+     std::pair<uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const uint64_t count);
+
    private:
 
      /**

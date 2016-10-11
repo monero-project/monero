@@ -452,5 +452,27 @@ bool t_command_parser_executor::output_histogram(const std::vector<std::string>&
   return m_executor.output_histogram(min_count, max_count);
 }
 
+bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::string>& args)
+{
+  if(!args.size())
+  {
+    std::cout << "need block height parameter" << std::endl;
+    return false;
+  }
+  uint64_t height = 0;
+  uint64_t count = 0;
+  if(!epee::string_tools::get_xtype_from_string(height, args[0]))
+  {
+    std::cout << "wrong starter block height parameter" << std::endl;
+    return false;
+  }
+  if(args.size() >1 && !epee::string_tools::get_xtype_from_string(count, args[1]))
+  {
+    std::cout << "wrong count parameter" << std::endl;
+    return false;
+  }
+
+  return m_executor.print_coinbase_tx_sum(height, count);
+}
 
 } // namespace daemonize

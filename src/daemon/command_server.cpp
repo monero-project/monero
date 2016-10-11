@@ -215,6 +215,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::output_histogram, &m_parser, p::_1)
     , "Print output histogram (amount, instances)"
     );
+    m_command_lookup.set_handler(
+      "print_coinbase_tx_sum"
+    , std::bind(&t_command_parser_executor::print_coinbase_tx_sum, &m_parser, p::_1)
+    , "Print sum of coinbase transactions (start height, block count)"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)
