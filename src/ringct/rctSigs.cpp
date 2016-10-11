@@ -29,6 +29,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "misc_log_ex.h"
+#include "common/perf_timer.h"
 #include "rctSigs.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
@@ -107,6 +108,7 @@ namespace rct {
     //   an x[i] such that x[i]G = one of P1[i] or P2[i]
     // Ver Verifies the signer knows a key for one of P1[i], P2[i] at each i    
     bool VerASNL(const key64 P1, const key64 P2, const asnlSig &as) {
+        PERF_TIMER(VerASNL);
         DP("Verifying Aggregate Schnorr Non-linkable Ring Signature\n");
         key LHS = identity();
         key RHS = scalarmultBase(as.s);
@@ -331,6 +333,7 @@ namespace rct {
     //   mask is a such that C = aG + bH, and b = amount
     //verRange verifies that \sum Ci = C and that each Ci is a commitment to 0 or 2^i
     bool verRange(const key & C, const rangeSig & as) {
+        PERF_TIMER(verRange);
         key64 CiH;
         int i = 0;
         key Ctmp = identity();
@@ -467,6 +470,7 @@ namespace rct {
     //Ver:    
     //   verifies the above sig is created corretly
     bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey, const key &message) {
+        PERF_TIMER(verRctMG);
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_MES(cols >= 1, false, "Empty pubs");
@@ -505,6 +509,7 @@ namespace rct {
     //This does a simplified version, assuming only post Rct
     //inputs
     bool verRctMGSimple(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C) {
+            PERF_TIMER(verRctMGSimple);
             //setup vars
             size_t rows = 1;
             size_t cols = pubs.size();
@@ -729,6 +734,7 @@ namespace rct {
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     bool verRct(const rctSig & rv) {
+        PERF_TIMER(verRct);
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "verRct called on non-full rctSig");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
@@ -769,6 +775,7 @@ namespace rct {
     //ver RingCT simple
     //assumes only post-rct style inputs (at least for max anonymity)
     bool verRctSimple(const rctSig & rv) {
+        PERF_TIMER(verRctSimple);
         size_t i = 0;
 
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");

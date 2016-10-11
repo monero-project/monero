@@ -52,6 +52,7 @@
 #include "cryptonote_core/checkpoints.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "ringct/rctSigs.h"
+#include "common/perf_timer.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -2245,6 +2246,7 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
 }
 bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys)
 {
+  PERF_TIMER(expand_transaction_2);
   CHECK_AND_ASSERT_MES(tx.version == 2, false, "Transaction version is not 2");
 
   rct::rctSig &rv = tx.rct_signatures;
@@ -2321,6 +2323,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
 //        using threads, etc.)
 bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height)
 {
+  PERF_TIMER(check_tx_inputs);
   LOG_PRINT_L3("Blockchain::" << __func__);
   size_t sig_index = 0;
   if(pmax_used_block_height)
