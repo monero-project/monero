@@ -256,4 +256,50 @@ namespace cryptonote
     };
   };  
 
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  struct NOTIFY_REQUEST_FLUFFY_MISSING_TX
+  {
+    const static int ID = BC_COMMANDS_POOL_BASE + 9;
+
+    struct request
+    {
+      block_fluffy_entry b;
+      std::list<crypto::hash> missing_tx_hashes;
+      uint32_t hop;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(b)
+        KV_SERIALIZE(missing_tx_hashes)
+        KV_SERIALIZE(hop)        
+      END_KV_SERIALIZE_MAP()
+    };
+  }; 
+  
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/  
+  struct NOTIFY_RESPONSE_FLUFFY_MISSING_TX
+  {
+    const static int ID = BC_COMMANDS_POOL_BASE + 10;
+  
+    struct request
+    {
+      std::list<blobdata> txs;
+      block_fluffy_entry b;
+      std::list<crypto::hash> missed_ids;
+      uint64_t current_blockchain_height;
+      uint32_t hop;
+        
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txs)
+        KV_SERIALIZE(b)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(missed_ids)
+        KV_SERIALIZE(current_blockchain_height)
+        KV_SERIALIZE(hop)        
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+    
 }
