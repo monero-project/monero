@@ -605,7 +605,7 @@ namespace cryptonote
       *
       * @return the number of blocks to sync in one go
       */
-     std::pair<uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const uint64_t count);
+     std::pair<uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
 
    private:
 
