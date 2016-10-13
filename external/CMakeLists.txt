@@ -34,6 +34,7 @@
 # We always compile if we are building statically to reduce static dependency issues...
 # ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
 # others.
+cmake_minimum_required(VERSION 2.8.7)
 
 find_package(Miniupnpc QUIET)
 

@@ -28,6 +28,9 @@
 #
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+cmake_minimum_required(VERSION 2.8.7)
+cmake_policy(SET CMP0046 NEW)
+
 if (WIN32 OR STATIC)
   add_definitions(-DSTATICLIB)
   # miniupnp changed their static define
@@ -116,3 +119,23 @@ add_subdirectory(blockchain_utilities)
 if(PER_BLOCK_CHECKPOINT)
   add_subdirectory(blocks)
 endif()
+
+add_dependencies(crypto obj_crypto version)
+add_dependencies(obj_common crypto)
+add_dependencies(common obj_common version)
+add_dependencies(obj_ringct crypto common)
+add_dependencies(ringct obj_ringct version)
+add_dependencies(obj_blockchain_db lmdb common crypto)
+add_dependencies(blockchain_db obj_blockchain_db version)
+add_dependencies(obj_cryptonote_core ringct otshell_utils blockchain_db)
+add_dependencies(cryptonote_core obj_cryptonote_core version)
+add_dependencies(p2p obj_p2p cryptonote_core version)
+add_dependencies(obj_cryptonote_protocol cryptonote_core version)
+add_dependencies(obj_rpc cryptonote_core version)
+add_dependencies(rpc obj_rpc)
+add_dependencies(mnemonics obj_mnemonics version)
+add_dependencies(obj_wallet mnemonics cryptonote_core p2p)
+add_dependencies(wallet obj_wallet version)
+add_dependencies(daemonizer obj_daemonizer version)
+add_dependencies(daemon daemonizer rpc p2p blockchain_db obj_cryptonote_protocol version)
+add_dependencies(simplewallet wallet cryptonote_protocol mnemonics version)

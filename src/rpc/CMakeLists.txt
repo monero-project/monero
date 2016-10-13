@@ -49,5 +49,4 @@ target_link_libraries(rpc
     ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
-add_dependencies(rpc
-  version)
+
