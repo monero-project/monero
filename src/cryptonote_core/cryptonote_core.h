@@ -379,6 +379,13 @@ namespace cryptonote
       * @note see tx_memory_pool::get_transactions
       */
      bool get_pool_transactions(std::list<transaction>& txs) const;
+     
+     /**
+      * @copydoc tx_memory_pool::get_transaction
+      *
+      * @note see tx_memory_pool::get_transaction
+      */
+     bool get_pool_transaction(const crypto::hash& id, transaction& tx) const;     
 
      /**
       * @copydoc tx_memory_pool::get_pool_transactions_and_spent_keys_info

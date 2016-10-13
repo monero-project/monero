@@ -915,6 +915,11 @@ namespace cryptonote
     m_mempool.get_transactions(txs);
     return true;
   }
+  //-----------------------------------------------------------------------------------------------  
+  bool core::get_pool_transaction(const crypto::hash &id, transaction& tx) const
+  {
+    return m_mempool.get_transaction(id, tx);
+  }  
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
   {

@@ -361,6 +361,72 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
+  {
+    LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_FLUFFY_BLOCK (hop " << arg.hop << ")");
+    if(context.m_state == cryptonote_connection_context::state_normal)
+    {
+      m_core.pause_mine();
+      
+      block new_block;
+      if(parse_and_validate_block_from_blob(arg.b.block, new_block))
+      {
+        if(block.tx_hashes.length == 1) // empty block, coinbase tx only
+        {
+          
+        }
+        else // O.O more than 1 tx, XMR movin up in the world!!
+        {
+          std::list<blobdata> have_tx;
+          std::list<crypto::hash> need_tx_hashes;
+          
+          transaction tx;
+          BOOST_FOREACH(auto& tx_hash, new_block.tx_hashes)
+          {
+            if(m_core.get_pool_transaction(tx_hash, tx))
+            {
+              have_tx.push_back(tx_to_blob(tx));
+            }
+            else
+            {
+              need_tx_hashes.push_back(tx_hash);
+            }
+          }
+          
+          if(need_tx_hashes.length > 0) // drats, we don't have everything..
+          {
+            // request non-mempool txs
+            NOTIFY_REQUEST_GET_OBJECTS::request need_tx_req;
+            BOOST_FOREACH(auto& tx_hash, need_tx_hashes)
+            {
+              need_tx_req.txs.push_back(tx_hash);
+            }
+                    
+            post_notify<NOTIFY_REQUEST_GET_OBJECTS>(req, context);
+          }
+          else
+          {
+            
+          }
+        }        
+      } 
+      else
+      {
+        LOG_ERROR_CCONTEXT
+        (
+          "sent wrong block: failed to parse and validate block: \r\n"
+          << epee::string_tools::buff_to_hex_nodelimer(arg.b.block) 
+          << "\r\n dropping connection"
+        );
+          
+        m_p2p->drop_connection(context);        
+      }
+    }
+    
+    return 1;
+  }  
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)
   {
     LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_TRANSACTIONS");
@@ -479,48 +545,74 @@ namespace cryptonote
 
     context.m_remote_blockchain_height = arg.current_blockchain_height;
 
-    size_t count = 0;
-    BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
+    // fluffy block missing tx request ..
+    if(arg.blocks == null || arg.blocks.length == 0) 
     {
-      ++count;
-      block b;
-      if(!parse_and_validate_block_from_blob(block_entry.block, b))
+      BOOST_FOREACH(auto& tx_blob, arg.txs)
       {
-        LOG_ERROR_CCONTEXT("sent wrong block: failed to parse and validate block: \r\n"
-          << epee::string_tools::buff_to_hex_nodelimer(block_entry.block) << "\r\n dropping connection");
-        m_p2p->drop_connection(context);
-        return 1;
-      }
-      //to avoid concurrency in core between connections, suspend connections which delivered block later then first one
-      if(count == 2)
-      {
-        if(m_core.have_block(get_block_hash(b)))
+        tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+        m_core.handle_incoming_tx(tx_blob, tvc, true, true);
+        if(tvc.m_verifivation_failed)
         {
-          context.m_state = cryptonote_connection_context::state_idle;
-          context.m_needed_objects.clear();
-          context.m_requested_objects.clear();
-          LOG_PRINT_CCONTEXT_L1("Connection set to idle state.");
+          LOG_ERROR_CCONTEXT
+          (
+              "transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, \r\ntx_id = "
+              << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)) 
+              << ", dropping connection"
+          );
+          
+          m_p2p->drop_connection(context);
+          m_core.cleanup_handle_incoming_blocks();
+          
           return 1;
         }
-      }
-
-      auto req_it = context.m_requested_objects.find(get_block_hash(b));
-      if(req_it == context.m_requested_objects.end())
+      }      
+    }
+    else
+    {
+      size_t count = 0;
+      BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
       {
-        LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
-          << " wasn't requested, dropping connection");
-        m_p2p->drop_connection(context);
-        return 1;
-      }
-      if(b.tx_hashes.size() != block_entry.txs.size())
-      {
-        LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
-          << ", tx_hashes.size()=" << b.tx_hashes.size() << " mismatch with block_complete_entry.m_txs.size()=" << block_entry.txs.size() << ", dropping connection");
-        m_p2p->drop_connection(context);
-        return 1;
-      }
+        ++count;
+        block b;
+        if(!parse_and_validate_block_from_blob(block_entry.block, b))
+        {
+          LOG_ERROR_CCONTEXT("sent wrong block: failed to parse and validate block: \r\n"
+            << epee::string_tools::buff_to_hex_nodelimer(block_entry.block) << "\r\n dropping connection");
+          m_p2p->drop_connection(context);
+          return 1;
+        }
+        //to avoid concurrency in core between connections, suspend connections which delivered block later then first one
+        if(count == 2)
+        {
+          if(m_core.have_block(get_block_hash(b)))
+          {
+            context.m_state = cryptonote_connection_context::state_idle;
+            context.m_needed_objects.clear();
+            context.m_requested_objects.clear();
+            LOG_PRINT_CCONTEXT_L1("Connection set to idle state.");
+            return 1;
+          }
+        }
 
-      context.m_requested_objects.erase(req_it);
+        auto req_it = context.m_requested_objects.find(get_block_hash(b));
+        if(req_it == context.m_requested_objects.end())
+        {
+          LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
+            << " wasn't requested, dropping connection");
+          m_p2p->drop_connection(context);
+          return 1;
+        }
+        if(b.tx_hashes.size() != block_entry.txs.size())
+        {
+          LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
+            << ", tx_hashes.size()=" << b.tx_hashes.size() << " mismatch with block_complete_entry.m_txs.size()=" << block_entry.txs.size() << ", dropping connection");
+          m_p2p->drop_connection(context);
+          return 1;
+        }
+
+        context.m_requested_objects.erase(req_it);
+      }
     }
 
     if(context.m_requested_objects.size())
@@ -775,6 +867,12 @@ namespace cryptonote
   bool t_cryptonote_protocol_handler<t_core>::relay_block(NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
   {
     return relay_post_notify<NOTIFY_NEW_BLOCK>(arg, exclude_context);
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::relay_fluffy_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
+  {
+    return relay_post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(arg, exclude_context);
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
