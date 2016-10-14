@@ -370,41 +370,64 @@ namespace cryptonote
       
       block new_block;
       transaction miner_tx;
-      bool block_parse_succeeded = parse_and_validate_block_from_blob(arg.b.block, new_block);
-      bool miner_tx_parse_succeeded = parse_and_validate_tx_from_blob(arg.miner_tx, miner_tx);
       
-      if(block_parse_succeeded && miner_tx_parse_succeeded)
+      if(parse_and_validate_block_from_blob(arg.b.block, new_block))
       {
-        crypto::hash miner_tx_hash; = get_transaction_hash(miner_tx);
         std::list<blobdata> have_tx;
         std::list<crypto::hash> need_tx_hashes;
         
         transaction tx;
+        BOOST_FOREACH(auto& tx_blob, arg.b.txs)
+        {
+          if(parse_and_validate_tx_from_blob(tx_blob, tx))
+          {
+            cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+            m_core.handle_incoming_tx(tx_blob, tvc, true, true);
+            if(tvc.m_verifivation_failed)
+            {
+              LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
+              m_p2p->drop_connection(context);
+              m_core.resume_mine();
+              return 1;
+            }
+          }
+          else
+          {
+            LOG_ERROR_CCONTEXT
+            (
+              "sent wrong tx: failed to parse and validate transaction: \r\n"
+              << epee::string_tools::buff_to_hex_nodelimer(tx_blob) 
+              << "\r\n dropping connection"
+            );
+            
+            m_p2p->drop_connection(context);
+            m_core.resume_mine();
+            return 1;
+          }
+        }
+        
         BOOST_FOREACH(auto& tx_hash, new_block.tx_hashes)
         {
-          if(m_core.get_pool_transaction(tx_hash, tx) || tx_hash == miner_tx_hash)
+          if(m_core.get_pool_transaction(tx_hash, tx))
           {
-            if(tx_hash == miner_tx_hash) 
-              have_tx.push_back(tx_to_blob(miner_tx));
-            else
               have_tx.push_back(tx_to_blob(tx));
           }
           else
           {
-            need_tx_hashes.push_back(tx_hash);
+            need_tx_hashes.push_back(tx_hash); 
           }
         }
         
-        if(need_tx_hashes.length > 0) // drats, we don't have everything..
+        if(need_tx_hashes.size() > 0) // drats, we don't have everything..
         {
           // request non-mempool txs
-          NOTIFY_REQUEST_GET_OBJECTS::request need_tx_req;
+          NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
           BOOST_FOREACH(auto& tx_hash, need_tx_hashes)
           {
-            need_tx_req.txs.push_back(tx_hash);
+            missing_tx_req.missing_tx_hashes.push_back(tx_hash);
           }
                   
-          post_notify<NOTIFY_REQUEST_GET_OBJECTS>(req, context);
+          post_notify<NOTIFY_REQUEST_FLUFFY_MISSING_TX>(missing_tx_req, context);
         }
         else // whoo-hoo we've got em all ..
         {
@@ -458,26 +481,14 @@ namespace cryptonote
       } 
       else
       {
-        if(!block_parse_succeeded)
-        {
-          LOG_ERROR_CCONTEXT
-          (
-            "sent wrong block: failed to parse and validate block: \r\n"
-            << epee::string_tools::buff_to_hex_nodelimer(arg.b.block) 
-            << "\r\n dropping connection"
-          );
-        }
+        LOG_ERROR_CCONTEXT
+        (
+          "sent wrong block: failed to parse and validate block: \r\n"
+          << epee::string_tools::buff_to_hex_nodelimer(arg.b.block) 
+          << "\r\n dropping connection"
+        );
         
-        if(!miner_tx_parse_succeeded)
-        {
-          LOG_ERROR_CCONTEXT
-          (
-            "sent wrong miner tx: failed to parse and validate transaction: \r\n"
-            << epee::string_tools::buff_to_hex_nodelimer(arg.miner_tx) 
-            << "\r\n dropping connection"
-          );
-        }
-          
+        m_core.resume_mine();
         m_p2p->drop_connection(context);        
       }
     }
@@ -489,125 +500,35 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context)
   {
     LOG_PRINT_CCONTEXT_L2("NOTIFY_REQUEST_FLUFFY_MISSING_TX");
-    NOTIFY_RESPONSE_GET_OBJECTS::request rsp;
-    if(!m_core.handle_get_objects(arg, rsp, context))
+
+    std::list<crypto::hash> missed_txs;     
+    std::list<transaction> txs;
+    //std::vector<crypto::hash> tx_ids { std::make_move_iterator(std::begin(arg.missing_tx_hashes)), std::make_move_iterator(std::end(arg.missing_tx_hashes)) };
+                                 
+    if(!m_core.get_transactions(arg.missing_tx_hashes, txs, missed_txs) || missed_txs.size() > 0)
     {
-      LOG_ERROR_CCONTEXT("failed to handle request NOTIFY_REQUEST_GET_OBJECTS, dropping connection");
+      LOG_ERROR_CCONTEXT("failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, dropping connection");
       m_p2p->drop_connection(context);
     }
     
+    NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
+    fluffy_response.b = arg.b;
+    fluffy_response.current_blockchain_height = m_core.get_current_blockchain_height();
+    BOOST_FOREACH(auto& tx,  txs)
+      fluffy_response.b.txs.push_back(t_serializable_object_to_blob(tx));        
+        
     LOG_PRINT_CCONTEXT_L2
     (
-        "-->>NOTIFY_RESPONSE_GET_OBJECTS: blocks.size()=" << rsp.blocks.size() 
-        << ", txs.size()=" << rsp.txs.size()
-        << ", rsp.m_current_blockchain_height=" << rsp.current_blockchain_height 
-        << ", missed_ids.size()=" << rsp.missed_ids.size()
+        "-->>NOTIFY_RESPONSE_FLUFFY_MISSING_TX: " 
+        << ", txs.size()=" << fluffy_response.b.txs.size()
+        << ", rsp.m_current_blockchain_height=" << fluffy_response.current_blockchain_height 
+        << ", missed_ids.size()=" << missed_txs.size()
     );
-    
-    NOTIFY_RESPONSE_FLUFFY_MISSING_TX::request act_rsp;
-    act_rsp.txs = rsp.txs;
-    act_rsp.b = arg.b;
-    act_rsp.missed_ids = rsp.missed_ids;
-    act_rsp.current_blockchain_height = rsp.blockchain_height;
-       
-    post_notify<NOTIFY_RESPONSE_FLUFFY_MISSING_TX>(act_rsp, context);
+           
+    post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(fluffy_response, context);
     
     return 1;        
   }
-  //------------------------------------------------------------------------------------------------------------------------  
-  template<class t_core>
-  int t_cryptonote_protocol_handler<t_core>::handle_response_fluffy_missing_tx(int command, NOTIFY_RESPONSE_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context)
-  {
-    LOG_PRINT_CCONTEXT_L2("NOTIFY_RESPONSE_FLUFFY_MISSING_TX");  
-    
-    if(context.m_last_response_height > arg.current_blockchain_height)
-    {
-      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: arg.m_current_blockchain_height=" << arg.current_blockchain_height
-        << " < m_last_response_height=" << context.m_last_response_height << ", dropping connection");
-      m_p2p->drop_connection(context);
-      return 1;
-    }
-
-    context.m_remote_blockchain_height = arg.current_blockchain_height;
-
-    size_t count = 0;
-    transaction tx;
-    for(auto tx_blob_it = arg.txs.begin(); tx_blob_it != arg.txs.end();)    
-    {
-      if(parse_and_validate_tx_from_blob(*tx_blob_it, tx))
-      {
-        auto req_it = context.m_requested_objects.find(get_transaction_hash(tx));
-        if(req_it == context.m_requested_objects.end())
-        {
-          LOG_ERROR_CCONTEXT
-          (
-              "sent wrong NOTIFY_RESPONSE_FLUFFY_MISSING_TX: tx with id=" 
-              << epee::string_tools::pod_to_hex(get_blob_hash(*tx_blob_it))
-              << " wasn't requested, dropping connection");
-          
-          m_p2p->drop_connection(context);
-          return 1;
-        }
-        else
-        {
-          tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-          m_core.handle_incoming_tx(*tx_blob_it, tvc, true, true);
-          if(tvc.m_verifivation_failed)
-          {
-            LOG_ERROR_CCONTEXT
-            (
-                "transaction verification failed on NOTIFY_RESPONSE_FLUFFY_MISSING_TX, \r\ntx_id = "
-                << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)) 
-                << ", dropping connection"
-            );
-            
-            m_p2p->drop_connection(context);
-            m_core.cleanup_handle_incoming_blocks();
-            
-            return 1;
-          }
-          
-          context.m_requested_objects.erase(req_it);
-        }
-      }
-      else
-      {
-        LOG_ERROR_CCONTEXT
-        (
-          "sent wrong transaction: failed to parse and validate transaction: \r\n"
-          << epee::string_tools::buff_to_hex_nodelimer(*tx_blob_it) 
-          << "\r\n dropping connection"
-        );
-        
-        m_p2p->drop_connection(context);        
-        return 1;
-      }
-    }
-
-    if(context.m_requested_objects.size())
-    {
-      LOG_PRINT_CCONTEXT_RED
-      (
-        "returned not all requested objects "
-        << "(context.m_requested_objects.size()="<< context.m_requested_objects.size() << "), "
-        << "dropping connection", 
-        LOG_LEVEL_0
-      );
-      
-      m_p2p->drop_connection(context);
-    }
-    else
-    {
-      NOTIFY_NEW_FLUFFY_BLOCK::request req;
-      req.b = rsp.b;
-      req.hop = rsp.hop;
-      req.current_blockchain_height = rsp.current_blockchain_height;
-         
-      post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(req, context);      
-    }
-    
-    return 1;          
-  }  
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)

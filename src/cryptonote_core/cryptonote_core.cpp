@@ -797,7 +797,7 @@ namespace cryptonote
     if(bvc.m_added_to_main_chain)
     {
       cryptonote_connection_context exclude_context = boost::value_initialized<cryptonote_connection_context>();
-      NOTIFY_NEW_BLOCK::request arg = AUTO_VAL_INIT(arg);
+      NOTIFY_NEW_FLUFFY_BLOCK::request arg = AUTO_VAL_INIT(arg);
       arg.hop = 0;
       arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::list<crypto::hash> missed_txs;
@@ -813,10 +813,16 @@ namespace cryptonote
 
       block_to_blob(b, arg.b.block);
       //pack transactions
-      BOOST_FOREACH(auto& tx,  txs)
-        arg.b.txs.push_back(t_serializable_object_to_blob(tx));
+      //BOOST_FOREACH(auto& tx,  txs)
+      //  arg.b.txs.push_back(t_serializable_object_to_blob(tx));
 
-      m_pprotocol->relay_block(arg, exclude_context);
+      // In the future do something smarter to include tx we think peer might be missing?
+      // for now just include miner tx
+      std::list<transaction> fluffy_txs;
+      fluffy_txs.push_back(*txs.begin());
+      arg.b.txs.push_back(t_serializable_object_to_blob(fluffy_txs));
+      
+      m_pprotocol->relay_fluffy_block(arg, exclude_context);
     }
     return bvc.m_added_to_main_chain;
   }
