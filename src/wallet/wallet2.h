@@ -447,6 +447,7 @@ namespace tools
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
     uint64_t get_num_rct_outputs();
+    const transfer_details &get_transfer_details(size_t idx) const;
 
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
     bool use_fork_rules(uint8_t version, int64_t early_blocks = 0);

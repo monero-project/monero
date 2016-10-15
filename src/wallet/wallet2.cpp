@@ -3978,6 +3978,12 @@ uint64_t wallet2::get_num_rct_outputs()
   return resp_t.result.histogram[0].instances;
 }
 //----------------------------------------------------------------------------------------------------
+const wallet2::transfer_details &wallet2::get_transfer_details(size_t idx) const
+{
+  THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error, "Bad transfer index");
+  return m_transfers[idx];
+}
+//----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
 {
   // request all outputs with less than 3 instances
