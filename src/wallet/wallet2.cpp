@@ -2284,9 +2284,9 @@ size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::ve
   {
     const transfer_details &candidate = transfers[unused_indices[n]];
     float relatedness = 0.0f;
-    for (size_t i = 0; i < selected_transfers.size(); ++i)
+    for (std::list<size_t>::const_iterator i = selected_transfers.begin(); i != selected_transfers.end(); ++i)
     {
-      float r = get_output_relatedness(candidate, transfers[i]);
+      float r = get_output_relatedness(candidate, transfers[*i]);
       if (r > relatedness)
       {
         relatedness = r;
@@ -2869,8 +2869,10 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
     COMMAND_RPC_GET_OUTPUTS::request req = AUTO_VAL_INIT(req);
     COMMAND_RPC_GET_OUTPUTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
 
+    size_t num_selected_transfers = 0;
     for(size_t idx: selected_transfers)
     {
+      ++num_selected_transfers;
       const transfer_details &td = m_transfers[idx];
       const uint64_t amount = td.is_rct() ? 0 : td.amount();
       std::unordered_set<uint64_t> seen_indices;
@@ -2959,7 +2961,7 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
 
     std::unordered_map<uint64_t, uint64_t> scanty_outs;
     size_t base = 0;
-    outs.reserve(selected_transfers.size());
+    outs.reserve(num_selected_transfers);
     for(size_t idx: selected_transfers)
     {
       const transfer_details &td = m_transfers[idx];
