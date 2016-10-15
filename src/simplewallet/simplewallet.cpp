@@ -3831,8 +3831,8 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     m_wallet->get_payments_out(payments, min_height, max_height);
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
-      uint64_t fee = pd.m_amount_in - pd.m_amount_out;
       uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
+      uint64_t fee = pd.m_amount_in - pd.m_amount_out - change;
       std::string dests;
       for (const auto &d: pd.m_dests) {
         if (!dests.empty())
