@@ -1236,10 +1236,10 @@ namespace cryptonote
       return false;
     }
 
-    std::map<uint64_t, uint64_t> histogram;
+    std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> histogram;
     try
     {
-      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked);
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked, req.recent_cutoff);
     }
     catch (const std::exception &e)
     {
@@ -1251,8 +1251,8 @@ namespace cryptonote
     res.histogram.reserve(histogram.size());
     for (const auto &i: histogram)
     {
-      if (i.second >= req.min_count && (i.second <= req.max_count || req.max_count == 0))
-        res.histogram.push_back(COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry(i.first, i.second));
+      if (std::get<0>(i.second) >= req.min_count && (std::get<0>(i.second) <= req.max_count || req.max_count == 0))
+        res.histogram.push_back(COMMAND_RPC_GET_OUTPUT_HISTOGRAM::entry(i.first, std::get<0>(i.second), std::get<1>(i.second), std::get<2>(i.second)));
     }
 
     res.status = CORE_RPC_STATUS_OK;

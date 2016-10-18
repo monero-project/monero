@@ -77,6 +77,9 @@ using namespace cryptonote;
 #define UNSIGNED_TX_PREFIX "Monero unsigned tx set\001"
 #define SIGNED_TX_PREFIX "Monero signed tx set\001"
 
+#define RECENT_OUTPUT_RATIO (0.25) // 25% of outputs are from the recent zone
+#define RECENT_OUTPUT_ZONE (5 * 86400) // last 5 days are the recent zone
+
 #define KILL_IOSERVICE()  \
     do { \
       work.reset(); \
@@ -2855,6 +2858,7 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
     auto end = std::unique(req_t.params.amounts.begin(), req_t.params.amounts.end());
     req_t.params.amounts.resize(std::distance(req_t.params.amounts.begin(), end));
     req_t.params.unlocked = true;
+    req_t.params.recent_cutoff = time(NULL) - RECENT_OUTPUT_ZONE;
     bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
@@ -2880,18 +2884,33 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
 
       // if there are just enough outputs to mix with, use all of them.
       // Eventually this should become impossible.
-      uint64_t num_outs = 0;
+      uint64_t num_outs = 0, num_recent_outs = 0;
       for (auto he: resp_t.result.histogram)
       {
         if (he.amount == amount)
         {
-          num_outs = he.instances;
+          LOG_PRINT_L2("Found " << print_money(amount) << ": " << he.total_instances << " total, "
+              << he.unlocked_instances << " unlocked, " << he.recent_instances << " recent");
+          num_outs = he.unlocked_instances;
+          num_recent_outs = he.recent_instances;
           break;
         }
       }
       LOG_PRINT_L1("" << num_outs << " outputs of size " << print_money(amount));
       THROW_WALLET_EXCEPTION_IF(num_outs == 0, error::wallet_internal_error,
           "histogram reports no outputs for " + boost::lexical_cast<std::string>(amount) + ", not even ours");
+      THROW_WALLET_EXCEPTION_IF(num_recent_outs > num_outs, error::wallet_internal_error,
+          "histogram reports more recent outs than outs for " + boost::lexical_cast<std::string>(amount));
+
+      // X% of those outs are to be taken from recent outputs
+      size_t recent_outputs_count = requested_outputs_count * RECENT_OUTPUT_RATIO;
+      if (recent_outputs_count == 0)
+        recent_outputs_count = 1; // ensure we have at least one, if possible
+      if (recent_outputs_count > num_recent_outs)
+        recent_outputs_count = num_recent_outs;
+      if (td.m_global_output_index >= num_outs - num_recent_outs)
+        --recent_outputs_count; // if the real out is recent, pick one less recent fake out
+      LOG_PRINT_L1("Using " << recent_outputs_count << " recent outputs");
 
       if (num_outs <= requested_outputs_count)
       {
@@ -2921,11 +2940,24 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
           // return to the top of the loop and try again, otherwise add it to the
           // list of output indices we've seen.
 
-          // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
-          uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-          double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-          uint64_t i = (uint64_t)(frac*num_outs);
-          // just in case rounding up to 1 occurs after sqrt
+          uint64_t i;
+          if (num_found - 1 < recent_outputs_count) // -1 to account for the real one we seeded with
+          {
+            // equiprobable distribution over the recent outs
+            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+            i = (uint64_t)(frac*num_recent_outs) + num_outs - num_recent_outs;
+            LOG_PRINT_L2("picking " << i << " as recent");
+          }
+          else
+          {
+            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+            i = (uint64_t)(frac*num_outs);
+            LOG_PRINT_L2("picking " << i << " as triangular");
+          }
+          // just in case rounding up to 1 occurs after calc
           if (i == num_outs)
             --i;
 
@@ -3975,7 +4007,7 @@ uint64_t wallet2::get_num_rct_outputs()
   THROW_WALLET_EXCEPTION_IF(resp_t.result.histogram.size() != 1, error::get_histogram_error, "Expected exactly one response");
   THROW_WALLET_EXCEPTION_IF(resp_t.result.histogram[0].amount != 0, error::get_histogram_error, "Expected 0 amount");
 
-  return resp_t.result.histogram[0].instances;
+  return resp_t.result.histogram[0].total_instances;
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
