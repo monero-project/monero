@@ -811,16 +811,15 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(txs.size() == b.tx_hashes.size() && !missed_txs.size(), false, "cant find some transactions in found block:" << get_block_hash(b) << " txs.size()=" << txs.size()
         << ", b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
 
+      std::cout << "block to blob" << std::endl;
       block_to_blob(b, arg.b.block);
-      //pack transactions
-      //BOOST_FOREACH(auto& tx,  txs)
-      //  arg.b.txs.push_back(t_serializable_object_to_blob(tx));
 
       // In the future do something smarter to include tx we think peer might be missing?
       // for now just include miner tx
       std::list<transaction> fluffy_txs;
-      fluffy_txs.push_back(*txs.begin());
-      arg.b.txs.push_back(t_serializable_object_to_blob(fluffy_txs));
+      if(txs.size() > 0) fluffy_txs.push_back(txs.front());
+      BOOST_FOREACH(auto& tx,  fluffy_txs)
+        arg.b.txs.push_back(t_serializable_object_to_blob(tx));      
       
       m_pprotocol->relay_fluffy_block(arg, exclude_context);
     }

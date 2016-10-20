@@ -363,14 +363,14 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_FLUFFY_BLOCK (hop " << arg.hop << ")");
+    LOG_PRINT_CCONTEXT_L0("NOTIFY_NEW_FLUFFY_BLOCK (hop " << arg.hop << ")");
     if(context.m_state == cryptonote_connection_context::state_normal)
     {
       m_core.pause_mine();
       
       block new_block;
       transaction miner_tx;
-      
+      LOG_PRINT_CCONTEXT_L2("PARSING BLOCK FROM BLOB (hop " << arg.hop << ")");
       if(parse_and_validate_block_from_blob(arg.b.block, new_block))
       {
         std::list<blobdata> have_tx;
@@ -422,15 +422,19 @@ namespace cryptonote
         {
           // request non-mempool txs
           NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
+          missing_tx_req.b = arg.b;
+          missing_tx_req.hop = arg.hop;
           BOOST_FOREACH(auto& tx_hash, need_tx_hashes)
           {
             missing_tx_req.missing_tx_hashes.push_back(tx_hash);
           }
-                  
+          
+          LOG_PRINT_CCONTEXT_L0("I'M MISSING SOME TRANSACTIONS!");
           post_notify<NOTIFY_REQUEST_FLUFFY_MISSING_TX>(missing_tx_req, context);
         }
         else // whoo-hoo we've got em all ..
         {
+          LOG_PRINT_CCONTEXT_L0("WHOOO HOO I HAVE ALL OF THE TRANSACTIONS");
           block_complete_entry b;
           b.block = arg.b.block;
           b.txs = have_tx;
@@ -438,6 +442,7 @@ namespace cryptonote
           std::list<block_complete_entry> blocks;
           blocks.push_back(b);
           m_core.prepare_handle_incoming_blocks(blocks);
+
           for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
           {
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -501,7 +506,7 @@ namespace cryptonote
   {
     LOG_PRINT_CCONTEXT_L2("NOTIFY_REQUEST_FLUFFY_MISSING_TX");
 
-    std::list<crypto::hash> missed_txs;     
+    std::list<crypto::hash> missed_txs; 
     std::list<transaction> txs;
     //std::vector<crypto::hash> tx_ids { std::make_move_iterator(std::begin(arg.missing_tx_hashes)), std::make_move_iterator(std::end(arg.missing_tx_hashes)) };
                                  
@@ -510,14 +515,14 @@ namespace cryptonote
       LOG_ERROR_CCONTEXT("failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, dropping connection");
       m_p2p->drop_connection(context);
     }
-    
+     
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
     fluffy_response.b = arg.b;
     fluffy_response.current_blockchain_height = m_core.get_current_blockchain_height();
     BOOST_FOREACH(auto& tx,  txs)
       fluffy_response.b.txs.push_back(t_serializable_object_to_blob(tx));        
         
-    LOG_PRINT_CCONTEXT_L2
+    LOG_PRINT_CCONTEXT_L0
     (
         "-->>NOTIFY_RESPONSE_FLUFFY_MISSING_TX: " 
         << ", txs.size()=" << fluffy_response.b.txs.size()
