@@ -68,7 +68,7 @@ public:
     performance_timers->pop_back();
     ticks = epee::misc_utils::get_tick_count() - ticks;
     char s[12];
-    snprintf(s, sizeof(s), "%8lu  ", ticks);
+    snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)ticks);
     LOG_PRINT("PERF " << s << std::string(performance_timers->size() * 2, ' ') << "  " << name, level);
     if (performance_timers->empty())
     {
