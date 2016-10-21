@@ -393,13 +393,8 @@ namespace cryptonote
               return 1;
             }
             
-            if(tvc.m_added_to_pool)
+            if(!tvc.m_added_to_pool) 
             {
-              cout << "added tx to mempool -> " << h << std::endl;
-            }
-            else 
-            {
-              cout << "verified but NO mempool -> " << h << std::endl;
               get_transaction_hash(tx, tx_hash);              
               tx_hash_to_blob[tx_hash] = tx_blob;              
             }
