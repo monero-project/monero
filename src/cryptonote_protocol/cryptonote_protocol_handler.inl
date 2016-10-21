@@ -37,6 +37,7 @@
 
 #include <boost/interprocess/detail/atomic.hpp>
 #include <list>
+#include <unordered_map>
 
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
@@ -370,13 +371,14 @@ namespace cryptonote
       
       block new_block;
       transaction miner_tx;
-      LOG_PRINT_CCONTEXT_L2("PARSING BLOCK FROM BLOB (hop " << arg.hop << ")");
       if(parse_and_validate_block_from_blob(arg.b.block, new_block))
       {
         std::list<blobdata> have_tx;
         std::list<crypto::hash> need_tx_hashes;
         
         transaction tx;
+        crypto::hash tx_hash;
+        std::unordered_map<crypto::hash, blobdata> tx_hash_to_blob;        
         BOOST_FOREACH(auto& tx_blob, arg.b.txs)
         {
           if(parse_and_validate_tx_from_blob(tx_blob, tx))
@@ -389,6 +391,17 @@ namespace cryptonote
               m_p2p->drop_connection(context);
               m_core.resume_mine();
               return 1;
+            }
+            
+            if(tvc.m_added_to_pool)
+            {
+              cout << "added tx to mempool -> " << h << std::endl;
+            }
+            else 
+            {
+              cout << "verified but NO mempool -> " << h << std::endl;
+              get_transaction_hash(tx, tx_hash);              
+              tx_hash_to_blob[tx_hash] = tx_blob;              
             }
           }
           else
@@ -414,7 +427,14 @@ namespace cryptonote
           }
           else
           {
-            need_tx_hashes.push_back(tx_hash); 
+            if(tx_hash_to_blob.find(tx_hash) != tx_hash_to_blob.end()) 
+            {
+                have_tx.push_back(tx_hash_to_blob[tx_hash]);
+            }
+            else
+            {
+              need_tx_hashes.push_back(tx_hash); 
+            }
           }
         }
         
@@ -429,12 +449,10 @@ namespace cryptonote
             missing_tx_req.missing_tx_hashes.push_back(tx_hash);
           }
           
-          LOG_PRINT_CCONTEXT_L0("I'M MISSING SOME TRANSACTIONS!");
           post_notify<NOTIFY_REQUEST_FLUFFY_MISSING_TX>(missing_tx_req, context);
         }
         else // whoo-hoo we've got em all ..
         {
-          LOG_PRINT_CCONTEXT_L0("WHOOO HOO I HAVE ALL OF THE TRANSACTIONS");
           block_complete_entry b;
           b.block = arg.b.block;
           b.txs = have_tx;
@@ -507,9 +525,7 @@ namespace cryptonote
     LOG_PRINT_CCONTEXT_L2("NOTIFY_REQUEST_FLUFFY_MISSING_TX");
 
     std::list<crypto::hash> missed_txs; 
-    std::list<transaction> txs;
-    //std::vector<crypto::hash> tx_ids { std::make_move_iterator(std::begin(arg.missing_tx_hashes)), std::make_move_iterator(std::end(arg.missing_tx_hashes)) };
-                                 
+    std::list<transaction> txs;                                 
     if(!m_core.get_transactions(arg.missing_tx_hashes, txs, missed_txs) || missed_txs.size() > 0)
     {
       LOG_ERROR_CCONTEXT("failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, dropping connection");
@@ -519,10 +535,13 @@ namespace cryptonote
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
     fluffy_response.b = arg.b;
     fluffy_response.current_blockchain_height = m_core.get_current_blockchain_height();
+    fluffy_response.hop = arg.hop;
     BOOST_FOREACH(auto& tx,  txs)
-      fluffy_response.b.txs.push_back(t_serializable_object_to_blob(tx));        
+    {
+      fluffy_response.b.txs.push_back(t_serializable_object_to_blob(tx));
+    }
         
-    LOG_PRINT_CCONTEXT_L0
+    LOG_PRINT_CCONTEXT_L2
     (
         "-->>NOTIFY_RESPONSE_FLUFFY_MISSING_TX: " 
         << ", txs.size()=" << fluffy_response.b.txs.size()
