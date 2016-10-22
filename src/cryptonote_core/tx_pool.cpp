@@ -387,7 +387,10 @@ namespace cryptonote
     {
       auto i = m_transactions.find(it->first);
       if (i != m_transactions.end())
+      {
+        i->second.relayed = true;
         i->second.last_relayed_time = now;
+      }
     }
   }
   //---------------------------------------------------------------------------------
