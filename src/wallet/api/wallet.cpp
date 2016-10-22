@@ -360,7 +360,7 @@ std::string WalletImpl::integratedAddress(const std::string &payment_id) const
 {
     crypto::hash8 pid;
     if (!tools::wallet2::parse_short_payment_id(payment_id, pid)) {
-        pid = crypto::rand<crypto::hash8>();
+        return "";
     }
     return m_wallet->get_account().get_public_integrated_address_str(pid, m_wallet->testnet());
 }
