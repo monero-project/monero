@@ -464,6 +464,7 @@ namespace cryptonote
       uint64_t grey_peerlist_size;
       bool testnet;
       std::string top_block_hash;
+      uint64_t cumulative_difficulty;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -480,6 +481,7 @@ namespace cryptonote
         KV_SERIALIZE(grey_peerlist_size)
         KV_SERIALIZE(testnet)
         KV_SERIALIZE(top_block_hash)
+        KV_SERIALIZE(cumulative_difficulty)
       END_KV_SERIALIZE_MAP()
     };
   };
