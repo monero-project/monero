@@ -425,6 +425,8 @@ namespace cryptonote
       txi.last_failed_height = txd.last_failed_height;
       txi.last_failed_id_hash = epee::string_tools::pod_to_hex(txd.last_failed_id);
       txi.receive_time = txd.receive_time;
+      txi.relayed = txd.relayed;
+      txi.last_relayed_time = txd.last_relayed_time;
       tx_infos.push_back(txi);
     }
 
