@@ -2524,6 +2524,13 @@ void wallet2::commit_tx(pending_tx& ptx)
   THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
   THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status, daemon_send_resp.reason);
 
+  // sanity checks
+  for (size_t idx: ptx.selected_transfers)
+  {
+    THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error,
+        "Bad output index in selected transfers: " + boost::lexical_cast<std::string>(idx));
+  }
+
   txid = get_transaction_hash(ptx.tx);
   crypto::hash payment_id = cryptonote::null_hash;
   std::vector<cryptonote::tx_destination_entry> dests;
