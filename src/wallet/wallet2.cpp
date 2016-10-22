@@ -2287,9 +2287,9 @@ size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::ve
   {
     const transfer_details &candidate = transfers[unused_indices[n]];
     float relatedness = 0.0f;
-    for (size_t i = 0; i < selected_transfers.size(); ++i)
+    for (std::list<size_t>::const_iterator i = selected_transfers.begin(); i != selected_transfers.end(); ++i)
     {
-      float r = get_output_relatedness(candidate, transfers[i]);
+      float r = get_output_relatedness(candidate, transfers[*i]);
       if (r > relatedness)
       {
         relatedness = r;
@@ -2873,8 +2873,10 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
     COMMAND_RPC_GET_OUTPUTS::request req = AUTO_VAL_INIT(req);
     COMMAND_RPC_GET_OUTPUTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
 
+    size_t num_selected_transfers = 0;
     for(size_t idx: selected_transfers)
     {
+      ++num_selected_transfers;
       const transfer_details &td = m_transfers[idx];
       const uint64_t amount = td.is_rct() ? 0 : td.amount();
       std::unordered_set<uint64_t> seen_indices;
@@ -2991,7 +2993,7 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
 
     std::unordered_map<uint64_t, uint64_t> scanty_outs;
     size_t base = 0;
-    outs.reserve(selected_transfers.size());
+    outs.reserve(num_selected_transfers);
     for(size_t idx: selected_transfers)
     {
       const transfer_details &td = m_transfers[idx];
@@ -4019,14 +4021,14 @@ uint64_t wallet2::get_num_rct_outputs()
 std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
 {
   // request all outputs with less than 3 instances
-  const size_t min_mixin = use_fork_rules(5, 10) ? 2 : 4; // v5 increases min mixin from 2 to 4
+  const size_t min_mixin = use_fork_rules(5, 10) ? 4 : 2; // v5 increases min mixin from 2 to 4
   return select_available_outputs_from_histogram(min_mixin + 1, false, true, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_mixable_outputs(bool trusted_daemon)
 {
   // request all outputs with at least 3 instances, so we can use mixin 2 with
-  const size_t min_mixin = use_fork_rules(5, 10) ? 2 : 4; // v5 increases min mixin from 2 to 4
+  const size_t min_mixin = use_fork_rules(5, 10) ? 4 : 2; // v5 increases min mixin from 2 to 4
   return select_available_outputs_from_histogram(min_mixin + 1, true, true, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
