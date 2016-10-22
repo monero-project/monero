@@ -1517,8 +1517,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, watch_only, int, Int, false, false);
     m_watch_only = field_watch_only;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false, false);
-    m_always_confirm_transfers = field_always_confirm_transfers_found && field_always_confirm_transfers;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false, true);
+    m_always_confirm_transfers = field_always_confirm_transfers;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, false, true);
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_info, int, Int, false, true);
     m_store_tx_info = ((field_store_tx_keys != 0) || (field_store_tx_info != 0));
@@ -1549,10 +1549,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
         LOG_PRINT_L0("Unknown refresh-type value (" << field_refresh_type << "), using default");
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
-    if (field_refresh_height_found)
-      m_refresh_from_block_height = field_refresh_height;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_missing_payment_id, int, Int, false, false);
-    m_confirm_missing_payment_id = !field_confirm_missing_payment_id_found || field_confirm_missing_payment_id;
+    m_refresh_from_block_height = field_refresh_height;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_missing_payment_id, int, Int, false, true);
+    m_confirm_missing_payment_id = field_confirm_missing_payment_id;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
