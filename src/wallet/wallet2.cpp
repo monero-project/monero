@@ -3737,7 +3737,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
 
-  const bool use_rct = use_fork_rules(4, 0);
+  const bool use_rct = fake_outs_count > 0 && use_fork_rules(4, 0);
   const bool use_new_fee  = use_fork_rules(3, -720 * 14);
   const uint64_t fee_per_kb  = use_new_fee ? FEE_PER_KB : FEE_PER_KB_OLD;
   const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
@@ -4016,6 +4016,12 @@ uint64_t wallet2::get_num_rct_outputs()
   THROW_WALLET_EXCEPTION_IF(resp_t.result.histogram[0].amount != 0, error::get_histogram_error, "Expected 0 amount");
 
   return resp_t.result.histogram[0].total_instances;
+}
+//----------------------------------------------------------------------------------------------------
+const wallet2::transfer_details &wallet2::get_transfer_details(size_t idx) const
+{
+  THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error, "Bad transfer index");
+  return m_transfers[idx];
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)

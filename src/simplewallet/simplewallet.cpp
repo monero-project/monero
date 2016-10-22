@@ -2925,11 +2925,8 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
       total_fee += ptx_vector[n].fee;
-      for (const auto &vin: ptx_vector[n].tx.vin)
-      {
-        if (vin.type() == typeid(txin_to_key))
-          total_unmixable += boost::get<txin_to_key>(vin).amount;
-      }
+      for (auto i: ptx_vector[n].selected_transfers)
+        total_unmixable += m_wallet->get_transfer_details(i).amount();
     }
 
     std::string prompt_str = tr("Sweeping ") + print_money(total_unmixable);
@@ -3187,11 +3184,8 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
       total_fee += ptx_vector[n].fee;
-      for (const auto &vin: ptx_vector[n].tx.vin)
-      {
-        if (vin.type() == typeid(txin_to_key))
-          total_sent += boost::get<txin_to_key>(vin).amount;
-      }
+      for (auto i: ptx_vector[n].selected_transfers)
+        total_sent += m_wallet->get_transfer_details(i).amount();
     }
 
     std::string prompt_str;
