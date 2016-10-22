@@ -149,8 +149,8 @@ namespace rct {
     //for mg sigs
     key cn_fast_hash128(const void * in);
     key hash_to_scalar128(const void * in);
-    key cn_fast_hash(ctkeyV PC);
-    key hash_to_scalar(ctkeyV PC);
+    key cn_fast_hash(const ctkeyV &PC);
+    key hash_to_scalar(const ctkeyV &PC);
     //for mg sigs 
     key cn_fast_hash(const keyV &keys);
     key hash_to_scalar(const keyV &keys);

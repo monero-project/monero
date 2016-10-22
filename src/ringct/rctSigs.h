@@ -70,7 +70,7 @@ namespace rct {
     //Gen Gives a signature (L1, s1, s2) proving that the sender knows "x" such that xG = one of P1 or P2
     //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
     //These are called in the below ASNL sig generation
-    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, int index);
+    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, unsigned int index);
     bool VerSchnorrNonLinkable(const key & P1, const key & P2, const key & L1, const key & s1, const key & s2);
 
     //Aggregate Schnorr Non-linkable Ring Signature (ASNL)

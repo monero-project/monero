@@ -320,7 +320,7 @@ namespace rct {
     //be careful these are also in crypto namespace
     //cn_fast_hash for arbitrary multiples of 32 bytes
     void cn_fast_hash(key &hash, const void * data, const std::size_t l) {
-        keccak((uint8_t *)data, l, hash.bytes, 32);
+        keccak((const uint8_t *)data, l, hash.bytes, 32);
     }
     
     void hash_to_scalar(key &hash, const void * data, const std::size_t l) {
@@ -330,7 +330,7 @@ namespace rct {
 
     //cn_fast_hash for a 32 byte key
     void cn_fast_hash(key & hash, const key & in) {
-        keccak((uint8_t *)in.bytes, 32, hash.bytes, 32);
+        keccak((const uint8_t *)in.bytes, 32, hash.bytes, 32);
     }
     
     void hash_to_scalar(key & hash, const key & in) {
@@ -341,7 +341,7 @@ namespace rct {
     //cn_fast_hash for a 32 byte key
     key cn_fast_hash(const key & in) {
         key hash;
-        keccak((uint8_t *)in.bytes, 32, hash.bytes, 32);
+        keccak((const uint8_t *)in.bytes, 32, hash.bytes, 32);
         return hash;
     }
     
@@ -354,7 +354,7 @@ namespace rct {
     //cn_fast_hash for a 128 byte unsigned char
     key cn_fast_hash128(const void * in) {
         key hash;
-        keccak((uint8_t *)in, 128, hash.bytes, 32);
+        keccak((const uint8_t *)in, 128, hash.bytes, 32);
         return hash;
     }
     
@@ -367,20 +367,13 @@ namespace rct {
     //cn_fast_hash for multisig purpose
     //This takes the outputs and commitments
     //and hashes them into a 32 byte sized key
-    key cn_fast_hash(ctkeyV PC) {
-        key rv = identity();
-        std::size_t l = (std::size_t)PC.size();
-        size_t i = 0, j = 0;
-        vector<char> m(l * 64);
-        for (i = 0 ; i < l ; i++) {
-            memcpy(&m[i * 64], &PC[i].dest, 32);
-            memcpy(&m[i * 64 + 32], &PC[i].mask, 32);
-        }
-        cn_fast_hash(rv, &m[0], 64*l);
+    key cn_fast_hash(const ctkeyV &PC) {
+        key rv;
+        cn_fast_hash(rv, &PC[0], 64*PC.size());
         return rv;
     }
     
-    key hash_to_scalar(ctkeyV PC) {
+    key hash_to_scalar(const ctkeyV &PC) {
         key rv = cn_fast_hash(PC);
         sc_reduce32(rv.bytes);
         return rv;
@@ -391,14 +384,8 @@ namespace rct {
    //put them in the key vector and it concatenates them
    //and then hashes them
    key cn_fast_hash(const keyV &keys) {
-       size_t l = keys.size();
-       vector<unsigned char> m(l * 32);
-       size_t i;
-       for (i = 0 ; i < l ; i++) {
-           memcpy(&m[i * 32], keys[i].bytes, 32);
-       }
        key rv;
-       cn_fast_hash(rv, &m[0], 32 * l);
+       cn_fast_hash(rv, &keys[0], keys.size() * sizeof(keys[0]));
        //dp(rv);
        return rv;
    }

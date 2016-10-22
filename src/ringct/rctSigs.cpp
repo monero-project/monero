@@ -28,13 +28,25 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/asio.hpp>
 #include "misc_log_ex.h"
 #include "common/perf_timer.h"
+#include "common/util.h"
 #include "rctSigs.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
 using namespace crypto;
 using namespace std;
+
+#define KILL_IOSERVICE()  \
+        if(ioservice_active) \
+        { \
+            work.reset(); \
+            while (!ioservice.stopped()) ioservice.poll(); \
+            threadpool.join_all(); \
+            ioservice.stop(); \
+            ioservice_active = false; \
+        }
 
 namespace rct {
     
@@ -43,7 +55,7 @@ namespace rct {
     //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
     //These are called in the below ASNL sig generation    
     
-    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, int index) {
+    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, unsigned int index) {
         key c1, c2, L2;
         key a = skGen();
         if (index == 0) {
@@ -95,7 +107,7 @@ namespace rct {
         asnlSig rv;
         rv.s = zero();
         for (j = 0; j < ATOMS; j++) {
-            GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], (int)indices[j]);
+            GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], indices[j]);
             sc_add(rv.s.bytes, rv.s.bytes, s1[j].bytes);
         }
         return rv;
@@ -348,9 +360,14 @@ namespace rct {
         return true;
     }
 
+    void verRangeWrapper(const key & C, const rangeSig & as, bool &result) {
+      result = verRange(C, as);
+    }
+
     key get_pre_mlsag_hash(const rctSig &rv)
     {
       keyV hashes;
+      hashes.reserve(3);
       hashes.push_back(rv.message);
       crypto::hash h;
 
@@ -364,6 +381,7 @@ namespace rct {
       hashes.push_back(hash2rct(h));
 
       keyV kv;
+      kv.reserve((64*3+1) * rv.p.rangeSigs.size());
       for (auto r: rv.p.rangeSigs)
       {
         for (size_t n = 0; n < 64; ++n)
@@ -524,6 +542,10 @@ namespace rct {
             }
             //DP(C);
             return MLSAG_Ver(message, M, mg, rows);
+    }
+
+    void verRctMGSimpleWrapper(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C, bool &result) {
+      result = verRctMGSimple(message, mg, pubs, C);
     }
 
     //These functions get keys from blockchain
@@ -743,17 +765,41 @@ namespace rct {
         // some rct ops can throw
         try
         {
-          size_t i = 0;
-          bool tmp;
+          boost::asio::io_service ioservice;
+          boost::thread_group threadpool;
+          std::unique_ptr<boost::asio::io_service::work> work(new boost::asio::io_service::work(ioservice));
+          size_t threads = tools::get_max_concurrency();
+          threads = std::min(threads, rv.outPk.size());
+          for (size_t i = 0; i < threads; ++i)
+            threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
+          bool ioservice_active = threads > 1;
+          std::deque<bool> results(rv.outPk.size(), false);
+          epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
+
           DP("range proofs verified?");
-          for (i = 0; i < rv.outPk.size(); i++) {
-              tmp = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-              DP(tmp);
-              if (!tmp) {
-                LOG_ERROR("Range proof verification failed for input " << i);
-                return false;
+          for (size_t i = 0; i < rv.outPk.size(); i++) {
+              if (threads > 1) {
+                ioservice.dispatch(boost::bind(&verRangeWrapper, std::cref(rv.outPk[i].mask), std::cref(rv.p.rangeSigs[i]), std::ref(results[i])));
+              }
+              else {
+                bool tmp = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+                DP(tmp);
+                if (!tmp) {
+                  LOG_ERROR("Range proof verification failed for input " << i);
+                  return false;
+                }
               }
           }
+          KILL_IOSERVICE();
+          if (threads > 1) {
+            for (size_t i = 0; i < rv.outPk.size(); ++i) {
+              if (!results[i]) {
+                LOG_ERROR("Range proof verified failed for input " << i);
+                return false;
+              }
+            }
+          }
+
           //compute txn fee
           key txnFeeKey = scalarmultH(d2h(rv.txnFee));
           bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
@@ -784,29 +830,87 @@ namespace rct {
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
 
-        key sumOutpks = identity();
-        for (i = 0; i < rv.outPk.size(); i++) {
-            if (!verRange(rv.outPk[i].mask, rv.p.rangeSigs[i])) {
+        {
+          boost::asio::io_service ioservice;
+          boost::thread_group threadpool;
+          std::unique_ptr<boost::asio::io_service::work> work(new boost::asio::io_service::work(ioservice));
+          size_t threads = tools::get_max_concurrency();
+          threads = std::min(threads, rv.outPk.size());
+          for (size_t i = 0; i < threads; ++i)
+            threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
+          bool ioservice_active = threads > 1;
+          std::deque<bool> results(rv.outPk.size(), false);
+          epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
+
+          for (i = 0; i < rv.outPk.size(); i++) {
+            if (threads > 1) {
+              ioservice.dispatch(boost::bind(&verRangeWrapper, std::cref(rv.outPk[i].mask), std::cref(rv.p.rangeSigs[i]), std::ref(results[i])));
+            }
+            else if (!verRange(rv.outPk[i].mask, rv.p.rangeSigs[i])) {
                 LOG_ERROR("Range proof verified failed for input " << i);
                 return false;
             }
+          }
+          KILL_IOSERVICE();
+          if (threads > 1) {
+            for (size_t i = 0; i < rv.outPk.size(); ++i) {
+              if (!results[i]) {
+                LOG_ERROR("Range proof verified failed for input " << i);
+                return false;
+              }
+            }
+          }
+        }
+
+        key sumOutpks = identity();
+        for (i = 0; i < rv.outPk.size(); i++) {
             addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
         }
         DP(sumOutpks);
         key txnFeeKey = scalarmultH(d2h(rv.txnFee));
         addKeys(sumOutpks, txnFeeKey, sumOutpks);
 
-        bool tmpb = false;
         key message = get_pre_mlsag_hash(rv);
-        key sumPseudoOuts = identity();
-        for (i = 0 ; i < rv.mixRing.size() ; i++) {
-            tmpb = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
-            addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
-            DP(tmpb);
-            if (!tmpb) {
+
+        {
+          boost::asio::io_service ioservice;
+          boost::thread_group threadpool;
+          std::unique_ptr<boost::asio::io_service::work> work(new boost::asio::io_service::work(ioservice));
+          size_t threads = tools::get_max_concurrency();
+          threads = std::min(threads, rv.mixRing.size());
+          for (size_t i = 0; i < threads; ++i)
+            threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
+          bool ioservice_active = threads > 1;
+          std::deque<bool> results(rv.mixRing.size(), false);
+          epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
+
+          for (i = 0 ; i < rv.mixRing.size() ; i++) {
+            if (threads > 1) {
+                ioservice.dispatch(boost::bind(&verRctMGSimpleWrapper, std::cref(message), std::cref(rv.p.MGs[i]), std::cref(rv.mixRing[i]), std::cref(rv.pseudoOuts[i]), std::ref(results[i])));
+            }
+            else {
+                bool tmpb = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
+                DP(tmpb);
+                if (!tmpb) {
+                    LOG_ERROR("verRctMGSimple failed for input " << i);
+                    return false;
+                }
+            }
+          }
+          KILL_IOSERVICE();
+          if (threads > 1) {
+            for (size_t i = 0; i < results.size(); ++i) {
+              if (!results[i]) {
                 LOG_ERROR("verRctMGSimple failed for input " << i);
                 return false;
+              }
             }
+          }
+        }
+
+        key sumPseudoOuts = identity();
+        for (i = 0 ; i < rv.mixRing.size() ; i++) {
+            addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
         }
         DP(sumPseudoOuts);
         
