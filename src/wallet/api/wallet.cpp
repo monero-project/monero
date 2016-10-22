@@ -158,8 +158,13 @@ std::string Wallet::genPaymentId()
 
 bool Wallet::paymentIdValid(const string &paiment_id)
 {
-    crypto::hash8 pid;
-    return tools::wallet2::parse_short_payment_id(paiment_id, pid);
+    crypto::hash8 pid8;
+    if (tools::wallet2::parse_short_payment_id(paiment_id, pid8))
+        return true;
+    crypto::hash pid;
+    if (tools::wallet2::parse_long_payment_id(paiment_id, pid))
+        return true;
+    return false;
 }
 
 uint64_t Wallet::maximumAllowedAmount()
