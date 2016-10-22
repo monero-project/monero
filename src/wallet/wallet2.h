@@ -422,7 +422,6 @@ namespace tools
      * \return                Whether path is valid format
      */
     static bool wallet_valid_path_format(const std::string& file_path);
-
     static bool parse_long_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
     static bool parse_short_payment_id(const std::string& payment_id_str, crypto::hash8& payment_id);
     static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
