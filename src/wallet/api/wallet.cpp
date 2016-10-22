@@ -595,6 +595,15 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             m_status = Status_Error;
             std::ostringstream writer;
 
+            writer << boost::format(tr("not enough money to transfer, available only %s, sent amount %s")) %
+                      print_money(e.available()) %
+                      print_money(e.tx_amount());
+            m_errorString = writer.str();
+
+        } catch (const tools::error::tx_not_possible& e) {
+            m_status = Status_Error;
+            std::ostringstream writer;
+
             writer << boost::format(tr("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)")) %
                       print_money(e.available()) %
                       print_money(e.tx_amount() + e.fee())  %
