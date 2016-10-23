@@ -64,19 +64,23 @@ namespace rct {
 
     //Various key initialization functions
 
+    static const key Z = { {0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
+    static const key I = { {0x01, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
+
     //Creates a zero scalar
-    key zero();
-    void zero(key &z);
+    inline key zero() { return Z; }
+    inline void zero(key &z) { memset(&z, 0, 32); }
     //Creates a zero elliptic curve point
-    key identity();
-    void identity(key &Id);
+    inline key identity() { return I; }
+    inline void identity(key &Id) { memcpy(&Id, &I, 32); }
     //copies a scalar or point
-    void copy(key &AA, const key &A);
-    key copy(const key & AA);
+    inline void copy(key &AA, const key &A) { memcpy(&AA, &A, 32); }
+    inline key copy(const key & A) { key AA; memcpy(&AA, &A, 32); return AA; }
+
     //initializes a key matrix;
     //first parameter is rows, 
     //second is columns
-    keyM keyMInit(int, int);
+    keyM keyMInit(size_t rows, size_t cols);
 
     //Various key generation functions        
 
@@ -85,7 +89,7 @@ namespace rct {
     void skGen(key &);
     
     //generates a vector of secret keys of size "int"
-    keyV skvGen(int );
+    keyV skvGen(size_t rows );
     
     //generates a random curve point (for testing)
     key pkGen();
@@ -97,9 +101,9 @@ namespace rct {
     //generates C =aG + bH from b, a is random
     void genC(key & C, const key & a, xmr_amount amount);
     //this one is mainly for testing, can take arbitrary amounts..
-    tuple<ctkey, ctkey> ctskpkGen(key bH);
+    tuple<ctkey, ctkey> ctskpkGen(const key &bH);
     // make a pedersen commitment with given key
-    key commit(xmr_amount amount, key mask);
+    key commit(xmr_amount amount, const key &mask);
     // make a pedersen commitment with zero key
     key zeroCommit(xmr_amount amount);
     //generates a random uint long long
