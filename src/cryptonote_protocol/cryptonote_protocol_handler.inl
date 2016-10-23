@@ -125,6 +125,7 @@ namespace cryptonote
 
     ss << std::setw(30) << std::left << "Remote Host"
       << std::setw(20) << "Peer id"
+      << std::setw(20) << "Protocol Version"      
       << std::setw(30) << "Recv/Sent (inactive,sec)"
       << std::setw(25) << "State"
       << std::setw(20) << "Livetime(sec)"
@@ -135,7 +136,7 @@ namespace cryptonote
       << ENDL;
 
     uint32_t ip;
-    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id)
+    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t protocol_version)
     {
       bool local_ip = false;
       ip = ntohl(cntxt.m_remote_ip);
@@ -146,6 +147,7 @@ namespace cryptonote
       ss << std::setw(30) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") +
         epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip) + ":" + std::to_string(cntxt.m_remote_port)
         << std::setw(20) << std::hex << peer_id
+        << std::setw(20) << std::hex << protocol_version
         << std::setw(30) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
         << std::setw(25) << get_protocol_state_string(cntxt.m_state)
         << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started)
@@ -185,7 +187,7 @@ namespace cryptonote
   {
     std::list<connection_info> connections;
 
-    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id)
+    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t protocol_version)
     {
       connection_info cnx;
       auto timestamp = time(NULL);
@@ -364,27 +366,35 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    LOG_PRINT_CCONTEXT_L0("NOTIFY_NEW_FLUFFY_BLOCK (hop " << arg.hop << ")");
-    if(context.m_state == cryptonote_connection_context::state_normal)
-    {
-      m_core.pause_mine();
+    LOG_PRINT_CCONTEXT_L2("NOTIFY_NEW_FLUFFY_BLOCK (hop " << arg.hop << ")");
+    if(context.m_state != cryptonote_connection_context::state_normal)
+      return 1;
+    
+    m_core.pause_mine();
       
-      block new_block;
-      transaction miner_tx;
-      if(parse_and_validate_block_from_blob(arg.b.block, new_block))
-      {
-        std::list<blobdata> have_tx;
-        std::list<crypto::hash> need_tx_hashes;
+    block new_block;
+    transaction miner_tx;
+    if(parse_and_validate_block_from_blob(arg.b.block, new_block))
+    {
+      std::list<blobdata> have_tx;
+      std::list<crypto::hash> need_tx_hashes;
         
-        transaction tx;
-        crypto::hash tx_hash;
-        std::unordered_map<crypto::hash, blobdata> tx_hash_to_blob;        
-        BOOST_FOREACH(auto& tx_blob, arg.b.txs)
+      transaction tx;
+      crypto::hash tx_hash;
+      std::unordered_map<crypto::hash, blobdata> tx_hash_to_blob;        
+      BOOST_FOREACH(auto& tx_blob, arg.b.txs)
+      {
+        if(parse_and_validate_tx_from_blob(tx_blob, tx))
         {
-          if(parse_and_validate_tx_from_blob(tx_blob, tx))
+          get_transaction_hash(tx, tx_hash);
+          
+          // we might already have the tx that the peer
+          // sent in our pool, so don't verify again..
+          if(!m_core.get_pool_transaction(tx_hash, tx))
           {
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
             m_core.handle_incoming_tx(tx_blob, tvc, true, true);
+            
             if(tvc.m_verifivation_failed)
             {
               LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
@@ -393,124 +403,131 @@ namespace cryptonote
               return 1;
             }
             
+            // Should only not be added to pool if verification failed, but
+            // maybe in the future could not be added for other reasons 
+            // according to monero-moo so keep track of these separately ..
             if(!tvc.m_added_to_pool) 
-            {
-              get_transaction_hash(tx, tx_hash);              
-              tx_hash_to_blob[tx_hash] = tx_blob;              
-            }
+              tx_hash_to_blob[tx_hash] = tx_blob;
+          }
+        }
+        else
+        {
+          LOG_ERROR_CCONTEXT
+          (
+            "sent wrong tx: failed to parse and validate transaction: \r\n"
+            << epee::string_tools::buff_to_hex_nodelimer(tx_blob) 
+            << "\r\n dropping connection"
+          );
+            
+          m_p2p->drop_connection(context);
+          m_core.resume_mine();
+          return 1;
+        }
+      }
+        
+      BOOST_FOREACH(auto& tx_hash, new_block.tx_hashes)
+      {
+        if(m_core.get_pool_transaction(tx_hash, tx))
+        {
+            have_tx.push_back(tx_to_blob(tx));
+        }
+        else
+        {
+          if(tx_hash_to_blob.find(tx_hash) != tx_hash_to_blob.end()) 
+          {
+              have_tx.push_back(tx_hash_to_blob[tx_hash]);
           }
           else
           {
-            LOG_ERROR_CCONTEXT
-            (
-              "sent wrong tx: failed to parse and validate transaction: \r\n"
-              << epee::string_tools::buff_to_hex_nodelimer(tx_blob) 
-              << "\r\n dropping connection"
-            );
-            
+            need_tx_hashes.push_back(tx_hash); 
+          }
+        }
+      }
+        
+      if(need_tx_hashes.size() > 0) // drats, we don't have everything..
+      {
+        // request non-mempool txs
+        NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
+        missing_tx_req.b = arg.b;
+        missing_tx_req.hop = arg.hop;
+        BOOST_FOREACH(auto& tx_hash, need_tx_hashes)
+        {
+          missing_tx_req.missing_tx_hashes.push_back(tx_hash);
+        }
+
+        m_core.resume_mine();
+        post_notify<NOTIFY_REQUEST_FLUFFY_MISSING_TX>(missing_tx_req, context);
+      }
+      else // whoo-hoo we've got em all ..
+      {
+        block_complete_entry b;
+        b.block = arg.b.block;
+        b.txs = have_tx;
+
+        std::list<block_complete_entry> blocks;
+        blocks.push_back(b);
+        m_core.prepare_handle_incoming_blocks(blocks);
+
+        for(auto tx_blob_it = b.txs.begin(); tx_blob_it != b.txs.end(); tx_blob_it++)
+        {
+          cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+          m_core.handle_incoming_tx(*tx_blob_it, tvc, true, true);
+          if(tvc.m_verifivation_failed)
+          {
+            LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
             m_p2p->drop_connection(context);
+            m_core.cleanup_handle_incoming_blocks();
             m_core.resume_mine();
             return 1;
           }
         }
-        
-        BOOST_FOREACH(auto& tx_hash, new_block.tx_hashes)
-        {
-          if(m_core.get_pool_transaction(tx_hash, tx))
-          {
-              have_tx.push_back(tx_to_blob(tx));
-          }
-          else
-          {
-            if(tx_hash_to_blob.find(tx_hash) != tx_hash_to_blob.end()) 
-            {
-                have_tx.push_back(tx_hash_to_blob[tx_hash]);
-            }
-            else
-            {
-              need_tx_hashes.push_back(tx_hash); 
-            }
-          }
-        }
-        
-        if(need_tx_hashes.size() > 0) // drats, we don't have everything..
-        {
-          // request non-mempool txs
-          NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
-          missing_tx_req.b = arg.b;
-          missing_tx_req.hop = arg.hop;
-          BOOST_FOREACH(auto& tx_hash, need_tx_hashes)
-          {
-            missing_tx_req.missing_tx_hashes.push_back(tx_hash);
-          }
           
-          post_notify<NOTIFY_REQUEST_FLUFFY_MISSING_TX>(missing_tx_req, context);
-        }
-        else // whoo-hoo we've got em all ..
-        {
-          block_complete_entry b;
-          b.block = arg.b.block;
-          b.txs = have_tx;
-          
-          std::list<block_complete_entry> blocks;
-          blocks.push_back(b);
-          m_core.prepare_handle_incoming_blocks(blocks);
-
-          for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
-          {
-            cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-            m_core.handle_incoming_tx(*tx_blob_it, tvc, true, true);
-            if(tvc.m_verifivation_failed)
-            {
-              LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
-              m_p2p->drop_connection(context);
-              m_core.cleanup_handle_incoming_blocks();
-              m_core.resume_mine();
-              return 1;
-            }
-          }
-          
-          block_verification_context bvc = boost::value_initialized<block_verification_context>();
-          m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block
-          m_core.cleanup_handle_incoming_blocks(true);
-          m_core.resume_mine();
-          
-          if( bvc.m_verifivation_failed )
-          {
-            LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
-            m_p2p->drop_connection(context);
-            return 1;
-          }
-          if( bvc.m_added_to_main_chain )
-          {
-            ++arg.hop;
-            //TODO: Add here announce protocol usage
-            relay_fluffy_block(arg, context);
-          }
-          else if( bvc.m_marked_as_orphaned )
-          {
-            context.m_state = cryptonote_connection_context::state_synchronizing;
-            NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
-            m_core.get_short_chain_history(r.block_ids);
-            LOG_PRINT_CCONTEXT_L2("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
-            post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
-          }            
-        }
-      } 
-      else
-      {
-        LOG_ERROR_CCONTEXT
-        (
-          "sent wrong block: failed to parse and validate block: \r\n"
-          << epee::string_tools::buff_to_hex_nodelimer(arg.b.block) 
-          << "\r\n dropping connection"
-        );
-        
+        block_verification_context bvc = boost::value_initialized<block_verification_context>();
+        m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block
+        m_core.cleanup_handle_incoming_blocks(true);
         m_core.resume_mine();
-        m_p2p->drop_connection(context);        
+        
+        if( bvc.m_verifivation_failed )
+        {
+          LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
+          m_p2p->drop_connection(context);
+          return 1;
+        }
+        if( bvc.m_added_to_main_chain )
+        {
+          ++arg.hop;
+          //TODO: Add here announce protocol usage
+          NOTIFY_NEW_BLOCK::request reg_arg = AUTO_VAL_INIT(reg_arg);
+          reg_arg.hop = arg.hop;
+          reg_arg.current_blockchain_height = arg.current_blockchain_height;
+          reg_arg.b = b;
+          relay_block(reg_arg, context);
+        }
+        else if( bvc.m_marked_as_orphaned )
+        {
+          context.m_state = cryptonote_connection_context::state_synchronizing;
+          NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
+          m_core.get_short_chain_history(r.block_ids);
+          LOG_PRINT_CCONTEXT_L2("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
+          post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
+        }            
       }
+    } 
+    else
+    {
+      LOG_ERROR_CCONTEXT
+      (
+        "sent wrong block: failed to parse and validate block: \r\n"
+        << epee::string_tools::buff_to_hex_nodelimer(arg.b.block) 
+        << "\r\n dropping connection"
+      );
+        
+      m_core.resume_mine();
+      m_p2p->drop_connection(context);
+        
+      return 1;     
     }
-    
+        
     return 1;
   }  
   //------------------------------------------------------------------------------------------------------------------------  
@@ -525,6 +542,7 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT("failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, dropping connection");
       m_p2p->drop_connection(context);
+      return 1;
     }
      
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
@@ -963,15 +981,35 @@ namespace cryptonote
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::relay_block(NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
   {
-    // 
-    return relay_post_notify<NOTIFY_NEW_BLOCK>(arg, exclude_context);
+    NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_arg = AUTO_VAL_INIT(fluffy_arg);
+    fluffy_arg.hop = arg.hop;
+    fluffy_arg.current_blockchain_height = arg.current_blockchain_height;    
+    std::list<blobdata> fluffy_txs;
+    fluffy_arg.b = arg.b;
+    fluffy_arg.b.txs = fluffy_txs;
+        
+    m_p2p->for_each_connection([this, &arg, &fluffy_arg](connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t protocol_version)
+    {
+      if(protocol_version >= FLUFFY_MIN_PROTOCOL_VERSION)
+      {
+        LOG_PRINT_YELLOW("PEER SUPPORTS FLUFFY",LOG_LEVEL_0);
+        return post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(fluffy_arg, cntxt);
+      }
+      else
+      {
+        LOG_PRINT_RED("PEER_DOESNT SUPPORT FLUFFY",LOG_LEVEL_0);
+        return post_notify<NOTIFY_NEW_BLOCK>(arg, cntxt);
+      }
+    });
+    
+    return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
-  template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_fluffy_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
-  {
-    return relay_post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(arg, exclude_context);
-  }
+  //template<class t_core>
+  //bool t_cryptonote_protocol_handler<t_core>::relay_fluffy_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
+  //{
+  //  return relay_post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(arg, exclude_context);
+  //}
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& exclude_context)

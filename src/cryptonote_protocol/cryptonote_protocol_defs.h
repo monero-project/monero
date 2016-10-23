@@ -39,6 +39,7 @@ namespace cryptonote
 
 
 #define BC_COMMANDS_POOL_BASE 2000
+#define FLUFFY_MIN_PROTOCOL_VERSION 2
 
   /************************************************************************/
   /* P2P connection info, serializable to json                            */
@@ -69,6 +70,8 @@ namespace cryptonote
 	
 	uint64_t avg_upload;
 	uint64_t current_upload;
+  
+    uint32_t protocol_version;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(incoming)
@@ -87,6 +90,7 @@ namespace cryptonote
       KV_SERIALIZE(current_download)
       KV_SERIALIZE(avg_upload)
       KV_SERIALIZE(current_upload)
+      KV_SERIALIZE(protocol_version)
     END_KV_SERIALIZE_MAP()
   };
 
@@ -102,6 +106,7 @@ namespace cryptonote
       KV_SERIALIZE(txs)
     END_KV_SERIALIZE_MAP()
   };
+
 
   /************************************************************************/
   /*                                                                      */
