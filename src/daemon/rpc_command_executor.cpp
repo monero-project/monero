@@ -824,6 +824,62 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   return true;
 }
 
+bool t_rpc_command_executor::print_transaction_pool_stats() {
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
+
+  std::string fail_message = "Problem fetching transaction pool";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/get_transaction_pool", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  size_t n_transactions = res.transactions.size();
+  size_t bytes = 0, min_bytes = 0, max_bytes = 0;
+  size_t n_not_relayed = 0;
+  uint64_t fee = 0;
+  uint64_t oldest = 0;
+  size_t n_10m = 0;
+  size_t n_failing = 0;
+  const uint64_t now = time(NULL);
+  for (const auto &tx_info: res.transactions)
+  {
+    bytes += tx_info.blob_size;
+    if (min_bytes == 0 || bytes < min_bytes)
+      min_bytes = bytes;
+    if (bytes > max_bytes)
+      max_bytes = bytes;
+    if (!tx_info.relayed)
+      n_not_relayed++;
+    fee += tx_info.fee;
+    if (oldest == 0 || tx_info.receive_time < oldest)
+      oldest = tx_info.receive_time;
+    if (tx_info.receive_time < now - 600)
+      n_10m++;
+    if (tx_info.last_failed_height)
+      ++n_failing;
+  }
+  size_t avg_bytes = bytes / n_transactions;
+
+  tools::msg_writer() << n_transactions << " tx(es), " << bytes << " bytes total (min " << min_bytes << ", max " << max_bytes << ", avg " << avg_bytes << ")" << std::endl
+      << "fees " << cryptonote::print_money(fee) << " (avg " << cryptonote::print_money(fee / n_transactions) << " per tx)" << std::endl
+      << n_not_relayed << " not relayed, " << n_failing << " failing, " << n_10m << " older than 10 minutes (oldest " << (oldest == 0 ? "-" : get_human_time_ago(oldest, now)) << ")" << std::endl;
+
+  return true;
+}
+
 bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet) {
   cryptonote::COMMAND_RPC_START_MINING::request req;
   cryptonote::COMMAND_RPC_START_MINING::response res;

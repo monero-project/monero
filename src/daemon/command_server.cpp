@@ -111,6 +111,11 @@ t_command_server::t_command_server(
     , "Print transaction pool (short format)"
     );
   m_command_lookup.set_handler(
+      "print_pool_stats"
+    , std::bind(&t_command_parser_executor::print_transaction_pool_stats, &m_parser, p::_1)
+    , "Print transaction pool statistics"
+    );
+  m_command_lookup.set_handler(
       "show_hr"
     , std::bind(&t_command_parser_executor::show_hash_rate, &m_parser, p::_1)
     , "Start showing hash rate"
