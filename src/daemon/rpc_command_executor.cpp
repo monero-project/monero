@@ -873,7 +873,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
     if (tx_info.last_failed_height)
       ++n_failing;
   }
-  size_t n_transactions ? avg_bytes = bytes / n_transactions : 0;
+  size_t avg_bytes = n_transactions ? bytes / n_transactions : 0;
 
   tools::msg_writer() << n_transactions << " tx(es), " << bytes << " bytes total (min " << min_bytes << ", max " << max_bytes << ", avg " << avg_bytes << ")" << std::endl
       << "fees " << cryptonote::print_money(fee) << " (avg " << cryptonote::print_money(n_transactions ? fee / n_transactions : 0) << " per tx)" << std::endl
