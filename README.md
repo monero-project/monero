@@ -306,3 +306,7 @@ While monerod and monero-wallet-cli do not use readline directly, most of the fu
 
 Note: rlwrap will save things like your seed and private keys, if you supply them on prompt. You may want to not use rlwrap when you use simplewallet to restore from seed, etc.
 
+# Contributing
+
+If you want to help out, see CONTRIBUTING for a set of guidelines.
+
