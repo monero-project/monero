@@ -222,6 +222,13 @@ bool t_command_parser_executor::print_transaction_pool_short(const std::vector<s
   return m_executor.print_transaction_pool_short();
 }
 
+bool t_command_parser_executor::print_transaction_pool_stats(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+
+  return m_executor.print_transaction_pool_stats();
+}
+
 bool t_command_parser_executor::start_mining(const std::vector<std::string>& args)
 {
   if(!args.size())
