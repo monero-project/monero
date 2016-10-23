@@ -105,6 +105,7 @@ typedef cryptonote::simple_wallet sw;
 enum TransferType {
   TransferOriginal,
   TransferNew,
+  TransferLocked,
 };
 
 namespace
@@ -2364,7 +2365,8 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
   }
 
-  if(local_args.size() < 2)
+  const size_t min_args = (transfer_type == TransferLocked) ? 3 : 2;
+  if(local_args.size() < min_args)
   {
      fail_msg_writer() << tr("wrong number of arguments");
      return true;
@@ -2372,7 +2374,8 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
-  if (1 == local_args.size() % 2)
+  bool expect_even = (transfer_type == TransferLocked);
+  if ((expect_even ? 0 : 1) == local_args.size() % 2)
   {
     std::string payment_id_str = local_args.back();
     local_args.pop_back();
@@ -2403,6 +2406,26 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       return true;
     }
     payment_id_seen = true;
+  }
+
+  uint64_t locked_blocks = 0;
+  if (transfer_type == TransferLocked)
+  {
+    try
+    {
+      locked_blocks = boost::lexical_cast<uint64_t>(local_args.back());
+    }
+    catch (const std::exception &e)
+    {
+      fail_msg_writer() << tr("bad locked_blocks parameter:") << " " << local_args.back();
+      return true;
+    }
+    if (locked_blocks > 1000000)
+    {
+      fail_msg_writer() << tr("Locked blocks too high, max 1000000 (˜4 yrs)");
+      return true;
+    }
+    local_args.pop_back();
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
@@ -2464,8 +2487,20 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   {
     // figure out what tx will be necessary
     std::vector<tools::wallet2::pending_tx> ptx_vector;
+    uint64_t bc_height, unlock_block = 0;
+    std::string err;
     switch (transfer_type)
     {
+      case TransferLocked:
+        bc_height = get_daemon_blockchain_height(err);
+        if (!err.empty())
+        {
+          fail_msg_writer() << tr("failed to get blockchain height: ") << err;
+          return true;
+        }
+        unlock_block = bc_height + locked_blocks;
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+      break;
       case TransferNew:
         ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
       break;
@@ -2507,6 +2542,11 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
         if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address")) 
                                                    % print_money(dust_not_in_fee);
+        if (transfer_type == TransferLocked)
+        {
+          float days = locked_blocks / 720.0f;
+          prompt << boost::format(tr(".\nThis transaction will unlock on block %llu, in approximately %s days (assuming 2 minutes per block)")) % ((unsigned long long)unlock_block) % days;
+        }
         prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
         
         std::string accepted = command_line::input_line(prompt.str());
@@ -2644,262 +2684,9 @@ bool simple_wallet::transfer_new(const std::vector<std::string> &args_)
   return transfer_main(TransferNew, args_);
 }
 //----------------------------------------------------------------------------------------------------
-
 bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
 {
-  if (!try_connect_to_daemon())
-    return true;
-
-  LOCK_IDLE_SCOPE();
-
-  std::vector<std::string> local_args = args_;
-
-  size_t fake_outs_count;
-  if(local_args.size() > 0) {
-    if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
-    {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
-    }
-    else
-    {
-      local_args.erase(local_args.begin());
-    }
-  }
-
-
-
-  if(m_wallet->watch_only())
-  {
-    fail_msg_writer() << tr("this is a watch only wallet");
-    return true;
-  }
-
-  int locked_blocks = 0;
-  std::vector<uint8_t> extra;
-  bool payment_id_seen = false;
-  
-  if (2 < local_args.size() && local_args.size() < 5)
-  {
-    if (local_args.size() == 4)
-    {
-      std::string payment_id_str = local_args.back();
-      local_args.pop_back();
-
-      crypto::hash payment_id;
-      bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
-      if(r)
-      {
-        std::string extra_nonce;
-        set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-        r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-      }
-      else
-      {
-        crypto::hash8 payment_id8;
-        r = tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8);
-        if(r)
-        {
-          std::string extra_nonce;
-          set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
-          r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-        }
-      }
-      payment_id_seen = true;
-      if(!r)
-      {
-        fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character hex string: ") << payment_id_str;
-        return true;
-      }
-
-    }
-
-    locked_blocks = std::stoi( local_args.back() );
-    if (locked_blocks > 1000000) {
-      fail_msg_writer() << tr("Locked blocks too high, max 1000000 (˜4 yrs)");
-      return true;  
-    }
-    local_args.pop_back(); 
-      
-  }
-  else
-  {
-    fail_msg_writer() << tr("Wrong number of arguments, use: locked_transfer [<mixin_count>] <addr> <amount> <lockblocks> [<payment_id>]");
-    return true;
-  }
-
-  vector<cryptonote::tx_destination_entry> dsts;
-
-  cryptonote::tx_destination_entry de;
-  bool has_payment_id;
-  crypto::hash8 new_payment_id;
-  if (!get_address_from_str(local_args[0], de.addr, has_payment_id, new_payment_id))
-    return true;
-
-  bool ok = cryptonote::parse_amount(de.amount, local_args[1]);
-  if(!ok || 0 == de.amount)
-  {
-    fail_msg_writer() << tr("amount is wrong: ") << local_args[0] << ' ' << local_args[1] <<
-      ", " << tr("expected number from 0 to ") << print_money(std::numeric_limits<uint64_t>::max());
-    return true;
-  }
-
-  dsts.push_back(de);
-
-
-  try
-  {
-    // figure out what tx will be necessary
-    std::vector<tools::wallet2::pending_tx> ptx_vector;
-
-    std::string err;
-    int bc_height = get_daemon_blockchain_height(err);
-    int unlock_block = locked_blocks + bc_height;
-    ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block , 0 /* unused fee arg*/, extra, m_trusted_daemon);
-
-    uint64_t total_fee = 0;
-    uint64_t dust_not_in_fee = 0;
-    uint64_t dust_in_fee = 0;
-    for (size_t n = 0; n < ptx_vector.size(); ++n)
-    {
-      total_fee += ptx_vector[n].fee;
-
-      if (ptx_vector[n].dust_added_to_fee)
-        dust_in_fee += ptx_vector[n].dust;
-      else
-        dust_not_in_fee += ptx_vector[n].dust;
-    }
-
-    std::stringstream prompt;
-    if (ptx_vector.size() > 1)
-    {
-      prompt << boost::format(tr("Your transaction needs to be split into %llu transactions.  "
-        "This will result in a transaction fee being applied to each transaction, for a total fee of %s")) %
-        ((unsigned long long)ptx_vector.size()) % print_money(total_fee);
-    }
-    else
-    {
-      
-      prompt << boost::format(tr("Transaction fee is %s")) %
-        print_money(total_fee);
-    }
-    if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
-    if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address")) 
-                                               % print_money(dust_not_in_fee);
-    
-    float days = (float)(locked_blocks) / 720.0;
-    prompt << boost::format(tr(".\nThe unlock time is approximately %s days")) % days;
-
-    prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
-    
-    std::string accepted = command_line::input_line(prompt.str());
-    if (std::cin.eof())
-      return true;
-    if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
-    {
-      fail_msg_writer() << tr("transaction cancelled.");
-      return true; 
-    }
-   
-    // actually commit the transactions
-    while (!ptx_vector.empty())
-    {
-      auto & ptx = ptx_vector.back();
-      m_wallet->commit_tx(ptx);
-      success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
-
-      // if no exception, remove element from vector
-      ptx_vector.pop_back();
-    }
-  }
-  catch (const tools::error::daemon_busy&)
-  {
-    fail_msg_writer() << tr("daemon is busy. Please try again later.");
-  }
-  catch (const tools::error::no_connection_to_daemon&)
-  {
-    fail_msg_writer() << tr("no connection to daemon. Please make sure daemon is running.");
-  }
-  catch (const tools::error::wallet_rpc_error& e)
-  {
-    LOG_ERROR("RPC error: " << e.to_string());
-    fail_msg_writer() << tr("RPC error: ") << e.what();
-  }
-  catch (const tools::error::get_random_outs_error&)
-  {
-    fail_msg_writer() << tr("failed to get random outputs to mix");
-  }
-  catch (const tools::error::not_enough_money& e)
-  {
-    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
-      print_money(e.available()) %
-      print_money(e.tx_amount()));
-    fail_msg_writer() << tr("Not enough money in unlocked balance");
-  }
-  catch (const tools::error::tx_not_possible& e)
-  {
-    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
-      print_money(e.available()) %
-      print_money(e.tx_amount() + e.fee())  %
-      print_money(e.tx_amount()) %
-      print_money(e.fee()));
-    fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
-  }
-  catch (const tools::error::not_enough_outs_to_mix& e)
-  {
-    auto writer = fail_msg_writer();
-    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
-    {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
-    }
-  }
-  catch (const tools::error::tx_not_constructed&)
-  {
-    fail_msg_writer() << tr("transaction was not constructed");
-  }
-  catch (const tools::error::tx_rejected& e)
-  {
-    fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
-    std::string reason = e.reason();
-    if (!reason.empty())
-      fail_msg_writer() << tr("Reason: ") << reason;
-  }
-  catch (const tools::error::tx_sum_overflow& e)
-  {
-    fail_msg_writer() << e.what();
-  }
-  catch (const tools::error::zero_destination&)
-  {
-    fail_msg_writer() << tr("one of destinations is zero");
-  }
-  catch (const tools::error::tx_too_big& e)
-  {
-    fail_msg_writer() << tr("failed to find a suitable way to split transactions");
-  }
-  catch (const tools::error::transfer_error& e)
-  {
-    LOG_ERROR("unknown transfer error: " << e.to_string());
-    fail_msg_writer() << tr("unknown transfer error: ") << e.what();
-  }
-  catch (const tools::error::wallet_internal_error& e)
-  {
-    LOG_ERROR("internal error: " << e.to_string());
-    fail_msg_writer() << tr("internal error: ") << e.what();
-  }
-  catch (const std::exception& e)
-  {
-    LOG_ERROR("unexpected error: " << e.what());
-    fail_msg_writer() << tr("unexpected error: ") << e.what();
-  }
-  catch (...)
-  {
-    LOG_ERROR("unknown error");
-    fail_msg_writer() << tr("unknown error");
-  }
-
-  return true;
+  return transfer_main(TransferLocked, args_);
 }
 //----------------------------------------------------------------------------------------------------
 
