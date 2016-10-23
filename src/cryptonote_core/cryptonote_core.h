@@ -180,6 +180,11 @@ namespace cryptonote
       */
      virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, const blobdata& ex_nonce);
 
+     /**
+      * @brief called when a transaction is relayed
+      */
+     virtual void on_transaction_relayed(const cryptonote::blobdata& tx);
+
 
      /**
       * @brief gets the miner instance

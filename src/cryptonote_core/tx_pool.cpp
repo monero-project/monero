@@ -387,7 +387,10 @@ namespace cryptonote
     {
       auto i = m_transactions.find(it->first);
       if (i != m_transactions.end())
+      {
+        i->second.relayed = true;
         i->second.last_relayed_time = now;
+      }
     }
   }
   //---------------------------------------------------------------------------------
@@ -422,6 +425,8 @@ namespace cryptonote
       txi.last_failed_height = txd.last_failed_height;
       txi.last_failed_id_hash = epee::string_tools::pod_to_hex(txd.last_failed_id);
       txi.receive_time = txd.receive_time;
+      txi.relayed = txd.relayed;
+      txi.last_relayed_time = txd.last_relayed_time;
       tx_infos.push_back(txi);
     }
 
