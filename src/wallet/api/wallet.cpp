@@ -167,6 +167,26 @@ bool Wallet::paymentIdValid(const string &paiment_id)
     return false;
 }
 
+bool Wallet::addressValid(const std::string &str, bool testnet)
+{
+  bool has_payment_id;
+  cryptonote::account_public_address address;
+  crypto::hash8 pid;
+  return get_account_integrated_address_from_str(address, has_payment_id, pid, testnet, str);
+}
+
+std::string Wallet::paymentIdFromAddress(const std::string &str, bool testnet)
+{
+  bool has_payment_id;
+  cryptonote::account_public_address address;
+  crypto::hash8 pid;
+  if (!get_account_integrated_address_from_str(address, has_payment_id, pid, testnet, str))
+    return "";
+  if (!has_payment_id)
+    return "";
+  return epee::string_tools::pod_to_hex(pid);
+}
+
 uint64_t Wallet::maximumAllowedAmount()
 {
     return std::numeric_limits<uint64_t>::max();
