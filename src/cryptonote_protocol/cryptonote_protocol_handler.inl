@@ -147,7 +147,7 @@ namespace cryptonote
       ss << std::setw(30) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") +
         epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip) + ":" + std::to_string(cntxt.m_remote_port)
         << std::setw(20) << std::hex << peer_id
-        << std::setw(20) << std::hex << protocol_version
+        << std::setw(20) << std::to_string(protocol_version)
         << std::setw(30) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
         << std::setw(25) << get_protocol_state_string(cntxt.m_state)
         << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started)
@@ -200,6 +200,8 @@ namespace cryptonote
       std::stringstream peer_id_str;
       peer_id_str << std::hex << peer_id;
       peer_id_str >> cnx.peer_id;
+      
+      cnx.protocol_version = protocol_version;
 
       cnx.recv_count = cntxt.m_recv_cnt;
       cnx.recv_idle_time = timestamp - cntxt.m_last_recv;
@@ -406,6 +408,10 @@ namespace cryptonote
             // Should only not be added to pool if verification failed, but
             // maybe in the future could not be added for other reasons 
             // according to monero-moo so keep track of these separately ..
+            //
+            // this is probably the wrong thing to do, but for now the idea
+            // would be to pass these back/forth on the missing tx request,
+            // right now they're just being lost at the end of this function call
             if(!tvc.m_added_to_pool) 
               tx_hash_to_blob[tx_hash] = tx_blob;
           }
@@ -468,6 +474,9 @@ namespace cryptonote
         blocks.push_back(b);
         m_core.prepare_handle_incoming_blocks(blocks);
 
+        // Do I need to do this? Every transaction is either already in the pool
+        // and thus verified(?), or I just verified it above if it was included
+        // in the sent txs. So is this a double check / wasteful?
         for(auto tx_blob_it = b.txs.begin(); tx_blob_it != b.txs.end(); tx_blob_it++)
         {
           cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);

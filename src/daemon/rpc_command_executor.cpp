@@ -423,7 +423,7 @@ bool t_rpc_command_executor::print_connections() {
      //<< std::setw(30) << std::left << in_out
      << std::setw(30) << std::left << address
      << std::setw(20) << info.peer_id
-     << std::setw(20) << info.protocol_version     
+     << std::setw(20) << info.protocol_version
      << std::setw(30) << std::to_string(info.recv_count) + "("  + std::to_string(info.recv_idle_time) + ")/" + std::to_string(info.send_count) + "(" + std::to_string(info.send_idle_time) + ")"
      << std::setw(25) << info.state
      << std::setw(20) << info.live_time

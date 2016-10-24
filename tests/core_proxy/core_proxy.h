@@ -89,5 +89,6 @@ namespace tests
     uint64_t get_target_blockchain_height() const { return 1; }
     size_t get_block_sync_size() const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
     virtual void on_transaction_relayed(const cryptonote::blobdata& tx) {}
+    bool get_pool_transaction(const crypto::hash& id, cryptonote::transaction& tx) const {return true;}
   };
 }
