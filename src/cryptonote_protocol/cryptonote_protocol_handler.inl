@@ -125,7 +125,7 @@ namespace cryptonote
 
     ss << std::setw(30) << std::left << "Remote Host"
       << std::setw(20) << "Peer id"
-      << std::setw(20) << "Protocol Version"      
+      << std::setw(20) << "Support Flags"      
       << std::setw(30) << "Recv/Sent (inactive,sec)"
       << std::setw(25) << "State"
       << std::setw(20) << "Livetime(sec)"
@@ -136,7 +136,7 @@ namespace cryptonote
       << ENDL;
 
     uint32_t ip;
-    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t protocol_version)
+    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
       bool local_ip = false;
       ip = ntohl(cntxt.m_remote_ip);
@@ -147,7 +147,7 @@ namespace cryptonote
       ss << std::setw(30) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") +
         epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip) + ":" + std::to_string(cntxt.m_remote_port)
         << std::setw(20) << std::hex << peer_id
-        << std::setw(20) << std::to_string(protocol_version)
+        << std::setw(20) << std::hex << support_flags
         << std::setw(30) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
         << std::setw(25) << get_protocol_state_string(cntxt.m_state)
         << std::setw(20) << std::to_string(time(NULL) - cntxt.m_started)
@@ -187,7 +187,7 @@ namespace cryptonote
   {
     std::list<connection_info> connections;
 
-    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t protocol_version)
+    m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
       connection_info cnx;
       auto timestamp = time(NULL);
@@ -201,7 +201,7 @@ namespace cryptonote
       peer_id_str << std::hex << peer_id;
       peer_id_str >> cnx.peer_id;
       
-      cnx.protocol_version = protocol_version;
+      cnx.support_flags = support_flags;
 
       cnx.recv_count = cntxt.m_recv_cnt;
       cnx.recv_idle_time = timestamp - cntxt.m_last_recv;
@@ -997,28 +997,22 @@ namespace cryptonote
     fluffy_arg.b = arg.b;
     fluffy_arg.b.txs = fluffy_txs;
         
-    m_p2p->for_each_connection([this, &arg, &fluffy_arg](connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t protocol_version)
+    m_p2p->for_each_connection([this, &arg, &fluffy_arg](connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
-      if(protocol_version >= FLUFFY_MIN_PROTOCOL_VERSION)
+      if(support_flags & P2P_SUPPORT_FLAG_FLUFFY_BLOCKS)
       {
-        LOG_PRINT_YELLOW("PEER SUPPORTS FLUFFY",LOG_LEVEL_0);
+        LOG_PRINT_YELLOW("PEER SUPPORTS FLUFFY BLOCKS", LOG_LEVEL_2);
         return post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(fluffy_arg, cntxt);
       }
       else
       {
-        LOG_PRINT_RED("PEER_DOESNT SUPPORT FLUFFY",LOG_LEVEL_0);
+        LOG_PRINT_YELLOW("PEER DOESN'T SUPPORT FLUFFY BLOCKS", LOG_LEVEL_2);
         return post_notify<NOTIFY_NEW_BLOCK>(arg, cntxt);
       }
     });
     
     return 1;
   }
-  //------------------------------------------------------------------------------------------------------------------------
-  //template<class t_core>
-  //bool t_cryptonote_protocol_handler<t_core>::relay_fluffy_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
-  //{
-  //  return relay_post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(arg, exclude_context);
-  //}
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& exclude_context)

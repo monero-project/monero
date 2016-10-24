@@ -111,7 +111,7 @@
 #define P2P_IP_FAILS_BEFORE_BLOCK                       10
 #define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
 
-#define P2P_PROTOCOL_VERSION                            2
+#define P2P_SUPPORT_FLAG_FLUFFY_BLOCKS                  0x01
 
 #define ALLOW_DEBUG_COMMANDS
 
