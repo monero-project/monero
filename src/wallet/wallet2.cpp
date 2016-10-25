@@ -2706,7 +2706,8 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
     LOG_PRINT_L0("Failed to parse data from " << signed_filename);
     return false;
   }
-  LOG_PRINT_L1("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
+  LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
+  for (auto &ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(ptx.tx));
 
   ptx = signed_txs.ptx;
 

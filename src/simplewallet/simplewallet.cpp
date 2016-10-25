@@ -3246,7 +3246,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
         if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
         if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address"))
                                                    % print_money(dust_not_in_fee);
-        prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
+        prompt << tr(".") << ENDL << "Full transaction details are available in the log file" << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
 
         std::string accepted = command_line::input_line(prompt.str());
         if (std::cin.eof())
