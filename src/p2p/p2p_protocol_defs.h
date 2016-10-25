@@ -54,6 +54,7 @@ namespace nodetool
     net_address adr;
     peerid_type id;
     int64_t last_seen;
+    uint32_t sf; // support_flags
   };
 
   struct connection_entry
@@ -115,12 +116,14 @@ namespace nodetool
     uint64_t local_time;
     uint32_t my_port;
     peerid_type peer_id;
+    uint32_t support_flags;    
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_VAL_POD_AS_BLOB(network_id)
       KV_SERIALIZE(peer_id)
       KV_SERIALIZE(local_time)
       KV_SERIALIZE(my_port)
+      KV_SERIALIZE(support_flags)
     END_KV_SERIALIZE_MAP()
   };
   

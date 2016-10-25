@@ -63,6 +63,7 @@ namespace nodetool
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
     peerid_type peer_id;
+    uint32_t support_flags;
   };
 
   template<class t_payload_net_handler>
@@ -174,7 +175,7 @@ namespace nodetool
     virtual bool invoke_notify_to_peer(int command, const std::string& req_buff, const epee::net_utils::connection_context_base& context);
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
-    virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type)> f);
+    virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f);
     virtual bool add_ip_fail(uint32_t address);
     //----------------- i_connection_filter  --------------------------------------------------------
     virtual bool is_remote_ip_allowed(uint32_t adress);
@@ -194,7 +195,7 @@ namespace nodetool
 
     bool connections_maker();
     bool peer_sync_idle_maker();
-    bool do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context, bool just_take_peerlist = false);
+    bool do_handshake_with_peer(peerid_type& pi, uint32_t& sf, p2p_connection_context& context, bool just_take_peerlist = false);
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
 
     bool make_new_connection_from_peerlist(bool use_white_list);
@@ -240,10 +241,12 @@ namespace nodetool
     {
       network_config m_net_config;
       uint64_t m_peer_id;
+      uint32_t m_support_flags;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(m_net_config)
         KV_SERIALIZE(m_peer_id)
+        KV_SERIALIZE(m_support_flags)
       END_KV_SERIALIZE_MAP()
     };
 

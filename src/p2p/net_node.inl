@@ -158,6 +158,7 @@ namespace nodetool
     m_config.m_net_config.connection_timeout = P2P_DEFAULT_CONNECTION_TIMEOUT;
     m_config.m_net_config.ping_connection_timeout = P2P_DEFAULT_PING_CONNECTION_TIMEOUT;
     m_config.m_net_config.send_peerlist_sz = P2P_DEFAULT_PEERS_IN_HANDSHAKE;
+    m_config.m_support_flags = P2P_SUPPORT_FLAG_FLUFFY_BLOCKS; // | OTHER_FLAGS
 
     m_first_connection_maker_call = true;
     CATCH_ENTRY_L0("node_server::init_config", false);
@@ -165,10 +166,10 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  void node_server<t_payload_net_handler>::for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type)> f)
+  void node_server<t_payload_net_handler>::for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f)
   {
     m_net_server.get_config_object().foreach_connection([&](p2p_connection_context& cntx){
-      return f(cntx, cntx.peer_id);
+      return f(cntx, cntx.peer_id, cntx.support_flags);
     });
   }
   //-----------------------------------------------------------------------------------
@@ -661,7 +662,7 @@ namespace nodetool
 
 
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context_, bool just_take_peerlist)
+  bool node_server<t_payload_net_handler>::do_handshake_with_peer(peerid_type& pi, uint32_t& sf, p2p_connection_context& context_, bool just_take_peerlist)
   {
     typename COMMAND_HANDSHAKE::request arg;
     typename COMMAND_HANDSHAKE::response rsp;
@@ -672,7 +673,7 @@ namespace nodetool
     std::atomic<bool> hsh_result(false);
 
     bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_.m_connection_id, COMMAND_HANDSHAKE::ID, arg, m_net_server.get_config_object(),
-      [this, &pi, &ev, &hsh_result, &just_take_peerlist](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
+      [this, &pi, &ev, &hsh_result, &just_take_peerlist, &sf](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
     {
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ev.raise();});
 
@@ -705,6 +706,7 @@ namespace nodetool
         }
 
         pi = context.peer_id = rsp.node_data.peer_id;
+        sf = context.support_flags = rsp.node_data.support_flags;
         m_peerlist.set_peer_just_seen(rsp.node_data.peer_id, context.m_remote_ip, context.m_remote_port);
 
         if(rsp.node_data.peer_id == m_config.m_peer_id)
@@ -864,7 +866,8 @@ namespace nodetool
     }
 
     peerid_type pi = AUTO_VAL_INIT(pi);
-    res = do_handshake_with_peer(pi, con, just_take_peerlist);
+    uint32_t sf = AUTO_VAL_INIT(sf);
+    res = do_handshake_with_peer(pi, sf, con, just_take_peerlist);
 
     if(!res)
     {
@@ -886,6 +889,7 @@ namespace nodetool
     peerlist_entry pe_local = AUTO_VAL_INIT(pe_local);
     pe_local.adr = na;
     pe_local.id = pi;
+    pe_local.sf = sf;
     time_t last_seen;
     time(&last_seen);
     pe_local.last_seen = static_cast<int64_t>(last_seen);
@@ -1127,6 +1131,7 @@ namespace nodetool
   {
     time_t local_time;
     time(&local_time);
+    node_data.support_flags = m_config.m_support_flags;
     node_data.local_time = local_time;
     node_data.peer_id = m_config.m_peer_id;
     if(!m_hide_my_port)
@@ -1390,13 +1395,15 @@ namespace nodetool
     }
     //associate peer_id with this connection
     context.peer_id = arg.node_data.peer_id;
+    context.support_flags = arg.node_data.support_flags;
 
     if(arg.node_data.peer_id != m_config.m_peer_id && arg.node_data.my_port)
     {
       peerid_type peer_id_l = arg.node_data.peer_id;
       uint32_t port_l = arg.node_data.my_port;
+      uint32_t support_flags_l = arg.node_data.support_flags;
       //try ping to be sure that we can add this peer to peer_list
-      try_ping(arg.node_data, context, [peer_id_l, port_l, context, this]()
+      try_ping(arg.node_data, context, [peer_id_l, port_l, context, support_flags_l, this]()
       {
         //called only(!) if success pinged, update local peerlist
         peerlist_entry pe;
@@ -1406,6 +1413,7 @@ namespace nodetool
         time(&last_seen);
         pe.last_seen = static_cast<int64_t>(last_seen);
         pe.id = peer_id_l;
+        pe.sf = support_flags_l;
         this->m_peerlist.append_with_peer_white(pe);
         LOG_PRINT_CCONTEXT_L2("PING SUCCESS " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << ":" << port_l);
       });
