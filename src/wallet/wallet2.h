@@ -154,16 +154,18 @@ namespace tools
     struct tx_construction_data
     {
       std::vector<cryptonote::tx_source_entry> sources;
-      std::vector<cryptonote::tx_destination_entry> destinations;
       cryptonote::tx_destination_entry change_dts;
+      std::vector<cryptonote::tx_destination_entry> splitted_dsts;
+      std::list<size_t> selected_transfers;
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
       bool use_rct;
 
       BEGIN_SERIALIZE_OBJECT()
         FIELD(sources)
-        FIELD(destinations)
         FIELD(change_dts)
+        FIELD(splitted_dsts)
+        FIELD(selected_transfers)
         FIELD(extra)
         VARINT_FIELD(unlock_time)
         FIELD(use_rct)
@@ -930,8 +932,9 @@ namespace tools
     ptx.tx_key = tx_key;
     ptx.dests = dsts;
     ptx.construction_data.sources = sources;
-    ptx.construction_data.destinations = dsts;
     ptx.construction_data.change_dts = change_dts;
+    ptx.construction_data.splitted_dsts = splitted_dsts;
+    ptx.construction_data.selected_transfers = selected_transfers;
     ptx.construction_data.extra = tx.extra;
     ptx.construction_data.unlock_time = unlock_time;
     ptx.construction_data.use_rct = false;

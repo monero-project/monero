@@ -3128,9 +3128,9 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
       if (mixin < min_mixin)
         min_mixin = mixin;
     }
-    for (size_t d = 0; d < cd.destinations.size(); ++d)
+    for (size_t d = 0; d < cd.splitted_dsts.size(); ++d)
     {
-      const tx_destination_entry &entry = cd.destinations[d];
+      const tx_destination_entry &entry = cd.splitted_dsts[d];
       std::string address = get_account_address_as_str(m_wallet->testnet(), entry.addr);
       std::unordered_map<std::string,uint64_t>::iterator i = dests.find(address);
       if (i == dests.end())
@@ -3141,9 +3141,19 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
     }
     if (cd.change_dts.amount > 0)
     {
-      dests.insert(std::make_pair(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr), cd.change_dts.amount));
-      amount_to_dests += cd.change_dts.amount;
-      change += cd.change_dts.amount;
+      std::unordered_map<std::string, uint64_t>::iterator it = dests.find(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr));
+      if (it == dests.end())
+      {
+        fail_msg_writer() << tr("Claimed change does not go to a paid address");
+        return false;
+      }
+      if (it->second < cd.change_dts.amount)
+      {
+        fail_msg_writer() << tr("Claimed change is larger than payment to the change address");
+        return false;
+      }
+      change = cd.change_dts.amount;
+      it->second -= cd.change_dts.amount;
     }
   }
   std::string dest_string;
@@ -3158,7 +3168,7 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
     dest_string = tr("with no destinations");
 
   uint64_t fee = amount - amount_to_dests;
-  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, change %s, %s, with min mixin %lu (full details in log file). Is this okay? (Y/Yes/N/No)")) % (unsigned long)txs.txes.size() % print_money(amount) % print_money(fee) % print_money(change) % dest_string % (unsigned long)min_mixin).str();
+  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, change %s, %s, with min mixin %lu. Is this okay? (Y/Yes/N/No)")) % (unsigned long)txs.txes.size() % print_money(amount) % print_money(fee) % print_money(change) % dest_string % (unsigned long)min_mixin).str();
   std::string accepted = command_line::input_line(prompt_str);
   return is_it_true(accepted);
 }

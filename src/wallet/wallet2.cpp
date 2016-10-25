@@ -74,8 +74,8 @@ using namespace cryptonote;
 // arbitrary, used to generate different hashes from the same input
 #define CHACHA8_KEY_TAIL 0x8c
 
-#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\001"
-#define SIGNED_TX_PREFIX "Monero signed tx set\001"
+#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\002"
+#define SIGNED_TX_PREFIX "Monero signed tx set\002"
 
 #define RECENT_OUTPUT_RATIO (0.25) // 25% of outputs are from the recent zone
 #define RECENT_OUTPUT_ZONE (5 * 86400) // last 5 days are the recent zone
@@ -2630,11 +2630,8 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     signed_txes.ptx.push_back(pending_tx());
     tools::wallet2::pending_tx &ptx = signed_txes.ptx.back();
     crypto::secret_key tx_key;
-    std::vector<cryptonote::tx_destination_entry> dests = sd.destinations;
-    if (sd.change_dts.amount > 0)
-      dests.push_back(sd.change_dts);
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sd.sources, dests, sd.extra, ptx.tx, sd.unlock_time, tx_key, sd.use_rct);
-    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.destinations, sd.unlock_time, m_testnet);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sd.sources, sd.splitted_dsts, sd.extra, ptx.tx, sd.unlock_time, tx_key, sd.use_rct);
+    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_testnet);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
     // and if we really go over limit, the daemon will reject when it gets submitted. Chances are it's
@@ -2661,13 +2658,13 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     ptx.key_images = key_images;
     ptx.fee = 0;
     for (const auto &i: sd.sources) ptx.fee += i.amount;
-    for (const auto &i: dests) ptx.fee -= i.amount;
+    for (const auto &i: sd.splitted_dsts) ptx.fee -= i.amount;
     ptx.dust = 0;
     ptx.dust_added_to_fee = false;
     ptx.change_dts = sd.change_dts;
-//    ptx.selected_transfers = selected_transfers;
+    ptx.selected_transfers = sd.selected_transfers;
     ptx.tx_key = rct::rct2sk(rct::identity()); // don't send it back to the untrusted view wallet
-    ptx.dests = sd.destinations;
+    ptx.dests = sd.splitted_dsts;
     ptx.construction_data = sd;
   }
 
@@ -3188,8 +3185,9 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.tx_key = tx_key;
   ptx.dests = dsts;
   ptx.construction_data.sources = sources;
-  ptx.construction_data.destinations = dsts;
   ptx.construction_data.change_dts = change_dts;
+  ptx.construction_data.splitted_dsts = splitted_dsts;
+  ptx.construction_data.selected_transfers = selected_transfers;
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = false;
@@ -3307,8 +3305,9 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.tx_key = tx_key;
   ptx.dests = dsts;
   ptx.construction_data.sources = sources;
-  ptx.construction_data.destinations = dsts;
   ptx.construction_data.change_dts = change_dts;
+  ptx.construction_data.splitted_dsts = splitted_dsts;
+  ptx.construction_data.selected_transfers = selected_transfers;
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = true;
@@ -3531,7 +3530,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     if (!prefered_inputs.empty())
     {
       string s;
-      for (auto i: prefered_inputs) s += print_money(m_transfers[i].amount()) + " ";
+      for (auto i: prefered_inputs) s += boost::lexical_cast<std::string>(i) + "(" + print_money(m_transfers[i].amount()) + ") ";
       LOG_PRINT_L1("Found prefered rct inputs for rct tx: " << s);
     }
   }
@@ -3551,7 +3550,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     size_t idx = !prefered_inputs.empty() ? pop_back(prefered_inputs) : !unused_transfers_indices.empty() ? pop_best_value(unused_transfers_indices, tx.selected_transfers) : pop_best_value(unused_dust_indices, tx.selected_transfers);
 
     const transfer_details &td = m_transfers[idx];
-    LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()));
+    LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()) << ", ki " << td.m_key_image);
 
     // add this output to the list to spend
     tx.selected_transfers.push_back(idx);
