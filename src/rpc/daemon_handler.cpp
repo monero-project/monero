@@ -172,7 +172,7 @@ namespace rpc
 
         auto itr = std::find(missed_vec.begin(), missed_vec.end(), h);
 
-        if (itr != missed_vec.begin())
+        if (itr != missed_vec.end())
         {
           found_hashes.push_back(h);
           found_txs_vec.push_back(tx);
