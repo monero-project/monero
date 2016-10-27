@@ -126,9 +126,12 @@ namespace rpc
 
     bool r = m_core.get_transactions(req.tx_hashes, found_txs, missed_hashes);
 
-    // TODO: handle return false (std::exception caught above)
+    // TODO: consider fixing core::get_transactions to not hide exceptions
     if (!r)
     {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "core::get_transactions() returned false (exception caught there)";
+      return;
     }
 
     uint64_t num_found = found_txs.size();
