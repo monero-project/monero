@@ -40,12 +40,12 @@ namespace cryptonote
 namespace rpc
 {
 
-  void DaemonHandler::handle(GetHeight::Request& req, GetHeight::Response& res)
+  void DaemonHandler::handle(const GetHeight::Request& req, GetHeight::Response& res)
   {
     res.height = m_core.get_current_blockchain_height();
   }
 
-  void DaemonHandler::handle(GetBlocksFast::Request& req, GetBlocksFast::Response& res)
+  void DaemonHandler::handle(const GetBlocksFast::Request& req, GetBlocksFast::Response& res)
   {
     std::list<std::pair<block, std::list<transaction> > > blocks;
 
@@ -103,7 +103,7 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(GetHashesFast::Request& req, GetHashesFast::Response& res)
+  void DaemonHandler::handle(const GetHashesFast::Request& req, GetHashesFast::Response& res)
   {
     res.start_height = req.start_height;
 
@@ -119,7 +119,7 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(GetTransactions::Request& req, GetTransactions::Response& res)
+  void DaemonHandler::handle(const GetTransactions::Request& req, GetTransactions::Response& res)
   {
     std::list<cryptonote::transaction> found_txs;
     std::list<crypto::hash> missed_hashes;
@@ -193,7 +193,7 @@ namespace rpc
     res.missed_hashes = std::move(missed_vec);
   }
 
-  void DaemonHandler::handle(KeyImagesSpent::Request& req, KeyImagesSpent::Response& res)
+  void DaemonHandler::handle(const KeyImagesSpent::Request& req, KeyImagesSpent::Response& res)
   {
     res.spent_status.resize(req.key_images.size(), KeyImagesSpent::STATUS::UNSPENT);
 
@@ -216,7 +216,7 @@ namespace rpc
     }
   }
 
-  void DaemonHandler::handle(GetTxGlobalOutputIndices::Request& req, GetTxGlobalOutputIndices::Response& res)
+  void DaemonHandler::handle(const GetTxGlobalOutputIndices::Request& req, GetTxGlobalOutputIndices::Response& res)
   {
     if (!m_core.get_tx_outputs_gindexs(req.tx_hash, res.output_indices))
     {
@@ -230,11 +230,11 @@ namespace rpc
   }
 
   //TODO: handle "restricted" RPC
-  void DaemonHandler::handle(GetRandomOutputsForAmounts::Request& req, GetRandomOutputsForAmounts::Response& res)
+  void DaemonHandler::handle(const GetRandomOutputsForAmounts::Request& req, GetRandomOutputsForAmounts::Response& res)
   {
     auto& chain = m_core.get_blockchain_storage();
 
-    for (uint64_t& amount : req.amounts)
+    for (const uint64_t& amount : req.amounts)
     {
       std::vector<uint64_t> indices = chain.get_random_outputs(amount, req.count);
 
@@ -259,7 +259,7 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(SendRawTx::Request& req, SendRawTx::Response& res)
+  void DaemonHandler::handle(const SendRawTx::Request& req, SendRawTx::Response& res)
   {
     auto tx_blob = cryptonote::tx_to_blob(req.tx);
 
@@ -323,11 +323,11 @@ namespace rpc
     return;
   }
 
-  void DaemonHandler::handle(StartMining::Request& req, StartMining::Response& res)
+  void DaemonHandler::handle(const StartMining::Request& req, StartMining::Response& res)
   {
   }
 
-  void DaemonHandler::handle(GetInfo::Request& req, GetInfo::Response& res)
+  void DaemonHandler::handle(const GetInfo::Request& req, GetInfo::Response& res)
   {
     res.height = m_core.get_current_blockchain_height();
 
@@ -356,15 +356,15 @@ namespace rpc
     res.testnet = m_core.is_testnet();
   }
 
-  void DaemonHandler::handle(StopMining::Request& req, StopMining::Response& res)
+  void DaemonHandler::handle(const StopMining::Request& req, StopMining::Response& res)
   {
   }
 
-  void DaemonHandler::handle(MiningStatus::Request& req, MiningStatus::Response& res)
+  void DaemonHandler::handle(const MiningStatus::Request& req, MiningStatus::Response& res)
   {
   }
 
-  void DaemonHandler::handle(SaveBC::Request& req, SaveBC::Response& res)
+  void DaemonHandler::handle(const SaveBC::Request& req, SaveBC::Response& res)
   {
     if (!m_core.get_blockchain_storage().store_blockchain())
     {
@@ -377,7 +377,7 @@ namespace rpc
     }
   }
 
-  void DaemonHandler::handle(GetBlockHash::Request& req, GetBlockHash::Response& res)
+  void DaemonHandler::handle(const GetBlockHash::Request& req, GetBlockHash::Response& res)
   {
     if (m_core.get_current_blockchain_height() <= req.height)
     {
@@ -392,15 +392,15 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(GetBlockTemplate::Request& req, GetBlockTemplate::Response& res)
+  void DaemonHandler::handle(const GetBlockTemplate::Request& req, GetBlockTemplate::Response& res)
   {
   }
 
-  void DaemonHandler::handle(SubmitBlock::Request& req, SubmitBlock::Response& res)
+  void DaemonHandler::handle(const SubmitBlock::Request& req, SubmitBlock::Response& res)
   {
   }
 
-  void DaemonHandler::handle(GetLastBlockHeader::Request& req, GetLastBlockHeader::Response& res)
+  void DaemonHandler::handle(const GetLastBlockHeader::Request& req, GetLastBlockHeader::Response& res)
   {
     res.hash = m_core.get_tail_id();
 
@@ -430,7 +430,7 @@ namespace rpc
     res.status = fake_res.status;
   }
 
-  void DaemonHandler::handle(GetBlockHeaderByHash::Request& req, GetBlockHeaderByHash::Response& res)
+  void DaemonHandler::handle(const GetBlockHeaderByHash::Request& req, GetBlockHeaderByHash::Response& res)
   {
     block b;
 
@@ -463,7 +463,7 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(GetBlockHeaderByHeight::Request& req, GetBlockHeaderByHeight::Response& res)
+  void DaemonHandler::handle(const GetBlockHeaderByHeight::Request& req, GetBlockHeaderByHeight::Response& res)
   {
     res.hash = m_core.get_block_id_by_height(req.height);
 
@@ -494,12 +494,12 @@ namespace rpc
     res.status = fake_res.status;
   }
 
-  void DaemonHandler::handle(GetBlock::Request& req, GetBlock::Response& res)
+  void DaemonHandler::handle(const GetBlock::Request& req, GetBlock::Response& res)
   {
   }
 
   //FIXME: nodetool::peerlist_entry.adr.port is uint32_t for some reason
-  void DaemonHandler::handle(GetPeerList::Request& req, GetPeerList::Response& res)
+  void DaemonHandler::handle(const GetPeerList::Request& req, GetPeerList::Response& res)
   {
     std::list<nodetool::peerlist_entry> white_list;
     std::list<nodetool::peerlist_entry> gray_list;
@@ -518,11 +518,11 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(SetLogHashRate::Request& req, SetLogHashRate::Response& res)
+  void DaemonHandler::handle(const SetLogHashRate::Request& req, SetLogHashRate::Response& res)
   {
   }
 
-  void DaemonHandler::handle(SetLogLevel::Request& req, SetLogLevel::Response& res)
+  void DaemonHandler::handle(const SetLogLevel::Request& req, SetLogLevel::Response& res)
   {
     if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
     {
@@ -538,7 +538,7 @@ namespace rpc
     }
   }
 
-  void DaemonHandler::handle(GetTransactionPool::Request& req, GetTransactionPool::Response& res)
+  void DaemonHandler::handle(const GetTransactionPool::Request& req, GetTransactionPool::Response& res)
   {
     cryptonote::tx_memory_pool::transactions_container txs;
     cryptonote::tx_memory_pool::key_images_container images;
@@ -568,35 +568,35 @@ namespace rpc
     }
   }
 
-  void DaemonHandler::handle(GetConnections::Request& req, GetConnections::Response& res)
+  void DaemonHandler::handle(const GetConnections::Request& req, GetConnections::Response& res)
   {
   }
 
-  void DaemonHandler::handle(GetBlockHeadersRange::Request& req, GetBlockHeadersRange::Response& res)
+  void DaemonHandler::handle(const GetBlockHeadersRange::Request& req, GetBlockHeadersRange::Response& res)
   {
   }
 
-  void DaemonHandler::handle(StopDaemon::Request& req, StopDaemon::Response& res)
+  void DaemonHandler::handle(const StopDaemon::Request& req, StopDaemon::Response& res)
   {
   }
 
-  void DaemonHandler::handle(FastExit::Request& req, FastExit::Response& res)
+  void DaemonHandler::handle(const FastExit::Request& req, FastExit::Response& res)
   {
   }
 
-  void DaemonHandler::handle(OutPeers::Request& req, OutPeers::Response& res)
+  void DaemonHandler::handle(const OutPeers::Request& req, OutPeers::Response& res)
   {
   }
 
-  void DaemonHandler::handle(StartSaveGraph::Request& req, StartSaveGraph::Response& res)
+  void DaemonHandler::handle(const StartSaveGraph::Request& req, StartSaveGraph::Response& res)
   {
   }
 
-  void DaemonHandler::handle(StopSaveGraph::Request& req, StopSaveGraph::Response& res)
+  void DaemonHandler::handle(const StopSaveGraph::Request& req, StopSaveGraph::Response& res)
   {
   }
 
-  void DaemonHandler::handle(HardForkInfo::Request& req, HardForkInfo::Response& res)
+  void DaemonHandler::handle(const HardForkInfo::Request& req, HardForkInfo::Response& res)
   {
     const Blockchain &blockchain = m_core.get_blockchain_storage();
     uint8_t version = req.version > 0 ? req.version : blockchain.get_ideal_hard_fork_version();
@@ -606,19 +606,19 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(GetBans::Request& req, GetBans::Response& res)
+  void DaemonHandler::handle(const GetBans::Request& req, GetBans::Response& res)
   {
   }
 
-  void DaemonHandler::handle(SetBans::Request& req, SetBans::Response& res)
+  void DaemonHandler::handle(const SetBans::Request& req, SetBans::Response& res)
   {
   }
 
-  void DaemonHandler::handle(FlushTransactionPool::Request& req, FlushTransactionPool::Response& res)
+  void DaemonHandler::handle(const FlushTransactionPool::Request& req, FlushTransactionPool::Response& res)
   {
   }
 
-  void DaemonHandler::handle(GetOutputHistogram::Request& req, GetOutputHistogram::Response& res)
+  void DaemonHandler::handle(const GetOutputHistogram::Request& req, GetOutputHistogram::Response& res)
   {
     std::map<uint64_t, uint64_t> histogram;
     try
@@ -643,7 +643,7 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(GetOutputKeys::Request& req, GetOutputKeys::Response& res)
+  void DaemonHandler::handle(const GetOutputKeys::Request& req, GetOutputKeys::Response& res)
   {
     for (auto& i : req.outputs)
     {
@@ -657,12 +657,12 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
-  void DaemonHandler::handle(GetRPCVersion::Request& req, GetRPCVersion::Response& res)
+  void DaemonHandler::handle(const GetRPCVersion::Request& req, GetRPCVersion::Response& res)
   {
     res.version = DAEMON_RPC_VERSION;
   }
 
-  std::string DaemonHandler::handle(std::string& request)
+  std::string DaemonHandler::handle(const std::string& request)
   {
     try
     {

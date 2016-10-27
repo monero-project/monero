@@ -41,7 +41,7 @@ class RpcHandler
 {
   public:
 
-    virtual std::string handle(std::string& request) = 0;
+    virtual std::string handle(const std::string& request) = 0;
 };
 
 
