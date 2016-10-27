@@ -298,27 +298,51 @@ namespace rpc
         LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
       }
       res.status = Message::STATUS_FAILED;
+      res.error_details = "";
 
-      //TODO: these should be mutually exclusive, as encountering one
-      //      cancels the verification process.  Need to confirm this.
       if (tvc.m_low_mixin)
+      {
         res.error_details = "mixin too low";
-      else if (tvc.m_double_spend)
+      }
+      if (tvc.m_double_spend)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "double spend";
-      else if (tvc.m_invalid_input)
+      }
+      if (tvc.m_invalid_input)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "invalid input";
-      else if (tvc.m_invalid_output)
+      }
+      if (tvc.m_invalid_output)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "invalid output";
-      else if (tvc.m_too_big)
+      }
+      if (tvc.m_too_big)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "too big";
-      else if (tvc.m_overspend)
+      }
+      if (tvc.m_overspend)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "overspend";
-      else if (tvc.m_fee_too_low)
+      }
+      if (tvc.m_fee_too_low)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "fee too low";
-      else if (tvc.m_not_rct)
+      }
+      if (tvc.m_not_rct)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "tx is not ringct";
-      else
+      }
+      if (res.error_details.empty())
+      {
         res.error_details = "an unknown issue was found with the transaction";
+      }
 
       return;
     }
