@@ -207,6 +207,13 @@ namespace rpc
     m_core.are_key_images_spent(req.key_images, chain_spent_status);
     m_core.get_pool().have_key_images_as_spent(req.key_images, pool_spent_status);
 
+    if ((chain_spent_status.size() != req.key_images.size()) || (pool_spent_status.size() != req.key_images.size()))
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "tx_pool::have_key_images_as_spent() gave vectors of wrong size(s).";
+      return;
+    }
+
     for(uint64_t i=0; i < req.key_images.size(); i++)
     {
       if ( chain_spent_status[i] )
@@ -218,6 +225,8 @@ namespace rpc
         res.spent_status[i] = KeyImagesSpent::STATUS::SPENT_IN_POOL;
       }
     }
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(const GetTxGlobalOutputIndices::Request& req, GetTxGlobalOutputIndices::Response& res)
