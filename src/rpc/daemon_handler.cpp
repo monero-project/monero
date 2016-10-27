@@ -134,7 +134,7 @@ namespace rpc
       return;
     }
 
-    uint64_t num_found = found_txs.size();
+    size_t num_found = found_txs.size();
 
     // std::list is annoying
     std::vector<cryptonote::transaction> found_txs_vec
