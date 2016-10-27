@@ -194,6 +194,7 @@ namespace rpc
     }
                                       
     res.missed_hashes = std::move(missed_vec);
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(const KeyImagesSpent::Request& req, KeyImagesSpent::Response& res)
