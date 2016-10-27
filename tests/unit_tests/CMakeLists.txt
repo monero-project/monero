@@ -39,6 +39,7 @@ set(unit_tests_sources
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
+  fee.cpp
   get_xtype_from_string.cpp
   main.cpp
   mnemonics.cpp
