@@ -572,6 +572,8 @@ find_package(Boost 1.58 QUIET REQUIRED COMPONENTS system filesystem thread date_
 set(CMAKE_FIND_LIBRARY_SUFFIXES ${OLD_LIB_SUFFIXES})
 if(NOT Boost_FOUND)
   die("Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (1.58) or the equivalent")
+elseif(Boost_FOUND)
+  message(STATUS "Found Boost Version: ${Boost_VERSION}")
 endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
