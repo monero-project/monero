@@ -399,6 +399,8 @@ namespace rpc
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
 
     res.testnet = m_core.is_testnet();
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(const StopMining::Request& req, StopMining::Response& res)
