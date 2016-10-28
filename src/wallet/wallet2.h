@@ -517,6 +517,8 @@ namespace tools
     uint64_t get_upper_tranaction_size_limit();
     std::vector<uint64_t> get_unspent_amounts_vector();
     uint64_t get_fee_multiplier(uint32_t priority, bool use_new_fee) const;
+    uint64_t get_dynamic_per_kb_fee_estimate();
+    uint64_t get_per_kb_fee();
     float get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const;
     std::vector<size_t> pick_prefered_rct_inputs(uint64_t needed_money) const;
     void set_spent(size_t idx, uint64_t height);
