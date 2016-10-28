@@ -88,10 +88,13 @@ bool WalletManagerImpl::walletExists(const std::string &path)
 std::vector<std::string> WalletManagerImpl::findWallets(const std::string &path)
 {
     std::vector<std::string> result;
+    boost::filesystem::path work_dir(path);
+    // return empty result if path doesn't exist
+    if(!boost::filesystem::is_directory(path)){
+      return result;
+    }
     const boost::regex wallet_rx("(.*)\\.(keys)$"); // searching for <wallet_name>.keys files
     boost::filesystem::recursive_directory_iterator end_itr; // Default ctor yields past-the-end
-    boost::filesystem::path work_dir(path);
-
     for (boost::filesystem::recursive_directory_iterator itr(path); itr != end_itr; ++itr) {
         // Skip if not a file
         if (!boost::filesystem::is_regular_file(itr->status()))
