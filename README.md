@@ -145,7 +145,11 @@ invokes cmake commands as needed.
     this to be worthwhile, the machine should have one core and about 2GB of RAM
     available per thread.
 
-* The resulting executables can be found in `build/release/bin`.
+* The resulting executables can be found in `build/release/bin`
+
+* Add `PATH="$PATH:$HOME/monero/build/release/bin"` to `.profile`
+
+* Run Monero with `monerod --detach`
 
 * **Optional**: build and run the test suite to verify the binaries:
 
@@ -165,6 +169,50 @@ invokes cmake commands as needed.
 
         HAVE_DOT=YES doxygen Doxyfile
 
+#### On the Raspberry Pi
+
+Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from https://www.raspberrypi.org/downloads/raspbian/
+
+* `apt-get update` and `apt-get upgrade` to install all of the latest software
+
+* Install the dependencies for Monero except libunwind and libboost-all-dev
+
+* Increase the system swap size
+	
+	sudo /etc/init.d/dphys-swapfile stop
+	sudo nano /etc/dphys-swapfile
+	CONF_SWAPSIZE=1024
+	sudo /etc/init.d/dphys-swapfile start
+
+* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install)
+
+	cd
+	wget https://sourceforge.net/projects/boost/files/boost/1.62.0/boost_1_62_0.tar.bz2
+	tar xvfo boost_1_62_0.tar.bz2	
+	cd boost_1_62_0
+	./bootstrap.sh
+	sudo ./b2
+
+* Wait ~8 hours
+
+	sudo ./bjam install
+
+* Wait ~4 hours
+
+* Change to the root of the source code directory and build:
+
+        cd monero
+        make release
+
+* Wait ~4 hours
+
+* The resulting executables can be found in `build/release/bin`
+
+* Add `PATH="$PATH:$HOME/monero/build/release/bin"` to `.profile`
+
+* Run Monero with `monerod --detach`
+
+* You may wish to reduce the size of the swap file after the build has finished, and delete the boost directory from your home directory
 
 #### On Windows:
 
