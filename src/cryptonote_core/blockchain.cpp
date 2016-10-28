@@ -2761,6 +2761,36 @@ bool Blockchain::check_fee(size_t blob_size, uint64_t fee) const
 }
 
 //------------------------------------------------------------------
+uint64_t Blockchain::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) const
+{
+  const uint8_t version = get_current_hard_fork_version();
+
+  if (version < HF_VERSION_DYNAMIC_FEE)
+    return FEE_PER_KB;
+
+  if (grace_blocks >= CRYPTONOTE_REWARD_BLOCKS_WINDOW)
+    grace_blocks = CRYPTONOTE_REWARD_BLOCKS_WINDOW - 1;
+
+  std::vector<size_t> sz;
+  get_last_n_blocks_sizes(sz, CRYPTONOTE_REWARD_BLOCKS_WINDOW - grace_blocks);
+  for (size_t i = 0; i < grace_blocks; ++i)
+    sz.push_back(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2);
+
+  uint64_t median = epee::misc_utils::median(sz);
+  if(median <= CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2)
+    median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2;
+
+  uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
+  uint64_t base_reward;
+  if (!get_block_reward(median, 1, already_generated_coins, base_reward, version))
+    return false;
+
+  uint64_t fee = get_dynamic_per_kb_fee(base_reward, median);
+  LOG_PRINT_L2("Estimating " << grace_blocks << "-block fee at " << print_money(fee) << "/kB");
+  return fee;
+}
+
+//------------------------------------------------------------------
 // This function checks to see if a tx is unlocked.  unlock_time is either
 // a block index or a unix time.
 bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const

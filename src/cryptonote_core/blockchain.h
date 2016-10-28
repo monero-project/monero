@@ -526,6 +526,20 @@ namespace cryptonote
     static uint64_t get_dynamic_per_kb_fee(uint64_t block_reward, size_t median_block_size);
 
     /**
+     * @brief get dynamic per kB fee estimate for the next few blocks
+     *
+     * The dynamic fee is based on the block size in a past window, and
+     * the current block reward. It is expressed by kB. This function
+     * calculates an estimate for a dynamic fee which will be valid for
+     * the next grace_blocks
+     *
+     * @param grace_blocks number of blocks we want the fee to be valid for
+     *
+     * @return the per kB fee estimate
+     */
+    uint64_t get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) const;
+
+    /**
      * @brief validate a transaction's fee
      *
      * This function validates the fee is enough for the transaction.
