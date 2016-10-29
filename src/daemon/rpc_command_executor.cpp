@@ -859,10 +859,10 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   for (const auto &tx_info: res.transactions)
   {
     bytes += tx_info.blob_size;
-    if (min_bytes == 0 || bytes < min_bytes)
-      min_bytes = bytes;
-    if (bytes > max_bytes)
-      max_bytes = bytes;
+    if (min_bytes == 0 || tx_info.blob_size < min_bytes)
+      min_bytes = tx_info.blob_size;
+    if (tx_info.blob_size > max_bytes)
+      max_bytes = tx_info.blob_size;
     if (!tx_info.relayed)
       n_not_relayed++;
     fee += tx_info.fee;
