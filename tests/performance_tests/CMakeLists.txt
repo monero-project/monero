@@ -39,6 +39,7 @@ set(performance_tests_headers
   generate_key_derivation.h
   generate_key_image.h
   generate_key_image_helper.h
+  generate_keypair.h
   is_out_to_acc.h
   multi_tx_test_base.h
   performance_tests.h

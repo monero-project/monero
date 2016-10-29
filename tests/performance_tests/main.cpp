@@ -41,6 +41,7 @@
 #include "generate_key_derivation.h"
 #include "generate_key_image.h"
 #include "generate_key_image_helper.h"
+#include "generate_keypair.h"
 #include "is_out_to_acc.h"
 
 int main(int argc, char** argv)
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
   performance_timer timer;
   timer.start();
 
+goto ree;
   TEST_PERFORMANCE3(test_construct_tx, 1, 1, false);
   TEST_PERFORMANCE3(test_construct_tx, 1, 2, false);
   TEST_PERFORMANCE3(test_construct_tx, 1, 10, false);
@@ -100,6 +102,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(test_derive_public_key);
   TEST_PERFORMANCE0(test_derive_secret_key);
   TEST_PERFORMANCE0(test_ge_frombytes_vartime);
+ree:
+  TEST_PERFORMANCE0(test_generate_keypair);
 
   TEST_PERFORMANCE0(test_cn_slow_hash);
 
