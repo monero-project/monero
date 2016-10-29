@@ -772,7 +772,7 @@ namespace rct {
           threads = std::min(threads, rv.outPk.size());
           for (size_t i = 0; i < threads; ++i)
             threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-          bool ioservice_active = threads > 1;
+          bool ioservice_active = true;
           std::deque<bool> results(rv.outPk.size(), false);
           epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
 
@@ -838,7 +838,7 @@ namespace rct {
           threads = std::min(threads, rv.outPk.size());
           for (size_t i = 0; i < threads; ++i)
             threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-          bool ioservice_active = threads > 1;
+          bool ioservice_active = true;
           std::deque<bool> results(rv.outPk.size(), false);
           epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
 
@@ -880,7 +880,7 @@ namespace rct {
           threads = std::min(threads, rv.mixRing.size());
           for (size_t i = 0; i < threads; ++i)
             threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-          bool ioservice_active = threads > 1;
+          bool ioservice_active = true;
           std::deque<bool> results(rv.mixRing.size(), false);
           epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
 
