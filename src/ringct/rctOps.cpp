@@ -37,50 +37,12 @@ namespace rct {
 
     //Various key initialization functions
 
-    //Creates a zero scalar
-    void zero(key &zero) {
-        memset(&zero, 0, 32);
-    }
-
-    //Creates a zero scalar
-    key zero() {
-        static const key z = { {0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
-        return z;
-    }
-
-    //Creates a zero elliptic curve point
-    void identity(key &Id) {
-        Id[0] = (unsigned char)(0x01);
-        memset(Id.bytes+1, 0, 31);
-    }
-
-    //Creates a zero elliptic curve point
-    key identity() {
-        key Id;
-        Id[0] = (unsigned char)(0x01);
-        memset(Id.bytes+1, 0, 31);
-        return Id;
-    }
-
-    //copies a scalar or point
-    void copy(key &AA, const key &A) {
-        memcpy(&AA, &A, 32);
-    }
-
-    //copies a scalar or point
-    key copy(const key &A) {
-        key AA;
-        memcpy(&AA, &A, 32);
-        return AA;
-    }
-
-
     //initializes a key matrix;
     //first parameter is rows,
     //second is columns
-    keyM keyMInit(int rows, int cols) {
+    keyM keyMInit(size_t rows, size_t cols) {
         keyM rv(cols);
-        int i = 0;
+        size_t i = 0;
         for (i = 0 ; i < cols ; i++) {
             rv[i] = keyV(rows);
         }
@@ -107,11 +69,12 @@ namespace rct {
 
     //Generates a vector of secret key
     //Mainly used in testing
-    keyV skvGen(int rows ) {
+    keyV skvGen(size_t rows ) {
         keyV rv(rows);
-        int i = 0;
+        size_t i = 0;
+        crypto::rand(rows * sizeof(key), (uint8_t*)&rv[0]);
         for (i = 0 ; i < rows ; i++) {
-            skGen(rv[i]);
+            sc_reduce32(rv[i].bytes);
         }
         return rv;
     }
@@ -155,7 +118,7 @@ namespace rct {
     
     
     //generates a <secret , public> / Pedersen commitment but takes bH as input 
-    tuple<ctkey, ctkey> ctskpkGen(key bH) {
+    tuple<ctkey, ctkey> ctskpkGen(const key &bH) {
         ctkey sk, pk;
         skpkGen(sk.dest, pk.dest);
         skpkGen(sk.mask, pk.mask);
@@ -172,12 +135,12 @@ namespace rct {
         return mask;
     }
 
-    key commit(xmr_amount amount, key mask) {
-        mask = scalarmultBase(mask);
+    key commit(xmr_amount amount, const key &mask) {
+        key c = scalarmultBase(mask);
         key am = d2h(amount);
         key bH = scalarmultH(am);
-        addKeys(mask, mask, bH);
-        return mask;
+        addKeys(c, c, bH);
+        return c;
     }
 
     //generates a random uint long long (for testing)
