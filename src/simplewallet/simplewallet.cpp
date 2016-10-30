@@ -3154,6 +3154,8 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
       }
       change = cd.change_dts.amount;
       it->second -= cd.change_dts.amount;
+      if (it->second == 0)
+        dests.erase(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr));
     }
   }
   std::string dest_string;
