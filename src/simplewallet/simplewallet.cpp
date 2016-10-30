@@ -78,6 +78,7 @@ typedef cryptonote::simple_wallet sw;
 #define DEFAULT_MIX 4
 
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\001"
+#define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\001"
 
 // workaround for a suspected bug in pthread/kernel on MacOS X
 #ifdef __APPLE__
@@ -703,6 +704,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("verify", boost::bind(&simple_wallet::verify, this, _1), tr("Verify a signature on the contents of a file"));
   m_cmd_binder.set_handler("export_key_images", boost::bind(&simple_wallet::export_key_images, this, _1), tr("Export a signed set of key images"));
   m_cmd_binder.set_handler("import_key_images", boost::bind(&simple_wallet::import_key_images, this, _1), tr("Import signed key images list and verify their spent status"));
+  m_cmd_binder.set_handler("export_outputs", boost::bind(&simple_wallet::export_outputs, this, _1), tr("Export a set of outputs owned by this wallet"));
+  m_cmd_binder.set_handler("import_outputs", boost::bind(&simple_wallet::import_outputs, this, _1), tr("Import set of outputs owned by this wallet"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -4095,6 +4098,103 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
   catch (const std::exception &e)
   {
     fail_msg_writer() << "Failed to import key images: " << e.what();
+    return true;
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::export_outputs(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: export_outputs <filename>");
+    return true;
+  }
+  std::string filename = args[0];
+
+  try
+  {
+    std::vector<tools::wallet2::transfer_details> outs = m_wallet->export_outputs();
+
+    std::stringstream oss;
+    boost::archive::binary_oarchive ar(oss);
+    ar << outs;
+
+    std::string data(OUTPUT_EXPORT_FILE_MAGIC, strlen(OUTPUT_EXPORT_FILE_MAGIC));
+    const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
+    data += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
+    data += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
+    bool r = epee::file_io_utils::save_string_to_file(filename, data + oss.str());
+    if (!r)
+    {
+      fail_msg_writer() << tr("failed to save file ") << filename;
+      return true;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error exporting outputs: " << e.what());
+    fail_msg_writer() << "Error exporting outputs: " << e.what();
+    return true;
+  }
+
+  success_msg_writer() << tr("Outputs exported to ") << filename;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::import_outputs(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: import_outputs <filename>");
+    return true;
+  }
+  std::string filename = args[0];
+
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+  const size_t magiclen = strlen(OUTPUT_EXPORT_FILE_MAGIC);
+  if (data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen))
+  {
+    fail_msg_writer() << "Bad output export file magic in " << filename;
+    return true;
+  }
+  const size_t headerlen = magiclen + 2 * sizeof(crypto::public_key);
+  if (data.size() < headerlen)
+  {
+    fail_msg_writer() << "Bad data size from file " << filename;
+    return true;
+  }
+  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[magiclen];
+  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[magiclen + sizeof(crypto::public_key)];
+  const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
+  if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
+  {
+    fail_msg_writer() << "Outputs from " << filename << " are for a different account";
+    return true;
+  }
+
+  try
+  {
+    std::string body(data, headerlen);
+    std::stringstream iss;
+    iss << body;
+    boost::archive::binary_iarchive ar(iss);
+    std::vector<tools::wallet2::transfer_details> outputs;
+    ar >> outputs;
+
+    size_t n_outputs = m_wallet->import_outputs(outputs);
+    success_msg_writer() << boost::lexical_cast<std::string>(n_outputs) << " outputs imported";
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Failed to import outputs: " << e.what();
     return true;
   }
 
