@@ -2678,7 +2678,7 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
   return epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + s);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx)
+bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func)
 {
   std::string s;
   boost::system::error_code errcode;
@@ -2708,6 +2708,12 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   }
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(ptx.tx));
+
+  if (accept_func && !accept_func(signed_txs))
+  {
+    LOG_PRINT_L1("Transactions rejected by callback");
+    return false;
+  }
 
   ptx = signed_txs.ptx;
 

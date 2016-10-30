@@ -3111,16 +3111,16 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
+bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx)
 {
   // gather info to ask the user
   uint64_t amount = 0, amount_to_dests = 0, change = 0;
   size_t min_mixin = ~0;
   std::unordered_map<std::string, uint64_t> dests;
   const std::string wallet_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
-  for (size_t n = 0; n < txs.txes.size(); ++n)
+  for (size_t n = 0; n < get_num_txes(); ++n)
   {
-    const tools::wallet2::tx_construction_data &cd = txs.txes[n];
+    const tools::wallet2::tx_construction_data &cd = get_tx(n);
     for (size_t s = 0; s < cd.sources.size(); ++s)
     {
       amount += cd.sources[s].amount;
@@ -3168,9 +3168,19 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
     dest_string = tr("with no destinations");
 
   uint64_t fee = amount - amount_to_dests;
-  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, change %s, %s, with min mixin %lu. Is this okay? (Y/Yes/N/No)")) % (unsigned long)txs.txes.size() % print_money(amount) % print_money(fee) % print_money(change) % dest_string % (unsigned long)min_mixin).str();
+  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, change %s, %s, with min mixin %lu. Is this okay? (Y/Yes/N/No)")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % print_money(change) % dest_string % (unsigned long)min_mixin).str();
   std::string accepted = command_line::input_line(prompt_str);
   return is_it_true(accepted);
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
+{
+  return accept_loaded_tx([&txs](){return txs.txes.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.txes[n];});
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::accept_loaded_tx(const tools::wallet2::signed_tx_set &txs)
+{
+  return accept_loaded_tx([&txs](){return txs.ptx.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.ptx[n].construction_data;});
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sign_transfer(const std::vector<std::string> &args_)
@@ -3208,7 +3218,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   try
   {
     std::vector<tools::wallet2::pending_tx> ptx_vector;
-    bool r = m_wallet->load_tx("signed_monero_tx", ptx_vector);
+    bool r = m_wallet->load_tx("signed_monero_tx", ptx_vector, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); });
     if (!r)
     {
       fail_msg_writer() << tr("Failed to load transaction from file");
