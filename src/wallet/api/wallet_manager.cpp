@@ -81,6 +81,12 @@ bool WalletManagerImpl::closeWallet(Wallet *wallet)
 
 bool WalletManagerImpl::walletExists(const std::string &path)
 {
+    bool keys_file_exists;
+    bool wallet_file_exists;
+    tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+    if(keys_file_exists){
+        return true;
+    }
     return false;
 }
 
@@ -91,7 +97,7 @@ std::vector<std::string> WalletManagerImpl::findWallets(const std::string &path)
     boost::filesystem::path work_dir(path);
     // return empty result if path doesn't exist
     if(!boost::filesystem::is_directory(path)){
-      return result;
+        return result;
     }
     const boost::regex wallet_rx("(.*)\\.(keys)$"); // searching for <wallet_name>.keys files
     boost::filesystem::recursive_directory_iterator end_itr; // Default ctor yields past-the-end
