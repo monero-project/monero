@@ -2,7 +2,6 @@
 
 Copyright (c) 2014-2016, The Monero Project
 
-[![Build Status](https://travis-ci.org/monero-project/monero.svg?branch=master)](https://travis-ci.org/monero-project/monero)
 [![Coverage Status](https://coveralls.io/repos/github/monero-project/monero/badge.svg?branch=master)](https://coveralls.io/github/monero-project/monero?branch=master)
 
 ## Development Resources
