@@ -518,14 +518,14 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         }
 	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx.vout[o].amount)
         {
-	  LOG_ERROR("key image " << epee::string_tools::pod_to_hex(ki)
+	  LOG_ERROR("key image " << epee::string_tools::pod_to_hex(kit->first)
               << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
               << (m_transfers[kit->second].m_spent ? "spent" : "unspent") << " "
               << print_money(m_transfers[kit->second].amount()) << ", received output ignored");
         }
         else
         {
-	  LOG_ERROR("key image " << epee::string_tools::pod_to_hex(ki)
+	  LOG_ERROR("key image " << epee::string_tools::pod_to_hex(kit->first)
               << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
               << print_money(m_transfers[kit->second].amount()) << ", replacing with new output");
           // The new larger output replaced a previous smaller one

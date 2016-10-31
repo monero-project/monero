@@ -33,6 +33,7 @@
 #include <locale>
 #include <cstdlib>
 #include <iomanip>
+#include <type_traits>
 //#include <strsafe.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -171,6 +172,7 @@ namespace string_tools
   template<class t_pod_type>
   bool parse_tpod_from_hex_string(const std::string& str_hash, t_pod_type& t_pod)
   {
+    static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
     std::string buf;
     bool res = epee::string_tools::parse_hexstr_to_binbuff(str_hash, buf);
     if (!res || buf.size() != sizeof(t_pod_type))
@@ -570,6 +572,7 @@ POP_WARNINGS
   template<class t_pod_type>
   std::string pod_to_hex(const t_pod_type& s)
   {
+    static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
     std::string buff;
     buff.assign(reinterpret_cast<const char*>(&s), sizeof(s));
     return buff_to_hex_nodelimer(buff);
@@ -578,6 +581,7 @@ POP_WARNINGS
   template<class t_pod_type>
   bool hex_to_pod(const std::string& hex_str, t_pod_type& s)
   {
+    static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
     std::string hex_str_tr = trim(hex_str);
     if(sizeof(s)*2 != hex_str.size())
       return false;
