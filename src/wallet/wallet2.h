@@ -357,7 +357,7 @@ namespace tools
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     bool save_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename);
     bool sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::function<bool(const unsigned_tx_set&)> accept_func = NULL);
-    bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx);
+    bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon);
@@ -523,6 +523,7 @@ namespace tools
     void set_unspent(size_t idx);
     template<typename entry>
     void get_outs(std::vector<std::vector<entry>> &outs, const std::list<size_t> &selected_transfers, size_t fake_outputs_count);
+    bool wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki);
 
     cryptonote::account_base m_account;
     std::string m_daemon_address;

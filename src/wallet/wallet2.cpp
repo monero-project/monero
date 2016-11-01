@@ -246,6 +246,15 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key pub, 
   }
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki)
+{
+  if (!cryptonote::generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
+    return false;
+  if (m_watch_only)
+    memset(&ki, 0, 32);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
 {
   class lazy_txid_getter
@@ -317,7 +326,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         // this assumes that the miner tx pays a single address
         if (received)
         {
-          cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, 0, in_ephemeral[0], ki[0]);
+          wallet_generate_key_image_helper(m_account.get_keys(), tx_pub_key, 0, in_ephemeral[0], ki[0]);
           THROW_WALLET_EXCEPTION_IF(in_ephemeral[0].pub != boost::get<cryptonote::txout_to_key>(tx.vout[0].target).key,
               error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -360,7 +369,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             }
             if (received[i])
             {
-              cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, i, in_ephemeral[i], ki[i]);
+              wallet_generate_key_image_helper(m_account.get_keys(), tx_pub_key, i, in_ephemeral[i], ki[i]);
               THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
                   error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -408,7 +417,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         }
         if (received[i])
         {
-          cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, i, in_ephemeral[i], ki[i]);
+          wallet_generate_key_image_helper(m_account.get_keys(), tx_pub_key, i, in_ephemeral[i], ki[i]);
           THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
               error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -440,7 +449,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         {
           if (received)
           {
-            cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, i, in_ephemeral[i], ki[i]);
+            wallet_generate_key_image_helper(m_account.get_keys(), tx_pub_key, i, in_ephemeral[i], ki[i]);
             THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
                 error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -2138,9 +2147,14 @@ void wallet2::rescan_spent()
     std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(key_images.size()));
 
   // update spent status
+  key_image zero_ki;
+  memset(&zero_ki, 0, 32);
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     transfer_details& td = m_transfers[i];
+    // a view wallet may not know about key images
+    if (td.m_key_image == zero_ki)
+      continue;
     if (td.m_spent != (daemon_resp.spent_status[i] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT))
     {
       if (td.m_spent)
@@ -2678,7 +2692,7 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
   return epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + s);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx)
+bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func)
 {
   std::string s;
   boost::system::error_code errcode;
@@ -2708,6 +2722,12 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   }
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(ptx.tx));
+
+  if (accept_func && !accept_func(signed_txs))
+  {
+    LOG_PRINT_L1("Transactions rejected by callback");
+    return false;
+  }
 
   ptx = signed_txs.ptx;
 
