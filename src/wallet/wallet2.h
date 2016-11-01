@@ -473,6 +473,9 @@ namespace tools
     std::string sign(const std::string &data) const;
     bool verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
+    std::vector<tools::wallet2::transfer_details> export_outputs() const;
+    size_t import_outputs(const std::vector<tools::wallet2::transfer_details> &outputs);
+
     std::vector<std::pair<crypto::key_image, crypto::signature>> export_key_images() const;
     uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent);
 

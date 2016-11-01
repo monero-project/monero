@@ -4263,7 +4263,11 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
     crypto::key_image ki;
     cryptonote::keypair in_ephemeral;
     cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, td.m_internal_output_index, in_ephemeral, ki);
-    THROW_WALLET_EXCEPTION_IF(ki != td.m_key_image,
+
+    bool zero_key_image = true;
+    for (size_t i = 0; i < sizeof(td.m_key_image); ++i)
+      zero_key_image &= (td.m_key_image.data[i] == 0);
+    THROW_WALLET_EXCEPTION_IF(!zero_key_image && ki != td.m_key_image,
         error::wallet_internal_error, "key_image generated not matched with cached key image");
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != pkey,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
@@ -4348,6 +4352,50 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   LOG_PRINT_L1("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
 
   return m_transfers[signed_key_images.size() - 1].m_block_height;
+}
+//----------------------------------------------------------------------------------------------------
+std::vector<tools::wallet2::transfer_details> wallet2::export_outputs() const
+{
+  std::vector<tools::wallet2::transfer_details> outs;
+
+  outs.reserve(m_transfers.size());
+  for (size_t n = 0; n < m_transfers.size(); ++n)
+  {
+    const transfer_details &td = m_transfers[n];
+
+    outs.push_back(td);
+  }
+
+  return outs;
+}
+//----------------------------------------------------------------------------------------------------
+size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_details> &outputs)
+{
+  m_transfers.clear();
+  m_transfers.reserve(outputs.size());
+  for (size_t i = 0; i < outputs.size(); ++i)
+  {
+    transfer_details td = outputs[i];
+
+    // the hot wallet wouldn't have known about key images (except if we already exported them)
+    cryptonote::keypair in_ephemeral;
+    std::vector<tx_extra_field> tx_extra_fields;
+    tx_extra_pub_key pub_key_field;
+
+    THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + i);
+    THROW_WALLET_EXCEPTION_IF(!parse_tx_extra(td.m_tx.extra, tx_extra_fields), error::wallet_internal_error,
+        "Transaction extra has unsupported format at index " + i);
+    THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field), error::wallet_internal_error,
+        "Public key wasn't found in the transaction extra at index " + i);
+
+    cryptonote::generate_key_image_helper(m_account.get_keys(), pub_key_field.pub_key, td.m_internal_output_index, in_ephemeral, td.m_key_image);
+    THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key,
+        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + i);
+
+    m_transfers.push_back(td);
+  }
+
+  return m_transfers.size();
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
