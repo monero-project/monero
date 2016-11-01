@@ -610,6 +610,7 @@ namespace rct {
     //   Thus the amounts vector will be "one" longer than the destinations vectort
     rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, unsigned int index, ctkeyV &outSk) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
+        CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
         CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
         for (size_t n = 0; n < mixRing.size(); ++n) {
           CHECK_AND_ASSERT_THROW_MES(mixRing[n].size() == inSk.size(), "Bad mixRing size");
@@ -671,6 +672,7 @@ namespace rct {
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
+        CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
         CHECK_AND_ASSERT_THROW_MES(index.size() == inSk.size(), "Different number of index/inSk");
         CHECK_AND_ASSERT_THROW_MES(mixRing.size() == inSk.size(), "Different number of mixRing/inSk");
         for (size_t n = 0; n < mixRing.size(); ++n) {
@@ -772,7 +774,7 @@ namespace rct {
           threads = std::min(threads, rv.outPk.size());
           for (size_t i = 0; i < threads; ++i)
             threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-          bool ioservice_active = threads > 1;
+          bool ioservice_active = true;
           std::deque<bool> results(rv.outPk.size(), false);
           epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
 
@@ -838,7 +840,7 @@ namespace rct {
           threads = std::min(threads, rv.outPk.size());
           for (size_t i = 0; i < threads; ++i)
             threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-          bool ioservice_active = threads > 1;
+          bool ioservice_active = true;
           std::deque<bool> results(rv.outPk.size(), false);
           epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
 
@@ -880,7 +882,7 @@ namespace rct {
           threads = std::min(threads, rv.mixRing.size());
           for (size_t i = 0; i < threads; ++i)
             threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-          bool ioservice_active = threads > 1;
+          bool ioservice_active = true;
           std::deque<bool> results(rv.mixRing.size(), false);
           epee::misc_utils::auto_scope_leave_caller ioservice_killer = epee::misc_utils::create_scope_leave_handler([&]() { KILL_IOSERVICE(); });
 

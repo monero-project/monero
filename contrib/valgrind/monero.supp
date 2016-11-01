@@ -1,0 +1,10 @@
+{
+   libunwind causes spurious report
+   Memcheck:Param
+   msync(start)
+   ...
+   obj:/usr/lib64/libunwind.so.*
+   ...
+   fun:_ULx86_64_step
+   ...
+}
