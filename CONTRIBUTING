@@ -1,3 +1,8 @@
+A good way to help is to test, and report bugs.
+See http://www.chiark.greenend.org.uk/~sgtatham/bugs.html if you
+want to help that way. Testing is invaluable in making a piece
+of software solid and usable.
+
 Patches are preferably to be sent via a github pull request. If that
 can't be done, patches in "git format-patch" format can be sent
 (eg, posted to fpaste.org with a long enough timeout and a link
