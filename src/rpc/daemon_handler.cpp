@@ -662,6 +662,8 @@ namespace rpc
 
   std::string DaemonHandler::handle(const std::string& request)
   {
+    LOG_PRINT_L2("Handling RPC request: " << request);
+
     try
     {
       FullMessage req_full(request, true);
@@ -706,7 +708,7 @@ namespace rpc
       std::string response = resp_full.getJson();
       delete resp_message;
 
-      std::cout << "DaemonHandler::handle() response: " << response << std::endl;
+      LOG_PRINT_L2("Returning RPC response: " << response);
 
       return response;
     }
