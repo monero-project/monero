@@ -41,6 +41,10 @@ ZmqClient::ZmqClient() : context(1 /* one zmq thread */),
 
 ZmqClient::~ZmqClient()
 {
+  if (req_socket)
+  {
+    delete req_socket;  // dtor handles cleanup
+  }
 }
 
 void ZmqClient::connect(const std::string& address, const std::string& port)
