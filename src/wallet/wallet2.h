@@ -570,8 +570,8 @@ namespace tools
 BOOST_CLASS_VERSION(tools::wallet2, 14)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 4)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
-BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 5)
-BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 2)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
+BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
 
 namespace boost
 {
@@ -675,6 +675,14 @@ namespace boost
         return;
       a & x.m_amount_in;
       a & x.m_amount_out;
+      if (ver < 6)
+      {
+        // v<6 may not have change accumulated in m_amount_out, which is a pain,
+        // as it's readily understood to be sum of outputs.
+        // We convert it to include change from v6
+        if (!typename Archive::is_saving() && x.m_change != (uint64_t)-1)
+          x.m_amount_out += x.m_change;
+      }
     }
 
     template <class Archive>
@@ -691,6 +699,20 @@ namespace boost
       if (ver < 2)
         return;
       a & x.m_timestamp;
+      if (ver < 3)
+      {
+        // v<3 may not have change accumulated in m_amount_out, which is a pain,
+        // as it's readily understood to be sum of outputs. Whether it got added
+        // or not depends on whether it came from a unconfirmed_transfer_details
+        // (not included) or not (included). We can't reliably tell here, so we
+        // check whether either yields a "negative" fee, or use the other if so.
+        // We convert it to include change from v3
+        if (!typename Archive::is_saving() && x.m_change != (uint64_t)-1)
+        {
+          if (x.m_amount_in > (x.m_amount_out + x.m_change))
+            x.m_amount_out += x.m_change;
+        }
+      }
     }
 
     template <class Archive>

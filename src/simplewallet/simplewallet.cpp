@@ -3688,7 +3688,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
       uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
-      uint64_t fee = pd.m_amount_in - pd.m_amount_out - change;
+      uint64_t fee = pd.m_amount_in - pd.m_amount_out;
       std::string dests;
       for (const auto &d: pd.m_dests) {
         if (!dests.empty())
@@ -3738,7 +3738,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
       const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
       uint64_t amount = pd.m_amount_in;
-      uint64_t fee = amount - pd.m_amount_out - pd.m_change;
+      uint64_t fee = amount - pd.m_amount_out;
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
