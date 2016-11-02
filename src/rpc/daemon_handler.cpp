@@ -722,9 +722,6 @@ namespace rpc
 
       return BAD_JSON(DAEMON_RPC_VERSION, e.what());
     }
-
-    // if we get here, something's gone terribly wrong
-    return std::string("");
   }
 
   bool DaemonHandler::getBlockHeaderByHash(const crypto::hash& hash_in, cryptonote::rpc::BlockHeaderResponse& header)
