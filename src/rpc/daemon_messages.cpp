@@ -35,27 +35,27 @@ namespace cryptonote
 namespace rpc
 {
 
-const char* GetHeight::name = "get_height";
-const char* GetBlocksFast::name = "get_blocks_fast";
-const char* GetHashesFast::name = "get_hashes_fast";
-const char* GetTransactions::name = "get_transactions";
-const char* KeyImagesSpent::name = "key_images_spent";
-const char* GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
-const char* GetRandomOutputsForAmounts::name = "get_random_outputs_for_amounts";
-const char* SendRawTx::name = "send_raw_tx";
-const char* GetInfo::name = "get_info";
-const char* SaveBC::name = "save_bc";
-const char* GetBlockHash::name = "get_block_hash";
-const char* GetLastBlockHeader::name = "get_last_block_header";
-const char* GetBlockHeaderByHash::name = "get_block_header_by_hash";
-const char* GetBlockHeaderByHeight::name = "get_block_header_by_height";
-const char* GetPeerList::name = "get_peer_list";
-const char* SetLogLevel::name = "set_log_level";
-const char* GetTransactionPool::name = "get_transaction_pool";
-const char* HardForkInfo::name = "hard_fork_info";
-const char* GetOutputHistogram::name = "get_output_histogram";
-const char* GetOutputKeys::name = "get_output_keys";
-const char* GetRPCVersion::name = "get_rpc_version";
+const char* const GetHeight::name = "get_height";
+const char* const GetBlocksFast::name = "get_blocks_fast";
+const char* const GetHashesFast::name = "get_hashes_fast";
+const char* const GetTransactions::name = "get_transactions";
+const char* const KeyImagesSpent::name = "key_images_spent";
+const char* const GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
+const char* const GetRandomOutputsForAmounts::name = "get_random_outputs_for_amounts";
+const char* const SendRawTx::name = "send_raw_tx";
+const char* const GetInfo::name = "get_info";
+const char* const SaveBC::name = "save_bc";
+const char* const GetBlockHash::name = "get_block_hash";
+const char* const GetLastBlockHeader::name = "get_last_block_header";
+const char* const GetBlockHeaderByHash::name = "get_block_header_by_hash";
+const char* const GetBlockHeaderByHeight::name = "get_block_header_by_height";
+const char* const GetPeerList::name = "get_peer_list";
+const char* const SetLogLevel::name = "set_log_level";
+const char* const GetTransactionPool::name = "get_transaction_pool";
+const char* const HardForkInfo::name = "hard_fork_info";
+const char* const GetOutputHistogram::name = "get_output_histogram";
+const char* const GetOutputKeys::name = "get_output_keys";
+const char* const GetRPCVersion::name = "get_rpc_version";
 
 
 

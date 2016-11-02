@@ -43,7 +43,7 @@ namespace rpc
 class GetHeight
 {
   public:
-    static const char* name;
+    static const char* const name;
 
 
     class Request : public Message
@@ -75,7 +75,7 @@ class GetHeight
 class GetBlocksFast
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -111,7 +111,7 @@ class GetBlocksFast
 class GetHashesFast
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -146,7 +146,7 @@ class GetHashesFast
 class GetTransactions
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -181,7 +181,7 @@ class GetTransactions
 class KeyImagesSpent
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     enum STATUS {
       UNSPENT = 0,
@@ -220,7 +220,7 @@ class KeyImagesSpent
 class GetTxGlobalOutputIndices
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -252,7 +252,7 @@ class GetTxGlobalOutputIndices
 class GetRandomOutputsForAmounts
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -285,7 +285,7 @@ class GetRandomOutputsForAmounts
 class SendRawTx
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -318,7 +318,7 @@ class SendRawTx
 class StartMining
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -351,7 +351,7 @@ class StartMining
 class GetInfo
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -394,7 +394,7 @@ class GetInfo
 class StopMining
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -425,7 +425,7 @@ class StopMining
 class MiningStatus
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -459,7 +459,7 @@ class MiningStatus
 class SaveBC
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -489,7 +489,7 @@ class SaveBC
 class GetBlockHash
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -522,7 +522,7 @@ class GetBlockHash
 class GetBlockTemplate
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -552,7 +552,7 @@ class GetBlockTemplate
 class SubmitBlock
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -582,7 +582,7 @@ class SubmitBlock
 class GetLastBlockHeader
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -613,7 +613,7 @@ class GetLastBlockHeader
 class GetBlockHeaderByHash
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -645,7 +645,7 @@ class GetBlockHeaderByHash
 class GetBlockHeaderByHeight
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -677,7 +677,7 @@ class GetBlockHeaderByHeight
 class GetBlock
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -707,7 +707,7 @@ class GetBlock
 class GetPeerList
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -737,7 +737,7 @@ class GetPeerList
 class SetLogHashRate
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -767,7 +767,7 @@ class SetLogHashRate
 class SetLogLevel
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -795,7 +795,7 @@ class SetLogLevel
 class GetTransactionPool
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -827,7 +827,7 @@ class GetTransactionPool
 class GetConnections
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -857,7 +857,7 @@ class GetConnections
 class GetBlockHeadersRange
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -887,7 +887,7 @@ class GetBlockHeadersRange
 class StopDaemon
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -917,7 +917,7 @@ class StopDaemon
 class FastExit
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -947,7 +947,7 @@ class FastExit
 class OutPeers
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -977,7 +977,7 @@ class OutPeers
 class StartSaveGraph
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1007,7 +1007,7 @@ class StartSaveGraph
 class StopSaveGraph
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1037,7 +1037,7 @@ class StopSaveGraph
 class HardForkInfo
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1067,7 +1067,7 @@ class HardForkInfo
 class GetBans
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1097,7 +1097,7 @@ class GetBans
 class SetBans
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1127,7 +1127,7 @@ class SetBans
 class FlushTransactionPool
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1157,7 +1157,7 @@ class FlushTransactionPool
 class GetOutputHistogram
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1190,7 +1190,7 @@ class GetOutputHistogram
 class GetOutputKeys
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
@@ -1221,7 +1221,7 @@ class GetOutputKeys
 class GetRPCVersion
 {
   public:
-    static const char* name;
+    static const char* const name;
 
     class Request : public Message
     {
