@@ -34,7 +34,7 @@ namespace cryptonote
 namespace rpc
 {
 
-static const uint32_t DAEMON_RPC_VERSION = 2;
+static const uint32_t DAEMON_RPC_VERSION = 4;
 
 }  // namespace rpc
 
