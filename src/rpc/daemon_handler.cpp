@@ -43,6 +43,8 @@ namespace rpc
   void DaemonHandler::handle(const GetHeight::Request& req, GetHeight::Response& res)
   {
     res.height = m_core.get_current_blockchain_height();
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(const GetBlocksFast::Request& req, GetBlocksFast::Response& res)
@@ -559,6 +561,8 @@ namespace rpc
 
       res.transactions[itr.first] = tx;
     }
+
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(const GetConnections::Request& req, GetConnections::Response& res)
@@ -653,6 +657,7 @@ namespace rpc
   void DaemonHandler::handle(const GetRPCVersion::Request& req, GetRPCVersion::Response& res)
   {
     res.version = DAEMON_RPC_VERSION;
+    res.status = Message::STATUS_OK;
   }
 
   std::string DaemonHandler::handle(const std::string& request)
