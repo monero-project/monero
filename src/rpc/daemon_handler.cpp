@@ -712,7 +712,7 @@ namespace rpc
 
       return response;
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       return BAD_JSON(DAEMON_RPC_VERSION, e.what());
     }
