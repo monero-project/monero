@@ -35,8 +35,7 @@ namespace rpc
 {
 
 ZmqClient::ZmqClient() : context(1 /* one zmq thread */),
-              req_socket(NULL),
-              sub_socket(NULL)
+              req_socket(NULL)
 {
 }
 

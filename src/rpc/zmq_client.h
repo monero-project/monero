@@ -52,9 +52,6 @@ class ZmqClient
 
     // req-rep socket
     zmq::socket_t* req_socket;
-
-    // sub socket
-    zmq::socket_t* sub_socket;
 };
 
 }  // namespace rpc
