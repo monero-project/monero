@@ -293,6 +293,12 @@ cryptonote::rpc::error fromJsonValue<cryptonote::rpc::error>(const rapidjson::Va
 template <>
 rapidjson::Value toJsonValue<cryptonote::rpc::error>(rapidjson::Document& doc, const cryptonote::rpc::error& err);
 
+template <>
+cryptonote::rpc::BlockHeaderResponse fromJsonValue<cryptonote::rpc::BlockHeaderResponse>(const rapidjson::Value& val);
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::BlockHeaderResponse>(rapidjson::Document& doc, const cryptonote::rpc::BlockHeaderResponse& response);
+
 
 template <typename Map>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const typename std::enable_if<sfinae::is_map_like<Map>::value, Map >::type &val);

@@ -1296,6 +1296,72 @@ rapidjson::Value toJsonValue<cryptonote::rpc::error>(rapidjson::Document& doc, c
   return val;
 }
 
+template <>
+cryptonote::rpc::BlockHeaderResponse fromJsonValue<cryptonote::rpc::BlockHeaderResponse>(const rapidjson::Value& val)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  cryptonote::rpc::BlockHeaderResponse response;
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
+  response.major_version = fromJsonValue<decltype(response.major_version)>(val["major_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
+  response.minor_version = fromJsonValue<decltype(response.minor_version)>(val["minor_version"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
+  response.timestamp = fromJsonValue<decltype(response.timestamp)>(val["timestamp"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
+  response.prev_id = fromJsonValue<decltype(response.prev_id)>(val["prev_id"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
+  response.nonce = fromJsonValue<decltype(response.nonce)>(val["nonce"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
+  response.height = fromJsonValue<decltype(response.height)>(val["height"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "depth")
+  response.depth = fromJsonValue<decltype(response.depth)>(val["depth"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
+  response.hash = fromJsonValue<decltype(response.hash)>(val["hash"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
+  response.difficulty = fromJsonValue<decltype(response.difficulty)>(val["difficulty"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "reward")
+  response.reward = fromJsonValue<decltype(response.reward)>(val["reward"]);
+
+  return response;
+}
+
+template <>
+rapidjson::Value toJsonValue<cryptonote::rpc::BlockHeaderResponse>(rapidjson::Document& doc, const cryptonote::rpc::BlockHeaderResponse& response)
+{
+  rapidjson::Value val;
+
+  val.SetObject();
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("major_version", toJsonValue<decltype(response.major_version)>(doc, response.major_version), al);
+  val.AddMember("minor_version", toJsonValue<decltype(response.minor_version)>(doc, response.minor_version), al);
+  val.AddMember("timestamp", toJsonValue<decltype(response.timestamp)>(doc, response.timestamp), al);
+  val.AddMember("prev_id", toJsonValue<decltype(response.prev_id)>(doc, response.prev_id), al);
+  val.AddMember("nonce", toJsonValue<decltype(response.nonce)>(doc, response.nonce), al);
+  val.AddMember("height", toJsonValue<decltype(response.height)>(doc, response.height), al);
+  val.AddMember("depth", toJsonValue<decltype(response.depth)>(doc, response.depth), al);
+  val.AddMember("hash", toJsonValue<decltype(response.hash)>(doc, response.hash), al);
+  val.AddMember("difficulty", toJsonValue<decltype(response.difficulty)>(doc, response.difficulty), al);
+  val.AddMember("reward", toJsonValue<decltype(response.reward)>(doc, response.reward), al);
+
+  return val;
+}
+
 }  // namespace json
 
 }  // namespace cryptonote

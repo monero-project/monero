@@ -449,96 +449,42 @@ namespace rpc
 
   void DaemonHandler::handle(const GetLastBlockHeader::Request& req, GetLastBlockHeader::Response& res)
   {
-    res.hash = m_core.get_tail_id();
+    const crypto::hash block_hash = m_core.get_tail_id();
 
-    GetBlockHeaderByHash::Request fake_req;
-    fake_req.hash = res.hash;
-
-    GetBlockHeaderByHash::Response fake_res;
-
-    handle(fake_req, fake_res);
-
-    if (!fake_res.error_details.empty())
-    {
-      res.status = fake_res.status;
-      res.error_details = fake_res.error_details;
-      return;
-    }
-
-    res.major_version = fake_res.major_version;
-    res.minor_version = fake_res.minor_version;
-    res.timestamp = fake_res.timestamp;
-    res.prev_id = fake_res.prev_id;
-    res.nonce = fake_res.nonce;
-    res.height = fake_res.height;
-    res.difficulty = fake_res.difficulty;
-    res.reward = fake_res.reward;
-
-    res.status = fake_res.status;
-  }
-
-  void DaemonHandler::handle(const GetBlockHeaderByHash::Request& req, GetBlockHeaderByHash::Response& res)
-  {
-    block b;
-
-    if (!m_core.get_block_by_hash(req.hash, b))
+    if (!getBlockHeaderByHash(block_hash, res.header))
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Requested block does not exist";
       return;
     }
 
-    res.hash = req.hash;
-    res.height = boost::get<txin_gen>(b.miner_tx.vin.front()).height;
+    res.status = Message::STATUS_OK;
+  }
 
-    res.major_version = b.major_version;
-    res.minor_version = b.minor_version;
-    res.timestamp = b.timestamp;
-    res.nonce = b.nonce;
-    res.prev_id = b.prev_id;
-
-    res.depth = m_core.get_current_blockchain_height() - res.height - 1;
-
-    res.reward = 0;
-    for (auto& out : b.miner_tx.vout)
+  void DaemonHandler::handle(const GetBlockHeaderByHash::Request& req, GetBlockHeaderByHash::Response& res)
+  {
+    if (!getBlockHeaderByHash(req.hash, res.header))
     {
-      res.reward += out.amount;
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Requested block does not exist";
+      return;
     }
-
-    res.difficulty = m_core.get_blockchain_storage().block_difficulty(res.height);
 
     res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(const GetBlockHeaderByHeight::Request& req, GetBlockHeaderByHeight::Response& res)
   {
-    res.hash = m_core.get_block_id_by_height(req.height);
+    const crypto::hash block_hash = m_core.get_block_id_by_height(req.height);
 
-    GetBlockHeaderByHash::Request fake_req;
-    fake_req.hash = res.hash;
-
-    GetBlockHeaderByHash::Response fake_res;
-
-    handle(fake_req, fake_res);
-
-    if (!fake_res.error_details.empty())
+    if (!getBlockHeaderByHash(block_hash, res.header))
     {
-      res.status = fake_res.status;
-      res.error_details = fake_res.error_details;
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Requested block does not exist";
       return;
     }
 
-    res.major_version = fake_res.major_version;
-    res.minor_version = fake_res.minor_version;
-    res.timestamp = fake_res.timestamp;
-    res.prev_id = fake_res.prev_id;
-    res.nonce = fake_res.nonce;
-    res.height = fake_res.height;
-    res.depth = fake_res.depth;
-    res.difficulty = fake_res.difficulty;
-    res.reward = fake_res.reward;
-
-    res.status = fake_res.status;
+    res.status = Message::STATUS_OK;
   }
 
   void DaemonHandler::handle(const GetBlock::Request& req, GetBlock::Response& res)
@@ -766,6 +712,37 @@ namespace rpc
 
     // if we get here, something's gone terribly wrong
     return std::string("");
+  }
+
+  bool DaemonHandler::getBlockHeaderByHash(const crypto::hash& hash_in, cryptonote::rpc::BlockHeaderResponse& header)
+  {
+    block b;
+
+    if (!m_core.get_block_by_hash(hash_in, b))
+    {
+      return false;
+    }
+
+    header.hash = hash_in;
+    header.height = boost::get<txin_gen>(b.miner_tx.vin.front()).height;
+
+    header.major_version = b.major_version;
+    header.minor_version = b.minor_version;
+    header.timestamp = b.timestamp;
+    header.nonce = b.nonce;
+    header.prev_id = b.prev_id;
+
+    header.depth = m_core.get_current_blockchain_height() - header.height - 1;
+
+    header.reward = 0;
+    for (auto& out : b.miner_tx.vout)
+    {
+      header.reward += out.amount;
+    }
+
+    header.difficulty = m_core.get_blockchain_storage().block_difficulty(header.height);
+
+    return true;
   }
 
 }  // namespace rpc

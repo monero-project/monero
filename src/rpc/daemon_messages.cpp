@@ -550,48 +550,15 @@ rapidjson::Value GetLastBlockHeader::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("major_version", cryptonote::json::toJsonValue<decltype(major_version)>(doc, major_version), al);
-  val.AddMember("minor_version", cryptonote::json::toJsonValue<decltype(minor_version)>(doc, minor_version), al);
-  val.AddMember("timestamp", cryptonote::json::toJsonValue<decltype(timestamp)>(doc, timestamp), al);
-  val.AddMember("prev_id", cryptonote::json::toJsonValue<decltype(prev_id)>(doc, prev_id), al);
-  val.AddMember("nonce", cryptonote::json::toJsonValue<decltype(nonce)>(doc, nonce), al);
-  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
-  val.AddMember("hash", cryptonote::json::toJsonValue<decltype(hash)>(doc, hash), al);
-  val.AddMember("difficulty", cryptonote::json::toJsonValue<decltype(difficulty)>(doc, difficulty), al);
-  val.AddMember("reward", cryptonote::json::toJsonValue<decltype(reward)>(doc, reward), al);
+  val.AddMember("header", cryptonote::json::toJsonValue<decltype(header)>(doc, header), al);
 
   return val;
 }
 
 void GetLastBlockHeader::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
-  major_version = cryptonote::json::fromJsonValue<decltype(major_version)>(val["major_version"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
-  minor_version = cryptonote::json::fromJsonValue<decltype(minor_version)>(val["minor_version"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
-  timestamp = cryptonote::json::fromJsonValue<decltype(timestamp)>(val["timestamp"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
-  prev_id = cryptonote::json::fromJsonValue<decltype(prev_id)>(val["prev_id"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
-  nonce = cryptonote::json::fromJsonValue<decltype(nonce)>(val["nonce"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
-  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
-  hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
-  difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "reward")
-  reward = cryptonote::json::fromJsonValue<decltype(reward)>(val["reward"]);
-
+  OBJECT_HAS_MEMBER_OR_THROW(val, "header")
+  header = cryptonote::json::fromJsonValue<decltype(header)>(val["header"]);
 }
 
 
@@ -619,52 +586,15 @@ rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("major_version", cryptonote::json::toJsonValue<decltype(major_version)>(doc, major_version), al);
-  val.AddMember("minor_version", cryptonote::json::toJsonValue<decltype(minor_version)>(doc, minor_version), al);
-  val.AddMember("timestamp", cryptonote::json::toJsonValue<decltype(timestamp)>(doc, timestamp), al);
-  val.AddMember("prev_id", cryptonote::json::toJsonValue<decltype(prev_id)>(doc, prev_id), al);
-  val.AddMember("nonce", cryptonote::json::toJsonValue<decltype(nonce)>(doc, nonce), al);
-  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
-  val.AddMember("depth", cryptonote::json::toJsonValue<decltype(depth)>(doc, depth), al);
-  val.AddMember("hash", cryptonote::json::toJsonValue<decltype(hash)>(doc, hash), al);
-  val.AddMember("difficulty", cryptonote::json::toJsonValue<decltype(difficulty)>(doc, difficulty), al);
-  val.AddMember("reward", cryptonote::json::toJsonValue<decltype(reward)>(doc, reward), al);
+  val.AddMember("header", cryptonote::json::toJsonValue<decltype(header)>(doc, header), al);
 
   return val;
 }
 
 void GetBlockHeaderByHash::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
-  major_version = cryptonote::json::fromJsonValue<decltype(major_version)>(val["major_version"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
-  minor_version = cryptonote::json::fromJsonValue<decltype(minor_version)>(val["minor_version"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
-  timestamp = cryptonote::json::fromJsonValue<decltype(timestamp)>(val["timestamp"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
-  prev_id = cryptonote::json::fromJsonValue<decltype(prev_id)>(val["prev_id"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
-  nonce = cryptonote::json::fromJsonValue<decltype(nonce)>(val["nonce"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
-  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "depth")
-  depth = cryptonote::json::fromJsonValue<decltype(depth)>(val["depth"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
-  hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
-  difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "reward")
-  reward = cryptonote::json::fromJsonValue<decltype(reward)>(val["reward"]);
-
+  OBJECT_HAS_MEMBER_OR_THROW(val, "header")
+  header = cryptonote::json::fromJsonValue<decltype(header)>(val["header"]);
 }
 
 
@@ -692,52 +622,15 @@ rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& d
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("major_version", cryptonote::json::toJsonValue<decltype(major_version)>(doc, major_version), al);
-  val.AddMember("minor_version", cryptonote::json::toJsonValue<decltype(minor_version)>(doc, minor_version), al);
-  val.AddMember("timestamp", cryptonote::json::toJsonValue<decltype(timestamp)>(doc, timestamp), al);
-  val.AddMember("prev_id", cryptonote::json::toJsonValue<decltype(prev_id)>(doc, prev_id), al);
-  val.AddMember("nonce", cryptonote::json::toJsonValue<decltype(nonce)>(doc, nonce), al);
-  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
-  val.AddMember("depth", cryptonote::json::toJsonValue<decltype(depth)>(doc, depth), al);
-  val.AddMember("hash", cryptonote::json::toJsonValue<decltype(hash)>(doc, hash), al);
-  val.AddMember("difficulty", cryptonote::json::toJsonValue<decltype(difficulty)>(doc, difficulty), al);
-  val.AddMember("reward", cryptonote::json::toJsonValue<decltype(reward)>(doc, reward), al);
+  val.AddMember("header", cryptonote::json::toJsonValue<decltype(header)>(doc, header), al);
 
   return val;
 }
 
 void GetBlockHeaderByHeight::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "major_version")
-  major_version = cryptonote::json::fromJsonValue<decltype(major_version)>(val["major_version"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "minor_version")
-  minor_version = cryptonote::json::fromJsonValue<decltype(minor_version)>(val["minor_version"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "timestamp")
-  timestamp = cryptonote::json::fromJsonValue<decltype(timestamp)>(val["timestamp"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "prev_id")
-  prev_id = cryptonote::json::fromJsonValue<decltype(prev_id)>(val["prev_id"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "nonce")
-  nonce = cryptonote::json::fromJsonValue<decltype(nonce)>(val["nonce"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
-  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "depth")
-  depth = cryptonote::json::fromJsonValue<decltype(depth)>(val["depth"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
-  hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
-  difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "reward")
-  reward = cryptonote::json::fromJsonValue<decltype(reward)>(val["reward"]);
-
+  OBJECT_HAS_MEMBER_OR_THROW(val, "header")
+  header = cryptonote::json::fromJsonValue<decltype(header)>(val["header"]);
 }
 
 

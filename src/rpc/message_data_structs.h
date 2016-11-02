@@ -121,6 +121,20 @@ namespace rpc
     //TODO: data member?  not required, may want later.
   };
 
+  struct BlockHeaderResponse
+  {
+    uint64_t major_version;
+    uint64_t minor_version;
+    uint64_t timestamp;
+    crypto::hash  prev_id;
+    uint32_t nonce;
+    uint64_t height;
+    uint64_t depth;
+    crypto::hash hash;
+    uint64_t difficulty;
+    uint64_t reward;
+  };
+
 }  // namespace rpc
 
 }  // namespace cryptonote
