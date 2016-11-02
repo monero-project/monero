@@ -32,7 +32,8 @@ set(common_sources
   dns_utils.cpp
   util.cpp
   i18n.cpp
-  perf_timer.cpp)
+  perf_timer.cpp
+  thread_group.cpp)
 
 if (STACK_TRACE)
   list(APPEND common_sources stack_trace.cpp)
@@ -55,7 +56,8 @@ set(common_private_headers
   varint.h
   i18n.h
   perf_timer.h
-  stack_trace.h)
+  stack_trace.h
+  thread_group.h)
 
 monero_private_headers(common
   ${common_private_headers})
