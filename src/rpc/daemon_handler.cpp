@@ -664,6 +664,8 @@ namespace rpc
   {
     LOG_PRINT_L2("Handling RPC request: " << request);
 
+    Message* resp_message = NULL;
+
     try
     {
       FullMessage req_full(request, true);
@@ -671,8 +673,6 @@ namespace rpc
       rapidjson::Value& req_json = req_full.getMessage();
 
       std::string request_type = req_full.getRequestType();
-
-      Message* resp_message = NULL;
 
       // create correct Message subclass and call handle() on it
       REQ_RESP_TYPES_MACRO(request_type, GetHeight, req_json, resp_message, handle);
@@ -707,6 +707,7 @@ namespace rpc
 
       std::string response = resp_full.getJson();
       delete resp_message;
+      resp_message = NULL;
 
       LOG_PRINT_L2("Returning RPC response: " << response);
 
@@ -714,6 +715,11 @@ namespace rpc
     }
     catch (const std::exception& e)
     {
+      if (resp_message)
+      {
+        delete resp_message;
+      }
+
       return BAD_JSON(DAEMON_RPC_VERSION, e.what());
     }
 
