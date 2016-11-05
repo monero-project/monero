@@ -157,7 +157,7 @@ void TransactionHistoryImpl::refresh()
         const tools::wallet2::confirmed_transfer_details &pd = i->second;
         
         uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
-        uint64_t fee = pd.m_amount_in - pd.m_amount_out - change;
+        uint64_t fee = pd.m_amount_in - pd.m_amount_out;
         
 
         std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);

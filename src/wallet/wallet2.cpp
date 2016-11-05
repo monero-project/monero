@@ -704,6 +704,17 @@ void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t heigh
     else
       entry.first->second.m_amount_out = spent - tx.rct_signatures.txnFee;
     entry.first->second.m_change = received;
+
+    std::vector<tx_extra_field> tx_extra_fields;
+    if(parse_tx_extra(tx.extra, tx_extra_fields))
+    {
+      tx_extra_nonce extra_nonce;
+      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+      {
+        // we do not care about failure here
+        get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, entry.first->second.m_payment_id);
+      }
+    }
   }
   entry.first->second.m_block_height = height;
   entry.first->second.m_timestamp = ts;
@@ -2355,6 +2366,7 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t amo
   utd.m_amount_out = 0;
   for (const auto &d: dests)
     utd.m_amount_out += d.amount;
+  utd.m_amount_out += change_amount;
   utd.m_change = change_amount;
   utd.m_sent_time = time(NULL);
   utd.m_tx = (const cryptonote::transaction_prefix&)tx;
