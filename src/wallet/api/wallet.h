@@ -97,6 +97,8 @@ public:
     virtual void setListener(WalletListener * l);
     virtual uint32_t defaultMixin() const;
     virtual void setDefaultMixin(uint32_t arg);
+    virtual bool setUserNote(const std::string &txid, const std::string &note);
+    virtual std::string getUserNote(const std::string &txid) const;
 
 private:
     void clearStatus();

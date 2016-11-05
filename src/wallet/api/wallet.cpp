@@ -707,6 +707,26 @@ void WalletImpl::setDefaultMixin(uint32_t arg)
     m_wallet->default_mixin(arg);
 }
 
+bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
+{
+    cryptonote::blobdata txid_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+      return false;
+    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+    m_wallet->set_tx_note(htxid, note);
+    return true;
+}
+
+std::string WalletImpl::getUserNote(const std::string &txid) const
+{
+    cryptonote::blobdata txid_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+      return "";
+    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+    return m_wallet->get_tx_note(htxid);
+}
 
 bool WalletImpl::connectToDaemon()
 {
