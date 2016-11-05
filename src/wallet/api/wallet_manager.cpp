@@ -31,6 +31,8 @@
 
 #include "wallet_manager.h"
 #include "wallet.h"
+#include "common_defines.h"
+#include "net/http_client.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
@@ -133,6 +135,157 @@ void WalletManagerImpl::setDaemonHost(const std::string &hostname)
 
 }
 
+bool WalletManagerImpl::checkPayment(const std::string &address_text, const std::string &txid_text, const std::string &txkey_text, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const
+{
+  error = "";
+  cryptonote::blobdata txid_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(txid_text, txid_data))
+  {
+    error = tr("failed to parse txid");
+    return false;
+  }
+  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+  if (txkey_text.size() < 64 || txkey_text.size() % 64)
+  {
+    error = tr("failed to parse tx key");
+    return false;
+  }
+  crypto::secret_key tx_key;
+  cryptonote::blobdata tx_key_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(txkey_text, tx_key_data))
+  {
+    error = tr("failed to parse tx key");
+    return false;
+  }
+  tx_key = *reinterpret_cast<const crypto::secret_key*>(tx_key_data.data());
+
+  bool testnet = address_text[0] != '4';
+  cryptonote::account_public_address address;
+  bool has_payment_id;
+  crypto::hash8 payment_id;
+  if(!cryptonote::get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, address_text))
+  {
+    error = tr("failed to parse address");
+    return false;
+  }
+
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  epee::net_utils::http::http_simple_client http_client;
+  if (!epee::net_utils::invoke_http_json_remote_command2(daemon_address + "/gettransactions", req, res, http_client) ||
+      (res.txs.size() != 1 && res.txs_as_hex.size() != 1))
+  {
+    error = tr("failed to get transaction from daemon");
+    return false;
+  }
+  cryptonote::blobdata tx_data;
+  bool ok;
+  if (res.txs.size() == 1)
+    ok = epee::string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
+  else
+    ok = epee::string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+  if (!ok)
+  {
+    error = tr("failed to parse transaction from daemon");
+    return false;
+  }
+  crypto::hash tx_hash, tx_prefix_hash;
+  cryptonote::transaction tx;
+  if (!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash))
+  {
+    error = tr("failed to validate transaction from daemon");
+    return false;
+  }
+  if (tx_hash != txid)
+  {
+    error = tr("failed to get the right transaction from daemon");
+    return false;
+  }
+
+  crypto::key_derivation derivation;
+  if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
+  {
+    error = tr("failed to generate key derivation from supplied parameters");
+    return false;
+  }
+
+  received = 0;
+  try {
+    for (size_t n = 0; n < tx.vout.size(); ++n)
+    {
+      if (typeid(cryptonote::txout_to_key) != tx.vout[n].target.type())
+        continue;
+      const cryptonote::txout_to_key tx_out_to_key = boost::get<cryptonote::txout_to_key>(tx.vout[n].target);
+      crypto::public_key pubkey;
+      derive_public_key(derivation, n, address.m_spend_public_key, pubkey);
+      if (pubkey == tx_out_to_key.key)
+      {
+        uint64_t amount;
+        if (tx.version == 1)
+        {
+          amount = tx.vout[n].amount;
+        }
+        else
+        {
+          try
+          {
+            rct::key Ctmp;
+            //rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
+            crypto::key_derivation derivation;
+            bool r = crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation);
+            if (!r)
+            {
+              LOG_ERROR("Failed to generate key derivation to decode rct output " << n);
+              amount = 0;
+            }
+            else
+            {
+              crypto::secret_key scalar1;
+              crypto::derivation_to_scalar(derivation, n, scalar1);
+              rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
+              rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1));
+              rct::key C = tx.rct_signatures.outPk[n].mask;
+              rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
+              if (rct::equalKeys(C, Ctmp))
+                amount = rct::h2d(ecdh_info.amount);
+              else
+                amount = 0;
+            }
+          }
+          catch (...) { amount = 0; }
+        }
+        received += amount;
+      }
+    }
+  }
+  catch(const std::exception &e)
+  {
+    LOG_ERROR("error: " << e.what());
+    error = std::string(tr("error: ")) + e.what();
+    return false;
+  }
+
+  if (received > 0)
+  {
+    LOG_PRINT_L1(get_account_address_as_str(testnet, address) << " " << tr("received") << " " << cryptonote::print_money(received) << " " << tr("in txid") << " " << txid);
+  }
+  else
+  {
+    LOG_PRINT_L1(get_account_address_as_str(testnet, address) << " " << tr("received nothing in txid") << " " << txid);
+  }
+  if (res.txs.front().in_pool)
+  {
+    height = 0;
+  }
+  else
+  {
+    height = res.txs.front().block_height;
+  }
+
+  return true;
+}
 
 
 ///////////////////// WalletManagerFactory implementation //////////////////////

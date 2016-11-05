@@ -46,6 +46,7 @@ public:
     std::vector<std::string> findWallets(const std::string &path);
     std::string errorString() const;
     void setDaemonHost(const std::string &hostname);
+    bool checkPayment(const std::string &address, const std::string &txid, const std::string &txkey, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const;
 
 private:
     WalletManagerImpl() {}
