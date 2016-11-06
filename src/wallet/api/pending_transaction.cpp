@@ -128,7 +128,7 @@ uint64_t PendingTransactionImpl::dust() const
 uint64_t PendingTransactionImpl::fee() const
 {
     uint64_t result = 0;
-    for (const auto ptx : m_pending_tx) {
+    for (const auto &ptx : m_pending_tx) {
         result += ptx.fee;
     }
     return result;
