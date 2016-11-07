@@ -479,6 +479,8 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             " not match with daemon response size=" + std::to_string(o_indices.size()));
       }
 
+      key_image zero_ki;
+      memset(&zero_ki, 0, 32);
       BOOST_FOREACH(size_t o, outs)
       {
 	THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
@@ -489,7 +491,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             error::wallet_internal_error, std::string("Unexpected transfer index from key image: ")
             + "got " + (kit == m_key_images.end() ? "<none>" : boost::lexical_cast<std::string>(kit->second))
             + ", m_transfers.size() is " + boost::lexical_cast<std::string>(m_transfers.size()));
-        if (kit == m_key_images.end())
+        if (kit == m_key_images.end() || ki[o] == zero_ki)
         {
           if (!pool)
           {
