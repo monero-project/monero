@@ -109,9 +109,11 @@ namespace tools
       rct::key m_mask;
       uint64_t m_amount;
       bool m_rct;
+      bool m_key_image_known;
 
       bool is_rct() const { return m_rct; }
       uint64_t amount() const { return m_amount; }
+      const crypto::public_key &get_public_key() const { return boost::get<const cryptonote::txout_to_key>(m_tx.vout[m_internal_output_index].target).key; }
     };
 
     struct payment_details
@@ -409,6 +411,19 @@ namespace tools
       a & m_unconfirmed_payments;
       if(ver < 14)
         return;
+      if(ver < 15)
+      {
+        // we're loading an older wallet without a pubkey map, rebuild it
+        for (size_t i = 0; i < m_transfers.size(); ++i)
+        {
+          const transfer_details &td = m_transfers[i];
+          const cryptonote::tx_out &out = td.m_tx.vout[td.m_internal_output_index];
+          const cryptonote::txout_to_key &o = boost::get<const cryptonote::txout_to_key>(out.target);
+          m_pub_keys.emplace(o.key, i);
+        }
+        return;
+      }
+      a & m_pub_keys;
     }
 
     /*!
@@ -543,6 +558,7 @@ namespace tools
     transfer_container m_transfers;
     payment_container m_payments;
     std::unordered_map<crypto::key_image, size_t> m_key_images;
+    std::unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
@@ -567,8 +583,8 @@ namespace tools
     bool m_confirm_missing_payment_id;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 14)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 4)
+BOOST_CLASS_VERSION(tools::wallet2, 15)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 5)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
@@ -597,6 +613,7 @@ namespace boost
         {
           x.m_rct = x.m_tx.vout[x.m_internal_output_index].amount == 0;
         }
+        x.m_key_image_known = true;
     }
 
     template <class Archive>
@@ -644,6 +661,9 @@ namespace boost
         return;
       }
       a & x.m_rct;
+      if (ver < 5)
+        return;
+      a & x.m_key_image_known;
     }
 
     template <class Archive>
