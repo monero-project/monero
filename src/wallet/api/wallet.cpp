@@ -720,9 +720,15 @@ bool WalletImpl::connectToDaemon()
     return result;
 }
 
-bool WalletImpl::connected() const
+Wallet::ConnectionStatus WalletImpl::connected() const
 {
-    return m_wallet->check_connection();
+    bool same_version = false;
+    bool is_connected = m_wallet->check_connection(&same_version);
+    if (!is_connected)
+        return Wallet::ConnectionStatus_Disconnected;
+    if (!same_version)
+        return Wallet::ConnectionStatus_WrongVersion;
+    return Wallet::ConnectionStatus_Connected;
 }
 
 void WalletImpl::setTrustedDaemon(bool arg)

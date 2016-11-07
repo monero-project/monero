@@ -159,6 +159,12 @@ struct Wallet
         Status_Error
     };
 
+    enum ConnectionStatus {
+        ConnectionStatus_Disconnected,
+        ConnectionStatus_Connected,
+        ConnectionStatus_WrongVersion
+    };
+
     virtual ~Wallet() = 0;
     virtual std::string seed() const = 0;
     virtual std::string getSeedLanguage() const = 0;
@@ -243,7 +249,7 @@ struct Wallet
      * @brief connected - checks if the wallet connected to the daemon
      * @return - true if connected
      */
-    virtual bool connected() const = 0;
+    virtual ConnectionStatus connected() const = 0;
     virtual void setTrustedDaemon(bool arg) = 0;
     virtual bool trustedDaemon() const = 0;
     virtual uint64_t balance() const = 0;
