@@ -78,6 +78,7 @@ typedef cryptonote::simple_wallet sw;
 #define DEFAULT_MIX 4
 
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\001"
+#define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\001"
 
 // workaround for a suspected bug in pthread/kernel on MacOS X
 #ifdef __APPLE__
@@ -703,6 +704,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("verify", boost::bind(&simple_wallet::verify, this, _1), tr("Verify a signature on the contents of a file"));
   m_cmd_binder.set_handler("export_key_images", boost::bind(&simple_wallet::export_key_images, this, _1), tr("Export a signed set of key images"));
   m_cmd_binder.set_handler("import_key_images", boost::bind(&simple_wallet::import_key_images, this, _1), tr("Import signed key images list and verify their spent status"));
+  m_cmd_binder.set_handler("export_outputs", boost::bind(&simple_wallet::export_outputs, this, _1), tr("Export a set of outputs owned by this wallet"));
+  m_cmd_binder.set_handler("import_outputs", boost::bind(&simple_wallet::import_outputs, this, _1), tr("Import set of outputs owned by this wallet"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -3111,16 +3114,16 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
+bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx)
 {
   // gather info to ask the user
   uint64_t amount = 0, amount_to_dests = 0, change = 0;
   size_t min_mixin = ~0;
   std::unordered_map<std::string, uint64_t> dests;
   const std::string wallet_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
-  for (size_t n = 0; n < txs.txes.size(); ++n)
+  for (size_t n = 0; n < get_num_txes(); ++n)
   {
-    const tools::wallet2::tx_construction_data &cd = txs.txes[n];
+    const tools::wallet2::tx_construction_data &cd = get_tx(n);
     for (size_t s = 0; s < cd.sources.size(); ++s)
     {
       amount += cd.sources[s].amount;
@@ -3154,6 +3157,8 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
       }
       change = cd.change_dts.amount;
       it->second -= cd.change_dts.amount;
+      if (it->second == 0)
+        dests.erase(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr));
     }
   }
   std::string dest_string;
@@ -3168,9 +3173,19 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
     dest_string = tr("with no destinations");
 
   uint64_t fee = amount - amount_to_dests;
-  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, change %s, %s, with min mixin %lu. Is this okay? (Y/Yes/N/No)")) % (unsigned long)txs.txes.size() % print_money(amount) % print_money(fee) % print_money(change) % dest_string % (unsigned long)min_mixin).str();
+  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, change %s, %s, with min mixin %lu. Is this okay? (Y/Yes/N/No)")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % print_money(change) % dest_string % (unsigned long)min_mixin).str();
   std::string accepted = command_line::input_line(prompt_str);
   return is_it_true(accepted);
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
+{
+  return accept_loaded_tx([&txs](){return txs.txes.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.txes[n];});
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::accept_loaded_tx(const tools::wallet2::signed_tx_set &txs)
+{
+  return accept_loaded_tx([&txs](){return txs.ptx.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.ptx[n].construction_data;});
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sign_transfer(const std::vector<std::string> &args_)
@@ -3208,7 +3223,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   try
   {
     std::vector<tools::wallet2::pending_tx> ptx_vector;
-    bool r = m_wallet->load_tx("signed_monero_tx", ptx_vector);
+    bool r = m_wallet->load_tx("signed_monero_tx", ptx_vector, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); });
     if (!r)
     {
       fail_msg_writer() << tr("Failed to load transaction from file");
@@ -3673,7 +3688,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
       uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
-      uint64_t fee = pd.m_amount_in - pd.m_amount_out - change;
+      uint64_t fee = pd.m_amount_in - pd.m_amount_out;
       std::string dests;
       for (const auto &d: pd.m_dests) {
         if (!dests.empty())
@@ -3723,7 +3738,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
       const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
       uint64_t amount = pd.m_amount_in;
-      uint64_t fee = amount - pd.m_amount_out - pd.m_change;
+      uint64_t fee = amount - pd.m_amount_out;
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
@@ -4095,6 +4110,103 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
   catch (const std::exception &e)
   {
     fail_msg_writer() << "Failed to import key images: " << e.what();
+    return true;
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::export_outputs(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: export_outputs <filename>");
+    return true;
+  }
+  std::string filename = args[0];
+
+  try
+  {
+    std::vector<tools::wallet2::transfer_details> outs = m_wallet->export_outputs();
+
+    std::stringstream oss;
+    boost::archive::binary_oarchive ar(oss);
+    ar << outs;
+
+    std::string data(OUTPUT_EXPORT_FILE_MAGIC, strlen(OUTPUT_EXPORT_FILE_MAGIC));
+    const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
+    data += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
+    data += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
+    bool r = epee::file_io_utils::save_string_to_file(filename, data + oss.str());
+    if (!r)
+    {
+      fail_msg_writer() << tr("failed to save file ") << filename;
+      return true;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error exporting outputs: " << e.what());
+    fail_msg_writer() << "Error exporting outputs: " << e.what();
+    return true;
+  }
+
+  success_msg_writer() << tr("Outputs exported to ") << filename;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::import_outputs(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: import_outputs <filename>");
+    return true;
+  }
+  std::string filename = args[0];
+
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return true;
+  }
+  const size_t magiclen = strlen(OUTPUT_EXPORT_FILE_MAGIC);
+  if (data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen))
+  {
+    fail_msg_writer() << "Bad output export file magic in " << filename;
+    return true;
+  }
+  const size_t headerlen = magiclen + 2 * sizeof(crypto::public_key);
+  if (data.size() < headerlen)
+  {
+    fail_msg_writer() << "Bad data size from file " << filename;
+    return true;
+  }
+  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[magiclen];
+  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[magiclen + sizeof(crypto::public_key)];
+  const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
+  if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
+  {
+    fail_msg_writer() << "Outputs from " << filename << " are for a different account";
+    return true;
+  }
+
+  try
+  {
+    std::string body(data, headerlen);
+    std::stringstream iss;
+    iss << body;
+    boost::archive::binary_iarchive ar(iss);
+    std::vector<tools::wallet2::transfer_details> outputs;
+    ar >> outputs;
+
+    size_t n_outputs = m_wallet->import_outputs(outputs);
+    success_msg_writer() << boost::lexical_cast<std::string>(n_outputs) << " outputs imported";
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Failed to import outputs: " << e.what();
     return true;
   }
 
