@@ -1266,4 +1266,27 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE
+  {
+    struct request
+    {
+      uint64_t grace_blocks;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(grace_blocks)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t fee;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(fee)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
