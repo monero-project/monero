@@ -355,6 +355,7 @@ struct Wallet
      * \return the attached note, or empty string if there is none
      */
     virtual std::string getUserNote(const std::string &txid) const = 0;
+    virtual std::string getTxKey(const std::string &txid) const = 0;
 };
 
 /**

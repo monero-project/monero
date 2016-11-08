@@ -728,6 +728,26 @@ std::string WalletImpl::getUserNote(const std::string &txid) const
     return m_wallet->get_tx_note(htxid);
 }
 
+std::string WalletImpl::getTxKey(const std::string &txid) const
+{
+    cryptonote::blobdata txid_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+    {
+      return "";
+    }
+    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+    crypto::secret_key tx_key;
+    if (m_wallet->get_tx_key(htxid, tx_key))
+    {
+      return epee::string_tools::pod_to_hex(tx_key);
+    }
+    else
+    {
+      return "";
+    }
+}
+
 bool WalletImpl::connectToDaemon()
 {
     bool result = m_wallet->check_connection();
