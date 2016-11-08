@@ -876,6 +876,13 @@ namespace cryptonote
     return pk == out_key.key;
   }
   //---------------------------------------------------------------
+  bool is_out_to_acc_precomp(const crypto::public_key& spend_public_key, const txout_to_key& out_key, const crypto::key_derivation& derivation, size_t output_index)
+  {
+    crypto::public_key pk;
+    derive_public_key(derivation, output_index, spend_public_key, pk);
+    return pk == out_key.key;
+  }
+  //---------------------------------------------------------------
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, std::vector<size_t>& outs, uint64_t& money_transfered)
   {
     crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
