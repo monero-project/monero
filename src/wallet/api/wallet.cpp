@@ -545,6 +545,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
 
 {
     clearStatus();
+    // Pause refresh thread while creating transaction
+    pauseRefresh();
     vector<cryptonote::tx_destination_entry> dsts;
     cryptonote::tx_destination_entry de;
 
@@ -678,6 +680,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
 
     transaction->m_status = m_status;
     transaction->m_errorString = m_errorString;
+    // Resume refresh thread
+    startRefresh();
     return transaction;
 }
 
@@ -844,6 +848,7 @@ void WalletImpl::doRefresh()
 
 void WalletImpl::startRefresh()
 {
+    LOG_PRINT_L2(__FUNCTION__ << ": refresh started/resumed...");
     if (!m_refreshEnabled) {
         m_refreshEnabled = true;
         m_refreshCV.notify_one();
@@ -864,6 +869,7 @@ void WalletImpl::stopRefresh()
 
 void WalletImpl::pauseRefresh()
 {
+    LOG_PRINT_L2(__FUNCTION__ << ": refresh paused...");
     // TODO synchronize access
     if (!m_refreshThreadDone) {
         m_refreshEnabled = false;
