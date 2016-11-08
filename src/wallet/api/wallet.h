@@ -101,6 +101,9 @@ public:
     virtual std::string getUserNote(const std::string &txid) const;
     virtual std::string getTxKey(const std::string &txid) const;
 
+    virtual std::string signMessage(const std::string &message);
+    virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const;
+
 private:
     void clearStatus();
     void refreshThreadFunc();

@@ -752,6 +752,23 @@ std::string WalletImpl::getTxKey(const std::string &txid) const
     }
 }
 
+std::string WalletImpl::signMessage(const std::string &message)
+{
+  return m_wallet->sign(message);
+}
+
+bool WalletImpl::verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const
+{
+  cryptonote::account_public_address addr;
+  bool has_payment_id;
+  crypto::hash8 payment_id;
+
+  if (!cryptonote::get_account_integrated_address_from_str(addr, has_payment_id, payment_id, m_wallet->testnet(), address))
+    return false;
+
+  return m_wallet->verify(message, addr, signature);
+}
+
 bool WalletImpl::connectToDaemon()
 {
     bool result = m_wallet->check_connection();
