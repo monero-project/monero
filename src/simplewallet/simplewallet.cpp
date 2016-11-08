@@ -77,8 +77,8 @@ typedef cryptonote::simple_wallet sw;
 
 #define DEFAULT_MIX 4
 
-#define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\001"
-#define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\001"
+#define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
+#define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\002"
 
 // workaround for a suspected bug in pthread/kernel on MacOS X
 #ifdef __APPLE__
@@ -4018,8 +4018,10 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
   try
   {
     std::vector<std::pair<crypto::key_image, crypto::signature>> ski = m_wallet->export_key_images();
-    std::string data(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
+    std::string magic(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
     const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
+
+    std::string data;
     data += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
     data += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
     for (const auto &i: ski)
@@ -4027,7 +4029,10 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
       data += std::string((const char *)&i.first, sizeof(crypto::key_image));
       data += std::string((const char *)&i.second, sizeof(crypto::signature));
     }
-    bool r = epee::file_io_utils::save_string_to_file(filename, data);
+
+    // encrypt data, keep magic plaintext
+    std::string ciphertext = m_wallet->encrypt_with_view_secret_key(data);
+    bool r = epee::file_io_utils::save_string_to_file(filename, magic + ciphertext);
     if (!r)
     {
       fail_msg_writer() << tr("failed to save file ") << filename;
@@ -4067,14 +4072,25 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
     fail_msg_writer() << "Bad key image export file magic in " << filename;
     return true;
   }
-  const size_t headerlen = magiclen + 2 * sizeof(crypto::public_key);
+
+  try
+  {
+    data = m_wallet->decrypt_with_view_secret_key(std::string(data, magiclen));
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Failed to decrypt " << filename << ": " << e.what();
+    return true;
+  }
+
+  const size_t headerlen = 2 * sizeof(crypto::public_key);
   if (data.size() < headerlen)
   {
     fail_msg_writer() << "Bad data size from file " << filename;
     return true;
   }
-  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[magiclen];
-  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[magiclen + sizeof(crypto::public_key)];
+  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
+  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
   const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
   if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
   {
@@ -4133,11 +4149,13 @@ bool simple_wallet::export_outputs(const std::vector<std::string> &args)
     boost::archive::binary_oarchive ar(oss);
     ar << outs;
 
-    std::string data(OUTPUT_EXPORT_FILE_MAGIC, strlen(OUTPUT_EXPORT_FILE_MAGIC));
+    std::string magic(OUTPUT_EXPORT_FILE_MAGIC, strlen(OUTPUT_EXPORT_FILE_MAGIC));
     const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
-    data += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
-    data += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
-    bool r = epee::file_io_utils::save_string_to_file(filename, data + oss.str());
+    std::string header;
+    header += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
+    header += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
+    std::string ciphertext = m_wallet->encrypt_with_view_secret_key(header + oss.str());
+    bool r = epee::file_io_utils::save_string_to_file(filename, magic + ciphertext);
     if (!r)
     {
       fail_msg_writer() << tr("failed to save file ") << filename;
@@ -4177,14 +4195,25 @@ bool simple_wallet::import_outputs(const std::vector<std::string> &args)
     fail_msg_writer() << "Bad output export file magic in " << filename;
     return true;
   }
-  const size_t headerlen = magiclen + 2 * sizeof(crypto::public_key);
+
+  try
+  {
+    data = m_wallet->decrypt_with_view_secret_key(std::string(data, magiclen));
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Failed to decrypt " << filename << ": " << e.what();
+    return true;
+  }
+
+  const size_t headerlen = 2 * sizeof(crypto::public_key);
   if (data.size() < headerlen)
   {
     fail_msg_writer() << "Bad data size from file " << filename;
     return true;
   }
-  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[magiclen];
-  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[magiclen + sizeof(crypto::public_key)];
+  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
+  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
   const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
   if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
   {
