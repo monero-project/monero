@@ -65,6 +65,7 @@ struct PendingTransaction
     virtual uint64_t amount() const = 0;
     virtual uint64_t dust() const = 0;
     virtual uint64_t fee() const = 0;
+    virtual std::vector<std::string> txid() const = 0;
 };
 
 /**
@@ -340,6 +341,20 @@ struct Wallet
      * \param arg
      */
     virtual void setDefaultMixin(uint32_t arg) = 0;
+
+    /*!
+     * \brief setUserNote - attach an arbitrary string note to a txid
+     * \param txid - the transaction id to attach the note to
+     * \param note - the note
+     * \return true if succesful, false otherwise
+     */
+    virtual bool setUserNote(const std::string &txid, const std::string &note) = 0;
+    /*!
+     * \brief getUserNote - return an arbitrary string note attached to a txid
+     * \param txid - the transaction id to attach the note to
+     * \return the attached note, or empty string if there is none
+     */
+    virtual std::string getUserNote(const std::string &txid) const = 0;
 };
 
 /**
