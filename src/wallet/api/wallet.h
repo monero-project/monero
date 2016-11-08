@@ -91,6 +91,7 @@ public:
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         uint64_t amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
+    virtual PendingTransaction * createSweepUnmixableTransaction();
 
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
