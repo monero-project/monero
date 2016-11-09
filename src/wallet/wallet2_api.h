@@ -336,6 +336,14 @@ struct Wallet
                                                    PendingTransaction::Priority = PendingTransaction::Priority_Low) = 0;
 
     /*!
+     * \brief createSweepUnmixableTransaction creates transaction with unmixable outputs.
+     * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
+     *                          after object returned
+     */
+
+    virtual PendingTransaction * createSweepUnmixableTransaction() = 0;
+
+    /*!
      * \brief disposeTransaction - destroys transaction object
      * \param t -  pointer to the "PendingTransaction" object. Pointer is not valid after function returned;
      */
