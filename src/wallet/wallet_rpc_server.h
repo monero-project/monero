@@ -35,7 +35,6 @@
 #include "net/http_server_impl_base.h"
 #include "wallet_rpc_server_commands_defs.h"
 #include "wallet2.h"
-#include "common/command_line.h"
 namespace tools
 {
   /************************************************************************/
@@ -46,14 +45,10 @@ namespace tools
   public:
     typedef epee::net_utils::connection_context_base connection_context;
 
+    static const char* tr(const char* str);
+
     wallet_rpc_server(wallet2& cr);
 
-    const static command_line::arg_descriptor<std::string> arg_rpc_bind_port;
-    const static command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
-    const static command_line::arg_descriptor<std::string> arg_user_agent;
-
-
-    static void init_options(boost::program_options::options_description& desc);
     bool init(const boost::program_options::variables_map& vm);
     bool run();
   private:

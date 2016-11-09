@@ -27,12 +27,14 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
-
+#include <cstdint>
 #include "include_base_utils.h"
 using namespace epee;
 
 #include "wallet_rpc_server.h"
+#include "wallet/wallet_args.h"
 #include "common/command_line.h"
+#include "common/i18n.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_core/account.h"
 #include "wallet_rpc_server_commands_defs.h"
@@ -40,19 +42,20 @@ using namespace epee;
 #include "string_tools.h"
 #include "crypto/hash.h"
 
+namespace
+{
+  const command_line::arg_descriptor<std::string, true> arg_rpc_bind_port = {"rpc-bind-port", "Sets bind port for server"};
+  const command_line::arg_descriptor<std::string> arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
+  const command_line::arg_descriptor<std::string> arg_user_agent = {"user-agent", "Restrict RPC to clients using this user agent", ""};
+}
+
 namespace tools
 {
-  //-----------------------------------------------------------------------------------
-  const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_port = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
-  const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
-  const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_user_agent = {"user-agent", "Restrict RPC to clients using this user agent", ""};
-
-  void wallet_rpc_server::init_options(boost::program_options::options_description& desc)
+  const char* wallet_rpc_server::tr(const char* str)
   {
-    command_line::add_arg(desc, arg_rpc_bind_ip);
-    command_line::add_arg(desc, arg_rpc_bind_port);
-    command_line::add_arg(desc, arg_user_agent);
+    return i18n_translate(str, "tools::wallet_rpc_server");
   }
+
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w)
   {}
@@ -1070,3 +1073,107 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
 }
 
+int main(int argc, char** argv) {
+  namespace po = boost::program_options;
+
+  const auto arg_wallet_file = wallet_args::arg_wallet_file();
+  const auto arg_from_json = wallet_args::arg_generate_from_json();
+
+  po::options_description desc_params(wallet_args::tr("Wallet options"));
+  tools::wallet2::init_options(desc_params);
+  command_line::add_arg(desc_params, arg_rpc_bind_ip);
+  command_line::add_arg(desc_params, arg_rpc_bind_port);
+  command_line::add_arg(desc_params, arg_user_agent);
+  command_line::add_arg(desc_params, arg_wallet_file);
+  command_line::add_arg(desc_params, arg_from_json);
+
+  const auto vm = wallet_args::main(
+    argc, argv,
+    "monero-wallet-rpc [--wallet-file=<file>|--generate-from-json=<file>] [--rpc-bind-port=<port>]",
+    desc_params,
+    po::positional_options_description()
+  );
+  if (!vm)
+  {
+    return 1;
+  }
+
+  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
+
+  std::unique_ptr<tools::wallet2> wal;
+  try
+  {
+    const auto wallet_file = command_line::get_arg(*vm, arg_wallet_file);
+    const auto from_json = command_line::get_arg(*vm, arg_from_json);
+
+    if(!wallet_file.empty() && !from_json.empty())
+    {
+      LOG_ERROR(tools::wallet_rpc_server::tr("Can't specify more than one of --wallet-file and --generate-from-json"));
+      return 1;
+    }
+
+    if (wallet_file.empty() && from_json.empty())
+    {
+      LOG_ERROR(tools::wallet_rpc_server::tr("Must specify --wallet-file or --generate-from-json"));
+      return 1;
+    }
+
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Loading wallet..."));
+    if(!wallet_file.empty())
+    {
+      wal = tools::wallet2::make_from_file(*vm, wallet_file).first;
+    }
+    else
+    {
+      wal = tools::wallet2::make_from_json(*vm, from_json);
+    }
+    if (!wal)
+    {
+      return 1;
+    }
+
+    bool quit = false;
+    tools::signal_handler::install([&wal, &quit](int) {
+      assert(wal);
+      quit = true;
+      wal->stop();
+    });
+
+    wal->refresh();
+    // if we ^C during potentially length load/refresh, there's no server loop yet
+    if (quit)
+    {
+      LOG_PRINT_L0(tools::wallet_rpc_server::tr("Storing wallet..."));
+      wal->store();
+      LOG_PRINT_GREEN(tools::wallet_rpc_server::tr("Stored ok"), LOG_LEVEL_0);
+      return 1;
+    }
+    LOG_PRINT_GREEN(tools::wallet_rpc_server::tr("Loaded ok"), LOG_LEVEL_0);
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR(tools::wallet_rpc_server::tr("Wallet initialization failed: ") << e.what());
+    return 1;
+  }
+  tools::wallet_rpc_server wrpc(*wal);
+  bool r = wrpc.init(*vm);
+  CHECK_AND_ASSERT_MES(r, 1, tools::wallet_rpc_server::tr("Failed to initialize wallet rpc server"));
+  tools::signal_handler::install([&wrpc, &wal](int) {
+    wrpc.send_stop_signal();
+  });
+  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet rpc server"));
+  wrpc.run();
+  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet rpc server"));
+  try
+  {
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Storing wallet..."));
+    wal->store();
+    LOG_PRINT_GREEN(tools::wallet_rpc_server::tr("Stored ok"), LOG_LEVEL_0);
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to store wallet: ") << e.what());
+    return 1;
+  }
+  return 0;
+}
