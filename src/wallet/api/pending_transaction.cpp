@@ -80,8 +80,8 @@ std::vector<std::string> PendingTransactionImpl::txid() const
 bool PendingTransactionImpl::commit()
 {
 
-    LOG_PRINT_L0("m_pending_tx size: " << m_pending_tx.size());
-    assert(m_pending_tx.size() == 1);
+    LOG_PRINT_L3("m_pending_tx size: " << m_pending_tx.size());
+
     try {
         while (!m_pending_tx.empty()) {
             auto & ptx = m_pending_tx.back();
@@ -140,6 +140,11 @@ uint64_t PendingTransactionImpl::fee() const
         result += ptx.fee;
     }
     return result;
+}
+
+uint64_t PendingTransactionImpl::txCount() const
+{
+    return m_pending_tx.size();
 }
 
 }

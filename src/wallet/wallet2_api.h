@@ -66,6 +66,11 @@ struct PendingTransaction
     virtual uint64_t dust() const = 0;
     virtual uint64_t fee() const = 0;
     virtual std::vector<std::string> txid() const = 0;
+    /*!
+     * \brief txCount - number of transactions current transaction will be splitted to
+     * \return
+     */
+    virtual uint64_t txCount() const = 0;
 };
 
 /**
