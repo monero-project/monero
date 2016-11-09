@@ -367,6 +367,21 @@ struct Wallet
      */
     virtual std::string getUserNote(const std::string &txid) const = 0;
     virtual std::string getTxKey(const std::string &txid) const = 0;
+
+    /*
+     * \brief signMessage - sign a message with the spend private key
+     * \param message - the message to sign (arbitrary byte data)
+     * \return the signature
+     */
+    virtual std::string signMessage(const std::string &message) = 0;
+    /*!
+     * \brief verifySignedMessage - verify a signature matches a given message
+     * \param message - the message (arbitrary byte data)
+     * \param address - the address the signature claims to be made with
+     * \param signature - the signature
+     * \return true if the signature verified, false otherwise
+     */
+    virtual bool verifySignedMessage(const std::string &message, const std::string &addres, const std::string &signature) const = 0;
 };
 
 /**
