@@ -201,6 +201,7 @@ WalletImpl::WalletImpl(bool testnet)
     , m_wallet2Callback(nullptr)
     , m_recoveringFromSeed(false)
     , m_synchronized(false)
+    , m_rebuildWalletCache(false)
 {
     m_wallet = new tools::wallet2(testnet);
     m_history = new TransactionHistoryImpl(this);
@@ -269,6 +270,14 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
     m_recoveringFromSeed = false;
     try {
         // TODO: handle "deprecated"
+        // Check if wallet cache exists
+        bool keys_file_exists;
+        bool wallet_file_exists;
+        tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+        if(!wallet_file_exists){
+            // Rebuilding wallet cache, using refresh height from .keys file
+            m_rebuildWalletCache = true;
+        }
         m_wallet->load(path, password);
 
         m_password = password;
@@ -990,8 +999,9 @@ bool WalletImpl::isNewWallet() const
 {
     // in case wallet created without daemon connection, closed and opened again,
     // it's the same case as if it created from scratch, i.e. we need "fast sync"
-    // with the daemon (pull hashes instead of pull blocks)
-    return !(blockChainHeight() > 1 || m_recoveringFromSeed);
+    // with the daemon (pull hashes instead of pull blocks).
+    // If wallet cache is rebuilt, creation height stored in .keys is used. 
+    return !(blockChainHeight() > 1 || m_recoveringFromSeed || m_rebuildWalletCache);
 }
 
 void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
