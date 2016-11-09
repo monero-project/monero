@@ -540,15 +540,14 @@ int WalletImpl::autoRefreshInterval() const
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
 
-PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, uint64_t amount, uint32_t mixin_count,
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t mixin_count,
                                                   PendingTransaction::Priority priority)
 
 {
     clearStatus();
     // Pause refresh thread while creating transaction
     pauseRefresh();
-    vector<cryptonote::tx_destination_entry> dsts;
-    cryptonote::tx_destination_entry de;
+    cryptonote::account_public_address addr;
 
     // indicates if dst_addr is integrated address (address + payment_id)
     bool has_payment_id;
@@ -561,7 +560,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
-        if(!cryptonote::get_account_integrated_address_from_str(de.addr, has_payment_id, payment_id_short, m_wallet->testnet(), dst_addr)) {
+        if(!cryptonote::get_account_integrated_address_from_str(addr, has_payment_id, payment_id_short, m_wallet->testnet(), dst_addr)) {
             // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
             m_status = Status_Error;
             m_errorString = "Invalid destination address";
@@ -595,14 +594,23 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             }
         }
 
-        de.amount = amount;
-        dsts.push_back(de);
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
         try {
-            transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
-                                                                      static_cast<uint32_t>(priority),
-                                                                      extra, m_trustedDaemon);
+            if (amount) {
+                vector<cryptonote::tx_destination_entry> dsts;
+                cryptonote::tx_destination_entry de;
+                de.addr = addr;
+                de.amount = *amount;
+                dsts.push_back(de);
+                transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
+                                                                          static_cast<uint32_t>(priority),
+                                                                          extra, m_trustedDaemon);
+            } else {
+                transaction->m_pending_tx = m_wallet->create_transactions_all(addr, fake_outs_count, 0 /* unlock_time */,
+                                                                          static_cast<uint32_t>(priority),
+                                                                          extra, m_trustedDaemon);
+            }
 
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
