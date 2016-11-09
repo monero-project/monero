@@ -151,7 +151,7 @@ void thread_group::data::dispatch(std::function<void()> f) {
   {
     const std::unique_lock<std::mutex> lock(mutex);
     assert(last != nullptr);
-    assert(last->next == nullptr);
+    assert(last->ptr == nullptr);
     if (pending == std::numeric_limits<std::size_t>::max()) {
       throw std::overflow_error("thread_group exceeded max queue depth");
     }
