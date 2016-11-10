@@ -142,6 +142,7 @@ option(BUILD_64 "Build for 64-bit? 'OFF' builds for 32-bit." ${DEFAULT_BUILD_64}
 
 if(BUILD_64)
   set(ARCH_WIDTH "64")
+  set(BUILD_SHARED_LIBS ON CACHE STRING "Build libraries with Position Independent Code")
 else()
   set(ARCH_WIDTH "32")
 endif()
@@ -182,8 +183,9 @@ option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
 # This is a CMake built-in switch that concerns internal libraries
 if (NOT DEFINED BUILD_SHARED_LIBS AND NOT STATIC AND CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
-    set(BUILD_SHARED_LIBS ON CACHE STRING "Build internal libs as shared")
+  set(BUILD_SHARED_LIBS ON CACHE STRING "Build libraries with Position Independent Code")
 endif()
+
 if (BUILD_SHARED_LIBS)
   message(STATUS "Building internal libraries as shared")
   set(PIC_FLAG "-fPIC")
@@ -407,9 +409,6 @@ else()
   else()
     message(STATUS "AES support disabled")
   endif()
-
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${ARCH_FLAG} ${COVERAGE_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${ARCH_FLAG} ${COVERAGE_FLAGS}")
 
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
