@@ -145,6 +145,7 @@ private:
     // instead of pulling hashes (fast-refresh)
     bool                m_recoveringFromSeed;
     std::atomic<bool>   m_synchronized;
+    bool                m_rebuildWalletCache;
 };
 
 
