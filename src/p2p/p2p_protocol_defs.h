@@ -332,6 +332,29 @@ namespace nodetool
     };
   };
 
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  struct COMMAND_REQUEST_SUPPORT_FLAGS
+  {
+    const static int ID = P2P_COMMANDS_POOL_BASE + 7;
+
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()    
+    };
+
+    struct response
+    {
+      uint32_t support_flags;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(support_flags)
+      END_KV_SERIALIZE_MAP()    
+    };
+  };
+  
 #endif
 
 
