@@ -41,6 +41,20 @@ namespace Bitmonero {
     namespace Utils {
         bool isAddressLocal(const std::string &hostaddr);
     }
+
+    template<typename T>
+    class optional {
+      public:
+        optional(): set(false) {}
+        optional(const T &t): t(t), set(true) {}
+        const T &operator*() const { return t; }
+        T &operator*() { return t; }
+        operator bool() const { return set; }
+      private:
+        T t;
+        bool set;
+    };
+
 /**
  * @brief Transaction-like interface for sending money
  */
@@ -332,7 +346,7 @@ struct Wallet
      */
 
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
-                                                   uint64_t amount, uint32_t mixin_count,
+                                                   optional<uint64_t> amount, uint32_t mixin_count,
                                                    PendingTransaction::Priority = PendingTransaction::Priority_Low) = 0;
 
     /*!
