@@ -2972,9 +2972,9 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
           break;
         }
       }
-      LOG_PRINT_L1("" << num_outs << " outputs of size " << print_money(amount));
+      LOG_PRINT_L1("" << num_outs << " unlocked outputs of size " << print_money(amount));
       THROW_WALLET_EXCEPTION_IF(num_outs == 0, error::wallet_internal_error,
-          "histogram reports no outputs for " + boost::lexical_cast<std::string>(amount) + ", not even ours");
+          "histogram reports no unlocked outputs for " + boost::lexical_cast<std::string>(amount) + ", not even ours");
       THROW_WALLET_EXCEPTION_IF(num_recent_outs > num_outs, error::wallet_internal_error,
           "histogram reports more recent outs than outs for " + boost::lexical_cast<std::string>(amount));
 
@@ -2984,7 +2984,7 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
         recent_outputs_count = 1; // ensure we have at least one, if possible
       if (recent_outputs_count > num_recent_outs)
         recent_outputs_count = num_recent_outs;
-      if (td.m_global_output_index >= num_outs - num_recent_outs)
+      if (td.m_global_output_index >= num_outs - num_recent_outs && recent_outputs_count > 0)
         --recent_outputs_count; // if the real out is recent, pick one less recent fake out
       LOG_PRINT_L1("Using " << recent_outputs_count << " recent outputs");
 
@@ -3023,6 +3023,9 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
             uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
             double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
             i = (uint64_t)(frac*num_recent_outs) + num_outs - num_recent_outs;
+            // just in case rounding up to 1 occurs after calc
+            if (i == num_outs)
+              --i;
             LOG_PRINT_L2("picking " << i << " as recent");
           }
           else
@@ -3031,11 +3034,11 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
             uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
             double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
             i = (uint64_t)(frac*num_outs);
+            // just in case rounding up to 1 occurs after calc
+            if (i == num_outs)
+              --i;
             LOG_PRINT_L2("picking " << i << " as triangular");
           }
-          // just in case rounding up to 1 occurs after calc
-          if (i == num_outs)
-            --i;
 
           if (seen_indices.count(i))
             continue;
