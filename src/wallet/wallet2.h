@@ -32,6 +32,9 @@
 
 #include <memory>
 #include <boost/archive/binary_iarchive.hpp>
+
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/list.hpp>
 #include <boost/serialization/vector.hpp>
 #include <atomic>
@@ -51,6 +54,7 @@
 #include "ringct/rctOps.h"
 
 #include "wallet_errors.h"
+#include "password_container.h"
 
 #include <iostream>
 #define WALLET_RCP_CONNECTION_TIMEOUT                          200000
@@ -95,6 +99,21 @@ namespace tools
     wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true) {}
 
   public:
+    static const char* tr(const char* str);// { return i18n_translate(str, "cryptonote::simple_wallet"); }
+
+    static bool has_testnet_option(const boost::program_options::variables_map& vm);
+    static void init_options(boost::program_options::options_description& desc_params);
+
+    //! Uses stdin and stdout. Returns a wallet2 if no errors.
+    static std::unique_ptr<wallet2> make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file);
+
+    //! Uses stdin and stdout. Returns a wallet2 and password for `wallet_file` if no errors.
+    static std::pair<std::unique_ptr<wallet2>, password_container>
+      make_from_file(const boost::program_options::variables_map& vm, const std::string& wallet_file);
+
+    //! Uses stdin and stdout. Returns a wallet2 and password for wallet with no file if no errors.
+    static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm);
+
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_restricted(restricted), is_old_file_format(false) {}
     struct transfer_details
     {

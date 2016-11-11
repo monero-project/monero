@@ -37,13 +37,14 @@
 
 #include <memory>
 
+#include <boost/optional/optional.hpp>
 #include <boost/program_options/variables_map.hpp>
 
 #include "cryptonote_core/account.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "wallet/wallet2.h"
 #include "console_handler.h"
-#include "password_container.h"
+#include "wallet/password_container.h"
 #include "crypto/crypto.h"  // for definition of crypto::secret_key
 
 /*!
@@ -58,7 +59,6 @@ namespace cryptonote
   class simple_wallet : public tools::i_wallet2_callback
   {
   public:
-    static bool get_password(const boost::program_options::variables_map& vm, bool allow_entry, tools::password_container &pwd_container);
     static const char *tr(const char *str) { return i18n_translate(str, "cryptonote::simple_wallet"); }
 
   public:
@@ -70,7 +70,6 @@ namespace cryptonote
     bool run();
     void stop();
     void interrupt();
-    bool generate_from_json(const boost::program_options::variables_map& vm, std::string &wallet_file, std::string &password);
 
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
@@ -82,13 +81,11 @@ namespace cryptonote
 
     void wallet_idle_thread();
 
-    bool new_wallet(const std::string &wallet_file, const std::string& password, const crypto::secret_key& recovery_key,
-        bool recover, bool two_random, bool testnet, const std::string &old_language);
-    bool new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
-        const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool testnet);
-    bool new_wallet(const std::string &wallet_file, const std::string& password, const cryptonote::account_public_address& address,
-        const crypto::secret_key& viewkey, bool testnet);
-    bool open_wallet(const std::string &wallet_file, const std::string& password, bool testnet);
+    bool new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
+        bool recover, bool two_random, const std::string &old_language);
+    bool new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
+        const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
+    bool open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
 
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
@@ -255,10 +252,6 @@ namespace cryptonote
     bool m_allow_mismatched_daemon_version;
     bool m_restoring;           // are we restoring, by whatever method?
     uint64_t m_restore_height;  // optional
-
-    std::string m_daemon_address;
-    std::string m_daemon_host;
-    int m_daemon_port;
 
     epee::console_handlers_binder m_cmd_binder;
 

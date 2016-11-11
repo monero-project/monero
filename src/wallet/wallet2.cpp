@@ -32,23 +32,27 @@
 #include <tuple>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
-
+#include <boost/format.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/utility/value_init.hpp>
 #include "include_base_utils.h"
 using namespace epee;
 
 #include "cryptonote_config.h"
 #include "wallet2.h"
+#include "wallet2_api.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "misc_language.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "common/boost_serialization_helper.h"
+#include "common/command_line.h"
 #include "profile_tools.h"
 #include "crypto/crypto.h"
 #include "serialization/binary_utils.h"
 #include "cryptonote_protocol/blobdatatype.h"
 #include "mnemonics/electrum-words.h"
+#include "common/i18n.h"
 #include "common/dns_utils.h"
 #include "common/util.h"
 #include "rapidjson/document.h"
@@ -56,6 +60,7 @@ using namespace epee;
 #include "rapidjson/stringbuffer.h"
 #include "common/json_util.h"
 #include "common/base58.h"
+#include "common/scoped_message_writer.h"
 #include "ringct/rctSigs.h"
 
 extern "C"
@@ -92,6 +97,17 @@ using namespace cryptonote;
 
 namespace
 {
+// Create on-demand to prevent static initialization order fiasco issues.
+struct options {
+  const command_line::arg_descriptor<std::string> daemon_address = {"daemon-address", tools::wallet2::tr("Use daemon instance at <host>:<port>"), ""};
+  const command_line::arg_descriptor<std::string> daemon_host = {"daemon-host", tools::wallet2::tr("Use daemon instance at host <arg> instead of localhost"), ""};
+  const command_line::arg_descriptor<std::string> password = {"password", tools::wallet2::tr("Wallet password"), "", true};
+  const command_line::arg_descriptor<std::string> password_file = {"password-file", tools::wallet2::tr("Wallet password file"), "", true};
+  const command_line::arg_descriptor<int> daemon_port = {"daemon-port", tools::wallet2::tr("Use daemon instance at port <arg> instead of 18081"), 0};
+  const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
+  const command_line::arg_descriptor<bool> restricted = {"restricted-rpc", tools::wallet2::tr("Restricts to view-only commands"), false};
+};
+
 void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
 {
   keys_file = file_path;
@@ -117,12 +133,338 @@ uint64_t calculate_fee(uint64_t fee_per_kb, const cryptonote::blobdata &blob, ui
   return calculate_fee(fee_per_kb, blob.size(), fee_multiplier);
 }
 
+std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, const options& opts)
+{
+  const bool testnet = command_line::get_arg(vm, opts.testnet);
+  const bool restricted = command_line::get_arg(vm, opts.restricted);
+
+  auto daemon_address = command_line::get_arg(vm, opts.daemon_address);
+  auto daemon_host = command_line::get_arg(vm, opts.daemon_host);
+  auto daemon_port = command_line::get_arg(vm, opts.daemon_port);
+
+  if (!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port)
+  {
+    tools::fail_msg_writer() << tools::wallet2::tr("can't specify daemon host or port more than once");
+    return nullptr;
+  }
+
+  if (daemon_host.empty())
+    daemon_host = "localhost";
+
+  if (!daemon_port)
+  {
+    daemon_port = testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+  }
+
+  if (daemon_address.empty())
+    daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
+
+  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet, restricted));
+  wallet->init(daemon_address);
+  return wallet;
+}
+
+boost::optional<tools::password_container> get_password(const boost::program_options::variables_map& vm, const options& opts, const bool verify)
+{
+  if (command_line::has_arg(vm, opts.password) && command_line::has_arg(vm, opts.password_file))
+  {
+    tools::fail_msg_writer() << tools::wallet2::tr("can't specify more than one of --password and --password-file");
+    return boost::none;
+  }
+
+  if (command_line::has_arg(vm, opts.password))
+  {
+    tools::password_container pwd(false);
+    pwd.password(command_line::get_arg(vm, opts.password));
+    return {std::move(pwd)};
+  }
+
+  if (command_line::has_arg(vm, opts.password_file))
+  {
+    std::string password;
+    bool r = epee::file_io_utils::load_file_to_string(command_line::get_arg(vm, opts.password_file),
+                                                      password);
+    if (!r)
+    {
+      tools::fail_msg_writer() << tools::wallet2::tr("the password file specified could not be read");
+      return boost::none;
+    }
+
+    // Remove line breaks the user might have inserted
+    password.erase(std::remove(password.begin() - 1, password.end(), '\n'), password.end());
+    password.erase(std::remove(password.end() - 1, password.end(), '\r'), password.end());
+    return {tools::password_container(std::move(password))};
+  }
+
+  //vm is already part of the password container class.  just need to check vm for an already existing wallet
+  //here need to pass in variable map.  This will indicate if the wallet already exists to the read password function
+  tools::password_container pwd(verify);
+  if (pwd.read_password())
+  {
+    return {std::move(pwd)};
+  }
+
+  tools::fail_msg_writer() << tools::wallet2::tr("failed to read wallet password");
+  return boost::none;
+}
+
+std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, bool testnet, bool restricted)
+{
+  /* GET_FIELD_FROM_JSON_RETURN_ON_ERROR Is a generic macro that can return
+  false. Gcc will coerce this into unique_ptr(nullptr), but clang correctly
+  fails. This large wrapper is for the use of that macro */
+  std::unique_ptr<tools::wallet2> wallet;
+  const auto do_generate = [&]() -> bool {
+    std::string buf;
+    if (!epee::file_io_utils::load_file_to_string(json_file, buf)) {
+      tools::fail_msg_writer() << tools::wallet2::tr("Failed to load file ") << json_file;
+      return false;
+    }
+
+    rapidjson::Document json;
+    if (json.Parse(buf.c_str()).HasParseError()) {
+      tools::fail_msg_writer() << tools::wallet2::tr("Failed to parse JSON");
+      return false;
+    }
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, version, unsigned, Uint, true, 0);
+    const int current_version = 1;
+    if (field_version > current_version) {
+      tools::fail_msg_writer() << boost::format(tools::wallet2::tr("Version %u too new, we can only grok up to %u")) % field_version % current_version;
+      return false;
+    }
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, filename, std::string, String, true, std::string());
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, scan_from_height, uint64_t, Uint64, false, 0);
+    const bool recover = field_scan_from_height_found;
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, password, std::string, String, false, std::string());
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, viewkey, std::string, String, false, std::string());
+    crypto::secret_key viewkey;
+    if (field_viewkey_found)
+    {
+      cryptonote::blobdata viewkey_data;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(field_viewkey, viewkey_data))
+      {
+        tools::fail_msg_writer() << tools::wallet2::tr("failed to parse view key secret key");
+        return false;
+      }
+      viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+        tools::fail_msg_writer() << tools::wallet2::tr("failed to verify view key secret key");
+        return false;
+      }
+    }
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, spendkey, std::string, String, false, std::string());
+    crypto::secret_key spendkey;
+    if (field_spendkey_found)
+    {
+      cryptonote::blobdata spendkey_data;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(field_spendkey, spendkey_data))
+      {
+        tools::fail_msg_writer() << tools::wallet2::tr("failed to parse spend key secret key");
+        return false;
+      }
+      spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+        tools::fail_msg_writer() << tools::wallet2::tr("failed to verify spend key secret key");
+        return false;
+      }
+    }
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed, std::string, String, false, std::string());
+    std::string old_language;
+    crypto::secret_key recovery_key;
+    bool restore_deterministic_wallet = false;
+    if (field_seed_found)
+    {
+      if (!crypto::ElectrumWords::words_to_bytes(field_seed, recovery_key, old_language))
+      {
+        tools::fail_msg_writer() << tools::wallet2::tr("Electrum-style word list failed verification");
+        return false;
+      }
+      restore_deterministic_wallet = true;
+    }
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false, std::string());
+
+    // compatibility checks
+    if (!field_seed_found && !field_viewkey_found)
+    {
+      tools::fail_msg_writer() << tools::wallet2::tr("At least one of Electrum-style word list and private view key must be specified");
+      return false;
+    }
+    if (field_seed_found && (field_viewkey_found || field_spendkey_found))
+    {
+      tools::fail_msg_writer() << tools::wallet2::tr("Both Electrum-style word list and private key(s) specified");
+      return false;
+    }
+
+    // if an address was given, we check keys against it, and deduce the spend
+    // public key if it was not given
+    if (field_address_found)
+    {
+      cryptonote::account_public_address address;
+      bool has_payment_id;
+      crypto::hash8 new_payment_id;
+      if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, testnet, field_address))
+      {
+        tools::fail_msg_writer() << tools::wallet2::tr("invalid address");
+        return false;
+      }
+      if (field_viewkey_found)
+      {
+        crypto::public_key pkey;
+        if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+          tools::fail_msg_writer() << tools::wallet2::tr("failed to verify view key secret key");
+          return false;
+        }
+        if (address.m_view_public_key != pkey) {
+          tools::fail_msg_writer() << tools::wallet2::tr("view key does not match standard address");
+          return false;
+        }
+      }
+      if (field_spendkey_found)
+      {
+        crypto::public_key pkey;
+        if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+          tools::fail_msg_writer() << tools::wallet2::tr("failed to verify spend key secret key");
+          return false;
+        }
+        if (address.m_spend_public_key != pkey) {
+          tools::fail_msg_writer() << tools::wallet2::tr("spend key does not match standard address");
+          return false;
+        }
+      }
+    }
+
+    const bool deprecated_wallet = restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
+      crypto::ElectrumWords::get_is_old_style_seed(field_seed));
+    if (deprecated_wallet) {
+      tools::fail_msg_writer() << tools::wallet2::tr("Cannot create deprecated wallets from JSON");
+      return false;
+    }
+
+    wallet.reset(new tools::wallet2(testnet, restricted));
+    wallet->set_refresh_from_block_height(field_scan_from_height);
+
+    try
+    {
+      if (!field_seed.empty())
+      {
+        wallet->generate(field_filename, field_password, recovery_key, recover, false);
+      }
+      else
+      {
+        cryptonote::account_public_address address;
+        if (!crypto::secret_key_to_public_key(viewkey, address.m_view_public_key)) {
+          tools::fail_msg_writer() << tools::wallet2::tr("failed to verify view key secret key");
+          return false;
+        }
+
+        if (field_spendkey.empty())
+        {
+          // if we have an addres but no spend key, we can deduce the spend public key
+          // from the address
+          if (field_address_found)
+          {
+            cryptonote::account_public_address address2;
+            bool has_payment_id;
+            crypto::hash8 new_payment_id;
+            get_account_integrated_address_from_str(address2, has_payment_id, new_payment_id, testnet, field_address);
+            address.m_spend_public_key = address2.m_spend_public_key;
+          }
+          wallet->generate(field_filename, field_password, address, viewkey);
+        }
+        else
+        {
+          if (!crypto::secret_key_to_public_key(spendkey, address.m_spend_public_key)) {
+            tools::fail_msg_writer() << tools::wallet2::tr("failed to verify spend key secret key");
+            return false;
+          }
+          wallet->generate(field_filename, field_password, address, spendkey, viewkey);
+        }
+      }
+    }
+    catch (const std::exception& e)
+    {
+      tools::fail_msg_writer() << tools::wallet2::tr("failed to generate new wallet: ") << e.what();
+      return false;
+    }
+    return true;
+  };
+
+  if (do_generate())
+  {
+    return wallet;
+  }
+  return nullptr;
+}
+
 } //namespace
 
 namespace tools
 {
 // for now, limit to 30 attempts.  TODO: discuss a good number to limit to.
 const size_t MAX_SPLIT_ATTEMPTS = 30;
+
+const char* wallet2::tr(const char* str) { return i18n_translate(str, "tools::wallet2"); }
+
+bool wallet2::has_testnet_option(const boost::program_options::variables_map& vm)
+{
+  return command_line::get_arg(vm, options().testnet);
+}
+
+void wallet2::init_options(boost::program_options::options_description& desc_params)
+{
+  const options opts{};
+  command_line::add_arg(desc_params, opts.daemon_address);
+  command_line::add_arg(desc_params, opts.daemon_host);
+  command_line::add_arg(desc_params, opts.password);
+  command_line::add_arg(desc_params, opts.password_file);
+  command_line::add_arg(desc_params, opts.daemon_port);
+  command_line::add_arg(desc_params, opts.testnet);
+  command_line::add_arg(desc_params, opts.restricted);
+}
+
+std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file)
+{
+  const options opts{};
+  return generate_from_json(json_file, command_line::get_arg(vm, opts.testnet), command_line::get_arg(vm, opts.restricted));
+}
+
+std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
+  const boost::program_options::variables_map& vm, const std::string& wallet_file)
+{
+  const options opts{};
+  auto pwd = get_password(vm, opts, false);
+  if (!pwd)
+  {
+    return {nullptr, password_container(false)};
+  }
+  auto wallet = make_basic(vm, opts);
+  if (wallet)
+  {
+    wallet->load(wallet_file, pwd->password());
+  }
+  return {std::move(wallet), std::move(*pwd)};
+}
+
+std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const boost::program_options::variables_map& vm)
+{
+  const options opts{};
+  auto pwd = get_password(vm, opts, true);
+  if (!pwd)
+  {
+    return {nullptr, password_container(false)};
+  }
+  return {make_basic(vm, opts), std::move(*pwd)};
+}
 
 //----------------------------------------------------------------------------------------------------
 void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction_size_limit)
