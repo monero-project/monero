@@ -82,39 +82,41 @@ target_link_libraries(wallet
     ${EXTRA_LIBRARIES})
 add_dependencies(wallet version)
 
-set(wallet_rpc_sources
-  wallet_rpc_server.cpp)
+if (NOT BUILD_GUI_DEPS)
+  set(wallet_rpc_sources
+    wallet_rpc_server.cpp)
 
-set(wallet_rpc_headers)
+  set(wallet_rpc_headers)
 
-set(wallet_rpc_private_headers
-  wallet_rpc_server.h)
+  set(wallet_rpc_private_headers
+    wallet_rpc_server.h)
 
-monero_private_headers(wallet_rpc_server
-  ${wallet_rpc_private_headers})
-monero_add_executable(wallet_rpc_server
-  ${wallet_rpc_sources}
-  ${wallet_rpc_headers}
-  ${wallet_rpc_private_headers})
+  monero_private_headers(wallet_rpc_server
+    ${wallet_rpc_private_headers})
+  monero_add_executable(wallet_rpc_server
+    ${wallet_rpc_sources}
+    ${wallet_rpc_headers}
+    ${wallet_rpc_private_headers})
 
-target_link_libraries(wallet_rpc_server
-  PRIVATE
-    wallet
-    rpc
-    cryptonote_core
-    crypto
-    common
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${EXTRA_LIBRARIES})
-add_dependencies(wallet_rpc_server version)
-set_property(TARGET wallet_rpc_server
-  PROPERTY
-    OUTPUT_NAME "monero-wallet-rpc")
-install(TARGETS wallet_rpc_server DESTINATION bin)
+  target_link_libraries(wallet_rpc_server
+    PRIVATE
+      wallet
+      rpc
+      cryptonote_core
+      crypto
+      common
+      ${Boost_CHRONO_LIBRARY}
+      ${Boost_PROGRAM_OPTIONS_LIBRARY}
+      ${Boost_FILESYSTEM_LIBRARY}
+      ${Boost_THREAD_LIBRARY}
+      ${CMAKE_THREAD_LIBS_INIT}
+      ${EXTRA_LIBRARIES})
+  add_dependencies(wallet_rpc_server version)
+  set_property(TARGET wallet_rpc_server
+    PROPERTY
+      OUTPUT_NAME "monero-wallet-rpc")
+  install(TARGETS wallet_rpc_server DESTINATION bin)
+endif()
 
 
 # build and install libwallet_merged only if we building for GUI
