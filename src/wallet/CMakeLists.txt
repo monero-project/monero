@@ -80,6 +80,7 @@ target_link_libraries(wallet
     ${Boost_REGEX_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
+add_dependencies(wallet version)
 
 set(wallet_rpc_sources
   wallet_rpc_server.cpp)
