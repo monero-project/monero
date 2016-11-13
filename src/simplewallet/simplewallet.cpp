@@ -2803,7 +2803,12 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
         fail_msg_writer() << tr("Claimed change is larger than payment to the change address");
         return false;
       }
-      change = cd.change_dts.amount;
+      if (memcmp(&cd.change_dts.addr, &get_tx(0).change_dts.addr, sizeof(cd.change_dts.addr)))
+      {
+        fail_msg_writer() << tr("Change does to more than one address");
+        return false;
+      }
+      change += cd.change_dts.amount;
       it->second -= cd.change_dts.amount;
       if (it->second == 0)
         dests.erase(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr));
@@ -2820,8 +2825,17 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
   if (dest_string.empty())
     dest_string = tr("with no destinations");
 
+  std::string change_string;
+  if (change > 0)
+  {
+    std::string address = get_account_address_as_str(m_wallet->testnet(), get_tx(0).change_dts.addr);
+    change_string += (boost::format(tr("%s change to %s")) % print_money(change) % address).str();
+  }
+  else
+    change_string += tr("no change");
+
   uint64_t fee = amount - amount_to_dests;
-  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, change %s, %s, with min mixin %lu. Is this okay? (Y/Yes/N/No)")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % print_money(change) % dest_string % (unsigned long)min_mixin).str();
+  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. Is this okay? (Y/Yes/N/No)")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_mixin).str();
   std::string accepted = command_line::input_line(prompt_str);
   return is_it_true(accepted);
 }
