@@ -611,7 +611,7 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 15)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 5)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
@@ -640,7 +640,10 @@ namespace boost
         {
           x.m_rct = x.m_tx.vout[x.m_internal_output_index].amount == 0;
         }
-        x.m_key_image_known = true;
+        if (ver < 6)
+        {
+          x.m_key_image_known = true;
+        }
     }
 
     template <class Archive>
@@ -689,7 +692,18 @@ namespace boost
       }
       a & x.m_rct;
       if (ver < 5)
+      {
+        initialize_transfer_details(a, x, ver);
         return;
+      }
+      if (ver < 6)
+      {
+        // v5 did not properly initialize
+        uint8_t u;
+        a & u;
+        x.m_key_image_known = true;
+        return;
+      }
       a & x.m_key_image_known;
     }
 
