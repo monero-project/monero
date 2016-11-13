@@ -1740,17 +1740,22 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
 
   bool filter = false;
   bool available = false;
-  if (!args.empty())
+  bool verbose = false;
+  for (const auto &arg: args)
   {
-    if (args[0] == "available")
+    if (arg == "available")
     {
       filter = true;
       available = true;
     }
-    else if (args[0] == "unavailable")
+    else if (arg == "unavailable")
     {
       filter = true;
       available = false;
+    }
+    else if (arg == "verbose")
+    {
+      verbose = true;
     }
   }
 
@@ -1764,17 +1769,24 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
     {
       if (!transfers_found)
       {
-        message_writer() << boost::format("%21s%8s%12s%8s%16s%68s") % tr("amount") % tr("spent") % tr("unlocked") % tr("ringct") % tr("global index") % tr("tx id");
+        std::string verbose_string;
+        if (verbose)
+          verbose_string = (boost::format("%68s%68s") % tr("pubkey") % tr("key image")).str();
+        message_writer() << boost::format("%21s%8s%12s%8s%16s%68s%s") % tr("amount") % tr("spent") % tr("unlocked") % tr("ringct") % tr("global index") % tr("tx id") % verbose_string;
         transfers_found = true;
       }
+      std::string verbose_string;
+      if (verbose)
+        verbose_string = (boost::format("%68s%68s") % td.get_public_key() % td.m_key_image).str();
       message_writer(td.m_spent ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
-        boost::format("%21s%8s%12s%8s%16u%68s") %
+        boost::format("%21s%8s%12s%8s%16u%68s%s") %
         print_money(td.amount()) %
         (td.m_spent ? tr("T") : tr("F")) %
         (m_wallet->is_transfer_unlocked(td) ? tr("unlocked") : tr("locked")) %
         (td.is_rct() ? tr("RingCT") : tr("-")) %
         td.m_global_output_index %
-        td.m_txid;
+        td.m_txid %
+        verbose_string;
     }
   }
 
