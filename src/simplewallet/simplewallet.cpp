@@ -3529,6 +3529,31 @@ bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/*
     crypto::generate_key_derivation(AB.m_view_public_key , h_a_k, reinterpret_cast<crypto::key_derivation&>(CD.m_view_public_key ));
     crypto::generate_key_derivation(AB.m_spend_public_key, h_a_k, reinterpret_cast<crypto::key_derivation&>(CD.m_spend_public_key));
     success_msg_writer() << tr("One-time address: ") << cryptonote::get_account_address_as_str(m_wallet->testnet(), CD);
+    ////////
+    // generate_key_image_helper(const account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
+    // account_keys ack2;
+    // sc_mul((unsigned char*)&ack2.m_view_secret_key , (const unsigned char*)&ack.m_view_secret_key , (const unsigned char*)onetime_h_a_k);
+    // sc_mul((unsigned char*)&ack2.m_spend_secret_key, (const unsigned char*)&ack.m_spend_secret_key, (const unsigned char*)onetime_h_a_k);
+    // crypto::secret_key_to_public_key(ack2.m_spend_secret_key, ack2.m_account_address.m_spend_public_key);
+    // return generate_key_image_helper(ack2, tx_public_key, real_output_index, in_ephemeral, ki);
+    ////////
+    // check_acc_out_precomp(const crypto::public_key &spend_public_key, const tx_out &o, const crypto::key_derivation &derivation, size_t i, bool &received, uint64_t &money_transfered, bool &error)
+    // crypto::key_derivation derivation2, spend_public_key2;
+    // crypto::generate_key_derivation(reinterpret_cast<const crypto::public_key&>(derivation), *onetime_h_a_k, derivation2);
+    // crypto::generate_key_derivation(spend_public_key, *onetime_h_a_k, spend_public_key2);
+    // check_acc_out_precomp(reinterpret_cast<crypto::public_key&>(spend_public_key2), o, derivation2, i, received, money_transfered, error);
+    crypto::secret_key* onetime_h_a_k = &h_a_k;
+    ////////
+    crypto::secret_key spend_secret_key2;
+    sc_mul((unsigned char*)&spend_secret_key2, (const unsigned char*)&account_keys.m_spend_secret_key, (const unsigned char*)onetime_h_a_k);
+    sc_reduce32((unsigned char*)&spend_secret_key2);
+    crypto::public_key spend_public_key2;
+    crypto::secret_key_to_public_key(spend_secret_key2, spend_public_key2);
+    success_msg_writer() << tr("[debug] spend_public_key2: ") << spend_public_key2;
+    ////////
+    crypto::public_key spend_public_key3;
+    crypto::generate_key_derivation(account_keys.m_account_address.m_spend_public_key, *onetime_h_a_k, reinterpret_cast<crypto::key_derivation&>(spend_public_key3));
+    success_msg_writer() << tr("[debug] spend_public_key3: ") << spend_public_key3;
     return true;
   }
   fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
