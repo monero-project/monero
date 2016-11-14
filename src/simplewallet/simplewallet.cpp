@@ -662,6 +662,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
+  m_cmd_binder.set_handler("onetime_address", boost::bind(&simple_wallet::print_onetime_address, this, _1), tr("One-time address with random unencrypted payment ID"));
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), tr("Save wallet data"));
   m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), tr("Save a watch-only keys file"));
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
@@ -3504,6 +3505,33 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
     }
   }
   fail_msg_writer() << tr("failed to parse payment ID or address");
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  for (int i = 0; i < 65536; ++i) {
+    crypto::hash k = crypto::rand<crypto::hash>();
+    const auto& account_keys = m_wallet->get_account().get_keys();
+    char data[2 * HASH_SIZE];
+    memcpy(data, &account_keys.m_view_secret_key, HASH_SIZE);
+    memcpy(data + HASH_SIZE, &k, HASH_SIZE);
+    crypto::secret_key h_a_k;
+    // somehow crypto::hash_to_scalar(const void *data, size_t length, ec_scalar &res) is not accessible from outside crypto.cpp
+      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(h_a_k));
+      sc_reduce32(reinterpret_cast<unsigned char *>(h_a_k.data));
+    // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+    if (k.data[0] != h_a_k.data[0])
+      continue;
+    success_msg_writer() << tr("Random payment ID satisfying the equation (H(viewkey, pID) - pID) mod 256 == 0:\n") << k << tr("\n(found after ") << i << tr(" attempts)");
+    const auto& AB = account_keys.m_account_address;
+    cryptonote::account_public_address CD;
+    crypto::generate_key_derivation(AB.m_view_public_key , h_a_k, reinterpret_cast<crypto::key_derivation&>(CD.m_view_public_key ));
+    crypto::generate_key_derivation(AB.m_spend_public_key, h_a_k, reinterpret_cast<crypto::key_derivation&>(CD.m_spend_public_key));
+    success_msg_writer() << tr("One-time address: ") << cryptonote::get_account_address_as_str(m_wallet->testnet(), CD);
+    return true;
+  }
+  fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
   return true;
 }
 //----------------------------------------------------------------------------------------------------

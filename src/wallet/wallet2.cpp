@@ -559,6 +559,17 @@ void wallet2::check_acc_out_precomp(const crypto::public_key &spend_public_key, 
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const tx_out &o, const crypto::key_derivation &derivation, crypto::secret_key* onetime_h_a_k, size_t i, bool &received, uint64_t &money_transfered, bool &error) const
+{
+  check_acc_out_precomp(spend_public_key, o, derivation, i, received, money_transfered, error);
+  if (!received && onetime_h_a_k) {
+    crypto::key_derivation derivation2, spend_public_key2;
+    crypto::generate_key_derivation(reinterpret_cast<const crypto::public_key&>(derivation), *onetime_h_a_k, derivation2);
+    crypto::generate_key_derivation(spend_public_key, *onetime_h_a_k, spend_public_key2);
+    check_acc_out_precomp(reinterpret_cast<crypto::public_key&>(spend_public_key2), o, derivation2, i, received, money_transfered, error);
+  }
+}
+//----------------------------------------------------------------------------------------------------
 static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key pub, const crypto::secret_key &sec, unsigned int i, rct::key & mask)
 {
   crypto::key_derivation derivation;
@@ -588,13 +599,6 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key pub, 
     LOG_ERROR("Failed to decode input " << i);
     return 0;
   }
-}
-//----------------------------------------------------------------------------------------------------
-bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki)
-{
-  if (!cryptonote::generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
-    return false;
-  return true;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
@@ -630,6 +634,24 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
     LOG_PRINT_L0("Transaction extra has unsupported format: " << txid());
   }
 
+  // one-time address scheme by kenshi84
+  tx_extra_nonce extra_nonce;
+  find_tx_extra_field_by_type(tx_extra_fields, extra_nonce);
+  crypto::hash payment_id = null_hash;
+  bool has_unencrypted_payment_id = get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id);
+  crypto::secret_key onetime_h_a_k;
+  crypto::secret_key* onetime_h_a_k_ptr = nullptr;
+  if (has_unencrypted_payment_id) {
+    char data[2 * HASH_SIZE];
+    memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
+    memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
+    crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(onetime_h_a_k));
+    sc_reduce32(reinterpret_cast<unsigned char *>(onetime_h_a_k.data));
+    // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+    if (payment_id.data[0] == onetime_h_a_k.data[0])
+      onetime_h_a_k_ptr = &onetime_h_a_k;
+  }
+  
   // Don't try to extract tx public key if tx has no ouputs
   if (!tx.vout.empty()) 
   {
@@ -661,7 +683,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
     {
       uint64_t money_transfered = 0;
       bool error = false, received = false;
-      check_acc_out_precomp(keys.m_account_address.m_spend_public_key, tx.vout[0], derivation, 0, received, money_transfered, error);
+      check_acc_out_precomp_onetime(keys.m_account_address.m_spend_public_key, tx.vout[0], derivation, onetime_h_a_k_ptr, 0, received, money_transfered, error);
       if (error)
       {
         r = false;
@@ -671,7 +693,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         // this assumes that the miner tx pays a single address
         if (received)
         {
-          wallet_generate_key_image_helper(keys, tx_pub_key, 0, in_ephemeral[0], ki[0]);
+          cryptonote::generate_key_image_helper_onetime(keys, tx_pub_key, onetime_h_a_k_ptr, 0, in_ephemeral[0], ki[0]);
           THROW_WALLET_EXCEPTION_IF(in_ephemeral[0].pub != boost::get<cryptonote::txout_to_key>(tx.vout[0].target).key,
               error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -699,7 +721,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           // the first one was already checked
           for (size_t i = 1; i < tx.vout.size(); ++i)
           {
-            ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), i,
+            ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp_onetime, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), std::ref(onetime_h_a_k_ptr), i,
               std::ref(received[i]), std::ref(money_transfered[i]), std::ref(error[i])));
           }
           KILL_IOSERVICE();
@@ -712,7 +734,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             }
             if (received[i])
             {
-              wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral[i], ki[i]);
+              cryptonote::generate_key_image_helper_onetime(keys, tx_pub_key, onetime_h_a_k_ptr, i, in_ephemeral[i], ki[i]);
               THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
                   error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -744,7 +766,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
       std::deque<bool> received(tx.vout.size());
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
-        ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), i,
+        ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp_onetime, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), std::ref(onetime_h_a_k_ptr), i,
           std::ref(received[i]), std::ref(money_transfered[i]), std::ref(error[i])));
       }
       KILL_IOSERVICE();
@@ -758,7 +780,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         }
         if (received[i])
         {
-          wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral[i], ki[i]);
+          cryptonote::generate_key_image_helper_onetime(keys, tx_pub_key, onetime_h_a_k_ptr, i, in_ephemeral[i], ki[i]);
           THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
               error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -779,7 +801,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
       {
         uint64_t money_transfered = 0;
         bool error = false, received = false;
-        check_acc_out_precomp(keys.m_account_address.m_spend_public_key, tx.vout[i], derivation, i, received, money_transfered, error);
+        check_acc_out_precomp_onetime(keys.m_account_address.m_spend_public_key, tx.vout[i], derivation, onetime_h_a_k_ptr, i, received, money_transfered, error);
         if (error)
         {
           r = false;
@@ -789,7 +811,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         {
           if (received)
           {
-            wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral[i], ki[i]);
+            cryptonote::generate_key_image_helper_onetime(keys, tx_pub_key, onetime_h_a_k_ptr, i, in_ephemeral[i], ki[i]);
             THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
                 error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
@@ -955,9 +977,13 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
   if (0 < received)
   {
-    tx_extra_nonce extra_nonce;
-    crypto::hash payment_id = null_hash;
-    if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+    // tx_extra_nonce extra_nonce;
+    // crypto::hash payment_id = null_hash;
+    // if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+    if (has_unencrypted_payment_id) {
+      LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
+    }
+    else if (!extra_nonce.nonce.empty())
     {
       crypto::hash8 payment_id8 = null_hash8;
       if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
@@ -984,15 +1010,15 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
         }
       }
-      else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-      {
-        LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
-      }
+      // else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+      // {
+      //   LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
+      // }
     }
-    else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-    {
-      LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
-    }
+    // else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+    // {
+    //   LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
+    // }
 
     payment_details payment;
     payment.m_tx_hash      = txid();
@@ -4654,10 +4680,28 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
         "Public key wasn't found in the transaction extra");
     crypto::public_key tx_pub_key = pub_key_field.pub_key;
 
+    // onetime address scheme by kenshi84
+    tx_extra_nonce extra_nonce;
+    find_tx_extra_field_by_type(tx_extra_fields, extra_nonce);
+    crypto::hash payment_id = null_hash;
+    bool has_unencrypted_payment_id = get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id);
+    crypto::secret_key onetime_h_a_k;
+    crypto::secret_key* onetime_h_a_k_ptr = nullptr;
+    if (has_unencrypted_payment_id) {
+      char data[2 * HASH_SIZE];
+      memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
+      memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
+      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(onetime_h_a_k));
+      sc_reduce32(reinterpret_cast<unsigned char *>(onetime_h_a_k.data));
+      // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+      if (payment_id.data[0] == onetime_h_a_k.data[0])
+        onetime_h_a_k_ptr = &onetime_h_a_k;
+    }
+
     // generate ephemeral secret key
     crypto::key_image ki;
     cryptonote::keypair in_ephemeral;
-    cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, td.m_internal_output_index, in_ephemeral, ki);
+    cryptonote::generate_key_image_helper_onetime(m_account.get_keys(), tx_pub_key, onetime_h_a_k_ptr, td.m_internal_output_index, in_ephemeral, ki);
 
     THROW_WALLET_EXCEPTION_IF(td.m_key_image_known && ki != td.m_key_image,
         error::wallet_internal_error, "key_image generated not matched with cached key image");
@@ -4783,7 +4827,25 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
     THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field), error::wallet_internal_error,
         "Public key wasn't found in the transaction extra at index " + i);
 
-    cryptonote::generate_key_image_helper(m_account.get_keys(), pub_key_field.pub_key, td.m_internal_output_index, in_ephemeral, td.m_key_image);
+    // onetime address scheme by kenshi84
+    tx_extra_nonce extra_nonce;
+    find_tx_extra_field_by_type(tx_extra_fields, extra_nonce);
+    crypto::hash payment_id = null_hash;
+    bool has_unencrypted_payment_id = get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id);
+    crypto::secret_key onetime_h_a_k;
+    crypto::secret_key* onetime_h_a_k_ptr = nullptr;
+    if (has_unencrypted_payment_id) {
+      char data[2 * HASH_SIZE];
+      memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
+      memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
+      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(onetime_h_a_k));
+      sc_reduce32(reinterpret_cast<unsigned char *>(onetime_h_a_k.data));
+      // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+      if (payment_id.data[0] == onetime_h_a_k.data[0])
+        onetime_h_a_k_ptr = &onetime_h_a_k;
+    }
+    
+    cryptonote::generate_key_image_helper_onetime(m_account.get_keys(), pub_key_field.pub_key, onetime_h_a_k_ptr, td.m_internal_output_index, in_ephemeral, td.m_key_image);
     td.m_key_image_known = true;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + i);

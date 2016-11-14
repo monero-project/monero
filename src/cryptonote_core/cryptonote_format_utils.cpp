@@ -217,6 +217,19 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool generate_key_image_helper_onetime(const account_keys& ack, const crypto::public_key& tx_public_key, crypto::secret_key* onetime_h_a_k, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
+  {
+    if (generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
+      return true;
+    if (onetime_h_a_k) {
+      account_keys ack2;
+      sc_mul((unsigned char*)&ack2.m_view_secret_key , (const unsigned char*)&ack.m_view_secret_key , (const unsigned char*)onetime_h_a_k);
+      sc_mul((unsigned char*)&ack2.m_spend_secret_key, (const unsigned char*)&ack.m_spend_secret_key, (const unsigned char*)onetime_h_a_k);
+      crypto::secret_key_to_public_key(ack2.m_spend_secret_key, ack2.m_account_address.m_spend_public_key);
+      return generate_key_image_helper(ack2, tx_public_key, real_output_index, in_ephemeral, ki);
+    }
+  }
+  //---------------------------------------------------------------
   uint64_t power_integral(uint64_t a, uint64_t b)
   {
     if(b == 0)
