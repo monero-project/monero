@@ -3531,20 +3531,6 @@ bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/*
     crypto::secret_key_mult_public_key(h, AB.m_view_public_key , CD.m_view_public_key );
     crypto::secret_key_mult_public_key(h, AB.m_spend_public_key, CD.m_spend_public_key);
     success_msg_writer() << tr("One-time address: \n") << cryptonote::get_account_address_as_str(m_wallet->testnet(), CD);
-    //////// debug ////////
-    crypto::public_key B = AB.m_spend_public_key;
-    //////// case 1: multiply scalars first, then derive
-    crypto::secret_key ha;
-    sc_mul((unsigned char*)&ha, (const unsigned char*)&h, (const unsigned char*)&a);
-    crypto::key_derivation haB_1;
-    crypto::generate_key_derivation(B, ha, haB_1);
-    success_msg_writer() << tr("[debug] haB_1: ") << haB_1;
-    //////// case 2: derive first, then multiply point by scalar
-    crypto::key_derivation aB;
-    crypto::generate_key_derivation(B, a, aB);
-    crypto::key_derivation haB_2;
-    crypto::secret_key_mult_public_key(h, reinterpret_cast<const crypto::public_key&>(aB), reinterpret_cast<crypto::public_key&>(haB_2));
-    success_msg_writer() << tr("[debug] haB_2: ") << haB_2;
     return true;
   }
   fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
