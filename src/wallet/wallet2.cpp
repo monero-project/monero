@@ -4794,6 +4794,8 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i));
 
+    m_key_images[td.m_key_image] = m_transfers.size();
+    m_pub_keys[td.get_public_key()] = m_transfers.size();
     m_transfers.push_back(td);
   }
 
