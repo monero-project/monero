@@ -4783,16 +4783,16 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
     std::vector<tx_extra_field> tx_extra_fields;
     tx_extra_pub_key pub_key_field;
 
-    THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + i);
+    THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + boost::lexical_cast<std::string>(i));
     THROW_WALLET_EXCEPTION_IF(!parse_tx_extra(td.m_tx.extra, tx_extra_fields), error::wallet_internal_error,
-        "Transaction extra has unsupported format at index " + i);
+        "Transaction extra has unsupported format at index " + boost::lexical_cast<std::string>(i));
     THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field), error::wallet_internal_error,
-        "Public key wasn't found in the transaction extra at index " + i);
+        "Public key wasn't found in the transaction extra at index " + boost::lexical_cast<std::string>(i));
 
     cryptonote::generate_key_image_helper(m_account.get_keys(), pub_key_field.pub_key, td.m_internal_output_index, in_ephemeral, td.m_key_image);
     td.m_key_image_known = true;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key,
-        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + i);
+        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i));
 
     m_transfers.push_back(td);
   }
