@@ -3519,9 +3519,7 @@ bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/*
     memcpy(data            , &a, HASH_SIZE);
     memcpy(data + HASH_SIZE, &k, HASH_SIZE);
     crypto::secret_key h;
-    // somehow crypto::hash_to_scalar(const void *data, size_t length, ec_scalar &res) is not accessible from outside crypto.cpp
-      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash&>(h));
-      sc_reduce32(reinterpret_cast<unsigned char *>(h.data));
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(h));
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
     if (k.data[0] != h.data[0])
       continue;

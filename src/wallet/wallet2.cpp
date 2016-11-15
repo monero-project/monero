@@ -662,8 +662,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
     char data[2 * HASH_SIZE];
     memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
     memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
-    crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(onetime_h));
-    sc_reduce32(reinterpret_cast<unsigned char *>(onetime_h.data));
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(onetime_h));
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
     if (payment_id.data[0] == onetime_h.data[0])
       onetime_h_ptr = &onetime_h;
@@ -4699,8 +4698,7 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
       char data[2 * HASH_SIZE];
       memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
       memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
-      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(onetime_h));
-      sc_reduce32(reinterpret_cast<unsigned char *>(onetime_h.data));
+      crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(onetime_h));
       // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
       if (payment_id.data[0] == onetime_h.data[0])
         onetime_h_ptr = &onetime_h;
@@ -4847,8 +4845,7 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
       char data[2 * HASH_SIZE];
       memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
       memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
-      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(onetime_h));
-      sc_reduce32(reinterpret_cast<unsigned char *>(onetime_h.data));
+      crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(onetime_h));
       // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
       if (payment_id.data[0] == onetime_h.data[0])
         onetime_h_ptr = &onetime_h;
