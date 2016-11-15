@@ -603,6 +603,20 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key pub, 
   }
 }
 //----------------------------------------------------------------------------------------------------
+static uint64_t decodeRct_onetime(const rct::rctSig & rv, const crypto::public_key pub, const crypto::secret_key &sec, crypto::secret_key* onetime_h, unsigned int i, rct::key & mask)
+{
+  if (onetime_h)
+  {
+    crypto::secret_key sec2;
+    sc_mul((unsigned char*)&sec2, (const unsigned char*)&sec, (const unsigned char*)onetime_h);
+    return decodeRct(rv, pub, sec2, i, mask);
+  }
+  else
+  {
+    return decodeRct(rv, pub, sec, i, mask);
+  }
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
 {
   class lazy_txid_getter
@@ -703,7 +717,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           outs.push_back(0);
           if (money_transfered == 0)
           {
-            money_transfered = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, 0, mask[0]);
+            money_transfered = tools::decodeRct_onetime(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, onetime_h_ptr, 0, mask[0]);
           }
           amount[0] = money_transfered;
           tx_money_got_in_outs = money_transfered;
@@ -744,7 +758,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
               outs.push_back(i);
               if (money_transfered[i] == 0)
               {
-                money_transfered[i] = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
+                money_transfered[i] = tools::decodeRct_onetime(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, onetime_h_ptr, i, mask[i]);
               }
               tx_money_got_in_outs += money_transfered[i];
               amount[i] = money_transfered[i];
@@ -790,7 +804,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           outs.push_back(i);
           if (money_transfered[i] == 0)
           {
-            money_transfered[i] = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
+            money_transfered[i] = tools::decodeRct_onetime(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, onetime_h_ptr, i, mask[i]);
           }
           tx_money_got_in_outs += money_transfered[i];
           amount[i] = money_transfered[i];
@@ -821,7 +835,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             outs.push_back(i);
             if (money_transfered == 0)
             {
-              money_transfered = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
+              money_transfered = tools::decodeRct_onetime(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, onetime_h_ptr, i, mask[i]);
             }
             amount[i] = money_transfered;
             tx_money_got_in_outs += money_transfered;
