@@ -631,11 +631,16 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
   }
 
   // Don't try to extract tx public key if tx has no ouputs
-  if (!tx.vout.empty()) 
+  size_t pk_index = 0;
+  while (!tx.vout.empty())
   {
+    // if tx.vout is not empty, we loop through all tx pubkeys
+
     tx_extra_pub_key pub_key_field;
-    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field))
+    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++))
     {
+      if (pk_index > 1)
+        break;
       LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << txid());
       if(0 != m_callback)
 	m_callback->on_skip_transaction(height, tx);
