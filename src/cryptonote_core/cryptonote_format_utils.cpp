@@ -217,9 +217,9 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper_onetime(const account_keys& ack, const crypto::public_key& tx_public_key, crypto::secret_key* onetime_h, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
+  bool generate_key_image_helper_onetime(const account_keys& ack, const crypto::public_key& tx_public_key, uint64_t received, crypto::secret_key* onetime_h, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
   {
-    if (onetime_h)
+    if (received == 2)
     {
       account_keys ack2;
       sc_mul((unsigned char*)&ack2.m_view_secret_key , (const unsigned char*)&ack.m_view_secret_key , (const unsigned char*)onetime_h);
