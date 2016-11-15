@@ -135,6 +135,17 @@ namespace crypto {
     ge_p3_tobytes(&pub, &point);
     return true;
   }
+  bool crypto_ops::secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    ge_p3 point;
+    ge_p2 point2;
+    assert(sc_check(&sec) == 0);
+    if (ge_frombytes_vartime(&point, &pub) != 0) {
+      return false;
+    }
+    ge_scalarmult(&point2, &sec, &point);
+    ge_tobytes(&result, &point2);
+    return true;
+  }
 
   bool crypto_ops::generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation) {
     ge_p3 point;

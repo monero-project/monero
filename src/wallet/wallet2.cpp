@@ -562,11 +562,13 @@ void wallet2::check_acc_out_precomp(const crypto::public_key &spend_public_key, 
 void wallet2::check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const tx_out &o, const crypto::key_derivation &derivation, crypto::secret_key* onetime_h_a_k, size_t i, bool &received, uint64_t &money_transfered, bool &error) const
 {
   check_acc_out_precomp(spend_public_key, o, derivation, i, received, money_transfered, error);
-  if (!received && onetime_h_a_k) {
-    crypto::key_derivation derivation2, spend_public_key2;
-    crypto::generate_key_derivation(reinterpret_cast<const crypto::public_key&>(derivation), *onetime_h_a_k, derivation2);
-    crypto::generate_key_derivation(spend_public_key, *onetime_h_a_k, spend_public_key2);
-    check_acc_out_precomp(reinterpret_cast<crypto::public_key&>(spend_public_key2), o, derivation2, i, received, money_transfered, error);
+  if (!received && onetime_h_a_k)
+  {
+    crypto::public_key spend_public_key2;
+    crypto::key_derivation derivation2;
+    crypto::secret_key_mult_public_key(*onetime_h_a_k, spend_public_key, spend_public_key2);
+    crypto::secret_key_mult_public_key(*onetime_h_a_k, reinterpret_cast<const crypto::public_key&>(derivation), reinterpret_cast<crypto::public_key&>(derivation2));
+    check_acc_out_precomp(spend_public_key2, o, derivation2, i, received, money_transfered, error);
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -641,7 +643,8 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
   bool has_unencrypted_payment_id = get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id);
   crypto::secret_key onetime_h_a_k;
   crypto::secret_key* onetime_h_a_k_ptr = nullptr;
-  if (has_unencrypted_payment_id) {
+  if (has_unencrypted_payment_id)
+  {
     char data[2 * HASH_SIZE];
     memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
     memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
@@ -977,10 +980,8 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
   if (0 < received)
   {
-    // tx_extra_nonce extra_nonce;
-    // crypto::hash payment_id = null_hash;
-    // if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-    if (has_unencrypted_payment_id) {
+    if (has_unencrypted_payment_id)
+    {
       LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
     }
     else if (!extra_nonce.nonce.empty())
@@ -1010,15 +1011,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
         }
       }
-      // else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-      // {
-      //   LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
-      // }
     }
-    // else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-    // {
-    //   LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
-    // }
 
     payment_details payment;
     payment.m_tx_hash      = txid();
@@ -4687,7 +4680,8 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
     bool has_unencrypted_payment_id = get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id);
     crypto::secret_key onetime_h_a_k;
     crypto::secret_key* onetime_h_a_k_ptr = nullptr;
-    if (has_unencrypted_payment_id) {
+    if (has_unencrypted_payment_id)
+    {
       char data[2 * HASH_SIZE];
       memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
       memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);
@@ -4834,7 +4828,8 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
     bool has_unencrypted_payment_id = get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id);
     crypto::secret_key onetime_h_a_k;
     crypto::secret_key* onetime_h_a_k_ptr = nullptr;
-    if (has_unencrypted_payment_id) {
+    if (has_unencrypted_payment_id)
+    {
       char data[2 * HASH_SIZE];
       memcpy(data, &m_account.get_keys().m_view_secret_key, HASH_SIZE);
       memcpy(data + HASH_SIZE, &payment_id, HASH_SIZE);

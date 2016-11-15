@@ -228,6 +228,7 @@ namespace cryptonote
       crypto::secret_key_to_public_key(ack2.m_spend_secret_key, ack2.m_account_address.m_spend_public_key);
       return generate_key_image_helper(ack2, tx_public_key, real_output_index, in_ephemeral, ki);
     }
+    return false;
   }
   //---------------------------------------------------------------
   uint64_t power_integral(uint64_t a, uint64_t b)

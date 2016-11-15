@@ -3510,50 +3510,41 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  for (int i = 0; i < 65536; ++i) {
+  const auto& account_keys = m_wallet->get_account().get_keys();
+  const crypto::secret_key& a = account_keys.m_view_secret_key;
+  for (int i = 0; i < 65536; ++i)
+  {
     crypto::hash k = crypto::rand<crypto::hash>();
-    const auto& account_keys = m_wallet->get_account().get_keys();
     char data[2 * HASH_SIZE];
-    memcpy(data, &account_keys.m_view_secret_key, HASH_SIZE);
+    memcpy(data            , &a, HASH_SIZE);
     memcpy(data + HASH_SIZE, &k, HASH_SIZE);
-    crypto::secret_key h_a_k;
+    crypto::secret_key h;
     // somehow crypto::hash_to_scalar(const void *data, size_t length, ec_scalar &res) is not accessible from outside crypto.cpp
-      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash &>(h_a_k));
-      sc_reduce32(reinterpret_cast<unsigned char *>(h_a_k.data));
+      crypto::cn_fast_hash(data, 2 * HASH_SIZE, reinterpret_cast<crypto::hash&>(h));
+      sc_reduce32(reinterpret_cast<unsigned char *>(h.data));
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
-    if (k.data[0] != h_a_k.data[0])
+    if (k.data[0] != h.data[0])
       continue;
-    success_msg_writer() << tr("Random payment ID satisfying the equation (H(viewkey, pID) - pID) mod 256 == 0:\n") << k << tr("\n(found after ") << i << tr(" attempts)");
+    success_msg_writer() << tr("Random payment ID satisfying the equation (H(viewkey, pID) - pID) mod 256 == 0: \n") << k << tr("\n(found after ") << i << tr(" attempts)");
     const auto& AB = account_keys.m_account_address;
     cryptonote::account_public_address CD;
-    crypto::generate_key_derivation(AB.m_view_public_key , h_a_k, reinterpret_cast<crypto::key_derivation&>(CD.m_view_public_key ));
-    crypto::generate_key_derivation(AB.m_spend_public_key, h_a_k, reinterpret_cast<crypto::key_derivation&>(CD.m_spend_public_key));
-    success_msg_writer() << tr("One-time address: ") << cryptonote::get_account_address_as_str(m_wallet->testnet(), CD);
-    ////////
-    // generate_key_image_helper(const account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
-    // account_keys ack2;
-    // sc_mul((unsigned char*)&ack2.m_view_secret_key , (const unsigned char*)&ack.m_view_secret_key , (const unsigned char*)onetime_h_a_k);
-    // sc_mul((unsigned char*)&ack2.m_spend_secret_key, (const unsigned char*)&ack.m_spend_secret_key, (const unsigned char*)onetime_h_a_k);
-    // crypto::secret_key_to_public_key(ack2.m_spend_secret_key, ack2.m_account_address.m_spend_public_key);
-    // return generate_key_image_helper(ack2, tx_public_key, real_output_index, in_ephemeral, ki);
-    ////////
-    // check_acc_out_precomp(const crypto::public_key &spend_public_key, const tx_out &o, const crypto::key_derivation &derivation, size_t i, bool &received, uint64_t &money_transfered, bool &error)
-    // crypto::key_derivation derivation2, spend_public_key2;
-    // crypto::generate_key_derivation(reinterpret_cast<const crypto::public_key&>(derivation), *onetime_h_a_k, derivation2);
-    // crypto::generate_key_derivation(spend_public_key, *onetime_h_a_k, spend_public_key2);
-    // check_acc_out_precomp(reinterpret_cast<crypto::public_key&>(spend_public_key2), o, derivation2, i, received, money_transfered, error);
-    crypto::secret_key* onetime_h_a_k = &h_a_k;
-    ////////
-    crypto::secret_key spend_secret_key2;
-    sc_mul((unsigned char*)&spend_secret_key2, (const unsigned char*)&account_keys.m_spend_secret_key, (const unsigned char*)onetime_h_a_k);
-    sc_reduce32((unsigned char*)&spend_secret_key2);
-    crypto::public_key spend_public_key2;
-    crypto::secret_key_to_public_key(spend_secret_key2, spend_public_key2);
-    success_msg_writer() << tr("[debug] spend_public_key2: ") << spend_public_key2;
-    ////////
-    crypto::public_key spend_public_key3;
-    crypto::generate_key_derivation(account_keys.m_account_address.m_spend_public_key, *onetime_h_a_k, reinterpret_cast<crypto::key_derivation&>(spend_public_key3));
-    success_msg_writer() << tr("[debug] spend_public_key3: ") << spend_public_key3;
+    crypto::secret_key_mult_public_key(h, AB.m_view_public_key , CD.m_view_public_key );
+    crypto::secret_key_mult_public_key(h, AB.m_spend_public_key, CD.m_spend_public_key);
+    success_msg_writer() << tr("One-time address: \n") << cryptonote::get_account_address_as_str(m_wallet->testnet(), CD);
+    //////// debug ////////
+    crypto::public_key B = AB.m_spend_public_key;
+    //////// case 1: multiply scalars first, then derive
+    crypto::secret_key ha;
+    sc_mul((unsigned char*)&ha, (const unsigned char*)&h, (const unsigned char*)&a);
+    crypto::key_derivation haB_1;
+    crypto::generate_key_derivation(B, ha, haB_1);
+    success_msg_writer() << tr("[debug] haB_1: ") << haB_1;
+    //////// case 2: derive first, then multiply point by scalar
+    crypto::key_derivation aB;
+    crypto::generate_key_derivation(B, a, aB);
+    crypto::key_derivation haB_2;
+    crypto::secret_key_mult_public_key(h, reinterpret_cast<const crypto::public_key&>(aB), reinterpret_cast<crypto::public_key&>(haB_2));
+    success_msg_writer() << tr("[debug] haB_2: ") << haB_2;
     return true;
   }
   fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
