@@ -133,6 +133,21 @@ namespace tools
       bool is_rct() const { return m_rct; }
       uint64_t amount() const { return m_amount; }
       const crypto::public_key &get_public_key() const { return boost::get<const cryptonote::txout_to_key>(m_tx.vout[m_internal_output_index].target).key; }
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(m_block_height)
+        FIELD(m_tx)
+        FIELD(m_txid)
+        FIELD(m_internal_output_index)
+        FIELD(m_global_output_index)
+        FIELD(m_spent)
+        FIELD(m_spent_height)
+        FIELD(m_key_image)
+        FIELD(m_mask)
+        FIELD(m_amount)
+        FIELD(m_rct)
+        FIELD(m_key_image_known)
+      END_SERIALIZE()
     };
 
     struct payment_details
@@ -226,16 +241,20 @@ namespace tools
     struct unsigned_tx_set
     {
       std::vector<tx_construction_data> txes;
+      wallet2::transfer_container transfers;
       BEGIN_SERIALIZE_OBJECT()
         FIELD(txes)
+        FIELD(transfers)
       END_SERIALIZE()
     };
 
     struct signed_tx_set
     {
       std::vector<pending_tx> ptx;
+      std::vector<crypto::key_image> key_images;
       BEGIN_SERIALIZE_OBJECT()
         FIELD(ptx)
+        FIELD(key_images)
       END_SERIALIZE()
     };
 
@@ -377,7 +396,7 @@ namespace tools
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     bool save_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename);
-    bool sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::function<bool(const unsigned_tx_set&)> accept_func = NULL);
+    bool sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &ptx, std::function<bool(const unsigned_tx_set&)> accept_func = NULL);
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon);

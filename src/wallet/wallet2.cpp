@@ -2953,6 +2953,7 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   unsigned_tx_set txs;
   for (auto &tx: ptx_vector)
     txs.txes.push_back(tx.construction_data);
+  txs.transfers = m_transfers;
   std::string s = obj_to_json_str(txs);
   if (s.empty())
     return false;
@@ -2963,7 +2964,7 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   return epee::file_io_utils::save_string_to_file(filename, std::string(UNSIGNED_TX_PREFIX) + s);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::function<bool(const unsigned_tx_set&)> accept_func)
+bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, std::function<bool(const unsigned_tx_set&)> accept_func)
 {
   std::string s;
   boost::system::error_code errcode;
@@ -2997,6 +2998,8 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
+
+  import_outputs(exported_txs.transfers);
 
   // sign the transactions
   signed_tx_set signed_txes;
@@ -3043,6 +3046,17 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     ptx.tx_key = rct::rct2sk(rct::identity()); // don't send it back to the untrusted view wallet
     ptx.dests = sd.splitted_dsts;
     ptx.construction_data = sd;
+
+    txs.push_back(ptx);
+  }
+
+  // add key images
+  signed_txes.key_images.resize(m_transfers.size());
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    if (!m_transfers[i].m_key_image_known)
+      LOG_PRINT_L0("WARNING: key image not known in signing wallet at index " << i);
+    signed_txes.key_images[i] = m_transfers[i].m_key_image;
   }
 
   s = obj_to_json_str(signed_txes);
@@ -3090,6 +3104,23 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   {
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
+  }
+
+  // import key images
+  if (signed_txs.key_images.size() > m_transfers.size())
+  {
+    LOG_PRINT_L1("More key images returned that we know outputs for");
+    return false;
+  }
+  for (size_t i = 0; i < signed_txs.key_images.size(); ++i)
+  {
+    transfer_details &td = m_transfers[i];
+    if (td.m_key_image_known && td.m_key_image != signed_txs.key_images[i])
+      LOG_PRINT_L0("WARNING: imported key image differs from previously known key image at index " << i << ": trusting imported one");
+    td.m_key_image = signed_txs.key_images[i];
+    m_key_images[m_transfers[i].m_key_image] = i;
+    td.m_key_image_known = true;
+    m_pub_keys[m_transfers[i].get_public_key()] = i;
   }
 
   ptx = signed_txs.ptx;
