@@ -4717,6 +4717,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   for (size_t n = 0; n < signed_key_images.size(); ++n)
   {
     m_transfers[n].m_key_image = signed_key_images[n].first;
+    m_key_images[m_transfers[n].m_key_image] = n;
     m_transfers[n].m_key_image_known = true;
   }
 
