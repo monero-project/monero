@@ -49,6 +49,8 @@ public:
     uint64_t amount() const;
     uint64_t dust() const;
     uint64_t fee() const;
+    std::vector<std::string> txid() const;
+    uint64_t txCount() const;
     // TODO: continue with interface;
 
 private:

@@ -25,33 +25,29 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+#include <boost/optional/optional.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
+#include <boost/program_options/variables_map.hpp>
 
+#include "common/command_line.h"
 
-#include "wallet/wallet2_api.h"
-#include <string>
-
-namespace Bitmonero {
-
-class WalletManagerImpl : public WalletManager
+namespace wallet_args
 {
-public:
-    Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, bool testnet);
-    Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet, uint64_t restoreHeight);
-    virtual bool closeWallet(Wallet *wallet);
-    bool walletExists(const std::string &path);
-    std::vector<std::string> findWallets(const std::string &path);
-    std::string errorString() const;
-    void setDaemonHost(const std::string &hostname);
-    bool checkPayment(const std::string &address, const std::string &txid, const std::string &txkey, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const;
+  command_line::arg_descriptor<std::string> arg_generate_from_json();
+  command_line::arg_descriptor<std::string> arg_wallet_file();
 
-private:
-    WalletManagerImpl() {}
-    friend struct WalletManagerFactory;
-    std::string m_errorString;
-};
+  const char* tr(const char* str);
 
-} // namespace
+  /*! Processes command line arguments (`argc` and `argv`) using `desc_params`
+  and `positional_options`, while adding parameters for log files and
+  concurrency. Log file and concurrency arguments are handled, along with basic
+  global init for the wallet process.
+
+  \return The list of parsed options, iff there are no errors.*/
+  boost::optional<boost::program_options::variables_map> main(
+    int argc, char** argv,
+    const char* const usage,
+    boost::program_options::options_description desc_params,
+    const boost::program_options::positional_options_description& positional_options);
+}

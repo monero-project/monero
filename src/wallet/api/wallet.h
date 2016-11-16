@@ -70,7 +70,7 @@ public:
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
     void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
     bool connectToDaemon();
-    bool connected() const;
+    ConnectionStatus connected() const;
     void setTrustedDaemon(bool arg);
     bool trustedDaemon() const;
     uint64_t balance() const;
@@ -89,14 +89,21 @@ public:
 
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
-                                        uint64_t amount, uint32_t mixin_count,
+                                        optional<uint64_t> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
+    virtual PendingTransaction * createSweepUnmixableTransaction();
 
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
     virtual void setListener(WalletListener * l);
     virtual uint32_t defaultMixin() const;
     virtual void setDefaultMixin(uint32_t arg);
+    virtual bool setUserNote(const std::string &txid, const std::string &note);
+    virtual std::string getUserNote(const std::string &txid) const;
+    virtual std::string getTxKey(const std::string &txid) const;
+
+    virtual std::string signMessage(const std::string &message);
+    virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const;
 
 private:
     void clearStatus();
@@ -138,6 +145,7 @@ private:
     // instead of pulling hashes (fast-refresh)
     bool                m_recoveringFromSeed;
     std::atomic<bool>   m_synchronized;
+    bool                m_rebuildWalletCache;
 };
 
 
