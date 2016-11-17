@@ -469,7 +469,10 @@ uint64_t WalletImpl::blockChainHeight() const
 {
     return m_wallet->get_blockchain_current_height();
 }
-
+uint64_t WalletImpl::approximateBlockChainHeight() const
+{
+    return m_wallet->get_approximate_blockchain_height();
+}
 uint64_t WalletImpl::daemonBlockChainHeight() const
 {
     std::string err;

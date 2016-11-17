@@ -282,6 +282,12 @@ struct Wallet
     virtual uint64_t blockChainHeight() const = 0;
 
     /**
+    * @brief approximateBlockChainHeight - returns approximate blockchain height calculated from date/time
+    * @return
+    */
+    virtual uint64_t approximateBlockChainHeight() const = 0;
+
+    /**
      * @brief daemonBlockChainHeight - returns daemon blockchain height
      * @return 0 - in case error communicating with the daemon.
      *             status() will return Status_Error and errorString() will return verbose error description
