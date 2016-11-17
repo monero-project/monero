@@ -66,21 +66,8 @@ using namespace crypto;
 
 namespace rct {
 
-    //Schnorr Non-linkable
-    //Gen Gives a signature (L1, s1, s2) proving that the sender knows "x" such that xG = one of P1 or P2
-    //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
-    //These are called in the below ASNL sig generation
-    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, unsigned int index);
-    bool VerSchnorrNonLinkable(const key & P1, const key & P2, const key & L1, const key & s1, const key & s2);
-
-    //Aggregate Schnorr Non-linkable Ring Signature (ASNL)
-    // c.f. http://eprint.iacr.org/2015/1098 section 5.
-    // These are used in range proofs (alternatively Borromean could be used)
-    // Gen gives a signature which proves the signer knows, for each i,
-    //   an x[i] such that x[i]G = one of P1[i] or P2[i]
-    // Ver Verifies the signer knows a key for one of P1[i], P2[i] at each i
-    asnlSig GenASNL(key64 x, key64 P1, key64 P2, bits indices);
-    bool VerASNL(const key64 P1, const key64 P2, const asnlSig &as);
+    boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices);
+    bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2);
 
     //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
     //These are aka MG signatutes in earlier drafts of the ring ct paper
