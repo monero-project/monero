@@ -631,11 +631,16 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
   }
 
   // Don't try to extract tx public key if tx has no ouputs
-  if (!tx.vout.empty()) 
+  size_t pk_index = 0;
+  while (!tx.vout.empty())
   {
+    // if tx.vout is not empty, we loop through all tx pubkeys
+
     tx_extra_pub_key pub_key_field;
-    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field))
+    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++))
     {
+      if (pk_index > 1)
+        break;
       LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << txid());
       if(0 != m_callback)
 	m_callback->on_skip_transaction(height, tx);
@@ -2948,6 +2953,7 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   unsigned_tx_set txs;
   for (auto &tx: ptx_vector)
     txs.txes.push_back(tx.construction_data);
+  txs.transfers = m_transfers;
   std::string s = obj_to_json_str(txs);
   if (s.empty())
     return false;
@@ -2958,7 +2964,7 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   return epee::file_io_utils::save_string_to_file(filename, std::string(UNSIGNED_TX_PREFIX) + s);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::function<bool(const unsigned_tx_set&)> accept_func)
+bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, std::function<bool(const unsigned_tx_set&)> accept_func)
 {
   std::string s;
   boost::system::error_code errcode;
@@ -2992,6 +2998,8 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
+
+  import_outputs(exported_txs.transfers);
 
   // sign the transactions
   signed_tx_set signed_txes;
@@ -3038,6 +3046,17 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     ptx.tx_key = rct::rct2sk(rct::identity()); // don't send it back to the untrusted view wallet
     ptx.dests = sd.splitted_dsts;
     ptx.construction_data = sd;
+
+    txs.push_back(ptx);
+  }
+
+  // add key images
+  signed_txes.key_images.resize(m_transfers.size());
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    if (!m_transfers[i].m_key_image_known)
+      LOG_PRINT_L0("WARNING: key image not known in signing wallet at index " << i);
+    signed_txes.key_images[i] = m_transfers[i].m_key_image;
   }
 
   s = obj_to_json_str(signed_txes);
@@ -3085,6 +3104,23 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   {
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
+  }
+
+  // import key images
+  if (signed_txs.key_images.size() > m_transfers.size())
+  {
+    LOG_PRINT_L1("More key images returned that we know outputs for");
+    return false;
+  }
+  for (size_t i = 0; i < signed_txs.key_images.size(); ++i)
+  {
+    transfer_details &td = m_transfers[i];
+    if (td.m_key_image_known && td.m_key_image != signed_txs.key_images[i])
+      LOG_PRINT_L0("WARNING: imported key image differs from previously known key image at index " << i << ": trusting imported one");
+    td.m_key_image = signed_txs.key_images[i];
+    m_key_images[m_transfers[i].m_key_image] = i;
+    td.m_key_image_known = true;
+    m_pub_keys[m_transfers[i].get_public_key()] = i;
   }
 
   ptx = signed_txs.ptx;
@@ -4717,6 +4753,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   for (size_t n = 0; n < signed_key_images.size(); ++n)
   {
     m_transfers[n].m_key_image = signed_key_images[n].first;
+    m_key_images[m_transfers[n].m_key_image] = n;
     m_transfers[n].m_key_image_known = true;
   }
 
@@ -4777,17 +4814,19 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
     std::vector<tx_extra_field> tx_extra_fields;
     tx_extra_pub_key pub_key_field;
 
-    THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + i);
+    THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + boost::lexical_cast<std::string>(i));
     THROW_WALLET_EXCEPTION_IF(!parse_tx_extra(td.m_tx.extra, tx_extra_fields), error::wallet_internal_error,
-        "Transaction extra has unsupported format at index " + i);
+        "Transaction extra has unsupported format at index " + boost::lexical_cast<std::string>(i));
     THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field), error::wallet_internal_error,
-        "Public key wasn't found in the transaction extra at index " + i);
+        "Public key wasn't found in the transaction extra at index " + boost::lexical_cast<std::string>(i));
 
     cryptonote::generate_key_image_helper(m_account.get_keys(), pub_key_field.pub_key, td.m_internal_output_index, in_ephemeral, td.m_key_image);
     td.m_key_image_known = true;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key,
-        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + i);
+        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i));
 
+    m_key_images[td.m_key_image] = m_transfers.size();
+    m_pub_keys[td.get_public_key()] = m_transfers.size();
     m_transfers.push_back(td);
   }
 
