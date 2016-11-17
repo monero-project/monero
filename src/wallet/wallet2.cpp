@@ -4889,14 +4889,15 @@ std::string wallet2::encrypt_with_view_secret_key(const std::string &plaintext, 
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::decrypt(const std::string &ciphertext, const crypto::secret_key &skey, bool authenticated) const
 {
-  THROW_WALLET_EXCEPTION_IF(ciphertext.size() < sizeof(chacha8_iv),
-    error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
+  const size_t prefix_size = sizeof(chacha8_iv) + (authenticated ? sizeof(crypto::signature) : 0);
+  THROW_WALLET_EXCEPTION_IF(ciphertext.size() < prefix_size,
+    error::wallet_internal_error, "Unexpected ciphertext size");
 
   crypto::chacha8_key key;
   crypto::generate_chacha8_key(&skey, sizeof(skey), key);
   const crypto::chacha8_iv &iv = *(const crypto::chacha8_iv*)&ciphertext[0];
   std::string plaintext;
-  plaintext.resize(ciphertext.size() - sizeof(iv) - (authenticated ? sizeof(crypto::signature) : 0));
+  plaintext.resize(ciphertext.size() - prefix_size);
   if (authenticated)
   {
     crypto::hash hash;
@@ -4907,7 +4908,7 @@ std::string wallet2::decrypt(const std::string &ciphertext, const crypto::secret
     THROW_WALLET_EXCEPTION_IF(!crypto::check_signature(hash, pkey, signature),
       error::wallet_internal_error, "Failed to authenticate criphertext");
   }
-  crypto::chacha8(ciphertext.data() + sizeof(iv), ciphertext.size() - sizeof(iv), key, iv, &plaintext[0]);
+  crypto::chacha8(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, &plaintext[0]);
   return std::move(plaintext);
 }
 //----------------------------------------------------------------------------------------------------
