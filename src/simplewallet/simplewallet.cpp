@@ -2163,12 +2163,16 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     // if more than one tx necessary, prompt user to confirm
     if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
     {
+        uint64_t total_sent = 0;
         uint64_t total_fee = 0;
         uint64_t dust_not_in_fee = 0;
         uint64_t dust_in_fee = 0;
         for (size_t n = 0; n < ptx_vector.size(); ++n)
         {
           total_fee += ptx_vector[n].fee;
+          for (auto i: ptx_vector[n].selected_transfers)
+            total_sent += m_wallet->get_transfer_details(i).amount();
+          total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
 
           if (ptx_vector[n].dust_added_to_fee)
             dust_in_fee += ptx_vector[n].dust;
@@ -2177,6 +2181,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         }
 
         std::stringstream prompt;
+        prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
         if (ptx_vector.size() > 1)
         {
           prompt << boost::format(tr("Your transaction needs to be split into %llu transactions.  "
@@ -2879,12 +2884,16 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
     // if more than one tx necessary, prompt user to confirm
     if (m_wallet->always_confirm_transfers())
     {
+        uint64_t total_sent = 0;
         uint64_t total_fee = 0;
         uint64_t dust_not_in_fee = 0;
         uint64_t dust_in_fee = 0;
         for (size_t n = 0; n < ptx_vector.size(); ++n)
         {
           total_fee += ptx_vector[n].fee;
+          for (auto i: ptx_vector[n].selected_transfers)
+            total_sent += m_wallet->get_transfer_details(i).amount();
+          total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
 
           if (ptx_vector[n].dust_added_to_fee)
             dust_in_fee += ptx_vector[n].dust;
@@ -2893,6 +2902,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
         }
 
         std::stringstream prompt;
+        prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
         if (ptx_vector.size() > 1)
         {
           prompt << boost::format(tr("Your transaction needs to be split into %llu transactions.  "
