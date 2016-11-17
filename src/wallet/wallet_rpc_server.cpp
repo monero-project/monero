@@ -263,6 +263,7 @@ namespace tools
       {
         res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
       }
+      res.fee = ptx_vector.back().fee;
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -325,6 +326,7 @@ namespace tools
         {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
         }
+        res.fee_list.push_back(ptx.fee);
       }
 
       return true;
@@ -373,6 +375,7 @@ namespace tools
         {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
         }
+        res.fee_list.push_back(ptx.fee);
       }
 
       return true;
@@ -434,6 +437,7 @@ namespace tools
         {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
         }
+        res.fee_list.push_back(ptx.fee);
       }
 
       return true;
