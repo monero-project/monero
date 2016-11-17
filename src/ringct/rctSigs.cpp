@@ -58,29 +58,28 @@ namespace rct {
     
     //Borromean (c.f. gmax/andytoshi's paper)
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
-        key64 L[2], c[2], s[2], alpha, P[2];
+        key64 L[2], alpha;
+        key c;
         int naught = 0, prime = 0, ii = 0, jj=0;
+        boroSig bb;
         for (ii = 0 ; ii < 64 ; ii++) {
             naught = indices[ii]; prime = (indices[ii] + 1) % 2;
-            copy(P[0][ii], P1[ii]); //could probably user pointers
-            copy(P[1][ii], P2[ii]);
             skGen(alpha[ii]);
             scalarmultBase(L[naught][ii], alpha[ii]);
-            c[prime][ii] = hash_to_scalar(L[naught][ii]);
-            skGen(s[prime][ii]);
-            addKeys2(L[prime][ii], s[prime][ii], c[prime][ii], P[prime][ii]);
+            if (naught == 0) {
+                skGen(bb.s1[ii]);
+                c = hash_to_scalar(L[naught][ii]);
+                addKeys2(L[prime][ii], bb.s1[ii], c, P2[ii]);
+            }
         }
-        boroSig bb;
-        bb.ee = cn_fast_hash(L[1]); //or L[1]..
+        bb.ee = hash_to_scalar(L[1]); //or L[1]..
         key LL, cc;
         for (jj = 0 ; jj < 64 ; jj++) {
-            naught = indices[jj]; prime = (indices[jj] + 1) % 2;
             if (!indices[jj]) {
                 sc_mulsub(bb.s0[jj].bytes, x[jj].bytes, bb.ee.bytes, alpha[jj].bytes);
-                copy(bb.s1[jj], s[1][jj]);
             } else {
-                copy(bb.s0[jj], s[0][jj]);
-                addKeys2(LL, bb.s0[jj], bb.ee, P[0][jj]); //different L0
+                skGen(bb.s0[jj]);
+                addKeys2(LL, bb.s0[jj], bb.ee, P1[jj]); //different L0
                 cc = hash_to_scalar(LL);
                 sc_mulsub(bb.s1[jj].bytes, x[jj].bytes, cc.bytes, alpha[jj].bytes);
             }
@@ -90,14 +89,14 @@ namespace rct {
     
     //see above.
     bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2) {
-        key64 Lv1, chash;  key LL;
+        key64 Lv1; key chash, LL;
         int ii = 0;
         for (ii = 0 ; ii < 64 ; ii++) {
             addKeys2(LL, bb.s0[ii], bb.ee, P1[ii]);
-            chash[ii] = hash_to_scalar(LL);
-            addKeys2(Lv1[ii], bb.s1[ii], chash[ii], P2[ii]);
+            chash = hash_to_scalar(LL);
+            addKeys2(Lv1[ii], bb.s1[ii], chash, P2[ii]);
         }
-        key eeComputed = cn_fast_hash(Lv1); //hash function fine
+        key eeComputed = hash_to_scalar(Lv1); //hash function fine
         return equalKeys(eeComputed, bb.ee);
     }
 
