@@ -267,7 +267,7 @@ namespace rct {
         ge_p3_tobytes(AB.bytes, &A2);
     }
 
-    //checks if A, B are equal as curve points
+    //checks if A, B are equal in terms of bytes (may say no if one is a non-reduced scalar)
     //without doing curve operations
     bool equalKeys(const key & a, const key & b) {
         bool rv = true;
@@ -354,6 +354,19 @@ namespace rct {
    }
    
    key hash_to_scalar(const keyV &keys) {
+       key rv = cn_fast_hash(keys);
+       sc_reduce32(rv.bytes);
+       return rv;
+   }
+
+   key cn_fast_hash(const key64 keys) {
+      key rv;
+      cn_fast_hash(rv, &keys[0], 64 * sizeof(keys[0]));
+      //dp(rv);
+      return rv;
+   }
+
+   key hash_to_scalar(const key64 keys) {
        key rv = cn_fast_hash(keys);
        sc_reduce32(rv.bytes);
        return rv;

@@ -457,7 +457,7 @@ TEST(Serialization, serializes_ringct_types)
   rct::ctkeyV ctkeyv0, ctkeyv1;
   rct::ctkeyM ctkeym0, ctkeym1;
   rct::ecdhTuple ecdh0, ecdh1;
-  rct::asnlSig asnl0, asnl1;
+  rct::boroSig boro0, boro1;
   rct::mgSig mg0, mg1;
   rct::rangeSig rg0, rg1;
   rct::rctSig s0, s1;
@@ -541,13 +541,13 @@ TEST(Serialization, serializes_ringct_types)
 
   for (size_t n = 0; n < 64; ++n)
   {
-    asnl0.L1[n] = rct::skGen();
-    asnl0.s2[n] = rct::skGen();
+    boro0.s0[n] = rct::skGen();
+    boro0.s1[n] = rct::skGen();
   }
-  asnl0.s = rct::skGen();
-  ASSERT_TRUE(serialization::dump_binary(asnl0, blob));
-  ASSERT_TRUE(serialization::parse_binary(blob, asnl1));
-  ASSERT_TRUE(!memcmp(&asnl0, &asnl1, sizeof(asnl0)));
+  boro0.ee = rct::skGen();
+  ASSERT_TRUE(serialization::dump_binary(boro0, blob));
+  ASSERT_TRUE(serialization::parse_binary(blob, boro1));
+  ASSERT_TRUE(!memcmp(&boro0, &boro1, sizeof(boro0)));
 
   // create a full rct signature to use its innards
   rct::ctkeyV sc, pc;
