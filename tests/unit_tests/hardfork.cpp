@@ -125,6 +125,8 @@ public:
     versions[height] = version;
   }
   virtual uint8_t get_hard_fork_version(uint64_t height) const {
+    if (height >= versions.size())
+      throw std::runtime_error("invalid height");
     return versions[height];
   }
   virtual void check_hard_fork_info() {}
