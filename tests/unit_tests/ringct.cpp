@@ -57,19 +57,15 @@ TEST(ringct, Borromean)
 
             xv[j] = skGen();
             if ( (int)indi[j] == 0 ) {
-                P1v[j] = scalarmultBase(xv[j]);
-                P2v[j] = pkGen();
-
+                scalarmultBase(P1v[j], xv[j]);
             } else {
-
-                P2v[j] = scalarmultBase(xv[j]);
-                P1v[j] = pkGen();
-
+                addKeys1(P1v[j], xv[j], H2[j]);
             }
+            subKeys(P2v[j], P1v[j], H2[j]);
         }
 
         //#true one
-        boro bb = genBorromean(xv, P1v, P2v, indi);
+        boroSig bb = genBorromean(xv, P1v, P2v, indi);
         ASSERT_TRUE(verifyBorromean(bb, P1v, P2v));
 
         //#false one
