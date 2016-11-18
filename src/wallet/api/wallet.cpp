@@ -605,6 +605,17 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                 break;
             }
         }
+        else if (has_payment_id) {
+            std::string extra_nonce;
+            set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id_short);
+            bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+            if (!r) {
+                m_status = Status_Error;
+                m_errorString = tr("Failed to add short payment id: ") + epee::string_tools::pod_to_hex(payment_id_short);
+                break;
+            }
+        }
+
 
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
