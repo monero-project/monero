@@ -395,7 +395,10 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
 
   // Not enough signature vectors for all inputs
   txin_to_key txin_to_key1;
-  txin_to_key1.key_offsets.resize(2);
+  txin_to_key1.amount = 1;
+  memset(&txin_to_key1.k_image, 0x42, sizeof(crypto::key_image));
+  txin_to_key1.key_offsets.push_back(12);
+  txin_to_key1.key_offsets.push_back(3453);
   tx.vin.clear();
   tx.vin.push_back(txin_to_key1);
   tx.vin.push_back(txin_to_key1);
