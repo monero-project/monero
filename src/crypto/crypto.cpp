@@ -88,7 +88,7 @@ namespace crypto {
     memcpy(&res, tmp, 32);
   }
 
-  static inline void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
+  void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
     cn_fast_hash(data, length, reinterpret_cast<hash &>(res));
     sc_reduce32(&res);
   }
@@ -133,6 +133,17 @@ namespace crypto {
     }
     ge_scalarmult_base(&point, &sec);
     ge_p3_tobytes(&pub, &point);
+    return true;
+  }
+  bool crypto_ops::secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    ge_p3 point;
+    ge_p2 point2;
+    assert(sc_check(&sec) == 0);
+    if (ge_frombytes_vartime(&point, &pub) != 0) {
+      return false;
+    }
+    ge_scalarmult(&point2, &sec, &point);
+    ge_tobytes(&result, &point2);
     return true;
   }
 
