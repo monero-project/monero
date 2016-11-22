@@ -293,22 +293,22 @@ namespace cryptonote
     };
   };
   //-----------------------------------------------
-  struct COMMAND_RPC_GET_OUTPUTS
+  struct get_outputs_out
   {
-    struct out
-    {
-      uint64_t amount;
-      uint64_t index;
+    uint64_t amount;
+    uint64_t index;
 
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(amount)
-        KV_SERIALIZE(index)
-      END_KV_SERIALIZE_MAP()
-    };
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(amount)
+      KV_SERIALIZE(index)
+    END_KV_SERIALIZE_MAP()
+  };
 
+  struct COMMAND_RPC_GET_OUTPUTS_BIN
+  {
     struct request
     {
-      std::vector<out> outputs;
+      std::vector<get_outputs_out> outputs;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(outputs)
@@ -324,6 +324,42 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_VAL_POD_AS_BLOB(key)
         KV_SERIALIZE_VAL_POD_AS_BLOB(mask)
+        KV_SERIALIZE(unlocked)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<outkey> outs;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outs)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_OUTPUTS
+  {
+    struct request
+    {
+      std::vector<get_outputs_out> outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct outkey
+    {
+      std::string key;
+      std::string mask;
+      bool unlocked;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key)
+        KV_SERIALIZE(mask)
         KV_SERIALIZE(unlocked)
       END_KV_SERIALIZE_MAP()
     };
