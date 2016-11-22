@@ -41,7 +41,7 @@ namespace cryptonote
 #define CORE_RPC_STATUS_BUSY   "BUSY"
 #define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
-#define CORE_RPC_VERSION 4
+#define CORE_RPC_VERSION 5
 
   struct COMMAND_RPC_GET_HEIGHT
   {
