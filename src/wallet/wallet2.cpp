@@ -2730,7 +2730,7 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t amo
   utd.m_amount_out = 0;
   for (const auto &d: dests)
     utd.m_amount_out += d.amount;
-  utd.m_amount_out += change_amount;
+  utd.m_amount_out += change_amount; // dests does not contain change
   utd.m_change = change_amount;
   utd.m_sent_time = time(NULL);
   utd.m_tx = (const cryptonote::transaction_prefix&)tx;
@@ -3057,7 +3057,7 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     ptx.change_dts = sd.change_dts;
     ptx.selected_transfers = sd.selected_transfers;
     ptx.tx_key = rct::rct2sk(rct::identity()); // don't send it back to the untrusted view wallet
-    ptx.dests = sd.splitted_dsts;
+    ptx.dests = sd.dests;
     ptx.construction_data = sd;
 
     txs.push_back(ptx);
@@ -3656,6 +3656,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = false;
+  ptx.construction_data.dests = dsts;
 }
 
 void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::list<size_t> selected_transfers, size_t fake_outputs_count,
@@ -3776,6 +3777,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = true;
+  ptx.construction_data.dests = dsts;
 }
 
 static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)

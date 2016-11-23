@@ -191,11 +191,12 @@ namespace tools
     {
       std::vector<cryptonote::tx_source_entry> sources;
       cryptonote::tx_destination_entry change_dts;
-      std::vector<cryptonote::tx_destination_entry> splitted_dsts;
+      std::vector<cryptonote::tx_destination_entry> splitted_dsts; // split, includes change
       std::list<size_t> selected_transfers;
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
       bool use_rct;
+      std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
 
       BEGIN_SERIALIZE_OBJECT()
         FIELD(sources)
@@ -205,12 +206,16 @@ namespace tools
         FIELD(extra)
         VARINT_FIELD(unlock_time)
         FIELD(use_rct)
+        FIELD(dests)
       END_SERIALIZE()
     };
 
     typedef std::vector<transfer_details> transfer_container;
     typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;
 
+    // The convention for destinations is:
+    // dests does not include change
+    // splitted_dsts (in construction_data) does
     struct pending_tx
     {
       cryptonote::transaction tx;
@@ -1047,6 +1052,7 @@ namespace tools
     ptx.construction_data.extra = tx.extra;
     ptx.construction_data.unlock_time = unlock_time;
     ptx.construction_data.use_rct = false;
+    ptx.construction_data.dests = dsts;
   }
 
 
