@@ -2923,57 +2923,6 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
       return true;
     }
 
-    // if more than one tx necessary, prompt user to confirm
-    if (m_wallet->always_confirm_transfers())
-    {
-        uint64_t total_sent = 0;
-        uint64_t total_fee = 0;
-        uint64_t dust_not_in_fee = 0;
-        uint64_t dust_in_fee = 0;
-        for (size_t n = 0; n < ptx_vector.size(); ++n)
-        {
-          total_fee += ptx_vector[n].fee;
-          for (auto i: ptx_vector[n].selected_transfers)
-            total_sent += m_wallet->get_transfer_details(i).amount();
-          total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
-
-          if (ptx_vector[n].dust_added_to_fee)
-            dust_in_fee += ptx_vector[n].dust;
-          else
-            dust_not_in_fee += ptx_vector[n].dust;
-        }
-
-        std::stringstream prompt;
-        prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
-        if (ptx_vector.size() > 1)
-        {
-          prompt << boost::format(tr("Your transaction needs to be split into %llu transactions.  "
-            "This will result in a transaction fee being applied to each transaction, for a total fee of %s")) %
-            ((unsigned long long)ptx_vector.size()) % print_money(total_fee);
-        }
-        else
-        {
-          prompt << boost::format(tr("The transaction fee is %s")) %
-            print_money(total_fee);
-        }
-        if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
-        if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address"))
-                                                   % print_money(dust_not_in_fee);
-        prompt << tr(".") << ENDL << "Full transaction details are available in the log file" << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
-
-        std::string accepted = command_line::input_line(prompt.str());
-        if (std::cin.eof())
-          return true;
-        if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
-        {
-          fail_msg_writer() << tr("transaction cancelled.");
-
-          // would like to return false, because no tx made, but everything else returns true
-          // and I don't know what returning false might adversely affect.  *sigh*
-          return true;
-        }
-    }
-
     // actually commit the transactions
     while (!ptx_vector.empty())
     {
