@@ -26,7 +26,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 2.8.7)
 project (monero CXX)
 
 file(GLOB CRYPTONOTE_PROTOCOL *)
@@ -37,5 +37,3 @@ monero_add_library(cryptonote_protocol ${CRYPTONOTE_PROTOCOL})
 target_link_libraries(cryptonote_protocol
   PRIVATE
     ${EXTRA_LIBRARIES})
-add_dependencies(cryptonote_protocol
-  version)

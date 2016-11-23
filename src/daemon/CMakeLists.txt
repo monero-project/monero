@@ -100,7 +100,6 @@ target_link_libraries(daemon
     ${Boost_SYSTEM_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-add_dependencies(daemon version)
 set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "monerod")
