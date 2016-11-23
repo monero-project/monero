@@ -4926,4 +4926,3 @@ void wallet2::generate_genesis(cryptonote::block& b) {
     cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
   }
 }
-}
