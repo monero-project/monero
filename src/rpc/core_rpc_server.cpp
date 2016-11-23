@@ -425,12 +425,15 @@ namespace cryptonote
       if (req.decode_as_json)
         res.txs_as_json.push_back(e.as_json);
 
-      // output indices too
-      bool r = m_core.get_tx_outputs_gindexs(tx_hash, e.output_indices);
-      if (!r)
+      // output indices too if not in pool
+      if (pool_tx_hashes.find(tx_hash) == pool_tx_hashes.end())
       {
-        res.status = "Failed";
-        return false;
+        bool r = m_core.get_tx_outputs_gindexs(tx_hash, e.output_indices);
+        if (!r)
+        {
+          res.status = "Failed";
+          return false;
+        }
       }
     }
 
