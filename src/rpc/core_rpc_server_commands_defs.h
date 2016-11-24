@@ -41,7 +41,7 @@ namespace cryptonote
 #define CORE_RPC_STATUS_BUSY   "BUSY"
 #define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
-#define CORE_RPC_VERSION 4
+#define CORE_RPC_VERSION 5
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -162,6 +162,7 @@ namespace cryptonote
       std::string as_json;
       bool in_pool;
       uint64_t block_height;
+      std::vector<uint64_t> output_indices;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
@@ -169,6 +170,7 @@ namespace cryptonote
         KV_SERIALIZE(as_json)
         KV_SERIALIZE(in_pool)
         KV_SERIALIZE(block_height)
+        KV_SERIALIZE(output_indices)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -291,22 +293,22 @@ namespace cryptonote
     };
   };
   //-----------------------------------------------
-  struct COMMAND_RPC_GET_OUTPUTS
+  struct get_outputs_out
   {
-    struct out
-    {
-      uint64_t amount;
-      uint64_t index;
+    uint64_t amount;
+    uint64_t index;
 
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(amount)
-        KV_SERIALIZE(index)
-      END_KV_SERIALIZE_MAP()
-    };
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(amount)
+      KV_SERIALIZE(index)
+    END_KV_SERIALIZE_MAP()
+  };
 
+  struct COMMAND_RPC_GET_OUTPUTS_BIN
+  {
     struct request
     {
-      std::vector<out> outputs;
+      std::vector<get_outputs_out> outputs;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(outputs)
@@ -322,6 +324,42 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_VAL_POD_AS_BLOB(key)
         KV_SERIALIZE_VAL_POD_AS_BLOB(mask)
+        KV_SERIALIZE(unlocked)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<outkey> outs;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outs)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_OUTPUTS
+  {
+    struct request
+    {
+      std::vector<get_outputs_out> outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct outkey
+    {
+      std::string key;
+      std::string mask;
+      bool unlocked;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key)
+        KV_SERIALIZE(mask)
         KV_SERIALIZE(unlocked)
       END_KV_SERIALIZE_MAP()
     };

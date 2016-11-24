@@ -3361,8 +3361,8 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
     LOG_PRINT_L2("base_requested_outputs_count: " << base_requested_outputs_count);
 
     // generate output indices to request
-    COMMAND_RPC_GET_OUTPUTS::request req = AUTO_VAL_INIT(req);
-    COMMAND_RPC_GET_OUTPUTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
+    COMMAND_RPC_GET_OUTPUTS_BIN::request req = AUTO_VAL_INIT(req);
+    COMMAND_RPC_GET_OUTPUTS_BIN::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
 
     size_t num_selected_transfers = 0;
     for(size_t idx: selected_transfers)
@@ -3468,7 +3468,7 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
 
       // sort the subsection, to ensure the daemon doesn't know wich output is ours
       std::sort(req.outputs.begin() + start, req.outputs.end(),
-          [](const COMMAND_RPC_GET_OUTPUTS::out &a, const COMMAND_RPC_GET_OUTPUTS::out &b) { return a.index < b.index; });
+          [](const get_outputs_out &a, const get_outputs_out &b) { return a.index < b.index; });
     }
 
     for (auto i: req.outputs)
