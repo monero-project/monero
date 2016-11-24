@@ -25,8 +25,12 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#pragma once
+
 #include <boost/optional/optional.hpp>
-#include <condition_variable>
+#include <boost/thread/condition_variable.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 #include <cstddef>
 #include <functional>
 #include <thread>
@@ -35,11 +39,21 @@
 
 namespace tools 
 {
-//! Manages zero or more threads for work dispatching
+//! Manages zero or more threads for work dispatching.
 class thread_group
 {
 public:
-  //! Create `min(count, get_max_concurrency()) - 1`  threads
+
+  //! \return `get_max_concurrency() ? get_max_concurrency() - 1 : 0`
+  static std::size_t optimal();
+
+  //! \return `count ? min(count - 1, optimal()) : 0`
+  static std::size_t optimal_with_max(std::size_t count);
+
+  //! Create an optimal number of threads.
+  explicit thread_group() : thread_group(optimal()) {}
+
+  //! Create exactly `count` threads.
   explicit thread_group(std::size_t count);
 
   thread_group(thread_group const&) = delete;
@@ -51,30 +65,26 @@ public:
   thread_group& operator=(thread_group const&) = delete;
   thread_group& operator=(thread_group&&) = delete;
 
-  /*! Blocks until all functions provided to `dispatch` complete. Does not
-  destroy threads. If a dispatched function calls `this->dispatch(...)`,
-  `this->sync()` will continue to block until that new function completes. */
-  void sync() noexcept {
+  //! \return Number of threads owned by `this` group.
+  std::size_t count() const noexcept {
     if (internal) {
-      internal->sync();
+      return internal->count();
     }
+    return 0;
   }
 
-  /*! Example usage:
-    std::unique_ptr<thread_group, thread_group::lazy_sync> sync(std::addressof(group));
-  which guarantees synchronization before the unique_ptr destructor returns. */
-  struct lazy_sync {
-    void operator()(thread_group* group) const noexcept {
-      if (group != nullptr) {
-        group->sync();
-      }
+  //! \return True iff a function was available and executed (on `this_thread`).
+  bool try_run_one() noexcept {
+    if (internal) {
+      return internal->try_run_one();
     }
-  };
+    return false;
+  }
 
-  /*! `f` is invoked immediately if the thread_group is empty, otherwise
-  execution of `f` is queued for next available thread. If `f` is queued, any
-  exception leaving that function will result in process termination. Use
-  std::packaged_task if exceptions need to be handled. */
+  /*! `f` is invoked immediately if `count() == 0`, otherwise execution of `f`
+  is queued for next available thread. If `f` is queued, any exception leaving
+  that function will result in process termination. Use std::packaged_task if
+  exceptions need to be handled. */
   template<typename F>
   void dispatch(F&& f) {
     if (internal) {
@@ -91,8 +101,11 @@ private:
     data(std::size_t count);
     ~data() noexcept;
 
-    void sync() noexcept;
+    std::size_t count() const noexcept {
+      return threads.size();
+    }
 
+    bool try_run_one() noexcept;
     void dispatch(std::function<void()> f);
 
   private:
@@ -116,13 +129,11 @@ private:
     void run() noexcept;
 
   private:
-    std::vector<std::thread> threads;
+    std::vector<boost::thread> threads;
     node head;
     node* last;
-    std::size_t pending;
-    std::condition_variable has_work;
-    std::condition_variable finished_work;
-    std::mutex mutex;
+    boost::condition_variable has_work;
+    boost::mutex mutex;
     bool stop;
   };
 
@@ -130,4 +141,5 @@ private:
   // optionally construct elements, without separate heap allocation
   boost::optional<data> internal;
 };
+
 }

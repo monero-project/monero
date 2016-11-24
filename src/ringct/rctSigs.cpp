@@ -30,6 +30,7 @@
 
 #include "misc_log_ex.h"
 #include "common/perf_timer.h"
+#include "common/task_region.h"
 #include "common/thread_group.h"
 #include "common/util.h"
 #include "rctSigs.h"
@@ -39,22 +40,6 @@ using namespace crypto;
 using namespace std;
 
 namespace rct {
-    namespace {
-      struct verRangeWrapper_ {
-        void operator()(const key & C, const rangeSig & as, bool &result) const {
-          result = verRange(C, as);
-        }
-      };
-      constexpr const verRangeWrapper_ verRangeWrapper{};
-
-      struct verRctMGSimpleWrapper_ {
-        void operator()(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C, bool &result) const {
-          result = verRctMGSimple(message, mg, pubs, C);
-        }
-      };
-      constexpr const verRctMGSimpleWrapper_ verRctMGSimpleWrapper{};
-    }
-    
     //Schnorr Non-linkable
     //Gen Gives a signature (L1, s1, s2) proving that the sender knows "x" such that xG = one of P1 or P2
     //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
@@ -766,15 +751,17 @@ namespace rct {
         try
         {
           std::deque<bool> results(rv.outPk.size(), false);
-          tools::thread_group threadpool(rv.outPk.size()); // this must destruct before results
+          tools::thread_group threadpool(tools::thread_group::optimal_with_max(rv.outPk.size()));
 
-          DP("range proofs verified?");
-          for (size_t i = 0; i < rv.outPk.size(); i++) {
-            threadpool.dispatch(
-              std::bind(verRangeWrapper, std::cref(rv.outPk[i].mask), std::cref(rv.p.rangeSigs[i]), std::ref(results[i]))
-            );
-          }
-          threadpool.sync();
+          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+            DP("range proofs verified?");
+            for (size_t i = 0; i < rv.outPk.size(); i++) {
+              region.run([&, i] {
+                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+              });
+            }
+          });
+
           for (size_t i = 0; i < rv.outPk.size(); ++i) {
             if (!results[i]) {
               LOG_ERROR("Range proof verified failed for input " << i);
@@ -804,7 +791,6 @@ namespace rct {
     //assumes only post-rct style inputs (at least for max anonymity)
     bool verRctSimple(const rctSig & rv) {
         PERF_TIMER(verRctSimple);
-        size_t i = 0;
 
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
@@ -813,28 +799,29 @@ namespace rct {
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
 
         const size_t threads = std::max(rv.outPk.size(), rv.mixRing.size());
-        tools::thread_group threadpool(threads);
-        {
-          std::deque<bool> results(rv.outPk.size(), false);
-          {
-            const std::unique_ptr<tools::thread_group, tools::thread_group::lazy_sync> 
-              sync(std::addressof(threadpool));
-            for (i = 0; i < rv.outPk.size(); i++) {
-              threadpool.dispatch(
-                std::bind(verRangeWrapper, std::cref(rv.outPk[i].mask), std::cref(rv.p.rangeSigs[i]), std::ref(results[i]))
-              );
-            }
-          } // threadpool.sync();
-          for (size_t i = 0; i < rv.outPk.size(); ++i) {
-            if (!results[i]) {
-              LOG_ERROR("Range proof verified failed for input " << i);
-              return false;
-            }
+
+        std::deque<bool> results(threads);
+        tools::thread_group threadpool(tools::thread_group::optimal_with_max(threads));
+
+        results.clear();
+        results.resize(rv.outPk.size());
+        tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+          for (size_t i = 0; i < rv.outPk.size(); i++) {
+            region.run([&, i] {
+                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+            });
+          }
+        });
+
+        for (size_t i = 0; i < results.size(); ++i) {
+          if (!results[i]) {
+            LOG_ERROR("Range proof verified failed for input " << i);
+            return false;
           }
         }
 
         key sumOutpks = identity();
-        for (i = 0; i < rv.outPk.size(); i++) {
+        for (size_t i = 0; i < rv.outPk.size(); i++) {
             addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
         }
         DP(sumOutpks);
@@ -843,27 +830,25 @@ namespace rct {
 
         key message = get_pre_mlsag_hash(rv);
 
-        {
-          std::deque<bool> results(rv.mixRing.size(), false);
-          {
-            const std::unique_ptr<tools::thread_group, tools::thread_group::lazy_sync>
-              sync(std::addressof(threadpool));
-            for (i = 0 ; i < rv.mixRing.size() ; i++) {
-              threadpool.dispatch(
-                std::bind(verRctMGSimpleWrapper, std::cref(message), std::cref(rv.p.MGs[i]), std::cref(rv.mixRing[i]), std::cref(rv.pseudoOuts[i]), std::ref(results[i]))
-              );
-            }
-          } // threadpool.sync();
-          for (size_t i = 0; i < results.size(); ++i) {
-            if (!results[i]) {
-              LOG_ERROR("verRctMGSimple failed for input " << i);
-              return false;
-            }
+        results.clear();
+        results.resize(rv.mixRing.size());
+        tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+          for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
+            region.run([&, i] {
+              results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
+            });
+          }
+        });
+
+        for (size_t i = 0; i < results.size(); ++i) {
+          if (!results[i]) {
+            LOG_ERROR("verRctMGSimple failed for input " << i);
+            return false;
           }
         }
 
         key sumPseudoOuts = identity();
-        for (i = 0 ; i < rv.mixRing.size() ; i++) {
+        for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
             addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
         }
         DP(sumPseudoOuts);

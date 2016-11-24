@@ -33,6 +33,7 @@ set(common_sources
   util.cpp
   i18n.cpp
   perf_timer.cpp
+  task_region.cpp
   thread_group.cpp)
 
 if (STACK_TRACE)
@@ -57,6 +58,7 @@ set(common_private_headers
   i18n.h
   perf_timer.h
   stack_trace.h
+  task_region.h
   thread_group.h)
 
 monero_private_headers(common
