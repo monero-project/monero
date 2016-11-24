@@ -242,6 +242,7 @@ namespace
       m_req_head.m_cb = m_in_data.size();
       m_req_head.m_have_to_return_data = true;
       m_req_head.m_command = expected_command;
+      m_req_head.m_return_code = LEVIN_OK;
       m_req_head.m_flags = LEVIN_PACKET_REQUEST;
       m_req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
 
