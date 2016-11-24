@@ -55,7 +55,8 @@ TransactionHistoryImpl::TransactionHistoryImpl(WalletImpl *wallet)
 
 TransactionHistoryImpl::~TransactionHistoryImpl()
 {
-
+    for (auto t : m_history)
+        delete t;
 }
 
 int TransactionHistoryImpl::count() const
