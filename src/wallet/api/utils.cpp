@@ -61,7 +61,7 @@ bool isAddressLocal(const std::string &address)
         // resolve to IP
         boost::asio::io_service io_service;
         boost::asio::ip::tcp::resolver resolver(io_service);
-        boost::asio::ip::tcp::resolver::query query(u_c.host, "");
+        boost::asio::ip::tcp::resolver::query query(u_c.host, "", boost::asio::ip::tcp::resolver::query::canonical_name);
         boost::asio::ip::tcp::resolver::iterator i = resolver.resolve(query);
         while (i != boost::asio::ip::tcp::resolver::iterator())
         {
