@@ -4714,6 +4714,53 @@ bool wallet2::verify(const std::string &data, const cryptonote::account_public_a
   return crypto::check_signature(hash, address.m_spend_public_key, s);
 }
 //----------------------------------------------------------------------------------------------------
+crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const
+{
+  std::vector<tx_extra_field> tx_extra_fields;
+  if(!parse_tx_extra(td.m_tx.extra, tx_extra_fields))
+  {
+    // Extra may only be partially parsed, it's OK if tx_extra_fields contains public key
+  }
+
+  // Due to a previous bug, there might be more than one tx pubkey in extra, one being
+  // the result of a previously discarded signature.
+  // For speed, since scanning for outputs is a slow process, we check whether extra
+  // contains more than one pubkey. If not, the first one is returned. If yes, they're
+  // checked for whether they yield at least one output
+  tx_extra_pub_key pub_key_field;
+  THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, 0), error::wallet_internal_error,
+      "Public key wasn't found in the transaction extra");
+  const crypto::public_key tx_pub_key = pub_key_field.pub_key;
+  bool two_found = find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, 1);
+  if (!two_found) {
+    // easy case, just one found
+    return tx_pub_key;
+  }
+
+  // more than one, loop and search
+  const cryptonote::account_keys& keys = m_account.get_keys();
+  size_t pk_index = 0;
+  while (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++)) {
+    const crypto::public_key tx_pub_key = pub_key_field.pub_key;
+    crypto::key_derivation derivation;
+    generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+
+    for (size_t i = 0; i < td.m_tx.vout.size(); ++i)
+    {
+      uint64_t money_transfered = 0;
+      bool error = false, received = false;
+      check_acc_out_precomp(keys.m_account_address.m_spend_public_key, td.m_tx.vout[i], derivation, i, received, money_transfered, error);
+      if (!error && received)
+        return tx_pub_key;
+    }
+  }
+
+  // we found no key yielding an output
+  THROW_WALLET_EXCEPTION_IF(true, error::wallet_internal_error,
+      "Public key yielding at least one output wasn't found in the transaction extra");
+  return cryptonote::null_pkey;
+}
+//----------------------------------------------------------------------------------------------------
 std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key_images() const
 {
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
@@ -4739,10 +4786,8 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
     {
       // Extra may only be partially parsed, it's OK if tx_extra_fields contains public key
     }
-    tx_extra_pub_key pub_key_field;
-    THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field), error::wallet_internal_error,
-        "Public key wasn't found in the transaction extra");
-    crypto::public_key tx_pub_key = pub_key_field.pub_key;
+
+    crypto::public_key tx_pub_key = get_tx_pub_key_from_received_outs(td);
 
     // generate ephemeral secret key
     crypto::key_image ki;
@@ -4871,10 +4916,9 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
     THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + boost::lexical_cast<std::string>(i));
     THROW_WALLET_EXCEPTION_IF(!parse_tx_extra(td.m_tx.extra, tx_extra_fields), error::wallet_internal_error,
         "Transaction extra has unsupported format at index " + boost::lexical_cast<std::string>(i));
-    THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field), error::wallet_internal_error,
-        "Public key wasn't found in the transaction extra at index " + boost::lexical_cast<std::string>(i));
+    crypto::public_key tx_pub_key = get_tx_pub_key_from_received_outs(td);
 
-    cryptonote::generate_key_image_helper(m_account.get_keys(), pub_key_field.pub_key, td.m_internal_output_index, in_ephemeral, td.m_key_image);
+    cryptonote::generate_key_image_helper(m_account.get_keys(), tx_pub_key, td.m_internal_output_index, in_ephemeral, td.m_key_image);
     td.m_key_image_known = true;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i));
