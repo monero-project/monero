@@ -2221,7 +2221,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::check_connection(bool *same_version)
+bool wallet2::check_connection(uint32_t *version)
 {
   boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
 
@@ -2239,7 +2239,7 @@ bool wallet2::check_connection(bool *same_version)
       return false;
   }
 
-  if (same_version)
+  if (version)
   {
     epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
     epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
@@ -2248,9 +2248,9 @@ bool wallet2::check_connection(bool *same_version)
     req_t.method = "get_version";
     bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
     if (!r || resp_t.result.status != CORE_RPC_STATUS_OK)
-      *same_version = false;
+      *version = 0;
     else
-      *same_version = resp_t.result.version == CORE_RPC_VERSION;
+      *version = resp_t.result.version;
   }
 
   return true;
