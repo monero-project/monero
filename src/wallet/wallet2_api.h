@@ -195,6 +195,7 @@ struct Wallet
     virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address() const = 0;
+    virtual std::string path() const = 0;
     
     /*!
      * \brief integratedAddress - returns integrated address for current wallet address and given payment_id.

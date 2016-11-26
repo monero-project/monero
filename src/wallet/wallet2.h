@@ -332,6 +332,8 @@ namespace tools
      */
     void store_to(const std::string &path, const std::string &password);
 
+    std::string path() const;
+
     /*!
      * \brief verifies given password is correct for default wallet keys file
      */

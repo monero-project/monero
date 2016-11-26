@@ -2353,6 +2353,11 @@ void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
   THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
 }
 //----------------------------------------------------------------------------------------------------
+std::string wallet2::path() const
+{
+  return m_wallet_file;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::store()
 {
   store_to("", "");

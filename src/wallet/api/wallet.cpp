@@ -399,6 +399,11 @@ std::string WalletImpl::integratedAddress(const std::string &payment_id) const
     return m_wallet->get_account().get_public_integrated_address_str(pid, m_wallet->testnet());
 }
 
+std::string WalletImpl::path() const
+{
+    return m_wallet->path();
+}
+
 bool WalletImpl::store(const std::string &path)
 {
     clearStatus();
