@@ -29,11 +29,22 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "command_line.h"
-#include "string_tools.h"
+#include <boost/algorithm/string/compare.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include "common/i18n.h"
 #include "cryptonote_config.h"
+#include "string_tools.h"
 
 namespace command_line
 {
+  namespace
+  {
+    const char* tr(const char* str)
+    {
+      return i18n_translate(str, "command_line");
+    }
+  }
+
   std::string input_line(const std::string& prompt)
   {
     std::cout << prompt;
@@ -43,6 +54,20 @@ namespace command_line
 
     return epee::string_tools::trim(buf);
 
+  }
+
+  bool is_yes(const std::string& str)
+  {
+    if (str == "y" || str == "Y")
+      return true;
+
+    boost::algorithm::is_iequal ignore_case{};
+    if (boost::algorithm::equals("yes", str, ignore_case))
+      return true;
+    if (boost::algorithm::equals(command_line::tr("yes"), str, ignore_case))
+      return true;
+
+    return false;
   }
 
   const arg_descriptor<bool> arg_help = {"help", "Produce help message"};
