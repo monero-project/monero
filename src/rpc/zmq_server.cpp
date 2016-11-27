@@ -98,18 +98,23 @@ bool ZmqServer::addIPCSocket(std::string address, std::string port)
 
 bool ZmqServer::addTCPSocket(std::string address, std::string port)
 {
+  zmq::socket_t *new_socket;
   try
   {
     std::string addr_prefix("tcp://");
 
-    zmq::socket_t *socket = new zmq::socket_t(context, ZMQ_REP);
+    new_socket = new zmq::socket_t(context, ZMQ_REP);
 
     std::string bind_address = addr_prefix + address + std::string(":") + port;
-    socket->bind(bind_address.c_str());
-    sockets.push_back(socket);
+    new_socket->bind(bind_address.c_str());
+    sockets.push_back(new_socket);
   }
   catch (...)
   {
+    if (new_socket)
+    {
+      delete new_socket;
+    }
     return false;
   }
   return true;
