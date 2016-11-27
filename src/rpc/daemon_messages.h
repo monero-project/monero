@@ -1172,6 +1172,7 @@ class GetOutputHistogram
         uint64_t min_count;
         uint64_t max_count;
         bool unlocked;
+        uint64_t recent_cutoff;
     };
 
     class Response : public Message

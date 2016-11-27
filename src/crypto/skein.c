@@ -77,7 +77,7 @@ typedef struct                               /* 1024-bit Skein hash context stru
 } Skein1024_Ctxt_t;
 
 /*   Skein APIs for (incremental) "straight hashing" */
-#if SKEIN_256_NIST_MAX_HASH_BITS
+#if SKEIN_256_NIST_MAX_HASHBITS
 static int  Skein_256_Init  (Skein_256_Ctxt_t *ctx, size_t hashBitLen);
 #endif
 static int  Skein_512_Init  (Skein_512_Ctxt_t *ctx, size_t hashBitLen);
@@ -1941,7 +1941,7 @@ static HashReturn Final (hashState *state,       BitSequence *hashval);
 /* select the context size and init the context */
 static HashReturn Init(hashState *state, int hashbitlen)
 {
-#if SKEIN_256_NIST_MAX_HASH_BITS
+#if SKEIN_256_NIST_MAX_HASHBITS
   if (hashbitlen <= SKEIN_256_NIST_MAX_HASHBITS)
   {
     Skein_Assert(hashbitlen > 0,BAD_HASHLEN);

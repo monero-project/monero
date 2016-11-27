@@ -87,5 +87,10 @@ namespace tests
     bool prepare_handle_incoming_blocks(const std::list<cryptonote::block_complete_entry>  &blocks) { return true; }
     bool cleanup_handle_incoming_blocks(bool force_sync = false) { return true; }
     uint64_t get_target_blockchain_height() const { return 1; }
+    size_t get_block_sync_size() const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
+    virtual void on_transaction_relayed(const cryptonote::blobdata& tx) {}
+    bool get_testnet() const { return false; }
+    bool get_pool_transaction(const crypto::hash& id, cryptonote::transaction& tx) const { return false; }
+    bool get_blocks(uint64_t start_offset, size_t count, std::list<cryptonote::block>& blocks, std::list<cryptonote::transaction>& txs) const { return false; }
   };
 }

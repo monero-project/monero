@@ -75,7 +75,9 @@ namespace rpc
   struct output_amount_count
   {
     uint64_t amount;
-    uint64_t count;
+    uint64_t total_count;
+    uint64_t unlocked_count;
+    uint64_t recent_count;
   };
 
   struct output_amount_and_index

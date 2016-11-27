@@ -776,6 +776,7 @@ rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc)
   val.AddMember("min_count", cryptonote::json::toJsonValue<decltype(min_count)>(doc, min_count), al);
   val.AddMember("max_count", cryptonote::json::toJsonValue<decltype(max_count)>(doc, max_count), al);
   val.AddMember("unlocked", cryptonote::json::toJsonValue<decltype(unlocked)>(doc, unlocked), al);
+  val.AddMember("recent_cutoff", cryptonote::json::toJsonValue<decltype(recent_cutoff)>(doc, recent_cutoff), al);
 
   return val;
 }
@@ -793,6 +794,9 @@ void GetOutputHistogram::Request::fromJson(rapidjson::Value& val)
 
   OBJECT_HAS_MEMBER_OR_THROW(val, "unlocked")
   unlocked = cryptonote::json::fromJsonValue<decltype(unlocked)>(val["unlocked"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "recent_cutoff")
+  recent_cutoff = cryptonote::json::fromJsonValue<decltype(recent_cutoff)>(val["recent_cutoff"]);
 }
 
 rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2015, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,55 +29,68 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+#include <memory>
+#include "serialization.h"
 
-#include <vector>
-
-#include "cryptonote_core/account.h"
-#include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
-#include "crypto/crypto.h"
-
-#include "multi_tx_test_base.h"
-
-template<size_t a_ring_size>
-class test_check_ring_signature : private multi_tx_test_base<a_ring_size>
+namespace serialization
 {
-  static_assert(0 < a_ring_size, "ring_size must be greater than 0");
-
-public:
-  static const size_t loop_count = a_ring_size < 100 ? 100 : 10;
-  static const size_t ring_size = a_ring_size;
-
-  typedef multi_tx_test_base<a_ring_size> base_class;
-
-  bool init()
+  namespace detail
   {
-    using namespace cryptonote;
+    template <typename Archive, class T>
+    bool serialize_pair_element(Archive& ar, T& e)
+    {
+      return ::do_serialize(ar, e);
+    }
 
-    if (!base_class::init())
-      return false;
-
-    m_alice.generate();
-
-    std::vector<tx_destination_entry> destinations;
-    destinations.push_back(tx_destination_entry(this->m_source_amount, m_alice.get_keys().m_account_address));
-
-    if (!construct_tx(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, destinations, std::vector<uint8_t>(), m_tx, 0))
-      return false;
-
-    get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);
-
-    return true;
+    template <typename Archive>
+    bool serialize_pair_element(Archive& ar, uint64_t& e)
+    {
+      ar.serialize_varint(e);
+      return true;
+    }
   }
+}
 
-  bool test()
-  {
-    const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[0]);
-    return crypto::check_ring_signature(m_tx_prefix_hash, txin.k_image, this->m_public_key_ptrs, ring_size, m_tx.signatures[0].data());
-  }
+template <template <bool> class Archive, class F, class S>
+inline bool do_serialize(Archive<false>& ar, std::pair<F,S>& p)
+{
+  size_t cnt;
+  ar.begin_array(cnt);
+  if (!ar.stream().good())
+    return false;
+  if (cnt != 2)
+    return false;
 
-private:
-  cryptonote::account_base m_alice;
-  cryptonote::transaction m_tx;
-  crypto::hash m_tx_prefix_hash;
-};
+  if (!::serialization::detail::serialize_pair_element(ar, p.first))
+    return false;
+  if (!ar.stream().good())
+    return false;
+  ar.delimit_array();
+  if (!::serialization::detail::serialize_pair_element(ar, p.second))
+    return false;
+  if (!ar.stream().good())
+    return false;
+
+  ar.end_array();
+  return true;
+}
+
+template <template <bool> class Archive, class F, class S>
+inline bool do_serialize(Archive<true>& ar, std::pair<F,S>& p)
+{
+  ar.begin_array(2);
+  if (!ar.stream().good())
+    return false;
+  if(!::serialization::detail::serialize_pair_element(ar, p.first))
+    return false;
+  if (!ar.stream().good())
+    return false;
+  ar.delimit_array();
+  if(!::serialization::detail::serialize_pair_element(ar, p.second))
+    return false;
+  if (!ar.stream().good())
+    return false;
+  ar.end_array();
+  return true;
+}
+

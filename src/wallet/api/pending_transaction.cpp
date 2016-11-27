@@ -69,11 +69,19 @@ string PendingTransactionImpl::errorString() const
     return m_errorString;
 }
 
+std::vector<std::string> PendingTransactionImpl::txid() const
+{
+    std::vector<std::string> txid;
+    for (const auto &pt: m_pending_tx)
+        txid.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(pt.tx)));
+    return txid;
+}
+
 bool PendingTransactionImpl::commit()
 {
 
-    LOG_PRINT_L0("m_pending_tx size: " << m_pending_tx.size());
-    assert(m_pending_tx.size() == 1);
+    LOG_PRINT_L3("m_pending_tx size: " << m_pending_tx.size());
+
     try {
         while (!m_pending_tx.empty()) {
             auto & ptx = m_pending_tx.back();
@@ -128,10 +136,15 @@ uint64_t PendingTransactionImpl::dust() const
 uint64_t PendingTransactionImpl::fee() const
 {
     uint64_t result = 0;
-    for (const auto ptx : m_pending_tx) {
+    for (const auto &ptx : m_pending_tx) {
         result += ptx.fee;
     }
     return result;
+}
+
+uint64_t PendingTransactionImpl::txCount() const
+{
+    return m_pending_tx.size();
 }
 
 }

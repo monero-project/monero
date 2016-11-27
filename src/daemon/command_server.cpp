@@ -111,6 +111,11 @@ t_command_server::t_command_server(
     , "Print transaction pool (short format)"
     );
   m_command_lookup.set_handler(
+      "print_pool_stats"
+    , std::bind(&t_command_parser_executor::print_transaction_pool_stats, &m_parser, p::_1)
+    , "Print transaction pool statistics"
+    );
+  m_command_lookup.set_handler(
       "show_hr"
     , std::bind(&t_command_parser_executor::show_hash_rate, &m_parser, p::_1)
     , "Start showing hash rate"
@@ -171,11 +176,6 @@ t_command_server::t_command_server(
     , "limit <kB/s> - Set download limit"
     );
     m_command_lookup.set_handler(
-      "fast_exit"
-    , std::bind(&t_command_parser_executor::fast_exit, &m_parser, p::_1)
-    , "Exit"
-    );
-    m_command_lookup.set_handler(
       "out_peers"
     , std::bind(&t_command_parser_executor::out_peers, &m_parser, p::_1)
     , "Set max number of out peers"
@@ -219,6 +219,11 @@ t_command_server::t_command_server(
       "output_histogram"
     , std::bind(&t_command_parser_executor::output_histogram, &m_parser, p::_1)
     , "Print output histogram (amount, instances)"
+    );
+    m_command_lookup.set_handler(
+      "print_coinbase_tx_sum"
+    , std::bind(&t_command_parser_executor::print_coinbase_tx_sum, &m_parser, p::_1)
+    , "Print sum of coinbase transactions (start height, block count)"
     );
 }
 

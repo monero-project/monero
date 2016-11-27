@@ -40,12 +40,13 @@ public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language, bool testnet);
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet);
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet, uint64_t restoreHeight);
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
     std::vector<std::string> findWallets(const std::string &path);
     std::string errorString() const;
     void setDaemonHost(const std::string &hostname);
+    bool checkPayment(const std::string &address, const std::string &txid, const std::string &txkey, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const;
 
 private:
     WalletManagerImpl() {}

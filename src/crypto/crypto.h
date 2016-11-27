@@ -236,6 +236,6 @@ namespace crypto {
   }
 }
 
-CRYPTO_MAKE_COMPARABLE(public_key)
+CRYPTO_MAKE_HASHABLE(public_key)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)

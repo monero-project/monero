@@ -1101,7 +1101,9 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Do
   auto& al = doc.GetAllocator();
 
   val.AddMember("amount", toJsonValue<decltype(oac.amount)>(doc, oac.amount), al);
-  val.AddMember("count", toJsonValue<decltype(oac.count)>(doc, oac.count), al);
+  val.AddMember("total_count", toJsonValue<decltype(oac.total_count)>(doc, oac.total_count), al);
+  val.AddMember("unlocked_count", toJsonValue<decltype(oac.unlocked_count)>(doc, oac.unlocked_count), al);
+  val.AddMember("recent_count", toJsonValue<decltype(oac.recent_count)>(doc, oac.recent_count), al);
 
   return val;
 }
@@ -1119,8 +1121,14 @@ cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amoun
   OBJECT_HAS_MEMBER_OR_THROW(val, "amount")
   oac.amount = fromJsonValue<decltype(oac.amount)>(val["amount"]);
 
-  OBJECT_HAS_MEMBER_OR_THROW(val, "count")
-  oac.count = fromJsonValue<decltype(oac.count)>(val["count"]);
+  OBJECT_HAS_MEMBER_OR_THROW(val, "total_count")
+  oac.total_count = fromJsonValue<decltype(oac.total_count)>(val["total_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "unlocked_count")
+  oac.unlocked_count = fromJsonValue<decltype(oac.unlocked_count)>(val["unlocked_count"]);
+
+  OBJECT_HAS_MEMBER_OR_THROW(val, "recent_count")
+  oac.recent_count = fromJsonValue<decltype(oac.recent_count)>(val["recent_count"]);
 
 
   return oac;

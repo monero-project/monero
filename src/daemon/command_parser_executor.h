@@ -84,6 +84,8 @@ public:
 
   bool print_transaction_pool_short(const std::vector<std::string>& args);
 
+  bool print_transaction_pool_stats(const std::vector<std::string>& args);
+
   bool start_mining(const std::vector<std::string>& args);
 
   bool stop_mining(const std::vector<std::string>& args);
@@ -98,8 +100,6 @@ public:
 
   bool set_limit_down(const std::vector<std::string>& args);
 
-  bool fast_exit(const std::vector<std::string>& args);
-  
   bool out_peers(const std::vector<std::string>& args);
   
   bool start_save_graph(const std::vector<std::string>& args);
@@ -117,6 +117,8 @@ public:
   bool flush_txpool(const std::vector<std::string>& args);
 
   bool output_histogram(const std::vector<std::string>& args);
+
+  bool print_coinbase_tx_sum(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize

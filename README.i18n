@@ -19,7 +19,7 @@ To edit translations for Spanish:
 
   linguist translations/monero_es.ts
 
-To build translations after modiying them:
+To build translations after modifying them:
 
   ./utils/translations/build-translations.sh
 

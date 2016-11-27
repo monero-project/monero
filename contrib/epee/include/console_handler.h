@@ -155,6 +155,20 @@ namespace epee
         else if (0 < retval)
           return true;
       }
+#else
+      while (m_run.load(std::memory_order_relaxed))
+      {
+        int retval = ::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100);
+        switch (retval)
+        {
+          case WAIT_FAILED:
+            return false;
+          case WAIT_OBJECT_0:
+            return true;
+          default:
+            break;
+        }
+      }
 #endif
 
       return true;

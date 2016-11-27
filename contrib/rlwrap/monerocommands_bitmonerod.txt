@@ -2,7 +2,6 @@ ban
 bans
 diff
 exit
-fast_exit
 flush_txpool
 hard_fork_info
 help
@@ -20,6 +19,7 @@ print_height
 print_pl
 print_pool
 print_pool_sh
+print_pool_stats
 print_status
 print_tx
 q

@@ -39,6 +39,7 @@ set(unit_tests_sources
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
+  fee.cpp
   get_xtype_from_string.cpp
   json_serialization.cpp
   main.cpp
@@ -50,6 +51,7 @@ set(unit_tests_sources
   test_format_utils.cpp
   test_peerlist.cpp
   test_protocol_pack.cpp
+  thread_group.cpp
   hardfork.cpp
   unbound.cpp
   varint.cpp

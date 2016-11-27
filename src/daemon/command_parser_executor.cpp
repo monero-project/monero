@@ -222,6 +222,13 @@ bool t_command_parser_executor::print_transaction_pool_short(const std::vector<s
   return m_executor.print_transaction_pool_short();
 }
 
+bool t_command_parser_executor::print_transaction_pool_stats(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+
+  return m_executor.print_transaction_pool_stats();
+}
+
 bool t_command_parser_executor::start_mining(const std::vector<std::string>& args)
 {
   if(!args.size())
@@ -334,12 +341,6 @@ bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& a
   limit *= 1024;
 
   return m_executor.set_limit_down(limit);
-}
-
-bool t_command_parser_executor::fast_exit(const std::vector<std::string>& args)
-{
-	if (!args.empty()) return false;
-	return m_executor.fast_exit();
 }
 
 bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)
@@ -458,5 +459,27 @@ bool t_command_parser_executor::output_histogram(const std::vector<std::string>&
   return m_executor.output_histogram(min_count, max_count);
 }
 
+bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::string>& args)
+{
+  if(!args.size())
+  {
+    std::cout << "need block height parameter" << std::endl;
+    return false;
+  }
+  uint64_t height = 0;
+  uint64_t count = 0;
+  if(!epee::string_tools::get_xtype_from_string(height, args[0]))
+  {
+    std::cout << "wrong starter block height parameter" << std::endl;
+    return false;
+  }
+  if(args.size() >1 && !epee::string_tools::get_xtype_from_string(count, args[1]))
+  {
+    std::cout << "wrong count parameter" << std::endl;
+    return false;
+  }
+
+  return m_executor.print_coinbase_tx_sum(height, count);
+}
 
 } // namespace daemonize

@@ -373,7 +373,7 @@ public:
               invoke_response_handlers_guard.unlock();
 
               if(timer_cancelled)
-                response_handler->handle(m_current_head.m_command, buff_to_invoke, m_connection_context);
+                response_handler->handle(m_current_head.m_return_code, buff_to_invoke, m_connection_context);
             }
             else
             {

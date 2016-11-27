@@ -37,50 +37,12 @@ namespace rct {
 
     //Various key initialization functions
 
-    //Creates a zero scalar
-    void zero(key &zero) {
-        memset(&zero, 0, 32);
-    }
-
-    //Creates a zero scalar
-    key zero() {
-        static const key z = { {0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
-        return z;
-    }
-
-    //Creates a zero elliptic curve point
-    void identity(key &Id) {
-        Id[0] = (unsigned char)(0x01);
-        memset(Id.bytes+1, 0, 31);
-    }
-
-    //Creates a zero elliptic curve point
-    key identity() {
-        key Id;
-        Id[0] = (unsigned char)(0x01);
-        memset(Id.bytes+1, 0, 31);
-        return Id;
-    }
-
-    //copies a scalar or point
-    void copy(key &AA, const key &A) {
-        memcpy(&AA, &A, 32);
-    }
-
-    //copies a scalar or point
-    key copy(const key &A) {
-        key AA;
-        memcpy(&AA, &A, 32);
-        return AA;
-    }
-
-
     //initializes a key matrix;
     //first parameter is rows,
     //second is columns
-    keyM keyMInit(int rows, int cols) {
+    keyM keyMInit(size_t rows, size_t cols) {
         keyM rv(cols);
-        int i = 0;
+        size_t i = 0;
         for (i = 0 ; i < cols ; i++) {
             rv[i] = keyV(rows);
         }
@@ -107,11 +69,12 @@ namespace rct {
 
     //Generates a vector of secret key
     //Mainly used in testing
-    keyV skvGen(int rows ) {
+    keyV skvGen(size_t rows ) {
         keyV rv(rows);
-        int i = 0;
+        size_t i = 0;
+        crypto::rand(rows * sizeof(key), (uint8_t*)&rv[0]);
         for (i = 0 ; i < rows ; i++) {
-            skGen(rv[i]);
+            sc_reduce32(rv[i].bytes);
         }
         return rv;
     }
@@ -155,7 +118,7 @@ namespace rct {
     
     
     //generates a <secret , public> / Pedersen commitment but takes bH as input 
-    tuple<ctkey, ctkey> ctskpkGen(key bH) {
+    tuple<ctkey, ctkey> ctskpkGen(const key &bH) {
         ctkey sk, pk;
         skpkGen(sk.dest, pk.dest);
         skpkGen(sk.mask, pk.mask);
@@ -172,12 +135,12 @@ namespace rct {
         return mask;
     }
 
-    key commit(xmr_amount amount, key mask) {
-        mask = scalarmultBase(mask);
+    key commit(xmr_amount amount, const key &mask) {
+        key c = scalarmultBase(mask);
         key am = d2h(amount);
         key bH = scalarmultH(am);
-        addKeys(mask, mask, bH);
-        return mask;
+        addKeys(c, c, bH);
+        return c;
     }
 
     //generates a random uint long long (for testing)
@@ -320,7 +283,7 @@ namespace rct {
     //be careful these are also in crypto namespace
     //cn_fast_hash for arbitrary multiples of 32 bytes
     void cn_fast_hash(key &hash, const void * data, const std::size_t l) {
-        keccak((uint8_t *)data, l, hash.bytes, 32);
+        keccak((const uint8_t *)data, l, hash.bytes, 32);
     }
     
     void hash_to_scalar(key &hash, const void * data, const std::size_t l) {
@@ -330,7 +293,7 @@ namespace rct {
 
     //cn_fast_hash for a 32 byte key
     void cn_fast_hash(key & hash, const key & in) {
-        keccak((uint8_t *)in.bytes, 32, hash.bytes, 32);
+        keccak((const uint8_t *)in.bytes, 32, hash.bytes, 32);
     }
     
     void hash_to_scalar(key & hash, const key & in) {
@@ -341,7 +304,7 @@ namespace rct {
     //cn_fast_hash for a 32 byte key
     key cn_fast_hash(const key & in) {
         key hash;
-        keccak((uint8_t *)in.bytes, 32, hash.bytes, 32);
+        keccak((const uint8_t *)in.bytes, 32, hash.bytes, 32);
         return hash;
     }
     
@@ -354,7 +317,7 @@ namespace rct {
     //cn_fast_hash for a 128 byte unsigned char
     key cn_fast_hash128(const void * in) {
         key hash;
-        keccak((uint8_t *)in, 128, hash.bytes, 32);
+        keccak((const uint8_t *)in, 128, hash.bytes, 32);
         return hash;
     }
     
@@ -367,20 +330,13 @@ namespace rct {
     //cn_fast_hash for multisig purpose
     //This takes the outputs and commitments
     //and hashes them into a 32 byte sized key
-    key cn_fast_hash(ctkeyV PC) {
-        key rv = identity();
-        std::size_t l = (std::size_t)PC.size();
-        size_t i = 0, j = 0;
-        vector<char> m(l * 64);
-        for (i = 0 ; i < l ; i++) {
-            memcpy(&m[i * 64], &PC[i].dest, 32);
-            memcpy(&m[i * 64 + 32], &PC[i].mask, 32);
-        }
-        cn_fast_hash(rv, &m[0], 64*l);
+    key cn_fast_hash(const ctkeyV &PC) {
+        key rv;
+        cn_fast_hash(rv, &PC[0], 64*PC.size());
         return rv;
     }
     
-    key hash_to_scalar(ctkeyV PC) {
+    key hash_to_scalar(const ctkeyV &PC) {
         key rv = cn_fast_hash(PC);
         sc_reduce32(rv.bytes);
         return rv;
@@ -391,14 +347,8 @@ namespace rct {
    //put them in the key vector and it concatenates them
    //and then hashes them
    key cn_fast_hash(const keyV &keys) {
-       size_t l = keys.size();
-       vector<unsigned char> m(l * 32);
-       size_t i;
-       for (i = 0 ; i < l ; i++) {
-           memcpy(&m[i * 32], keys[i].bytes, 32);
-       }
        key rv;
-       cn_fast_hash(rv, &m[0], 32 * l);
+       cn_fast_hash(rv, &keys[0], keys.size() * sizeof(keys[0]));
        //dp(rv);
        return rv;
    }

@@ -31,7 +31,10 @@ set(common_sources
   command_line.cpp
   dns_utils.cpp
   util.cpp
-  i18n.cpp)
+  i18n.cpp
+  perf_timer.cpp
+  task_region.cpp
+  thread_group.cpp)
 
 if (STACK_TRACE)
   list(APPEND common_sources stack_trace.cpp)
@@ -53,11 +56,14 @@ set(common_private_headers
   util.h
   varint.h
   i18n.h
-  stack_trace.h)
+  perf_timer.h
+  stack_trace.h
+  task_region.h
+  thread_group.h)
 
-bitmonero_private_headers(common
+monero_private_headers(common
   ${common_private_headers})
-bitmonero_add_library(common
+monero_add_library(common
   ${common_sources}
   ${common_headers}
   ${common_private_headers})
@@ -73,5 +79,5 @@ target_link_libraries(common
   PRIVATE
     ${EXTRA_LIBRARIES})
 
-#bitmonero_install_headers(common
+#monero_install_headers(common
 #  ${common_headers})

@@ -27,18 +27,16 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(simplewallet_sources
-  simplewallet.cpp
-  password_container.cpp)
+  simplewallet.cpp)
 
 set(simplewallet_headers)
 
 set(simplewallet_private_headers
-  simplewallet.h
-  password_container.h)
+  simplewallet.h)
 
-bitmonero_private_headers(simplewallet
+monero_private_headers(simplewallet
   ${simplewallet_private_headers})
-bitmonero_add_executable(simplewallet
+monero_add_executable(simplewallet
   ${simplewallet_sources}
   ${simplewallet_headers}
   ${simplewallet_private_headers})

@@ -96,6 +96,8 @@ public:
 
   bool print_transaction_pool_short();
 
+  bool print_transaction_pool_stats();
+
   bool start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet);
 
   bool stop_mining();
@@ -116,8 +118,6 @@ public:
 
   bool set_limit_down(int limit);
 
-  bool fast_exit();
-  
   bool out_peers(uint64_t limit);
   
   bool start_save_graph();
@@ -135,6 +135,8 @@ public:
   bool flush_txpool(const std::string &txid);
 
   bool output_histogram(uint64_t min_count, uint64_t max_count);
+
+  bool print_coinbase_tx_sum(uint64_t height, uint64_t count);
 };
 
 } // namespace daemonize

@@ -34,9 +34,9 @@ set(serialization_headers)
 set(serialization_private_headers
   json_object.h)
 
-bitmonero_private_headers(serialization
+monero_private_headers(serialization
   ${serialization_private_headers})
-bitmonero_add_library(serialization
+monero_add_library(serialization
   ${serialization_sources}
   ${serialization_headers}
   ${serialization_private_headers})

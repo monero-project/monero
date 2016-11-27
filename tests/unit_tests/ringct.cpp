@@ -246,7 +246,6 @@ TEST(ringct, range_proofs_with_fee)
         //add txn fee for 1
         //has no corresponding destination..
         amounts.push_back(1);
-        amount_keys.push_back(hash_to_scalar(zero()));
 
         //add output for 12500
         amounts.push_back(12500);
@@ -356,10 +355,12 @@ static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amount
 
     for (int n = 0; n < n_outputs; ++n) {
         amounts.push_back(output_amounts[n]);
-        amount_keys.push_back(rct::hash_to_scalar(rct::zero()));
         skpkGen(Sk, Pk);
         if (n < n_outputs - 1 || !last_is_fee)
+        {
           destinations.push_back(Pk);
+          amount_keys.push_back(rct::hash_to_scalar(rct::zero()));
+        }
     }
 
     return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);;

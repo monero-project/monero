@@ -34,13 +34,13 @@ if (WIN32 OR STATIC)
   add_definitions(-DMINIUPNP_STATICLIB)
 endif ()
 
-function (bitmonero_private_headers group)
+function (monero_private_headers group)
   source_group("${group}\\Private"
     FILES
       ${ARGN})
 endfunction ()
 
-function (bitmonero_install_headers subdir)
+function (monero_install_headers subdir)
   install(
     FILES       ${ARGN}
     DESTINATION "include/${subdir}"
@@ -58,7 +58,7 @@ function (enable_stack_trace target)
   endif()
 endfunction()
 
-function (bitmonero_add_executable name)
+function (monero_add_executable name)
   source_group("${name}"
     FILES
       ${ARGN})
@@ -77,7 +77,7 @@ function (bitmonero_add_executable name)
   enable_stack_trace("${name}")
 endfunction ()
 
-function (bitmonero_add_library name)
+function (monero_add_library name)
   source_group("${name}"
     FILES
       ${ARGN})

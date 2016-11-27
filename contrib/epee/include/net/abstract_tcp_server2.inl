@@ -727,7 +727,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     m_address = address;
     // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
     boost::asio::ip::tcp::resolver resolver(io_service_);
-    boost::asio::ip::tcp::resolver::query query(address, boost::lexical_cast<std::string>(port));
+    boost::asio::ip::tcp::resolver::query query(address, boost::lexical_cast<std::string>(port), boost::asio::ip::tcp::resolver::query::canonical_name);
     boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
     acceptor_.open(endpoint.protocol());
     acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
@@ -827,7 +827,7 @@ POP_WARNINGS
       }
       CRITICAL_REGION_END();
       // Wait for all threads in the pool to exit.
-      if (wait)  // && ! ::cryptonote::core::get_is_stopping()) // TODO fast_exit
+      if (wait)
       {
 		_fact("JOINING all threads");
         for (std::size_t i = 0; i < m_threads.size(); ++i) {
@@ -897,10 +897,6 @@ POP_WARNINGS
   template<class t_protocol_handler>
   void boosted_tcp_server<t_protocol_handler>::send_stop_signal()
   {
-    if (::cryptonote::core::get_fast_exit() == true)
-    {
-		detach_threads();
-	}
     m_stop_signal_sent = true;
     TRY_ENTRY();
     connections_mutex.lock();
@@ -974,7 +970,7 @@ POP_WARNINGS
     
     //////////////////////////////////////////////////////////////////////////
     boost::asio::ip::tcp::resolver resolver(io_service_);
-    boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), adr, port);
+    boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), adr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
     boost::asio::ip::tcp::resolver::iterator iterator = resolver.resolve(query);
     boost::asio::ip::tcp::resolver::iterator end;
     if(iterator == end)
@@ -1078,7 +1074,7 @@ POP_WARNINGS
     
     //////////////////////////////////////////////////////////////////////////
     boost::asio::ip::tcp::resolver resolver(io_service_);
-    boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), adr, port);
+    boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), adr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
     boost::asio::ip::tcp::resolver::iterator iterator = resolver.resolve(query);
     boost::asio::ip::tcp::resolver::iterator end;
     if(iterator == end)
@@ -1144,14 +1140,6 @@ POP_WARNINGS
     return true;
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::connect_async", false);
   }
-  //---------------------------------------------------------------------------------
-  template<class t_protocol_handler>
-  void  boosted_tcp_server<t_protocol_handler>::detach_threads()
-  {
-	for (auto thread : m_threads)
-		thread->detach();
-  }
-  
   
 } // namespace
 } // namespace

@@ -2,16 +2,36 @@
 
 Copyright (c) 2014-2016, The Monero Project
 
-[![Build Status](https://travis-ci.org/monero-project/monero.svg?branch=master)](https://travis-ci.org/monero-project/monero)
-[![Coverage Status](https://coveralls.io/repos/github/monero-project/monero/badge.svg?branch=master)](https://coveralls.io/github/monero-project/monero?branch=master)
-
 ## Development Resources
 
 - Web: [getmonero.org](https://getmonero.org)
 - Forum: [forum.getmonero.org](https://forum.getmonero.org)
 - Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
 - GitHub: [https://github.com/monero-project/monero](https://github.com/monero-project/monero)
-- IRC: [#monero-dev on Freenode](irc://chat.freenode.net/#monero-dev)
+- IRC: [#monero-dev on Freenode](http://webchat.freenode.net/?randomnick=1&channels=%23monero-dev&prompt=1&uio=d4)
+
+## Build
+
+| Operating System      | Processor | Status |
+| --------------------- | -------- |--------|
+| Ubuntu 16.04          |  i686    | [![Ubuntu 16.04 i686](https://build.getmonero.org/png?builder=monero-static-ubuntu-i686)](https://build.getmonero.org/builders/monero-static-ubuntu-i686)
+| Ubuntu 16.04          |  amd64   | [![Ubuntu 16.04 amd64](https://build.getmonero.org/png?builder=monero-static-ubuntu-amd64)](https://build.getmonero.org/builders/monero-static-ubuntu-amd64)
+| Ubuntu 16.04          |  armv7   | [![Ubuntu 16.04 armv7](https://build.getmonero.org/png?builder=monero-static-ubuntu-arm7)](https://build.getmonero.org/builders/monero-static-ubuntu-arm7)
+| Debian Stable         |  armv8   | [![Debian armv8](https://build.getmonero.org/png?builder=monero-static-debian-armv8)](https://build.getmonero.org/builders/monero-static-debian-armv8)
+| OSX 10.10             |  amd64   | [![OSX 10.10 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.10)](https://build.getmonero.org/builders/monero-static-osx-10.10)
+| OSX 10.11             |  amd64   | [![OSX 10.11 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.11)](https://build.getmonero.org/builders/monero-static-osx-10.11)
+| OSX 10.12             |  amd64   | [![OSX 10.12 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.12)](https://build.getmonero.org/builders/monero-static-osx-10.12)
+| FreeBSD 10.3          |  amd64   | [![FreeBSD 10.3 amd64](https://build.getmonero.org/png?builder=monero-static-freebsd64)](https://build.getmonero.org/builders/monero-static-freebsd64)
+| Windows (MSYS2/MinGW) |  i686    | [![Windows (MSYS2/MinGW) i686](https://build.getmonero.org/png?builder=monero-static-win32)](https://build.getmonero.org/builders/monero-static-win32)
+| Windows (MSYS2/MinGW) |  amd64   | [![Windows (MSYS2/MinGW) amd64](https://build.getmonero.org/png?builder=monero-static-win64)](https://build.getmonero.org/builders/monero-static-win64)
+
+## Coverage
+
+| Type      | Status |
+|-----------|--------|
+| Coverity  | [![Coverity Status](https://scan.coverity.com/projects/9657/badge.svg)](https://scan.coverity.com/projects/9657/)
+| Coveralls | [![Coveralls Status](https://coveralls.io/repos/github/monero-project/monero/badge.svg?branch=master)](https://coveralls.io/github/monero-project/monero?branch=master)
+| License   | [![License](https://img.shields.io/badge/license-BSD3-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 ## Introduction
 
@@ -19,7 +39,7 @@ Monero is a private, secure, untraceable, decentralised digital currency. You ar
 
 **Privacy:** Monero uses a cryptographically sound system to allow you to send and receive funds without your transactions being easily revealed on the blockchain (the ledger of transactions that everyone has). This ensures that your purchases, receipts, and all transfers remain absolutely private by default.
 
-**Security:** Using the power of a distributed peer-to-peer consensus network, every transaction on the network is cryptographically secured. Individual wallets have a 24 word mnemonic seed that is only displayed once, and can be written down to backup the wallet. Wallet files are encrypted with a passphrase to ensure they are useless if stolen.
+**Security:** Using the power of a distributed peer-to-peer consensus network, every transaction on the network is cryptographically secured. Individual wallets have a 25 word mnemonic seed that is only displayed once, and can be written down to backup the wallet. Wallet files are encrypted with a passphrase to ensure they are useless if stolen.
 
 **Untraceability:** By taking advantage of ring signatures, a special property of a certain type of cryptography, Monero is able to ensure that transactions are not only untraceable, but have an optional measure of ambiguity that ensures that transactions cannot easily be tied back to an individual user or computer.
 
@@ -56,6 +76,20 @@ There are also several mining pools that kindly donate a portion of their fees, 
 ## License
 
 See [LICENSE](LICENSE).
+
+## Monero software updates and consensus protocol changes (hard forking)
+
+Monero uses a hardforking mechanism to implement new features which requires that 
+users of Monero software run current versions and update their software on a 
+regular schedule. Here is the current schedule, versions, and compatability.
+Dates are provided in the format YYYYMMDD. 
+
+
+| Date              | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
+| ----------------- | ----------------- | ---------------------- | -------------------------- | ------------------ |
+| 2016-09-21        | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
+| 2017-01-05        | v4                | v0.9.4                 | v0.10.0                    | Allow normal and RingCT transactions | 
+| 2017-09-21        | v5                | v0.10.0                | v0.10.0                    | Allow only RingCT transactions      |
 
 ## Installing Monero from a Package
 
@@ -111,7 +145,7 @@ library archives (`.a`).
 | Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | documentation  |
 
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
-build the library binary manually.
+build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 
 ### Build instructions
 
@@ -131,7 +165,11 @@ invokes cmake commands as needed.
     this to be worthwhile, the machine should have one core and about 2GB of RAM
     available per thread.
 
-* The resulting executables can be found in `build/release/bin`.
+* The resulting executables can be found in `build/release/bin`
+
+* Add `PATH="$PATH:$HOME/monero/build/release/bin"` to `.profile`
+
+* Run Monero with `monerod --detach`
 
 * **Optional**: build and run the test suite to verify the binaries:
 
@@ -151,6 +189,50 @@ invokes cmake commands as needed.
 
         HAVE_DOT=YES doxygen Doxyfile
 
+#### On the Raspberry Pi
+
+Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from https://www.raspberrypi.org/downloads/raspbian/
+
+* `apt-get update` and `apt-get upgrade` to install all of the latest software
+
+* Install the dependencies for Monero except libunwind and libboost-all-dev
+
+* Increase the system swap size
+	
+	sudo /etc/init.d/dphys-swapfile stop
+	sudo nano /etc/dphys-swapfile
+	CONF_SWAPSIZE=1024
+	sudo /etc/init.d/dphys-swapfile start
+
+* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install)
+
+	cd
+	wget https://sourceforge.net/projects/boost/files/boost/1.62.0/boost_1_62_0.tar.bz2
+	tar xvfo boost_1_62_0.tar.bz2	
+	cd boost_1_62_0
+	./bootstrap.sh
+	sudo ./b2
+
+* Wait ~8 hours
+
+	sudo ./bjam install
+
+* Wait ~4 hours
+
+* Change to the root of the source code directory and build:
+
+        cd monero
+        make release
+
+* Wait ~4 hours
+
+* The resulting executables can be found in `build/release/bin`
+
+* Add `PATH="$PATH:$HOME/monero/build/release/bin"` to `.profile`
+
+* Run Monero with `monerod --detach`
+
+* You may wish to reduce the size of the swap file after the build has finished, and delete the boost directory from your home directory
 
 #### On Windows:
 
@@ -228,9 +310,9 @@ By default, in either dynamically or statically linked builds, binaries target t
 
 * ```make release-static-64``` builds binaries on Linux on x86_64 portable across POSIX systems on x86_64 processors
 * ```make release-static-32``` builds binaries on Linux on x86_64 or i686 portable across POSIX systems on i686 processors
-* ```make release-static-arm8``` builds binaries on Linux on armv8 portable across POSIX systems on armv8 processors
-* ```make release-static-arm7``` builds binaries on Linux on armv7 portable across POSIX systems on armv7 processors
-* ```make release-static-arm6``` builds binaries on Linux on armv7 or armv6 portable across POSIX systems on armv6 processors, such as the Raspberry Pi
+* ```make release-static-armv8``` builds binaries on Linux portable across POSIX systems on armv8 processors
+* ```make release-static-armv7``` builds binaries on Linux portable across POSIX systems on armv7 processors
+* ```make release-static-armv6``` builds binaries on Linux portable across POSIX systems on armv6 processors
 * ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
 * ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
 
@@ -292,3 +374,24 @@ While monerod and monero-wallet-cli do not use readline directly, most of the fu
 
 Note: rlwrap will save things like your seed and private keys, if you supply them on prompt. You may want to not use rlwrap when you use simplewallet to restore from seed, etc.
 
+# Contributing
+
+If you want to help out, see CONTRIBUTING for a set of guidelines.
+
+# Debugging
+
+This section contains general instructions for debugging failed installs or problems encountered with Monero. First ensure you are running the latest version built from the github repo.
+
+## LMDB
+
+Instructions for debugging suspected blockchain corruption as per @HYC
+
+There is an `mdb_stat` command in the LMDB source that can print statistics about the database but it's not routinely built. This can be built with the following command:
+
+`cd ~/monero/external/db_drivers/liblmdb && make`
+
+The output of `mdb_stat -ea <path to blockchain dir>` will indicate inconsistencies in the blocks, block_heights and block_info table.
+
+The output of `mdb_dump -s blocks <path to blockchain dir>` and `mdb_dump -s block_info <path to blockchain dir>` is useful for indicating whether blocks and block_info contain the same keys.
+
+These records are dumped as hex data, where the first line is the key and the second line is the data.

@@ -1309,10 +1309,11 @@ public:
    *
    * @param amounts optional set of amounts to lookup
    * @param unlocked whether to restrict count to unlocked outputs
+   * @param recent_cutoff timestamp to determine whether an output is recent
    *
    * @return a set of amount/instances
    */
-  virtual std::map<uint64_t, uint64_t> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked) const = 0;
+  virtual std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const = 0;
 
   /**
    * @brief is BlockchainDB in read-only mode?

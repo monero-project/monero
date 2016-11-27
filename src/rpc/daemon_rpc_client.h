@@ -102,6 +102,7 @@ class DaemonRPCClient
         uint64_t min_count,
         uint64_t max_count,
         bool unlocked,
+        uint64_t recent_cutoff,
         std::vector<output_amount_count>& histogram,
         std::string& error_details);
 

@@ -29,6 +29,10 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "misc_log_ex.h"
+#include "common/perf_timer.h"
+#include "common/task_region.h"
+#include "common/thread_group.h"
+#include "common/util.h"
 #include "rctSigs.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 
@@ -36,13 +40,12 @@ using namespace crypto;
 using namespace std;
 
 namespace rct {
-    
     //Schnorr Non-linkable
     //Gen Gives a signature (L1, s1, s2) proving that the sender knows "x" such that xG = one of P1 or P2
     //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
     //These are called in the below ASNL sig generation    
     
-    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, int index) {
+    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, unsigned int index) {
         key c1, c2, L2;
         key a = skGen();
         if (index == 0) {
@@ -94,7 +97,7 @@ namespace rct {
         asnlSig rv;
         rv.s = zero();
         for (j = 0; j < ATOMS; j++) {
-            GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], (int)indices[j]);
+            GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], indices[j]);
             sc_add(rv.s.bytes, rv.s.bytes, s1[j].bytes);
         }
         return rv;
@@ -107,6 +110,7 @@ namespace rct {
     //   an x[i] such that x[i]G = one of P1[i] or P2[i]
     // Ver Verifies the signer knows a key for one of P1[i], P2[i] at each i    
     bool VerASNL(const key64 P1, const key64 P2, const asnlSig &as) {
+        PERF_TIMER(VerASNL);
         DP("Verifying Aggregate Schnorr Non-linkable Ring Signature\n");
         key LHS = identity();
         key RHS = scalarmultBase(as.s);
@@ -150,7 +154,7 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly        
-    mgSig MLSAG_Gen(key message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows) {
+    mgSig MLSAG_Gen(const key &message, const keyM & pk, const keyV & xx, const unsigned int index, size_t dsRows) {
         mgSig rv;
         size_t cols = pk.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 2, "Error! What is c if cols = 1!");
@@ -239,7 +243,7 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly            
-    bool MLSAG_Ver(key message, const keyM & pk, const mgSig & rv, size_t dsRows) {
+    bool MLSAG_Ver(const key &message, const keyM & pk, const mgSig & rv, size_t dsRows) {
 
         size_t cols = pk.size();
         CHECK_AND_ASSERT_MES(cols >= 2, false, "Error! What is c if cols = 1!");
@@ -331,6 +335,7 @@ namespace rct {
     //   mask is a such that C = aG + bH, and b = amount
     //verRange verifies that \sum Ci = C and that each Ci is a commitment to 0 or 2^i
     bool verRange(const key & C, const rangeSig & as) {
+        PERF_TIMER(verRange);
         key64 CiH;
         int i = 0;
         key Ctmp = identity();
@@ -348,6 +353,7 @@ namespace rct {
     key get_pre_mlsag_hash(const rctSig &rv)
     {
       keyV hashes;
+      hashes.reserve(3);
       hashes.push_back(rv.message);
       crypto::hash h;
 
@@ -361,6 +367,7 @@ namespace rct {
       hashes.push_back(hash2rct(h));
 
       keyV kv;
+      kv.reserve((64*3+1) * rv.p.rangeSigs.size());
       for (auto r: rv.p.rangeSigs)
       {
         for (size_t n = 0; n < 64; ++n)
@@ -467,6 +474,7 @@ namespace rct {
     //Ver:    
     //   verifies the above sig is created corretly
     bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey, const key &message) {
+        PERF_TIMER(verRctMG);
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_MES(cols >= 1, false, "Empty pubs");
@@ -505,6 +513,7 @@ namespace rct {
     //This does a simplified version, assuming only post Rct
     //inputs
     bool verRctMGSimple(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C) {
+            PERF_TIMER(verRctMGSimple);
             //setup vars
             size_t rows = 1;
             size_t cols = pubs.size();
@@ -520,6 +529,7 @@ namespace rct {
             //DP(C);
             return MLSAG_Ver(message, M, mg, rows);
     }
+
 
     //These functions get keys from blockchain
     //replace these when connecting blockchain
@@ -583,6 +593,7 @@ namespace rct {
     //   Thus the amounts vector will be "one" longer than the destinations vectort
     rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, unsigned int index, ctkeyV &outSk) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
+        CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
         CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
         for (size_t n = 0; n < mixRing.size(); ++n) {
           CHECK_AND_ASSERT_THROW_MES(mixRing[n].size() == inSk.size(), "Bad mixRing size");
@@ -644,6 +655,7 @@ namespace rct {
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
+        CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
         CHECK_AND_ASSERT_THROW_MES(index.size() == inSk.size(), "Different number of index/inSk");
         CHECK_AND_ASSERT_THROW_MES(mixRing.size() == inSk.size(), "Different number of mixRing/inSk");
         for (size_t n = 0; n < mixRing.size(); ++n) {
@@ -729,6 +741,7 @@ namespace rct {
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     bool verRct(const rctSig & rv) {
+        PERF_TIMER(verRct);
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "verRct called on non-full rctSig");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
@@ -737,17 +750,25 @@ namespace rct {
         // some rct ops can throw
         try
         {
-          size_t i = 0;
-          bool tmp;
-          DP("range proofs verified?");
-          for (i = 0; i < rv.outPk.size(); i++) {
-              tmp = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-              DP(tmp);
-              if (!tmp) {
-                LOG_ERROR("Range proof verification failed for input " << i);
-                return false;
-              }
+          std::deque<bool> results(rv.outPk.size(), false);
+          tools::thread_group threadpool(tools::thread_group::optimal_with_max(rv.outPk.size()));
+
+          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+            DP("range proofs verified?");
+            for (size_t i = 0; i < rv.outPk.size(); i++) {
+              region.run([&, i] {
+                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+              });
+            }
+          });
+
+          for (size_t i = 0; i < rv.outPk.size(); ++i) {
+            if (!results[i]) {
+              LOG_ERROR("Range proof verified failed for input " << i);
+              return false;
+            }
           }
+
           //compute txn fee
           key txnFeeKey = scalarmultH(d2h(rv.txnFee));
           bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
@@ -769,7 +790,7 @@ namespace rct {
     //ver RingCT simple
     //assumes only post-rct style inputs (at least for max anonymity)
     bool verRctSimple(const rctSig & rv) {
-        size_t i = 0;
+        PERF_TIMER(verRctSimple);
 
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
         CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
@@ -777,29 +798,58 @@ namespace rct {
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
         CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
 
+        const size_t threads = std::max(rv.outPk.size(), rv.mixRing.size());
+
+        std::deque<bool> results(threads);
+        tools::thread_group threadpool(tools::thread_group::optimal_with_max(threads));
+
+        results.clear();
+        results.resize(rv.outPk.size());
+        tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+          for (size_t i = 0; i < rv.outPk.size(); i++) {
+            region.run([&, i] {
+                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+            });
+          }
+        });
+
+        for (size_t i = 0; i < results.size(); ++i) {
+          if (!results[i]) {
+            LOG_ERROR("Range proof verified failed for input " << i);
+            return false;
+          }
+        }
+
         key sumOutpks = identity();
-        for (i = 0; i < rv.outPk.size(); i++) {
-            if (!verRange(rv.outPk[i].mask, rv.p.rangeSigs[i])) {
-                LOG_ERROR("Range proof verified failed for input " << i);
-                return false;
-            }
+        for (size_t i = 0; i < rv.outPk.size(); i++) {
             addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
         }
         DP(sumOutpks);
         key txnFeeKey = scalarmultH(d2h(rv.txnFee));
         addKeys(sumOutpks, txnFeeKey, sumOutpks);
 
-        bool tmpb = false;
         key message = get_pre_mlsag_hash(rv);
+
+        results.clear();
+        results.resize(rv.mixRing.size());
+        tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+          for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
+            region.run([&, i] {
+              results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
+            });
+          }
+        });
+
+        for (size_t i = 0; i < results.size(); ++i) {
+          if (!results[i]) {
+            LOG_ERROR("verRctMGSimple failed for input " << i);
+            return false;
+          }
+        }
+
         key sumPseudoOuts = identity();
-        for (i = 0 ; i < rv.mixRing.size() ; i++) {
-            tmpb = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
+        for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
             addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
-            DP(tmpb);
-            if (!tmpb) {
-                LOG_ERROR("verRctMGSimple failed for input " << i);
-                return false;
-            }
         }
         DP(sumPseudoOuts);
         
