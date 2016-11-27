@@ -157,7 +157,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   }
 
   if (daemon_address.empty())
-    daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
+    daemon_address = std::string("") + daemon_host + ":" + std::to_string(daemon_port);
 
   std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet, restricted));
   wallet->init(daemon_address);
@@ -472,7 +472,7 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = daemon_address;
 
-  m_daemon.connect("localhost", "31337");
+  m_daemon.connect(daemon_address);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const
@@ -2059,7 +2059,6 @@ bool wallet2::prepare_file_names(const std::string& file_path)
 bool wallet2::check_connection(bool *same_version)
 {
   //TODO: zmq rpc connection check
-
   if (same_version)
   {
     uint32_t remote_version;
@@ -2067,8 +2066,12 @@ bool wallet2::check_connection(bool *same_version)
 
     bool r = m_daemon.getRPCVersion(remote_version, error_details);
     if (!r || !error_details.empty())
+    {
+      LOG_ERROR(std::string("Error in wallet2::check_connection -- ") + error_details);
       *same_version = false;
+    }
     else
+      LOG_PRINT_L0(std::string("") + "Our rpc version: " + boost::lexical_cast<std::string>(cryptonote::rpc::DAEMON_RPC_VERSION) + ", remote version: " + boost::lexical_cast<std::string>(remote_version));
       *same_version = (remote_version == cryptonote::rpc::DAEMON_RPC_VERSION);
   }
 

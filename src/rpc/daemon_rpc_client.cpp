@@ -42,6 +42,11 @@ DaemonRPCClient::~DaemonRPCClient()
 {
 }
 
+void DaemonRPCClient::connect(const std::string& address_with_port)
+{
+  zmq_client.connect(address_with_port);
+}
+
 void DaemonRPCClient::connect(const std::string& addr, const std::string& port)
 {
   zmq_client.connect(addr, port);

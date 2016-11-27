@@ -64,12 +64,15 @@ void ZmqServer::serve()
       {
         std::string message_string(reinterpret_cast<const char *>(message.data()), message.size());
 
+        LOG_PRINT_L0(std::string("Received RPC request: \"") + message_string + "\"");
+
         std::string response = handler.handle(message_string);
 
         zmq::message_t reply(response.size());
         memcpy((void *) reply.data(), response.c_str(), response.size());
 
         socket->send(reply);
+        LOG_PRINT_L0(std::string("Sent RPC reply: \"") + response + "\"");
       }
 
       boost::this_thread::sleep_for(boost::chrono::milliseconds(5));

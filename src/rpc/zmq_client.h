@@ -42,6 +42,7 @@ class ZmqClient
     ZmqClient();
     ~ZmqClient();
 
+    void connect(const std::string& address_with_port);
     void connect(const std::string& address, const std::string& port);
 
     // timeout of 0 means wait forever

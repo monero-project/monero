@@ -27,6 +27,8 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "zmq_client.h"
+#include "../../contrib/epee/include/misc_log_ex.h"
+#include "../../contrib/epee/include/include_base_utils.h"
 
 namespace cryptonote
 {
@@ -47,21 +49,34 @@ ZmqClient::~ZmqClient()
   }
 }
 
-void ZmqClient::connect(const std::string& address, const std::string& port)
+void ZmqClient::connect(const std::string& address_with_port)
 {
+  zmq::socket_t *new_socket;
+  std::string addr_prefix("tcp://");
+  std::string connect_address = addr_prefix + address_with_port;
   try
   {
-    std::string addr_prefix("tcp://");
+    new_socket = new zmq::socket_t(context, ZMQ_REQ);
 
-    zmq::socket_t *socket = new zmq::socket_t(context, ZMQ_REQ);
-
-    std::string connect_address = addr_prefix + address + std::string(":") + port;
-    socket->connect(connect_address.c_str());
-    req_socket = socket;
+    new_socket->connect(connect_address.c_str());
+    LOG_PRINT_L0(std::string("Created ZMQ socket at: ") + connect_address);
+    req_socket = new_socket;
   }
   catch (...)
   {
+    if (new_socket)
+    {
+      delete new_socket;
+    }
+    LOG_ERROR(std::string("Failed to connect to ZMQ RPC endpoint at ") + connect_address);
+    throw;
   }
+}
+
+void ZmqClient::connect(const std::string& address, const std::string& port)
+{
+  std::string address_with_port = address + std::string(":") + port;
+  connect(address_with_port);
 }
 
 std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms)
@@ -75,6 +90,7 @@ std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms
   zmq::message_t request_message(request.size());
   memcpy((void *) request_message.data(), request.c_str(), request.size());
 
+  LOG_PRINT_L0(std::string("Sending ZMQ RPC request: \"") + request + "\"");
   req_socket->send(request_message);
 
   std::string response;
