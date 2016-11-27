@@ -29,6 +29,9 @@
 #pragma once
 
 #include <boost/thread/thread.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/variables_map.hpp>
+#include "common/command_line.h"
 
 #include <zmq.hpp>
 #include <string>
@@ -51,10 +54,12 @@ class ZmqServer
 
     ~ZmqServer();
 
+    static void init_options(boost::program_options::options_description& desc);
+
     void serve();
 
-    void addIPCSocket(std::string address, std::string port);
-    void addTCPSocket(std::string address, std::string port);
+    bool addIPCSocket(std::string address, std::string port);
+    bool addTCPSocket(std::string address, std::string port);
 
     void run();
     void stop();

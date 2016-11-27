@@ -77,7 +77,7 @@ void ZmqServer::serve()
   }
 }
 
-void ZmqServer::addIPCSocket(std::string address, std::string port)
+bool ZmqServer::addIPCSocket(std::string address, std::string port)
 {
   try
   {
@@ -91,10 +91,12 @@ void ZmqServer::addIPCSocket(std::string address, std::string port)
   }
   catch (...)
   {
+    return false;
   }
+  return true;
 }
 
-void ZmqServer::addTCPSocket(std::string address, std::string port)
+bool ZmqServer::addTCPSocket(std::string address, std::string port)
 {
   try
   {
@@ -108,7 +110,9 @@ void ZmqServer::addTCPSocket(std::string address, std::string port)
   }
   catch (...)
   {
+    return false;
   }
+  return true;
 }
 
 void ZmqServer::run()

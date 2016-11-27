@@ -83,7 +83,18 @@ t_daemon::t_daemon(
     boost::program_options::variables_map const & vm
   )
   : mp_internals{new t_internals{vm}}
-{}
+{
+  bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+  if (testnet)
+  {
+    zmq_rpc_bind_port = command_line::get_arg(vm, daemon_args::arg_zmq_testnet_rpc_bind_port);
+  }
+  else
+  {
+    zmq_rpc_bind_port = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_port);
+  }
+  zmq_rpc_bind_address = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_ip);
+}
 
 t_daemon::~t_daemon() = default;
 
@@ -133,7 +144,20 @@ bool t_daemon::run(bool interactive)
     cryptonote::rpc::DaemonHandler rpc_daemon_handler(mp_internals->core.get(), mp_internals->p2p.get());
     cryptonote::rpc::ZmqServer zmq_server(rpc_daemon_handler);
 
-    zmq_server.addTCPSocket("*", "31337");
+    if (!zmq_server.addTCPSocket(zmq_rpc_bind_address, zmq_rpc_bind_port))
+    {
+      LOG_ERROR(std::string("Failed to add TCP Socket (") + zmq_rpc_bind_address
+          + ":" + zmq_rpc_bind_port + ") to ZMQ RPC Server");
+
+      if (interactive)
+      {
+        rpc_commands->stop_handling();
+      }
+
+      mp_internals->rpc.stop();
+
+      return false;
+    }
 
     LOG_PRINT("Starting ZMQ server...", LOG_LEVEL_0);
     zmq_server.run();
