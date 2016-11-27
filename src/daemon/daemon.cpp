@@ -159,10 +159,11 @@ bool t_daemon::run(bool interactive)
       return false;
     }
 
-    LOG_PRINT("Starting ZMQ server...", LOG_LEVEL_0);
+    LOG_PRINT_L0("Starting ZMQ server...");
     zmq_server.run();
 
-    LOG_PRINT("ZMQ server started!", LOG_LEVEL_0);
+    LOG_PRINT_L0(std::string("ZMQ server started at ") + zmq_rpc_bind_address
+          + ":" + zmq_rpc_bind_port + ".");
 
     mp_internals->p2p.run(); // blocks until p2p goes down
 

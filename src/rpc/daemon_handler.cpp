@@ -700,10 +700,10 @@ namespace rpc
       // if none of the request types matches
       if (resp_message == NULL)
       {
-        return BAD_REQUEST(DAEMON_RPC_VERSION, request_type, req_full.getID());
+        return BAD_REQUEST(request_type, req_full.getID());
       }
 
-      FullMessage resp_full = FullMessage::responseMessage(req_full.getVersion(), resp_message, req_full.getID());
+      FullMessage resp_full = FullMessage::responseMessage(resp_message, req_full.getID());
 
       std::string response = resp_full.getJson();
       delete resp_message;
@@ -720,7 +720,7 @@ namespace rpc
         delete resp_message;
       }
 
-      return BAD_JSON(DAEMON_RPC_VERSION, e.what());
+      return BAD_JSON(e.what());
     }
   }
 

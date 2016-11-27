@@ -75,6 +75,7 @@ namespace rpc
 
       std::string status;
       std::string error_details;
+      uint32_t rpc_version;
   };
 
   class FullMessage
@@ -92,8 +93,6 @@ namespace rpc
 
       std::string getRequestType() const;
 
-      int getVersion() const;
-
       rapidjson::Value& getMessage();
 
       rapidjson::Value getMessageCopy();
@@ -104,25 +103,25 @@ namespace rpc
 
       cryptonote::rpc::error getError();
 
-      static FullMessage requestMessage(int version, const std::string& request, Message* message);
-      static FullMessage requestMessage(int version, const std::string& request, Message* message, rapidjson::Value& id);
+      static FullMessage requestMessage(const std::string& request, Message* message);
+      static FullMessage requestMessage(const std::string& request, Message* message, rapidjson::Value& id);
 
-      static FullMessage responseMessage(int version, Message* message);
-      static FullMessage responseMessage(int version, Message* message, rapidjson::Value& id);
+      static FullMessage responseMessage(Message* message);
+      static FullMessage responseMessage(Message* message, rapidjson::Value& id);
     private:
 
-      FullMessage(int version, const std::string& request, Message* message);
-      FullMessage(int version, Message* message);
+      FullMessage(const std::string& request, Message* message);
+      FullMessage(Message* message);
 
       rapidjson::Document doc;
   };
 
 
   // convenience functions for bad input
-  std::string BAD_REQUEST(uint32_t version, const std::string& request);
-  std::string BAD_REQUEST(uint32_t version, const std::string& request, rapidjson::Value& id);
+  std::string BAD_REQUEST(const std::string& request);
+  std::string BAD_REQUEST(const std::string& request, rapidjson::Value& id);
 
-  std::string BAD_JSON(uint32_t version, const std::string& error_details);
+  std::string BAD_JSON(const std::string& error_details);
 
 
 }  // namespace rpc

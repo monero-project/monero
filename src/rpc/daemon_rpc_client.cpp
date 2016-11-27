@@ -596,7 +596,7 @@ bool DaemonRPCClient::getRPCVersion(
 template <typename ReqType>
 rapidjson::Value DaemonRPCClient::doRequest(typename ReqType::Request& request)
 {
-  auto full_request = FullMessage::requestMessage(DAEMON_RPC_VERSION, ReqType::name, &request);
+  auto full_request = FullMessage::requestMessage(ReqType::name, &request);
 
   std::string resp = zmq_client.doRequest(full_request.getJson());
 
