@@ -1075,6 +1075,33 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_uri(const wallet_rpc::COMMAND_RPC_MAKE_URI::request& req, wallet_rpc::COMMAND_RPC_MAKE_URI::response& res, epee::json_rpc::error& er)
+  {
+    std::string error;
+    std::string uri = m_wallet.make_uri(req.address, req.payment_id, req.amount, req.tx_description, req.recipient_name, error);
+    if (uri.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = std::string("Cannot make URI from supplied parameters: ") + error;
+      return false;
+    }
+
+    res.uri = uri;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_parse_uri(const wallet_rpc::COMMAND_RPC_PARSE_URI::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI::response& res, epee::json_rpc::error& er)
+  {
+    std::string error;
+    if (!m_wallet.parse_uri(req.uri, res.uri.address, res.uri.payment_id, res.uri.amount, res.uri.tx_description, res.uri.recipient_name, res.unknown_parameters, error))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = "Error parsing URI: " + error;
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }
 
 int main(int argc, char** argv) {
