@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+#include <boost/asio/ip/address.hpp>
 #include <cstdint>
 #include "include_base_utils.h"
 using namespace epee;
@@ -47,6 +48,8 @@ namespace
   const command_line::arg_descriptor<std::string, true> arg_rpc_bind_port = {"rpc-bind-port", "Sets bind port for server"};
   const command_line::arg_descriptor<std::string> arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
   const command_line::arg_descriptor<std::string> arg_user_agent = {"user-agent", "Restrict RPC to clients using this user agent", ""};
+
+  const command_line::arg_descriptor<bool> arg_confirm_external_bind = {"confirm-external-bind", "Confirm rcp-bind-ip value is NOT a loopback (local) IP"};
 }
 
 namespace tools
@@ -84,20 +87,35 @@ namespace tools
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::handle_command_line(const boost::program_options::variables_map& vm)
-  {
-    m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
-    m_port = command_line::get_arg(vm, arg_rpc_bind_port);
-    m_user_agent = command_line::get_arg(vm, arg_user_agent);
-    return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::init(const boost::program_options::variables_map& vm)
   {
+    std::string bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
+    if (!bind_ip.empty())
+    {
+      // always parse IP here for error consistency
+      boost::system::error_code ec{};
+      const auto parsed_ip = boost::asio::ip::address::from_string(bind_ip, ec);
+      if (ec)
+      {
+        LOG_ERROR(tr("Invalid IP address given for rpc-bind-ip argument"));
+        return false;
+      }
+
+      if (!parsed_ip.is_loopback() && !command_line::get_arg(vm, arg_confirm_external_bind))
+      {
+        LOG_ERROR(
+          tr("The rpc-bind-ip value is listening for unencrypted external connections. Consider SSH tunnel or SSL proxy instead. Override with --confirm-external-bind")
+        );
+        return false;
+      }
+    }
+
     m_net_server.set_threads_prefix("RPC");
-    bool r = handle_command_line(vm);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
-    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(m_port, m_bind_ip, m_user_agent);
+    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
+      command_line::get_arg(vm, arg_rpc_bind_port),
+      std::move(bind_ip),
+      command_line::get_arg(vm, arg_user_agent)
+    );
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er)
@@ -1115,6 +1133,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_rpc_bind_ip);
   command_line::add_arg(desc_params, arg_rpc_bind_port);
   command_line::add_arg(desc_params, arg_user_agent);
+  command_line::add_arg(desc_params, arg_confirm_external_bind);
   command_line::add_arg(desc_params, arg_wallet_file);
   command_line::add_arg(desc_params, arg_from_json);
 
