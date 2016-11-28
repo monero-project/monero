@@ -393,6 +393,11 @@ namespace rpc
 
     res.target_height = m_core.get_target_blockchain_height();
 
+    if (res.height > res.target_height)
+    {
+      res.target_height = res.height;
+    }
+
     auto& chain = m_core.get_blockchain_storage();
 
     res.difficulty = chain.get_difficulty_for_next_block();

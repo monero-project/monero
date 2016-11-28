@@ -50,6 +50,8 @@ class DaemonRPCClient
 
     bool getHeight(uint64_t& height);
 
+    bool getTargetHeight(uint64_t& target_height, std::string& error_details);
+
     bool getBlocksFast(
         const std::list<crypto::hash>& block_ids,
         const uint64_t start_height_in,

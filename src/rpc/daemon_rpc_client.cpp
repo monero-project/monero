@@ -83,6 +83,47 @@ bool DaemonRPCClient::getHeight(uint64_t& height)
   return false;
 }
 
+bool DaemonRPCClient::getTargetHeight(uint64_t& target_height, std::string& error_details)
+{
+  std::shared_ptr<FullMessage> full_message_ptr;
+  rapidjson::Value response_json;
+
+  try
+  {
+    GetInfo::Request request;
+
+    response_json = doRequest<GetInfo>(full_message_ptr, request);
+  }
+  catch (...)
+  {
+    return false;
+  }
+
+  try
+  {
+    GetInfo::Response response = parseResponse<GetInfo>(response_json);
+
+    target_height = response.target_height;
+
+    return true;
+  }
+  catch (...)
+  {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
+  }
+
+  return false;
+}
+
 bool DaemonRPCClient::getBlocksFast(
     const std::list<crypto::hash>& block_ids,
     const uint64_t start_height_in,
