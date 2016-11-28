@@ -156,6 +156,17 @@ using namespace std;
 
 		return csTmp;
 	}
+	static inline int get_index(const char *s, char c) { const char *ptr = (const char*)memchr(s, c, 16); return ptr ? ptr-s : -1; }
+	static inline 
+		std::string hex_to_dec_2bytes(const char *s)
+	{
+		const char *hex = get_hex_vals();
+		int i0 = get_index(hex, toupper(s[0]));
+		int i1 = get_index(hex, toupper(s[1]));
+		if (i0 < 0 || i1 < 0)
+			return std::string("%") + std::string(1, s[0]) + std::string(1, s[1]);
+		return std::string(1, i0 * 16 | i1);
+	}
 
 	static inline std::string convert(char val)
 	{
@@ -173,6 +184,25 @@ using namespace std;
 		{
 			if(is_unsafe(uri[i]))
 				result += convert(uri[i]);
+			else
+				result += uri[i];
+
+		}
+
+		return result;
+	}
+	static inline std::string convert_from_url_format(const std::string& uri)
+	{
+
+		std::string result;
+
+		for(size_t i = 0; i!= uri.size(); i++)
+		{
+			if(uri[i] == '%' && i + 2 < uri.size())
+			{
+				result += hex_to_dec_2bytes(uri.c_str() + i + 1);
+				i += 2;
+			}
 			else
 				result += uri[i];
 
