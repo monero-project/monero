@@ -119,7 +119,7 @@ class DaemonRPCClient
   private:
 
     template <typename ReqType>
-    rapidjson::Value doRequest(typename ReqType::Request& request);
+    rapidjson::Value doRequest(std::shared_ptr<FullMessage>& full_message_ptr, typename ReqType::Request& request);
 
     template <typename ReqType>
     typename ReqType::Response parseResponse(rapidjson::Value& resp);

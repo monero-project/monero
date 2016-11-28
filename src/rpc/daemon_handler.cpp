@@ -78,6 +78,19 @@ namespace rpc
 
       cryptonote::rpc::block_output_indices& indices = res.output_indices[block_count];
 
+      // miner tx output indices
+      {
+        cryptonote::rpc::tx_output_indices tx_indices;
+        bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(blk.miner_tx), tx_indices);
+        if (!r)
+        {
+          res.status = Message::STATUS_FAILED;
+          res.error_details = "core::get_tx_outputs_gindexs() returned false";
+          return;
+        }
+        indices.push_back(tx_indices);
+      }
+
       // assume each block returned is returned with all its transactions
       // in the correct order.
       auto tx_it = txs.begin();

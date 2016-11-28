@@ -27,8 +27,8 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "zmq_client.h"
-#include "../../contrib/epee/include/misc_log_ex.h"
 #include "../../contrib/epee/include/include_base_utils.h"
+#include <iostream>
 
 namespace cryptonote
 {
@@ -59,7 +59,7 @@ void ZmqClient::connect(const std::string& address_with_port)
     new_socket = new zmq::socket_t(context, ZMQ_REQ);
 
     new_socket->connect(connect_address.c_str());
-    LOG_PRINT_L0(std::string("Created ZMQ socket at: ") + connect_address);
+    std::cout << "Created ZMQ socket at: " << connect_address << std::endl;
     req_socket = new_socket;
   }
   catch (...)
@@ -90,7 +90,7 @@ std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms
   zmq::message_t request_message(request.size());
   memcpy((void *) request_message.data(), request.c_str(), request.size());
 
-  LOG_PRINT_L0(std::string("Sending ZMQ RPC request: \"") + request + "\"");
+  std::cout << "Sending ZMQ RPC request: \"" << request << "\"" << std::endl;
   req_socket->send(request_message);
 
   std::string response;
@@ -104,6 +104,8 @@ std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms
     req_socket->recv(&response_message);
 
     response = std::string(reinterpret_cast<const char *>(response_message.data()), response_message.size());
+
+    std::cout << "Recieved ZMQ RPC response: \"" << response << "\"" << std::endl;
   }
 
   return response;

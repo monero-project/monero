@@ -54,13 +54,14 @@ void DaemonRPCClient::connect(const std::string& addr, const std::string& port)
 
 bool DaemonRPCClient::getHeight(uint64_t& height)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
   {
     GetHeight::Request request;
 
-    response_json = doRequest<GetHeight>(request);
+    response_json = doRequest<GetHeight>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -91,6 +92,7 @@ bool DaemonRPCClient::getBlocksFast(
     std::vector<cryptonote::rpc::block_output_indices>& output_indices,
     std::string& error_details)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -100,7 +102,7 @@ bool DaemonRPCClient::getBlocksFast(
     request.block_ids = block_ids;
     request.start_height = start_height_in;
 
-    response_json = doRequest<GetBlocksFast>(request);
+    response_json = doRequest<GetBlocksFast>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -143,6 +145,7 @@ bool DaemonRPCClient::getHashesFast(
     uint64_t& current_height,
     std::string& error_details)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -152,7 +155,7 @@ bool DaemonRPCClient::getHashesFast(
     request.known_hashes = known_hashes;
     request.start_height = start_height_in;
 
-    response_json = doRequest<GetHashesFast>(request);
+    response_json = doRequest<GetHashesFast>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -194,6 +197,7 @@ bool DaemonRPCClient::keyImagesSpent(
     std::string& error_details,
     bool where)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -202,7 +206,7 @@ bool DaemonRPCClient::keyImagesSpent(
 
     request.key_images = images;
 
-    response_json = doRequest<KeyImagesSpent>(request);
+    response_json = doRequest<KeyImagesSpent>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -254,13 +258,14 @@ bool DaemonRPCClient::getTransactionPool(
     std::unordered_map<crypto::key_image, std::vector<crypto::hash> >& key_images,
     std::string& error_details)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
   {
     GetTransactionPool::Request request;
 
-    response_json = doRequest<GetTransactionPool>(request);
+    response_json = doRequest<GetTransactionPool>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -300,6 +305,7 @@ bool DaemonRPCClient::getTransactionPool(
 
 bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std::vector<uint64_t>& output_indices)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -308,7 +314,7 @@ bool DaemonRPCClient::getTxGlobalOutputIndices(const crypto::hash& tx_hash, std:
 
     request.tx_hash = tx_hash;
 
-    response_json = doRequest<GetTxGlobalOutputIndices>(request);
+    response_json = doRequest<GetTxGlobalOutputIndices>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -336,6 +342,7 @@ bool DaemonRPCClient::getRandomOutputsForAmounts(
     std::vector<amount_with_random_outputs>& amounts_with_outputs,
     std::string& error_details)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -345,7 +352,7 @@ bool DaemonRPCClient::getRandomOutputsForAmounts(
     request.amounts = amounts;
     request.count = count;
 
-    response_json = doRequest<GetRandomOutputsForAmounts>(request);
+    response_json = doRequest<GetRandomOutputsForAmounts>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -383,6 +390,7 @@ bool DaemonRPCClient::sendRawTx(
     std::string& error_details,
     bool relay)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -392,7 +400,7 @@ bool DaemonRPCClient::sendRawTx(
     request.tx = tx;
     request.relay = relay;
 
-    response_json = doRequest<SendRawTx>(request);
+    response_json = doRequest<SendRawTx>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -428,6 +436,7 @@ bool DaemonRPCClient::hardForkInfo(
     const uint8_t version,
     hard_fork_info& info)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -436,7 +445,7 @@ bool DaemonRPCClient::hardForkInfo(
 
     request.version = version;
 
-    response_json = doRequest<HardForkInfo>(request);
+    response_json = doRequest<HardForkInfo>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -467,6 +476,7 @@ bool DaemonRPCClient::getOutputHistogram(
     std::vector<output_amount_count>& histogram,
     std::string& error_details)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -479,7 +489,7 @@ bool DaemonRPCClient::getOutputHistogram(
     request.unlocked = unlocked;
     request.recent_cutoff = recent_cutoff;
 
-    response_json = doRequest<GetOutputHistogram>(request);
+    response_json = doRequest<GetOutputHistogram>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -516,6 +526,7 @@ bool DaemonRPCClient::getOutputKeys(
     std::vector<output_key_mask_unlocked>& keys,
     std::string& error_details)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
@@ -524,7 +535,7 @@ bool DaemonRPCClient::getOutputKeys(
 
     request.outputs = outputs;
 
-    response_json = doRequest<GetOutputKeys>(request);
+    response_json = doRequest<GetOutputKeys>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -560,13 +571,14 @@ bool DaemonRPCClient::getRPCVersion(
     uint32_t& version,
     std::string& error_details)
 {
+  std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
   try
   {
     GetRPCVersion::Request request;
 
-    response_json = doRequest<GetRPCVersion>(request);
+    response_json = doRequest<GetRPCVersion>(full_message_ptr, request);
   }
   catch (...)
   {
@@ -599,15 +611,18 @@ bool DaemonRPCClient::getRPCVersion(
 }
 
 template <typename ReqType>
-rapidjson::Value DaemonRPCClient::doRequest(typename ReqType::Request& request)
+rapidjson::Value DaemonRPCClient::doRequest(std::shared_ptr<FullMessage>& full_message_ptr, typename ReqType::Request& request)
 {
-  auto full_request = FullMessage::requestMessage(ReqType::name, &request);
+  // rapidjson doesn't take a copy, and ephemeral conversion behaves poorly
+  std::string request_method = ReqType::name;
+
+  auto full_request = FullMessage::requestMessage(request_method, &request);
 
   std::string resp = zmq_client.doRequest(full_request.getJson());
 
-  FullMessage full_response(resp);
+  full_message_ptr.reset(new FullMessage(resp));
 
-  return full_response.getMessageCopy();
+  return full_message_ptr->getMessageCopy();
 }
 
 template <typename ReqType>

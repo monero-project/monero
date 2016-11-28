@@ -176,7 +176,7 @@ rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint64_t& i)
 template <>
 uint64_t fromJsonValue(const rapidjson::Value& i)
 {
-  if (!i.IsUint())
+  if (!i.IsUint64())
   {
     throw WRONG_TYPE("unsigned integer");
   }
