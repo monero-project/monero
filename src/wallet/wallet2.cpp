@@ -2756,7 +2756,7 @@ void wallet2::commit_tx(pending_tx& ptx)
         "Bad output index in selected transfers: " + boost::lexical_cast<std::string>(idx));
   }
 
-  bool should_relay = false;
+  bool should_relay = true;
   bool was_relayed;
   std::string error_details;
 

@@ -59,7 +59,7 @@ void ZmqClient::connect(const std::string& address_with_port)
     new_socket = new zmq::socket_t(context, ZMQ_REQ);
 
     new_socket->connect(connect_address.c_str());
-    std::cout << "Created ZMQ socket at: " << connect_address << std::endl;
+    LOG_PRINT_L0(std::string("Created ZMQ socket at: ") + connect_address);
     req_socket = new_socket;
   }
   catch (...)
@@ -90,7 +90,7 @@ std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms
   zmq::message_t request_message(request.size());
   memcpy((void *) request_message.data(), request.c_str(), request.size());
 
-  std::cout << "Sending ZMQ RPC request: \"" << request << "\"" << std::endl;
+  LOG_PRINT_L2(std::string("Sending ZMQ RPC request: \"") + request + "\"");
   req_socket->send(request_message);
 
   std::string response;
@@ -105,7 +105,7 @@ std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms
 
     response = std::string(reinterpret_cast<const char *>(response_message.data()), response_message.size());
 
-    std::cout << "Recieved ZMQ RPC response: \"" << response << "\"" << std::endl;
+    LOG_PRINT_L2(std::string("Recieved ZMQ RPC response: \"") + response + "\"");
   }
 
   return response;
