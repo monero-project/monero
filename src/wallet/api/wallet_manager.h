@@ -45,12 +45,18 @@ public:
     bool walletExists(const std::string &path);
     std::vector<std::string> findWallets(const std::string &path);
     std::string errorString() const;
-    void setDaemonHost(const std::string &hostname);
+    void setDaemonAddress(const std::string &address);
+    bool connected(uint32_t *version) const;
     bool checkPayment(const std::string &address, const std::string &txid, const std::string &txkey, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const;
+    uint64_t blockchainHeight() const;
+    uint64_t blockchainTargetHeight() const;
+    uint64_t networkDifficulty() const;
+    double miningHashRate() const;
 
 private:
     WalletManagerImpl() {}
     friend struct WalletManagerFactory;
+    std::string m_daemonAddress;
     std::string m_errorString;
 };
 
