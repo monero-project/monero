@@ -1092,21 +1092,36 @@ namespace cryptonote
     std::list<blobdata> fluffy_txs;
     fluffy_arg.b = arg.b;
     fluffy_arg.b.txs = fluffy_txs;
-        
-    m_p2p->for_each_connection([this, &arg, &fluffy_arg](connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t support_flags)
+
+    // pre-serialize them
+    std::string fullBlob, fluffyBlob;
+    epee::serialization::store_t_to_binary(arg, fullBlob);
+    epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob);
+
+    // sort peers between fluffy ones and others
+    std::list<boost::uuids::uuid> fullConnections, fluffyConnections;
+    m_p2p->for_each_connection([this, &arg, &fluffy_arg, &exclude_context, &fullConnections, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
-      if(m_core.get_testnet() && support_flags & P2P_SUPPORT_FLAG_FLUFFY_BLOCKS)
+      if (peer_id && exclude_context.m_connection_id != context.m_connection_id)
       {
-        LOG_PRINT_YELLOW("PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK", LOG_LEVEL_1);
-        return post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(fluffy_arg, cntxt);
+        if(m_core.get_testnet() && (support_flags & P2P_SUPPORT_FLAG_FLUFFY_BLOCKS))
+        {
+          LOG_PRINT_CCONTEXT_YELLOW("PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK", LOG_LEVEL_1);
+          fluffyConnections.push_back(context.m_connection_id);
+        }
+        else
+        {
+          LOG_PRINT_CCONTEXT_YELLOW("PEER DOESN'T SUPPORT FLUFFY BLOCKS - RELAYING FULL BLOCK", LOG_LEVEL_1);
+          fullConnections.push_back(context.m_connection_id);
+        }
       }
-      else
-      {
-        LOG_PRINT_YELLOW("PEER DOESN'T SUPPORT FLUFFY BLOCKS - RELAYING FULL BLOCK", LOG_LEVEL_1);
-        return post_notify<NOTIFY_NEW_BLOCK>(arg, cntxt);
-      }
+      return true;
     });
-    
+
+    // send fluffy ones first, we want to encourage people to run that
+    m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, fluffyBlob, fluffyConnections);
+    m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, fullBlob, fullConnections);
+
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
