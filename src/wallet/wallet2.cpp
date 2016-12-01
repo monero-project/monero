@@ -4189,7 +4189,7 @@ void wallet2::get_hard_fork_info(uint8_t version, uint64_t &earliest_height)
   cryptonote::rpc::hard_fork_info info;
 
   bool r = m_daemon.hardForkInfo(version, info);
-  CHECK_AND_ASSERT_THROW_MES(!r, "Failed to get hard fork status");
+  CHECK_AND_ASSERT_THROW_MES(r, "Failed to get hard fork status");
 
   earliest_height = info.earliest_height;
 }
@@ -4198,7 +4198,7 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
 {
   std::string error;
   uint64_t current_height = get_daemon_blockchain_height(error);
-  CHECK_AND_ASSERT_MES(!error.empty(), false, "Failed to get current blockchain height");
+  CHECK_AND_ASSERT_MES(error.empty(), false, "Failed to get current blockchain height");
 
   uint64_t earliest_height;
   get_hard_fork_info(version, earliest_height); // can throw
