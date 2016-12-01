@@ -2600,7 +2600,7 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
 
     auto get_result = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_GET_BOTH);
     if (get_result == MDB_NOTFOUND)
-      throw1(OUTPUT_DNE("Attempting to get output pubkey by global index, but key does not exist"));
+      throw1(OUTPUT_DNE((std::string("Attempting to get output pubkey by global index (amount ") + boost::lexical_cast<std::string>(amount) + ", index " + boost::lexical_cast<std::string>(index) + ", count " + boost::lexical_cast<std::string>(get_num_outputs(amount)) + "), but key does not exist").c_str()));
     else if (get_result)
       throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output pubkey from the db", get_result).c_str()));
 
