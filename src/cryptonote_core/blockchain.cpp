@@ -73,6 +73,9 @@ extern "C" void slow_hash_free_state();
 
 DISABLE_VS_WARNINGS(4267)
 
+// used to overestimate the block reward when estimating a per kB to use
+#define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
+
 static const struct {
   uint8_t version;
   uint64_t height;
@@ -2783,7 +2786,10 @@ uint64_t Blockchain::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) cons
   uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
   uint64_t base_reward;
   if (!get_block_reward(median, 1, already_generated_coins, base_reward, version))
-    return false;
+  {
+    LOG_PRINT_L1("Failed to determine block reward, using placeholder " << print_money(BLOCK_REWARD_OVERESTIMATE) << " as a high bound");
+    base_reward = BLOCK_REWARD_OVERESTIMATE;
+  }
 
   uint64_t fee = get_dynamic_per_kb_fee(base_reward, median);
   LOG_PRINT_L2("Estimating " << grace_blocks << "-block fee at " << print_money(fee) << "/kB");
