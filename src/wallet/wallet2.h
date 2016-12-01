@@ -549,6 +549,8 @@ namespace tools
     std::string decrypt(const std::string &ciphertext, const crypto::secret_key &skey, bool authenticated = true) const;
     std::string decrypt_with_view_secret_key(const std::string &ciphertext, bool authenticated = true) const;
 
+    uint32_t get_daemon_rpc_client_version();
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.

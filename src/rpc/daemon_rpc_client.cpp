@@ -651,6 +651,11 @@ bool DaemonRPCClient::getRPCVersion(
   return false;
 }
 
+uint32_t DaemonRPCClient::getOurRPCVersion()
+{
+  return cryptonote::rpc::DAEMON_RPC_VERSION;
+}
+
 template <typename ReqType>
 rapidjson::Value DaemonRPCClient::doRequest(std::shared_ptr<FullMessage>& full_message_ptr, typename ReqType::Request& request)
 {

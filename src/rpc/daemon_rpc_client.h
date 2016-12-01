@@ -118,6 +118,8 @@ class DaemonRPCClient
         uint32_t& version,
         std::string& error_details);
 
+    uint32_t getOurRPCVersion();
+
   private:
 
     template <typename ReqType>

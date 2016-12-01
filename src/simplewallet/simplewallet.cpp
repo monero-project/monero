@@ -1201,7 +1201,7 @@ bool simple_wallet::try_connect_to_daemon(bool silent)
   if (!m_allow_mismatched_daemon_version && !same_version)
   {
     if (!silent)
-      fail_msg_writer() << tr("Daemon uses a different RPC version that the wallet: ") << m_wallet->get_daemon_address() << ". " <<
+      fail_msg_writer() << tr("Daemon uses a different RPC version that the wallet: ") << m_wallet->get_daemon_rpc_client_version() << ". " <<
         tr("Either update one of them, or use --allow-mismatched-daemon-version.");
     return false;
   }
