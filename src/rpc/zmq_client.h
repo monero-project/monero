@@ -36,23 +36,32 @@ namespace cryptonote
 namespace rpc
 {
 
+static constexpr int DEFAULT_RPC_RECEIVE_TIMEOUT_MS = 5000;
+
 class ZmqClient
 {
   public:
     ZmqClient();
     ~ZmqClient();
 
-    void connect(const std::string& address_with_port);
-    void connect(const std::string& address, const std::string& port);
+    void connect(const std::string& address_with_port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
+    void connect(const std::string& address, const std::string& port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
 
     // timeout of 0 means wait forever
-    std::string doRequest(const std::string& request, uint64_t timeout_ms = 0);
+    std::string doRequest(const std::string& request);
 
   private:
+    void createSocket();
+
+    void resetSocket();
+
     zmq::context_t context;
 
     // req-rep socket
     zmq::socket_t* req_socket;
+
+    std::string connect_address;
+    int timeout;
 };
 
 }  // namespace rpc

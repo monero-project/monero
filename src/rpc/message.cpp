@@ -236,6 +236,25 @@ FullMessage FullMessage::responseMessage(Message* message, rapidjson::Value& id)
   return mes;
 }
 
+FullMessage* FullMessage::timeoutMessage()
+{
+  auto *full_message = new FullMessage();
+
+  auto& doc = full_message->doc;
+  auto& al = full_message->doc.GetAllocator();
+
+  doc.SetObject();
+
+  // required by JSON-RPC 2.0 spec
+  doc.AddMember("jsonrpc", "2.0", al);
+
+  cryptonote::rpc::error err;
+
+  err.error_str = "RPC request timed out.";
+  doc.AddMember("err", cryptonote::json::toJsonValue<decltype(err)>(doc, err), al);
+
+  return full_message;
+}
 
 // convenience functions for bad input
 std::string BAD_REQUEST(const std::string& request)

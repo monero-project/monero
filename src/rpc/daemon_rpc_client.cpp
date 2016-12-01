@@ -712,6 +712,11 @@ rapidjson::Value DaemonRPCClient::doRequest(std::shared_ptr<FullMessage>& full_m
 
   std::string resp = zmq_client.doRequest(full_request.getJson());
 
+  if (resp.empty())
+  {
+    full_message_ptr.reset(FullMessage::timeoutMessage());
+  }
+
   full_message_ptr.reset(new FullMessage(resp));
 
   return full_message_ptr->getMessageCopy();

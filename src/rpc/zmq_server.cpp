@@ -39,7 +39,7 @@ ZmqServer::ZmqServer(RpcHandler& h) :
     handler(h),
     stop_signal(false),
     running(false),
-    context(NUM_ZMQ_THREADS)
+    context(DEFAULT_NUM_ZMQ_THREADS) // TODO: make this configurable
 {
 }
 
@@ -75,7 +75,8 @@ void ZmqServer::serve()
         LOG_PRINT_L2(std::string("Sent RPC reply: \"") + response + "\"");
       }
 
-      boost::this_thread::sleep_for(boost::chrono::milliseconds(5));
+      // TODO: make this configurable
+      boost::this_thread::sleep_for(boost::chrono::milliseconds(DEFAULT_RPC_WAIT_TIME_MS));
     }
   }
 }

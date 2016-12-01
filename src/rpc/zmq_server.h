@@ -44,7 +44,8 @@ namespace cryptonote
 namespace rpc
 {
 
-static const int NUM_ZMQ_THREADS = 1;
+static constexpr int DEFAULT_NUM_ZMQ_THREADS = 1;
+static constexpr int DEFAULT_RPC_WAIT_TIME_MS = 5;
 
 class ZmqServer
 {

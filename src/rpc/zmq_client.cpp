@@ -37,7 +37,9 @@ namespace rpc
 {
 
 ZmqClient::ZmqClient() : context(1 /* one zmq thread */),
-              req_socket(NULL)
+              req_socket(nullptr),
+              connect_address(""),
+              timeout(DEFAULT_RPC_RECEIVE_TIMEOUT_MS)
 {
 }
 
@@ -49,37 +51,23 @@ ZmqClient::~ZmqClient()
   }
 }
 
-void ZmqClient::connect(const std::string& address_with_port)
+void ZmqClient::connect(const std::string& address_with_port, int timeout_ms)
 {
   zmq::socket_t *new_socket = nullptr;
   std::string addr_prefix("tcp://");
-  std::string connect_address = addr_prefix + address_with_port;
-  try
-  {
-    new_socket = new zmq::socket_t(context, ZMQ_REQ);
+  connect_address = addr_prefix + address_with_port;
+  timeout = timeout_ms;
 
-    new_socket->connect(connect_address.c_str());
-    LOG_PRINT_L0(std::string("Created ZMQ socket at: ") + connect_address);
-    req_socket = new_socket;
-  }
-  catch (...)
-  {
-    if (new_socket)
-    {
-      delete new_socket;
-    }
-    LOG_ERROR(std::string("Failed to connect to ZMQ RPC endpoint at ") + connect_address);
-    throw;
-  }
+  createSocket();
 }
 
-void ZmqClient::connect(const std::string& address, const std::string& port)
+void ZmqClient::connect(const std::string& address, const std::string& port, int timeout_ms)
 {
   std::string address_with_port = address + std::string(":") + port;
-  connect(address_with_port);
+  connect(address_with_port, timeout_ms);
 }
 
-std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms)
+std::string ZmqClient::doRequest(const std::string& request)
 {
   // TODO: error handling
   if (req_socket == NULL)
@@ -95,22 +83,56 @@ std::string ZmqClient::doRequest(const std::string& request, uint64_t timeout_ms
 
   std::string response;
 
-  // ignore timeout for now
-  // TODO: implement timeout feature
-  if (timeout_ms == 0)
+  zmq::message_t response_message;
+
+  if (req_socket->recv(&response_message) > 0)
   {
-    zmq::message_t response_message;
-
-    req_socket->recv(&response_message);
-
     response = std::string(reinterpret_cast<const char *>(response_message.data()), response_message.size());
 
     LOG_PRINT_L2(std::string("Recieved ZMQ RPC response: \"") + response + "\"");
+  }
+  else
+  {
+    resetSocket();
+    return std::string();
   }
 
   return response;
 }
 
+void ZmqClient::createSocket()
+{
+  zmq::socket_t* new_socket = nullptr;
+  static int linger_time = 0;
+  try
+  {
+    new_socket = new zmq::socket_t(context, ZMQ_REQ);
+    new_socket->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+    new_socket->setsockopt(ZMQ_LINGER, &linger_time, sizeof(linger_time));
+    new_socket->connect(connect_address.c_str());
+
+    req_socket = new_socket;
+    LOG_PRINT_L0(std::string("Created ZMQ socket at: ") + connect_address);
+  }
+  catch (...)
+  {
+    if (new_socket)
+    {
+      delete new_socket;
+    }
+    LOG_ERROR(std::string("Failed to connect to ZMQ RPC endpoint at ") + connect_address);
+    throw;
+  }
+}
+
+void ZmqClient::resetSocket()
+{
+  if (req_socket)
+  {
+    delete req_socket;
+  }
+  createSocket();
+}
 
 }  // namespace rpc
 

@@ -81,8 +81,6 @@ namespace rpc
   class FullMessage
   {
     public:
-
-      FullMessage() = default;
       ~FullMessage() { }
 
       FullMessage(FullMessage&& rhs) noexcept : doc(std::move(rhs.doc)) { }
@@ -108,7 +106,11 @@ namespace rpc
 
       static FullMessage responseMessage(Message* message);
       static FullMessage responseMessage(Message* message, rapidjson::Value& id);
+
+      static FullMessage* timeoutMessage();
     private:
+
+      FullMessage() = default;
 
       FullMessage(const std::string& request, Message* message);
       FullMessage(Message* message);
