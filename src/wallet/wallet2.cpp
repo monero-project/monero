@@ -3009,20 +3009,15 @@ uint64_t wallet2::get_fee_multiplier(uint32_t priority, bool use_new_fee) const
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_dynamic_per_kb_fee_estimate()
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  std::string error_details = "";
+  uint64_t estimated_fee_per_kb = 0;
+  bool r = m_daemon.getPerKBFeeEstimate(FEE_ESTIMATE_GRACE_BLOCKS, estimated_fee_per_kb, error_details);
 
-  m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "get_fee_estimate";
-  req_t.params.grace_blocks = FEE_ESTIMATE_GRACE_BLOCKS;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
   CHECK_AND_ASSERT_THROW_MES(r, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status == CORE_RPC_STATUS_OK, "Failed to get fee estimate");
-  return resp_t.result.fee;
+  CHECK_AND_ASSERT_THROW_MES(error_details.empty(), std::string("RPC error in call to getPerKBFeeEstimate: ") + error_details);
+  CHECK_AND_ASSERT_THROW_MES(estimated_fee_per_kb != 0, "Daemon returned fee estimate of 0.");
+
+  return estimated_fee_per_kb;
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_per_kb_fee()

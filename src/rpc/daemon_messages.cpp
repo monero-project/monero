@@ -56,6 +56,7 @@ const char* const HardForkInfo::name = "hard_fork_info";
 const char* const GetOutputHistogram::name = "get_output_histogram";
 const char* const GetOutputKeys::name = "get_output_keys";
 const char* const GetRPCVersion::name = "get_rpc_version";
+const char* const GetPerKBFeeEstimate::name = "get_dynamic_per_kb_fee_estimate";
 
 
 
@@ -877,6 +878,41 @@ void GetRPCVersion::Response::fromJson(rapidjson::Value& val)
 {
   OBJECT_HAS_MEMBER_OR_THROW(val, "version")
   version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
+
+}
+
+rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("num_grace_blocks", cryptonote::json::toJsonValue<decltype(num_grace_blocks)>(doc, num_grace_blocks), al);
+
+  return val;
+}
+
+void GetPerKBFeeEstimate::Request::fromJson(rapidjson::Value& val)
+{
+  OBJECT_HAS_MEMBER_OR_THROW(val, "num_grace_blocks")
+  num_grace_blocks = cryptonote::json::fromJsonValue<decltype(num_grace_blocks)>(val["num_grace_blocks"]);
+}
+
+rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc)
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  val.AddMember("estimated_fee_per_kb", cryptonote::json::toJsonValue<decltype(estimated_fee_per_kb)>(doc, estimated_fee_per_kb), al);
+
+  return val;
+}
+
+void GetPerKBFeeEstimate::Response::fromJson(rapidjson::Value& val)
+{
+  OBJECT_HAS_MEMBER_OR_THROW(val, "estimated_fee_per_kb")
+  estimated_fee_per_kb = cryptonote::json::fromJsonValue<decltype(estimated_fee_per_kb)>(val["estimated_fee_per_kb"]);
 
 }
 

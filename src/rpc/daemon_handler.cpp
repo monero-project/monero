@@ -678,6 +678,12 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
+  void DaemonHandler::handle(const GetPerKBFeeEstimate::Request& req, GetPerKBFeeEstimate::Response& res)
+  {
+    res.estimated_fee_per_kb = m_core.get_blockchain_storage().get_dynamic_per_kb_fee_estimate(req.num_grace_blocks);
+    res.status = Message::STATUS_OK;
+  }
+
   std::string DaemonHandler::handle(const std::string& request)
   {
     LOG_PRINT_L2("Handling RPC request: " << request);
@@ -714,6 +720,7 @@ namespace rpc
       REQ_RESP_TYPES_MACRO(request_type, GetOutputHistogram, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetOutputKeys, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetRPCVersion, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetPerKBFeeEstimate, req_json, resp_message, handle);
 
       // if none of the request types matches
       if (resp_message == NULL)

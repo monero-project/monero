@@ -651,6 +651,52 @@ bool DaemonRPCClient::getRPCVersion(
   return false;
 }
 
+uint64_t DaemonRPCClient::getPerKBFeeEstimate(
+    const uint64_t num_grace_blocks,
+    uint64_t& estimated_fee_per_kb,
+    std::string& error_details)
+{
+  std::shared_ptr<FullMessage> full_message_ptr;
+  rapidjson::Value response_json;
+
+  try
+  {
+    GetPerKBFeeEstimate::Request request;
+
+    request.num_grace_blocks = num_grace_blocks;
+
+    response_json = doRequest<GetPerKBFeeEstimate>(full_message_ptr, request);
+  }
+  catch (...)
+  {
+    return false;
+  }
+
+  try
+  {
+    GetPerKBFeeEstimate::Response response = parseResponse<GetPerKBFeeEstimate>(response_json);
+
+    estimated_fee_per_kb = response.estimated_fee_per_kb;
+
+    return true;
+  }
+  catch (...)
+  {
+    try
+    {
+      cryptonote::rpc::error err = parseError(response_json);
+
+      error_details = err.error_str;
+    }
+    catch (...)
+    {
+      error_details = "Daemon returned improper JSON-RPC response.";
+    }
+  }
+
+  return false;
+}
+
 uint32_t DaemonRPCClient::getOurRPCVersion()
 {
   return cryptonote::rpc::DAEMON_RPC_VERSION;

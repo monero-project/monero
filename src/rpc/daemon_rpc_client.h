@@ -118,6 +118,11 @@ class DaemonRPCClient
         uint32_t& version,
         std::string& error_details);
 
+    bool getPerKBFeeEstimate(
+        const uint64_t num_grace_blocks,
+        uint64_t& estimated_fee_per_kb,
+        std::string& error_details);
+
     uint32_t getOurRPCVersion();
 
   private:

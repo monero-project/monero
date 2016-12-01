@@ -1248,6 +1248,36 @@ class GetRPCVersion
     };
 };
 
+class GetPerKBFeeEstimate
+{
+  public:
+    static const char* const name;
+
+    class Request : public Message
+    {
+      public:
+        Request() { }
+        ~Request() { }
+
+        rapidjson::Value toJson(rapidjson::Document& doc);
+        void fromJson(rapidjson::Value& val);
+
+        uint64_t num_grace_blocks;
+    };
+
+    class Response : public Message
+    {
+      public:
+        Response() { }
+        ~Response() { }
+
+        rapidjson::Value toJson(rapidjson::Document& doc);
+        void fromJson(rapidjson::Value& val);
+
+        uint64_t estimated_fee_per_kb;
+    };
+};
+
 }  // namespace rpc
 
 }  // namespace cryptonote
