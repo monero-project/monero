@@ -910,7 +910,7 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   result = mdb_cursor_get(m_cur_output_txs, (MDB_val *)&zerokval, &otxk, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
   {
-    LOG_PRINT_L0("Unexpected: global output index not found in m_output_txs");
+    throw0(DB_ERROR("Unexpected: global output index not found in m_output_txs"));
   }
   else if (result)
   {
