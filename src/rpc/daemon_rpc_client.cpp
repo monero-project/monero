@@ -651,7 +651,7 @@ bool DaemonRPCClient::getRPCVersion(
   return false;
 }
 
-uint64_t DaemonRPCClient::getPerKBFeeEstimate(
+bool DaemonRPCClient::getPerKBFeeEstimate(
     const uint64_t num_grace_blocks,
     uint64_t& estimated_fee_per_kb,
     std::string& error_details)
