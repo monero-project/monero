@@ -101,7 +101,7 @@ bool ZmqServer::addIPCSocket(std::string address, std::string port)
 
 bool ZmqServer::addTCPSocket(std::string address, std::string port)
 {
-  zmq::socket_t *new_socket;
+  zmq::socket_t *new_socket = nullptr;
   try
   {
     std::string addr_prefix("tcp://");

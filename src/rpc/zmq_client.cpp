@@ -51,7 +51,7 @@ ZmqClient::~ZmqClient()
 
 void ZmqClient::connect(const std::string& address_with_port)
 {
-  zmq::socket_t *new_socket;
+  zmq::socket_t *new_socket = nullptr;
   std::string addr_prefix("tcp://");
   std::string connect_address = addr_prefix + address_with_port;
   try
