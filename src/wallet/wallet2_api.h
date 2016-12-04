@@ -487,6 +487,23 @@ struct WalletManager
     //! returns verbose error string regarding last error;
     virtual std::string errorString() const = 0;
 
+    //! set the daemon address (hostname and port)
+    virtual void setDaemonAddress(const std::string &address) = 0;
+
+    //! returns whether the daemon can be reached, and its version number
+    virtual bool connected(uint32_t *version = NULL) const = 0;
+
+    //! returns current blockchain height
+    virtual uint64_t blockchainHeight() const = 0;
+
+    //! returns current blockchain target height
+    virtual uint64_t blockchainTargetHeight() const = 0;
+
+    //! returns current network difficulty
+    virtual uint64_t networkDifficulty() const = 0;
+
+    //! returns current mining hash rate (0 if not mining)
+    virtual double miningHashRate() const = 0;
 };
 
 

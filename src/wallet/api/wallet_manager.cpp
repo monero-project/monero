@@ -130,9 +130,26 @@ std::string WalletManagerImpl::errorString() const
     return m_errorString;
 }
 
-void WalletManagerImpl::setDaemonHost(const std::string &hostname)
+void WalletManagerImpl::setDaemonAddress(const std::string &address)
 {
+    m_daemonAddress = address;
+}
 
+bool WalletManagerImpl::connected(uint32_t *version = NULL) const
+{
+    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
+    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+    req_t.jsonrpc = "2.0";
+    req_t.id = epee::serialization::storage_entry(0);
+    req_t.method = "get_version";
+    epee::net_utils::http::http_simple_client http_client;
+    bool r = epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/json_rpc", req_t, resp_t, http_client);
+    if (!r)
+      return false;
+
+    if (version)
+        *version = resp_t.result.version;
+    return true;
 }
 
 bool WalletManagerImpl::checkPayment(const std::string &address_text, const std::string &txid_text, const std::string &txkey_text, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const
@@ -285,6 +302,52 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
   }
 
   return true;
+}
+
+uint64_t WalletManagerImpl::blockchainHeight() const
+{
+    cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+    cryptonote::COMMAND_RPC_GET_INFO::response ires;
+
+    epee::net_utils::http::http_simple_client http_client;
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/getinfo", ireq, ires, http_client))
+      return 0;
+    return ires.height;
+}
+
+uint64_t WalletManagerImpl::blockchainTargetHeight() const
+{
+    cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+    cryptonote::COMMAND_RPC_GET_INFO::response ires;
+
+    epee::net_utils::http::http_simple_client http_client;
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/getinfo", ireq, ires, http_client))
+      return 0;
+    return ires.target_height >= ires.height ? ires.target_height : ires.height;
+}
+
+uint64_t WalletManagerImpl::networkDifficulty() const
+{
+    cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+    cryptonote::COMMAND_RPC_GET_INFO::response ires;
+
+    epee::net_utils::http::http_simple_client http_client;
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/getinfo", ireq, ires, http_client))
+      return 0;
+    return ires.difficulty;
+}
+
+double WalletManagerImpl::miningHashRate() const
+{
+    cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
+    cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
+
+    epee::net_utils::http::http_simple_client http_client;
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/getinfo", mreq, mres, http_client))
+      return 0.0;
+    if (!mres.active)
+      return 0.0;
+    return mres.speed;
 }
 
 
