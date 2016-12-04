@@ -54,6 +54,7 @@ set(unit_tests_sources
   thread_group.cpp
   hardfork.cpp
   unbound.cpp
+  uri.cpp
   varint.cpp
   ringct.cpp
   output_selection.cpp)

@@ -703,5 +703,61 @@ namespace wallet_rpc
     };
   };
 
+  struct uri_spec
+  {
+    std::string address;
+    std::string payment_id;
+    uint64_t amount;
+    std::string tx_description;
+    std::string recipient_name;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(address);
+      KV_SERIALIZE(payment_id);
+      KV_SERIALIZE(amount);
+      KV_SERIALIZE(tx_description);
+      KV_SERIALIZE(recipient_name);
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_MAKE_URI
+  {
+    struct request: public uri_spec
+    {
+    };
+
+    struct response
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_PARSE_URI
+  {
+    struct request
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uri_spec uri;
+      std::vector<std::string> unknown_parameters;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri);
+        KV_SERIALIZE(unknown_parameters);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
