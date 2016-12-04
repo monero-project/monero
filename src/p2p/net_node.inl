@@ -1242,6 +1242,16 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::relay_notify_to_list(int command, const std::string& data_buff, const std::list<boost::uuids::uuid> &connections)
+  {
+    BOOST_FOREACH(const auto& c_id, connections)
+    {
+      m_net_server.get_config_object().notify(command, data_buff, c_id);
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::relay_notify_to_all(int command, const std::string& data_buff, const epee::net_utils::connection_context_base& context)
   {
     std::list<boost::uuids::uuid> connections;
@@ -1251,12 +1261,7 @@ namespace nodetool
         connections.push_back(cntxt.m_connection_id);
       return true;
     });
-
-    BOOST_FOREACH(const auto& c_id, connections)
-    {
-      m_net_server.get_config_object().notify(command, data_buff, c_id);
-    }
-    return true;
+    return relay_notify_to_list(command, data_buff, connections);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
