@@ -191,8 +191,7 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
     }
 
     // Remove line breaks the user might have inserted
-    password.erase(std::remove(password.end() - 1, password.end(), '\n'), password.end());
-    password.erase(std::remove(password.end() - 1, password.end(), '\r'), password.end());
+    boost::trim_right_if(password, boost::is_any_of("\r\n"));
     return {tools::password_container(std::move(password))};
   }
 
