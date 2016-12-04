@@ -281,6 +281,7 @@ namespace rct {
             // we save the MGs contents directly, because we want it to save its
             // arrays and matrices without the size prefixes, and the load can't
             // know what size to expect if it's not in the data
+            ar.begin_object();
             ar.tag("ss");
             ar.begin_array();
             PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, MGs[i].ss);
@@ -296,7 +297,7 @@ namespace rct {
               for (size_t k = 0; k < mg_ss2_elements; ++k)
               {
                 FIELDS(MGs[i].ss[j][k])
-                if (mg_ss2_elements - j > 1)
+                if (mg_ss2_elements - k > 1)
                   ar.delimit_array();
               }
               ar.end_array();
@@ -306,10 +307,13 @@ namespace rct {
             }
             ar.end_array();
 
+            ar.tag("cc");
             FIELDS(MGs[i].cc)
             // MGs[i].II not saved, it can be reconstructed
             if (mg_elements - i > 1)
               ar.delimit_array();
+
+            ar.end_object();
           }
           ar.end_array();
           return true;
