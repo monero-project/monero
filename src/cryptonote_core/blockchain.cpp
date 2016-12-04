@@ -2231,6 +2231,19 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
+  // from v4, forbid invalid pubkeys
+  if (m_hardfork->get_current_version() >= 4) {
+    for (const auto &o: tx.vout) {
+      if (o.target.type() == typeid(txout_to_key)) {
+        const txout_to_key& out_to_key = boost::get<txout_to_key>(o.target);
+        if (!crypto::check_key(out_to_key.key)) {
+          tvc.m_invalid_output = true;
+          return false;
+        }
+      }
+    }
+  }
+
   return true;
 }
 //------------------------------------------------------------------
