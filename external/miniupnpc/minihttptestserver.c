@@ -517,7 +517,7 @@ int main(int argc, char * * argv) {
 				fprintf(stderr, "unknown command line switch '%s'\n", argv[i]);
 			}
 		} else {
-			fprintf(stderr, "unkown command line argument '%s'\n", argv[i]);
+			fprintf(stderr, "unknown command line argument '%s'\n", argv[i]);
 		}
 	}
 
