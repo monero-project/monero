@@ -41,7 +41,16 @@ namespace cryptonote
 #define CORE_RPC_STATUS_BUSY   "BUSY"
 #define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
-#define CORE_RPC_VERSION 5
+// When making *any* change here, bump minor
+// If the change is incompatible, then bump major and set minor to 0
+// This ensures CORE_RPC_VERSION always increases, that every change
+// has its own version, and that clients can just test major to see
+// whether they can talk to a given daemon without having to know in
+// advance which version they will stop working with
+// Don't go over 32767 for any of these
+#define CORE_RPC_VERSION_MAJOR 1
+#define CORE_RPC_VERSION_MINOR 0
+#define CORE_RPC_VERSION (((CORE_RPC_VERSION_MAJOR)<<16)|(CORE_RPC_VERSION_MINOR))
 
   struct COMMAND_RPC_GET_HEIGHT
   {

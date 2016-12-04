@@ -906,11 +906,11 @@ bool WalletImpl::connectToDaemon()
 
 Wallet::ConnectionStatus WalletImpl::connected() const
 {
-    bool same_version = false;
-    bool is_connected = m_wallet->check_connection(&same_version);
+    uint32_t version = 0;
+    bool is_connected = m_wallet->check_connection(&version);
     if (!is_connected)
         return Wallet::ConnectionStatus_Disconnected;
-    if (!same_version)
+    if ((version >> 16) != CORE_RPC_VERSION_MAJOR)
         return Wallet::ConnectionStatus_WrongVersion;
     return Wallet::ConnectionStatus_Connected;
 }
