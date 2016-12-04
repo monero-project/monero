@@ -521,7 +521,7 @@ bool WalletImpl::refresh()
 
 void WalletImpl::refreshAsync()
 {
-    LOG_PRINT_L3(__FUNCTION__ << ": Refreshing asyncronously..");
+    LOG_PRINT_L3(__FUNCTION__ << ": Refreshing asynchronously..");
     clearStatus();
     m_refreshCV.notify_one();
 }

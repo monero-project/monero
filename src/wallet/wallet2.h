@@ -590,7 +590,7 @@ namespace tools
     uint64_t get_dynamic_per_kb_fee_estimate();
     uint64_t get_per_kb_fee();
     float get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const;
-    std::vector<size_t> pick_prefered_rct_inputs(uint64_t needed_money) const;
+    std::vector<size_t> pick_preferred_rct_inputs(uint64_t needed_money) const;
     void set_spent(size_t idx, uint64_t height);
     void set_unspent(size_t idx);
     template<typename entry>
