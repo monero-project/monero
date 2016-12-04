@@ -60,7 +60,8 @@ namespace cryptonote
     t_cryptonote_protocol_handler<t_core>::t_cryptonote_protocol_handler(t_core& rcore, nodetool::i_p2p_endpoint<connection_context>* p_net_layout):m_core(rcore),
                                                                                                               m_p2p(p_net_layout),
                                                                                                               m_syncronized_connections_count(0),
-                                                                                                              m_synchronized(false)
+                                                                                                              m_synchronized(false),
+                                                                                                              m_stopping(false)
 
   {
     if(!m_p2p)
@@ -793,6 +794,11 @@ namespace cryptonote
     size_t count = 0;
     BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
     {
+      if (m_stopping)
+      {
+        return 1;
+      }
+
       ++count;
       block b;
       if(!parse_and_validate_block_from_blob(block_entry.block, b))
@@ -857,6 +863,12 @@ namespace cryptonote
         m_core.prepare_handle_incoming_blocks(arg.blocks);
         BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
         {
+          if (m_stopping)
+          {
+              m_core.cleanup_handle_incoming_blocks();
+              return 1;
+          }
+
           // process transactions
           TIME_MEASURE_START(transactions_process_time);
           BOOST_FOREACH(auto& tx_blob, block_entry.txs)
@@ -1146,5 +1158,11 @@ namespace cryptonote
     (*logreq) << "log used" << std::endl;
     return *logreq;
   }
-
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::stop()
+  {
+    m_stopping = true;
+    m_core.stop();
+  }
 } // namespace

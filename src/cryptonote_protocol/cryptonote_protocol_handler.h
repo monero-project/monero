@@ -109,6 +109,7 @@ namespace cryptonote
     bool is_synchronized(){return m_synchronized;}
     void log_connections();
     std::list<connection_info> get_connections();
+    void stop();
   private:
     //----------------- commands handlers ----------------------------------------------
     int handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context);
@@ -135,6 +136,7 @@ namespace cryptonote
     std::atomic<uint32_t> m_syncronized_connections_count;
     std::atomic<bool> m_synchronized;
     bool m_one_request = true;
+    std::atomic<bool> m_stopping;
 
 		// static std::ofstream m_logreq;
     boost::mutex m_buffer_mutex;

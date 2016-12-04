@@ -123,7 +123,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------
   void core::stop()
   {
-    graceful_exit();
+    m_blockchain_storage.cancel();
   }
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& desc)

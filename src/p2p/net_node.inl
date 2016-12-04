@@ -656,6 +656,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+    m_payload_handler.stop();
     m_net_server.send_stop_signal();
     LOG_PRINT_L0("[node] Stop signal sent");
     return true;

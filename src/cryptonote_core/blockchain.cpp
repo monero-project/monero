@@ -121,7 +121,7 @@ static const uint64_t testnet_hard_fork_version_1_till = 624633;
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_is_in_checkpoint_zone(false),
-  m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0)
+  m_is_blockchain_storing(false), m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_cancel(false)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -3455,6 +3455,8 @@ void Blockchain::block_longhash_worker(const uint64_t height, const std::vector<
   //       the height of the block passed to it
   for (const auto & block : blocks)
   {
+    if (m_cancel)
+       return;
     crypto::hash id = get_block_hash(block);
     crypto::hash pow = get_block_longhash(block, height);
     map.emplace(id, pow);
@@ -3630,12 +3632,18 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
 
       thread_list.clear();
 
+      if (m_cancel)
+         return false;
+
       for (const auto & map : maps)
       {
         m_blocks_longhash_table.insert(map.begin(), map.end());
       }
     }
   }
+
+  if (m_cancel)
+    return false;
 
   if (blocks_exist)
   {
@@ -3674,6 +3682,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   // generate sorted tables for all amounts and absolute offsets
   for (const auto &entry : blocks_entry)
   {
+    if (m_cancel)
+      return false;
+
     for (const auto &tx_blob : entry.txs)
     {
       crypto::hash tx_hash = null_hash;
@@ -3782,6 +3793,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   // now generate a table for each tx_prefix and k_image hashes
   for (const auto &entry : blocks_entry)
   {
+    if (m_cancel)
+      return false;
+
     for (const auto &tx_blob : entry.txs)
     {
       crypto::hash tx_hash = null_hash;
@@ -3861,6 +3875,11 @@ bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, ui
 std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> Blockchain:: get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const
 {
   return m_db->get_output_histogram(amounts, unlocked, recent_cutoff);
+}
+
+void Blockchain::cancel()
+{
+  m_cancel = true;
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
