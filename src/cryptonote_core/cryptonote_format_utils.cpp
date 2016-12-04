@@ -553,7 +553,7 @@ namespace cryptonote
       //check that derivated key is equal with real output key
       if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
       {
-        LOG_ERROR("derived public key missmatch with output public key! "<< ENDL << "derived_key:"
+        LOG_ERROR("derived public key mismatch with output public key! "<< ENDL << "derived_key:"
           << string_tools::pod_to_hex(in_ephemeral.pub) << ENDL << "real output_public_key:"
           << string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second) );
         return false;

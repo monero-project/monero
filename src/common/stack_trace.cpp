@@ -104,7 +104,7 @@ void log_stack_trace(const char *msg)
 
   if (msg)
     LOG_PRINT2(log, msg, LOG_LEVEL_0);
-  LOG_PRINT2(log, "Unwinded call stack:", LOG_LEVEL_0);
+  LOG_PRINT2(log, "Unwound call stack:", LOG_LEVEL_0);
   if (unw_getcontext(&ctx) < 0) {
     LOG_PRINT2(log, "Failed to create unwind context", LOG_LEVEL_0);
     return;

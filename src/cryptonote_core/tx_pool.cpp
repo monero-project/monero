@@ -205,7 +205,7 @@ namespace cryptonote
     {
       //update transactions container
       auto txd_p = m_transactions.insert(transactions_container::value_type(id, txd));
-      CHECK_AND_ASSERT_MES(txd_p.second, false, "intrnal error: transaction already exists at inserting in memorypool");
+      CHECK_AND_ASSERT_MES(txd_p.second, false, "internal error: transaction already exists at inserting in memorypool");
       txd_p.first->second.blob_size = blob_size;
       txd_p.first->second.kept_by_block = kept_by_block;
       txd_p.first->second.fee = fee;

@@ -2348,7 +2348,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
-  std::string what("Genesis block missmatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
+  std::string what("Genesis block mismatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
 
   THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
 }
@@ -3856,12 +3856,12 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
   return size;
 }
 
-std::vector<size_t> wallet2::pick_prefered_rct_inputs(uint64_t needed_money) const
+std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money) const
 {
   std::vector<size_t> picks;
   float current_output_relatdness = 1.0f;
 
-  LOG_PRINT_L2("pick_prefered_rct_inputs: needed_money " << print_money(needed_money));
+  LOG_PRINT_L2("pick_preferred_rct_inputs: needed_money " << print_money(needed_money));
 
   // try to find a rct input of enough size
   for (size_t i = 0; i < m_transfers.size(); ++i)
@@ -4024,7 +4024,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     // this is used to build a tx that's 1 or 2 inputs, and 2 outputs, which
     // will get us a known fee.
     uint64_t estimated_fee = calculate_fee(fee_per_kb, estimate_rct_tx_size(2, fake_outs_count + 1, 2), fee_multiplier);
-    prefered_inputs = pick_prefered_rct_inputs(needed_money + estimated_fee);
+    prefered_inputs = pick_preferred_rct_inputs(needed_money + estimated_fee);
     if (!prefered_inputs.empty())
     {
       string s;

@@ -315,7 +315,7 @@ namespace cryptonote
     }
     else
     {
-      LOG_ERROR("Attempted to use non-existant database type");
+      LOG_ERROR("Attempted to use non-existent database type");
       return false;
     }
 
@@ -716,7 +716,7 @@ namespace cryptonote
     crypto::hash tx_hash, tx_prefix_hash;
     if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, tx_prefix_hash))
     {
-      LOG_ERROR("Failed to parse relayed tranasction");
+      LOG_ERROR("Failed to parse relayed transaction");
       return;
     }
     txs.push_back(std::make_pair(tx_hash, std::move(tx)));

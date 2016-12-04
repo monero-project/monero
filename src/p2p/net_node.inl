@@ -543,7 +543,7 @@ namespace nodetool
         } else if (result == 2) {
           LOG_PRINT_L0("IGD was found but reported as not connected.");
         } else if (result == 3) {
-          LOG_PRINT_L0("UPnP device was found but not recoginzed as IGD.");
+          LOG_PRINT_L0("UPnP device was found but not recognized as IGD.");
         } else {
           LOG_ERROR("UPNP_GetValidIGD returned an unknown result code.");
         }
@@ -1485,10 +1485,10 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::log_peerlist()
   {
-    std::list<peerlist_entry> pl_wite;
+    std::list<peerlist_entry> pl_white;
     std::list<peerlist_entry> pl_gray;
-    m_peerlist.get_peerlist_full(pl_gray, pl_wite);
-    LOG_PRINT_L0(ENDL << "Peerlist white:" << ENDL << print_peerlist_to_string(pl_wite) << ENDL << "Peerlist gray:" << ENDL << print_peerlist_to_string(pl_gray) );
+    m_peerlist.get_peerlist_full(pl_gray, pl_white);
+    LOG_PRINT_L0(ENDL << "Peerlist white:" << ENDL << print_peerlist_to_string(pl_white) << ENDL << "Peerlist gray:" << ENDL << print_peerlist_to_string(pl_gray) );
     return true;
   }
   //-----------------------------------------------------------------------------------
