@@ -212,17 +212,17 @@ namespace
     return message_writer(epee::log_space::console_color_red, true, sw::tr("Error: "), LOG_LEVEL_0);
   }
 
-  bool is_it_true(std::string s)
+  bool is_it_true(const std::string& s)
   {
-    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-    if (s == "true")
+    if (s == "1" || command_line::is_yes(s))
       return true;
-    if (s == "1")
+
+    boost::algorithm::is_iequal ignore_case{};
+    if (boost::algorithm::equals("true", s, ignore_case))
       return true;
-    if (s == "y" || s == "yes")
+    if (boost::algorithm::equals(simple_wallet::tr("true"), s, ignore_case))
       return true;
-    if (s == sw::tr("yes"))
-      return true;
+
     return false;
   }
 
@@ -916,7 +916,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
             LOG_ERROR("Unexpected std::cin.eof() - Exited simple_wallet::ask_wallet_create_if_needed()");
             return false;
           }
-          if(is_it_true(confirm_creation))
+          if(command_line::is_yes(confirm_creation))
           {
             success_msg_writer() << tr("Generating new wallet...");
             m_generate_new = wallet_path;
@@ -1977,8 +1977,7 @@ bool simple_wallet::get_address_from_str(const std::string &str, cryptonote::acc
           {
             return false;
           }
-          if (confirm_dns_ok != "Y" && confirm_dns_ok != "y" && confirm_dns_ok != "Yes" && confirm_dns_ok != "yes"
-            && confirm_dns_ok != tr("yes") && confirm_dns_ok != tr("no"))
+          if (!command_line::is_yes(confirm_dns_ok))
           {
             fail_msg_writer() << tr("you have cancelled the transfer request");
             return false;
@@ -2136,7 +2135,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
      std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No)"));
      if (std::cin.eof())
        return true;
-     if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+     if (!command_line::is_yes(accepted))
      {
        fail_msg_writer() << tr("transaction cancelled.");
 
@@ -2220,7 +2219,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         std::string accepted = command_line::input_line(prompt.str());
         if (std::cin.eof())
           return true;
-        if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+        if (!command_line::is_yes(accepted))
         {
           fail_msg_writer() << tr("transaction cancelled.");
 
@@ -2399,7 +2398,7 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     std::string accepted = command_line::input_line(prompt_str);
     if (std::cin.eof())
       return true;
-    if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+    if (!command_line::is_yes(accepted))
     {
       fail_msg_writer() << tr("transaction cancelled.");
 
@@ -2613,7 +2612,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
      std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No)"));
      if (std::cin.eof())
        return true;
-     if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+     if (!command_line::is_yes(accepted))
      {
        fail_msg_writer() << tr("transaction cancelled.");
 
@@ -2658,7 +2657,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
     std::string accepted = command_line::input_line(prompt_str);
     if (std::cin.eof())
       return true;
-    if (accepted != "Y" && accepted != "y" && accepted != "Yes" && accepted != "yes")
+    if (!command_line::is_yes(accepted))
     {
       fail_msg_writer() << tr("transaction cancelled.");
 
@@ -2853,8 +2852,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
 
   uint64_t fee = amount - amount_to_dests;
   std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %sIs this okay? (Y/Yes/N/No)")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_mixin % extra_message).str();
-  std::string accepted = command_line::input_line(prompt_str);
-  return is_it_true(accepted);
+  return command_line::is_yes(command_line::input_line(prompt_str));
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)

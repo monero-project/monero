@@ -43,6 +43,9 @@ namespace command_line
 
   std::string input_line(const std::string& prompt);
 
+  //! \return True if `str` is `is_iequal("y" || "yes" || `tr("yes"))`.
+  bool is_yes(const std::string& str);
+
   template<typename T, bool required = false>
   struct arg_descriptor;
 
