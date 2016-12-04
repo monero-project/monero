@@ -193,26 +193,26 @@ invokes cmake commands as needed.
 
 Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from https://www.raspberrypi.org/downloads/raspbian/
 
-* `apt-get update` and `apt-get upgrade` to install all of the latest software
+* `apt-get update && apt-get upgrade` to install all of the latest software
 
 * Install the dependencies for Monero except libunwind and libboost-all-dev
 
-* Increase the system swap size
-	
-	sudo /etc/init.d/dphys-swapfile stop
-	sudo nano /etc/dphys-swapfile
-	CONF_SWAPSIZE=1024
-	sudo /etc/init.d/dphys-swapfile start
-
-* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install)
-
-	cd
-	wget https://sourceforge.net/projects/boost/files/boost/1.62.0/boost_1_62_0.tar.bz2
-	tar xvfo boost_1_62_0.tar.bz2	
-	cd boost_1_62_0
-	./bootstrap.sh
-	sudo ./b2
-
+* Increase the system swap size:
+```	
+	sudo /etc/init.d/dphys-swapfile stop  
+	sudo nano /etc/dphys-swapfile  
+	CONF_SWAPSIZE=1024  
+	sudo /etc/init.d/dphys-swapfile start  
+```
+* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
+```
+	cd  
+	wget https://sourceforge.net/projects/boost/files/boost/1.62.0/boost_1_62_0.tar.bz2  
+	tar xvfo boost_1_62_0.tar.bz2  
+	cd boost_1_62_0  
+	./bootstrap.sh  
+	sudo ./b2  
+```
 * Wait ~8 hours
 
 	sudo ./bjam install
