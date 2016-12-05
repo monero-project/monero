@@ -1573,35 +1573,12 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   std::list<cryptonote::block_complete_entry> blocks;
   std::vector<COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
 
-  std::string daemon_height_err = "";
-  uint64_t daemon_bc_height = get_daemon_blockchain_height(daemon_height_err);
-  if(daemon_height_err.size() > 0) {
-    throw std::runtime_error(daemon_height_err);
-  }
-
   // pull the first set of blocks
   get_short_chain_history(short_chain_history);
   m_run.store(true, std::memory_order_relaxed);
   if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
-    
-    // even target_height can be zero if the daemon just started and hasn't gotten some sync
-    // data back from peers .. hmmm, what to do ... O.o (you can see him thinking)
-    // i'm going with infiniti loop until i get something bigger than zero or err ... moneromoo don't kill me
-    std::string daemon_target_err = "";
-    uint64_t daemon_target_height = 0;
-    
-    while(daemon_target_height == 0)
-    {
-        daemon_target_height = get_daemon_blockchain_target_height(daemon_target_err);
-        if(daemon_target_err.size() > 0) {
-          daemon_target_height = get_approximate_blockchain_height(); // - x?
-        }
-    }
-    
-    if (m_refresh_from_block_height > daemon_target_height) m_refresh_from_block_height = daemon_target_height - 1;
-    if (!start_height) start_height = m_refresh_from_block_height;
-    if (start_height >= daemon_bc_height) start_height = daemon_bc_height - 1;
-
+    if (!start_height)
+      start_height = m_refresh_from_block_height;
     // we can shortcut by only pulling hashes up to the start_height
     fast_refresh(start_height, blocks_start_height, short_chain_history);
     // regenerate the history now that we've got a full set of hashes
@@ -1611,56 +1588,53 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
     // and then fall through to regular refresh processing
   }
 
-  if(!(m_refresh_from_block_height >= daemon_bc_height))
+  pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices);
+  // always reset start_height to 0 to force short_chain_ history to be used on
+  // subsequent pulls in this refresh.
+  start_height = 0;
+
+  while(m_run.load(std::memory_order_relaxed))
   {
-    pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices);
-    // always reset start_height to 0 to force short_chain_ history to be used on
-    // subsequent pulls in this refresh.
-    start_height = 0;
-
-    while(m_run.load(std::memory_order_relaxed))
+    try
     {
-      try
+      // pull the next set of blocks while we're processing the current one
+      uint64_t next_blocks_start_height;
+      std::list<cryptonote::block_complete_entry> next_blocks;
+      std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> next_o_indices;
+      bool error = false;
+      pull_thread = boost::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, next_o_indices, error);});
+
+      process_blocks(blocks_start_height, blocks, o_indices, added_blocks);
+      blocks_fetched += added_blocks;
+      pull_thread.join();
+      if(!added_blocks)
+        break;
+
+      // switch to the new blocks from the daemon
+      blocks_start_height = next_blocks_start_height;
+      blocks = next_blocks;
+      o_indices = next_o_indices;
+
+      // handle error from async fetching thread
+      if (error)
       {
-        // pull the next set of blocks while we're processing the current one
-        uint64_t next_blocks_start_height;
-        std::list<cryptonote::block_complete_entry> next_blocks;
-        std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> next_o_indices;
-        bool error = false;
-        pull_thread = boost::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, next_o_indices, error);});
-
-        process_blocks(blocks_start_height, blocks, o_indices, added_blocks);
-        blocks_fetched += added_blocks;
-        pull_thread.join();
-        if(!added_blocks)
-          break;
-
-        // switch to the new blocks from the daemon
-        blocks_start_height = next_blocks_start_height;
-        blocks = next_blocks;
-        o_indices = next_o_indices;
-
-        // handle error from async fetching thread
-        if (error)
-        {
-          throw std::runtime_error("proxy exception in refresh thread");
-        }
+        throw std::runtime_error("proxy exception in refresh thread");
       }
-      catch (const std::exception&)
+    }
+    catch (const std::exception&)
+    {
+      blocks_fetched += added_blocks;
+      if (pull_thread.joinable())
+        pull_thread.join();
+      if(try_count < 3)
       {
-        blocks_fetched += added_blocks;
-        if (pull_thread.joinable())
-          pull_thread.join();
-        if(try_count < 3)
-        {
-          LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
-          ++try_count;
-        }
-        else
-        {
-          LOG_ERROR("pull_blocks failed, try_count=" << try_count);
-          throw;
-        }
+        LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
+        ++try_count;
+      }
+      else
+      {
+        LOG_ERROR("pull_blocks failed, try_count=" << try_count);
+        throw;
       }
     }
   }
