@@ -307,6 +307,8 @@ namespace rct {
     //   mask is a such that C = aG + bH, and b = amount
     //verRange verifies that \sum Ci = C and that each Ci is a commitment to 0 or 2^i
     bool verRange(const key & C, const rangeSig & as) {
+      try
+      {
         PERF_TIMER(verRange);
         key64 CiH;
         int i = 0;
@@ -320,6 +322,9 @@ namespace rct {
         if (!verifyBorromean(as.asig, as.Ci, CiH))
           return false;
         return true;
+      }
+      // we can get deep throws from ge_frombytes_vartime if input isn't valid
+      catch (...) { return false; }
     }
 
     key get_pre_mlsag_hash(const rctSig &rv)
@@ -485,6 +490,8 @@ namespace rct {
     //This does a simplified version, assuming only post Rct
     //inputs
     bool verRctMGSimple(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C) {
+        try
+        {
             PERF_TIMER(verRctMGSimple);
             //setup vars
             size_t rows = 1;
@@ -500,6 +507,8 @@ namespace rct {
             }
             //DP(C);
             return MLSAG_Ver(message, M, mg, rows);
+        }
+        catch (...) { return false; }
     }
 
 
@@ -762,6 +771,8 @@ namespace rct {
     //ver RingCT simple
     //assumes only post-rct style inputs (at least for max anonymity)
     bool verRctSimple(const rctSig & rv) {
+      try
+      {
         PERF_TIMER(verRctSimple);
 
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
@@ -832,6 +843,9 @@ namespace rct {
         }
 
         return true;
+      }
+      // we can get deep throws from ge_frombytes_vartime if input isn't valid
+      catch (...) { return false; }
     }
 
     //RingCT protocol
