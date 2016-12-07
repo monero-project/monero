@@ -259,6 +259,11 @@ namespace rct {
         }
         CHECK_AND_ASSERT_MES(dsRows <= rows, false, "Bad dsRows value");
 
+        for (size_t i = 0; i < rv.ss.size(); ++i)
+          for (size_t j = 0; j < rv.ss[i].size(); ++j)
+            CHECK_AND_ASSERT_MES(sc_check(rv.ss[i][j].bytes) == 0, false, "Bad ss slot");
+        CHECK_AND_ASSERT_MES(sc_check(rv.cc.bytes) == 0, false, "Bad cc");
+
         size_t i = 0, j = 0, ii = 0;
         key c,  L, R, Hi;
         key c_old = copy(rv.cc);
