@@ -3744,12 +3744,22 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   // we still keep a copy, since we want to keep dsts free of change for user feedback purposes
   std::vector<cryptonote::tx_destination_entry> splitted_dsts = dsts;
   cryptonote::tx_destination_entry change_dts = AUTO_VAL_INIT(change_dts);
-  if (needed_money < found_money)
+  change_dts.amount = found_money - needed_money;
+  if (change_dts.amount == 0)
+  {
+    // If the change is 0, send it to a random address, to avoid confusing
+    // the sender with a 0 amount output. We send a 0 amount in order to avoid
+    // letting the destination be able to work out which of the inputs is the
+    // real one in our rings
+    cryptonote::account_base dummy;
+    dummy.generate();
+    change_dts.addr = dummy.get_keys().m_account_address;
+  }
+  else
   {
     change_dts.addr = m_account.get_keys().m_account_address;
-    change_dts.amount = found_money - needed_money;
-    splitted_dsts.push_back(change_dts);
   }
+  splitted_dsts.push_back(change_dts);
 
   crypto::secret_key tx_key;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, true);
