@@ -118,9 +118,6 @@ namespace tools
       bool on_query_key(const wallet_rpc::COMMAND_RPC_QUERY_KEY::request& req, wallet_rpc::COMMAND_RPC_QUERY_KEY::response& res, epee::json_rpc::error& er);
 
       wallet2& m_wallet;
-      std::string m_port;
-      std::string m_bind_ip;
-      std::string m_user_agent;
       std::atomic<bool> m_stop;
   };
 }
