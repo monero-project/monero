@@ -40,94 +40,66 @@ using namespace crypto;
 using namespace std;
 
 namespace rct {
-    //Schnorr Non-linkable
-    //Gen Gives a signature (L1, s1, s2) proving that the sender knows "x" such that xG = one of P1 or P2
-    //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
-    //These are called in the below ASNL sig generation    
+    namespace {
+      struct verRangeWrapper_ {
+        void operator()(const key & C, const rangeSig & as, bool &result) const {
+          result = verRange(C, as);
+        }
+      };
+      constexpr const verRangeWrapper_ verRangeWrapper{};
+
+      struct verRctMGSimpleWrapper_ {
+        void operator()(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C, bool &result) const {
+          result = verRctMGSimple(message, mg, pubs, C);
+        }
+      };
+      constexpr const verRctMGSimpleWrapper_ verRctMGSimpleWrapper{};
+    }
     
-    void GenSchnorrNonLinkable(key & L1, key & s1, key & s2, const key & x, const key & P1, const key & P2, unsigned int index) {
-        key c1, c2, L2;
-        key a = skGen();
-        if (index == 0) {
-            scalarmultBase(L1, a);
-            hash_to_scalar(c2, L1);
-            skGen(s2);
-            addKeys2(L2, s2, c2, P2);
-            hash_to_scalar(c1, L2);
-            //s1 = a - x * c1
-            sc_mulsub(s1.bytes, x.bytes, c1.bytes, a.bytes);
+    //Borromean (c.f. gmax/andytoshi's paper)
+    boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
+        key64 L[2], alpha;
+        key c;
+        int naught = 0, prime = 0, ii = 0, jj=0;
+        boroSig bb;
+        for (ii = 0 ; ii < 64 ; ii++) {
+            naught = indices[ii]; prime = (indices[ii] + 1) % 2;
+            skGen(alpha[ii]);
+            scalarmultBase(L[naught][ii], alpha[ii]);
+            if (naught == 0) {
+                skGen(bb.s1[ii]);
+                c = hash_to_scalar(L[naught][ii]);
+                addKeys2(L[prime][ii], bb.s1[ii], c, P2[ii]);
+            }
         }
-        else if (index == 1) {
-            scalarmultBase(L2, a);
-            hash_to_scalar(c1, L2);
-            skGen(s1);
-            addKeys2(L1, s1, c1, P1);
-            hash_to_scalar(c2, L1);
-            sc_mulsub(s2.bytes, x.bytes, c2.bytes, a.bytes);
+        bb.ee = hash_to_scalar(L[1]); //or L[1]..
+        key LL, cc;
+        for (jj = 0 ; jj < 64 ; jj++) {
+            if (!indices[jj]) {
+                sc_mulsub(bb.s0[jj].bytes, x[jj].bytes, bb.ee.bytes, alpha[jj].bytes);
+            } else {
+                skGen(bb.s0[jj]);
+                addKeys2(LL, bb.s0[jj], bb.ee, P1[jj]); //different L0
+                cc = hash_to_scalar(LL);
+                sc_mulsub(bb.s1[jj].bytes, x[jj].bytes, cc.bytes, alpha[jj].bytes);
+            }
         }
-        else {
-          throw std::runtime_error("GenSchnorrNonLinkable: invalid index (should be 0 or 1)");
+        return bb;
+    }
+    
+    //see above.
+    bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2) {
+        key64 Lv1; key chash, LL;
+        int ii = 0;
+        for (ii = 0 ; ii < 64 ; ii++) {
+            addKeys2(LL, bb.s0[ii], bb.ee, P1[ii]);
+            chash = hash_to_scalar(LL);
+            addKeys2(Lv1[ii], bb.s1[ii], chash, P2[ii]);
         }
+        key eeComputed = hash_to_scalar(Lv1); //hash function fine
+        return equalKeys(eeComputed, bb.ee);
     }
 
-    //Schnorr Non-linkable
-    //Gen Gives a signature (L1, s1, s2) proving that the sender knows "x" such that xG = one of P1 or P2
-    //Ver Verifies that signer knows an "x" such that xG = one of P1 or P2
-    //These are called in the below ASNL sig generation        
-    bool VerSchnorrNonLinkable(const key & P1, const key & P2, const key & L1, const key & s1, const key & s2) {
-        key c2, L2, c1, L1p;
-        hash_to_scalar(c2, L1);
-        addKeys2(L2, s2, c2, P2);
-        hash_to_scalar(c1, L2);
-        addKeys2(L1p, s1, c1, P1);
-        
-        return equalKeys(L1, L1p);
-    }
-    
-    //Aggregate Schnorr Non-linkable Ring Signature (ASNL)
-    // c.f. http://eprint.iacr.org/2015/1098 section 5. 
-    // These are used in range proofs (alternatively Borromean could be used)
-    // Gen gives a signature which proves the signer knows, for each i, 
-    //   an x[i] such that x[i]G = one of P1[i] or P2[i]
-    // Ver Verifies the signer knows a key for one of P1[i], P2[i] at each i
-    asnlSig GenASNL(key64 x, key64 P1, key64 P2, bits indices) {
-        DP("Generating Aggregate Schnorr Non-linkable Ring Signature\n");
-        key64 s1;
-        int j = 0;
-        asnlSig rv;
-        rv.s = zero();
-        for (j = 0; j < ATOMS; j++) {
-            GenSchnorrNonLinkable(rv.L1[j], s1[j], rv.s2[j], x[j], P1[j], P2[j], indices[j]);
-            sc_add(rv.s.bytes, rv.s.bytes, s1[j].bytes);
-        }
-        return rv;
-    }
-
-    //Aggregate Schnorr Non-linkable Ring Signature (ASNL)
-    // c.f. http://eprint.iacr.org/2015/1098 section 5. 
-    // These are used in range proofs (alternatively Borromean could be used)
-    // Gen gives a signature which proves the signer knows, for each i, 
-    //   an x[i] such that x[i]G = one of P1[i] or P2[i]
-    // Ver Verifies the signer knows a key for one of P1[i], P2[i] at each i    
-    bool VerASNL(const key64 P1, const key64 P2, const asnlSig &as) {
-        PERF_TIMER(VerASNL);
-        DP("Verifying Aggregate Schnorr Non-linkable Ring Signature\n");
-        key LHS = identity();
-        key RHS = scalarmultBase(as.s);
-        key c2, L2, c1;
-        int j = 0;
-        for (j = 0; j < ATOMS; j++) {
-            hash_to_scalar(c2, as.L1[j]);
-            addKeys2(L2, as.s2[j], c2, P2[j]);
-            addKeys(LHS, LHS, as.L1[j]);
-            hash_to_scalar(c1, L2);
-            addKeys(RHS, RHS, scalarmultKey(P1[j], c1));
-        }
-        key cc;
-        sc_sub(cc.bytes, LHS.bytes, RHS.bytes);
-        return sc_isnonzero(cc.bytes) == 0;
-    }
-    
     //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
     //These are aka MG signatutes in earlier drafts of the ring ct paper
     // c.f. http://eprint.iacr.org/2015/1098 section 2. 
@@ -323,7 +295,7 @@ namespace rct {
             sc_add(mask.bytes, mask.bytes, ai[i].bytes);
             addKeys(C, C, sig.Ci[i]);
         }
-        sig.asig = GenASNL(ai, sig.Ci, CiH, b);
+        sig.asig = genBorromean(ai, sig.Ci, CiH, b);
         return sig;
     }
 
@@ -345,7 +317,7 @@ namespace rct {
         }
         if (!equalKeys(C, Ctmp))
           return false;
-        if (!VerASNL(as.Ci, CiH, as.asig))
+        if (!verifyBorromean(as.asig, as.Ci, CiH))
           return false;
         return true;
     }
@@ -371,10 +343,10 @@ namespace rct {
       for (auto r: rv.p.rangeSigs)
       {
         for (size_t n = 0; n < 64; ++n)
-          kv.push_back(r.asig.L1[n]);
+          kv.push_back(r.asig.s0[n]);
         for (size_t n = 0; n < 64; ++n)
-          kv.push_back(r.asig.s2[n]);
-        kv.push_back(r.asig.s);
+          kv.push_back(r.asig.s1[n]);
+        kv.push_back(r.asig.ee);
         for (size_t n = 0; n < 64; ++n)
           kv.push_back(r.Ci[n]);
       }

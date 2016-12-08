@@ -207,11 +207,11 @@ namespace boost
   }
 
   template <class Archive>
-  inline void serialize(Archive &a, rct::asnlSig &x, const boost::serialization::version_type ver)
+  inline void serialize(Archive &a, rct::boroSig &x, const boost::serialization::version_type ver)
   {
-    a & x.L1;
-    a & x.s2;
-    a & x.s;
+    a & x.s0;
+    a & x.s1;
+    a & x.ee;
   }
 
   template <class Archive>

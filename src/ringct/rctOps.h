@@ -158,6 +158,9 @@ namespace rct {
     //for mg sigs 
     key cn_fast_hash(const keyV &keys);
     key hash_to_scalar(const keyV &keys);
+    //for ANSL
+    key cn_fast_hash(const key64 keys);
+    key hash_to_scalar(const key64 keys);
 
     //returns hashToPoint as described in https://github.com/ShenNoether/ge_fromfe_writeup 
     key hashToPointSimple(const key &in);
