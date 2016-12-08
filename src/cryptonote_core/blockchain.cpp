@@ -832,12 +832,12 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
       // looking into.
       add_block_as_invalid(ch_ent->second, get_block_hash(ch_ent->second.bl));
       LOG_PRINT_L1("The block was inserted as invalid while connecting new alternative chain, block_id: " << get_block_hash(ch_ent->second.bl));
-      m_alternative_chains.erase(ch_ent);
+      m_alternative_chains.erase(*alt_ch_iter++);
 
-      for(auto alt_ch_to_orph_iter = ++alt_ch_iter; alt_ch_to_orph_iter != alt_chain.end(); alt_ch_to_orph_iter++)
+      for(auto alt_ch_to_orph_iter = alt_ch_iter; alt_ch_to_orph_iter != alt_chain.end(); )
       {
-        add_block_as_invalid((*alt_ch_iter)->second, (*alt_ch_iter)->first);
-        m_alternative_chains.erase(*alt_ch_to_orph_iter);
+        add_block_as_invalid((*alt_ch_to_orph_iter)->second, (*alt_ch_to_orph_iter)->first);
+        m_alternative_chains.erase(*alt_ch_to_orph_iter++);
       }
       return false;
     }
