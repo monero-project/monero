@@ -846,6 +846,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             td.m_key_image = ki[o];
             td.m_key_image_known = !m_watch_only;
             td.m_amount = tx.vout[o].amount;
+            td.m_pk_index = pk_index - 1;
             if (td.m_amount == 0)
             {
               td.m_mask = mask[o];
@@ -894,6 +895,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 	    td.m_tx = (const cryptonote::transaction_prefix&)tx;
 	    td.m_txid = txid();
             td.m_amount = tx.vout[o].amount;
+            td.m_pk_index = pk_index - 1;
             if (td.m_amount == 0)
             {
               td.m_mask = mask[o];
@@ -3623,7 +3625,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     real_oe.second.dest = rct::pk2rct(boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key);
     real_oe.second.mask = rct::commit(td.amount(), td.m_mask);
     *it_to_replace = real_oe;
-    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx);
+    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     src.real_output = it_to_replace - src.outputs.begin();
     src.real_output_in_tx_index = td.m_internal_output_index;
     detail::print_source_entry(src);
@@ -3699,6 +3701,9 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
   uint64_t needed_money = fee;
   LOG_PRINT_L2("transfer: starting with fee " << print_money (needed_money));
+  LOG_PRINT_L0("selected transfers: ");
+  for (auto t: selected_transfers)
+    LOG_PRINT_L2("  " << t);
 
   // calculate total amount being sent to all destinations
   // throw if total amount overflows uint64_t
@@ -3759,7 +3764,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     real_oe.second.dest = rct::pk2rct(boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key);
     real_oe.second.mask = rct::commit(td.amount(), td.m_mask);
     *it_to_replace = real_oe;
-    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx);
+    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     src.real_output = it_to_replace - src.outputs.begin();
     src.real_output_in_tx_index = td.m_internal_output_index;
     src.mask = td.m_mask;

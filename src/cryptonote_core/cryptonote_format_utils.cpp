@@ -320,26 +320,26 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_tx_pub_key_from_extra(const std::vector<uint8_t>& tx_extra)
+  crypto::public_key get_tx_pub_key_from_extra(const std::vector<uint8_t>& tx_extra, size_t pk_index)
   {
     std::vector<tx_extra_field> tx_extra_fields;
     parse_tx_extra(tx_extra, tx_extra_fields);
 
     tx_extra_pub_key pub_key_field;
-    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field))
+    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index))
       return null_pkey;
 
     return pub_key_field.pub_key;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_tx_pub_key_from_extra(const transaction_prefix& tx_prefix)
+  crypto::public_key get_tx_pub_key_from_extra(const transaction_prefix& tx_prefix, size_t pk_index)
   {
-    return get_tx_pub_key_from_extra(tx_prefix.extra);
+    return get_tx_pub_key_from_extra(tx_prefix.extra, pk_index);
   }
   //---------------------------------------------------------------
-  crypto::public_key get_tx_pub_key_from_extra(const transaction& tx)
+  crypto::public_key get_tx_pub_key_from_extra(const transaction& tx, size_t pk_index)
   {
-    return get_tx_pub_key_from_extra(tx.extra);
+    return get_tx_pub_key_from_extra(tx.extra, pk_index);
   }
   //---------------------------------------------------------------
   bool add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key)
@@ -534,8 +534,10 @@ namespace cryptonote
 
     uint64_t summary_inputs_money = 0;
     //fill inputs
+    int idx = -1;
     BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
     {
+      ++idx;
       if(src_entr.real_output >= src_entr.outputs.size())
       {
         LOG_ERROR("real_output index (" << src_entr.real_output << ")bigger than output_keys.size()=" << src_entr.outputs.size());
@@ -553,9 +555,11 @@ namespace cryptonote
       //check that derivated key is equal with real output key
       if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
       {
-        LOG_ERROR("derived public key mismatch with output public key! "<< ENDL << "derived_key:"
+        LOG_ERROR("derived public key mismatch with output public key at index " << idx << ", real out " << src_entr.real_output << "! "<< ENDL << "derived_key:"
           << string_tools::pod_to_hex(in_ephemeral.pub) << ENDL << "real output_public_key:"
           << string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second) );
+        LOG_ERROR("amount " << src_entr.amount << ", rct " << src_entr.rct);
+        LOG_ERROR("tx pubkey " << src_entr.real_out_tx_key << ", real_output_in_tx_index " << src_entr.real_output_in_tx_index);
         return false;
       }
 
