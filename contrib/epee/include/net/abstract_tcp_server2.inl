@@ -683,7 +683,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 	m_sock_count(0), m_sock_number(0), m_threads_count(0), 
 	m_pfilter(NULL), m_thread_index(0),
 		m_connection_type( connection_type ),
-    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type))
+    new_connection_()
   {
     create_server_type_map();
     m_thread_name_prefix = "NET";
@@ -697,7 +697,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		m_sock_count(0), m_sock_number(0), m_threads_count(0), 
 		m_pfilter(NULL), m_thread_index(0),
 		m_connection_type(connection_type),
-    new_connection_(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, connection_type))
+    new_connection_()
   {
     create_server_type_map();
     m_thread_name_prefix = "NET";
@@ -736,6 +736,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     boost::asio::ip::tcp::endpoint binded_endpoint = acceptor_.local_endpoint();
     m_port = binded_endpoint.port();
     _fact_c("net/RPClog", "start accept");
+    new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
     acceptor_.async_accept(new_connection_->socket(),
       boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
       boost::asio::placeholders::error));
@@ -1051,7 +1052,7 @@ POP_WARNINGS
     }
     else
     {
-      _erro("[sock " << new_connection_->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
+      _erro("[sock " << new_connection_l->socket().native_handle() << "] Failed to start connection, connections_count = " << m_sock_count);
     }
     
 	new_connection_l->save_dbg_log();
