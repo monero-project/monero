@@ -558,7 +558,7 @@ void wallet2::check_acc_out_precomp(const crypto::public_key &spend_public_key, 
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
-static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key pub, const crypto::secret_key &sec, unsigned int i, rct::key & mask)
+static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key &pub, const crypto::secret_key &sec, unsigned int i, rct::key & mask)
 {
   crypto::key_derivation derivation;
   bool r = crypto::generate_key_derivation(pub, sec, derivation);
