@@ -639,7 +639,10 @@ static OAES_RET oaes_key_gen( OAES_CTX * ctx, size_t key_size )
 	_key->data = (uint8_t *) calloc( key_size, sizeof( uint8_t ));
 	
 	if( NULL == _key->data )
+	{
+		free( _key );
 		return OAES_RET_MEM;
+	}
 	
 	for( _i = 0; _i < key_size; _i++ )
 #ifdef OAES_HAVE_ISAAC
