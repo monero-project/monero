@@ -129,6 +129,7 @@ namespace tools
       uint64_t m_amount;
       bool m_rct;
       bool m_key_image_known;
+      size_t m_pk_index;
 
       bool is_rct() const { return m_rct; }
       uint64_t amount() const { return m_amount; }
@@ -147,6 +148,7 @@ namespace tools
         FIELD(m_amount)
         FIELD(m_rct)
         FIELD(m_key_image_known)
+        FIELD(m_pk_index)
       END_SERIALIZE()
     };
 
@@ -644,7 +646,7 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 15)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 6)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
@@ -676,6 +678,10 @@ namespace boost
         if (ver < 6)
         {
           x.m_key_image_known = true;
+        }
+        if (ver < 7)
+        {
+          x.m_pk_index = 0;
         }
     }
 
@@ -738,6 +744,12 @@ namespace boost
         return;
       }
       a & x.m_key_image_known;
+      if (ver < 7)
+      {
+        initialize_transfer_details(a, x, ver);
+        return;
+      }
+      a & x.m_pk_index;
     }
 
     template <class Archive>
