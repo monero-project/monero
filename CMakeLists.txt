@@ -80,7 +80,6 @@ endif()
 if (ARM_ID STREQUAL "aarch64")
   set(ARM 1)
   set(ARM8 1)
-  set(BUILD_SHARED_LIBS ON)
 endif()
 
 if(WIN32 OR ARM)
