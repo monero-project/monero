@@ -40,7 +40,8 @@ set(wallet_sources
   api/transaction_info.cpp
   api/transaction_history.cpp
   api/pending_transaction.cpp
-  api/utils.cpp)
+  api/utils.cpp
+  api/address_book.cpp)
 
 set(wallet_api_headers
     wallet2_api.h)
@@ -59,7 +60,8 @@ set(wallet_private_headers
   api/transaction_info.h
   api/transaction_history.h
   api/pending_transaction.h
-  api/common_defines.h)
+  api/common_defines.h
+  api/address_book.h)
 
 monero_private_headers(wallet
   ${wallet_private_headers})

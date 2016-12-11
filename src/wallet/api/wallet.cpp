@@ -32,11 +32,13 @@
 #include "wallet.h"
 #include "pending_transaction.h"
 #include "transaction_history.h"
+#include "address_book.h"
 #include "common_defines.h"
 
 #include "mnemonics/electrum-words.h"
 #include <boost/format.hpp>
 #include <sstream>
+#include <unordered_map>
 
 using namespace std;
 using namespace cryptonote;
@@ -209,6 +211,7 @@ WalletImpl::WalletImpl(bool testnet)
     m_wallet->callback(m_wallet2Callback);
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
+    m_addressBook = new AddressBookImpl(this);
 
 
     m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
@@ -223,6 +226,7 @@ WalletImpl::~WalletImpl()
 {
     stopRefresh();
     delete m_history;
+    delete m_addressBook;
     delete m_wallet;
     delete m_wallet2Callback;
 }
@@ -327,9 +331,7 @@ bool WalletImpl::close()
     bool result = false;
     LOG_PRINT_L3("closing wallet...");
     try {
-        // do not store wallet with invalid status
-        if (status() == Status_Ok)
-            m_wallet->store();
+        m_wallet->store();
         LOG_PRINT_L3("wallet::store done");
         LOG_PRINT_L3("Calling wallet::stop...");
         m_wallet->stop();
@@ -821,6 +823,11 @@ void WalletImpl::disposeTransaction(PendingTransaction *t)
 TransactionHistory *WalletImpl::history() const
 {
     return m_history;
+}
+
+AddressBook *WalletImpl::addressBook() const
+{
+    return m_addressBook;
 }
 
 void WalletImpl::setListener(WalletListener *l)

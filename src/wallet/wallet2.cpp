@@ -1561,6 +1561,23 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
   }
 }
 
+
+bool wallet2::add_address_book_row(const cryptonote::account_public_address &address, const crypto::hash &payment_id, const std::string &description)
+{
+  wallet2::address_book_row a;
+  a.m_address = address;
+  a.m_payment_id = payment_id;
+  a.m_description = description;
+  
+  int key = (m_address_book.empty())? 0 : m_address_book.rbegin()->first;
+  bool r =  m_address_book.emplace(++key,a).second;
+  return r;
+}
+
+bool wallet2::delete_address_book_row(int row_id) {
+  return (m_address_book.erase(row_id) > 0);
+}
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {

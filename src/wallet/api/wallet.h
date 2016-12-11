@@ -43,6 +43,7 @@
 namespace Bitmonero {
 class TransactionHistoryImpl;
 class PendingTransactionImpl;
+class AddressBookImpl;
 struct Wallet2CallbackImpl;
 
 class WalletImpl : public Wallet
@@ -97,13 +98,13 @@ public:
 
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
+    virtual AddressBook * addressBook() const;
     virtual void setListener(WalletListener * l);
     virtual uint32_t defaultMixin() const;
     virtual void setDefaultMixin(uint32_t arg);
     virtual bool setUserNote(const std::string &txid, const std::string &note);
     virtual std::string getUserNote(const std::string &txid) const;
     virtual std::string getTxKey(const std::string &txid) const;
-
     virtual std::string signMessage(const std::string &message);
     virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const;
 
@@ -121,6 +122,7 @@ private:
     friend class PendingTransactionImpl;
     friend class TransactionHistoryImpl;
     friend class Wallet2CallbackImpl;
+    friend class AddressBookImpl;
 
     tools::wallet2 * m_wallet;
     mutable std::atomic<int>  m_status;
@@ -130,6 +132,7 @@ private:
     bool        m_trustedDaemon;
     WalletListener * m_walletListener;
     Wallet2CallbackImpl * m_wallet2Callback;
+    AddressBookImpl *  m_addressBook;
 
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;
