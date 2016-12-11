@@ -3182,6 +3182,8 @@ namespace base {
         }
         
         void insertFile(Level level, const std::string& fullFilename) {
+            if (fullFilename.empty())
+                return;
             std::string resolvedFilename = resolveFilename(fullFilename);
             if (resolvedFilename.empty()) {
                 std::cerr << "Could not load empty file for logging, please re-check your configurations for level ["
