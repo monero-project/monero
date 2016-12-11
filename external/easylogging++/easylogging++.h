@@ -3970,12 +3970,23 @@ inline void FUNCTION_NAME(const T&);
             inline bool vModulesEnabled(void) {
                 return !base::utils::hasFlag(LoggingFlag::DisableVModules, *m_pFlags);
             }
+
+            void setThreadName(const std::string &name) {
+                m_threadNames[base::threading::getCurrentThreadId()] = name;
+            }
             
+            std::string getThreadName(const std::string& name) {
+                std::map<std::string, std::string>::const_iterator it = m_threadNames.find(name);
+                if (it == m_threadNames.end())
+                    return name;
+                return it->second;
+            }
         private:
             base::type::VerboseLevel m_level;
             base::type::EnumType* m_pFlags;
             std::map<std::string, base::type::VerboseLevel> m_modules;
             std::deque<std::pair<std::string, Level>> m_categories;
+            std::map<std::string, std::string> m_threadNames;
         };
     }  // namespace base
     class LogMessage {
@@ -4530,7 +4541,7 @@ inline void FUNCTION_NAME(const T&);
                 if (logFormat->hasFlag(base::FormatFlags::ThreadId)) {
                     // Thread ID
                     base::utils::Str::replaceFirstWithEscape(logLine, base::consts::kThreadIdFormatSpecifier,
-                                                             base::threading::getCurrentThreadId());
+                                                             ELPP->vRegistry()->getThreadName(base::threading::getCurrentThreadId()));
                 }
                 if (logFormat->hasFlag(base::FormatFlags::DateTime)) {
                     // DateTime
@@ -6120,6 +6131,10 @@ el::base::type::ostream_t& operator<<(el::base::type::ostream_t& OutputStreamIns
         /// @brief Sets categories as specified (on the fly)
         static inline void setCategories(const char* categories, bool clear = true) {
             ELPP->vRegistry()->setCategories(categories, clear);
+        }
+        /// @brief Sets thread name (to replace ID)
+        static inline void setThreadName(const std::string &name) {
+            ELPP->vRegistry()->setThreadName(name);
         }
         /// @brief Clears vmodules
         static inline void clearVModules(void) {
