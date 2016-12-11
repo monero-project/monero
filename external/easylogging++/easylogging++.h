@@ -3082,6 +3082,7 @@ namespace base {
                 base::utils::Str::trim(boolStr);
                 return (boolStr == "TRUE" || boolStr == "true" || boolStr == "1");
             };
+            setValue(Level::Global, base::FileStreamPtr(NULL), &m_fileStreamMap);
             std::vector<Configuration*> withFileSizeLimit;
             for (Configurations::const_iterator it = configurations->begin(); it != configurations->end(); ++it) {
                 Configuration* conf = *it;
