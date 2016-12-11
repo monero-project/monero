@@ -56,6 +56,8 @@ Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string
 {
     WalletImpl * wallet = new WalletImpl(testnet);
     wallet->open(path, password);
+    //Refresh addressBook
+    wallet->addressBook()->refresh(); 
     return wallet;
 }
 

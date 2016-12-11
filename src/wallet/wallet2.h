@@ -286,6 +286,14 @@ namespace tools
         FIELD(cache_data)
       END_SERIALIZE()
     };
+    
+    // GUI Address book
+    struct address_book_row
+    {
+      cryptonote::account_public_address m_address;
+      crypto::hash m_payment_id;
+      std::string m_description;
+    };
 
     /*!
      * \brief Generates a wallet or restores one.
@@ -471,6 +479,9 @@ namespace tools
         return;
       }
       a & m_pub_keys;
+      if(ver < 16)
+        return;
+      a & m_address_book;
     }
 
     /*!
@@ -509,6 +520,13 @@ namespace tools
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
+   /*!
+    * \brief GUI Address book get/store
+    */
+    std::map<int, address_book_row> get_address_book() const { return m_address_book; }
+    bool add_address_book_row(const cryptonote::account_public_address &address, const crypto::hash &payment_id, const std::string &description);
+    bool delete_address_book_row(int row_id);
+        
     uint64_t get_num_rct_outputs();
     const transfer_details &get_transfer_details(size_t idx) const;
 
@@ -623,6 +641,7 @@ namespace tools
     std::unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
+    std::map<int, tools::wallet2::address_book_row> m_address_book;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
     std::atomic<bool> m_run;
@@ -645,11 +664,12 @@ namespace tools
     bool m_confirm_missing_payment_id;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 15)
+BOOST_CLASS_VERSION(tools::wallet2, 16)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
+BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 16)    
 
 namespace boost
 {
@@ -838,6 +858,14 @@ namespace boost
     {
       a & x.amount;
       a & x.addr;
+    }
+    
+    template <class Archive>
+    inline void serialize(Archive& a, tools::wallet2::address_book_row& x, const boost::serialization::version_type ver)
+    {
+      a & x.m_address;
+      a & x.m_payment_id;
+      a & x.m_description;
     }
   }
 }
