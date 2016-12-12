@@ -292,7 +292,7 @@ namespace tools
     {
       cryptonote::account_public_address m_address;
       crypto::hash m_payment_id;
-      std::string m_description;
+      std::string m_description;   
     };
 
     /*!
@@ -523,7 +523,7 @@ namespace tools
    /*!
     * \brief GUI Address book get/store
     */
-    std::map<int, address_book_row> get_address_book() const { return m_address_book; }
+    std::vector<address_book_row> get_address_book() const { return m_address_book; }
     bool add_address_book_row(const cryptonote::account_public_address &address, const crypto::hash &payment_id, const std::string &description);
     bool delete_address_book_row(int row_id);
         
@@ -641,7 +641,7 @@ namespace tools
     std::unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
-    std::map<int, tools::wallet2::address_book_row> m_address_book;
+    std::vector<tools::wallet2::address_book_row> m_address_book;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
     std::atomic<bool> m_run;
