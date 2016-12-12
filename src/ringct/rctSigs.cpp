@@ -750,7 +750,7 @@ namespace rct {
 
           for (size_t i = 0; i < rv.outPk.size(); ++i) {
             if (!results[i]) {
-              LOG_ERROR("Range proof verified failed for input " << i);
+              LOG_PRINT_L1("Range proof verified failed for output " << i);
               return false;
             }
           }
@@ -761,7 +761,7 @@ namespace rct {
           DP("mg sig verified?");
           DP(mgVerd);
           if (!mgVerd) {
-            LOG_ERROR("MG signature verification failed");
+            LOG_PRINT_L1("MG signature verification failed");
             return false;
           }
 
@@ -803,7 +803,7 @@ namespace rct {
 
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
-            LOG_ERROR("Range proof verified failed for input " << i);
+            LOG_PRINT_L1("Range proof verified failed for output " << i);
             return false;
           }
         }
@@ -830,7 +830,7 @@ namespace rct {
 
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
-            LOG_ERROR("verRctMGSimple failed for input " << i);
+            LOG_PRINT_L1("verRctMGSimple failed for input " << i);
             return false;
           }
         }
@@ -843,7 +843,7 @@ namespace rct {
         
         //check pseudoOuts vs Outs..
         if (!equalKeys(sumPseudoOuts, sumOutpks)) {
-            LOG_ERROR("Sum check failed");
+            LOG_PRINT_L1("Sum check failed");
             return false;
         }
 
