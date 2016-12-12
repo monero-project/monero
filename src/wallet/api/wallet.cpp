@@ -248,7 +248,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
     if (keys_file_exists || wallet_file_exists) {
         m_errorString = "attempting to generate or restore wallet, but specified file(s) exist.  Exiting to not risk overwriting.";
         LOG_ERROR(m_errorString);
-        m_status = Status_Error;
+        m_status = Status_Critical;
         return false;
     }
     // TODO: validate language
@@ -260,7 +260,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
         m_status = Status_Ok;
     } catch (const std::exception &e) {
         LOG_ERROR("Error creating wallet: " << e.what());
-        m_status = Status_Error;
+        m_status = Status_Critical;
         m_errorString = e.what();
         return false;
     }
@@ -287,7 +287,7 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
         m_password = password;
     } catch (const std::exception &e) {
         LOG_ERROR("Error opening wallet: " << e.what());
-        m_status = Status_Error;
+        m_status = Status_Critical;
         m_errorString = e.what();
     }
     return m_status == Status_Ok;
@@ -319,7 +319,7 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
         // TODO: wallet->init(daemon_address);
 
     } catch (const std::exception &e) {
-        m_status = Status_Error;
+        m_status = Status_Critical;
         m_errorString = e.what();
     }
     return m_status == Status_Ok;
@@ -331,7 +331,12 @@ bool WalletImpl::close()
     bool result = false;
     LOG_PRINT_L3("closing wallet...");
     try {
-        m_wallet->store();
+        // Do not store wallet with invalid status
+        // Status Critical refers to errors on opening or creating wallets.
+        if (status() != Status_Critical)
+            m_wallet->store();
+        else
+            LOG_PRINT_L3("Status_Critical - not storing wallet");
         LOG_PRINT_L3("wallet::store done");
         LOG_PRINT_L3("Calling wallet::stop...");
         m_wallet->stop();
@@ -339,7 +344,7 @@ bool WalletImpl::close()
         result = true;
         clearStatus();
     } catch (const std::exception &e) {
-        m_status = Status_Error;
+        m_status = Status_Critical;
         m_errorString = e.what();
         LOG_ERROR("Error closing wallet: " << e.what());
     }

@@ -63,7 +63,8 @@ struct PendingTransaction
 {
     enum Status {
         Status_Ok,
-        Status_Error
+        Status_Error,
+        Status_Critical
     };
 
     enum Priority {
@@ -221,7 +222,8 @@ struct Wallet
 
     enum Status {
         Status_Ok,
-        Status_Error
+        Status_Error,
+        Status_Critical
     };
 
     enum ConnectionStatus {
