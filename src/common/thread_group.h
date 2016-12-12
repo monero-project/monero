@@ -112,12 +112,10 @@ private:
     struct work;
 
     struct node {
-      node() = delete;
       std::unique_ptr<work> ptr;
     };
 
     struct work {
-      work() = delete;
       std::function<void()> f;
       node next;
     };
