@@ -31,17 +31,14 @@
 #pragma once
 
 #include <memory>
-#include <boost/archive/binary_iarchive.hpp>
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
-#include <boost/serialization/list.hpp>
-#include <boost/serialization/vector.hpp>
 #include <atomic>
 
 #include "include_base_utils.h"
 #include "cryptonote_core/account.h"
-#include "cryptonote_core/account_boost_serialization.h"
+#include "cryptonote_core/account_serialization.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "net/http_client.h"
 #include "storages/http_abstract_invoke.h"
@@ -670,17 +667,20 @@ BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 16)    
+CEREAL_CLASS_VERSION(tools::wallet2, 16)
+CEREAL_CLASS_VERSION(tools::wallet2::transfer_details, 7)
+CEREAL_CLASS_VERSION(tools::wallet2::payment_details, 1)
+CEREAL_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
+CEREAL_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
+CEREAL_CLASS_VERSION(tools::wallet2::address_book_row, 16)    
 
-namespace boost
+namespace tools
 {
-  namespace serialization
-  {
     template <class Archive>
-    inline void initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
-    {
-    }
-    template<>
-    inline void initialize_transfer_details(boost::archive::binary_iarchive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
+    inline typename std::enable_if<!Archive::is_loading::value, void>::type initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const std::uint32_t ver)
+    {}
+    template <class Archive>
+    inline typename std::enable_if<Archive::is_loading::value, void>::type initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const std::uint32_t ver)
     {
         if (ver < 1)
         {
@@ -706,7 +706,7 @@ namespace boost
     }
 
     template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
+    inline void serialize(Archive &a, tools::wallet2::transfer_details &x, const std::uint32_t ver)
     {
       a & x.m_block_height;
       a & x.m_global_output_index;
@@ -773,7 +773,7 @@ namespace boost
     }
 
     template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::unconfirmed_transfer_details &x, const boost::serialization::version_type ver)
+    inline void serialize(Archive &a, tools::wallet2::unconfirmed_transfer_details &x, const std::uint32_t ver)
     {
       a & x.m_change;
       a & x.m_sent_time;
@@ -812,7 +812,7 @@ namespace boost
     }
 
     template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::confirmed_transfer_details &x, const boost::serialization::version_type ver)
+    inline void serialize(Archive &a, tools::wallet2::confirmed_transfer_details &x, const std::uint32_t ver)
     {
       a & x.m_amount_in;
       a & x.m_amount_out;
@@ -842,7 +842,7 @@ namespace boost
     }
 
     template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::payment_details& x, const boost::serialization::version_type ver)
+    inline void serialize(Archive& a, tools::wallet2::payment_details& x, const std::uint32_t ver)
     {
       a & x.m_tx_hash;
       a & x.m_amount;
@@ -852,22 +852,25 @@ namespace boost
         return;
       a & x.m_timestamp;
     }
-
+}
+namespace cryptonote
+{
     template <class Archive>
-    inline void serialize(Archive& a, cryptonote::tx_destination_entry& x, const boost::serialization::version_type ver)
+    inline void serialize(Archive& a, cryptonote::tx_destination_entry& x, const std::uint32_t ver)
     {
       a & x.amount;
       a & x.addr;
     }
-    
+}
+namespace tools
+{    
     template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::address_book_row& x, const boost::serialization::version_type ver)
+    inline void serialize(Archive& a, tools::wallet2::address_book_row& x, const std::uint32_t ver)
     {
       a & x.m_address;
       a & x.m_payment_id;
       a & x.m_description;
     }
-  }
 }
 
 namespace tools

@@ -37,6 +37,7 @@
 #include <queue>
 #include <boost/serialization/version.hpp>
 #include <boost/utility.hpp>
+#include <cereal/cereal.hpp>
 
 #include "string_tools.h"
 #include "syncobj.h"
@@ -494,10 +495,8 @@ private:
   };
 }
 
-namespace boost
+namespace cryptonote
 {
-  namespace serialization
-  {
     template<class archive_t>
     void serialize(archive_t & ar, cryptonote::tx_memory_pool::tx_details& td, const unsigned int version)
     {
@@ -515,10 +514,11 @@ namespace boost
         return;
       ar & td.kept_by_block;
     }
-  }
 }
 BOOST_CLASS_VERSION(cryptonote::tx_memory_pool, CURRENT_MEMPOOL_ARCHIVE_VER)
 BOOST_CLASS_VERSION(cryptonote::tx_memory_pool::tx_details, CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER)
+CEREAL_CLASS_VERSION(cryptonote::tx_memory_pool, CURRENT_MEMPOOL_ARCHIVE_VER)
+CEREAL_CLASS_VERSION(cryptonote::tx_memory_pool::tx_details, CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER)
 
 
 

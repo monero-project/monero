@@ -30,8 +30,7 @@
 
 #pragma once
 
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
+#include <cereal/archives/portable_binary.hpp>
 
 
 namespace tools
@@ -76,7 +75,7 @@ namespace tools
       return false;
 #endif
 
-    boost::archive::binary_oarchive a(data_file);
+    cereal::PortableBinaryOutputArchive a(data_file);
     a << obj;
     if (data_file.fail())
       return false;
@@ -101,7 +100,7 @@ namespace tools
     data_file.open( file_path, std::ios_base::binary | std::ios_base::in);
     if(data_file.fail())
       return false;
-    boost::archive::binary_iarchive a(data_file);
+    cereal::PortableBinaryInputArchive a(data_file);
 
     a >> obj;
     return !data_file.fail();

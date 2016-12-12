@@ -34,22 +34,17 @@
 #include <iostream>
 #include <stdint.h>
 
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
 #include <boost/program_options.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/variant.hpp>
 
 #include "include_base_utils.h"
-#include "common/boost_serialization_helper.h"
+#include "common/cereal_serialization_helper.h"
 #include "common/command_line.h"
 
-#include "cryptonote_core/account_boost_serialization.h"
+#include "cryptonote_core/account_serialization.h"
 #include "cryptonote_core/cryptonote_basic.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "cryptonote_core/cryptonote_boost_serialization.h"
 #include "misc_language.h"
 
 
@@ -101,7 +96,7 @@ struct callback_entry
   END_SERIALIZE()
 
 private:
-  friend class boost::serialization::access;
+  friend class cereal::access;
 
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /*version*/)
@@ -126,7 +121,7 @@ struct serialized_object
     END_SERIALIZE()
 
 private:
-  friend class boost::serialization::access;
+  friend class cereal::access;
 
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /*version*/)
@@ -155,7 +150,7 @@ struct event_visitor_settings
   }
 
 private:
-  friend class boost::serialization::access;
+  friend class cereal::access;
 
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /*version*/)
