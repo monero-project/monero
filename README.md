@@ -133,7 +133,6 @@ library archives (`.a`).
 | CMake          | 3.0.0         | NO       | `cmake`            | `cmake`        | NO       |                |
 | pkg-config     | any           | NO       | `pkg-config`       | `base-devel`   | NO       |                |
 | Boost          | 1.58          | NO       | `libboost-all-dev` | `boost`        | NO       |                |
-| BerkeleyDB     | 4.8           | NO       | `libdb{,++}-dev`   | `db`           | NO       |                |
 | libevent       | 2.0           | NO       | `libevent-dev`     | `libevent`     | NO       |                |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       |                |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
@@ -143,6 +142,7 @@ library archives (`.a`).
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | test suite     |
 | Doxygen        | any           | NO       | `doxygen`          | `doxygen`      | YES      | documentation  |
 | Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | documentation  |
+| BerkeleyDB     | 4.8           | NO       | `libdb{,++}-dev`   | `db`           | YES      | Historic DB    |
 
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
