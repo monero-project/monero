@@ -32,7 +32,7 @@
 #include <string>
 #include <ctime>
 
-namespace Bitmonero {
+namespace Monero {
 
 class TransactionHistoryImpl;
 
@@ -73,3 +73,5 @@ private:
 };
 
 } // namespace
+
+namespace Bitmonero = Monero;

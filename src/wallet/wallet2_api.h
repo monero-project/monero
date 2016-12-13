@@ -37,7 +37,7 @@
 #include <iostream>
 
 //  Public interface for libwallet library
-namespace Bitmonero {
+namespace Monero {
 
     namespace Utils {
         bool isAddressLocal(const std::string &hostaddr);
@@ -575,4 +575,6 @@ struct WalletManagerFactory
 
 
 }
+
+namespace Bitmonero = Monero;
 
