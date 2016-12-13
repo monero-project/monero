@@ -869,8 +869,10 @@ bool simple_wallet::ask_wallet_create_if_needed()
   do{
       LOG_PRINT_L3("User asked to specify wallet file name.");
       wallet_path = command_line::input_line(
-      tr("Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
-         "Wallet file name (or Ctrl-C to quit): ")
+        tr(m_restoring ? "Specify a new wallet file name for your restored wallet (e.g., MyWallet).\n"
+        "Wallet file name (or Ctrl-C to quit): " :
+        "Specify wallet file name (e.g., MyWallet). If the wallet doesn't exist, it will be created.\n"
+        "Wallet file name (or Ctrl-C to quit): ")
       );
       if(std::cin.eof())
       {
@@ -913,8 +915,8 @@ bool simple_wallet::ask_wallet_create_if_needed()
         }
         else if(!wallet_file_exists && !keys_file_exists) //No wallet, no keys
         {
-          message_writer() << tr("No wallet/key file found with that name. Confirm creation of new wallet named: ") << wallet_path;
-          confirm_creation = command_line::input_line(tr("(y)es/(n)o: "));
+          message_writer() << tr(m_restoring ? "Confirm wallet name: " : "No wallet found with that name. Confirm creation of new wallet named: ") << wallet_path;
+          confirm_creation = command_line::input_line(tr("(Y/Yes/N/No): "));
           if(std::cin.eof())
           {
             LOG_ERROR("Unexpected std::cin.eof() - Exited simple_wallet::ask_wallet_create_if_needed()");
@@ -2178,7 +2180,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   // prompt is there is no payment id and confirmation is required
   if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
   {
-     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No)"));
+     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -2260,7 +2262,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           float days = locked_blocks / 720.0f;
           prompt << boost::format(tr(".\nThis transaction will unlock on block %llu, in approximately %s days (assuming 2 minutes per block)")) % ((unsigned long long)unlock_block) % days;
         }
-        prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No)");
+        prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No): ");
         
         std::string accepted = command_line::input_line(prompt.str());
         if (std::cin.eof())
@@ -2431,13 +2433,13 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
 
     std::string prompt_str = tr("Sweeping ") + print_money(total_unmixable);
     if (ptx_vector.size() > 1) {
-      prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+      prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
         print_money(total_unmixable) %
         ((unsigned long long)ptx_vector.size()) %
         print_money(total_fee)).str();
     }
     else {
-      prompt_str = (boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+      prompt_str = (boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
         print_money(total_unmixable) %
         print_money(total_fee)).str();
     }
@@ -2655,7 +2657,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   // prompt is there is no payment id and confirmation is required
   if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
   {
-     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No)"));
+     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -2690,7 +2692,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 
     std::string prompt_str;
     if (ptx_vector.size() > 1) {
-      prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+      prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
         print_money(total_sent) %
         ((unsigned long long)ptx_vector.size()) %
         print_money(total_fee)).str();
@@ -2897,7 +2899,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
     change_string += tr("no change");
 
   uint64_t fee = amount - amount_to_dests;
-  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %sIs this okay? (Y/Yes/N/No)")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_mixin % extra_message).str();
+  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %sIs this okay? (Y/Yes/N/No): ")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_mixin % extra_message).str();
   return command_line::is_yes(command_line::input_line(prompt_str));
 }
 //----------------------------------------------------------------------------------------------------

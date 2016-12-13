@@ -48,7 +48,7 @@ namespace tools
     bool empty() const { return m_empty; }
     const std::string& password() const { return m_password; }
     void password(std::string&& val) { m_password = std::move(val); m_empty = false; }
-    bool read_password(const char *message = "password");
+    bool read_password(const char *message = "Password");
 
   private:
     //delete constructor with no parameters
