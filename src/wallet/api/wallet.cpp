@@ -43,7 +43,7 @@
 using namespace std;
 using namespace cryptonote;
 
-namespace Bitmonero {
+namespace Monero {
 
 namespace {
     // copy-pasted from simplewallet
@@ -1059,3 +1059,5 @@ void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
 }
 
 } // namespace
+
+namespace Bitmonero = Monero;

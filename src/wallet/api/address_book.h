@@ -31,7 +31,7 @@
 #include "wallet/wallet2_api.h"
 #include "wallet/wallet2.h"
 
-namespace Bitmonero {
+namespace Monero {
     
 class AddressBookRow;
 class WalletImpl;
@@ -64,4 +64,6 @@ private:
 };
 
 }
+
+namespace Bitmonero = Monero;
 

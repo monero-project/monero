@@ -40,7 +40,7 @@
 #include <boost/thread/condition_variable.hpp>
 
 
-namespace Bitmonero {
+namespace Monero {
 class TransactionHistoryImpl;
 class PendingTransactionImpl;
 class AddressBookImpl;
@@ -155,6 +155,8 @@ private:
 
 
 } // namespace
+
+namespace Bitmonero = Monero;
 
 #endif
 

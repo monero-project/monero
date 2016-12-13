@@ -36,7 +36,7 @@
 
 using namespace std;
 
-namespace Bitmonero {
+namespace Monero {
 namespace Utils {
 
 
@@ -81,3 +81,5 @@ bool isAddressLocal(const std::string &address)
 
 
 } // namespace
+
+namespace Bitmonero = Monero;

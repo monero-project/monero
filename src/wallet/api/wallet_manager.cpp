@@ -42,7 +42,7 @@ namespace epee {
     unsigned int g_test_dbg_lock_sleep = 0;
 }
 
-namespace Bitmonero {
+namespace Monero {
 
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
                                     const std::string &language, bool testnet)
@@ -375,3 +375,5 @@ void WalletManagerFactory::setLogLevel(int level)
 
 
 }
+
+namespace Bitmonero = Monero;

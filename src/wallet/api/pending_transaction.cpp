@@ -43,7 +43,7 @@
 
 using namespace std;
 
-namespace Bitmonero {
+namespace Monero {
 
 PendingTransaction::~PendingTransaction() {}
 
@@ -148,4 +148,6 @@ uint64_t PendingTransactionImpl::txCount() const
 }
 
 }
+
+namespace Bitmonero = Monero;
 

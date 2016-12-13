@@ -33,7 +33,7 @@
 
 using namespace std;
 
-namespace Bitmonero {
+namespace Monero {
 
 TransactionInfo::~TransactionInfo() {}
 
@@ -110,3 +110,5 @@ const std::vector<TransactionInfo::Transfer> &TransactionInfoImpl::transfers() c
 }
 
 } // namespace
+
+namespace Bitmonero = Monero;
