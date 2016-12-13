@@ -759,6 +759,9 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
     pop_block_from_blockchain();
   }
 
+  // make sure the hard fork object updates its current version
+  m_hardfork->reorganize_from_chain_height(rollback_height);
+
   //return back original chain
   for (auto& bl : original_chain)
   {
