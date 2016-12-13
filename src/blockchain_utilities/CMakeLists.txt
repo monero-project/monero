@@ -124,5 +124,5 @@ add_dependencies(cn_deserialize
 	version)
 set_property(TARGET cn_deserialize
 	PROPERTY
-	OUTPUT_NAME "cn_deserialize")
+	OUTPUT_NAME "monero-utils-deserialize")
 
