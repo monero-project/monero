@@ -308,10 +308,10 @@ namespace rct {
             ar.tag("cc");
             FIELDS(MGs[i].cc)
             // MGs[i].II not saved, it can be reconstructed
-            if (mg_elements - i > 1)
-              ar.delimit_array();
-
             ar.end_object();
+
+            if (mg_elements - i > 1)
+               ar.delimit_array();
           }
           ar.end_array();
           return true;
