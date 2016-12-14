@@ -46,7 +46,7 @@ public:
     void refresh();
     std::vector<AddressBookRow*> getAll() const;
     bool addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description);
-    bool deleteRow(int rowId);
+    bool deleteRow(std::size_t rowId);
      
     // Error codes. See AddressBook:ErrorCode enum in wallet2_api.h
     std::string errorString() const {return m_errorString;}

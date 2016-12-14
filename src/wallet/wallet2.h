@@ -525,7 +525,7 @@ namespace tools
     */
     std::vector<address_book_row> get_address_book() const { return m_address_book; }
     bool add_address_book_row(const cryptonote::account_public_address &address, const crypto::hash &payment_id, const std::string &description);
-    bool delete_address_book_row(int row_id);
+    bool delete_address_book_row(std::size_t row_id);
         
     uint64_t get_num_rct_outputs();
     const transfer_details &get_transfer_details(size_t idx) const;
