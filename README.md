@@ -81,7 +81,7 @@ See [LICENSE](LICENSE).
 
 Monero uses a hardforking mechanism to implement new features which requires that 
 users of Monero software run current versions and update their software on a 
-regular schedule. Here is the current schedule, versions, and compatability.
+regular schedule. Here is the current schedule, versions, and compatibility.
 Dates are provided in the format YYYYMMDD. 
 
 
