@@ -663,6 +663,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::locked_transfer, this, _1), tr("locked_transfer [<mixin_count>] <addr> <amount> <lockblocks>(Number of blocks to lock the transaction for, max 1000000) [<payment_id>]"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("sweep_all [mixin] address [payment_id] - Send all unlocked balance an address"));
+  m_cmd_binder.set_handler("donate", boost::bind(&simple_wallet::donate, this, _1), tr("donate [<mixin_count>] <amount> [payment_id] - Donate <amount> to the development team (donate.getmonero.org)"));
   m_cmd_binder.set_handler("sign_transfer", boost::bind(&simple_wallet::sign_transfer, this, _1), tr("Sign a transaction from a file"));
   m_cmd_binder.set_handler("submit_transfer", boost::bind(&simple_wallet::submit_transfer, this, _1), tr("Submit a signed transaction from a file"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
@@ -2824,6 +2825,45 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   }
 
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::donate(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+  if(local_args.empty() || local_args.size() > 3)
+  {
+     fail_msg_writer() << tr("wrong number of arguments");
+     return true;
+  }
+  std::string mixin_str;
+  std::string address_str = "donate.getmonero.org";
+  std::string amount_str;
+  std::string payment_id_str;
+  // check payment id
+  crypto::hash payment_id;
+  crypto::hash8 payment_id8;
+  if (tools::wallet2::parse_long_payment_id (local_args.back(), payment_id ) ||
+      tools::wallet2::parse_short_payment_id(local_args.back(), payment_id8))
+  {
+    payment_id_str = local_args.back();
+    local_args.pop_back();
+  }
+  // check mixin
+  if (local_args.size() > 1)
+  {
+    mixin_str = local_args[0];
+    local_args.erase(local_args.begin());
+  }
+  amount_str = local_args[0];
+  // refill args as necessary
+  local_args.clear();
+  if (!mixin_str.empty())
+    local_args.push_back(mixin_str);
+  local_args.push_back(address_str);
+  local_args.push_back(amount_str);
+  if (!payment_id_str.empty())
+    local_args.push_back(payment_id_str);
+  transfer_new(local_args);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message)
