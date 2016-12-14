@@ -336,7 +336,7 @@ bool WalletImpl::close()
         if (status() != Status_Critical)
             m_wallet->store();
         else
-            LOG_PRINT_L3("Status_Critical - not storing wallet");
+            LOG_ERROR("Status_Critical - not storing wallet");
         LOG_PRINT_L3("wallet::store done");
         LOG_PRINT_L3("Calling wallet::stop...");
         m_wallet->stop();
@@ -487,6 +487,8 @@ uint64_t WalletImpl::approximateBlockChainHeight() const
 }
 uint64_t WalletImpl::daemonBlockChainHeight() const
 {
+    if (!m_is_connected)
+        return 0;
     std::string err;
     uint64_t result = m_wallet->get_daemon_blockchain_height(err);
     if (!err.empty()) {
@@ -504,6 +506,8 @@ uint64_t WalletImpl::daemonBlockChainHeight() const
 
 uint64_t WalletImpl::daemonBlockChainTargetHeight() const
 {
+    if (!m_is_connected)
+        return 0;
     std::string err;
     uint64_t result = m_wallet->get_daemon_blockchain_target_height(err);
     if (!err.empty()) {
@@ -516,7 +520,18 @@ uint64_t WalletImpl::daemonBlockChainTargetHeight() const
         m_status = Status_Ok;
         m_errorString = "";
     }
+    // Target height can be 0 when daemon is synced. Use blockchain height instead. 
+    if(result == 0)
+        result = daemonBlockChainHeight();
     return result;
+}
+
+bool WalletImpl::daemonSynced() const
+{   
+    if(connected() == Wallet::ConnectionStatus_Disconnected)
+        return false;
+    uint64_t blockChainHeight = daemonBlockChainHeight();
+    return (blockChainHeight >= daemonBlockChainTargetHeight() && blockChainHeight > 1);
 }
 
 bool WalletImpl::synchronized() const
@@ -924,8 +939,8 @@ bool WalletImpl::connectToDaemon()
 Wallet::ConnectionStatus WalletImpl::connected() const
 {
     uint32_t version = 0;
-    bool is_connected = m_wallet->check_connection(&version);
-    if (!is_connected)
+    m_is_connected = m_wallet->check_connection(&version);
+    if (!m_is_connected)
         return Wallet::ConnectionStatus_Disconnected;
     if ((version >> 16) != CORE_RPC_VERSION_MAJOR)
         return Wallet::ConnectionStatus_WrongVersion;
@@ -970,7 +985,7 @@ void WalletImpl::refreshThreadFunc()
         LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
         LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
         LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << m_status);
-        if (m_refreshEnabled /*&& m_status == Status_Ok*/) {
+        if (m_refreshEnabled) {
             LOG_PRINT_L3(__FUNCTION__ << ": refreshing...");
             doRefresh();
         }
@@ -983,16 +998,23 @@ void WalletImpl::doRefresh()
     // synchronizing async and sync refresh calls
     boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
     try {
-        m_wallet->refresh();
-        if (!m_synchronized) {
-            m_synchronized = true;
-        }
-        // assuming if we have empty history, it wasn't initialized yet
-        // for futher history changes client need to update history in
-        // "on_money_received" and "on_money_sent" callbacks
-        if (m_history->count() == 0) {
-            m_history->refresh();
-        }
+        // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
+        // Disable refresh if wallet is disconnected or daemon isn't synced.
+        if (daemonSynced()) {
+            // Use fast refresh for new wallets
+            if (isNewWallet())
+                m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());        
+            m_wallet->refresh();
+            if (!m_synchronized) {
+                m_synchronized = true;
+            }
+            // assuming if we have empty history, it wasn't initialized yet
+            // for futher history changes client need to update history in
+            // "on_money_received" and "on_money_sent" callbacks
+            if (m_history->count() == 0) {
+                m_history->refresh();
+            }
+        } 
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();
