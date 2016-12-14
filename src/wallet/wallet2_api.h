@@ -364,6 +364,15 @@ struct Wallet
     static std::string paymentIdFromAddress(const std::string &str, bool testnet);
     static uint64_t maximumAllowedAmount();
 
+   /**
+    * @brief StartRefresh - Start/resume refresh thread (refresh every 10 seconds)
+    */
+    virtual void startRefresh() = 0;
+   /**
+    * @brief pauseRefresh - pause refresh thread
+    */
+    virtual void pauseRefresh() = 0;
+
     /**
      * @brief refresh - refreshes the wallet, updating transactions from daemon
      * @return - true if refreshed successfully;
