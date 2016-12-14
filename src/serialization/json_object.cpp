@@ -35,14 +35,6 @@ namespace cryptonote
 
 namespace json
 {
-
-
-template <class Type, typename>
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const Type& pod)
-{
-  return rapidjson::Value(epee::string_tools::pod_to_hex(pod).c_str(), doc.GetAllocator());
-}
-
 template <class Type, typename>
 Type fromJsonValue(const rapidjson::Value& val)
 {
@@ -64,7 +56,6 @@ Type fromJsonValue(const rapidjson::Value& val)
   return retval;
 }
 
-template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const std::string& i)
 {
   return rapidjson::Value(i.c_str(), doc.GetAllocator());
@@ -99,7 +90,6 @@ bool fromJsonValue(const rapidjson::Value& i)
   return i.GetBool();
 }
 
-template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint8_t& i)
 {
   return rapidjson::Value(i);
@@ -116,7 +106,6 @@ uint8_t fromJsonValue(const rapidjson::Value& i)
   return (uint8_t) ( i.GetUint() & 0xFF);
 }
 
-template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const int8_t& i)
 {
   return rapidjson::Value(i);
@@ -133,7 +122,6 @@ int8_t fromJsonValue(const rapidjson::Value& i)
   return (int8_t) ( i.GetInt() & 0xFF);
 }
 
-template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint16_t& i)
 {
   return rapidjson::Value(i);
@@ -150,7 +138,6 @@ uint16_t fromJsonValue(const rapidjson::Value& i)
   return (uint16_t) ( i.GetUint() & 0xFFFF);
 }
 
-template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint32_t& i)
 {
   return rapidjson::Value(i);
@@ -167,7 +154,6 @@ uint32_t fromJsonValue(const rapidjson::Value& i)
   return i.GetUint();
 }
 
-template <>
 rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint64_t& i)
 {
   return rapidjson::Value(i);
@@ -184,19 +170,18 @@ uint64_t fromJsonValue(const rapidjson::Value& i)
   return i.GetUint64();
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::transaction>(rapidjson::Document& doc, const cryptonote::transaction& tx)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("version", toJsonValue<decltype(tx.version)>(doc, tx.version), doc.GetAllocator());
-  val.AddMember("unlock_time", toJsonValue<decltype(tx.unlock_time)>(doc, tx.unlock_time), doc.GetAllocator());
-  val.AddMember("vin", toJsonValue<decltype(tx.vin)>(doc, tx.vin), doc.GetAllocator());
-  val.AddMember("vout", toJsonValue<decltype(tx.vout)>(doc, tx.vout), doc.GetAllocator());
-  val.AddMember("extra", toJsonValue<decltype(tx.extra)>(doc, tx.extra), doc.GetAllocator());
-  val.AddMember("signatures", toJsonValue<decltype(tx.signatures)>(doc, tx.signatures), doc.GetAllocator());
+  val.AddMember("version", toJsonValue(doc, tx.version), doc.GetAllocator());
+  val.AddMember("unlock_time", toJsonValue(doc, tx.unlock_time), doc.GetAllocator());
+  val.AddMember("vin", toJsonValue(doc, tx.vin), doc.GetAllocator());
+  val.AddMember("vout", toJsonValue(doc, tx.vout), doc.GetAllocator());
+  val.AddMember("extra", toJsonValue(doc, tx.extra), doc.GetAllocator());
+  val.AddMember("signatures", toJsonValue(doc, tx.signatures), doc.GetAllocator());
 
   return val;
 }
@@ -233,20 +218,19 @@ cryptonote::transaction fromJsonValue<cryptonote::transaction>(const rapidjson::
   return tx;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::block>(rapidjson::Document& doc, const cryptonote::block& b)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::block& b)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("major_version", toJsonValue<decltype(b.major_version)>(doc, b.major_version), doc.GetAllocator());
-  val.AddMember("minor_version", toJsonValue<decltype(b.minor_version)>(doc, b.minor_version), doc.GetAllocator());
-  val.AddMember("timestamp", toJsonValue<decltype(b.timestamp)>(doc, b.timestamp), doc.GetAllocator());
-  val.AddMember("prev_id", toJsonValue<decltype(b.prev_id)>(doc, b.prev_id), doc.GetAllocator());
-  val.AddMember("nonce", toJsonValue<decltype(b.nonce)>(doc, b.nonce), doc.GetAllocator());
-  val.AddMember("miner_tx", toJsonValue<decltype(b.miner_tx)>(doc, b.miner_tx), doc.GetAllocator());
-  val.AddMember("tx_hashes", toJsonValue<decltype(b.tx_hashes)>(doc, b.tx_hashes), doc.GetAllocator());
+  val.AddMember("major_version", toJsonValue(doc, b.major_version), doc.GetAllocator());
+  val.AddMember("minor_version", toJsonValue(doc, b.minor_version), doc.GetAllocator());
+  val.AddMember("timestamp", toJsonValue(doc, b.timestamp), doc.GetAllocator());
+  val.AddMember("prev_id", toJsonValue(doc, b.prev_id), doc.GetAllocator());
+  val.AddMember("nonce", toJsonValue(doc, b.nonce), doc.GetAllocator());
+  val.AddMember("miner_tx", toJsonValue(doc, b.miner_tx), doc.GetAllocator());
+  val.AddMember("tx_hashes", toJsonValue(doc, b.tx_hashes), doc.GetAllocator());
 
   return val;
 }
@@ -286,8 +270,7 @@ cryptonote::block fromJsonValue<cryptonote::block>(const rapidjson::Value& val)
   return b;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txin_v>(rapidjson::Document& doc, const cryptonote::txin_v& txin)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_v& txin)
 {
   rapidjson::Value val;
 
@@ -296,22 +279,22 @@ rapidjson::Value toJsonValue<cryptonote::txin_v>(rapidjson::Document& doc, const
   if (txin.type() == typeid(cryptonote::txin_gen))
   {
     val.AddMember("type", "txin_gen", doc.GetAllocator());
-    val.AddMember("value", toJsonValue<cryptonote::txin_gen>(doc, boost::get<cryptonote::txin_gen>(txin)), doc.GetAllocator());
+    val.AddMember("value", toJsonValue(doc, boost::get<cryptonote::txin_gen>(txin)), doc.GetAllocator());
   }
   else if (txin.type() == typeid(cryptonote::txin_to_script))
   {
     val.AddMember("type", "txin_to_script", doc.GetAllocator());
-    val.AddMember("value", toJsonValue<cryptonote::txin_to_script>(doc, boost::get<cryptonote::txin_to_script>(txin)), doc.GetAllocator());
+    val.AddMember("value", toJsonValue(doc, boost::get<cryptonote::txin_to_script>(txin)), doc.GetAllocator());
   }
   else if (txin.type() == typeid(cryptonote::txin_to_scripthash))
   {
     val.AddMember("type", "txin_to_scripthash", doc.GetAllocator());
-    val.AddMember("value", toJsonValue<cryptonote::txin_to_scripthash>(doc, boost::get<cryptonote::txin_to_scripthash>(txin)), doc.GetAllocator());
+    val.AddMember("value", toJsonValue(doc, boost::get<cryptonote::txin_to_scripthash>(txin)), doc.GetAllocator());
   }
   else if (txin.type() == typeid(cryptonote::txin_to_key))
   {
     val.AddMember("type", "txin_to_key", doc.GetAllocator());
-    val.AddMember("value", toJsonValue<cryptonote::txin_to_key>(doc, boost::get<cryptonote::txin_to_key>(txin)), doc.GetAllocator());
+    val.AddMember("value", toJsonValue(doc, boost::get<cryptonote::txin_to_key>(txin)), doc.GetAllocator());
   }
 
   return val;
@@ -363,14 +346,13 @@ cryptonote::txin_v fromJsonValue<cryptonote::txin_v>(const rapidjson::Value& val
   return txin;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txin_gen>(rapidjson::Document& doc, const cryptonote::txin_gen& txin)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_gen& txin)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("height", toJsonValue<decltype(txin.height)>(doc, txin.height), doc.GetAllocator());
+  val.AddMember("height", toJsonValue(doc, txin.height), doc.GetAllocator());
 
   return val;
 }
@@ -392,16 +374,15 @@ cryptonote::txin_gen fromJsonValue<cryptonote::txin_gen>(const rapidjson::Value&
   return txin;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txin_to_script>(rapidjson::Document& doc, const cryptonote::txin_to_script& txin)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_script& txin)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("prev", toJsonValue<decltype(txin.prev)>(doc, txin.prev), doc.GetAllocator());
-  val.AddMember("prevout", toJsonValue<decltype(txin.prevout)>(doc, txin.prevout), doc.GetAllocator());
-  val.AddMember("sigset", toJsonValue<decltype(txin.sigset)>(doc, txin.sigset), doc.GetAllocator());
+  val.AddMember("prev", toJsonValue(doc, txin.prev), doc.GetAllocator());
+  val.AddMember("prevout", toJsonValue(doc, txin.prevout), doc.GetAllocator());
+  val.AddMember("sigset", toJsonValue(doc, txin.sigset), doc.GetAllocator());
 
   return val;
 }
@@ -429,17 +410,16 @@ cryptonote::txin_to_script fromJsonValue<cryptonote::txin_to_script>(const rapid
   return txin;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txin_to_scripthash>(rapidjson::Document& doc, const cryptonote::txin_to_scripthash& txin)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_scripthash& txin)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("prev", toJsonValue<decltype(txin.prev)>(doc, txin.prev), doc.GetAllocator());
-  val.AddMember("prevout", toJsonValue<decltype(txin.prevout)>(doc, txin.prevout), doc.GetAllocator());
-  val.AddMember("script", toJsonValue<decltype(txin.script)>(doc, txin.script), doc.GetAllocator());
-  val.AddMember("sigset", toJsonValue<decltype(txin.sigset)>(doc, txin.sigset), doc.GetAllocator());
+  val.AddMember("prev", toJsonValue(doc, txin.prev), doc.GetAllocator());
+  val.AddMember("prevout", toJsonValue(doc, txin.prevout), doc.GetAllocator());
+  val.AddMember("script", toJsonValue(doc, txin.script), doc.GetAllocator());
+  val.AddMember("sigset", toJsonValue(doc, txin.sigset), doc.GetAllocator());
 
   return val;
 }
@@ -470,16 +450,15 @@ cryptonote::txin_to_scripthash fromJsonValue<cryptonote::txin_to_scripthash>(con
   return txin;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txin_to_key>(rapidjson::Document& doc, const cryptonote::txin_to_key& txin)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_key& txin)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("amount", toJsonValue<decltype(txin.amount)>(doc, txin.amount), doc.GetAllocator());
-  val.AddMember("key_offsets", toJsonValue<decltype(txin.key_offsets)>(doc, txin.key_offsets), doc.GetAllocator());
-  val.AddMember("k_image", toJsonValue<decltype(txin.k_image)>(doc, txin.k_image), doc.GetAllocator());
+  val.AddMember("amount", toJsonValue(doc, txin.amount), doc.GetAllocator());
+  val.AddMember("key_offsets", toJsonValue(doc, txin.key_offsets), doc.GetAllocator());
+  val.AddMember("k_image", toJsonValue(doc, txin.k_image), doc.GetAllocator());
 
   return val;
 }
@@ -507,8 +486,7 @@ cryptonote::txin_to_key fromJsonValue<cryptonote::txin_to_key>(const rapidjson::
   return txin;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txout_target_v>(rapidjson::Document& doc, const cryptonote::txout_target_v& txout)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_target_v& txout)
 {
   rapidjson::Value val;
 
@@ -517,17 +495,17 @@ rapidjson::Value toJsonValue<cryptonote::txout_target_v>(rapidjson::Document& do
   if (txout.type() == typeid(cryptonote::txout_to_script))
   {
     val.AddMember("type", "txout_to_script", doc.GetAllocator());
-    val.AddMember("value", toJsonValue<cryptonote::txout_to_script>(doc, boost::get<cryptonote::txout_to_script>(txout)), doc.GetAllocator());
+    val.AddMember("value", toJsonValue(doc, boost::get<cryptonote::txout_to_script>(txout)), doc.GetAllocator());
   }
   else if (txout.type() == typeid(cryptonote::txout_to_scripthash))
   {
     val.AddMember("type", "txout_to_scripthash", doc.GetAllocator());
-    val.AddMember("value", toJsonValue<cryptonote::txout_to_scripthash>(doc, boost::get<cryptonote::txout_to_scripthash>(txout)), doc.GetAllocator());
+    val.AddMember("value", toJsonValue(doc, boost::get<cryptonote::txout_to_scripthash>(txout)), doc.GetAllocator());
   }
   else if (txout.type() == typeid(cryptonote::txout_to_key))
   {
     val.AddMember("type", "txout_to_key", doc.GetAllocator());
-    val.AddMember("value", toJsonValue<cryptonote::txout_to_key>(doc, boost::get<cryptonote::txout_to_key>(txout)), doc.GetAllocator());
+    val.AddMember("value", toJsonValue(doc, boost::get<cryptonote::txout_to_key>(txout)), doc.GetAllocator());
   }
 
   return val;
@@ -571,15 +549,14 @@ cryptonote::txout_target_v fromJsonValue<cryptonote::txout_target_v>(const rapid
   return txout;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txout_to_script>(rapidjson::Document& doc, const cryptonote::txout_to_script& txout)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_script& txout)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("keys", toJsonValue<decltype(txout.keys)>(doc, txout.keys), doc.GetAllocator());
-  val.AddMember("script", toJsonValue<decltype(txout.script)>(doc, txout.script), doc.GetAllocator());
+  val.AddMember("keys", toJsonValue(doc, txout.keys), doc.GetAllocator());
+  val.AddMember("script", toJsonValue(doc, txout.script), doc.GetAllocator());
 
   return val;
 }
@@ -604,14 +581,13 @@ cryptonote::txout_to_script fromJsonValue<cryptonote::txout_to_script>(const rap
   return txout;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txout_to_scripthash>(rapidjson::Document& doc, const cryptonote::txout_to_scripthash& txout)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_scripthash& txout)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("hash", toJsonValue<decltype(txout.hash)>(doc, txout.hash), doc.GetAllocator());
+  val.AddMember("hash", toJsonValue(doc, txout.hash), doc.GetAllocator());
 
   return val;
 }
@@ -633,14 +609,13 @@ cryptonote::txout_to_scripthash fromJsonValue<cryptonote::txout_to_scripthash>(c
   return txout;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::txout_to_key>(rapidjson::Document& doc, const cryptonote::txout_to_key& txout)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_key& txout)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("key", toJsonValue<decltype(txout.key)>(doc, txout.key), doc.GetAllocator());
+  val.AddMember("key", toJsonValue(doc, txout.key), doc.GetAllocator());
 
   return val;
 }
@@ -662,15 +637,14 @@ cryptonote::txout_to_key fromJsonValue<cryptonote::txout_to_key>(const rapidjson
   return txout;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::tx_out>(rapidjson::Document& doc, const cryptonote::tx_out& txout)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::tx_out& txout)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("amount", toJsonValue<decltype(txout.amount)>(doc, txout.amount), doc.GetAllocator());
-  val.AddMember("target", toJsonValue<decltype(txout.target)>(doc, txout.target), doc.GetAllocator());
+  val.AddMember("amount", toJsonValue(doc, txout.amount), doc.GetAllocator());
+  val.AddMember("target", toJsonValue(doc, txout.target), doc.GetAllocator());
 
   return val;
 }
@@ -695,8 +669,7 @@ cryptonote::tx_out fromJsonValue<cryptonote::tx_out>(const rapidjson::Value& val
   return txout;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::connection_info>(rapidjson::Document& doc, const cryptonote::connection_info& info)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::connection_info& info)
 {
   rapidjson::Value val;
 
@@ -704,30 +677,30 @@ rapidjson::Value toJsonValue<cryptonote::connection_info>(rapidjson::Document& d
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("incoming", toJsonValue<decltype(info.incoming)>(doc, info.incoming), al);
-  val.AddMember("localhost", toJsonValue<decltype(info.localhost)>(doc, info.localhost), al);
-  val.AddMember("local_ip", toJsonValue<decltype(info.local_ip)>(doc, info.local_ip), al);
+  val.AddMember("incoming", toJsonValue(doc, info.incoming), al);
+  val.AddMember("localhost", toJsonValue(doc, info.localhost), al);
+  val.AddMember("local_ip", toJsonValue(doc, info.local_ip), al);
 
-  val.AddMember("ip", toJsonValue<decltype(info.ip)>(doc, info.ip), al);
-  val.AddMember("port", toJsonValue<decltype(info.port)>(doc, info.port), al);
+  val.AddMember("ip", toJsonValue(doc, info.ip), al);
+  val.AddMember("port", toJsonValue(doc, info.port), al);
 
-  val.AddMember("peer_id", toJsonValue<decltype(info.peer_id)>(doc, info.peer_id), al);
+  val.AddMember("peer_id", toJsonValue(doc, info.peer_id), al);
 
-  val.AddMember("recv_count", toJsonValue<decltype(info.recv_count)>(doc, info.recv_count), al);
-  val.AddMember("recv_idle_time", toJsonValue<decltype(info.recv_idle_time)>(doc, info.recv_idle_time), al);
+  val.AddMember("recv_count", toJsonValue(doc, info.recv_count), al);
+  val.AddMember("recv_idle_time", toJsonValue(doc, info.recv_idle_time), al);
 
-  val.AddMember("send_count", toJsonValue<decltype(info.send_count)>(doc, info.send_count), al);
-  val.AddMember("send_idle_time", toJsonValue<decltype(info.send_idle_time)>(doc, info.send_idle_time), al);
+  val.AddMember("send_count", toJsonValue(doc, info.send_count), al);
+  val.AddMember("send_idle_time", toJsonValue(doc, info.send_idle_time), al);
 
-  val.AddMember("state", toJsonValue<decltype(info.state)>(doc, info.state), al);
+  val.AddMember("state", toJsonValue(doc, info.state), al);
 
-  val.AddMember("live_time", toJsonValue<decltype(info.live_time)>(doc, info.live_time), al);
+  val.AddMember("live_time", toJsonValue(doc, info.live_time), al);
 
-  val.AddMember("avg_download", toJsonValue<decltype(info.avg_download)>(doc, info.avg_download), al);
-  val.AddMember("current_download", toJsonValue<decltype(info.current_download)>(doc, info.current_download), al);
+  val.AddMember("avg_download", toJsonValue(doc, info.avg_download), al);
+  val.AddMember("current_download", toJsonValue(doc, info.current_download), al);
 
-  val.AddMember("avg_upload", toJsonValue<decltype(info.avg_upload)>(doc, info.avg_upload), al);
-  val.AddMember("current_upload", toJsonValue<decltype(info.current_upload)>(doc, info.current_upload), al);
+  val.AddMember("avg_upload", toJsonValue(doc, info.avg_upload), al);
+  val.AddMember("current_upload", toJsonValue(doc, info.current_upload), al);
 
   return val;
 }
@@ -802,15 +775,14 @@ cryptonote::connection_info fromJsonValue<cryptonote::connection_info>(const rap
   return info;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::block_complete_entry>(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("block", toJsonValue<decltype(blk.block)>(doc, blk.block), doc.GetAllocator());
-  val.AddMember("txs", toJsonValue<decltype(blk.txs)>(doc, blk.txs), doc.GetAllocator());
+  val.AddMember("block", toJsonValue(doc, blk.block), doc.GetAllocator());
+  val.AddMember("txs", toJsonValue(doc, blk.txs), doc.GetAllocator());
 
   return val;
 }
@@ -835,15 +807,14 @@ cryptonote::block_complete_entry fromJsonValue<cryptonote::block_complete_entry>
   return blk;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::block_with_transactions>(rapidjson::Document& doc, const cryptonote::rpc::block_with_transactions& blk)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::block_with_transactions& blk)
 {
   rapidjson::Value val;
 
   val.SetObject();
 
-  val.AddMember("block", toJsonValue<decltype(blk.block)>(doc, blk.block), doc.GetAllocator());
-  val.AddMember("transactions", toJsonValue<decltype(blk.transactions)>(doc, blk.transactions), doc.GetAllocator());
+  val.AddMember("block", toJsonValue(doc, blk.block), doc.GetAllocator());
+  val.AddMember("transactions", toJsonValue(doc, blk.transactions), doc.GetAllocator());
 
   return val;
 }
@@ -868,8 +839,7 @@ cryptonote::rpc::block_with_transactions fromJsonValue<cryptonote::rpc::block_wi
   return blk;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::transaction_info>(rapidjson::Document& doc, const cryptonote::rpc::transaction_info& tx_info)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::transaction_info& tx_info)
 {
   rapidjson::Value val;
 
@@ -877,9 +847,9 @@ rapidjson::Value toJsonValue<cryptonote::rpc::transaction_info>(rapidjson::Docum
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("height", toJsonValue<decltype(tx_info.height)>(doc, tx_info.height), al);
-  val.AddMember("in_pool", toJsonValue<decltype(tx_info.in_pool)>(doc, tx_info.in_pool), al);
-  val.AddMember("transaction", toJsonValue<decltype(tx_info.transaction)>(doc, tx_info.transaction), al);
+  val.AddMember("height", toJsonValue(doc, tx_info.height), al);
+  val.AddMember("in_pool", toJsonValue(doc, tx_info.in_pool), al);
+  val.AddMember("transaction", toJsonValue(doc, tx_info.transaction), al);
 
   return val;
 }
@@ -907,8 +877,7 @@ cryptonote::rpc::transaction_info fromJsonValue<cryptonote::rpc::transaction_inf
   return tx_info;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_amount_index>(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_amount_index& out)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_amount_index& out)
 {
   rapidjson::Value val;
 
@@ -916,8 +885,8 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_key_and_amount_index>(rapid
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amount_index", toJsonValue<decltype(out.amount_index)>(doc, out.amount_index), al);
-  val.AddMember("key", toJsonValue<decltype(out.key)>(doc, out.key), al);
+  val.AddMember("amount_index", toJsonValue(doc, out.amount_index), al);
+  val.AddMember("key", toJsonValue(doc, out.key), al);
 
   return val;
 }
@@ -942,8 +911,7 @@ cryptonote::rpc::output_key_and_amount_index fromJsonValue<cryptonote::rpc::outp
   return out;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::amount_with_random_outputs>(rapidjson::Document& doc, const cryptonote::rpc::amount_with_random_outputs& out)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::amount_with_random_outputs& out)
 {
   rapidjson::Value val;
 
@@ -951,8 +919,8 @@ rapidjson::Value toJsonValue<cryptonote::rpc::amount_with_random_outputs>(rapidj
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amount", toJsonValue<decltype(out.amount)>(doc, out.amount), al);
-  val.AddMember("outputs", toJsonValue<decltype(out.outputs)>(doc, out.outputs), al);
+  val.AddMember("amount", toJsonValue(doc, out.amount), al);
+  val.AddMember("outputs", toJsonValue(doc, out.outputs), al);
 
   return val;
 }
@@ -977,8 +945,7 @@ cryptonote::rpc::amount_with_random_outputs fromJsonValue<cryptonote::rpc::amoun
   return out;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::peer>(rapidjson::Document& doc, const cryptonote::rpc::peer& peer)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::peer& peer)
 {
   rapidjson::Value val;
 
@@ -986,10 +953,10 @@ rapidjson::Value toJsonValue<cryptonote::rpc::peer>(rapidjson::Document& doc, co
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("id", toJsonValue<decltype(peer.id)>(doc, peer.id), al);
-  val.AddMember("ip", toJsonValue<decltype(peer.ip)>(doc, peer.ip), al);
-  val.AddMember("port", toJsonValue<decltype(peer.port)>(doc, peer.port), al);
-  val.AddMember("last_seen", toJsonValue<decltype(peer.last_seen)>(doc, peer.last_seen), al);
+  val.AddMember("id", toJsonValue(doc, peer.id), al);
+  val.AddMember("ip", toJsonValue(doc, peer.ip), al);
+  val.AddMember("port", toJsonValue(doc, peer.port), al);
+  val.AddMember("last_seen", toJsonValue(doc, peer.last_seen), al);
 
   return val;
 }
@@ -1020,8 +987,7 @@ cryptonote::rpc::peer fromJsonValue<cryptonote::rpc::peer>(const rapidjson::Valu
   return peer;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::tx_in_pool>(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& tx)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& tx)
 {
   rapidjson::Value val;
 
@@ -1029,17 +995,17 @@ rapidjson::Value toJsonValue<cryptonote::rpc::tx_in_pool>(rapidjson::Document& d
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx", toJsonValue<decltype(tx.tx)>(doc, tx.tx), al);
-  val.AddMember("blob_size", toJsonValue<decltype(tx.blob_size)>(doc, tx.blob_size), al);
-  val.AddMember("fee", toJsonValue<decltype(tx.fee)>(doc, tx.fee), al);
-  val.AddMember("max_used_block_hash", toJsonValue<decltype(tx.max_used_block_hash)>(doc, tx.max_used_block_hash), al);
-  val.AddMember("max_used_block_height", toJsonValue<decltype(tx.max_used_block_height)>(doc, tx.max_used_block_height), al);
-  val.AddMember("kept_by_block", toJsonValue<decltype(tx.kept_by_block)>(doc, tx.kept_by_block), al);
-  val.AddMember("last_failed_block_hash", toJsonValue<decltype(tx.last_failed_block_hash)>(doc, tx.last_failed_block_hash), al);
-  val.AddMember("last_failed_block_height", toJsonValue<decltype(tx.last_failed_block_height)>(doc, tx.last_failed_block_height), al);
-  val.AddMember("receive_time", toJsonValue<decltype(tx.receive_time)>(doc, tx.receive_time), al);
-  val.AddMember("last_relayed_time", toJsonValue<decltype(tx.last_relayed_time)>(doc, tx.last_relayed_time), al);
-  val.AddMember("relayed", toJsonValue<decltype(tx.relayed)>(doc, tx.relayed), al);
+  val.AddMember("tx", toJsonValue(doc, tx.tx), al);
+  val.AddMember("blob_size", toJsonValue(doc, tx.blob_size), al);
+  val.AddMember("fee", toJsonValue(doc, tx.fee), al);
+  val.AddMember("max_used_block_hash", toJsonValue(doc, tx.max_used_block_hash), al);
+  val.AddMember("max_used_block_height", toJsonValue(doc, tx.max_used_block_height), al);
+  val.AddMember("kept_by_block", toJsonValue(doc, tx.kept_by_block), al);
+  val.AddMember("last_failed_block_hash", toJsonValue(doc, tx.last_failed_block_hash), al);
+  val.AddMember("last_failed_block_height", toJsonValue(doc, tx.last_failed_block_height), al);
+  val.AddMember("receive_time", toJsonValue(doc, tx.receive_time), al);
+  val.AddMember("last_relayed_time", toJsonValue(doc, tx.last_relayed_time), al);
+  val.AddMember("relayed", toJsonValue(doc, tx.relayed), al);
 
   return val;
 }
@@ -1091,8 +1057,7 @@ cryptonote::rpc::tx_in_pool fromJsonValue<cryptonote::rpc::tx_in_pool>(const rap
   return tx;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& oac)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& oac)
 {
   rapidjson::Value val;
 
@@ -1100,10 +1065,10 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_count>(rapidjson::Do
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amount", toJsonValue<decltype(oac.amount)>(doc, oac.amount), al);
-  val.AddMember("total_count", toJsonValue<decltype(oac.total_count)>(doc, oac.total_count), al);
-  val.AddMember("unlocked_count", toJsonValue<decltype(oac.unlocked_count)>(doc, oac.unlocked_count), al);
-  val.AddMember("recent_count", toJsonValue<decltype(oac.recent_count)>(doc, oac.recent_count), al);
+  val.AddMember("amount", toJsonValue(doc, oac.amount), al);
+  val.AddMember("total_count", toJsonValue(doc, oac.total_count), al);
+  val.AddMember("unlocked_count", toJsonValue(doc, oac.unlocked_count), al);
+  val.AddMember("recent_count", toJsonValue(doc, oac.recent_count), al);
 
   return val;
 }
@@ -1134,8 +1099,7 @@ cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amoun
   return oac;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_and_index>(rapidjson::Document& doc, const cryptonote::rpc::output_amount_and_index& out)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_amount_and_index& out)
 {
   rapidjson::Value val;
 
@@ -1143,8 +1107,8 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_amount_and_index>(rapidjson
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amount", toJsonValue<decltype(out.amount)>(doc, out.amount), al);
-  val.AddMember("index", toJsonValue<decltype(out.index)>(doc, out.index), al);
+  val.AddMember("amount", toJsonValue(doc, out.amount), al);
+  val.AddMember("index", toJsonValue(doc, out.index), al);
 
   return val;
 }
@@ -1169,8 +1133,7 @@ cryptonote::rpc::output_amount_and_index fromJsonValue<cryptonote::rpc::output_a
   return out;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::output_key_mask_unlocked>(rapidjson::Document& doc, const cryptonote::rpc::output_key_mask_unlocked& out)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_key_mask_unlocked& out)
 {
   rapidjson::Value val;
 
@@ -1178,9 +1141,9 @@ rapidjson::Value toJsonValue<cryptonote::rpc::output_key_mask_unlocked>(rapidjso
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("key", toJsonValue<decltype(out.key)>(doc, out.key), al);
-  val.AddMember("mask", toJsonValue<decltype(out.mask)>(doc, out.mask), al);
-  val.AddMember("unlocked", toJsonValue<decltype(out.unlocked)>(doc, out.unlocked), al);
+  val.AddMember("key", toJsonValue(doc, out.key), al);
+  val.AddMember("mask", toJsonValue(doc, out.mask), al);
+  val.AddMember("unlocked", toJsonValue(doc, out.unlocked), al);
 
   return val;
 }
@@ -1245,8 +1208,7 @@ cryptonote::rpc::hard_fork_info fromJsonValue<cryptonote::rpc::hard_fork_info>(c
   return info;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::hard_fork_info>(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info)
 {
   rapidjson::Value val;
 
@@ -1254,14 +1216,14 @@ rapidjson::Value toJsonValue<cryptonote::rpc::hard_fork_info>(rapidjson::Documen
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("version", toJsonValue<decltype(info.version)>(doc, info.version), al);
-  val.AddMember("enabled", toJsonValue<decltype(info.enabled)>(doc, info.enabled), al);
-  val.AddMember("window", toJsonValue<decltype(info.window)>(doc, info.window), al);
-  val.AddMember("votes", toJsonValue<decltype(info.votes)>(doc, info.votes), al);
-  val.AddMember("threshold", toJsonValue<decltype(info.threshold)>(doc, info.threshold), al);
-  val.AddMember("voting", toJsonValue<decltype(info.voting)>(doc, info.voting), al);
-  val.AddMember("state", toJsonValue<decltype(info.state)>(doc, info.state), al);
-  val.AddMember("earliest_height", toJsonValue<decltype(info.earliest_height)>(doc, info.earliest_height), al);
+  val.AddMember("version", toJsonValue(doc, info.version), al);
+  val.AddMember("enabled", toJsonValue(doc, info.enabled), al);
+  val.AddMember("window", toJsonValue(doc, info.window), al);
+  val.AddMember("votes", toJsonValue(doc, info.votes), al);
+  val.AddMember("threshold", toJsonValue(doc, info.threshold), al);
+  val.AddMember("voting", toJsonValue(doc, info.voting), al);
+  val.AddMember("state", toJsonValue(doc, info.state), al);
+  val.AddMember("earliest_height", toJsonValue(doc, info.earliest_height), al);
 
   return val;
 }
@@ -1288,8 +1250,7 @@ cryptonote::rpc::error fromJsonValue<cryptonote::rpc::error>(const rapidjson::Va
   return err;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::error>(rapidjson::Document& doc, const cryptonote::rpc::error& err)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::error& err)
 {
   rapidjson::Value val;
 
@@ -1297,9 +1258,9 @@ rapidjson::Value toJsonValue<cryptonote::rpc::error>(rapidjson::Document& doc, c
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("code", toJsonValue<decltype(err.code)>(doc, err.code), al);
-  val.AddMember("error_str", toJsonValue<decltype(err.error_str)>(doc, err.error_str), al);
-  val.AddMember("message", toJsonValue<decltype(err.message)>(doc, err.message), al);
+  val.AddMember("code", toJsonValue(doc, err.code), al);
+  val.AddMember("error_str", toJsonValue(doc, err.error_str), al);
+  val.AddMember("message", toJsonValue(doc, err.message), al);
 
   return val;
 }
@@ -1347,8 +1308,7 @@ cryptonote::rpc::BlockHeaderResponse fromJsonValue<cryptonote::rpc::BlockHeaderR
   return response;
 }
 
-template <>
-rapidjson::Value toJsonValue<cryptonote::rpc::BlockHeaderResponse>(rapidjson::Document& doc, const cryptonote::rpc::BlockHeaderResponse& response)
+rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::BlockHeaderResponse& response)
 {
   rapidjson::Value val;
 
@@ -1356,16 +1316,16 @@ rapidjson::Value toJsonValue<cryptonote::rpc::BlockHeaderResponse>(rapidjson::Do
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("major_version", toJsonValue<decltype(response.major_version)>(doc, response.major_version), al);
-  val.AddMember("minor_version", toJsonValue<decltype(response.minor_version)>(doc, response.minor_version), al);
-  val.AddMember("timestamp", toJsonValue<decltype(response.timestamp)>(doc, response.timestamp), al);
-  val.AddMember("prev_id", toJsonValue<decltype(response.prev_id)>(doc, response.prev_id), al);
-  val.AddMember("nonce", toJsonValue<decltype(response.nonce)>(doc, response.nonce), al);
-  val.AddMember("height", toJsonValue<decltype(response.height)>(doc, response.height), al);
-  val.AddMember("depth", toJsonValue<decltype(response.depth)>(doc, response.depth), al);
-  val.AddMember("hash", toJsonValue<decltype(response.hash)>(doc, response.hash), al);
-  val.AddMember("difficulty", toJsonValue<decltype(response.difficulty)>(doc, response.difficulty), al);
-  val.AddMember("reward", toJsonValue<decltype(response.reward)>(doc, response.reward), al);
+  val.AddMember("major_version", toJsonValue(doc, response.major_version), al);
+  val.AddMember("minor_version", toJsonValue(doc, response.minor_version), al);
+  val.AddMember("timestamp", toJsonValue(doc, response.timestamp), al);
+  val.AddMember("prev_id", toJsonValue(doc, response.prev_id), al);
+  val.AddMember("nonce", toJsonValue(doc, response.nonce), al);
+  val.AddMember("height", toJsonValue(doc, response.height), al);
+  val.AddMember("depth", toJsonValue(doc, response.depth), al);
+  val.AddMember("hash", toJsonValue(doc, response.hash), al);
+  val.AddMember("difficulty", toJsonValue(doc, response.difficulty), al);
+  val.AddMember("reward", toJsonValue(doc, response.reward), al);
 
   return val;
 }

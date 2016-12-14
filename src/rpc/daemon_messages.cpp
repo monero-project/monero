@@ -95,7 +95,7 @@ rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("block_ids", cryptonote::json::toJsonValue<decltype(block_ids)>(doc, block_ids), al);
+  val.AddMember("block_ids", cryptonote::json::toJsonValue(doc, block_ids), al);
   val.AddMember("start_height", start_height, al);
 
   return val;
@@ -117,10 +117,10 @@ rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("blocks", cryptonote::json::toJsonValue<decltype(blocks)>(doc, blocks), al);
+  val.AddMember("blocks", cryptonote::json::toJsonValue(doc, blocks), al);
   val.AddMember("start_height", start_height, al);
   val.AddMember("current_height", current_height, al);
-  val.AddMember("output_indices", cryptonote::json::toJsonValue<decltype(output_indices)>(doc, output_indices), al);
+  val.AddMember("output_indices", cryptonote::json::toJsonValue(doc, output_indices), al);
 
   return val;
 }
@@ -148,7 +148,7 @@ rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("known_hashes", cryptonote::json::toJsonValue<decltype(known_hashes)>(doc, known_hashes), al);
+  val.AddMember("known_hashes", cryptonote::json::toJsonValue(doc, known_hashes), al);
   val.AddMember("start_height", start_height, al);
 
   return val;
@@ -170,7 +170,7 @@ rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("hashes", cryptonote::json::toJsonValue<decltype(hashes)>(doc, hashes), al);
+  val.AddMember("hashes", cryptonote::json::toJsonValue(doc, hashes), al);
   val.AddMember("start_height", start_height, al);
   val.AddMember("current_height", current_height, al);
 
@@ -197,7 +197,7 @@ rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx_hashes", cryptonote::json::toJsonValue<decltype(tx_hashes)>(doc, tx_hashes), al);
+  val.AddMember("tx_hashes", cryptonote::json::toJsonValue(doc, tx_hashes), al);
 
   return val;
 }
@@ -216,10 +216,10 @@ rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
   auto& al = doc.GetAllocator();
 
   val.AddMember("txs",
-                cryptonote::json::toJsonValue<decltype(txs)>(doc, txs),
+                cryptonote::json::toJsonValue(doc, txs),
                 al);
   val.AddMember("missed_hashes",
-                cryptonote::json::toJsonValue<decltype(missed_hashes)>(doc, missed_hashes),
+                cryptonote::json::toJsonValue(doc, missed_hashes),
                 al);
 
   return val;
@@ -242,7 +242,7 @@ rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("key_images", cryptonote::json::toJsonValue<decltype(key_images)>(doc, key_images), al);
+  val.AddMember("key_images", cryptonote::json::toJsonValue(doc, key_images), al);
 
   return val;
 }
@@ -260,7 +260,7 @@ rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("spent_status", cryptonote::json::toJsonValue<decltype(spent_status)>(doc, spent_status), al);
+  val.AddMember("spent_status", cryptonote::json::toJsonValue(doc, spent_status), al);
 
   return val;
 }
@@ -279,7 +279,7 @@ rapidjson::Value GetTxGlobalOutputIndices::Request::toJson(rapidjson::Document& 
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx_hash", cryptonote::json::toJsonValue<decltype(tx_hash)>(doc, tx_hash), al);
+  val.AddMember("tx_hash", cryptonote::json::toJsonValue(doc, tx_hash), al);
 
   return val;
 }
@@ -297,7 +297,7 @@ rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document&
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("output_indices", cryptonote::json::toJsonValue<decltype(output_indices)>(doc, output_indices), al);
+  val.AddMember("output_indices", cryptonote::json::toJsonValue(doc, output_indices), al);
 
   return val;
 }
@@ -316,8 +316,8 @@ rapidjson::Value GetRandomOutputsForAmounts::Request::toJson(rapidjson::Document
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amounts", cryptonote::json::toJsonValue<decltype(amounts)>(doc, amounts), al);
-  val.AddMember("count", cryptonote::json::toJsonValue<decltype(count)>(doc, count), al);
+  val.AddMember("amounts", cryptonote::json::toJsonValue(doc, amounts), al);
+  val.AddMember("count", cryptonote::json::toJsonValue(doc, count), al);
 
   return val;
 }
@@ -338,7 +338,7 @@ rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Documen
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amounts_with_outputs", cryptonote::json::toJsonValue<decltype(amounts_with_outputs)>(doc, amounts_with_outputs), al);
+  val.AddMember("amounts_with_outputs", cryptonote::json::toJsonValue(doc, amounts_with_outputs), al);
 
   return val;
 }
@@ -357,8 +357,8 @@ rapidjson::Value SendRawTx::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx", cryptonote::json::toJsonValue<decltype(tx)>(doc, tx), al);
-  val.AddMember("relay", cryptonote::json::toJsonValue<decltype(relay)>(doc, relay), al);
+  val.AddMember("tx", cryptonote::json::toJsonValue(doc, tx), al);
+  val.AddMember("relay", cryptonote::json::toJsonValue(doc, relay), al);
 
   return val;
 }
@@ -379,7 +379,7 @@ rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("relayed", cryptonote::json::toJsonValue<decltype(relayed)>(doc, relayed), al);
+  val.AddMember("relayed", cryptonote::json::toJsonValue(doc, relayed), al);
 
   return val;
 }
@@ -407,19 +407,19 @@ rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
-  val.AddMember("target_height", cryptonote::json::toJsonValue<decltype(target_height)>(doc, target_height), al);
-  val.AddMember("difficulty", cryptonote::json::toJsonValue<decltype(difficulty)>(doc, difficulty), al);
-  val.AddMember("target", cryptonote::json::toJsonValue<decltype(target)>(doc, target), al);
-  val.AddMember("tx_count", cryptonote::json::toJsonValue<decltype(tx_count)>(doc, tx_count), al);
-  val.AddMember("tx_pool_size", cryptonote::json::toJsonValue<decltype(tx_pool_size)>(doc, tx_pool_size), al);
-  val.AddMember("alt_blocks_count", cryptonote::json::toJsonValue<decltype(alt_blocks_count)>(doc, alt_blocks_count), al);
-  val.AddMember("outgoing_connections_count", cryptonote::json::toJsonValue<decltype(outgoing_connections_count)>(doc, outgoing_connections_count), al);
-  val.AddMember("incoming_connections_count", cryptonote::json::toJsonValue<decltype(incoming_connections_count)>(doc, incoming_connections_count), al);
-  val.AddMember("white_peerlist_size", cryptonote::json::toJsonValue<decltype(white_peerlist_size)>(doc, white_peerlist_size), al);
-  val.AddMember("grey_peerlist_size", cryptonote::json::toJsonValue<decltype(grey_peerlist_size)>(doc, grey_peerlist_size), al);
-  val.AddMember("testnet", cryptonote::json::toJsonValue<decltype(testnet)>(doc, testnet), al);
-  val.AddMember("top_block_hash", cryptonote::json::toJsonValue<decltype(top_block_hash)>(doc, top_block_hash), al);
+  val.AddMember("height", cryptonote::json::toJsonValue(doc, height), al);
+  val.AddMember("target_height", cryptonote::json::toJsonValue(doc, target_height), al);
+  val.AddMember("difficulty", cryptonote::json::toJsonValue(doc, difficulty), al);
+  val.AddMember("target", cryptonote::json::toJsonValue(doc, target), al);
+  val.AddMember("tx_count", cryptonote::json::toJsonValue(doc, tx_count), al);
+  val.AddMember("tx_pool_size", cryptonote::json::toJsonValue(doc, tx_pool_size), al);
+  val.AddMember("alt_blocks_count", cryptonote::json::toJsonValue(doc, alt_blocks_count), al);
+  val.AddMember("outgoing_connections_count", cryptonote::json::toJsonValue(doc, outgoing_connections_count), al);
+  val.AddMember("incoming_connections_count", cryptonote::json::toJsonValue(doc, incoming_connections_count), al);
+  val.AddMember("white_peerlist_size", cryptonote::json::toJsonValue(doc, white_peerlist_size), al);
+  val.AddMember("grey_peerlist_size", cryptonote::json::toJsonValue(doc, grey_peerlist_size), al);
+  val.AddMember("testnet", cryptonote::json::toJsonValue(doc, testnet), al);
+  val.AddMember("top_block_hash", cryptonote::json::toJsonValue(doc, top_block_hash), al);
 
   return val;
 }
@@ -501,7 +501,7 @@ rapidjson::Value GetBlockHash::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
+  val.AddMember("height", cryptonote::json::toJsonValue(doc, height), al);
 
   return val;
 }
@@ -519,7 +519,7 @@ rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("hash", cryptonote::json::toJsonValue<decltype(hash)>(doc, hash), al);
+  val.AddMember("hash", cryptonote::json::toJsonValue(doc, hash), al);
 
   return val;
 }
@@ -551,7 +551,7 @@ rapidjson::Value GetLastBlockHeader::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("header", cryptonote::json::toJsonValue<decltype(header)>(doc, header), al);
+  val.AddMember("header", cryptonote::json::toJsonValue(doc, header), al);
 
   return val;
 }
@@ -569,7 +569,7 @@ rapidjson::Value GetBlockHeaderByHash::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("hash", cryptonote::json::toJsonValue<decltype(hash)>(doc, hash), al);
+  val.AddMember("hash", cryptonote::json::toJsonValue(doc, hash), al);
 
   return val;
 }
@@ -587,7 +587,7 @@ rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("header", cryptonote::json::toJsonValue<decltype(header)>(doc, header), al);
+  val.AddMember("header", cryptonote::json::toJsonValue(doc, header), al);
 
   return val;
 }
@@ -605,7 +605,7 @@ rapidjson::Value GetBlockHeaderByHeight::Request::toJson(rapidjson::Document& do
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("height", cryptonote::json::toJsonValue<decltype(height)>(doc, height), al);
+  val.AddMember("height", cryptonote::json::toJsonValue(doc, height), al);
 
   return val;
 }
@@ -623,7 +623,7 @@ rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& d
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("header", cryptonote::json::toJsonValue<decltype(header)>(doc, header), al);
+  val.AddMember("header", cryptonote::json::toJsonValue(doc, header), al);
 
   return val;
 }
@@ -654,8 +654,8 @@ rapidjson::Value GetPeerList::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("white_list", cryptonote::json::toJsonValue<decltype(white_list)>(doc, white_list), al);
-  val.AddMember("gray_list", cryptonote::json::toJsonValue<decltype(gray_list)>(doc, gray_list), al);
+  val.AddMember("white_list", cryptonote::json::toJsonValue(doc, white_list), al);
+  val.AddMember("gray_list", cryptonote::json::toJsonValue(doc, gray_list), al);
 
   return val;
 }
@@ -714,8 +714,8 @@ rapidjson::Value GetTransactionPool::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("transactions", cryptonote::json::toJsonValue<decltype(transactions)>(doc, transactions), al);
-  val.AddMember("key_images", cryptonote::json::toJsonValue<decltype(key_images)>(doc, key_images), al);
+  val.AddMember("transactions", cryptonote::json::toJsonValue(doc, transactions), al);
+  val.AddMember("key_images", cryptonote::json::toJsonValue(doc, key_images), al);
 
   return val;
 }
@@ -737,7 +737,7 @@ rapidjson::Value HardForkInfo::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("version", cryptonote::json::toJsonValue<decltype(version)>(doc, version), al);
+  val.AddMember("version", cryptonote::json::toJsonValue(doc, version), al);
 
   return val;
 }
@@ -755,7 +755,7 @@ rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("info", cryptonote::json::toJsonValue<decltype(info)>(doc, info), al);
+  val.AddMember("info", cryptonote::json::toJsonValue(doc, info), al);
 
   return val;
 }
@@ -773,11 +773,11 @@ rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amounts", cryptonote::json::toJsonValue<decltype(amounts)>(doc, amounts), al);
-  val.AddMember("min_count", cryptonote::json::toJsonValue<decltype(min_count)>(doc, min_count), al);
-  val.AddMember("max_count", cryptonote::json::toJsonValue<decltype(max_count)>(doc, max_count), al);
-  val.AddMember("unlocked", cryptonote::json::toJsonValue<decltype(unlocked)>(doc, unlocked), al);
-  val.AddMember("recent_cutoff", cryptonote::json::toJsonValue<decltype(recent_cutoff)>(doc, recent_cutoff), al);
+  val.AddMember("amounts", cryptonote::json::toJsonValue(doc, amounts), al);
+  val.AddMember("min_count", cryptonote::json::toJsonValue(doc, min_count), al);
+  val.AddMember("max_count", cryptonote::json::toJsonValue(doc, max_count), al);
+  val.AddMember("unlocked", cryptonote::json::toJsonValue(doc, unlocked), al);
+  val.AddMember("recent_cutoff", cryptonote::json::toJsonValue(doc, recent_cutoff), al);
 
   return val;
 }
@@ -806,7 +806,7 @@ rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("histogram", cryptonote::json::toJsonValue<decltype(histogram)>(doc, histogram), al);
+  val.AddMember("histogram", cryptonote::json::toJsonValue(doc, histogram), al);
 
   return val;
 }
@@ -825,7 +825,7 @@ rapidjson::Value GetOutputKeys::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("outputs", cryptonote::json::toJsonValue<decltype(outputs)>(doc, outputs), al);
+  val.AddMember("outputs", cryptonote::json::toJsonValue(doc, outputs), al);
 
   return val;
 }
@@ -842,7 +842,7 @@ rapidjson::Value GetOutputKeys::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("keys", cryptonote::json::toJsonValue<decltype(keys)>(doc, keys), al);
+  val.AddMember("keys", cryptonote::json::toJsonValue(doc, keys), al);
 
   return val;
 }
@@ -869,7 +869,7 @@ rapidjson::Value GetRPCVersion::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("version", cryptonote::json::toJsonValue<decltype(version)>(doc, version), al);
+  val.AddMember("version", cryptonote::json::toJsonValue(doc, version), al);
 
   return val;
 }
@@ -887,7 +887,7 @@ rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("num_grace_blocks", cryptonote::json::toJsonValue<decltype(num_grace_blocks)>(doc, num_grace_blocks), al);
+  val.AddMember("num_grace_blocks", cryptonote::json::toJsonValue(doc, num_grace_blocks), al);
 
   return val;
 }
@@ -904,7 +904,7 @@ rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("estimated_fee_per_kb", cryptonote::json::toJsonValue<decltype(estimated_fee_per_kb)>(doc, estimated_fee_per_kb), al);
+  val.AddMember("estimated_fee_per_kb", cryptonote::json::toJsonValue(doc, estimated_fee_per_kb), al);
 
   return val;
 }
