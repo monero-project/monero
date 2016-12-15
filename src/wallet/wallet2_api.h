@@ -137,14 +137,14 @@ struct TransactionHistory
  */
 struct AddressBookRow {
 public:
-    AddressBookRow(int _rowId, const std::string &_address, const std::string &_paymentId, const std::string &_description):
+    AddressBookRow(std::size_t _rowId, const std::string &_address, const std::string &_paymentId, const std::string &_description):
         m_rowId(_rowId),
         m_address(_address),
         m_paymentId(_paymentId), 
         m_description(_description) {}
  
 private:
-    int m_rowId;
+    std::size_t m_rowId;
     std::string m_address;
     std::string m_paymentId;
     std::string m_description;
@@ -153,7 +153,7 @@ public:
     std::string getAddress() const {return m_address;} 
     std::string getDescription() const {return m_description;} 
     std::string getPaymentId() const {return m_paymentId;} 
-    int getRowId() const {return m_rowId;} 
+    std::size_t getRowId() const {return m_rowId;}
 };
 
 /**
@@ -171,7 +171,7 @@ struct AddressBook
     virtual ~AddressBook() = 0;
     virtual std::vector<AddressBookRow*> getAll() const = 0;
     virtual bool addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description) = 0;  
-    virtual bool deleteRow(int rowId) = 0;  
+    virtual bool deleteRow(std::size_t rowId) = 0;
     virtual void refresh() = 0;  
     virtual std::string errorString() const = 0;
     virtual int errorCode() const = 0;

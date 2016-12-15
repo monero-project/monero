@@ -1569,14 +1569,14 @@ bool wallet2::add_address_book_row(const cryptonote::account_public_address &add
   a.m_payment_id = payment_id;
   a.m_description = description;
   
-  int old_size = m_address_book.size();
+  auto old_size = m_address_book.size();
   m_address_book.push_back(a);
   if(m_address_book.size() == old_size+1)
     return true;
   return false;
 }
 
-bool wallet2::delete_address_book_row(int row_id) {
+bool wallet2::delete_address_book_row(std::size_t row_id) {
   if(m_address_book.size() <= row_id)
     return false;
   
