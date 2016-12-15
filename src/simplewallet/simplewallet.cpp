@@ -3882,7 +3882,7 @@ bool simple_wallet::export_outputs(const std::vector<std::string> &args)
     std::vector<tools::wallet2::transfer_details> outs = m_wallet->export_outputs();
 
     std::stringstream oss;
-    boost::archive::binary_oarchive ar(oss);
+    cereal::PortableBinaryOutputArchive ar(oss);
     ar << outs;
 
     std::string magic(OUTPUT_EXPORT_FILE_MAGIC, strlen(OUTPUT_EXPORT_FILE_MAGIC));
@@ -3962,7 +3962,7 @@ bool simple_wallet::import_outputs(const std::vector<std::string> &args)
     std::string body(data, headerlen);
     std::stringstream iss;
     iss << body;
-    boost::archive::binary_iarchive ar(iss);
+    cereal::PortableBinaryInputArchive ar(iss);
     std::vector<tools::wallet2::transfer_details> outputs;
     ar >> outputs;
 

@@ -28,32 +28,25 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once 
+#pragma once
 
-namespace boost
+#include "account.h"
+#include "cryptonote_core/cryptonote_serialization.h"
+
+namespace cryptonote
 {
-  namespace serialization
-  {
-
-
-    template<class archive_t>
-    void serialize(archive_t & ar, cryptonote::blockchain_storage::transaction_chain_entry& te, const unsigned int version)
+    template <class Archive>
+    inline void serialize(Archive &a, cryptonote::account_keys &x, const std::uint32_t ver)
     {
-      ar & te.tx;
-      ar & te.m_keeper_block_height;
-      ar & te.m_blob_size;
-      ar & te.m_global_output_indexes;
+      a & x.m_account_address;
+      a & x.m_spend_secret_key;
+      a & x.m_view_secret_key;
     }
 
-    template<class archive_t>
-    void serialize(archive_t & ar, cryptonote::blockchain_storage::block_extended_info& ei, const unsigned int version)
+    template <class Archive>
+    inline void serialize(Archive &a, cryptonote::account_public_address &x, const std::uint32_t ver)
     {
-      ar & ei.bl;
-      ar & ei.height;
-      ar & ei.cumulative_difficulty;
-      ar & ei.block_cumulative_size;
-      ar & ei.already_generated_coins;
+      a & x.m_spend_public_key;
+      a & x.m_view_public_key;
     }
-
-  }
 }

@@ -42,14 +42,13 @@ set(cryptonote_core_headers)
 
 set(cryptonote_core_private_headers
   account.h
-  account_boost_serialization.h
-  blockchain_storage_boost_serialization.h
+  account_serialization.h
   blockchain.h
   checkpoints.h
   connection_context.h
   cryptonote_basic.h
   cryptonote_basic_impl.h
-  cryptonote_boost_serialization.h
+  cryptonote_serialization.h
   cryptonote_core.h
   cryptonote_format_utils.h
   cryptonote_stat_info.h

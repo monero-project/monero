@@ -35,7 +35,7 @@
 #include <boost/iostreams/filtering_streambuf.hpp>
 
 #include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/cryptonote_boost_serialization.h"
+#include "cryptonote_core/cryptonote_serialization.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"

@@ -44,7 +44,7 @@ set(common_headers)
 
 set(common_private_headers
   base58.h
-  boost_serialization_helper.h
+  cereal_serialization_helper.h
   command_line.h
   dns_utils.h
   http_connection.h

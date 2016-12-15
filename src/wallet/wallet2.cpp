@@ -30,8 +30,6 @@
 
 #include <random>
 #include <tuple>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
 #include <boost/format.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/utility/value_init.hpp>
@@ -45,7 +43,7 @@ using namespace epee;
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "misc_language.h"
 #include "cryptonote_core/cryptonote_basic_impl.h"
-#include "common/boost_serialization_helper.h"
+#include "common/cereal_serialization_helper.h"
 #include "common/command_line.h"
 #include "profile_tools.h"
 #include "crypto/crypto.h"
@@ -2313,16 +2311,36 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
 
       std::stringstream iss;
       iss << cache_data;
-      boost::archive::binary_iarchive ar(iss);
+      cereal::PortableBinaryInputArchive ar(iss);
       ar >> *this;
+      if (m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
+          m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key)
+      {
+        LOG_PRINT_L0("Failed to open using cereal, trying boost");
+        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".old", boost::filesystem::copy_option::overwrite_if_exists);
+        iss.str("");
+        iss << cache_data;
+        boost::archive::binary_iarchive ar(iss);
+        ar >> *this;
+      }
     }
     catch (...)
     {
       LOG_PRINT_L1("Failed to load encrypted cache, trying unencrypted");
       std::stringstream iss;
       iss << buf;
-      boost::archive::binary_iarchive ar(iss);
+      cereal::PortableBinaryInputArchive ar(iss);
       ar >> *this;
+      if (m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
+          m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key)
+      {
+        LOG_PRINT_L0("Failed to open using cereal, trying boost");
+        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".old", boost::filesystem::copy_option::overwrite_if_exists);
+        iss.str("");
+        iss << buf;
+        boost::archive::binary_iarchive ar(iss);
+        ar >> *this;
+      }
     }
     THROW_WALLET_EXCEPTION_IF(
       m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
@@ -2396,7 +2414,7 @@ void wallet2::store_to(const std::string &path, const std::string &password)
   }
   // preparing wallet data
   std::stringstream oss;
-  boost::archive::binary_oarchive ar(oss);
+  cereal::PortableBinaryOutputArchive ar(oss);
   ar << *this;
 
   wallet2::cache_file_data cache_file_data = boost::value_initialized<wallet2::cache_file_data>();

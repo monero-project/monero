@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include "cryptonote_core/cryptonote_boost_serialization.h"
+#include "cryptonote_core/cryptonote_serialization.h"
 #include "cryptonote_core/difficulty.h"
 
 
