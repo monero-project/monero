@@ -34,7 +34,6 @@ set(wallet_sources
   password_container.cpp
   wallet2.cpp
   wallet_args.cpp
-  wallet_rpc_server.cpp
   api/wallet.cpp
   api/wallet_manager.cpp
   api/transaction_info.cpp
@@ -103,6 +102,7 @@ if (NOT BUILD_GUI_DEPS)
   target_link_libraries(wallet_rpc_server
     PRIVATE
       wallet
+      epee
       rpc
       cryptonote_core
       crypto
