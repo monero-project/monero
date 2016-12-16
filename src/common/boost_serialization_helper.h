@@ -53,8 +53,8 @@ namespace tools
       return false;
     }
 
-    FILE* data_file_file = _fdopen(data_file_descriptor, "wb");
-    if (0 == data_file_file)
+    const std::unique_ptr<FILE, tools::close_file> data_file_file{_fdopen(data_file_descriptor, "wb")};
+    if (nullptr == data_file_file)
     {
       // Call CloseHandle is not necessary
       _close(data_file_descriptor);
@@ -62,11 +62,10 @@ namespace tools
     }
 
     // HACK: undocumented constructor, this code may not compile
-    std::ofstream data_file(data_file_file);
+    std::ofstream data_file(data_file_file.get());
     if (data_file.fail())
     {
       // Call CloseHandle and _close are not necessary
-      fclose(data_file_file);
       return false;
     }
 #else
@@ -85,7 +84,6 @@ namespace tools
 #if defined(_MSC_VER)
     // To make sure the file is fully stored on disk
     ::FlushFileBuffers(data_file_handle);
-    fclose(data_file_file);
 #endif
 
     return true;
