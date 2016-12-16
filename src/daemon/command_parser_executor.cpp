@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "common/dns_utils.h"
 #include "daemon/command_parser_executor.h"
 
 namespace daemonize {
@@ -238,17 +238,35 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   }
 
   cryptonote::account_public_address adr;
+  bool has_payment_id;
+  crypto::hash8 payment_id;
   bool testnet = false;
-  if(!cryptonote::get_account_address_from_str(adr, false, args.front()))
+  if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, false, args.front()))
   {
-    if(!cryptonote::get_account_address_from_str(adr, true, args.front()))
+    if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, true, args.front()))
     {
-      std::cout << "target account address has wrong format" << std::endl;
-      return true;
+      bool dnssec_valid;
+      std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(args.front(), dnssec_valid);
+      if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, false, address_str))
+      {
+        if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, true, address_str))
+        {
+          std::cout << "target account address has wrong format" << std::endl;
+          return true;
+        }
+        else
+        {
+          testnet = true;
+        }
+      }
     }
-    testnet = true;
-    std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
+    else
+    {
+      testnet = true;
+    }
   }
+  if(testnet)
+    std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
   uint64_t threads_count = 1;
   if(args.size() > 2)
   {

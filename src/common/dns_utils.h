@@ -25,9 +25,11 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#pragma once
 
 #include <vector>
 #include <string>
+#include "cryptonote_core/cryptonote_basic.h"
 
 namespace tools
 {
@@ -154,5 +156,22 @@ private:
 
   DNSResolverData *m_data;
 }; // class DNSResolver
+
+namespace dns_utils
+{
+
+std::string address_from_txt_record(const std::string& s);
+std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
+
+std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid);
+bool get_account_address_from_str_or_url(
+    cryptonote::account_public_address& address
+  , bool& has_payment_id
+  , crypto::hash8& payment_id
+  , bool testnet
+  , const std::string& str_or_url
+  );
+
+}  // namespace tools::dns_utils
 
 }  // namespace tools

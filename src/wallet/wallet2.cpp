@@ -51,7 +51,6 @@ using namespace epee;
 #include "cryptonote_protocol/blobdatatype.h"
 #include "mnemonics/electrum-words.h"
 #include "common/i18n.h"
-#include "common/dns_utils.h"
 #include "common/util.h"
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -2854,74 +2853,7 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
   return retVal;
 }
 } // anonymous namespace
-
-/**
- * @brief gets a monero address from the TXT record of a DNS entry
- *
- * gets the monero address from the TXT record of the DNS entry associated
- * with <url>.  If this lookup fails, or the TXT record does not contain an
- * XMR address in the correct format, returns an empty string.  <dnssec_valid>
- * will be set true or false according to whether or not the DNS query passes
- * DNSSEC validation.
- *
- * @param url the url to look up
- * @param dnssec_valid return-by-reference for DNSSEC status of query
- *
- * @return a monero address (as a string) or an empty string
- */
-std::vector<std::string> wallet2::addresses_from_url(const std::string& url, bool& dnssec_valid)
-{
-  std::vector<std::string> addresses;
-  // get txt records
-  bool dnssec_available, dnssec_isvalid;
-  std::string oa_addr = tools::DNSResolver::instance().get_dns_format_from_oa_address(url);
-  auto records = tools::DNSResolver::instance().get_txt_record(oa_addr, dnssec_available, dnssec_isvalid);
-
-  // TODO: update this to allow for conveying that dnssec was not available
-  if (dnssec_available && dnssec_isvalid)
-  {
-    dnssec_valid = true;
-  }
-  else dnssec_valid = false;
-
-  // for each txt record, try to find a monero address in it.
-  for (auto& rec : records)
-  {
-    std::string addr = address_from_txt_record(rec);
-    if (addr.size())
-    {
-      addresses.push_back(addr);
-    }
-  }
-
-  return addresses;
-}
-
 //----------------------------------------------------------------------------------------------------
-// TODO: parse the string in a less stupid way, probably with regex
-std::string wallet2::address_from_txt_record(const std::string& s)
-{
-  // make sure the txt record has "oa1:xmr" and find it
-  auto pos = s.find("oa1:xmr");
-
-  // search from there to find "recipient_address="
-  pos = s.find("recipient_address=", pos);
-
-  pos += 18; // move past "recipient_address="
-
-  // find the next semicolon
-  auto pos2 = s.find(";", pos);
-  if (pos2 != std::string::npos)
-  {
-    // length of address == 95, we can at least validate that much here
-    if (pos2 - pos == 95)
-    {
-      return s.substr(pos, 95);
-    }
-  }
-  return std::string();
-}
-
 crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
 {
   std::vector<tx_extra_field> tx_extra_fields;

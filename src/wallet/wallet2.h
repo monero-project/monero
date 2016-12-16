@@ -503,10 +503,6 @@ namespace tools
     static bool parse_short_payment_id(const std::string& payment_id_str, crypto::hash8& payment_id);
     static bool parse_payment_id(const std::string& payment_id_str, crypto::hash& payment_id);
 
-    static std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
-
-    static std::string address_from_txt_record(const std::string& s);
-
     bool always_confirm_transfers() const { return m_always_confirm_transfers; }
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
     bool store_tx_info() const { return m_store_tx_info; }
