@@ -159,9 +159,9 @@ namespace tools
         }
         else
         {
-          tools::password_container pwd(true);
-          pwd.read_password("RPC password");
-          login.password = pwd.password();
+          login.password = tools::password_container::prompt(true, "RPC password").value_or(
+            tools::password_container{}
+          ).password();
         }
 
         if (login.username.empty() || login.password.empty())

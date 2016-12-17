@@ -31,34 +31,37 @@
 #pragma once
 
 #include <string>
-#include <boost/program_options/variables_map.hpp>
+#include <boost/optional/optional.hpp>
 
 namespace tools
 {
   class password_container
   {
   public:
-    static const size_t max_password_size = 1024;
-    password_container(bool verify);
-    password_container(password_container&& rhs);
-    password_container(std::string&& password);
-    ~password_container();
+    static constexpr const size_t max_password_size = 1024;
 
-    void clear();
-    bool empty() const { return m_empty; }
-    const std::string& password() const { return m_password; }
-    void password(std::string&& val) { m_password = std::move(val); m_empty = false; }
-    bool read_password(const char *message = "Password");
+    //! Empty password
+    password_container() noexcept;
+
+    //! `password` is used as password
+    password_container(std::string&& password) noexcept;
+
+    //! \return A password from stdin TTY prompt or `std::cin` pipe.
+    static boost::optional<password_container> prompt(bool verify, const char *mesage = "Password");
+
+    password_container(const password_container&) = delete;
+    password_container(password_container&& rhs) = default;
+
+    //! Wipes internal password
+    ~password_container() noexcept;
+
+    password_container& operator=(const password_container&) = delete;
+    password_container& operator=(password_container&&) = default;
+
+    const std::string& password() const noexcept { return m_password; }
 
   private:
-    //delete constructor with no parameters
-    password_container();
-    bool read_from_file();
-    bool read_from_tty(std::string & pass);
-    bool read_from_tty_double_check(const char *message);
-
-    bool m_empty;
+    //! TODO Custom allocator that locks to RAM?
     std::string m_password;
-    bool m_verify;
   };
 }
