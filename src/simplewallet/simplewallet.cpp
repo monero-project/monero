@@ -2836,7 +2836,8 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
      return true;
   }
   std::string mixin_str;
-  std::string address_str = "donate.getmonero.org";
+  // Hardcode Monero's donation address (see #1447)
+  const std::string address_str = "44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A";
   std::string amount_str;
   std::string payment_id_str;
   // check payment id
