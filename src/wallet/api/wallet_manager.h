@@ -52,6 +52,7 @@ public:
     uint64_t blockchainTargetHeight() const;
     uint64_t networkDifficulty() const;
     double miningHashRate() const;
+    std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const;
 
 private:
     WalletManagerImpl() {}
