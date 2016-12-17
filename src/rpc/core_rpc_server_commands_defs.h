@@ -1336,4 +1336,39 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_ALTERNATE_CHAINS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct chain_info
+    {
+      std::string block_hash;
+      uint64_t height;
+      uint64_t length;
+      uint64_t difficulty;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(block_hash)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(length)
+        KV_SERIALIZE(difficulty)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::list<chain_info> chains;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(chains)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
