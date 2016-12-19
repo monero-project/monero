@@ -30,13 +30,15 @@
 
 #pragma once 
 
-#include <mutex>
-#include <system_error>
-#include <boost/filesystem.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
+#include <csignal>
+#include <cstdio>
+#include <functional>
+#include <memory>
+#include <string>
 
-#include "crypto/crypto.h"
 #include "crypto/hash.h"
-#include "misc_language.h"
 #include "p2p/p2p_protocol_defs.h"
 
 /*! \brief Various Tools
@@ -46,6 +48,21 @@
  */
 namespace tools
 {
+  //! Functional class for closing C file handles.
+  struct close_file
+  {
+    void operator()(std::FILE* handle) const noexcept
+    {
+      if (handle)
+      {
+        std::fclose(handle);
+      }
+    }
+  };
+
+  //! \return File only readable by owner. nullptr if `filename` exists.
+  std::unique_ptr<std::FILE, close_file> create_private_file(const std::string& filename);
+
   /*! \brief Returns the default data directory.
    *
    * \details Windows < Vista: C:\\Documents and Settings\\Username\\Application Data\\CRYPTONOTE_NAME

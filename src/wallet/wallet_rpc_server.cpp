@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 #include <boost/asio/ip/address.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <cstdint>
 #include "include_base_utils.h"
 using namespace epee;
@@ -36,10 +37,12 @@ using namespace epee;
 #include "wallet/wallet_args.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
+#include "common/util.h"
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "cryptonote_core/account.h"
 #include "wallet_rpc_server_commands_defs.h"
 #include "misc_language.h"
+#include "string_coding.h"
 #include "string_tools.h"
 #include "crypto/hash.h"
 
@@ -47,9 +50,11 @@ namespace
 {
   const command_line::arg_descriptor<std::string, true> arg_rpc_bind_port = {"rpc-bind-port", "Sets bind port for server"};
   const command_line::arg_descriptor<std::string> arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
-  const command_line::arg_descriptor<std::string> arg_user_agent = {"user-agent", "Restrict RPC to clients using this user agent", ""};
-
+  const command_line::arg_descriptor<std::string> arg_rpc_login = {"rpc-login", "Specify username[:password] required for RPC connection"};
+  const command_line::arg_descriptor<bool> arg_disable_rpc_login = {"disable-rpc-login", "Disable HTTP authentication for RPC"};
   const command_line::arg_descriptor<bool> arg_confirm_external_bind = {"confirm-external-bind", "Confirm rcp-bind-ip value is NOT a loopback (local) IP"};
+
+  constexpr const char default_rpc_username[] = "monero";
 }
 
 namespace tools
@@ -60,8 +65,18 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w)
+  wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w), rpc_login_filename(), m_stop(false)
   {}
+  //------------------------------------------------------------------------------------------------------------------------------
+  wallet_rpc_server::~wallet_rpc_server()
+  {
+    try
+    {
+      boost::system::error_code ec{};
+      boost::filesystem::remove(rpc_login_filename, ec);
+    }
+    catch (...) {}
+  }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::run()
   {
@@ -110,11 +125,79 @@ namespace tools
       }
     }
 
+    epee::net_utils::http::http_auth::login login{};
+
+    const bool disable_auth = command_line::get_arg(vm, arg_disable_rpc_login);
+    const std::string user_pass = command_line::get_arg(vm, arg_rpc_login);
+    const std::string bind_port = command_line::get_arg(vm, arg_rpc_bind_port);
+
+    if (disable_auth)
+    {
+      if (!user_pass.empty())
+      {
+        LOG_ERROR(tr("Cannot specify --") << arg_disable_rpc_login.name << tr(" and --") << arg_rpc_login.name);
+        return false;
+      }
+    }
+    else // auth enabled
+    {
+      if (user_pass.empty())
+      {
+        login.username = default_rpc_username;
+
+        std::array<std::uint8_t, 16> rand_128bit{{}};
+        crypto::rand(rand_128bit.size(), rand_128bit.data());
+        login.password = string_encoding::base64_encode(rand_128bit.data(), rand_128bit.size());
+      }
+      else // user password
+      {
+        const auto loc = user_pass.find(':');
+        login.username = user_pass.substr(0, loc);
+        if (loc != std::string::npos)
+        {
+          login.password = user_pass.substr(loc + 1);
+        }
+        else
+        {
+          tools::password_container pwd(true);
+          pwd.read_password("RPC password");
+          login.password = pwd.password();
+        }
+
+        if (login.username.empty() || login.password.empty())
+        {
+          LOG_ERROR(tr("Blank username or password not permitted for RPC authenticaion"));
+          return false;
+        }
+      }
+
+      assert(!login.username.empty());
+      assert(!login.password.empty());
+
+      std::string temp = "monero-wallet-rpc." + bind_port + ".login";
+      const auto cookie = tools::create_private_file(temp);
+      if (!cookie)
+      {
+        LOG_ERROR(tr("Failed to create file ") << temp << tr(". Check permissions or remove file"));
+        return false;
+      }
+      rpc_login_filename.swap(temp); // nothrow guarantee destructor cleanup
+      temp = rpc_login_filename;
+      std::fputs(login.username.c_str(), cookie.get());
+      std::fputc(':', cookie.get());
+      std::fputs(login.password.c_str(), cookie.get());
+      std::fflush(cookie.get());
+      if (std::ferror(cookie.get()))
+      {
+        LOG_ERROR(tr("Error writing to file ") << temp);
+        return false;
+      }
+      LOG_PRINT_L0(tr("RPC username/password is stored in file ") << temp);
+    } // end auth enabled
+
     m_net_server.set_threads_prefix("RPC");
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
-      command_line::get_arg(vm, arg_rpc_bind_port),
-      std::move(bind_ip),
-      command_line::get_arg(vm, arg_user_agent)
+      std::move(bind_port), std::move(bind_ip), std::string{}, boost::make_optional(!disable_auth, std::move(login))
     );
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1132,7 +1215,8 @@ int main(int argc, char** argv) {
   tools::wallet2::init_options(desc_params);
   command_line::add_arg(desc_params, arg_rpc_bind_ip);
   command_line::add_arg(desc_params, arg_rpc_bind_port);
-  command_line::add_arg(desc_params, arg_user_agent);
+  command_line::add_arg(desc_params, arg_rpc_login);
+  command_line::add_arg(desc_params, arg_disable_rpc_login);
   command_line::add_arg(desc_params, arg_confirm_external_bind);
   command_line::add_arg(desc_params, arg_wallet_file);
   command_line::add_arg(desc_params, arg_from_json);
