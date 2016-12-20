@@ -2318,7 +2318,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
       catch (...)
       {
         LOG_PRINT_L0("Failed to open portable binary, trying unportable");
-        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".old", boost::filesystem::copy_option::overwrite_if_exists);
+        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
         iss.str("");
         iss << cache_data;
         boost::archive::binary_iarchive ar(iss);
@@ -2337,7 +2337,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
       catch (...)
       {
         LOG_PRINT_L0("Failed to open portable binary, trying unportable");
-        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".old", boost::filesystem::copy_option::overwrite_if_exists);
+        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
         iss.str("");
         iss << buf;
         boost::archive::binary_iarchive ar(iss);

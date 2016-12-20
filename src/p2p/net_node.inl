@@ -137,14 +137,34 @@ namespace nodetool
     {
       try
       {
-        boost::archive::binary_iarchive a(p2p_data);
+        // first try reading in portable mode
+        boost::archive::portable_binary_iarchive a(p2p_data);
         a >> *this;
       }
-      catch (const std::exception &e)
+      catch (...)
       {
-        LOG_ERROR("Failed to load p2p config file, falling back to default config");
-        m_peerlist = peerlist_manager(); // it was probably half clobbered by the failed load
-        make_default_config();
+        // if failed, try reading in unportable mode
+        boost::filesystem::copy_file(state_file_path, state_file_path + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+        p2p_data.close();
+        p2p_data.open( state_file_path , std::ios_base::binary | std::ios_base::in);
+        if(!p2p_data.fail())
+        {
+          try
+          {
+            boost::archive::binary_iarchive a(p2p_data);
+            a >> *this;
+          }
+          catch (const std::exception &e)
+          {
+            LOG_ERROR("Failed to load p2p config file, falling back to default config");
+            m_peerlist = peerlist_manager(); // it was probably half clobbered by the failed load
+            make_default_config();
+          }
+        }
+        else
+        {
+          make_default_config();
+        }
       }
     }else
     {
@@ -645,7 +665,7 @@ namespace nodetool
       return false;
     };
 
-    boost::archive::binary_oarchive a(p2p_data);
+    boost::archive::portable_binary_oarchive a(p2p_data);
     a << *this;
     return true;
     CATCH_ENTRY_L0("blockchain_storage::save", false);

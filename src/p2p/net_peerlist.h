@@ -36,8 +36,9 @@
 #include <boost/foreach.hpp>
 //#include <boost/bimap.hpp>
 //#include <boost/bimap/multiset_of.hpp>
-#include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/portable_binary_oarchive.hpp>
+#include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/serialization/version.hpp>
 
 #include <boost/multi_index_container.hpp>

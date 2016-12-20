@@ -38,7 +38,6 @@
 #include <boost/foreach.hpp>
 #include <boost/serialization/is_bitwise_serializable.hpp>
 #include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/archive/portable_binary_oarchive.hpp>
 #include "cryptonote_basic.h"
