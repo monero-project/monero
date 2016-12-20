@@ -1367,5 +1367,38 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
   return true;
 }
 
+bool t_rpc_command_executor::alt_chain_info()
+{
+  cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::request req;
+  cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::response res;
+  epee::json_rpc::error error_resp;
+
+  std::string fail_message = "Unsuccessful";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->json_rpc_request(req, res, "get_alternate_chains", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_alternate_chains(req, res, error_resp))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
+  for (const auto chain: res.chains)
+  {
+    tools::msg_writer() << chain.length << " blocks long, branching at height " << (chain.height - chain.length + 1)
+        << ", difficulty " << chain.difficulty << ": " << chain.block_hash;
+  }
+  return true;
+}
+
 
 }// namespace daemonize

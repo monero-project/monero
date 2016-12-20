@@ -482,4 +482,15 @@ bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::str
   return m_executor.print_coinbase_tx_sum(height, count);
 }
 
+bool t_command_parser_executor::alt_chain_info(const std::vector<std::string>& args)
+{
+  if(args.size())
+  {
+    std::cout << "No parameters allowed" << std::endl;
+    return false;
+  }
+
+  return m_executor.alt_chain_info();
+}
+
 } // namespace daemonize

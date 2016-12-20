@@ -3878,6 +3878,38 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> Blockchain:: get_ou
   return m_db->get_output_histogram(amounts, unlocked, recent_cutoff);
 }
 
+std::list<std::pair<Blockchain::block_extended_info,uint64_t>> Blockchain::get_alternative_chains() const
+{
+  std::list<std::pair<Blockchain::block_extended_info,uint64_t>> chains;
+
+  for (const auto &i: m_alternative_chains)
+  {
+    const crypto::hash &top = i.first;
+    bool found = false;
+    for (const auto &j: m_alternative_chains)
+    {
+      if (j.second.bl.prev_id == top)
+      {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+    {
+      uint64_t length = 1;
+      auto h = i.second.bl.prev_id;
+      blocks_ext_by_hash::const_iterator prev;
+      while ((prev = m_alternative_chains.find(h)) != m_alternative_chains.end())
+      {
+        h = prev->second.bl.prev_id;
+        ++length;
+      }
+      chains.push_back(std::make_pair(i.second, length));
+    }
+  }
+  return chains;
+}
+
 void Blockchain::cancel()
 {
   m_cancel = true;
