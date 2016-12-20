@@ -3962,10 +3962,19 @@ bool simple_wallet::import_outputs(const std::vector<std::string> &args)
     std::string body(data, headerlen);
     std::stringstream iss;
     iss << body;
-    boost::archive::portable_binary_iarchive ar(iss);
     std::vector<tools::wallet2::transfer_details> outputs;
-    ar >> outputs;
-
+    try
+    {
+      boost::archive::portable_binary_iarchive ar(iss);
+      ar >> outputs;
+    }
+    catch (...)
+    {
+      iss.str("");
+      iss << body;
+      boost::archive::binary_iarchive ar(iss);
+      ar >> outputs;
+    }
     size_t n_outputs = m_wallet->import_outputs(outputs);
     success_msg_writer() << boost::lexical_cast<std::string>(n_outputs) << " outputs imported";
   }
