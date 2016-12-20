@@ -98,4 +98,3 @@ else()
 endif()
 
 add_subdirectory(db_drivers)
-add_subdirectory(boost)

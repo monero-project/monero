@@ -23,6 +23,8 @@
 #include <boost/archive/basic_archive.hpp>
 #include <boost/detail/endian.hpp>
 
+#include <boost/archive/impl/archive_serializer_map.ipp>
+
 namespace boost { namespace archive {
 
 enum portable_binary_archive_flags {
