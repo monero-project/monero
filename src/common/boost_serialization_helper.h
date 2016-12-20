@@ -30,8 +30,9 @@
 
 #pragma once
 
-#include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/portable_binary_oarchive.hpp>
+#include <boost/archive/portable_binary_iarchive.hpp>
 
 
 namespace tools
@@ -75,7 +76,7 @@ namespace tools
       return false;
 #endif
 
-    boost::archive::binary_oarchive a(data_file);
+    boost::archive::portable_binary_oarchive a(data_file);
     a << obj;
     if (data_file.fail())
       return false;
@@ -99,9 +100,23 @@ namespace tools
     data_file.open( file_path, std::ios_base::binary | std::ios_base::in);
     if(data_file.fail())
       return false;
-    boost::archive::binary_iarchive a(data_file);
-
-    a >> obj;
+    try
+    {
+      // first try reading in portable mode
+      boost::archive::portable_binary_iarchive a(data_file);
+      a >> obj;
+    }
+    catch(...)
+    {
+      // if failed, try reading in unportable mode
+      boost::filesystem::copy_file(file_path, file_path + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+      data_file.close();
+      data_file.open( file_path, std::ios_base::binary | std::ios_base::in);
+      if(data_file.fail())
+        return false;
+      boost::archive::binary_iarchive a(data_file);
+      a >> obj;
+    }
     return !data_file.fail();
     CATCH_ENTRY_L0("unserialize_obj_from_file", false);
   }
