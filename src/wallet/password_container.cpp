@@ -42,153 +42,17 @@
 #include <unistd.h>
 #endif
 
-namespace tools
+namespace
 {
-  namespace
-  {
-    bool is_cin_tty();
-  }
-  // deleted via private member
-  password_container::password_container()
-    : m_empty(true),m_verify(true)
-  {
-
-  }
-  password_container::password_container(bool verify)
-    : m_empty(true),m_verify(verify)
-  {
-
-  }
-
-  password_container::password_container(std::string&& password)
-    : m_empty(false)
-    , m_password(std::move(password))
-	, m_verify(false)
-  {
-
-  }
-
-
-  password_container::password_container(password_container&& rhs)
-    : m_empty(std::move(rhs.m_empty))
-    , m_password(std::move(rhs.m_password))
-    , m_verify(std::move(rhs.m_verify))
-  {
-  }
-  password_container::~password_container()
-  {
-    clear();
-  }
-
-  void password_container::clear()
-  {
-    if (0 < m_password.capacity())
-    {
-      m_password.replace(0, m_password.capacity(), m_password.capacity(), '\0');
-      m_password.resize(0);
-    }
-    m_empty = true;
-  }
-
-  bool password_container::read_password(const char *message)
-  {
-    clear();
-
-    bool r;
-    if (is_cin_tty())
-    {
-     r = read_from_tty_double_check(message);
-    }
-    else
-    {
-      r = read_from_file();
-    }
-
-    if (r)
-    {
-      m_empty = false;
-    }
-    else
-    {
-      clear();
-    }
-
-    return r;
-  }
-
-  bool password_container::read_from_file()
-  {
-    m_password.reserve(max_password_size);
-    for (size_t i = 0; i < max_password_size; ++i)
-    {
-      char ch = static_cast<char>(std::cin.get());
-      if (std::cin.eof() || ch == '\n' || ch == '\r')
-      {
-        break;
-      }
-      else if (std::cin.fail())
-      {
-        return false;
-      }
-      else
-      {
-        m_password.push_back(ch);
-      }
-    }
-
-    return true;
-  }
-
-bool password_container::read_from_tty_double_check(const char *message) {
-    std::string pass1;
-    std::string pass2;
-    bool match=false;
-    bool doNotVerifyEntry=false;
-    if (m_verify){message = "Enter a password for your new wallet";}
-    do{
-        if (message)
-            std::cout << message <<": ";
-        if (!password_container::read_from_tty(pass1))
-            return false;
-        if (m_verify==true){//double check password; 
-            std::cout << "Confirm Password: ";
-            if (!password_container::read_from_tty(pass2))
-                return false;
-            if(pass1!=pass2){ //new password entered did not match
-
-                std::cout << "Passwords do not match! Please try again." << std::endl;
-                pass1="";
-                pass2="";
-                match=false;
-            }
-            else{//new password matches
-                match=true;
-            }
-        }
-        else
-            doNotVerifyEntry=true; //do not verify
-            //No need to verify password entered at this point in the code 
-            
-    }while(match==false && doNotVerifyEntry==false);
-
-    m_password=pass1;
-    return true;
-  }
-
-
 #if defined(_WIN32)
-
-  namespace
+  bool is_cin_tty() noexcept
   {
-    bool is_cin_tty()
-    {
-      return 0 != _isatty(_fileno(stdin));
-    }
+    return 0 != _isatty(_fileno(stdin));
   }
 
-  bool password_container::read_from_tty(std::string & pass)
+  bool read_from_tty(std::string& pass)
   {
-    const char BACKSPACE = 8;
+    static constexpr const char BACKSPACE = 8;
 
     HANDLE h_cin = ::GetStdHandle(STD_INPUT_HANDLE);
 
@@ -198,8 +62,8 @@ bool password_container::read_from_tty_double_check(const char *message) {
     ::SetConsoleMode(h_cin, mode_new);
 
     bool r = true;
-    pass.reserve(max_password_size);
-    while (pass.size() < max_password_size)
+    pass.reserve(tools::password_container::max_password_size);
+    while (pass.size() < tools::password_container::max_password_size)
     {
       DWORD read;
       char ch;
@@ -235,38 +99,36 @@ bool password_container::read_from_tty_double_check(const char *message) {
     return r;
   }
 
-#else
+#else // end WIN32 
 
-  namespace
+  bool is_cin_tty() noexcept
   {
-    bool is_cin_tty()
-    {
-      return 0 != isatty(fileno(stdin));
-    }
-
-    int getch()
-    {
-      struct termios tty_old;
-      tcgetattr(STDIN_FILENO, &tty_old);
-
-      struct termios tty_new;
-      tty_new = tty_old;
-      tty_new.c_lflag &= ~(ICANON | ECHO);
-      tcsetattr(STDIN_FILENO, TCSANOW, &tty_new);
-
-      int ch = getchar();
-
-      tcsetattr(STDIN_FILENO, TCSANOW, &tty_old);
-
-      return ch;
-    }
+    return 0 != isatty(fileno(stdin));
   }
-  bool password_container::read_from_tty(std::string &aPass)
-  {
-    const char BACKSPACE = 127;
 
-    aPass.reserve(max_password_size);
-    while (aPass.size() < max_password_size)
+  int getch() noexcept
+  {
+    struct termios tty_old;
+    tcgetattr(STDIN_FILENO, &tty_old);
+
+    struct termios tty_new;
+    tty_new = tty_old;
+    tty_new.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &tty_new);
+
+    int ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &tty_old);
+
+    return ch;
+  }
+
+  bool read_from_tty(std::string& aPass)
+  {
+    static constexpr const char BACKSPACE = 127;
+
+    aPass.reserve(tools::password_container::max_password_size);
+    while (aPass.size() < tools::password_container::max_password_size)
     {
       int ch = getch();
       if (EOF == ch)
@@ -297,5 +159,90 @@ bool password_container::read_from_tty_double_check(const char *message) {
     return true;
   }
 
-#endif
-}
+#endif // end !WIN32
+
+  void clear(std::string& pass) noexcept
+  {
+    //! TODO Call a memory wipe function that hopefully is not optimized out
+    pass.replace(0, pass.capacity(), pass.capacity(), '\0');
+    pass.clear();
+  }
+
+  bool read_from_tty(const bool verify, const char *message, std::string& pass1, std::string& pass2)
+  {
+    while (true)
+    {
+      if (message)
+        std::cout << message <<": ";
+      if (!read_from_tty(pass1))
+        return false;
+      if (verify)
+      {
+        std::cout << "Confirm Password: ";
+        if (!read_from_tty(pass2))
+          return false;
+        if(pass1!=pass2)
+        {
+          std::cout << "Passwords do not match! Please try again." << std::endl;
+          clear(pass1);
+          clear(pass2);
+        }
+        else //new password matches
+          return true;
+      }
+      else
+        return true;
+        //No need to verify password entered at this point in the code
+    }
+
+    return false;
+  }
+
+  bool read_from_file(std::string& pass)
+  {
+    pass.reserve(tools::password_container::max_password_size);
+    for (size_t i = 0; i < tools::password_container::max_password_size; ++i)
+    {
+      char ch = static_cast<char>(std::cin.get());
+      if (std::cin.eof() || ch == '\n' || ch == '\r')
+      {
+        break;
+      }
+      else if (std::cin.fail())
+      {
+        return false;
+      }
+      else
+      {
+        pass.push_back(ch);
+      }
+    }
+    return true;
+  }
+
+} // anonymous namespace
+
+namespace tools 
+{
+  // deleted via private member
+  password_container::password_container() noexcept : m_password() {}
+  password_container::password_container(std::string&& password) noexcept
+    : m_password(std::move(password)) 
+  {
+  }
+
+  password_container::~password_container() noexcept
+  {
+    clear(m_password);
+  }
+
+  boost::optional<password_container> password_container::prompt(const bool verify, const char *message)
+  {
+    password_container pass1{};
+    password_container pass2{};
+    if (is_cin_tty() ? read_from_tty(verify, message, pass1.m_password, pass2.m_password) : read_from_file(pass1.m_password))
+      return {std::move(pass1)};
+
+    return boost::none;
+  }
+} 

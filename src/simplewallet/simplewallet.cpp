@@ -335,7 +335,6 @@ bool simple_wallet::seed(const std::vector<std::string> &args/* = std::vector<st
 
 bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
   if (m_wallet->watch_only())
   {
     fail_msg_writer() << tr("wallet is watch-only and has no seed");
@@ -347,87 +346,49 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
     return true;
   }
  
-  tools::password_container pwd_container(m_wallet_file.empty());
-  success = pwd_container.read_password();
-  if (!success)
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
   {
-    fail_msg_writer() << tr("failed to read wallet password");
-    return true;
-  }
+    std::string mnemonic_language = get_mnemonic_language();
+    if (mnemonic_language.empty())
+      return true;
 
-  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-  success = m_wallet->verify_password(pwd_container.password());
-  if (!success)
-  {
-    fail_msg_writer() << tr("invalid password");
-    return true;
+    m_wallet->set_seed_language(std::move(mnemonic_language));
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
   }
-
-  std::string mnemonic_language = get_mnemonic_language();
-  if (mnemonic_language.empty())
-    return true;
-  m_wallet->set_seed_language(mnemonic_language);
-  m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
 
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
-  tools::password_container pwd_container(m_wallet_file.empty());
-  success = pwd_container.read_password();
-  if (!success)
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
   {
-    fail_msg_writer() << tr("failed to read wallet password");
-    return true;
+    m_wallet->always_confirm_transfers(is_it_true(args[1]));
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
   }
-
-  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-  success = m_wallet->verify_password(pwd_container.password());
-  if (!success)
-  {
-    fail_msg_writer() << tr("invalid password");
-    return true;
-  }
-
-  m_wallet->always_confirm_transfers(is_it_true(args[1]));
-  m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
 
 bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
   if (m_wallet->watch_only())
   {
     fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
     return true;
   }
  
-  tools::password_container pwd_container(m_wallet_file.empty());
-  success = pwd_container.read_password();
-  if (!success)
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
   {
-    fail_msg_writer() << tr("failed to read wallet password");
-    return true;
+    m_wallet->store_tx_info(is_it_true(args[1]));
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
   }
-
-  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-  success = m_wallet->verify_password(pwd_container.password());
-  if (!success)
-  {
-    fail_msg_writer() << tr("invalid password");
-    return true;
-  }
-
-  m_wallet->store_tx_info(is_it_true(args[1]));
-  m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
 
 bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
   if (m_wallet->watch_only())
   {
     fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
@@ -449,25 +410,12 @@ bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = s
     if (mixin == 0)
       mixin = DEFAULT_MIX;
  
-    tools::password_container pwd_container(m_wallet_file.empty());
-
-    success = pwd_container.read_password();
-    if (!success)
+    const auto pwd_container = get_and_verify_password();
+    if (pwd_container)
     {
-      fail_msg_writer() << tr("failed to read wallet password");
-      return true;
+      m_wallet->default_mixin(mixin);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
     }
-
-    /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-    success = m_wallet->verify_password(pwd_container.password());
-    if (!success)
-    {
-      fail_msg_writer() << tr("invalid password");
-      return true;
-    }
-
-    m_wallet->default_mixin(mixin);
-    m_wallet->rewrite(m_wallet_file, pwd_container.password());
     return true;
   }
   catch(const boost::bad_lexical_cast &)
@@ -484,7 +432,6 @@ bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = s
 
 bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
   int priority = 0;
   if (m_wallet->watch_only())
   {
@@ -512,24 +459,12 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
       }
     }
  
-    tools::password_container pwd_container(m_wallet_file.empty());
-    success = pwd_container.read_password();
-    if (!success)
+    const auto pwd_container = get_and_verify_password();
+    if (pwd_container)
     {
-      fail_msg_writer() << tr("failed to read wallet password");
-      return true;
+      m_wallet->set_default_priority(priority);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
     }
-
-    /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-    success = m_wallet->verify_password(pwd_container.password());
-    if (!success)
-    {
-      fail_msg_writer() << tr("invalid password");
-      return true;
-    }
-
-    m_wallet->set_default_priority(priority);
-    m_wallet->rewrite(m_wallet_file, pwd_container.password());
     return true;
   }
   catch(const boost::bad_lexical_cast &)
@@ -546,93 +481,52 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
 
 bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
- 
-  tools::password_container pwd_container(m_wallet_file.empty());
-
-  bool success = pwd_container.read_password();
-  if (!success)
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
   {
-    fail_msg_writer() << tr("failed to read wallet password");
-    return true;
+    const bool auto_refresh = is_it_true(args[1]);
+    m_wallet->auto_refresh(auto_refresh);
+    m_idle_mutex.lock();
+    m_auto_refresh_enabled.store(auto_refresh, std::memory_order_relaxed);
+    m_idle_cond.notify_one();
+    m_idle_mutex.unlock();
+
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
   }
-
-  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-  success = m_wallet->verify_password(pwd_container.password());
-  if (!success)
-  {
-    fail_msg_writer() << tr("invalid password");
-    return true;
-  }
-
-  bool auto_refresh = is_it_true(args[1]);
-  m_wallet->auto_refresh(auto_refresh);
-  m_idle_mutex.lock();
-  m_auto_refresh_enabled.store(auto_refresh, std::memory_order_relaxed);
-  m_idle_cond.notify_one();
-  m_idle_mutex.unlock();
-
-  m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
 
 bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
-
   tools::wallet2::RefreshType refresh_type;
   if (!parse_refresh_type(args[1], refresh_type))
   {
     return true;
   }
  
-  tools::password_container pwd_container(m_wallet_file.empty());
-  success = pwd_container.read_password();
-  if (!success)
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
   {
-    fail_msg_writer() << tr("failed to read wallet password");
-    return true;
+    m_wallet->set_refresh_type(refresh_type);
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
   }
-
-  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-  success = m_wallet->verify_password(pwd_container.password());
-  if (!success)
-  {
-    fail_msg_writer() << tr("invalid password");
-    return true;
-  }
-
-  m_wallet->set_refresh_type(refresh_type);
-
-  m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
 
 bool simple_wallet::set_confirm_missing_payment_id(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
   if (m_wallet->watch_only())
   {
     fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
     return true;
   }
-  tools::password_container pwd_container(m_wallet_file.empty());
-  success = pwd_container.read_password();
-  if (!success)
-  {
-    fail_msg_writer() << tr("failed to read wallet password");
-    return true;
-  }
 
-  /* verify password before using so user doesn't accidentally set a new password for rewritten wallet */
-  success = m_wallet->verify_password(pwd_container.password());
-  if (!success)
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
   {
-    fail_msg_writer() << tr("invalid password");
-    return true;
+    m_wallet->confirm_missing_payment_id(is_it_true(args[1]));
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
   }
-
-  m_wallet->confirm_missing_payment_id(is_it_true(args[1]));
-  m_wallet->rewrite(m_wallet_file, pwd_container.password());
   return true;
 }
 
@@ -1298,7 +1192,20 @@ std::string simple_wallet::get_mnemonic_language()
   }
   return language_list[language_number];
 }
+//----------------------------------------------------------------------------------------------------
+boost::optional<tools::password_container> simple_wallet::get_and_verify_password() const
+{
+  auto pwd_container = tools::wallet2::password_prompt(m_wallet_file.empty());
+  if (!pwd_container)
+    return boost::none;
 
+  if (!m_wallet->verify_password(pwd_container->password()))
+  {
+    fail_msg_writer() << tr("invalid password");
+    return boost::none;
+  }
+  return pwd_container;
+}
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   const crypto::secret_key& recovery_key, bool recover, bool two_random, const std::string &old_language)
@@ -1532,29 +1439,15 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  bool success = false;
-  tools::password_container pwd_container(m_wallet_file.empty());
+  const auto pwd_container = tools::password_container::prompt(true, tr("Password for new watch-only wallet"));
 
-  success = pwd_container.read_password(tr("Password for the new watch-only wallet"));
-  if (!success)
+  if (!pwd_container)
   {
     fail_msg_writer() << tr("failed to read wallet password");
     return true;
   }
-  std::string password = pwd_container.password();
-  success = pwd_container.read_password(tr("Enter new password again"));
-  if (!success)
-  {
-    fail_msg_writer() << tr("failed to read wallet password");
-    return true;
-  }
-  if (password != pwd_container.password())
-  {
-    fail_msg_writer() << tr("passwords do not match");
-    return true;
-  }
 
-  m_wallet->write_watch_only_wallet(m_wallet_file, pwd_container.password());
+  m_wallet->write_watch_only_wallet(m_wallet_file, pwd_container->password());
   return true;
 }
 
