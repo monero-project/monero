@@ -40,22 +40,6 @@ using namespace crypto;
 using namespace std;
 
 namespace rct {
-    namespace {
-      struct verRangeWrapper_ {
-        void operator()(const key & C, const rangeSig & as, bool &result) const {
-          result = verRange(C, as);
-        }
-      };
-      constexpr const verRangeWrapper_ verRangeWrapper{};
-
-      struct verRctMGSimpleWrapper_ {
-        void operator()(const key &message, const mgSig &mg, const ctkeyV & pubs, const key & C, bool &result) const {
-          result = verRctMGSimple(message, mg, pubs, C);
-        }
-      };
-      constexpr const verRctMGSimpleWrapper_ verRctMGSimpleWrapper{};
-    }
-    
     //Borromean (c.f. gmax/andytoshi's paper)
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
         key64 L[2], alpha;
