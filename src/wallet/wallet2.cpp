@@ -2233,7 +2233,7 @@ bool wallet2::check_connection(uint32_t *version)
       u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
     }
 
-    if (!m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT))
+    if (!m_http_client.connect(u.host, std::to_string(u.port), 10000))
       return false;
   }
 
