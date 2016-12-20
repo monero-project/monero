@@ -219,21 +219,21 @@ TEST(HTTP_Auth, NotRequired)
 TEST(HTTP_Auth, MissingAuth)
 {
   epee::net_utils::http::http_auth auth{{"foo", "bar"}};
-  EXPECT_TRUE(auth.get_response(epee::net_utils::http::http_request_info{}));
+  EXPECT_TRUE(bool(auth.get_response(epee::net_utils::http::http_request_info{})));
   {
     epee::net_utils::http::http_request_info request{};
     request.m_header_info.m_etc_fields.push_back({"\xFF", "\xFF"});
-    EXPECT_TRUE(auth.get_response(request));
+    EXPECT_TRUE(bool(auth.get_response(request)));
   }
 }
 
 TEST(HTTP_Auth, BadSyntax)
 {
   epee::net_utils::http::http_auth auth{{"foo", "bar"}};
-  EXPECT_TRUE(auth.get_response(make_request({{u8"algorithm", "fo\xFF"}})));
-  EXPECT_TRUE(auth.get_response(make_request({{u8"cnonce", "\"000\xFF\""}})));
-  EXPECT_TRUE(auth.get_response(make_request({{u8"cnonce \xFF =", "\"000\xFF\""}})));
-  EXPECT_TRUE(auth.get_response(make_request({{u8" \xFF cnonce", "\"000\xFF\""}})));
+  EXPECT_TRUE(bool(auth.get_response(make_request({{u8"algorithm", "fo\xFF"}}))));
+  EXPECT_TRUE(bool(auth.get_response(make_request({{u8"cnonce", "\"000\xFF\""}}))));
+  EXPECT_TRUE(bool(auth.get_response(make_request({{u8"cnonce \xFF =", "\"000\xFF\""}}))));
+  EXPECT_TRUE(bool(auth.get_response(make_request({{u8" \xFF cnonce", "\"000\xFF\""}}))));
 }
 
 TEST(HTTP_Auth, MD5)
@@ -242,7 +242,7 @@ TEST(HTTP_Auth, MD5)
   epee::net_utils::http::http_auth auth{user};
 
   const auto response = auth.get_response(make_request({}));
-  ASSERT_TRUE(response);
+  ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
   const auto fields = parse_response(*response);
@@ -269,10 +269,10 @@ TEST(HTTP_Auth, MD5)
     {u8"username", quoted(user.username)}
   });
 
-  EXPECT_FALSE(auth.get_response(request));
+  EXPECT_FALSE(bool(auth.get_response(request)));
 
   const auto response2 = auth.get_response(request);
-  ASSERT_TRUE(response2);
+  ASSERT_TRUE(bool(response2));
   EXPECT_TRUE(is_unauthorized(*response2));
 
   const auto fields2 = parse_response(*response2);
@@ -291,7 +291,7 @@ TEST(HTTP_Auth, MD5_sess)
   epee::net_utils::http::http_auth auth{user};
 
   const auto response = auth.get_response(make_request({}));
-  ASSERT_TRUE(response);
+  ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
   const auto fields = parse_response(*response);
@@ -320,10 +320,10 @@ TEST(HTTP_Auth, MD5_sess)
     {u8"username", quoted(user.username)}
   });
 
-  EXPECT_FALSE(auth.get_response(request));
+  EXPECT_FALSE(bool(auth.get_response(request)));
 
   const auto response2 = auth.get_response(request);
-  ASSERT_TRUE(response2);
+  ASSERT_TRUE(bool(response2));
   EXPECT_TRUE(is_unauthorized(*response2));
 
   const auto fields2 = parse_response(*response2);
@@ -343,7 +343,7 @@ TEST(HTTP_Auth, MD5_auth)
   epee::net_utils::http::http_auth auth{user};
 
   const auto response = auth.get_response(make_request({}));
-  ASSERT_TRUE(response);
+  ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
   const auto parsed = parse_response(*response);
@@ -380,7 +380,7 @@ TEST(HTTP_Auth, MD5_auth)
   };
 
   const auto request = make_request(args);
-  EXPECT_FALSE(auth.get_response(request));
+  EXPECT_FALSE(bool(auth.get_response(request)));
 
   for (unsigned i = 2; i < 20; ++i)
   {
@@ -391,7 +391,7 @@ TEST(HTTP_Auth, MD5_auth)
   }
 
   const auto replay = auth.get_response(request);
-  ASSERT_TRUE(replay);
+  ASSERT_TRUE(bool(replay));
   EXPECT_TRUE(is_unauthorized(*replay));
 
   const auto parsed_replay = parse_response(*replay);
@@ -411,7 +411,7 @@ TEST(HTTP_Auth, MD5_sess_auth)
   epee::net_utils::http::http_auth auth{user};
 
   const auto response = auth.get_response(make_request({}));
-  ASSERT_TRUE(response);
+  ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
   const auto parsed = parse_response(*response);
@@ -448,7 +448,7 @@ TEST(HTTP_Auth, MD5_sess_auth)
   };
 
   const auto request = make_request(args);
-  EXPECT_FALSE(auth.get_response(request));
+  EXPECT_FALSE(bool(auth.get_response(request)));
 
   for (unsigned i = 2; i < 20; ++i)
   {
@@ -459,7 +459,7 @@ TEST(HTTP_Auth, MD5_sess_auth)
   }
 
   const auto replay = auth.get_response(request);
-  ASSERT_TRUE(replay);
+  ASSERT_TRUE(bool(replay));
   EXPECT_TRUE(is_unauthorized(*replay));
 
   const auto parsed_replay = parse_response(*replay);
