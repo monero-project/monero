@@ -22,6 +22,7 @@
 //  See http://www.boost.org for updates, documentation, and revision history.
 
 #include <istream>
+#include <boost/version.hpp>
 #include <boost/serialization/string.hpp>
 #include <boost/serialization/item_version_type.hpp>
 #include <boost/archive/archive_exception.hpp>
@@ -153,6 +154,7 @@ protected:
     }
     typedef boost::archive::detail::common_iarchive<portable_binary_iarchive> 
         detail_common_iarchive;
+#if BOOST_VERSION > 105800
     template<class T>
     void load_override(T & t){
         this->detail_common_iarchive::load_override(t);
@@ -160,6 +162,15 @@ protected:
     void load_override(boost::archive::class_name_type & t);
     // binary files don't include the optional information 
     void load_override(boost::archive::class_id_optional_type &){}
+#else
+    template<class T>
+    void load_override(T & t, int){
+        this->detail_common_iarchive::load_override(t, 0);
+    }
+    void load_override(boost::archive::class_name_type & t, int);
+    // binary files don't include the optional information 
+    void load_override(boost::archive::class_id_optional_type &, int){}
+#endif
 
     void init(unsigned int flags);
 public:
@@ -257,6 +268,7 @@ portable_binary_iarchive::load_impl(boost::intmax_t & l, char maxsize){
         l = -l;
 }
 
+#if BOOST_VERSION > 105800
 inline void
 portable_binary_iarchive::load_override(
     boost::archive::class_name_type & t
@@ -273,6 +285,24 @@ portable_binary_iarchive::load_override(
     // borland tweak
     t.t[cn.size()] = '\0';
 }
+#else
+inline void
+portable_binary_iarchive::load_override(
+    boost::archive::class_name_type & t, int
+){
+    std::string cn;
+    cn.reserve(BOOST_SERIALIZATION_MAX_KEY_SIZE);
+    load_override(cn, 0);
+    if(cn.size() > (BOOST_SERIALIZATION_MAX_KEY_SIZE - 1))
+        boost::serialization::throw_exception(
+            boost::archive::archive_exception(
+                boost::archive::archive_exception::invalid_class_name)
+            );
+    std::memcpy(t, cn.data(), cn.size());
+    // borland tweak
+    t.t[cn.size()] = '\0';
+}
+#endif
 
 inline void 
 portable_binary_iarchive::init(unsigned int flags){
