@@ -135,6 +135,7 @@ namespace cryptonote
     );
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool print_integrated_address(const std::vector<std::string> &args = std::vector<std::string>());
+    bool address_book(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
     bool save_watch_only(const std::vector<std::string> &args);
     bool set_variable(const std::vector<std::string> &args);

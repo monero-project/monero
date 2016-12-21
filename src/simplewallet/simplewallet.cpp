@@ -563,6 +563,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
+  m_cmd_binder.set_handler("address_book", boost::bind(&simple_wallet::address_book, this, _1), tr("address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)] - Print all entries in the address book, optionally adding/deleting an entry to/from it"));
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), tr("Save wallet data"));
   m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), tr("Save a watch-only keys file"));
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
@@ -3486,6 +3487,86 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
     }
   }
   fail_msg_writer() << tr("failed to parse payment ID or address");
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  if (args.size() == 0)
+  {
+  }
+  else if (args.size() == 1 || (args[0] != "add" && args[0] != "delete"))
+  {
+    fail_msg_writer() << tr("usage: address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)]");
+    return true;
+  }
+  else if (args[0] == "add")
+  {
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 payment_id8;
+    if (!get_address_from_str(args[1], address, has_payment_id, payment_id8))
+    {
+      fail_msg_writer() << tr("failed to parse address");
+      return true;
+    }
+    crypto::hash payment_id = null_hash;
+    size_t description_start = 2;
+    if (has_payment_id)
+    {
+      memcpy(payment_id.data, payment_id8.data, 8);
+    }
+    else if (!has_payment_id && args.size() >= 4 && args[2] == "pid")
+    {
+      if (tools::wallet2::parse_long_payment_id(args[3], payment_id))
+      {
+        description_start += 2;
+      }
+      else if (tools::wallet2::parse_short_payment_id(args[3], payment_id8))
+      {
+        memcpy(payment_id.data, payment_id8.data, 8);
+        description_start += 2;
+      }
+      else
+      {
+        fail_msg_writer() << tr("failed to parse payment ID");
+        return true;
+      }
+    }
+    std::string description;
+    for (size_t i = description_start; i < args.size(); ++i)
+    {
+      if (i > description_start)
+        description += " ";
+      description += args[i];
+    }
+    m_wallet->add_address_book_row(address, payment_id, description);
+  }
+  else
+  {
+    size_t row_id;
+    if(!epee::string_tools::get_xtype_from_string(row_id, args[1]))
+    {
+      fail_msg_writer() << tr("failed to parse index");
+      return true;
+    }
+    m_wallet->delete_address_book_row(row_id);
+  }
+  auto address_book = m_wallet->get_address_book();
+  if (address_book.empty())
+  {
+    success_msg_writer() << tr("Address book is empty.");
+  }
+  else
+  {
+    for (size_t i = 0; i < address_book.size(); ++i) {
+      auto& row = address_book[i];
+      success_msg_writer() << tr("Index: ") << i;
+      success_msg_writer() << tr("Address: ") << get_account_address_as_str(m_wallet->testnet(), row.m_address);
+      success_msg_writer() << tr("Payment ID: ") << row.m_payment_id;
+      success_msg_writer() << tr("Description: ") << row.m_description << "\n";
+    }
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
