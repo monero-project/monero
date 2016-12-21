@@ -33,6 +33,7 @@
 
 #include "wallet/wallet2_api.h"
 #include "wallet/wallet2.h"
+#include "common/util.h"
 
 #include <string>
 #include <boost/thread/mutex.hpp>
