@@ -241,7 +241,7 @@ TEST(HTTP_Auth, MD5)
   epee::net_utils::http::http_auth::login user{"foo", "bar"};
   epee::net_utils::http::http_auth auth{user};
 
-  const auto response = auth.get_response(make_request({}));
+  const auto response = auth.get_response(make_request(fields{}));
   ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
@@ -290,7 +290,7 @@ TEST(HTTP_Auth, MD5_sess)
   epee::net_utils::http::http_auth::login user{"foo", "bar"};
   epee::net_utils::http::http_auth auth{user};
 
-  const auto response = auth.get_response(make_request({}));
+  const auto response = auth.get_response(make_request(fields{}));
   ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
@@ -342,7 +342,7 @@ TEST(HTTP_Auth, MD5_auth)
   epee::net_utils::http::http_auth::login user{"foo", "bar"};
   epee::net_utils::http::http_auth auth{user};
 
-  const auto response = auth.get_response(make_request({}));
+  const auto response = auth.get_response(make_request(fields{}));
   ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
@@ -410,7 +410,7 @@ TEST(HTTP_Auth, MD5_sess_auth)
   epee::net_utils::http::http_auth::login user{"foo", "bar"};
   epee::net_utils::http::http_auth auth{user};
 
-  const auto response = auth.get_response(make_request({}));
+  const auto response = auth.get_response(make_request(fields{}));
   ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
 
