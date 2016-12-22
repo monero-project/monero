@@ -40,27 +40,28 @@
  #include <stdlib.h>
 #endif
 
-/// Quick check if this is power of two (use on unsigned types; in this case for size_t only)
-bool ispowerof2_size_t(size_t x) {
-	return x && !(x & (x - 1));
-}
-
 /*** 
 * Round to power of two, for count>=3 and for count being not too large (as reasonable for tree hash calculations)
 */
 size_t tree_hash_cnt(size_t count) {
-	assert( count >= 3); // cases for 0,1,2 are handled elsewhere
-	// Round down the count size: fun(2**n)= 2**(n-1) to round down to power of two
-	size_t tmp = count - 1;
-	size_t jj = 1;
-	for (jj=1 ; tmp != 0 ; ++jj) {
-		tmp /= 2; // dividing by 2 until to get how many powers of 2 fits size_to tmp
-	}
-	size_t cnt = 1 << (jj-2); // cnt is the count, but rounded down to power of two
-	// printf("count=%zu cnt=%zu jj=%zu tmp=%zu \n" , count,cnt,jj,tmp);
-	assert( cnt > 0 );	assert( cnt >= count/2 ); 	assert( cnt <= count );
-	assert( ispowerof2_size_t( cnt ));
-	return cnt;
+	// This algo has some bad history but all we are doing is 1 << floor(log2(count))
+	// There are _many_ ways to do log2, for some reason the one selected was the most obscure one,
+	// and fixing it made it even more obscure.
+	//
+	// Iterative method implemented below aims for clarity over speed, if performance is needed
+	// then my advice is to use the BSR instruction on x86
+	//
+	// All the paranoid asserts have been removed since it is trivial to mathematically prove that
+	// the return will always be a power of 2.
+	// Problem space has been defined as 3 <= count <= 2^28. Of course quarter of a billion transactions
+	// is not a sane upper limit for a block, so there will be tighter limits in other parts of the code
+
+	assert( count >= 3 ); // cases for 0,1,2 are handled elsewhere
+	assert( count <= 0x10000000 ); // sanity limit to 2^28, MSB=1 will cause an inf loop
+
+	size_t pow = 2;
+	while(pow < count) pow <<= 1;
+	return pow >> 1;
 }
 
 void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
@@ -86,9 +87,6 @@ void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
     size_t i, j;
 
     size_t cnt = tree_hash_cnt( count );
-    size_t max_size_t = (size_t) -1; // max allowed value of size_t 
-    assert( cnt < max_size_t/2 ); // reasonable size to avoid any overflows. /2 is extra; Anyway should be limited much stronger by logical code 
-    // as we have sane limits on transactions counts in blockchain rules
 
     char (*ints)[HASH_SIZE];
     size_t ints_size = cnt * HASH_SIZE;
