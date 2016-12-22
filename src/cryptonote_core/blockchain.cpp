@@ -953,6 +953,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
     LOG_PRINT_RED_L1("The miner transaction in block has invalid height: " << boost::get<txin_gen>(b.miner_tx.vin[0]).height << ", expected: " << height);
     return false;
   }
+  LOG_PRINT_L1("Miner tx hash: " << get_transaction_hash(b.miner_tx));
   CHECK_AND_ASSERT_MES(b.miner_tx.unlock_time == height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, false, "coinbase transaction transaction has the wrong unlock time=" << b.miner_tx.unlock_time << ", expected " << height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
 
   //check outs overflow
@@ -2195,8 +2196,10 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
   bool res = check_tx_inputs(tx, tvc, &max_used_block_height);
   TIME_MEASURE_FINISH(a);
   if(m_show_time_stats)
-    LOG_PRINT_L0("HASH: " << "+" << " VIN/VOUT: " << tx.vin.size() << "/" << tx.vout.size() << " H: " << max_used_block_height << " chcktx: " << a + m_fake_scan_time);
-
+  {
+    size_t mix = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
+    LOG_PRINT_L0("HASH: " <<  get_transaction_hash(tx) << " VIN/MIX/VOUT: " << tx.vin.size() << "/" << mix << "/" << tx.vout.size() << " H: " << max_used_block_height << " ms: " << a + m_fake_scan_time);
+  }
   if (!res)
     return false;
 
