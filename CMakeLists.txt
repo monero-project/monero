@@ -174,6 +174,9 @@ include_directories(src contrib/epee/include external "${CMAKE_BINARY_DIR}/versi
 
 if(APPLE)
   include_directories(SYSTEM /usr/include/malloc)
+  if(POLICY CMP0042)
+    cmake_policy(SET CMP0042 NEW)
+  endif()
 endif()
 
 if(MSVC OR MINGW)
