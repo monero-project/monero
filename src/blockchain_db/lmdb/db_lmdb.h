@@ -209,6 +209,8 @@ public:
 
   virtual transaction get_tx(const crypto::hash& h) const;
 
+  virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
+
   virtual uint64_t get_tx_count() const;
 
   virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const;

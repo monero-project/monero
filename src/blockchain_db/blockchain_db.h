@@ -1020,6 +1020,20 @@ public:
   virtual transaction get_tx(const crypto::hash& h) const = 0;
 
   /**
+   * @brief fetches the transaction with the given hash
+   *
+   * The subclass should return the transaction stored which has the given
+   * hash.
+   *
+   * If the transaction does not exist, the subclass should return false.
+   *
+   * @param h the hash to look for
+   *
+   * @return true iff the transaction was found
+   */
+  virtual bool get_tx(const crypto::hash& h, transaction &tx) const = 0;
+
+  /**
    * @brief fetches the total number of transactions ever
    *
    * The subclass should return a count of all the transactions from

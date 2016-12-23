@@ -78,6 +78,7 @@ public:
   virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_index) const { return false; }
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const { return 0; }
   virtual transaction get_tx(const crypto::hash& h) const { return transaction(); }
+  virtual bool get_tx(const crypto::hash& h, transaction &tx) const { return false; }
   virtual uint64_t get_tx_count() const { return 0; }
   virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const { return std::vector<transaction>(); }
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const { return 0; }
