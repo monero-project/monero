@@ -98,7 +98,7 @@ namespace tools
     };
 
   private:
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true) {}
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true) {}
 
   public:
     static const char* tr(const char* str);// { return i18n_translate(str, "cryptonote::simple_wallet"); }
@@ -119,7 +119,7 @@ namespace tools
     //! Uses stdin and stdout. Returns a wallet2 and password for wallet with no file if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm);
 
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_restricted(restricted), is_old_file_format(false) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_restricted(restricted), is_old_file_format(false) {}
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -476,6 +476,8 @@ namespace tools
 
     bool always_confirm_transfers() const { return m_always_confirm_transfers; }
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
+    bool print_ring_members() const { return m_print_ring_members; }
+    void print_ring_members(bool value) { m_print_ring_members = value; }
     bool store_tx_info() const { return m_store_tx_info; }
     void store_tx_info(bool store) { m_store_tx_info = store; }
     uint32_t default_mixin() const { return m_default_mixin; }
@@ -624,6 +626,7 @@ namespace tools
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
     bool m_watch_only; /*!< no spend key */
     bool m_always_confirm_transfers;
+    bool m_print_ring_members;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
     uint32_t m_default_mixin;
     uint32_t m_default_priority;

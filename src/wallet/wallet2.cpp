@@ -1808,6 +1808,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_always_confirm_transfers ? 1 :0);
   json.AddMember("always_confirm_transfers", value2, json.GetAllocator());
 
+  value2.SetInt(m_print_ring_members ? 1 :0);
+  json.AddMember("print_ring_members", value2, json.GetAllocator());
+
   value2.SetInt(m_store_tx_info ? 1 :0);
   json.AddMember("store_tx_info", value2, json.GetAllocator());
 
@@ -1890,6 +1893,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     is_old_file_format = true;
     m_watch_only = false;
     m_always_confirm_transfers = false;
+    m_print_ring_members = false;
     m_default_mixin = 0;
     m_default_priority = 0;
     m_auto_refresh = true;
@@ -1920,6 +1924,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_watch_only = field_watch_only;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false, true);
     m_always_confirm_transfers = field_always_confirm_transfers;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, print_ring_members, int, Int, false, true);
+    m_print_ring_members = field_print_ring_members;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, false, true);
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_info, int, Int, false, true);
     m_store_tx_info = ((field_store_tx_keys != 0) || (field_store_tx_info != 0));
