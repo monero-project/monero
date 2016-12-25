@@ -3521,6 +3521,23 @@ void wallet2::get_outs(std::vector<std::vector<entry>> &outs, const std::list<si
       outs.back().reserve(fake_outputs_count + 1);
       const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommit(td.amount());
 
+      // make sure the real outputs we asked for are really included, along
+      // with the correct key and mask: this guards against an active attack
+      // where the node sends dummy data for all outputs, and we then send
+      // the real one, which the node can then tell from the fake outputs,
+      // as it has different data than the dummy data it had sent earlier
+      bool real_out_found = false;
+      for (size_t n = 0; n < requested_outputs_count; ++n)
+      {
+        size_t i = base + n;
+        if (req.outputs[i].index == td.m_global_output_index)
+          if (daemon_resp.outs[i].key == boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key)
+            if (daemon_resp.outs[i].mask == mask)
+              real_out_found = true;
+      }
+      THROW_WALLET_EXCEPTION_IF(!real_out_found, error::wallet_internal_error,
+          "Daemon response did not include the requested real output");
+
       // pick real out first (it will be sorted when done)
       outs.back().push_back(std::make_tuple(td.m_global_output_index, boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key, mask));
 
