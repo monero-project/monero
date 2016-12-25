@@ -611,9 +611,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else if (args[1] == "language")
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        seed_set_language(local_args);
+        seed_set_language(args);
         return true;
       }
     }
@@ -626,9 +624,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_always_confirm_transfers(local_args);
+        set_always_confirm_transfers(args);
         return true;
       }
     }
@@ -641,9 +637,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_store_tx_info(local_args);
+        set_store_tx_info(args);
         return true;
       }
     }
@@ -656,9 +650,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_default_mixin(local_args);
+        set_default_mixin(args);
         return true;
       }
     }
@@ -671,9 +663,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_auto_refresh(local_args);
+        set_auto_refresh(args);
         return true;
       }
     }
@@ -687,9 +677,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_refresh_type(local_args);
+        set_refresh_type(args);
         return true;
       }
     }
@@ -702,9 +690,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_default_priority(local_args);
+        set_default_priority(args);
         return true;
       }
     }
@@ -717,9 +703,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
       else
       {
-        std::vector<std::string> local_args = args;
-        local_args.erase(local_args.begin(), local_args.begin()+2);
-        set_confirm_missing_payment_id(local_args);
+        set_confirm_missing_payment_id(args);
         return true;
       }
     }
