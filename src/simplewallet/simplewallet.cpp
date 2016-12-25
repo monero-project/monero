@@ -934,22 +934,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
     }
-    if (!m_restore_height && m_restoring)
-    {
-      std::string heightstr = command_line::input_line("Restore from specific blockchain height (optional, default 0): ");
-      if (std::cin.eof())
-        return false;
-      if (heightstr.size())
-      {
-        try {
-          m_restore_height = boost::lexical_cast<uint64_t>(heightstr);
-        }
-        catch (boost::bad_lexical_cast &) {
-          fail_msg_writer() << tr("bad m_restore_height parameter:") << " " << heightstr;
-          return false;
-        }
-      }
-    }
     if (!m_generate_from_view_key.empty())
     {
       m_wallet_file = m_generate_from_view_key;
@@ -1089,6 +1073,70 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       m_wallet_file = m_generate_new;
       bool r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+    }
+    if (!m_restore_height && m_restoring)
+    {
+      uint32_t version;
+      bool connected = try_connect_to_daemon(false, &version);
+      while (true)
+      {
+        std::string heightstr;
+        if (!connected || version < MAKE_CORE_RPC_VERSION(1, 6))
+          heightstr = command_line::input_line("Restore from specific blockchain height (optional, default 0): ");
+        else
+          heightstr = command_line::input_line("Restore from specific blockchain height (optional, default 0),\nor alternatively from specific date (YYYY-MM-DD): ");
+        if (std::cin.eof())
+          return false;
+        if (heightstr.empty())
+        {
+          m_restore_height = 0;
+          break;
+        }
+        try
+        {
+          m_restore_height = boost::lexical_cast<uint64_t>(heightstr);
+          break;
+        }
+        catch (const boost::bad_lexical_cast &)
+        {
+          if (!connected || version < MAKE_CORE_RPC_VERSION(1, 6))
+          {
+            fail_msg_writer() << tr("bad m_restore_height parameter: ") << heightstr;
+            continue;
+          }
+          if (heightstr.size() != 10 || heightstr[4] != '-' || heightstr[7] != '-')
+          {
+            fail_msg_writer() << tr("date format must be YYYY-MM-DD");
+            continue;
+          }
+          uint16_t year;
+          uint8_t month;  // 1, 2, ..., 12
+          uint8_t day;    // 1, 2, ..., 31
+          try
+          {
+            year  = boost::lexical_cast<uint16_t>(heightstr.substr(0,4));
+            // lexical_cast<uint8_t> won't work becasue uint8_t is treated as character type
+            month = boost::lexical_cast<uint16_t>(heightstr.substr(5,2));
+            day   = boost::lexical_cast<uint16_t>(heightstr.substr(8,2));
+            m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
+            success_msg_writer() << tr("Restore height is: ") << m_restore_height;
+            std::string confirm = command_line::input_line(tr("Is this okay?  (Y/Yes/N/No): "));
+            if (std::cin.eof())
+              return false;
+            if(command_line::is_yes(confirm))
+              break;
+          }
+          catch (const boost::bad_lexical_cast &)
+          {
+            fail_msg_writer() << tr("bad m_restore_height parameter: ") << heightstr;
+          }
+          catch (const std::runtime_error& e)
+          {
+            fail_msg_writer() << e.what();
+          }
+        }
+      }
+      m_wallet->set_refresh_from_block_height(m_restore_height);
     }
   }
   else

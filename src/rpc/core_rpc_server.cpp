@@ -190,6 +190,36 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_blocks_by_height(const COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response& res)
+  {
+    CHECK_CORE_BUSY();
+    res.status = "Failed";
+    res.blocks.clear();
+    res.blocks.reserve(req.heights.size());
+    for (uint64_t height : req.heights)
+    {
+      block blk;
+      try
+      {
+        blk = m_core.get_blockchain_storage().get_db().get_block_from_height(height);
+      }
+      catch (...)
+      {
+        res.status = "Error retrieving block at height " + height;
+        return true;
+      }
+      std::list<transaction> txs;
+      std::list<crypto::hash> missed_txs;
+      m_core.get_transactions(blk.tx_hashes, txs, missed_txs);
+      res.blocks.resize(res.blocks.size() + 1);
+      res.blocks.back().block = block_to_blob(blk);
+      for (auto& tx : txs)
+        res.blocks.back().txs.push_back(tx_to_blob(tx));
+    }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_hashes(const COMMAND_RPC_GET_HASHES_FAST::request& req, COMMAND_RPC_GET_HASHES_FAST::response& res)
   {
     CHECK_CORE_BUSY();
