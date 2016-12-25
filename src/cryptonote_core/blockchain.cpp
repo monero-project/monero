@@ -525,6 +525,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  m_timestamps_and_difficulties_height = 0;
   m_alternative_chains.clear();
   m_db->reset();
   m_hardfork->init();
