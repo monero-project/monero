@@ -562,6 +562,12 @@ struct WalletManager
     //! returns current mining hash rate (0 if not mining)
     virtual double miningHashRate() const = 0;
 
+    //! returns current hard fork info
+    virtual void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const = 0;
+
+    //! returns current block target
+    virtual uint64_t blockTarget() const = 0;
+
     //! resolves an OpenAlias address to a monero address
     virtual std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const = 0;
 };
