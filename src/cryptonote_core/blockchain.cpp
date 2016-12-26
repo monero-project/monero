@@ -3377,9 +3377,10 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
 void Blockchain::check_against_checkpoints(const checkpoints& points, bool enforce)
 {
   const auto& pts = points.get_points();
+  bool stop_batch;
 
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  m_db->batch_start();
+  stop_batch = m_db->batch_start();
   for (const auto& pt : pts)
   {
     // if the checkpoint is for a block we don't have yet, move on
@@ -3403,7 +3404,8 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
       }
     }
   }
-  m_db->batch_stop();
+  if (stop_batch)
+    m_db->batch_stop();
 }
 //------------------------------------------------------------------
 // returns false if any of the checkpoints loading returns false.
@@ -3477,6 +3479,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   TIME_MEASURE_START(t1);
 
+  m_db->batch_stop();
   if (m_sync_counter > 0)
   {
     if (force_sync)
@@ -3545,6 +3548,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
 
   if(blocks_entry.size() == 0)
     return false;
+
+  m_db->batch_start(blocks_entry.size());
 
   if ((m_db->height() + blocks_entry.size()) < m_blocks_hash_check.size())
     return true;

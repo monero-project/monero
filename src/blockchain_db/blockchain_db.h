@@ -655,16 +655,17 @@ public:
    * been called.  In either case, it should end the batch and write to its
    * backing store.
    *
-   * If a batch is already in-progress, this function should throw a DB_ERROR.
-   * This exception may change in the future if it is deemed necessary to
-   * have a more granular exception type for this scenario.
+   * If a batch is already in-progress, this function must return false.
+   * If a batch was started by this call, it must return true.
    *
    * If any of this cannot be done, the subclass should throw the corresponding
    * subclass of DB_EXCEPTION
    *
    * @param batch_num_blocks number of blocks to batch together
+   *
+   * @return true if we started the batch, false if already started
    */
-  virtual void batch_start(uint64_t batch_num_blocks=0) = 0;
+  virtual bool batch_start(uint64_t batch_num_blocks=0) = 0;
 
   /**
    * @brief ends a batch transaction

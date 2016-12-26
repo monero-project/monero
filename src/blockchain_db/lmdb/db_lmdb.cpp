@@ -2234,15 +2234,15 @@ bool BlockchainLMDB::for_all_outputs(std::function<bool(uint64_t amount, const c
 }
 
 // batch_num_blocks: (optional) Used to check if resize needed before batch transaction starts.
-void BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
+bool BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (! m_batch_transactions)
     throw0(DB_ERROR("batch transactions not enabled"));
   if (m_batch_active)
-    throw0(DB_ERROR("batch transaction already in progress"));
+    return false;
   if (m_write_batch_txn != nullptr)
-    throw0(DB_ERROR("batch transaction already in progress"));
+    return false;
   if (m_write_txn)
     throw0(DB_ERROR("batch transaction attempted, but m_write_txn already in use"));
   check_open();
@@ -2268,6 +2268,7 @@ void BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
   memset(&m_wcursors, 0, sizeof(m_wcursors));
 
   LOG_PRINT_L3("batch transaction: begin");
+  return true;
 }
 
 void BlockchainLMDB::batch_commit()
