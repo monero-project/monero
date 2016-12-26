@@ -44,7 +44,7 @@ set(crypto_sources
   oaes_lib.c
   random.c
   skein.c
-  slow-hash.c
+  slow-hash-sumo.c
   tree-hash.c)
 
 set(crypto_headers)
