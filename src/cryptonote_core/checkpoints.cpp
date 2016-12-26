@@ -158,7 +158,7 @@ namespace cryptonote
 
   bool checkpoints::init_default_checkpoints()
   {
-    ADD_CHECKPOINT(1,     "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148");
+    /*ADD_CHECKPOINT(1,     "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148");
     ADD_CHECKPOINT(10,    "c0e3b387e47042f72d8ccdca88071ff96bff1ac7cde09ae113dbb7ad3fe92381");
     ADD_CHECKPOINT(100,   "ac3e11ca545e57c49fca2b4e8c48c03c23be047c43e471e1394528b1f9f80b2d");
     ADD_CHECKPOINT(1000,  "5acfc45acffd2b2e7345caf42fa02308c5793f15ec33946e969e829f40b03876");
@@ -187,7 +187,7 @@ namespace cryptonote
     ADD_CHECKPOINT(1000000, "a886ef5149902d8342475fee9bb296341b891ac67c4842f47a833f23c00ed721");
     ADD_CHECKPOINT(1100000, "3fd720c5c8b3072fc1ccda922dec1ef25f9ed88a1e6ad4103d0fe00b180a5903");
     ADD_CHECKPOINT(1150000, "1dd16f626d18e1e988490dfd06de5920e22629c972c58b4d8daddea0038627b2");
-    ADD_CHECKPOINT(1200000, "fa7d13a90850882060479d100141ff84286599ae39c3277c8ea784393f882d1f");
+    ADD_CHECKPOINT(1200000, "fa7d13a90850882060479d100141ff84286599ae39c3277c8ea784393f882d1f");*/
     
 
     return true;
@@ -227,17 +227,17 @@ namespace cryptonote
 
   bool checkpoints::load_checkpoints_from_dns(bool testnet)
   {
-    // All four MoneroPulse domains have DNSSEC on and valid
-    static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
-						     , "checkpoints.moneropulse.org"
-						     , "checkpoints.moneropulse.net"
-						     , "checkpoints.moneropulse.co"
+    // All four SumoPulse domains have DNSSEC on and valid
+    static const std::vector<std::string> dns_urls = { "checkpoints.sumopulse.se"
+						     , "checkpoints.sumopulse.org"
+						     , "checkpoints.sumopulse.net"
+						     , "checkpoints.sumopulse.co"
     };
 
-    static const std::vector<std::string> testnet_dns_urls = { "testpoints.moneropulse.se"
-							     , "testpoints.moneropulse.org"
-							     , "testpoints.moneropulse.net"
-							     , "testpoints.moneropulse.co"
+    static const std::vector<std::string> testnet_dns_urls = { "testpoints.sumopulse.se"
+							     , "testpoints.sumopulse.org"
+							     , "testpoints.sumopulse.net"
+							     , "testpoints.sumopulse.co"
     };
 
     std::vector<std::vector<std::string> > records;
@@ -294,7 +294,7 @@ namespace cryptonote
 
     if (num_valid_records < 2)
     {
-      LOG_PRINT_L0("WARNING: no two valid MoneroPulse DNS checkpoint records were received");
+      LOG_PRINT_L0("WARNING: no two valid SumoPulse DNS checkpoint records were received");
       return true;
     }
 
@@ -316,7 +316,7 @@ namespace cryptonote
 
     if (good_records_index < 0)
     {
-      LOG_PRINT_L0("WARNING: no two MoneroPulse DNS checkpoint records matched");
+      LOG_PRINT_L0("WARNING: no two SumoPulse DNS checkpoint records matched");
       return true;
     }
 
