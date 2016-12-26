@@ -2139,7 +2139,7 @@ void wallet2::rewrite(const std::string& wallet_name, const std::string& passwor
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
   THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_keys_file, ignored_ec), error::file_not_found, m_keys_file);
-  bool r = store_keys(m_keys_file, password, false);
+  bool r = store_keys(m_keys_file, password, m_watch_only);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 }
 /*!
