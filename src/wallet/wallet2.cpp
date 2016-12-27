@@ -1613,6 +1613,9 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
     // and then fall through to regular refresh processing
   }
 
+  // If stop() is called during fast refresh we don't need to continue
+  if(!m_run.load(std::memory_order_relaxed))
+    return;
   pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices);
   // always reset start_height to 0 to force short_chain_ history to be used on
   // subsequent pulls in this refresh.
@@ -1668,7 +1671,9 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
   try
   {
-    update_pool_state();
+    // If stop() is called we don't need to check pending transactions
+    if(m_run.load(std::memory_order_relaxed))
+      update_pool_state();
   }
   catch (...)
   {
