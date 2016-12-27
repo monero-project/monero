@@ -2892,10 +2892,10 @@ std::string wallet2::address_from_txt_record(const std::string& s)
   auto pos2 = s.find(";", pos);
   if (pos2 != std::string::npos)
   {
-    // length of address == 95, we can at least validate that much here
-    if (pos2 - pos == 95)
+    // length of address == 99, we can at least validate that much here
+    if (pos2 - pos == 99)
     {
-      return s.substr(pos, 95);
+      return s.substr(pos, 99);
     }
   }
   return std::string();
