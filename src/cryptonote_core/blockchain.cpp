@@ -86,7 +86,7 @@ static const struct {
   { 1, 0, 0, 1341378000 },
 	
   // bypass version 2, 3, version 4 starts from block 1, which is on or around the 27h of December 2016
-  { 4, 1, 0, 1483574400 },
+  { 4, 1, 0, 1482806500 },
   
   // version 5 starts from block 1406997, which is on or around the 20th of September, 2017.
   { 5, 127964, 0, 1505865600 },  
@@ -103,8 +103,8 @@ static const struct {
   { 1, 0, 0, 1341378000 },
   
   // versions 4-5 were passed in rapid succession from December 27th, 2016
-  { 4, 1, 0, 1472415035 },
-  { 5, 10, 0, 1472415036 },
+  { 4, 1, 0, 1482806500 },
+  { 5, 10, 0, 1482806501 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 1;
 
