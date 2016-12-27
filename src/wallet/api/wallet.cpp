@@ -1010,9 +1010,6 @@ void WalletImpl::doRefresh()
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
         // Disable refresh if wallet is disconnected or daemon isn't synced.
         if (daemonSynced()) {
-            // Use fast refresh for new wallets
-            if (isNewWallet())
-                m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());        
             m_wallet->refresh();
             if (!m_synchronized) {
                 m_synchronized = true;
@@ -1079,7 +1076,8 @@ void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
     m_wallet->init(daemon_address, upper_transaction_size_limit);
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
-    if (isNewWallet()) {
+    // If daemon isn't synced a calculated block height will be used instead
+    if (isNewWallet() && daemonSynced()) {
         m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());
     }
 
