@@ -83,7 +83,7 @@ static const struct {
   time_t time;
 } mainnet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
+  { 1, 0, 0, 1341378000 },
 
   // version 2 starts from block 1009827, which is on or around the 20th of March, 2016. Fork time finalised on 2015-09-20. No fork voting occurs for the v2 fork.
   /*{ 2, 0, 0, 1442763710 },
@@ -92,7 +92,7 @@ static const struct {
   { 3, 0, 0, 1458558528 },*/
   
   // version 4 starts from block 1220516, which is on or around the 5th of January, 2017. Fork time finalised on 2016-09-18.
-  { 4, 2, 0, 1483574400 },
+  { 4, 1, 0, 1483574400 },
   
   // version 5 starts from block 1406997, which is on or around the 20th of September, 2017. Fork time finalised on 2016-09-18.
   { 5, 127964, 0, 1505865600 },  
@@ -106,15 +106,15 @@ static const struct {
   time_t time;
 } testnet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
+  { 1, 0, 0, 1341378000 },
 
   // version 2 starts from block 624634, which is on or around the 23rd of November, 2015. Fork time finalised on 2015-11-20. No fork voting occurs for the v2 fork.
   /*{ 2, 0, 0, 1445355000 },
 
   // versions 3-5 were passed in rapid succession from September 18th, 2016
   { 3, 0, 0, 1472415034 },*/
-  { 4, 2, 0, 1472415035 },
-  { 5, 2, 0, 1472415036 },
+  { 4, 1, 0, 1472415035 },
+  { 5, 1, 0, 1472415036 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 1;
 
