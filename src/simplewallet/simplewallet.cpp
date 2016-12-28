@@ -2074,7 +2074,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 			if (fake_outs_count < 2 && transfer_type != TransferOriginal)
 			{
 				std::stringstream prompt;
-				prompt << boost::format(tr("Mixin_count is too low, default mixin_count (%s) will be used. Is this okay?  (Y/Yes/N/No): ")) % DEFAULT_MIX;
+				prompt << boost::format(tr("Given mixin_count (= %s) is too low, default mixin_count (= %s) will be used instead. Is this okay?  (Y/Yes/N/No): ")) % fake_outs_count % DEFAULT_MIX;
 
 				std::string accepted = command_line::input_line(prompt.str());
 				if (std::cin.eof())
@@ -2609,7 +2609,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 			if (fake_outs_count < 2)
 			{
 				std::stringstream prompt;
-				prompt << boost::format(tr("Mixin_count is too low, default mixin_count (%s) will be used. Is this okay?  (Y/Yes/N/No): ")) % DEFAULT_MIX;
+				prompt << boost::format(tr("Given mixin_count (= %s) is too low, default mixin_count (= %s) will be used instead. Is this okay?  (Y/Yes/N/No): ")) % fake_outs_count % DEFAULT_MIX;
 
 				std::string accepted = command_line::input_line(prompt.str());
 				if (std::cin.eof())
