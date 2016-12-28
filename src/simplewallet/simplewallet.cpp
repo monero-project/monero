@@ -2014,7 +2014,7 @@ bool simple_wallet::get_address_from_str(const std::string &str, cryptonote::acc
           std::stringstream prompt;
           prompt << tr("For URL: ") << url
                  << ", " << dnssec_str << std::endl
-                 << tr(" Monero Address = ") << addresses_from_dns[0]
+                 << tr(" Sumocoin Address = ") << addresses_from_dns[0]
                  << std::endl
                  << tr("Is this OK? (Y/n) ")
           ;
@@ -2033,13 +2033,13 @@ bool simple_wallet::get_address_from_str(const std::string &str, cryptonote::acc
         }
         else
         {
-          fail_msg_writer() << tr("failed to get a Monero address from: ") << url;
+          fail_msg_writer() << tr("failed to get a Sumocoin address from: ") << url;
           return false;
         }
       }
       else if (addresses_from_dns.size() > 1)
       {
-        fail_msg_writer() << tr("not yet supported: Multiple Monero addresses found for given URL: ") << url;
+        fail_msg_writer() << tr("not yet supported: Multiple Sumocoin addresses found for given URL: ") << url;
         return false;
       }
       else
