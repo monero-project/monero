@@ -71,8 +71,8 @@ typedef cryptonote::simple_wallet sw;
 
 #define DEFAULT_MIX 4
 
-#define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
-#define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\002"
+#define KEY_IMAGE_EXPORT_FILE_MAGIC "Sumocoin key image export\002"
+#define OUTPUT_EXPORT_FILE_MAGIC "Sumocoin output export\002"
 
 #define LOCK_IDLE_SCOPE() \
   bool auto_refresh_enabled = m_auto_refresh_enabled.load(std::memory_order_relaxed); \
@@ -658,8 +658,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("incoming_transfers", boost::bind(&simple_wallet::show_incoming_transfers, this, _1), tr("incoming_transfers [available|unavailable] - Show incoming transfers, all or filtered by availability"));
   m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), tr("payments <PID_1> [<PID_2> ... <PID_N>] - Show payments for given payment ID[s]"));
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), tr("Show blockchain height"));
-  m_cmd_binder.set_handler("transfer_original", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 2 to maximum available)"));
-  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("Same as transfer_original, but using a new transaction building algorithm"));
+  //m_cmd_binder.set_handler("transfer_original", boost::bind(&simple_wallet::transfer, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 2 to maximum available)"));
+  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("transfer [<mixin_count>] <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of extra inputs to include for untraceability (from 2 to maximum available)"));
   m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::locked_transfer, this, _1), tr("locked_transfer [<mixin_count>] <addr> <amount> <lockblocks>(Number of blocks to lock the transaction for, max 1000000) [<payment_id>]"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("sweep_all [mixin] address [payment_id] - Send all unlocked balance an address"));
@@ -2071,9 +2071,28 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
     else
     {
-      local_args.erase(local_args.begin());
+			if (fake_outs_count < 2 && transfer_type != TransferOriginal)
+			{
+				std::stringstream prompt;
+				prompt << boost::format(tr("Mixin_count is too low, default mixin_count (%s) will be used. Is this okay?  (Y/Yes/N/No): ")) % DEFAULT_MIX;
+
+				std::string accepted = command_line::input_line(prompt.str());
+				if (std::cin.eof())
+					return true;
+				
+				if (!command_line::is_yes(accepted))
+				{
+					fail_msg_writer() << tr("transaction cancelled.");
+					return true;
+				}
+
+				fake_outs_count = DEFAULT_MIX;
+			}
+      
+			local_args.erase(local_args.begin());
     }
-  }
+
+	}
 
   const size_t min_args = (transfer_type == TransferLocked) ? 3 : 2;
   if(local_args.size() < min_args)
@@ -2259,8 +2278,10 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
                                                    % print_money(dust_not_in_fee);
         if (transfer_type == TransferLocked)
         {
-          float days = locked_blocks / 720.0f;
-          prompt << boost::format(tr(".\nThis transaction will unlock on block %llu, in approximately %s days (assuming 2 minutes per block)")) % ((unsigned long long)unlock_block) % days;
+					// Fixme: Need a better time expression in words
+          float days = locked_blocks / 480.0f;
+					float minutes = locked_blocks * 3.0f;
+					prompt << boost::format(tr(".\nThis transaction will unlock on block %llu, in approximately %s minutes or %s days (assuming 3 minutes per block)")) % ((unsigned long long)unlock_block) % minutes % days;
         }
         prompt << tr(".") << ENDL << tr("Is this okay?  (Y/Yes/N/No): ");
         
