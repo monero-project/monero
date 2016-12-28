@@ -2605,6 +2605,25 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
     }
     else
     {
+			//const bool use_rct = use_fork_rules(4, 0);
+			if (fake_outs_count < 2)
+			{
+				std::stringstream prompt;
+				prompt << boost::format(tr("Mixin_count is too low, default mixin_count (%s) will be used. Is this okay?  (Y/Yes/N/No): ")) % DEFAULT_MIX;
+
+				std::string accepted = command_line::input_line(prompt.str());
+				if (std::cin.eof())
+					return true;
+
+				if (!command_line::is_yes(accepted))
+				{
+					fail_msg_writer() << tr("transaction cancelled.");
+					return true;
+				}
+
+				fake_outs_count = DEFAULT_MIX;
+			}
+
       local_args.erase(local_args.begin());
     }
   }
