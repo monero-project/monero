@@ -2074,18 +2074,19 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 			if (fake_outs_count < 2 && transfer_type != TransferOriginal)
 			{
 				std::stringstream prompt;
+				prompt << boost::format(tr("Given mixin (%s) is too low, default mixin (%s) will be used instead. Is this okay?  (Y/Yes/N/No): ")) % fake_outs_count % (m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX);
 
 				std::string accepted = command_line::input_line(prompt.str());
 				if (std::cin.eof())
 					return true;
-				
+
 				if (!command_line::is_yes(accepted))
 				{
 					fail_msg_writer() << tr("transaction cancelled.");
 					return true;
 				}
 
-				fake_outs_count = m_wallet->default_mixin() == 0 ? DEFAULT_MIX : m_wallet->default_mixin();
+				fake_outs_count = m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX;
 			}
       
 			local_args.erase(local_args.begin());
@@ -2607,6 +2608,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 			if (fake_outs_count < 2)
 			{
 				std::stringstream prompt;
+				prompt << boost::format(tr("Given mixin (%s) is too low, default mixin (%s) will be used instead. Is this okay?  (Y/Yes/N/No): ")) % fake_outs_count % (m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX);
 
 				std::string accepted = command_line::input_line(prompt.str());
 				if (std::cin.eof())
@@ -2618,7 +2620,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 					return true;
 				}
 
-				fake_outs_count = m_wallet->default_mixin() == 0 ? DEFAULT_MIX : m_wallet->default_mixin();
+				fake_outs_count = m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX;
 			}
 
       local_args.erase(local_args.begin());
