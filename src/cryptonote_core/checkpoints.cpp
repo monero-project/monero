@@ -158,38 +158,12 @@ namespace cryptonote
 
   bool checkpoints::init_default_checkpoints()
   {
-    /*ADD_CHECKPOINT(1,     "b0ea1e7a5e5a899bc28a5859078bf2950eeb365c98ee4bc59555f63644456be5");
-    ADD_CHECKPOINT(10,    "40ea8ac66db9025908b6217c42ef2b7c2af773ad808134084e2010193240ed77");
-    ADD_CHECKPOINT(100,   "762aba4d0be81120e776527b7517dfcf4d35b0b0773a8b67cce3f40c43daadf3");
-    ADD_CHECKPOINT(1000,  "fc6772bbf36013cb3132de346840951591c6a66d55a7d35b5a8d8101eeaf8271");
-    ADD_CHECKPOINT(10000, "c758b7c81f928be3295d45e230646de8b852ec96a821eac3fea4daf3fcac0ca2");
-    ADD_CHECKPOINT(22231, "7cb10e29d67e1c069e6e11b17d30b809724255fee2f6868dc14cfc6ed44dfb25");
-    ADD_CHECKPOINT(29556, "53c484a8ed91e4da621bb2fa88106dbde426fe90d7ef07b9c1e5127fb6f3a7f6");
-    ADD_CHECKPOINT(50000, "0fe8758ab06a8b9cb35b7328fd4f757af530a5d37759f9d3e421023231f7b31c");
-    ADD_CHECKPOINT(80000, "a62dcd7b536f22e003ebae8726e9e7276f63d594e264b6f0cd7aab27b66e75e3");
-    ADD_CHECKPOINT(202612, "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698");
-    ADD_CHECKPOINT(202613, "e2aa337e78df1f98f462b3b1e560c6b914dec47b610698b7b7d1e3e86b6197c2");
-    ADD_CHECKPOINT(202614, "c29e3dc37d8da3e72e506e31a213a58771b24450144305bcba9e70fa4d6ea6fb");
-    ADD_CHECKPOINT(205000, "5d3d7a26e6dc7535e34f03def711daa8c263785f73ec1fadef8a45880fde8063");
-    ADD_CHECKPOINT(220000, "9613f455933c00e3e33ac315cc6b455ee8aa0c567163836858c2d9caff111553");
-    ADD_CHECKPOINT(230300, "bae7a80c46859db355556e3a9204a337ae8f24309926a1312323fdecf1920e61");
-    ADD_CHECKPOINT(230700, "93e631240ceac831da1aebfc5dac8f722c430463024763ebafa888796ceaeedf");
-    ADD_CHECKPOINT(231350, "b5add137199b820e1ea26640e5c3e121fd85faa86a1e39cf7e6cc097bdeb1131");
-    ADD_CHECKPOINT(232150, "955de8e6b6508af2c24f7334f97beeea651d78e9ade3ab18fec3763be3201aa8");
-    ADD_CHECKPOINT(249380, "654fb0a81ce3e5caf7e3264a70f447d4bd07586c08fa50f6638cc54da0a52b2d");
-    ADD_CHECKPOINT(460000, "75037a7aed3e765db96c75bcf908f59d690a5f3390baebb9edeafd336a1c4831");
-    ADD_CHECKPOINT(500000, "2428f0dbe49796be05ed81b347f53e1f7f44aed0abf641446ec2b94cae066b02");
-    ADD_CHECKPOINT(600000, "f5828ebf7d7d1cb61762c4dfe3ccf4ecab2e1aad23e8113668d981713b7a54c5");
-    ADD_CHECKPOINT(700000, "12be9b3d210b93f574d2526abb9c1ab2a881b479131fd0d4f7dac93875f503cd");
-    ADD_CHECKPOINT(825000, "56503f9ad766774b575be3aff73245e9d159be88132c93d1754764f28da2ff60");
-    ADD_CHECKPOINT(900000, "d9958d0e7dcf91a5a7b11de225927bf7efc6eb26240315ce12372be902cc1337");
-    ADD_CHECKPOINT(913193, "5292d5d56f6ba4de33a58d9a34d263e2cb3c6fee0aed2286fd4ac7f36d53c85f");
-    ADD_CHECKPOINT(1000000, "a886ef5149902d8342475fee9bb296341b891ac67c4842f47a833f23c00ed721");
-    ADD_CHECKPOINT(1100000, "3fd720c5c8b3072fc1ccda922dec1ef25f9ed88a1e6ad4103d0fe00b180a5903");
-    ADD_CHECKPOINT(1150000, "1dd16f626d18e1e988490dfd06de5920e22629c972c58b4d8daddea0038627b2");
-    ADD_CHECKPOINT(1200000, "fa7d13a90850882060479d100141ff84286599ae39c3277c8ea784393f882d1f");*/
+    ADD_CHECKPOINT(1,     "69fafa86832bf3f9c75795ad5406220576a134606be0a1979a676b9c818a8b8c");
+    ADD_CHECKPOINT(10,    "4b9cd47d5c6df1f8a4c3a92c76178edb2e9c9998a1907866b294e89146eaceb4");
+    ADD_CHECKPOINT(100,   "70b06fa4096230d0b8f7e963393b043856d7ecd3ecde3a1579fd1234d6d22e7b");
+    /*ADD_CHECKPOINT(1000,  "fc6772bbf36013cb3132de346840951591c6a66d55a7d35b5a8d8101eeaf8271");
+    ADD_CHECKPOINT(10000, "c758b7c81f928be3295d45e230646de8b852ec96a821eac3fea4daf3fcac0ca2");*/
     
-
     return true;
   }
 
@@ -228,16 +202,19 @@ namespace cryptonote
   bool checkpoints::load_checkpoints_from_dns(bool testnet)
   {
     // All four SumoPulse domains have DNSSEC on and valid
-    static const std::vector<std::string> dns_urls = { "checkpoints.sumopulse.se"
-						     , "checkpoints.sumopulse.org"
-						     , "checkpoints.sumopulse.net"
-						     , "checkpoints.sumopulse.co"
+    static const std::vector<std::string> dns_urls = 
+		{							
+									 "checkpoints.sumopulse.stream"
+						     , "checkpoints.sumopulse.download"
+						     /*, "checkpoints.sumopulse.win"
+						     , "checkpoints.sumopulse.bid"*/
     };
 
-    static const std::vector<std::string> testnet_dns_urls = { "testpoints.sumopulse.se"
-							     , "testpoints.sumopulse.org"
-							     , "testpoints.sumopulse.net"
-							     , "testpoints.sumopulse.co"
+    static const std::vector<std::string> testnet_dns_urls = { 
+										 "testpoints.sumopulse.stream"
+							     , "testpoints.sumopulse.download"
+							     /*, "testpoints.sumopulse.win"
+							     , "testpoints.sumopulse.bid"*/
     };
 
     std::vector<std::vector<std::string> > records;
