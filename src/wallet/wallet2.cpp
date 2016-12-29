@@ -75,6 +75,7 @@ using namespace cryptonote;
 
 // used to target a given block size (additional outputs may be added on top to build fee)
 #define TX_SIZE_TARGET(bytes) (bytes*2/3)
+#define TX_SIZE_TARGET_2(bytes) (bytes/2)
 
 // arbitrary, used to generate different hashes from the same input
 #define CHACHA8_KEY_TAIL 0x8c
@@ -4294,7 +4295,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
       estimated_rct_tx_size = estimate_rct_tx_size(tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1);
     else
       estimated_rct_tx_size = tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES;
-    bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || ( estimated_rct_tx_size >= TX_SIZE_TARGET(upper_transaction_size_limit));
+    bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || ( estimated_rct_tx_size >= TX_SIZE_TARGET_2(upper_transaction_size_limit));
 
     if (try_tx) {
       cryptonote::transaction test_tx;
