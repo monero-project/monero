@@ -346,7 +346,7 @@ double WalletManagerImpl::miningHashRate() const
     cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
 
     epee::net_utils::http::http_simple_client http_client;
-    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/getinfo", mreq, mres, http_client))
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/mining_status", mreq, mres, http_client))
       return 0.0;
     if (!mres.active)
       return 0.0;
@@ -382,6 +382,42 @@ uint64_t WalletManagerImpl::blockTarget() const
     if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/getinfo", ireq, ires, http_client))
         return 0;
     return ires.target;
+}
+
+bool WalletManagerImpl::isMining() const
+{
+    cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
+    cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
+
+    epee::net_utils::http::http_simple_client http_client;
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/mining_status", mreq, mres, http_client))
+      return false;
+    return mres.active;
+}
+
+bool WalletManagerImpl::startMining(const std::string &address, uint32_t threads)
+{
+    cryptonote::COMMAND_RPC_START_MINING::request mreq;
+    cryptonote::COMMAND_RPC_START_MINING::response mres;
+
+    mreq.miner_address = address;
+    mreq.threads_count = threads;
+
+    epee::net_utils::http::http_simple_client http_client;
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/start_mining", mreq, mres, http_client))
+      return false;
+    return mres.status == CORE_RPC_STATUS_OK;
+}
+
+bool WalletManagerImpl::stopMining()
+{
+    cryptonote::COMMAND_RPC_STOP_MINING::request mreq;
+    cryptonote::COMMAND_RPC_STOP_MINING::response mres;
+
+    epee::net_utils::http::http_simple_client http_client;
+    if (!epee::net_utils::invoke_http_json_remote_command2(m_daemonAddress + "/stop_mining", mreq, mres, http_client))
+      return false;
+    return mres.status == CORE_RPC_STATUS_OK;
 }
 
 std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool &dnssec_valid) const
