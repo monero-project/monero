@@ -73,6 +73,7 @@ using namespace cryptonote;
 
 // used to target a given block size (additional outputs may be added on top to build fee)
 #define TX_SIZE_TARGET(bytes) (bytes*2/3)
+#define TX_SIZE_TARGET_2(bytes) (bytes/2)
 
 // arbitrary, used to generate different hashes from the same input
 #define CHACHA8_KEY_TAIL 0x8c
@@ -2901,8 +2902,8 @@ std::vector<std::string> wallet2::addresses_from_url(const std::string& url, boo
 // TODO: parse the string in a less stupid way, probably with regex
 std::string wallet2::address_from_txt_record(const std::string& s)
 {
-  // make sure the txt record has "oa1:xmr" and find it
-  auto pos = s.find("oa1:xmr");
+  // make sure the txt record has "oa1:sumo" and find it
+  auto pos = s.find("oa1:sumo");
 
   // search from there to find "recipient_address="
   pos = s.find("recipient_address=", pos);
@@ -2913,10 +2914,10 @@ std::string wallet2::address_from_txt_record(const std::string& s)
   auto pos2 = s.find(";", pos);
   if (pos2 != std::string::npos)
   {
-    // length of address == 95, we can at least validate that much here
-    if (pos2 - pos == 95)
+    // length of address == 99, we can at least validate that much here
+    if (pos2 - pos == 99)
     {
-      return s.substr(pos, 95);
+      return s.substr(pos, 99);
     }
   }
   return std::string();
@@ -4315,7 +4316,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
       estimated_rct_tx_size = estimate_rct_tx_size(tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1);
     else
       estimated_rct_tx_size = tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES;
-    bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || ( estimated_rct_tx_size >= TX_SIZE_TARGET(upper_transaction_size_limit));
+    bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || ( estimated_rct_tx_size >= TX_SIZE_TARGET_2(upper_transaction_size_limit));
 
     if (try_tx) {
       cryptonote::transaction test_tx;
