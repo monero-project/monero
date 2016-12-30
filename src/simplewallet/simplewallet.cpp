@@ -2063,11 +2063,10 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   size_t fake_outs_count;
   if(local_args.size() > 0) {
-    if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
+		if (!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
     {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
+			message_writer() << boost::format(tr("*Missing mixin! Default mixin (%s) will be used.")) % (m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX);
+			fake_outs_count = m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX;
     }
     else
     {
@@ -2599,9 +2598,8 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
     {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
+			message_writer() << boost::format(tr("*Missing mixin! Default mixin (%s) will be used.")) % (m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX);
+			fake_outs_count = m_wallet->default_mixin() > 0 ? m_wallet->default_mixin() : DEFAULT_MIX;
     }
     else
     {

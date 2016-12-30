@@ -201,11 +201,12 @@ namespace cryptonote
 
   bool checkpoints::load_checkpoints_from_dns(bool testnet)
   {
-    // All four SumoPulse domains have DNSSEC on and valid
+    // All SumoPulse domains have DNSSEC on and valid
     static const std::vector<std::string> dns_urls = 
 		{							
 									 "checkpoints.sumopulse.stream"
 						     , "checkpoints.sumopulse.download"
+								 , "checkpoints.sumopulse.space"
 						     /*, "checkpoints.sumopulse.win"
 						     , "checkpoints.sumopulse.bid"*/
     };
@@ -213,6 +214,7 @@ namespace cryptonote
     static const std::vector<std::string> testnet_dns_urls = { 
 										 "testpoints.sumopulse.stream"
 							     , "testpoints.sumopulse.download"
+									 , "testpoints.sumopulse.space"
 							     /*, "testpoints.sumopulse.win"
 							     , "testpoints.sumopulse.bid"*/
     };
