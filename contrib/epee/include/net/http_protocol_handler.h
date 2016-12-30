@@ -52,7 +52,7 @@ namespace net_utils
 		{
 			std::string m_folder;
 			std::string m_required_user_agent;
-			boost::optional<http_auth::login> m_user;
+			boost::optional<login> m_user;
 			critical_section m_lock;
 		};
 
@@ -173,7 +173,7 @@ namespace net_utils
 				: simple_http_connection_handler<t_connection_context>(psnd_hndlr, config),
 					m_config(config),
 					m_conn_context(conn_context),
-					m_auth(m_config.m_user ? http_auth{*m_config.m_user} : http_auth{})
+					m_auth(m_config.m_user ? http_server_auth{*m_config.m_user} : http_server_auth{})
 			{}
 			inline bool handle_request(const http_request_info& query_info, http_response_info& response)
 			{
@@ -214,7 +214,7 @@ namespace net_utils
 			//simple_http_connection_handler::config_type m_stub_config;
 			config_type& m_config;
 			t_connection_context& m_conn_context;
-			http_auth m_auth;
+			http_server_auth m_auth;
 		};
 	}
 }
