@@ -201,17 +201,6 @@ namespace tools
       uint64_t unlock_time;
       bool use_rct;
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
-
-      BEGIN_SERIALIZE_OBJECT()
-        FIELD(sources)
-        FIELD(change_dts)
-        FIELD(splitted_dsts)
-        FIELD(selected_transfers)
-        FIELD(extra)
-        VARINT_FIELD(unlock_time)
-        FIELD(use_rct)
-        FIELD(dests)
-      END_SERIALIZE()
     };
 
     typedef std::vector<transfer_details> transfer_container;
@@ -232,39 +221,18 @@ namespace tools
       std::vector<cryptonote::tx_destination_entry> dests;
 
       tx_construction_data construction_data;
-
-      BEGIN_SERIALIZE_OBJECT()
-        FIELD(tx)
-        VARINT_FIELD(dust)
-        VARINT_FIELD(fee)
-        FIELD(dust_added_to_fee)
-        FIELD(change_dts)
-        FIELD(selected_transfers)
-        FIELD(key_images)
-        FIELD(tx_key)
-        FIELD(dests)
-        FIELD(construction_data)
-      END_SERIALIZE()
     };
 
     struct unsigned_tx_set
     {
       std::vector<tx_construction_data> txes;
       wallet2::transfer_container transfers;
-      BEGIN_SERIALIZE_OBJECT()
-        FIELD(txes)
-        FIELD(transfers)
-      END_SERIALIZE()
     };
 
     struct signed_tx_set
     {
       std::vector<pending_tx> ptx;
       std::vector<crypto::key_image> key_images;
-      BEGIN_SERIALIZE_OBJECT()
-        FIELD(ptx)
-        FIELD(key_images)
-      END_SERIALIZE()
     };
 
     struct keys_file_data
@@ -672,6 +640,10 @@ BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 16)    
+BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
+BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 0)
+BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 0)
 
 namespace boost
 {
@@ -868,6 +840,48 @@ namespace boost
       a & x.m_address;
       a & x.m_payment_id;
       a & x.m_description;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive &a, tools::wallet2::unsigned_tx_set &x, const boost::serialization::version_type ver)
+    {
+      a & x.txes;
+      a & x.transfers;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive &a, tools::wallet2::signed_tx_set &x, const boost::serialization::version_type ver)
+    {
+      a & x.ptx;
+      a & x.key_images;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive &a, tools::wallet2::tx_construction_data &x, const boost::serialization::version_type ver)
+    {
+      a & x.sources;
+      a & x.change_dts;
+      a & x.splitted_dsts;
+      a & x.selected_transfers;
+      a & x.extra;
+      a & x.unlock_time;
+      a & x.use_rct;
+      a & x.dests;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive &a, tools::wallet2::pending_tx &x, const boost::serialization::version_type ver)
+    {
+      a & x.tx;
+      a & x.dust;
+      a & x.fee;
+      a & x.dust_added_to_fee;
+      a & x.change_dts;
+      a & x.selected_transfers;
+      a & x.key_images;
+      a & x.tx_key;
+      a & x.dests;
+      a & x.construction_data;
     }
   }
 }

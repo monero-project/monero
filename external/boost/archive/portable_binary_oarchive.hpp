@@ -277,10 +277,14 @@ portable_binary_oarchive::init(unsigned int flags) {
             boost::archive::BOOST_ARCHIVE_SIGNATURE()
         );
         * this << file_signature;
+        // ignore archive version checking
+        const boost::archive::library_version_type v{};
+        /*
         // write library version
         const boost::archive::library_version_type v(
             boost::archive::BOOST_ARCHIVE_VERSION()
         );
+        */
         * this << v;
     }
     save(static_cast<unsigned char>(m_flags >> CHAR_BIT));
