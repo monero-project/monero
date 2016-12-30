@@ -45,15 +45,22 @@ namespace net_utils
     public:
       struct login
       {
-        login() = delete;
+        login() : username(), password() {}
+        login(std::string username_, std::string password_)
+          : username(std::move(username_)), password(std::move(password_))
+        {}
+
         std::string username;
         std::string password;
       };
 
       struct session
       {
-        session() = delete;
-        const login credentials;
+        session(login credentials_)
+          : credentials(std::move(credentials_)), nonce(), counter(0)
+        {}
+
+        login credentials;
         std::string nonce;
         std::uint32_t counter;
       };
